@@ -1,0 +1,513 @@
+<?php
+
+use App\Models\Enrollment;
+use App\Services\StripeService;
+use Livewire\Volt\Component;
+
+new class extends Component {
+    public Enrollment $enrollment;
+
+    public function mount(): void
+    {
+        $this->enrollment->load(['student.user', 'course.feeSettings', 'enrolledBy', 'orders']);
+    }
+
+    public function createSubscription()
+    {
+        try {
+            if (!$this->enrollment->course->feeSettings) {
+                session()->flash('error', 'Course must have fee settings configured first.');
+                return;
+            }
+
+            if (!$this->enrollment->course->feeSettings->stripe_price_id) {
+                session()->flash('error', 'Course must be synced with Stripe first. Go to Course Edit page and click "Sync to Stripe".');
+                return;
+            }
+
+            // Check if student has payment methods
+            $paymentMethods = $this->enrollment->student->user->paymentMethods()->active()->count();
+            
+            if ($paymentMethods === 0) {
+                session()->flash('warning', 'Student must add a payment method first. Direct them to their Payment Methods page.');
+                return;
+            }
+
+            session()->flash('info', 'Ready to create subscription! This would typically create a Stripe subscription for the student.');
+            
+            // In a real implementation, you would:
+            // 1. Get student's default payment method
+            // 2. Call StripeService->createSubscription()
+            // 3. Update enrollment with subscription ID
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to create subscription: ' . $e->getMessage());
+        }
+    }
+
+    public function cancelSubscription()
+    {
+        try {
+            if (!$this->enrollment->stripe_subscription_id) {
+                session()->flash('error', 'No active subscription found.');
+                return;
+            }
+
+            $stripeService = app(StripeService::class);
+            $stripeService->cancelSubscription($this->enrollment->stripe_subscription_id, false);
+            
+            session()->flash('success', 'Subscription will be canceled at the end of the current billing period.');
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to cancel subscription: ' . $e->getMessage());
+        }
+    }
+
+    public function pauseSubscription()
+    {
+        try {
+            if (!$this->enrollment->stripe_subscription_id) {
+                session()->flash('error', 'No active subscription found.');
+                return;
+            }
+
+            $stripeService = app(StripeService::class);
+            $stripeService->pauseSubscription($this->enrollment->stripe_subscription_id);
+            
+            session()->flash('success', 'Subscription paused successfully.');
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to pause subscription: ' . $e->getMessage());
+        }
+    }
+
+    public function resumeSubscription()
+    {
+        try {
+            if (!$this->enrollment->stripe_subscription_id) {
+                session()->flash('error', 'No subscription found.');
+                return;
+            }
+
+            $stripeService = app(StripeService::class);
+            $stripeService->resumeSubscription($this->enrollment->stripe_subscription_id);
+            
+            session()->flash('success', 'Subscription resumed successfully.');
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to resume subscription: ' . $e->getMessage());
+        }
+    }
+}; ?>
+
+<div>
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <flux:heading size="xl">Enrollment Details</flux:heading>
+            <flux:text class="mt-2">{{ $enrollment->student->user->name }} - {{ $enrollment->course->name }}</flux:text>
+        </div>
+        <div class="flex space-x-3">
+            <flux:button variant="ghost" href="{{ route('enrollments.index') }}">
+                Back to Enrollments
+            </flux:button>
+            <flux:button variant="primary" href="{{ route('enrollments.edit', $enrollment) }}" icon="pencil">
+                Edit Enrollment
+            </flux:button>
+        </div>
+    </div>
+
+    <div class="mt-6 space-y-8">
+        <!-- Status Badge -->
+        <div class="flex justify-center">
+            <flux:badge size="lg" :class="$enrollment->status_badge_class">
+                {{ ucfirst($enrollment->status) }}
+            </flux:badge>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Student Information -->
+            <flux:card>
+                <flux:heading size="lg">Student Information</flux:heading>
+                
+                <div class="mt-6 space-y-4">
+                    <div class="flex items-center space-x-4">
+                        <flux:avatar size="lg">
+                            {{ $enrollment->student->user->initials() }}
+                        </flux:avatar>
+                        <div>
+                            <p class="text-lg font-medium">{{ $enrollment->student->user->name }}</p>
+                            <p class="text-gray-500">{{ $enrollment->student->user->email }}</p>
+                            <p class="text-gray-500">ID: {{ $enrollment->student->student_id }}</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Phone</p>
+                                <p class="text-sm text-gray-900">{{ $enrollment->student->phone ?? 'N/A' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Status</p>
+                                <flux:badge :class="match($enrollment->student->status) {
+                                    'active' => 'badge-green',
+                                    'inactive' => 'badge-gray',
+                                    'graduated' => 'badge-blue',
+                                    'suspended' => 'badge-red',
+                                    default => 'badge-gray'
+                                }">
+                                    {{ ucfirst($enrollment->student->status) }}
+                                </flux:badge>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <flux:button size="sm" variant="ghost" href="{{ route('students.show', $enrollment->student) }}">
+                                View Full Student Profile
+                            </flux:button>
+                        </div>
+                    </div>
+                </div>
+            </flux:card>
+
+            <!-- Course Information -->
+            <flux:card>
+                <flux:heading size="lg">Course Information</flux:heading>
+                
+                <div class="mt-6 space-y-4">
+                    <div>
+                        <p class="text-lg font-medium">{{ $enrollment->course->name }}</p>
+                        <p class="text-gray-600">{{ $enrollment->course->description ?? 'No description available' }}</p>
+                    </div>
+
+                    <div class="pt-4 border-t">
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Course Status</p>
+                                <flux:badge :class="match($enrollment->course->status) {
+                                    'active' => 'badge-green',
+                                    'inactive' => 'badge-gray',
+                                    'archived' => 'badge-yellow',
+                                    default => 'badge-gray'
+                                }">
+                                    {{ ucfirst($enrollment->course->status) }}
+                                </flux:badge>
+                            </div>
+                            @if($enrollment->course->feeSettings)
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500">Course Fee</p>
+                                    <p class="text-sm text-gray-900">{{ $enrollment->course->formatted_fee ?? 'N/A' }}</p>
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="mt-4">
+                            <flux:button size="sm" variant="ghost" href="{{ route('courses.show', $enrollment->course) }}">
+                                View Course Details
+                            </flux:button>
+                        </div>
+                    </div>
+                </div>
+            </flux:card>
+        </div>
+
+        <!-- Enrollment Details -->
+        <flux:card>
+            <flux:heading size="lg">Enrollment Information</flux:heading>
+            
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Enrollment Date</p>
+                    <p class="text-sm text-gray-900">{{ $enrollment->enrollment_date->format('M d, Y') }}</p>
+                </div>
+                
+                @if($enrollment->start_date)
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Start Date</p>
+                        <p class="text-sm text-gray-900">{{ $enrollment->start_date->format('M d, Y') }}</p>
+                    </div>
+                @endif
+                
+                @if($enrollment->end_date)
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">End Date</p>
+                        <p class="text-sm text-gray-900">{{ $enrollment->end_date->format('M d, Y') }}</p>
+                    </div>
+                @endif
+                
+                @if($enrollment->completion_date)
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Completion Date</p>
+                        <p class="text-sm text-gray-900">{{ $enrollment->completion_date->format('M d, Y') }}</p>
+                    </div>
+                @endif
+                
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Enrollment Fee</p>
+                    <p class="text-sm text-gray-900">{{ $enrollment->formatted_enrollment_fee }}</p>
+                </div>
+                
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Enrolled By</p>
+                    <p class="text-sm text-gray-900">{{ $enrollment->enrolledBy->name }}</p>
+                </div>
+
+                @if($enrollment->duration)
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Duration</p>
+                        <p class="text-sm text-gray-900">{{ $enrollment->duration }} days</p>
+                    </div>
+                @endif
+            </div>
+        </flux:card>
+
+        <!-- Notes -->
+        @if($enrollment->notes)
+            <flux:card>
+                <flux:heading size="lg">Notes</flux:heading>
+                
+                <div class="mt-6">
+                    <p class="text-sm text-gray-900">{{ $enrollment->notes }}</p>
+                </div>
+            </flux:card>
+        @endif
+
+        <!-- Progress Data -->
+        @if($enrollment->progress_data)
+            <flux:card>
+                <flux:heading size="lg">Progress Data</flux:heading>
+                
+                <div class="mt-6">
+                    <pre class="text-sm text-gray-900 bg-gray-50 p-4 rounded-lg overflow-auto">{{ json_encode($enrollment->progress_data, JSON_PRETTY_PRINT) }}</pre>
+                </div>
+            </flux:card>
+        @endif
+
+        <!-- Subscription Management -->
+        @if($enrollment->course->feeSettings && $enrollment->course->feeSettings->billing_cycle !== 'one_time')
+            <flux:card>
+                <flux:heading size="lg">Subscription Management</flux:heading>
+                
+                <div class="mt-6 space-y-6">
+                    @if($enrollment->stripe_subscription_id)
+                        <!-- Active Subscription -->
+                        <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <flux:text class="font-medium text-green-800">Active Subscription</flux:text>
+                                    <flux:text size="sm" class="text-green-700 mt-1">
+                                        Subscription ID: {{ $enrollment->stripe_subscription_id }}
+                                    </flux:text>
+                                    @if($enrollment->subscription_status)
+                                        <flux:badge variant="success" class="mt-2">
+                                            {{ $enrollment->getSubscriptionStatusLabel() }}
+                                        </flux:badge>
+                                    @endif
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <flux:button 
+                                        wire:click="pauseSubscription"
+                                        wire:confirm="Are you sure you want to pause this subscription?"
+                                        variant="outline" 
+                                        size="sm"
+                                    >
+                                        Pause
+                                    </flux:button>
+                                    <flux:button 
+                                        wire:click="resumeSubscription"
+                                        variant="outline" 
+                                        size="sm"
+                                    >
+                                        Resume
+                                    </flux:button>
+                                    <flux:button 
+                                        wire:click="cancelSubscription"
+                                        wire:confirm="Are you sure you want to cancel this subscription? It will remain active until the end of the current billing period."
+                                        variant="outline" 
+                                        size="sm"
+                                        class="text-red-600 border-red-300 hover:bg-red-50"
+                                    >
+                                        Cancel
+                                    </flux:button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Orders -->
+                        @if($enrollment->orders->count() > 0)
+                            <div>
+                                <flux:text class="font-medium text-gray-900">Recent Orders</flux:text>
+                                <div class="mt-3 space-y-2">
+                                    @foreach($enrollment->orders->take(3) as $order)
+                                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                            <div>
+                                                <flux:text size="sm" class="font-medium">{{ $order->order_number }}</flux:text>
+                                                <flux:text size="xs" class="text-gray-600">{{ $order->created_at->format('M j, Y') }}</flux:text>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <flux:text size="sm" class="font-medium">{{ $order->formatted_amount }}</flux:text>
+                                                @if($order->isPaid())
+                                                    <flux:badge variant="success" size="sm">Paid</flux:badge>
+                                                @elseif($order->isFailed())
+                                                    <flux:badge variant="danger" size="sm">Failed</flux:badge>
+                                                @else
+                                                    <flux:badge variant="warning" size="sm">Pending</flux:badge>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                @if($enrollment->orders->count() > 3)
+                                    <div class="mt-3">
+                                        <flux:button href="{{ route('orders.index') }}?enrollment={{ $enrollment->id }}" variant="outline" size="sm">
+                                            View All Orders
+                                        </flux:button>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+                    @else
+                        <!-- No Subscription -->
+                        <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <flux:text class="font-medium text-amber-800">No Active Subscription</flux:text>
+                                    <flux:text size="sm" class="text-amber-700 mt-1">
+                                        This enrollment is not linked to a Stripe subscription.
+                                    </flux:text>
+                                    
+                                    @if(!$enrollment->course->feeSettings?->stripe_price_id)
+                                        <div class="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs">
+                                            <flux:text class="text-red-800 font-medium">⚠️ Course not synced with Stripe</flux:text>
+                                            <flux:text class="text-red-700 block mt-1">
+                                                Go to 
+                                                <a href="{{ route('courses.edit', $enrollment->course) }}" class="underline">Course Edit page</a>
+                                                and click "Sync to Stripe" first.
+                                            </flux:text>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    @if(!$enrollment->course->feeSettings?->stripe_price_id)
+                                        <flux:button 
+                                            href="{{ route('courses.edit', $enrollment->course) }}"
+                                            variant="outline" 
+                                            size="sm"
+                                        >
+                                            Sync Course to Stripe
+                                        </flux:button>
+                                    @endif
+                                    <flux:button 
+                                        wire:click="createSubscription"
+                                        variant="primary" 
+                                        size="sm"
+                                        @if(!$enrollment->course->feeSettings?->stripe_price_id) disabled @endif
+                                    >
+                                        Create Subscription
+                                    </flux:button>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </flux:card>
+        @endif
+
+        <!-- Course Billing Information -->
+        @if($enrollment->course->feeSettings)
+            <flux:card>
+                <flux:heading size="lg">Course Billing Information</flux:heading>
+                
+                <div class="mt-6">
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <flux:text class="text-gray-600">Amount</flux:text>
+                            <flux:text class="font-medium">{{ $enrollment->course->feeSettings?->formatted_fee ?? 'N/A' }}</flux:text>
+                        </div>
+                        <div>
+                            <flux:text class="text-gray-600">Billing Cycle</flux:text>
+                            <flux:text class="font-medium">{{ $enrollment->course->feeSettings?->billing_cycle_label ?? 'N/A' }}</flux:text>
+                        </div>
+                        @if($enrollment->course->feeSettings?->stripe_price_id)
+                            <div>
+                                <flux:text class="text-gray-600">Stripe Price ID</flux:text>
+                                <flux:text size="xs" class="font-mono text-gray-500">{{ $enrollment->course->feeSettings?->stripe_price_id }}</flux:text>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </flux:card>
+        @endif
+
+        <!-- Timeline -->
+        <flux:card>
+            <flux:heading size="lg">Timeline</flux:heading>
+            
+            <div class="mt-6">
+                <div class="flow-root">
+                    <ul role="list" class="-mb-8">
+                        <li>
+                            <div class="relative pb-8">
+                                <div class="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"></div>
+                                <div class="relative flex space-x-3">
+                                    <div>
+                                        <span class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center ring-8 ring-white">
+                                            <flux:icon.plus class="h-4 w-4 text-white" />
+                                        </span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div>
+                                            <p class="text-sm text-gray-900">Enrolled by {{ $enrollment->enrolledBy->name }}</p>
+                                            <p class="text-sm text-gray-500">{{ $enrollment->enrollment_date->format('M d, Y \a\t g:i A') }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                        
+                        @if($enrollment->start_date)
+                            <li>
+                                <div class="relative pb-8">
+                                    <div class="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"></div>
+                                    <div class="relative flex space-x-3">
+                                        <div>
+                                            <span class="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center ring-8 ring-white">
+                                                <flux:icon.play class="h-4 w-4 text-white" />
+                                            </span>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div>
+                                                <p class="text-sm text-gray-900">Course started</p>
+                                                <p class="text-sm text-gray-500">{{ $enrollment->start_date->format('M d, Y') }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+                        @endif
+                        
+                        @if($enrollment->completion_date)
+                            <li>
+                                <div class="relative">
+                                    <div class="relative flex space-x-3">
+                                        <div>
+                                            <span class="h-8 w-8 rounded-full bg-emerald-500 flex items-center justify-center ring-8 ring-white">
+                                                <flux:icon.check class="h-4 w-4 text-white" />
+                                            </span>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div>
+                                                <p class="text-sm text-gray-900">Course completed</p>
+                                                <p class="text-sm text-gray-500">{{ $enrollment->completion_date->format('M d, Y') }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+                        @endif
+                    </ul>
+                </div>
+            </div>
+        </flux:card>
+    </div>
+</div>
