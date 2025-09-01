@@ -4,7 +4,7 @@ use App\Models\ClassModel;
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.teacher')] class extends Component {
     public ClassModel $class;
 
     public function mount(ClassModel $class): void

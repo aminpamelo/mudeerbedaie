@@ -9,7 +9,7 @@ use App\Models\ClassSession;
 use App\Models\Enrollment;
 use Illuminate\Database\Eloquent\Collection;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.teacher')] class extends Component {
     public Student $student;
     public string $activeTab = 'overview';
     

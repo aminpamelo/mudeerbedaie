@@ -126,6 +126,29 @@ new class extends Component {
 - Uses Laravel's session-based authentication
 - Logout action implemented as invokable class in `app/Livewire/Actions/Logout.php`
 
+### Session Management for Teachers
+- **Session List View** (`resources/views/livewire/teacher/sessions-index.blade.php`):
+  - Paginated session listing with search functionality
+  - Filter by date (upcoming, today, this week, past), class, and status
+  - Search by class title, course name, teacher notes, or student names
+  - Display teacher allowance/earnings for completed sessions
+  - Quick action buttons for starting, completing, and managing sessions
+  - Export functionality to download session data as CSV
+- **Session Detail View** (`resources/views/livewire/teacher/session-show.blade.php`):
+  - Comprehensive session information with class and course details
+  - Student attendance management with status updates
+  - Session timeline showing scheduled → ongoing → completed progression
+  - Session notes management with real-time updates
+  - Quick actions for session state management (start, complete, cancel, no-show)
+- **Session Actions**:
+  - Start session (changes status from 'scheduled' to 'ongoing')
+  - Complete session (calculates teacher allowance and marks as 'completed')
+  - Mark as no-show or cancel sessions
+  - Real-time attendance tracking for individual students
+- **Routes**: 
+  - `/teacher/sessions` - Session list
+  - `/teacher/sessions/{session}` - Session detail view
+
 ### Database Configuration
 - Default: SQLite with `database/database.sqlite` file
 - Configured for database sessions, cache, and queues

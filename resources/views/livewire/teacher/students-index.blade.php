@@ -9,7 +9,7 @@ use App\Models\ClassAttendance;
 use App\Models\ClassSession;
 use Illuminate\Database\Eloquent\Collection;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.teacher')] class extends Component {
     public string $search = '';
     public string $classFilter = 'all';
     public string $courseFilter = 'all';

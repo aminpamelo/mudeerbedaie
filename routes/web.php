@@ -10,7 +10,15 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-Route::view('dashboard', 'dashboard')
+Route::get('dashboard', function () {
+    $user = auth()->user();
+    
+    if ($user->isTeacher()) {
+        return redirect()->route('teacher.dashboard');
+    }
+    
+    return view('dashboard');
+})
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
@@ -48,6 +56,9 @@ Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
 
 // Teacher routes - accessible by teachers only
 Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function () {
+    // Teacher dashboard
+    Volt::route('dashboard', 'teacher.dashboard')->name('teacher.dashboard');
+    
     // Core teaching modules
     Volt::route('courses', 'teacher.courses-index')->name('teacher.courses.index');
     Volt::route('courses/create', 'teacher.courses-create')->name('teacher.courses.create');
@@ -62,7 +73,10 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
     Volt::route('students', 'teacher.students-index')->name('teacher.students.index');
     Volt::route('students/{student}', 'teacher.students-show')->name('teacher.students.show');
 
-    Volt::route('enrollments', 'teacher.enrollments-index')->name('teacher.enrollments.index');
+    Volt::route('sessions', 'teacher.sessions-index')->name('teacher.sessions.index');
+    Volt::route('sessions/{session}', 'teacher.session-show')->name('teacher.sessions.show');
+
+    Volt::route('timetable', 'teacher.timetable')->name('teacher.timetable');
     Volt::route('enrollments/{enrollment}', 'teacher.enrollments-show')->name('teacher.enrollments.show');
 });
 

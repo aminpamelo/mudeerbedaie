@@ -166,7 +166,7 @@ class User extends Authenticatable
      */
     public function getStatusColor(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'active' => 'green',
             'inactive' => 'gray',
             'suspended' => 'red',

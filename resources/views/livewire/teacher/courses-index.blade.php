@@ -4,7 +4,7 @@ use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use App\Models\Course;
 
-new #[Layout('components.layouts.app')] class extends Component {
+new #[Layout('components.layouts.teacher')] class extends Component {
     public function with()
     {
         // Get the teacher model for the current user

@@ -356,12 +356,12 @@ class ClassModel extends Model
 
     public function createSessionsFromTimetable(): int
     {
-        if (!$this->timetable) {
+        if (! $this->timetable) {
             return 0;
         }
 
         $sessionsData = $this->timetable->generateSessions();
-        
+
         if (empty($sessionsData)) {
             return 0;
         }

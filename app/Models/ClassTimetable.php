@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class ClassTimetable extends Model
 {
@@ -35,7 +34,7 @@ class ClassTimetable extends Model
 
     public function generateSessions(): array
     {
-        if (!$this->weekly_schedule || empty($this->weekly_schedule)) {
+        if (! $this->weekly_schedule || empty($this->weekly_schedule)) {
             return [];
         }
 
@@ -47,11 +46,13 @@ class ClassTimetable extends Model
 
         while ($currentDate <= $endDate && $sessionCount < $maxSessions) {
             $dayOfWeek = strtolower($currentDate->format('l'));
-            
+
             if (isset($this->weekly_schedule[$dayOfWeek])) {
                 foreach ($this->weekly_schedule[$dayOfWeek] as $time) {
-                    if ($sessionCount >= $maxSessions) break;
-                    
+                    if ($sessionCount >= $maxSessions) {
+                        break;
+                    }
+
                     $sessions[] = [
                         'class_id' => $this->class_id,
                         'session_date' => $currentDate->toDateString(),
@@ -68,7 +69,7 @@ class ClassTimetable extends Model
             if ($this->recurrence_pattern === 'bi_weekly' && $currentDate->dayOfWeek === 0) {
                 $currentDate->addWeek();
             }
-            
+
             $currentDate->addDay();
         }
 
@@ -79,13 +80,13 @@ class ClassTimetable extends Model
     {
         $formatted = [];
         $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-        
+
         foreach ($days as $day) {
-            if (isset($this->weekly_schedule[$day]) && !empty($this->weekly_schedule[$day])) {
+            if (isset($this->weekly_schedule[$day]) && ! empty($this->weekly_schedule[$day])) {
                 $formatted[ucfirst($day)] = $this->weekly_schedule[$day];
             }
         }
-        
+
         return $formatted;
     }
 
