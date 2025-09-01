@@ -46,6 +46,26 @@ Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
     Volt::route('payments/{payment}', 'student.payment-show')->name('student.payments.show');
 });
 
+// Teacher routes - accessible by teachers only
+Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function () {
+    // Core teaching modules
+    Volt::route('courses', 'teacher.courses-index')->name('teacher.courses.index');
+    Volt::route('courses/create', 'teacher.courses-create')->name('teacher.courses.create');
+    Volt::route('courses/{course}', 'teacher.courses-show')->name('teacher.courses.show');
+    Volt::route('courses/{course}/edit', 'teacher.courses-edit')->name('teacher.courses.edit');
+
+    Volt::route('classes', 'teacher.classes-index')->name('teacher.classes.index');
+    Volt::route('classes/create', 'teacher.classes-create')->name('teacher.classes.create');
+    Volt::route('classes/{class}', 'teacher.classes-show')->name('teacher.classes.show');
+    Volt::route('classes/{class}/edit', 'teacher.classes-edit')->name('teacher.classes.edit');
+
+    Volt::route('students', 'teacher.students-index')->name('teacher.students.index');
+    Volt::route('students/{student}', 'teacher.students-show')->name('teacher.students.show');
+
+    Volt::route('enrollments', 'teacher.enrollments-index')->name('teacher.enrollments.index');
+    Volt::route('enrollments/{enrollment}', 'teacher.enrollments-show')->name('teacher.enrollments.show');
+});
+
 // Admin routes for course management
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Course routes
@@ -59,6 +79,12 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('students/create', [StudentController::class, 'create'])->name('students.create');
     Route::get('students/{student}', [StudentController::class, 'show'])->name('students.show');
     Route::get('students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
+
+    // User management routes
+    Volt::route('users', 'admin.user-list')->name('users.index');
+    Volt::route('users/create', 'admin.user-create')->name('users.create');
+    Volt::route('users/{user}', 'admin.user-show')->name('users.show');
+    Volt::route('users/{user}/edit', 'admin.user-edit')->name('users.edit');
 
     // Teacher routes
     Volt::route('teachers', 'admin.teacher-list')->name('teachers.index');
