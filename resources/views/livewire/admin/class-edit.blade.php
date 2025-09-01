@@ -505,11 +505,6 @@ new class extends Component {
                             </flux:field>
                         </div>
 
-                        <flux:field>
-                            <flux:label>Total Sessions</flux:label>
-                            <flux:input wire:model.live="total_sessions" type="number" min="1" max="100" />
-                            <flux:description>Maximum number of sessions to generate</flux:description>
-                        </flux:field>
 
                         <!-- Weekly Schedule Builder -->
                         <div class="space-y-4">
@@ -555,22 +550,6 @@ new class extends Component {
                             </div>
                         </div>
 
-                        <!-- Session Preview -->
-                        @if(!empty($this->preview_sessions))
-                            <div class="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
-                                <div class="flex items-center gap-2 mb-2">
-                                    <flux:icon.check-circle class="h-4 w-4 text-green-600" />
-                                    <flux:text class="font-medium text-green-800 dark:text-green-200">
-                                        Preview: First {{ count($this->preview_sessions) }} sessions
-                                    </flux:text>
-                                </div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-sm text-green-700 dark:text-green-300">
-                                    @foreach($this->preview_sessions as $session)
-                                        <div>{{ $session['formatted'] }}</div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endif
                     </div>
                 @endif
             </div>

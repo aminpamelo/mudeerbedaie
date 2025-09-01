@@ -30,7 +30,6 @@ new class extends Component {
     public $recurrence_pattern = 'weekly';
     public $start_date = '';
     public $end_date = '';
-    public $total_sessions = 10;
     
     public function mount(): void
     {
@@ -80,7 +79,6 @@ new class extends Component {
         } else {
             $rules['start_date'] = 'required|date|after_or_equal:today';
             $rules['end_date'] = 'nullable|date|after:start_date';
-            $rules['total_sessions'] = 'nullable|integer|min:1|max:100';
             $rules['recurrence_pattern'] = 'required|in:weekly,bi_weekly';
             $rules['weekly_schedule'] = 'required|array';
         }
@@ -140,7 +138,6 @@ new class extends Component {
                 'recurrence_pattern' => $this->recurrence_pattern,
                 'start_date' => $this->start_date,
                 'end_date' => !empty($this->end_date) ? $this->end_date : null,
-                'total_sessions' => $this->total_sessions,
                 'is_active' => true,
             ]);
 
@@ -255,23 +252,6 @@ new class extends Component {
         }
     }
 
-    public function getPreviewSessionsProperty(): int
-    {
-        if (!$this->enable_timetable || empty($this->start_date)) {
-            return 0;
-        }
-
-        $totalSlots = 0;
-        foreach ($this->weekly_schedule as $times) {
-            $totalSlots += count($times);
-        }
-
-        if ($totalSlots === 0) {
-            return 0;
-        }
-
-        return min($this->total_sessions ?: 10, $totalSlots * 12); // Estimate for 12 weeks
-    }
 };
 
 ?>
@@ -412,12 +392,6 @@ new class extends Component {
                                 <flux:error name="end_date" />
                             </flux:field>
 
-                            <flux:field>
-                                <flux:label>Total Sessions</flux:label>
-                                <flux:input wire:model="total_sessions" type="number" min="1" max="100" />
-                                <flux:description>Max sessions to generate</flux:description>
-                                <flux:error name="total_sessions" />
-                            </flux:field>
                         </div>
 
                         <flux:field>
