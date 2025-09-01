@@ -447,6 +447,82 @@ new class extends Component {
     {
         $this->activeTab = $tab;
     }
+
+    // Monthly Calendar Properties and Methods
+    public $currentMonth;
+    public $currentYear;
+
+    public function initializeCalendar(): void
+    {
+        if (!$this->currentMonth) {
+            $this->currentMonth = now()->month;
+        }
+        if (!$this->currentYear) {
+            $this->currentYear = now()->year;
+        }
+    }
+
+    public function previousMonth(): void
+    {
+        $this->initializeCalendar();
+        $this->currentMonth--;
+        if ($this->currentMonth < 1) {
+            $this->currentMonth = 12;
+            $this->currentYear--;
+        }
+    }
+
+    public function nextMonth(): void
+    {
+        $this->initializeCalendar();
+        $this->currentMonth++;
+        if ($this->currentMonth > 12) {
+            $this->currentMonth = 1;
+            $this->currentYear++;
+        }
+    }
+
+    public function getCurrentMonthNameProperty(): string
+    {
+        $this->initializeCalendar();
+        return \Carbon\Carbon::create($this->currentYear, $this->currentMonth, 1)->format('F Y');
+    }
+
+    public function getMonthlyCalendarDataProperty(): array
+    {
+        $this->initializeCalendar();
+        
+        $firstDayOfMonth = \Carbon\Carbon::create($this->currentYear, $this->currentMonth, 1);
+        $lastDayOfMonth = $firstDayOfMonth->copy()->endOfMonth();
+        
+        // Start from Monday of the week containing the first day
+        $startDate = $firstDayOfMonth->copy()->startOfWeek(\Carbon\Carbon::MONDAY);
+        
+        // End on Sunday of the week containing the last day
+        $endDate = $lastDayOfMonth->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
+        
+        $calendar = [];
+        $currentDate = $startDate->copy();
+        
+        // Get all sessions for the month range
+        $sessions = $this->class->sessions()
+            ->whereBetween('session_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->groupBy('session_date');
+        
+        while ($currentDate <= $endDate) {
+            $dateString = $currentDate->toDateString();
+            $calendar[] = [
+                'date' => $currentDate->copy(),
+                'isCurrentMonth' => $currentDate->month === $this->currentMonth,
+                'isToday' => $currentDate->isToday(),
+                'sessions' => $sessions->get($dateString, collect())
+            ];
+            $currentDate->addDay();
+        }
+        
+        return $calendar;
+    }
 };
 
 ?>
@@ -1298,50 +1374,99 @@ new class extends Component {
                             @endif
                         </div>
 
-                        <!-- Weekly Schedule Grid -->
+                        <!-- Monthly Calendar View -->
                         <div class="overflow-x-auto">
                             <div class="inline-block min-w-full">
-                                <flux:heading size="md" class="mb-4">Weekly Schedule</flux:heading>
+                                <!-- Calendar Header -->
+                                <div class="flex items-center justify-between mb-4">
+                                    <flux:heading size="md">Monthly Schedule</flux:heading>
+                                    <div class="flex items-center gap-2">
+                                        <flux:button size="sm" variant="ghost" wire:click="previousMonth">
+                                            <flux:icon.chevron-left class="h-4 w-4" />
+                                        </flux:button>
+                                        <div class="font-medium text-gray-900 dark:text-gray-100 px-4">
+                                            {{ $this->current_month_name }}
+                                        </div>
+                                        <flux:button size="sm" variant="ghost" wire:click="nextMonth">
+                                            <flux:icon.chevron-right class="h-4 w-4" />
+                                        </flux:button>
+                                    </div>
+                                </div>
                                 
-                                <div class="grid grid-cols-7 gap-2 mb-2">
-                                    @foreach(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $day)
-                                        <div class="text-center p-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
+                                <!-- Days of Week Header -->
+                                <div class="grid grid-cols-7 gap-1 mb-2">
+                                    @foreach(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $day)
+                                        <div class="text-center p-2 font-semibold text-gray-700 dark:text-gray-300 text-sm bg-gray-100 dark:bg-gray-800 rounded">
                                             {{ $day }}
                                         </div>
                                     @endforeach
                                 </div>
 
-                                <div class="grid grid-cols-7 gap-2">
-                                    @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $dayKey)
-                                        <div class="min-h-32 border border-gray-200 dark:border-gray-700 rounded-lg p-2 bg-white dark:bg-gray-800">
-                                            @if(isset($class->timetable->weekly_schedule[$dayKey]) && !empty($class->timetable->weekly_schedule[$dayKey]))
-                                                @foreach($class->timetable->weekly_schedule[$dayKey] as $time)
-                                                    <div class="mb-2 p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded text-sm text-center font-medium">
-                                                        {{ date('g:i A', strtotime($time)) }}
-                                                    </div>
-                                                @endforeach
-                                            @else
-                                                <div class="text-center text-gray-400 text-sm py-4">
-                                                    No class
+                                <!-- Calendar Grid -->
+                                <div class="grid grid-cols-7 gap-1">
+                                    @foreach(collect($this->monthly_calendar_data)->chunk(7) as $week)
+                                        @foreach($week as $day)
+                                            <div class="min-h-24 border border-gray-200 dark:border-gray-700 rounded p-1 {{ $day['isCurrentMonth'] ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900' }} {{ $day['isToday'] ? 'ring-2 ring-blue-500' : '' }}">
+                                                <!-- Date Number -->
+                                                <div class="text-xs font-medium mb-1 {{ $day['isCurrentMonth'] ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400' }} {{ $day['isToday'] ? 'text-blue-600 font-bold' : '' }}">
+                                                    {{ $day['date']->day }}
                                                 </div>
-                                            @endif
-                                        </div>
+                                                
+                                                <!-- Sessions for this date -->
+                                                @if($day['sessions']->count() > 0)
+                                                    @foreach($day['sessions'] as $session)
+                                                        <div class="mb-1 px-1 py-0.5 text-xs rounded {{ 
+                                                            $session->status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 
+                                                            ($session->status === 'cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' : 
+                                                            'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200') 
+                                                        }}">
+                                                            {{ \Carbon\Carbon::parse($session->start_time)->format('g:iA') }}
+                                                        </div>
+                                                    @endforeach
+                                                @else
+                                                    @if($day['isCurrentMonth'])
+                                                        <!-- Check if this day has scheduled classes from timetable -->
+                                                        @php
+                                                            $dayName = strtolower($day['date']->format('l'));
+                                                            $hasScheduledClass = $class->timetable && isset($class->timetable->weekly_schedule[$dayName]) && !empty($class->timetable->weekly_schedule[$dayName]);
+                                                        @endphp
+                                                        @if($hasScheduledClass)
+                                                            @foreach($class->timetable->weekly_schedule[$dayName] as $time)
+                                                                <div class="mb-1 px-1 py-0.5 text-xs rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 opacity-60">
+                                                                    {{ date('g:iA', strtotime($time)) }}
+                                                                </div>
+                                                            @endforeach
+                                                        @endif
+                                                    @endif
+                                                @endif
+                                            </div>
+                                        @endforeach
                                     @endforeach
+                                </div>
+
+                                <!-- Legend -->
+                                <div class="mt-4 flex flex-wrap gap-4 text-xs">
+                                    <div class="flex items-center gap-1">
+                                        <div class="w-3 h-3 bg-blue-100 dark:bg-blue-900/30 rounded"></div>
+                                        <span class="text-gray-600 dark:text-gray-300">Scheduled</span>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <div class="w-3 h-3 bg-green-100 dark:bg-green-900/30 rounded"></div>
+                                        <span class="text-gray-600 dark:text-gray-300">Completed</span>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <div class="w-3 h-3 bg-red-100 dark:bg-red-900/30 rounded"></div>
+                                        <span class="text-gray-600 dark:text-gray-300">Cancelled</span>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <div class="w-3 h-3 bg-gray-100 dark:bg-gray-700 rounded opacity-60"></div>
+                                        <span class="text-gray-600 dark:text-gray-300">Recurring Schedule</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Sessions Generated -->
-                        @if($class->sessions->count() > 0)
-                            <div class="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                                <div class="flex items-center gap-2">
-                                    <flux:icon.check-circle class="h-5 w-5 text-green-600" />
-                                    <flux:text class="font-medium text-green-800 dark:text-green-200">
-                                        {{ $class->sessions->count() }} sessions have been generated from this timetable
-                                    </flux:text>
-                                </div>
-                            </div>
-                        @endif
                     </div>
                 </flux:card>
             @else
