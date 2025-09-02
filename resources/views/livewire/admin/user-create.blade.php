@@ -43,6 +43,7 @@ new class extends Component {
         if ($this->role === 'teacher') {
             Teacher::create([
                 'user_id' => $user->id,
+                'teacher_id' => Teacher::generateTeacherId(),
                 'status' => $this->status,
             ]);
         } elseif ($this->role === 'student') {

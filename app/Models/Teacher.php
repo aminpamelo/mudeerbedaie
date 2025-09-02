@@ -95,6 +95,23 @@ class Teacher extends Model
         return str_repeat('*', $length - 4).substr($accountNumber, -4);
     }
 
+    public static function generateTeacherId(): string
+    {
+        // Get the last teacher ID number
+        $lastTeacher = static::latest('id')->first();
+        
+        if (!$lastTeacher || !$lastTeacher->teacher_id) {
+            $nextNumber = 1;
+        } else {
+            // Extract number from TID001, TID002, etc.
+            preg_match('/TID(\d+)/', $lastTeacher->teacher_id, $matches);
+            $nextNumber = isset($matches[1]) ? intval($matches[1]) + 1 : 1;
+        }
+        
+        // Format as TID001, TID002, etc.
+        return 'TID' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+    }
+
     public static function getMalaysianBanks(): array
     {
         return [
