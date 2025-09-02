@@ -252,6 +252,35 @@ new class extends Component {
         }
     }
 
+    public function getPreviewSessionsProperty(): int
+    {
+        if (!$this->enable_timetable || empty($this->start_date)) {
+            return 0;
+        }
+
+        $startDate = \Carbon\Carbon::parse($this->start_date);
+        $endDate = $this->end_date ? \Carbon\Carbon::parse($this->end_date) : $startDate->copy()->addMonths(3);
+        
+        $totalSlots = 0;
+        foreach ($this->weekly_schedule as $day => $times) {
+            if (!empty($times)) {
+                $totalSlots += count($times);
+            }
+        }
+
+        if ($totalSlots === 0) {
+            return 0;
+        }
+
+        $weeks = $startDate->diffInWeeks($endDate) + 1;
+        
+        if ($this->recurrence_pattern === 'bi_weekly') {
+            $weeks = ceil($weeks / 2);
+        }
+
+        return $totalSlots * $weeks;
+    }
+
 };
 
 ?>
