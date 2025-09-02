@@ -97,16 +97,20 @@ class Teacher extends Model
 
     public static function generateTeacherId(): string
     {
-        // Get the last teacher ID number
-        $lastTeacher = static::latest('id')->first();
-        
-        if (!$lastTeacher || !$lastTeacher->teacher_id) {
-            $nextNumber = 1;
-        } else {
-            // Extract number from TID001, TID002, etc.
-            preg_match('/TID(\d+)/', $lastTeacher->teacher_id, $matches);
-            $nextNumber = isset($matches[1]) ? intval($matches[1]) + 1 : 1;
-        }
+        // Get all teacher IDs and find the highest number
+        $teacherIds = static::whereNotNull('teacher_id')
+            ->pluck('teacher_id')
+            ->map(function ($id) {
+                // Extract number from TID001, TID002, etc.
+                preg_match('/TID(\d+)/', $id, $matches);
+                return isset($matches[1]) ? intval($matches[1]) : 0;
+            })
+            ->filter()
+            ->sort()
+            ->values();
+            
+        // Find the next available number
+        $nextNumber = $teacherIds->isEmpty() ? 1 : $teacherIds->max() + 1;
         
         // Format as TID001, TID002, etc.
         return 'TID' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
