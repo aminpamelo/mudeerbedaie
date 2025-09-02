@@ -227,10 +227,17 @@ class ClassSession extends Model
             return '';
         }
 
-        $diffInSeconds = now()->diffInSeconds($this->started_at);
-        $hours = floor($diffInSeconds / 3600);
-        $minutes = floor(($diffInSeconds % 3600) / 60);
-        $seconds = $diffInSeconds % 60;
+        // Ensure we get a positive difference (absolute value)
+        $diffInSeconds = abs(now()->diffInSeconds($this->started_at, false));
+        
+        // If the difference is very small (less than 1 second), show 0:00
+        if ($diffInSeconds < 1) {
+            return '0:00';
+        }
+        
+        $hours = intval(floor($diffInSeconds / 3600));
+        $minutes = intval(floor(($diffInSeconds % 3600) / 60));
+        $seconds = intval($diffInSeconds % 60);
 
         if ($hours > 0) {
             return sprintf('%d:%02d:%02d', $hours, $minutes, $seconds);
@@ -376,5 +383,31 @@ class ClassSession extends Model
         return strlen($this->teacher_notes) > 50
             ? substr($this->teacher_notes, 0, 50).'...'
             : $this->teacher_notes;
+    }
+
+    public function getStatusBadgeClassAttribute(): string
+    {
+        return match ($this->status) {
+            'scheduled' => 'badge-blue',
+            'ongoing' => 'badge-green',
+            'completed' => 'badge-gray',
+            'cancelled' => 'badge-red',
+            'no_show' => 'badge-yellow',
+            'rescheduled' => 'badge-orange',
+            default => 'badge-gray',
+        };
+    }
+
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+            'scheduled' => 'Scheduled',
+            'ongoing' => 'Ongoing',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+            'no_show' => 'No Show',
+            'rescheduled' => 'Rescheduled',
+            default => ucfirst($this->status),
+        };
     }
 }

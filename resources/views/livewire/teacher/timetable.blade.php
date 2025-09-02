@@ -8,21 +8,29 @@ use Carbon\Carbon;
 
 new #[Layout('components.layouts.teacher')] class extends Component {
     public string $currentView = 'week';
+    public string $previousView = '';
     public Carbon $currentDate;
     public string $classFilter = 'all';
     public string $statusFilter = 'all';
     public bool $showModal = false;
     public ?ClassSession $selectedSession = null;
+    public string $completionNotes = '';
+    public bool $showNotesField = false;
     
     public function mount()
     {
         $this->currentDate = Carbon::now();
+        $this->previousView = $this->currentView;
     }
     
-    public function updatedCurrentView()
+    public function updatedCurrentView($value)
     {
-        // Reset to current date when view changes
-        $this->currentDate = Carbon::now();
+        // Only reset to current date when actually switching views
+        // This prevents resetting the date during navigation within the same view
+        if ($this->previousView !== $value) {
+            $this->currentDate = Carbon::now();
+            $this->previousView = $value;
+        }
     }
     
     public function previousPeriod()
@@ -63,6 +71,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public function selectSession(ClassSession $session)
     {
         $this->selectedSession = $session;
+        $this->completionNotes = $session->teacher_notes ?? '';
+        $this->showNotesField = false;
         $this->showModal = true;
     }
     
@@ -70,23 +80,86 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     {
         $this->showModal = false;
         $this->selectedSession = null;
+        $this->completionNotes = '';
+        $this->showNotesField = false;
     }
     
     public function startSession(ClassSession $session)
     {
         if ($session->isScheduled()) {
             $session->markAsOngoing();
+            $this->selectedSession = $session->fresh(); // Refresh the selected session
             $this->dispatch('session-started', ['sessionId' => $session->id]);
             session()->flash('success', 'Session started successfully!');
         }
     }
     
-    public function completeSession(ClassSession $session, ?string $notes = null)
+    public function showCompleteSessionForm()
     {
-        if ($session->isOngoing()) {
-            $session->markCompleted($notes);
-            $this->dispatch('session-completed', ['sessionId' => $session->id]);
+        $this->showNotesField = true;
+    }
+    
+    public function completeSession()
+    {
+        // Validate that notes are provided
+        if (empty(trim($this->completionNotes))) {
+            session()->flash('error', 'Please add notes before completing the session.');
+            return;
+        }
+        
+        if ($this->selectedSession && $this->selectedSession->isOngoing()) {
+            $this->selectedSession->markCompleted($this->completionNotes);
+            $this->selectedSession = $this->selectedSession->fresh(); // Refresh the selected session
+            $this->showNotesField = false;
+            $this->dispatch('session-completed', ['sessionId' => $this->selectedSession->id]);
             session()->flash('success', 'Session completed successfully!');
+        }
+    }
+    
+    public function startSessionFromTimetable($classId, $date, $time)
+    {
+        $class = ClassModel::findOrFail($classId);
+        $teacher = auth()->user()->teacher;
+        
+        // Verify teacher owns this class
+        if ($class->teacher_id !== $teacher->id) {
+            session()->flash('error', 'You are not authorized to manage this class.');
+            return;
+        }
+        
+        $dateObj = Carbon::parse($date);
+        $timeObj = Carbon::parse($time);
+        
+        // Check if session already exists for this date/time/class
+        $existingSession = $class->sessions()
+            ->whereDate('session_date', $dateObj->toDateString())
+            ->whereTime('session_time', $timeObj->format('H:i:s'))
+            ->first();
+        
+        if ($existingSession) {
+            // If session exists and is scheduled, start it
+            if ($existingSession->isScheduled()) {
+                $existingSession->markAsOngoing();
+                $this->selectSession($existingSession->fresh());
+                session()->flash('success', 'Session started successfully!');
+            } elseif ($existingSession->isOngoing()) {
+                // Select the ongoing session
+                $this->selectSession($existingSession);
+            } else {
+                session()->flash('warning', 'Session cannot be started (status: ' . $existingSession->status . ')');
+            }
+        } else {
+            // Create new session and start it
+            $newSession = $class->sessions()->create([
+                'session_date' => $dateObj->toDateString(),
+                'session_time' => $timeObj->format('H:i:s'),
+                'duration_minutes' => $class->duration_minutes ?? 60,
+                'status' => 'ongoing',
+                'started_at' => now(),
+            ]);
+            
+            $this->selectSession($newSession);
+            session()->flash('success', 'New session created and started!');
         }
     }
     
@@ -241,17 +314,40 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     private function getWeekData($sessions)
     {
         $weekStart = $this->currentDate->copy()->startOfWeek();
+        $teacher = auth()->user()->teacher;
         $days = [];
         
         for ($i = 0; $i < 7; $i++) {
             $date = $weekStart->copy()->addDays($i);
+            $dayName = strtolower($date->format('l'));
             $daySessions = $sessions->filter(function($session) use ($date) {
                 return $session->session_date->isSameDay($date);
             })->sortBy('session_time')->values();
             
+            // Get all scheduled times for this day across all classes
+            $scheduledSlots = [];
+            if ($teacher) {
+                foreach ($teacher->classes as $class) {
+                    $timetable = $class->timetable;
+                    if ($timetable && $timetable->weekly_schedule && isset($timetable->weekly_schedule[$dayName])) {
+                        foreach ($timetable->weekly_schedule[$dayName] as $time) {
+                            $scheduledSlots[] = [
+                                'time' => $time,
+                                'class' => $class,
+                                'session' => $daySessions->first(function($session) use ($time, $class) {
+                                    return $session->session_time->format('H:i') === $time 
+                                        && $session->class_id === $class->id;
+                                })
+                            ];
+                        }
+                    }
+                }
+            }
+            
             $days[] = [
                 'date' => $date,
                 'sessions' => $daySessions,
+                'scheduledSlots' => collect($scheduledSlots),
                 'isToday' => $date->isToday(),
                 'dayName' => $date->format('D'),
                 'dayNumber' => $date->format('j')
@@ -317,7 +413,64 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     }
 }; ?>
 
-<div x-data="{ showModal: @entangle('showModal') }">
+<div x-data="{ 
+    showModal: @entangle('showModal'),
+    elapsedTime: 0,
+    startTime: null,
+    timer: null,
+    
+    init() {
+        this.updateTimer();
+    },
+    
+    updateTimer() {
+        if (this.startTime) {
+            this.elapsedTime = Math.floor((Date.now() - this.startTime) / 1000);
+        }
+    },
+    
+    startTimer(startedAt) {
+        this.startTime = new Date(startedAt).getTime();
+        this.timer = setInterval(() => {
+            this.updateTimer();
+        }, 1000);
+    },
+    
+    stopTimer() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        this.elapsedTime = 0;
+        this.startTime = null;
+    },
+    
+    formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        } else {
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+    }
+}" 
+x-effect="
+    if (showModal && $wire.selectedSession && $wire.selectedSession.status === 'ongoing' && $wire.selectedSession.started_at) {
+        startTimer($wire.selectedSession.started_at);
+    } else {
+        stopTimer();
+    }
+"
+@modal-opened.window="
+    if ($wire.selectedSession && $wire.selectedSession.status === 'ongoing' && $wire.selectedSession.started_at) {
+        $nextTick(() => {
+            startTimer($wire.selectedSession.started_at);
+        });
+    }
+">
     <!-- Header Section -->
     <div class="mb-6 space-y-4">
         <div class="flex items-center justify-between">
@@ -325,9 +478,6 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:heading size="xl">Timetable</flux:heading>
                 <flux:text class="mt-2">Your teaching schedule and sessions</flux:text>
             </div>
-            <flux:button variant="primary" wire:click="goToToday">
-                Today
-            </flux:button>
         </div>
         
         <!-- Statistics Cards -->
@@ -422,7 +572,64 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             </div>
             
             <!-- Navigation and Filters -->
-            <div class="flex items-center gap-4">
+            <div class="flex flex-col lg:flex-row items-start lg:items-center gap-4">
+                <!-- Enhanced Week Navigation -->
+                @if($currentView === 'week')
+                    <div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-lg p-2 border">
+                        <flux:button 
+                            variant="outline" 
+                            wire:click="previousPeriod" 
+                            size="sm"
+                            title="Previous Week"
+                        >
+                            <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
+                            Previous
+                        </flux:button>
+                        
+                        <div class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 rounded border min-w-[200px] text-center">
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Current Week</div>
+                            <div class="font-medium">{{ $currentPeriodLabel }}</div>
+                        </div>
+                        
+                        <flux:button 
+                            variant="outline" 
+                            wire:click="nextPeriod" 
+                            size="sm"
+                            title="Next Week"
+                        >
+                            Next
+                            <flux:icon name="chevron-right" class="w-4 h-4 ml-1" />
+                        </flux:button>
+                        
+                        <div class="border-l border-gray-300 dark:border-gray-600 pl-3">
+                            <flux:button 
+                                variant="primary" 
+                                wire:click="goToToday" 
+                                size="sm"
+                                title="Go to current week"
+                            >
+                                <flux:icon name="calendar-days" class="w-4 h-4 mr-1" />
+                                This Week
+                            </flux:button>
+                        </div>
+                    </div>
+                @else
+                    <!-- Standard Navigation for other views -->
+                    <div class="flex items-center gap-2">
+                        <flux:button variant="ghost" wire:click="previousPeriod" size="sm">
+                            <flux:icon name="chevron-left" class="w-4 h-4" />
+                        </flux:button>
+                        
+                        <div class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 min-w-0">
+                            {{ $currentPeriodLabel }}
+                        </div>
+                        
+                        <flux:button variant="ghost" wire:click="nextPeriod" size="sm">
+                            <flux:icon name="chevron-right" class="w-4 h-4" />
+                        </flux:button>
+                    </div>
+                @endif
+                
                 <!-- Filters -->
                 <div class="flex items-center gap-2">
                     <flux:select wire:model.live="classFilter" size="sm" placeholder="All Classes">
@@ -440,27 +647,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         <option value="cancelled">Cancelled</option>
                     </flux:select>
                 </div>
-                
-                <!-- Navigation -->
-                <div class="flex items-center gap-2">
-                    <flux:button variant="ghost" wire:click="previousPeriod" size="sm">
-                        <flux:icon name="chevron-left" class="w-4 h-4" />
-                    </flux:button>
-                    
-                    <div class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 min-w-0">
-                        {{ $currentPeriodLabel }}
-                    </div>
-                    
-                    <flux:button variant="ghost" wire:click="nextPeriod" size="sm">
-                        <flux:icon name="chevron-right" class="w-4 h-4" />
-                    </flux:button>
-                </div>
             </div>
         </div>
     </flux:card>
     
     <!-- Calendar Content -->
-    <flux:card>
+    <flux:card wire:poll.30s="$refresh">
         @if($currentView === 'week')
             @include('livewire.teacher.timetable.week-view', ['days' => $calendarData])
         @elseif($currentView === 'month')
@@ -469,11 +661,15 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             @include('livewire.teacher.timetable.day-view', ['timeSlots' => $calendarData])
         @elseif($currentView === 'list')
             @include('livewire.teacher.timetable.list-view', ['sessions' => $sessions])
+        @else
+            <div class="text-center py-8">
+                <flux:text>Invalid view selected</flux:text>
+            </div>
         @endif
     </flux:card>
     
     <!-- Session Details Modal -->
-    <flux:modal wire:model="showModal" class="max-w-2xl">
+    <flux:modal wire:model="showModal" class="max-w-2xl" wire:poll.5s="$refresh">
         @if($selectedSession)
             <div class="p-6 border-b border-gray-200 dark:border-gray-700">
                 <flux:heading size="lg">{{ $selectedSession->class->title }}</flux:heading>
@@ -508,6 +704,41 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         </div>
                     </div>
                     
+                    @if($selectedSession->isOngoing())
+                        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <flux:text class="font-medium text-green-800 dark:text-green-200">Session Timer</flux:text>
+                                    <flux:text class="text-green-600 dark:text-green-400 text-sm">Session in progress</flux:text>
+                                </div>
+                                <div class="text-right" x-data="{ 
+                                    modalTimer: 0,
+                                    modalInterval: null,
+                                    initModalTimer() {
+                                        const startedAt = '{{ $selectedSession->started_at }}';
+                                        if (startedAt) {
+                                            const startTime = new Date(startedAt).getTime();
+                                            this.modalTimer = Math.floor((Date.now() - startTime) / 1000);
+                                            this.modalInterval = setInterval(() => {
+                                                this.modalTimer = Math.floor((Date.now() - startTime) / 1000);
+                                            }, 1000);
+                                        }
+                                    },
+                                    stopModalTimer() {
+                                        if (this.modalInterval) {
+                                            clearInterval(this.modalInterval);
+                                            this.modalInterval = null;
+                                        }
+                                    }
+                                }" x-init="initModalTimer()" x-destroy="stopModalTimer()">
+                                    <div class="text-2xl font-mono font-bold text-green-700 dark:text-green-300" x-text="formatTime(modalTimer)">
+                                    </div>
+                                    <flux:text class="text-green-600 dark:text-green-400 text-xs">Elapsed time</flux:text>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                    
                     @if($selectedSession->attendances->count() > 0)
                         <div>
                             <flux:text class="font-medium mb-2">Students ({{ $selectedSession->attendances->count() }})</flux:text>
@@ -524,12 +755,27 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         </div>
                     @endif
                     
-                    @if($selectedSession->teacher_notes)
+                    @if($selectedSession->teacher_notes && !$showNotesField)
                         <div>
-                            <flux:text class="font-medium">Notes</flux:text>
+                            <flux:text class="font-medium">Session Notes</flux:text>
                             <flux:text class="text-gray-600 dark:text-gray-400 text-sm">
                                 {{ $selectedSession->teacher_notes }}
                             </flux:text>
+                        </div>
+                    @endif
+                    
+                    @if($showNotesField)
+                        <div>
+                            <flux:text class="font-medium">Session Notes</flux:text>
+                            <flux:text class="text-gray-500 dark:text-gray-400 text-xs mb-2">
+                                Please add notes before completing the session
+                            </flux:text>
+                            <flux:textarea 
+                                wire:model="completionNotes" 
+                                placeholder="Add session notes, summary, or any important details..."
+                                rows="4"
+                                class="w-full"
+                            />
                         </div>
                     @endif
                 </div>
@@ -543,9 +789,20 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 Start Session
                             </flux:button>
                         @elseif($selectedSession->isOngoing())
-                            <flux:button wire:click="completeSession({{ $selectedSession->id }})" variant="primary" size="sm">
-                                Complete Session
-                            </flux:button>
+                            @if(!$showNotesField)
+                                <flux:button wire:click="showCompleteSessionForm" variant="primary" size="sm">
+                                    Complete Session
+                                </flux:button>
+                            @else
+                                <div class="flex gap-2">
+                                    <flux:button wire:click="completeSession" variant="primary" size="sm">
+                                        Confirm Complete
+                                    </flux:button>
+                                    <flux:button wire:click="$set('showNotesField', false)" variant="ghost" size="sm">
+                                        Cancel
+                                    </flux:button>
+                                </div>
+                            @endif
                         @endif
                     </div>
                     

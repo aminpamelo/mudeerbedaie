@@ -103,17 +103,18 @@ class Teacher extends Model
             ->map(function ($id) {
                 // Extract number from TID001, TID002, etc.
                 preg_match('/TID(\d+)/', $id, $matches);
+
                 return isset($matches[1]) ? intval($matches[1]) : 0;
             })
             ->filter()
             ->sort()
             ->values();
-            
+
         // Find the next available number
         $nextNumber = $teacherIds->isEmpty() ? 1 : $teacherIds->max() + 1;
-        
+
         // Format as TID001, TID002, etc.
-        return 'TID' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+        return 'TID'.str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
     }
 
     public static function getMalaysianBanks(): array

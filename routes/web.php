@@ -12,11 +12,11 @@ Route::get('/', function () {
 
 Route::get('dashboard', function () {
     $user = auth()->user();
-    
+
     if ($user->isTeacher()) {
         return redirect()->route('teacher.dashboard');
     }
-    
+
     return view('dashboard');
 })
     ->middleware(['auth', 'verified'])
@@ -58,7 +58,7 @@ Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
 Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function () {
     // Teacher dashboard
     Volt::route('dashboard', 'teacher.dashboard')->name('teacher.dashboard');
-    
+
     // Core teaching modules
     Volt::route('courses', 'teacher.courses-index')->name('teacher.courses.index');
     Volt::route('courses/create', 'teacher.courses-create')->name('teacher.courses.create');

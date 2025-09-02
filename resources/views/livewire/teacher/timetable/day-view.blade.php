@@ -15,26 +15,20 @@
                         
                         {{-- Content Column --}}
                         <div class="flex-1 min-h-[80px] p-4">
-                            @forelse($timeSlot['sessions'] as $session)
-                                <div class="group cursor-pointer rounded-lg p-4 mb-2 last:mb-0 transition-all duration-200 hover:shadow-md
-                                           @switch($session->status)
-                                               @case('scheduled')
-                                                   bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30
-                                                   @break
-                                               @case('ongoing')
-                                                   bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 ring-2 ring-green-500 dark:ring-green-400 animate-pulse
-                                                   @break
-                                               @case('completed')
-                                                   bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/30
-                                                   @break
-                                               @case('cancelled')
-                                                   bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30
-                                                   @break
-                                               @default
-                                                   bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/30
-                                           @endswitch"
-                                    wire:click="selectSession({{ $session->id }})"
-                                >
+                            @if($timeSlot['sessions']->count() > 0)
+                                @foreach($timeSlot['sessions'] as $session)
+                                    @php
+                                    $statusClasses = match($session->status) {
+                                        'scheduled' => 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30',
+                                        'ongoing' => 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 ring-2 ring-green-500 dark:ring-green-400 animate-pulse',
+                                        'completed' => 'bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/30',
+                                        'cancelled' => 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30',
+                                        default => 'bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/30'
+                                    };
+                                    @endphp
+                                    <div class="group cursor-pointer rounded-lg p-4 mb-2 last:mb-0 transition-all duration-200 hover:shadow-md {{ $statusClasses }}"
+                                        wire:click="selectSession({{ $session->id }})"
+                                    >
                                     <div class="flex items-start justify-between">
                                         <div class="flex-1 min-w-0">
                                             {{-- Session Title and Time --}}
@@ -81,6 +75,18 @@
                                                 {{ ucfirst($session->status) }}
                                             </flux:badge>
                                             
+                                            {{-- Timer Display for Ongoing Sessions --}}
+                                            @if($session->status === 'ongoing')
+                                                <div class="text-center">
+                                                    <div class="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded px-2 py-1">
+                                                        <div class="text-sm font-mono font-semibold text-green-700 dark:text-green-300">
+                                                            {{ $session->formatted_elapsed_time }}
+                                                        </div>
+                                                        <div class="text-xs text-green-600 dark:text-green-400">Elapsed</div>
+                                                    </div>
+                                                </div>
+                                            @endif
+                                            
                                             {{-- Quick Actions --}}
                                             <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 @if($session->isScheduled())
@@ -100,9 +106,12 @@
                                         </div>
                                     </div>
                                 </div>
-                            @empty
-                                {{-- Empty time slot --}}
-                            @endforelse
+                                @endforeach
+                            @else
+                                <div class="text-center py-4 text-gray-400 dark:text-gray-500 text-sm">
+                                    No sessions at this time
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>

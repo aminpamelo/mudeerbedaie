@@ -44,9 +44,18 @@
                                     </flux:badge>
                                     
                                     @if($session->status === 'ongoing')
-                                        <div class="flex items-center gap-1">
-                                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                            <span class="text-xs text-green-600 dark:text-green-400 font-medium">Live</span>
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex items-center gap-1">
+                                                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                                <span class="text-xs text-green-600 dark:text-green-400 font-medium">Live</span>
+                                            </div>
+                                            
+                                            {{-- Timer Display --}}
+                                            <div class="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-full px-3 py-1">
+                                                <div class="text-xs font-mono font-semibold text-green-700 dark:text-green-300">
+                                                    {{ $session->formatted_elapsed_time }}
+                                                </div>
+                                            </div>
                                         </div>
                                     @endif
                                 </div>

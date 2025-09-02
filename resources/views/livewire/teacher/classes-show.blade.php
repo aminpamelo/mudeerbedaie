@@ -3,9 +3,11 @@
 use App\Models\ClassModel;
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
+use Carbon\Carbon;
 
 new #[Layout('components.layouts.teacher')] class extends Component {
     public ClassModel $class;
+    public Carbon $currentDate;
 
     public function mount(ClassModel $class): void
     {
@@ -22,6 +24,16 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             'activeStudents.student.user',
             'timetable'
         ]);
+
+        $this->currentDate = Carbon::now();
+        
+        // Set active tab based on URL parameter
+        $requestedTab = request()->query('tab', 'overview');
+        $validTabs = ['overview', 'sessions', 'students', 'timetable'];
+        
+        if (in_array($requestedTab, $validTabs)) {
+            $this->activeTab = $requestedTab;
+        }
     }
 
     public function getEnrolledStudentsCountProperty()
@@ -119,10 +131,9 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     
     // Session management properties
     public $showSessionModal = false;
-    public $showCompletionModal = false;
+    public $sessionModalState = 'management'; // 'management' or 'completion'
     public $showAttendanceViewModal = false;
     public $currentSession = null;
-    public $completingSession = null;
     public $viewingSession = null;
     public $completionBookmark = '';
 
@@ -145,20 +156,29 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         }
     }
 
-    public function openCompletionModal($sessionId): void
+    public function switchToCompletionState(): void
     {
-        $this->completingSession = \App\Models\ClassSession::find($sessionId);
-        if ($this->completingSession && ($this->completingSession->isScheduled() || $this->completingSession->isOngoing())) {
-            $this->completionBookmark = $this->completingSession->bookmark ?? '';
-            $this->showCompletionModal = true;
+        if ($this->currentSession && ($this->currentSession->isScheduled() || $this->currentSession->isOngoing())) {
+            // Only use existing bookmark from the session if it exists
+            $this->completionBookmark = $this->currentSession->bookmark ?? '';
+            $this->sessionModalState = 'completion';
         }
     }
 
-    public function closeCompletionModal(): void
+    public function switchToManagementState(): void
     {
-        $this->showCompletionModal = false;
-        $this->completingSession = null;
-        $this->completionBookmark = '';
+        $this->sessionModalState = 'management';
+    }
+
+    public function openCompletionModal($sessionId): void
+    {
+        $this->currentSession = \App\Models\ClassSession::with(['attendances.student.user'])->find($sessionId);
+        if ($this->currentSession && ($this->currentSession->isScheduled() || $this->currentSession->isOngoing())) {
+            // Only use existing bookmark from the session if it exists
+            $this->completionBookmark = $this->currentSession->bookmark ?? '';
+            $this->sessionModalState = 'completion';
+            $this->showSessionModal = true;
+        }
     }
 
     public function completeSessionWithBookmark(): void
@@ -171,16 +191,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             'completionBookmark.max' => 'Bookmark cannot exceed 500 characters.'
         ]);
 
-        if ($this->completingSession && ($this->completingSession->isScheduled() || $this->completingSession->isOngoing())) {
-            $this->completingSession->markCompleted($this->completionBookmark);
+        if ($this->currentSession && ($this->currentSession->isScheduled() || $this->currentSession->isOngoing())) {
+            $this->currentSession->markCompleted($this->completionBookmark);
             session()->flash('success', 'Session completed with bookmark.');
             
-            $this->closeCompletionModal();
-            
-            // Close session modal if it's open
-            if ($this->showSessionModal) {
-                $this->closeSessionModal();
-            }
+            // Close session modal
+            $this->closeSessionModal();
             
             // Refresh data
             $this->class->refresh();
@@ -241,7 +257,9 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public function closeSessionModal(): void
     {
         $this->showSessionModal = false;
+        $this->sessionModalState = 'management';
         $this->currentSession = null;
+        $this->completionBookmark = '';
     }
 
     public function openAttendanceViewModal($sessionId): void
@@ -256,6 +274,24 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     {
         $this->showAttendanceViewModal = false;
         $this->viewingSession = null;
+    }
+
+    // Method to handle clicking on any session in the timetable
+    public function selectSession($sessionId): void
+    {
+        $session = \App\Models\ClassSession::with(['attendances.student.user'])->find($sessionId);
+        
+        if (!$session) {
+            return;
+        }
+
+        if ($session->isOngoing()) {
+            $this->openSessionModal($sessionId);
+        } elseif ($session->isCompleted()) {
+            $this->openAttendanceViewModal($sessionId);
+        } elseif ($session->isScheduled()) {
+            $this->openSessionModal($sessionId);
+        }
     }
 
     public function updateStudentAttendance($studentId, $status): void
@@ -310,7 +346,247 @@ new #[Layout('components.layouts.teacher')] class extends Component {
 
     public function setActiveTab($tab): void
     {
-        $this->activeTab = $tab;
+        $validTabs = ['overview', 'sessions', 'students', 'timetable'];
+        
+        if (in_array($tab, $validTabs)) {
+            $this->activeTab = $tab;
+            
+            // Update URL without page reload
+            $this->dispatch('update-url', tab: $tab);
+        }
+    }
+
+    // Timetable tab computed properties
+    public function getClassSessionsCountProperty(): int
+    {
+        return $this->class->sessions()->count();
+    }
+
+    public function getUpcomingSessionsProperty()
+    {
+        return $this->class->sessions()
+            ->where('status', 'scheduled')
+            ->where('session_date', '>', now()->toDateString())
+            ->orderBy('session_date')
+            ->orderBy('session_time')
+            ->get();
+    }
+
+    public function getRecentSessionsProperty()
+    {
+        return $this->class->sessions()
+            ->whereIn('status', ['completed', 'cancelled', 'no_show'])
+            ->orderBy('session_date', 'desc')
+            ->orderBy('session_time', 'desc')
+            ->get();
+    }
+
+    public function getWeeklyHoursProperty(): float
+    {
+        $completedSessions = $this->class->sessions()
+            ->where('status', 'completed')
+            ->get();
+            
+        if ($completedSessions->isEmpty()) {
+            return 0;
+        }
+        
+        $totalMinutes = $completedSessions->sum('duration_minutes');
+        
+        $totalWeeks = $completedSessions->groupBy(function($session) {
+            return $session->session_date->format('Y-W');
+        })->count();
+
+        if ($totalWeeks === 0) {
+            return 0;
+        }
+
+        return ($totalMinutes / 60) / $totalWeeks;
+    }
+
+    // Weekly calendar properties
+    public function getWeeklyCalendarDataProperty(): array
+    {
+        // Get the class timetable schedule
+        $timetable = $this->class->timetable;
+        if (!$timetable || !$timetable->weekly_schedule) {
+            return [];
+        }
+
+        // Get current week dates
+        $currentWeek = $this->currentDate->copy()->startOfWeek();
+        $weekDays = [];
+        
+        for ($i = 0; $i < 7; $i++) {
+            $date = $currentWeek->copy()->addDays($i);
+            $dayName = strtolower($date->format('l'));
+            
+            $weekDays[$dayName] = [
+                'date' => $date,
+                'day_name' => $date->format('D'),
+                'day_number' => $date->format('j'),
+                'is_today' => $date->isToday(),
+                'scheduled_times' => $timetable->weekly_schedule[$dayName] ?? [],
+                'sessions' => $this->getSessionsForDate($date)
+            ];
+        }
+        
+        return $weekDays;
+    }
+
+    private function getSessionsForDate($date): \Illuminate\Support\Collection
+    {
+        return $this->class->sessions()
+            ->whereDate('session_date', $date->toDateString())
+            ->orderBy('session_time')
+            ->get();
+    }
+
+    // Week navigation methods for timetable
+    public function previousWeek(): void
+    {
+        $this->currentDate = $this->currentDate->subWeek();
+    }
+
+    public function nextWeek(): void
+    {
+        $this->currentDate = $this->currentDate->addWeek();
+    }
+
+    public function goToCurrentWeek(): void
+    {
+        $this->currentDate = Carbon::now();
+    }
+
+    public function getCurrentWeekLabelProperty(): string
+    {
+        $start = $this->currentDate->startOfWeek();
+        $end = $this->currentDate->endOfWeek();
+        
+        return $start->format('M d') . ' - ' . $end->format('M d, Y');
+    }
+
+    // Create or start session from timetable and open modal
+    public function startSessionFromTimetable($date, $time): void
+    {
+        $dateObj = \Carbon\Carbon::parse($date);
+        $timeObj = \Carbon\Carbon::parse($time);
+        
+        // Check if session already exists for this date/time
+        $existingSession = $this->class->sessions()
+            ->whereDate('session_date', $dateObj->toDateString())
+            ->whereTime('session_time', $timeObj->format('H:i:s'))
+            ->first();
+        
+        if ($existingSession) {
+            // If session exists and is scheduled, start it
+            if ($existingSession->isScheduled()) {
+                $existingSession->markAsOngoing();
+                
+                // Open the session management modal
+                $this->openSessionModal($existingSession->id);
+                
+                session()->flash('success', 'Session started successfully!');
+            } elseif ($existingSession->isOngoing()) {
+                // Open the session management modal for ongoing session
+                $this->openSessionModal($existingSession->id);
+            } else {
+                session()->flash('warning', 'Session cannot be started (status: ' . $existingSession->status . ')');
+            }
+        } else {
+            // Create new session and start it
+            $newSession = $this->class->sessions()->create([
+                'session_date' => $dateObj->toDateString(),
+                'session_time' => $timeObj->format('H:i:s'),
+                'duration_minutes' => $this->class->duration_minutes ?? 60,
+                'status' => 'ongoing',
+                'started_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            
+            // Auto-create attendance records
+            $newSession->createAttendanceRecords();
+            
+            // Open the session management modal
+            $this->openSessionModal($newSession->id);
+            
+            session()->flash('success', 'New session created and started successfully!');
+        }
+        
+        // Refresh class data
+        $this->class->refresh();
+        $this->class->load([
+            'course',
+            'teacher.user',
+            'sessions.attendances.student.user',
+            'activeStudents.student.user',
+            'timetable'
+        ]);
+    }
+
+    // Session creation properties
+    public $showCreateSessionModal = false;
+    public $newSessionDate = '';
+    public $newSessionTime = '09:00';
+    public $newSessionDuration = 60;
+
+    public function openCreateSessionModal(): void
+    {
+        // Set default date to tomorrow if today is past, otherwise today
+        $this->newSessionDate = now()->addDay()->format('Y-m-d');
+        $this->newSessionTime = '09:00';
+        $this->newSessionDuration = 60;
+        $this->showCreateSessionModal = true;
+    }
+
+    public function closeCreateSessionModal(): void
+    {
+        $this->showCreateSessionModal = false;
+        $this->newSessionDate = '';
+        $this->newSessionTime = '09:00';
+        $this->newSessionDuration = 60;
+        $this->resetErrorBag();
+    }
+
+    public function createSession(): void
+    {
+        $this->validate([
+            'newSessionDate' => 'required|date|after_or_equal:today',
+            'newSessionTime' => 'required',
+            'newSessionDuration' => 'required|integer|min:15|max:300'
+        ], [
+            'newSessionDate.required' => 'Session date is required.',
+            'newSessionDate.date' => 'Please enter a valid date.',
+            'newSessionDate.after_or_equal' => 'Session date cannot be in the past.',
+            'newSessionTime.required' => 'Session time is required.',
+            'newSessionDuration.required' => 'Session duration is required.',
+            'newSessionDuration.integer' => 'Duration must be a number.',
+            'newSessionDuration.min' => 'Duration must be at least 15 minutes.',
+            'newSessionDuration.max' => 'Duration cannot exceed 5 hours.'
+        ]);
+
+        // Create new session
+        \App\Models\ClassSession::create([
+            'class_id' => $this->class->id,
+            'session_date' => $this->newSessionDate,
+            'session_time' => $this->newSessionTime,
+            'duration_minutes' => $this->newSessionDuration,
+            'status' => 'scheduled',
+        ]);
+
+        session()->flash('success', 'New session created successfully.');
+        $this->closeCreateSessionModal();
+
+        // Refresh class data
+        $this->class->refresh();
+        $this->class->load([
+            'course',
+            'teacher.user',
+            'sessions.attendances.student.user',
+            'activeStudents.student.user',
+            'timetable'
+        ]);
     }
 }; ?>
 
@@ -357,6 +633,16 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <div class="flex items-center gap-2">
                     <flux:icon name="users" class="h-4 w-4" />
                     Students ({{ $this->enrolled_students_count }})
+                </div>
+            </button>
+
+            <button 
+                wire:click="setActiveTab('timetable')"
+                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'timetable' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon name="calendar-days" class="h-4 w-4" />
+                    Timetable
                 </div>
             </button>
         </nav>
@@ -587,7 +873,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                     Manage
                                                 </flux:button>
                                                 <flux:button 
-                                                    wire:click="openCompletionModal({{ $ongoingSession->id }})"
+                                                    wire:click="switchToCompletionState()"
                                                     variant="primary"
                                                     size="sm"
                                                     class="flex-1"
@@ -804,7 +1090,14 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     <div class="p-6 text-center">
                         <flux:icon name="calendar" class="mx-auto h-12 w-12 text-gray-400 mb-4" />
                         <flux:heading size="lg" class="mb-2">No Sessions Scheduled</flux:heading>
-                        <flux:text class="mb-4">This class doesn't have any sessions yet. Contact your administrator to schedule sessions.</flux:text>
+                        <flux:text class="mb-4">This class doesn't have any sessions yet. Create your first session to get started.</flux:text>
+                        <flux:button 
+                            wire:click="openCreateSessionModal"
+                            variant="primary"
+                            icon="plus"
+                        >
+                            Create New Session
+                        </flux:button>
                     </div>
                 </flux:card>
             @endif
@@ -1056,10 +1349,19 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card>
                     <div class="overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                            <flux:heading size="lg">Session Calendar</flux:heading>
-                            <div class="text-sm text-gray-500">
-                                {{ $this->total_sessions_count }} total sessions
+                            <div>
+                                <flux:heading size="lg">Session Calendar</flux:heading>
+                                <div class="text-sm text-gray-500">
+                                    {{ $this->total_sessions_count }} total sessions
+                                </div>
                             </div>
+                            <flux:button 
+                                wire:click="openCreateSessionModal"
+                                variant="primary"
+                                icon="plus"
+                            >
+                                Create New Session
+                            </flux:button>
                         </div>
                         
                         <div class="overflow-x-auto">
@@ -1604,183 +1906,381 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             @endif
         </div>
         <!-- End Students Tab -->
+
+        <!-- Timetable Tab -->
+        <div class="{{ $activeTab === 'timetable' ? 'block' : 'hidden' }}">
+            <!-- Timetable Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <flux:card class="p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Total Sessions</flux:heading>
+                            <flux:heading size="xl">{{ $this->class_sessions_count }}</flux:heading>
+                            <flux:text size="sm" class="text-blue-600">All time</flux:text>
+                        </div>
+                        <flux:icon name="calendar" class="w-8 h-8 text-blue-500" />
+                    </div>
+                </flux:card>
+
+                <flux:card class="p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Upcoming</flux:heading>
+                            <flux:heading size="xl">{{ $this->upcoming_sessions_count }}</flux:heading>
+                            <flux:text size="sm" class="text-emerald-600">Next 7 days</flux:text>
+                        </div>
+                        <flux:icon name="clock" class="w-8 h-8 text-emerald-500" />
+                    </div>
+                </flux:card>
+
+                <flux:card class="p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Completed</flux:heading>
+                            <flux:heading size="xl">{{ $this->completed_sessions_count }}</flux:heading>
+                            <flux:text size="sm" class="text-green-600">Finished</flux:text>
+                        </div>
+                        <flux:icon name="check-circle" class="w-8 h-8 text-green-500" />
+                    </div>
+                </flux:card>
+
+                <flux:card class="p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Weekly Hours</flux:heading>
+                            <flux:heading size="xl">{{ round($this->weekly_hours, 1) }}</flux:heading>
+                            <flux:text size="sm" class="text-purple-600">Average</flux:text>
+                        </div>
+                        <flux:icon name="chart-bar" class="w-8 h-8 text-purple-500" />
+                    </div>
+                </flux:card>
+            </div>
+
+            <!-- Weekly Timetable Calendar -->
+            <div class="mb-6">
+                <div class="mb-4 flex items-center justify-between">
+                    <div>
+                        <flux:heading size="lg">Weekly Timetable</flux:heading>
+                        <flux:text>Regular class schedule with ability to start sessions</flux:text>
+                    </div>
+                    <div class="flex gap-2">
+                        <flux:button variant="outline" size="sm" icon="plus" wire:click="showCreateSessionModal">
+                            Add Session
+                        </flux:button>
+                    </div>
+                </div>
+
+                <!-- Week Navigation -->
+                <div class="mb-4">
+                    <div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border">
+                        <flux:button 
+                            variant="outline" 
+                            wire:click="previousWeek" 
+                            size="sm"
+                            title="Previous Week"
+                        >
+                            <span class="flex items-center">
+                                <flux:icon name="chevron-left" class="w-4 h-4 mr-2" />
+                                Previous
+                            </span>
+                        </flux:button>
+                        
+                        <div class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 rounded border min-w-[200px] text-center">
+                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Current Week</div>
+                            <div class="font-medium">{{ $this->current_week_label }}</div>
+                        </div>
+                        
+                        <flux:button 
+                            variant="outline" 
+                            wire:click="nextWeek" 
+                            size="sm"
+                            title="Next Week"
+                        >
+                            <span class="flex items-center">
+                                Next
+                                <flux:icon name="chevron-right" class="w-4 h-4 ml-2" />
+                            </span>
+                        </flux:button>
+                        
+                        <div class="border-l border-gray-300 dark:border-gray-600 pl-3">
+                            <flux:button 
+                                variant="primary" 
+                                wire:click="goToCurrentWeek" 
+                                size="sm"
+                                title="Go to current week"
+                            >
+                                <span class="flex items-center">
+                                    <flux:icon name="calendar-days" class="w-4 h-4 mr-2" />
+                                    This Week
+                                </span>
+                            </flux:button>
+                        </div>
+                    </div>
+                </div>
+
+                @if($this->class->timetable && $this->class->timetable->weekly_schedule)
+                    <flux:card>
+                        <div class="grid grid-cols-8 gap-0 border-b border-gray-200 dark:border-gray-700">
+                            <!-- Time column header -->
+                            <div class="p-3 font-medium text-gray-600 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700">
+                                Time
+                            </div>
+                            
+                            <!-- Day headers -->
+                            @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $dayKey)
+                                @php
+                                    $dayData = $this->weekly_calendar_data[$dayKey] ?? null;
+                                @endphp
+                                <div class="p-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0">
+                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ ucfirst(substr($dayKey, 0, 3)) }}</div>
+                                    @if($dayData)
+                                        <div class="text-sm {{ $dayData['is_today'] ? 'text-blue-600 font-semibold' : 'text-gray-500' }}">
+                                            {{ $dayData['day_number'] }}
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <!-- Time slots and schedule -->
+                        @php
+                            $timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+                        @endphp
+                        
+                        @foreach($timeSlots as $timeSlot)
+                            <div class="grid grid-cols-8 gap-0 border-b border-gray-100 dark:border-gray-600">
+                                <!-- Time label -->
+                                <div class="p-4 text-sm font-medium text-gray-600 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                    {{ Carbon::parse($timeSlot)->format('g:i A') }}
+                                </div>
+                                
+                                <!-- Day columns -->
+                                @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $dayKey)
+                                    @php
+                                        $dayData = $this->weekly_calendar_data[$dayKey] ?? null;
+                                        $isScheduled = $dayData && in_array($timeSlot, $dayData['scheduled_times']);
+                                        $session = null;
+                                        if ($dayData) {
+                                            $session = $dayData['sessions']->first(function($s) use ($timeSlot) {
+                                                return $s->session_time->format('H:i') === $timeSlot;
+                                            });
+                                        }
+                                    @endphp
+                                    
+                                    <div class="p-2 border-r border-gray-200 dark:border-gray-700 last:border-r-0 min-h-[60px] relative">
+                                        @if($isScheduled)
+                                            <div class="h-full">
+                                                @if($session)
+                                                    <!-- Existing session -->
+                                                    <div class="p-2 rounded-lg text-xs cursor-pointer hover:shadow-md transition-all duration-200 {{ $session->status === 'completed' ? 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200' : ($session->status === 'ongoing' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 hover:bg-yellow-200' : ($session->status === 'scheduled' ? 'bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200' : 'bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200')) }}"
+                                                         wire:click="selectSession({{ $session->id }})">
+                                                        <div class="font-medium">{{ $class->course->name }}</div>
+                                                        <div class="mt-1">
+                                                            <flux:badge 
+                                                                :color="$session->status === 'completed' ? 'emerald' : ($session->status === 'ongoing' ? 'yellow' : ($session->status === 'scheduled' ? 'blue' : 'gray'))"
+                                                                size="xs">
+                                                                {{ ucfirst($session->status) }}
+                                                            </flux:badge>
+                                                        </div>
+                                                        
+                                                        @if($session->isScheduled())
+                                                            <flux:button 
+                                                                variant="primary" 
+                                                                size="xs" 
+                                                                icon="play"
+                                                                class="mt-2 w-full"
+                                                                wire:click.stop="startSessionFromTimetable('{{ $dayData['date']->toDateString() }}', '{{ $timeSlot }}')">
+                                                                Start
+                                                            </flux:button>
+                                                        @elseif($session->isOngoing())
+                                                            <flux:button 
+                                                                variant="primary" 
+                                                                size="xs" 
+                                                                icon="cog"
+                                                                class="mt-2 w-full"
+                                                                wire:click.stop="openSessionModal({{ $session->id }})">
+                                                                Manage
+                                                            </flux:button>
+                                                        @elseif($session->isCompleted())
+                                                            <div class="mt-2 text-center text-xs text-green-700">
+                                                                Click to view details
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <!-- Scheduled time without session -->
+                                                    <div class="p-2 rounded-lg text-xs bg-indigo-50 text-indigo-800 border border-indigo-200 h-full flex flex-col justify-between">
+                                                        <div>
+                                                            <div class="font-medium">{{ $class->course->name }}</div>
+                                                            <div class="text-indigo-600 mt-1">Scheduled</div>
+                                                        </div>
+                                                        <flux:button 
+                                                            variant="primary" 
+                                                            size="xs" 
+                                                            icon="play"
+                                                            class="mt-2 w-full"
+                                                            wire:click="startSessionFromTimetable('{{ $dayData['date']->toDateString() }}', '{{ $timeSlot }}')">
+                                                            Start Session
+                                                        </flux:button>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endforeach
+                    </flux:card>
+                @else
+                    <flux:card>
+                        <div class="text-center py-12">
+                            <flux:icon name="calendar-days" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                            <flux:heading size="lg" class="text-gray-600 dark:text-gray-400 mb-2">No timetable configured</flux:heading>
+                            <flux:text class="text-gray-600 dark:text-gray-400 mb-6">Set up a regular schedule for this class to use the weekly timetable view</flux:text>
+                            <flux:button variant="primary" icon="plus" wire:click="showCreateSessionModal">
+                                Add Manual Session
+                            </flux:button>
+                        </div>
+                    </flux:card>
+                @endif
+            </div>
+
+        </div>
+        <!-- End Timetable Tab -->
     </div>
 
     <!-- Session Management Modal -->
     <flux:modal name="session-management" :show="$showSessionModal" wire:model="showSessionModal" max-width="4xl">
         @if($currentSession)
-            <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
-                <flux:heading size="lg">Manage Session - {{ $currentSession->formatted_date_time }}</flux:heading>
-                <flux:text class="text-gray-600">Mark students as present, late, absent, or excused during this session</flux:text>
-            </div>
-            
-            <!-- Session Timer -->
-            <div 
-                x-data="sessionTimer('{{ $currentSession->started_at ? $currentSession->started_at->toISOString() : now()->toISOString() }}')" 
-                x-init="startTimer()"
-                class="flex items-center gap-3 mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
-            >
-                <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-                    <span class="font-medium text-yellow-800 dark:text-yellow-200">Session Running:</span>
-                    <span class="font-mono font-bold text-yellow-900 dark:text-yellow-100" x-text="formattedTime"></span>
+            @if($sessionModalState === 'management')
+                <!-- Management State -->
+                <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+                    <flux:heading size="lg">Manage Session - {{ $currentSession->formatted_date_time }}</flux:heading>
+                    <flux:text class="text-gray-600">Mark students as present, late, absent, or excused during this session</flux:text>
                 </div>
                 
-                <div class="ml-auto flex items-center gap-2 text-sm text-yellow-700 dark:text-yellow-300">
-                    <span>{{ $currentSession->attendances->where('status', 'present')->count() }} present</span>
-                    <span>•</span>
-                    <span>{{ $currentSession->attendances->count() }} total</span>
-                </div>
-            </div>
-
-            <!-- Session Bookmark -->
-            <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                <div class="flex items-center gap-2 mb-3">
-                    <flux:icon name="bookmark" class="h-5 w-5 text-amber-600" />
-                    <flux:heading size="sm" class="text-amber-800 dark:text-amber-200">Session Bookmark</flux:heading>
-                </div>
-                
-                <div class="space-y-3">
-                    <flux:input
-                        wire:model="bookmarkText"
-                        wire:change="updateSessionBookmark"
-                        placeholder="e.g., Stopped at page 45, Chapter 3"
-                        class="w-full"
-                    />
+                <!-- Session Timer -->
+                <div 
+                    x-data="sessionTimer('{{ $currentSession->started_at ? $currentSession->started_at->toISOString() : now()->toISOString() }}')" 
+                    x-init="startTimer()"
+                    class="flex items-center gap-3 mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
+                >
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+                        <span class="font-medium text-yellow-800 dark:text-yellow-200">Session Running:</span>
+                        <span class="font-mono font-bold text-yellow-900 dark:text-yellow-100" x-text="formattedTime"></span>
+                    </div>
                     
-                    @if($currentSession->hasBookmark())
-                        <div class="text-sm text-amber-700 dark:text-amber-300">
-                            Current bookmark: <span class="font-medium">{{ $currentSession->bookmark }}</span>
+                    <div class="ml-auto flex items-center gap-2 text-sm text-yellow-700 dark:text-yellow-300">
+                        <span>{{ $currentSession->attendances->where('status', 'present')->count() }} present</span>
+                        <span>•</span>
+                        <span>{{ $currentSession->attendances->count() }} total</span>
+                    </div>
+                </div>
+
+
+                <!-- Student Attendance List -->
+                <div class="space-y-3 max-h-96 overflow-y-auto">
+                    @foreach($currentSession->attendances as $attendance)
+                        <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <div class="flex items-center gap-3">
+                                <flux:avatar size="sm" :name="$attendance->student->fullName" />
+                                <div>
+                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $attendance->student->fullName }}</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ $attendance->student->student_id }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center gap-2">
+                                @foreach(['present', 'late', 'absent', 'excused'] as $status)
+                                    <flux:button
+                                        wire:click="updateStudentAttendance({{ $attendance->student_id }}, '{{ $status }}')"
+                                        variant="{{ $attendance->status === $status ? 'primary' : 'ghost' }}"
+                                        size="sm"
+                                        class="{{ match($status) {
+                                            'present' => $attendance->status === $status ? '' : 'text-green-600 border-green-600 hover:bg-green-50',
+                                            'late' => $attendance->status === $status ? '' : 'text-yellow-600 border-yellow-600 hover:bg-yellow-50',
+                                            'absent' => $attendance->status === $status ? '' : 'text-red-600 border-red-600 hover:bg-red-50',
+                                            'excused' => $attendance->status === $status ? '' : 'text-blue-600 border-blue-600 hover:bg-blue-50',
+                                            default => ''
+                                        } }}"
+                                    >
+                                        {{ ucfirst($status) }}
+                                    </flux:button>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="flex justify-between items-center gap-3 pt-6 border-t border-gray-200 mt-6">
+                    <flux:button variant="ghost" wire:click="closeSessionModal">Close</flux:button>
+                    
+                    <div class="flex gap-2">
+                        <flux:button 
+                            wire:click="switchToCompletionState()"
+                            variant="primary"
+                            icon="check"
+                        >
+                            Complete Session
+                        </flux:button>
+                    </div>
+                </div>
+                
+            @else
+                <!-- Completion State -->
+                <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+                    <flux:heading size="lg">Complete Session</flux:heading>
+                    <flux:text class="text-gray-600">{{ $currentSession->formatted_date_time }}</flux:text>
+                </div>
+                
+                <div class="space-y-4 mb-6">
+                    <flux:text>Please add a bookmark to track your progress before completing this session.</flux:text>
+                    
+                    <div>
+                        <flux:field>
+                            <flux:label>Session Bookmark <span class="text-red-500">*</span></flux:label>
+                            <flux:textarea 
+                                wire:model="completionBookmark" 
+                                placeholder="e.g., Completed Chapter 3, stopped at page 45, reviewed exercises 1-10"
+                                rows="3"
+                            />
+                            <flux:error name="completionBookmark" />
+                            <flux:description>Describe what was covered or where you stopped in this session.</flux:description>
+                        </flux:field>
+                    </div>
+                    
+                    @if($currentSession->attendances->count() > 0)
+                        <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                            <div class="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
+                                <flux:icon name="check-circle" class="h-4 w-4" />
+                                <span>{{ $currentSession->attendances->where('status', 'present')->count() }} of {{ $currentSession->attendances->count() }} students marked as present</span>
+                            </div>
                         </div>
                     @endif
                 </div>
-            </div>
 
-            <!-- Student Attendance List -->
-            <div class="space-y-3 max-h-96 overflow-y-auto">
-                @foreach($currentSession->attendances as $attendance)
-                    <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
-                        <div class="flex items-center gap-3">
-                            <flux:avatar size="sm" :name="$attendance->student->fullName" />
-                            <div>
-                                <div class="font-medium text-gray-900 dark:text-gray-100">{{ $attendance->student->fullName }}</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $attendance->student->student_id }}</div>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-center gap-2">
-                            @foreach(['present', 'late', 'absent', 'excused'] as $status)
-                                <flux:button
-                                    wire:click="updateStudentAttendance({{ $attendance->student_id }}, '{{ $status }}')"
-                                    variant="{{ $attendance->status === $status ? 'primary' : 'ghost' }}"
-                                    size="sm"
-                                    class="{{ match($status) {
-                                        'present' => $attendance->status === $status ? '' : 'text-green-600 border-green-600 hover:bg-green-50',
-                                        'late' => $attendance->status === $status ? '' : 'text-yellow-600 border-yellow-600 hover:bg-yellow-50',
-                                        'absent' => $attendance->status === $status ? '' : 'text-red-600 border-red-600 hover:bg-red-50',
-                                        'excused' => $attendance->status === $status ? '' : 'text-blue-600 border-blue-600 hover:bg-blue-50',
-                                        default => ''
-                                    } }}"
-                                >
-                                    {{ ucfirst($status) }}
-                                </flux:button>
-                            @endforeach
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-
-            <div class="flex justify-between items-center gap-3 pt-6 border-t border-gray-200 mt-6">
-                <flux:button variant="ghost" wire:click="closeSessionModal">Close</flux:button>
-                
-                <div class="flex gap-2">
+                <div class="flex justify-between items-center gap-3 pt-4 border-t border-gray-200">
+                    <flux:button variant="ghost" wire:click="switchToManagementState()">Back</flux:button>
                     <flux:button 
-                        wire:click="openCompletionModal({{ $currentSession->id }})"
-                        variant="primary"
+                        variant="primary" 
+                        wire:click="completeSessionWithBookmark"
                         icon="check"
                     >
                         Complete Session
                     </flux:button>
                 </div>
-            </div>
+            @endif
         @endif
     </flux:modal>
 
-    <!-- Session Completion Modal -->
-    <flux:modal name="session-completion" :show="$showCompletionModal" wire:model="showCompletionModal">
-        @if($completingSession)
-            <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
-                <flux:heading size="lg">Complete Session</flux:heading>
-                <flux:text class="text-gray-600">{{ $completingSession->formatted_date_time }}</flux:text>
-            </div>
-            
-            <div class="space-y-4 mb-6">
-                <flux:text>Please add a bookmark to track your progress before completing this session.</flux:text>
-                
-                <div>
-                    <flux:field>
-                        <flux:label>Session Bookmark <span class="text-red-500">*</span></flux:label>
-                        <flux:textarea 
-                            wire:model="completionBookmark" 
-                            placeholder="e.g., Completed Chapter 3, stopped at page 45, reviewed exercises 1-10"
-                            rows="3"
-                        />
-                        <flux:error name="completionBookmark" />
-                        <flux:description>Describe what was covered or where you stopped in this session.</flux:description>
-                    </flux:field>
-                </div>
-                
-                @if($completingSession->attendances->count() > 0)
-                    <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
-                        <div class="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
-                            <flux:icon name="check-circle" class="h-4 w-4" />
-                            <span>{{ $completingSession->attendances->where('status', 'present')->count() }} of {{ $completingSession->attendances->count() }} students marked as present</span>
-                        </div>
-                    </div>
-                @endif
-            </div>
-
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                <flux:button variant="ghost" wire:click="closeCompletionModal">Cancel</flux:button>
-                <flux:button 
-                    variant="primary" 
-                    wire:click="completeSessionWithBookmark"
-                    icon="check"
-                >
-                    Complete Session
-                </flux:button>
-            </div>
-        @endif
-    </flux:modal>
 
     <!-- Attendance View Modal -->
     <flux:modal name="attendance-view" :show="$showAttendanceViewModal" wire:model="showAttendanceViewModal" max-width="2xl">
         @if($viewingSession)
             <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
-                <flux:heading size="lg">Session Attendance</flux:heading>
+                <flux:heading size="lg">Session Details</flux:heading>
                 <flux:text class="text-gray-600">{{ $viewingSession->formatted_date_time }}</flux:text>
-            </div>
-
-            <!-- Session Summary -->
-            <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <div class="grid grid-cols-4 gap-4 text-center">
-                    <div>
-                        <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $viewingSession->attendances->count() }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Total</div>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-semibold text-green-600">{{ $viewingSession->attendances->where('status', 'present')->count() }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Present</div>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-semibold text-yellow-600">{{ $viewingSession->attendances->where('status', 'late')->count() }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Late</div>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-semibold text-red-600">{{ $viewingSession->attendances->where('status', 'absent')->count() }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Absent</div>
-                    </div>
-                </div>
             </div>
 
             @if($viewingSession->hasBookmark())
@@ -1795,40 +2295,6 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 </div>
             @endif
 
-            <!-- Student Attendance List -->
-            <div class="space-y-3 max-h-96 overflow-y-auto">
-                @foreach($viewingSession->attendances->sortBy('student.user.name') as $attendance)
-                    <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
-                        <div class="flex items-center gap-3">
-                            <flux:avatar size="sm" :name="$attendance->student->fullName" />
-                            <div>
-                                <div class="font-medium text-gray-900 dark:text-gray-100">{{ $attendance->student->fullName }}</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $attendance->student->student_id }}</div>
-                            </div>
-                        </div>
-                        
-                        <div class="text-right">
-                            @if($attendance->status === 'present')
-                                <flux:badge color="green" size="sm">Present</flux:badge>
-                            @elseif($attendance->status === 'late')
-                                <flux:badge color="yellow" size="sm">Late</flux:badge>
-                            @elseif($attendance->status === 'absent')
-                                <flux:badge color="red" size="sm">Absent</flux:badge>
-                            @elseif($attendance->status === 'excused')
-                                <flux:badge color="blue" size="sm">Excused</flux:badge>
-                            @else
-                                <flux:badge color="gray" size="sm">{{ ucfirst($attendance->status) }}</flux:badge>
-                            @endif
-                            
-                            @if($attendance->checked_in_at)
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    {{ $attendance->checked_in_at->format('g:i A') }}
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                @endforeach
-            </div>
 
             <div class="mt-6 flex justify-end">
                 <flux:button 
@@ -1839,6 +2305,79 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 </flux:button>
             </div>
         @endif
+    </flux:modal>
+
+    <!-- Create Session Modal -->
+    <flux:modal wire:model="showCreateSessionModal" variant="flyout">
+        <form wire:submit="createSession">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-700">
+                <flux:heading size="lg">Create New Session</flux:heading>
+            </div>
+            
+            <div class="py-4 space-y-4">
+                <div>
+                    <flux:field>
+                        <flux:label for="newSessionDate">Session Date</flux:label>
+                        <flux:input 
+                            wire:model="newSessionDate"
+                            name="newSessionDate"
+                            type="date"
+                            required
+                        />
+                        <flux:error name="newSessionDate" />
+                    </flux:field>
+                </div>
+                
+                <div>
+                    <flux:field>
+                        <flux:label for="newSessionTime">Session Time</flux:label>
+                        <flux:input 
+                            wire:model="newSessionTime"
+                            name="newSessionTime"
+                            type="time"
+                            required
+                        />
+                        <flux:error name="newSessionTime" />
+                    </flux:field>
+                </div>
+                
+                <div>
+                    <flux:field>
+                        <flux:label for="newSessionDuration">Duration (minutes)</flux:label>
+                        <flux:select 
+                            wire:model="newSessionDuration"
+                            name="newSessionDuration"
+                            required
+                        >
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60" selected>1 hour</option>
+                            <option value="90">1.5 hours</option>
+                            <option value="120">2 hours</option>
+                            <option value="180">3 hours</option>
+                        </flux:select>
+                        <flux:error name="newSessionDuration" />
+                    </flux:field>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <flux:button 
+                    wire:click="closeCreateSessionModal"
+                    variant="ghost"
+                    type="button"
+                >
+                    Cancel
+                </flux:button>
+                <flux:button 
+                    type="submit"
+                    variant="primary"
+                    icon="plus"
+                >
+                    Create Session
+                </flux:button>
+            </div>
+        </form>
     </flux:modal>
 </div>
 
@@ -1886,4 +2425,23 @@ function sessionTimer(startedAtISO) {
         }
     }
 }
+
+// Listen for tab changes and update URL
+document.addEventListener('livewire:init', () => {
+    Livewire.on('update-url', (event) => {
+        const tab = event.tab;
+        const currentUrl = new URL(window.location);
+        
+        if (tab === 'overview') {
+            // Remove tab parameter if returning to overview (default)
+            currentUrl.searchParams.delete('tab');
+        } else {
+            // Set tab parameter for other tabs
+            currentUrl.searchParams.set('tab', tab);
+        }
+        
+        // Update URL without page reload
+        window.history.pushState({}, '', currentUrl.toString());
+    });
+});
 </script>
