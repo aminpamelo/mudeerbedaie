@@ -481,8 +481,8 @@ x-effect="
         </div>
         
         <!-- Statistics Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <flux:card>
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+            <flux:card class="p-4 md:p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <flux:text size="sm" class="text-gray-600 dark:text-gray-400">This Week</flux:text>
@@ -495,7 +495,7 @@ x-effect="
                 </div>
             </flux:card>
             
-            <flux:card>
+            <flux:card class="p-4 md:p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <flux:text size="sm" class="text-gray-600 dark:text-gray-400">This Month</flux:text>
@@ -508,7 +508,7 @@ x-effect="
                 </div>
             </flux:card>
             
-            <flux:card>
+            <flux:card class="p-4 md:p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Upcoming</flux:text>
@@ -521,7 +521,7 @@ x-effect="
                 </div>
             </flux:card>
             
-            <flux:card>
+            <flux:card class="p-4 md:p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Completed</flux:text>
@@ -582,8 +582,10 @@ x-effect="
                             size="sm"
                             title="Previous Week"
                         >
-                            <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
-                            Previous
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
+                                Previous
+                            </div>
                         </flux:button>
                         
                         <div class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 rounded border min-w-[200px] text-center">
@@ -597,8 +599,10 @@ x-effect="
                             size="sm"
                             title="Next Week"
                         >
-                            Next
-                            <flux:icon name="chevron-right" class="w-4 h-4 ml-1" />
+                            <div class="flex items-center justify-center">
+                                Next
+                                <flux:icon name="chevron-right" class="w-4 h-4 ml-1" />
+                            </div>
                         </flux:button>
                         
                         <div class="border-l border-gray-300 dark:border-gray-600 pl-3">
@@ -608,8 +612,10 @@ x-effect="
                                 size="sm"
                                 title="Go to current week"
                             >
-                                <flux:icon name="calendar-days" class="w-4 h-4 mr-1" />
-                                This Week
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="calendar-days" class="w-4 h-4 mr-1" />
+                                    This Week
+                                </div>
                             </flux:button>
                         </div>
                     </div>
@@ -715,7 +721,7 @@ x-effect="
                                     modalTimer: 0,
                                     modalInterval: null,
                                     initModalTimer() {
-                                        const startedAt = '{{ $selectedSession->started_at }}';
+                                        const startedAt = '{{ $selectedSession->started_at ? $selectedSession->started_at->toISOString() : now()->toISOString() }}';
                                         if (startedAt) {
                                             const startTime = new Date(startedAt).getTime();
                                             this.modalTimer = Math.floor((Date.now() - startTime) / 1000);

@@ -12,7 +12,6 @@ class CourseClassSettings extends Model
         'teaching_mode',
         'billing_type',
         'sessions_per_month',
-        'session_duration_hours',
         'session_duration_minutes',
         'price_per_session',
         'price_per_month',
@@ -25,7 +24,6 @@ class CourseClassSettings extends Model
     {
         return [
             'sessions_per_month' => 'integer',
-            'session_duration_hours' => 'integer',
             'session_duration_minutes' => 'integer',
             'price_per_session' => 'decimal:2',
             'price_per_month' => 'decimal:2',
@@ -60,19 +58,23 @@ class CourseClassSettings extends Model
 
     public function getFormattedDurationAttribute(): string
     {
-        if ($this->session_duration_hours == 0 && $this->session_duration_minutes == 0) {
+        if ($this->session_duration_minutes == 0) {
             return 'Not set';
         }
 
+        $totalMinutes = $this->session_duration_minutes;
+        $hours = intdiv($totalMinutes, 60);
+        $minutes = $totalMinutes % 60;
+
         $duration = '';
-        if ($this->session_duration_hours > 0) {
-            $duration .= $this->session_duration_hours.'h ';
+        if ($hours > 0) {
+            $duration .= $hours.'h ';
         }
-        if ($this->session_duration_minutes > 0) {
-            $duration .= $this->session_duration_minutes.'m';
+        if ($minutes > 0) {
+            $duration .= $minutes.'m';
         }
 
-        return trim($duration);
+        return trim($duration) ?: $hours.'h';
     }
 
     public function getFormattedPriceAttribute(): string

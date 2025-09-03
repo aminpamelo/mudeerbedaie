@@ -3,6 +3,7 @@
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use App\Models\Course;
+use Illuminate\Support\Str;
 
 new #[Layout('components.layouts.teacher')] class extends Component {
     public function with()
@@ -14,9 +15,17 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             return ['courses' => collect()];
         }
 
-        // Get courses assigned to this teacher
-        $courses = Course::where('teacher_id', $teacher->id)
-            ->withCount(['enrollments', 'activeEnrollments'])
+        // Get courses where this teacher has classes
+        $courses = Course::whereHas('classes', function ($query) use ($teacher) {
+                $query->where('teacher_id', $teacher->id);
+            })
+            ->withCount([
+                'enrollments', 
+                'activeEnrollments',
+                'classes as classes_count' => function ($query) use ($teacher) {
+                    $query->where('teacher_id', $teacher->id);
+                }
+            ])
             ->latest()
             ->get();
 
@@ -36,6 +45,35 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     </div>
 
     @if($courses->count() > 0)
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 mb-8">
+            <flux:card class="text-center p-4 md:p-6">
+                <div class="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                    {{ $courses->count() }}
+                </div>
+                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                    Total Courses
+                </flux:text>
+            </flux:card>
+
+            <flux:card class="text-center p-4 md:p-6">
+                <div class="text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
+                    {{ $courses->where('status', 'active')->count() }}
+                </div>
+                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                    Active Courses
+                </flux:text>
+            </flux:card>
+
+            <flux:card class="text-center p-4 md:p-6 col-span-2 md:col-span-1">
+                <div class="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                    {{ $courses->sum('enrollments_count') }}
+                </div>
+                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                    Total Students
+                </flux:text>
+            </flux:card>
+        </div>
         <!-- Courses Grid -->
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             @foreach($courses as $course)
@@ -57,13 +95,19 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     </div>
 
                     <div class="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        <div class="flex items-center">
-                            <flux:icon icon="users" class="w-4 h-4 mr-1" />
-                            {{ $course->enrollments_count }} students
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center">
+                                <flux:icon icon="academic-cap" class="w-4 h-4 mr-1" />
+                                {{ $course->classes_count }} {{ Str::plural('class', $course->classes_count) }}
+                            </div>
+                            <div class="flex items-center">
+                                <flux:icon icon="users" class="w-4 h-4 mr-1" />
+                                {{ $course->enrollments_count }} students
+                            </div>
                         </div>
-                        @if($course->price)
+                        @if($course->feeSettings && $course->feeSettings->fee_amount)
                             <div class="font-medium">
-                                ${{ number_format($course->price, 2) }}
+                                {{ $course->formatted_fee }}
                             </div>
                         @else
                             <flux:badge color="blue" size="sm">Free</flux:badge>
@@ -71,47 +115,21 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     </div>
 
                     <div class="flex space-x-2">
-                        <flux:button size="sm" variant="ghost" class="flex-1">
-                            <flux:icon icon="eye" class="w-4 h-4 mr-1" />
-                            View
+                        <flux:button size="sm" variant="ghost" class="flex-1" wire:navigate href="{{ route('teacher.courses.show', $course) }}">
+                            <div class="flex items-center justify-center">
+                                <flux:icon icon="eye" class="w-4 h-4 mr-1" />
+                                View
+                            </div>
                         </flux:button>
-                        <flux:button size="sm" variant="ghost" class="flex-1">
-                            <flux:icon icon="users" class="w-4 h-4 mr-1" />
-                            Students
+                        <flux:button size="sm" variant="ghost" class="flex-1" wire:navigate href="{{ route('teacher.courses.show', $course) }}">
+                            <div class="flex items-center justify-center">
+                                <flux:icon icon="users" class="w-4 h-4 mr-1" />
+                                Students
+                            </div>
                         </flux:button>
                     </div>
                 </flux:card>
             @endforeach
-        </div>
-
-        <!-- Summary Cards -->
-        <div class="grid gap-6 md:grid-cols-3 mt-8">
-            <flux:card class="text-center p-6">
-                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
-                    {{ $courses->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
-                    Total Courses
-                </flux:text>
-            </flux:card>
-
-            <flux:card class="text-center p-6">
-                <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-                    {{ $courses->where('status', 'active')->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
-                    Active Courses
-                </flux:text>
-            </flux:card>
-
-            <flux:card class="text-center p-6">
-                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
-                    {{ $courses->sum('enrollments_count') }}
-                </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
-                    Total Students
-                </flux:text>
-            </flux:card>
         </div>
     @else
         <!-- Empty State -->

@@ -64,3 +64,18 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+/* Prevent mobile browser from hiding bottom navigation on scroll */
+@layer utilities {
+    .fixed-bottom-nav {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        transform: translateZ(0) !important;
+        will-change: transform !important;
+        -webkit-transform: translateZ(0) !important;
+        -webkit-backface-visibility: hidden !important;
+        backface-visibility: hidden !important;
+    }
+}

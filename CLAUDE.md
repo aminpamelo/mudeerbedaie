@@ -201,6 +201,26 @@ password: password
 - **Reference Context7 documentation** for proper Flux UI component usage when in doubt
 - **Test with Playwright** to verify visual spacing and layout consistency
 
+#### Flux UI Button Icon Alignment Fix
+**Problem**: Icons in Flux UI buttons may appear misaligned (above or below text) due to internal button styling conflicts.
+
+**Solution**: Wrap button content in a flex container for proper alignment:
+```html
+<flux:button variant="outline" wire:click="action" size="sm">
+    <div class="flex items-center justify-center">
+        <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
+        Button Text
+    </div>
+</flux:button>
+```
+
+**What NOT to do**: Adding CSS classes directly to the button element (like `class="!flex !items-center"`) won't work due to Flux UI's internal button structure.
+
+**Key Points**:
+- Use `<div class="flex items-center justify-center">` as the wrapper
+- Keep standard icon classes (`w-4 h-4`, spacing classes like `mr-1`)
+- This pattern works for buttons with icons on either side of text
+
 ### Code Quality Standards
 - **Use TodoWrite tool** for tracking multi-step tasks and progress
 - **Test fixes visually** using Playwright browser automation

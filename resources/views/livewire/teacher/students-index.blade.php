@@ -230,41 +230,41 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     </div>
 
     <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <flux:card class="p-4">
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6 mb-6">
+        <flux:card class="p-4 md:p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $statistics['total_students'] }}</div>
+                    <div class="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $statistics['total_students'] }}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">Total Students</div>
                 </div>
                 <flux:icon name="users" class="h-8 w-8 text-blue-500" />
             </div>
         </flux:card>
 
-        <flux:card class="p-4">
+        <flux:card class="p-4 md:p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ $statistics['active_students'] }}</div>
+                    <div class="text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ $statistics['active_students'] }}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">Active Students</div>
                 </div>
                 <flux:icon name="check-circle" class="h-8 w-8 text-emerald-500" />
             </div>
         </flux:card>
 
-        <flux:card class="p-4">
+        <flux:card class="p-4 md:p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $statistics['average_attendance'] }}%</div>
+                    <div class="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $statistics['average_attendance'] }}%</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">Avg Attendance</div>
                 </div>
                 <flux:icon name="chart-bar" class="h-8 w-8 text-purple-500" />
             </div>
         </flux:card>
 
-        <flux:card class="p-4">
+        <flux:card class="p-4 md:p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">{{ $statistics['this_week_sessions'] }}</div>
+                    <div class="text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400">{{ $statistics['this_week_sessions'] }}</div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">This Week Sessions</div>
                 </div>
                 <flux:icon name="calendar-days" class="h-8 w-8 text-orange-500" />

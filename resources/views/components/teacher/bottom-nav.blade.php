@@ -1,5 +1,5 @@
 {{-- Teacher Mobile Bottom Navigation --}}
-<nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-700 lg:hidden z-50">
+<nav class="fixed-bottom-nav bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-700 lg:hidden z-50">
     {{-- Safe area padding for iOS devices --}}
     <div class="pb-safe">
         <div class="flex justify-around items-center px-2 py-2">

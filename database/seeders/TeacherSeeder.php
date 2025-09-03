@@ -2,14 +2,14 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\Teacher;
-use App\Models\Course;
 use App\Models\ClassModel;
-use App\Models\ClassTimetable;
 use App\Models\ClassSession;
-use App\Models\Student;
 use App\Models\ClassStudent;
+use App\Models\ClassTimetable;
+use App\Models\Course;
+use App\Models\Student;
+use App\Models\Teacher;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -140,9 +140,9 @@ class TeacherSeeder extends Seeder
 
             $student = Student::create([
                 'user_id' => $studentUser->id,
-                'student_id' => 'STU' . str_pad($i, 3, '0', STR_PAD_LEFT),
-                'ic_number' => '90010' . $i . '-14-567' . $i,
-                'phone' => '012-345-678' . $i,
+                'student_id' => 'STU'.str_pad($i, 3, '0', STR_PAD_LEFT),
+                'ic_number' => '90010'.$i.'-14-567'.$i,
+                'phone' => '012-345-678'.$i,
                 'status' => 'active',
                 'enrolled_at' => now(),
             ]);

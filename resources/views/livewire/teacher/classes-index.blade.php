@@ -37,6 +37,44 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     </div>
 
     @if($classes->count() > 0)
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6 mb-8">
+            <flux:card class="text-center p-4 md:p-6">
+                <div class="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                    {{ $classes->count() }}
+                </div>
+                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                    Total Classes
+                </flux:text>
+            </flux:card>
+
+            <flux:card class="text-center p-4 md:p-6">
+                <div class="text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
+                    {{ $classes->where('status', 'active')->count() }}
+                </div>
+                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                    Active Classes
+                </flux:text>
+            </flux:card>
+
+            <flux:card class="text-center p-4 md:p-6">
+                <div class="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                    {{ $classes->where('class_type', 'individual')->count() }}
+                </div>
+                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                    Individual
+                </flux:text>
+            </flux:card>
+
+            <flux:card class="text-center p-4 md:p-6">
+                <div class="text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400 mb-2">
+                    {{ $classes->where('class_type', 'group')->count() }}
+                </div>
+                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                    Group Classes
+                </flux:text>
+            </flux:card>
+        </div>
         <!-- Classes Grid -->
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             @foreach($classes as $class)
@@ -128,45 +166,6 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     </div>
                 </flux:card>
             @endforeach
-        </div>
-
-        <!-- Summary Cards -->
-        <div class="grid gap-6 md:grid-cols-4 mt-8">
-            <flux:card class="text-center p-6">
-                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
-                    {{ $classes->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
-                    Total Classes
-                </flux:text>
-            </flux:card>
-
-            <flux:card class="text-center p-6">
-                <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-                    {{ $classes->where('status', 'active')->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
-                    Active Classes
-                </flux:text>
-            </flux:card>
-
-            <flux:card class="text-center p-6">
-                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
-                    {{ $classes->where('class_type', 'individual')->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
-                    Individual
-                </flux:text>
-            </flux:card>
-
-            <flux:card class="text-center p-6">
-                <div class="text-2xl font-bold text-orange-600 dark:text-orange-400 mb-2">
-                    {{ $classes->where('class_type', 'group')->count() }}
-                </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
-                    Group Classes
-                </flux:text>
-            </flux:card>
         </div>
     @else
         <!-- Empty State -->

@@ -24,7 +24,6 @@ new class extends Component {
     public $teaching_mode = 'online';
     public $billing_type = 'per_month';
     public $sessions_per_month = '';
-    public $session_duration_hours = 0;
     public $session_duration_minutes = 60;
     public $price_per_session = '';
     public $price_per_month = '';
@@ -73,7 +72,6 @@ new class extends Component {
             'teaching_mode' => $this->teaching_mode,
             'billing_type' => $this->billing_type,
             'sessions_per_month' => $this->sessions_per_month ?: null,
-            'session_duration_hours' => $this->session_duration_hours,
             'session_duration_minutes' => $this->session_duration_minutes,
             'price_per_session' => $this->price_per_session ?: null,
             'price_per_month' => $this->price_per_month ?: null,
@@ -110,8 +108,7 @@ new class extends Component {
             $rules = array_merge($rules, [
                 'teaching_mode' => 'required|in:online,offline,hybrid',
                 'billing_type' => 'required|in:per_month,per_session,per_minute',
-                'session_duration_hours' => 'required|integer|min:0|max:23',
-                'session_duration_minutes' => 'required|integer|min:0|max:59',
+                'session_duration_minutes' => 'required|integer|min:5|max:480',
             ]);
 
             if ($this->billing_type === 'per_session') {

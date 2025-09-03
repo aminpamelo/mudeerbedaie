@@ -229,12 +229,12 @@ class ClassSession extends Model
 
         // Ensure we get a positive difference (absolute value)
         $diffInSeconds = abs(now()->diffInSeconds($this->started_at, false));
-        
+
         // If the difference is very small (less than 1 second), show 0:00
         if ($diffInSeconds < 1) {
             return '0:00';
         }
-        
+
         $hours = intval(floor($diffInSeconds / 3600));
         $minutes = intval(floor(($diffInSeconds % 3600) / 60));
         $seconds = intval($diffInSeconds % 60);

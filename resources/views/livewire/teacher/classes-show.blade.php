@@ -536,7 +536,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         // Set default date to tomorrow if today is past, otherwise today
         $this->newSessionDate = now()->addDay()->format('Y-m-d');
         $this->newSessionTime = '09:00';
-        $this->newSessionDuration = 60;
+        $this->newSessionDuration = $this->class->duration_minutes ?? 60;
         $this->showCreateSessionModal = true;
     }
 
@@ -882,6 +882,22 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                     Complete
                                                 </flux:button>
                                             </div>
+                                        </div>
+                                    @endif
+                                    
+                                    @if($this->upcoming_sessions_count === 0 && !$ongoingSession)
+                                        <div class="text-center py-4">
+                                            <flux:icon name="plus" class="mx-auto h-6 w-6 text-gray-400 mb-2" />
+                                            <div class="text-sm text-gray-500 mb-3">No sessions scheduled</div>
+                                            <flux:button 
+                                                wire:click="openCreateSessionModal"
+                                                variant="primary"
+                                                size="sm"
+                                                icon="plus"
+                                                class="w-full"
+                                            >
+                                                Create New Session
+                                            </flux:button>
                                         </div>
                                     @endif
                                 </div>
@@ -1287,6 +1303,23 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 </flux:button>
                             </div>
                         @endif
+                    </flux:card>
+                @else
+                    <!-- No Upcoming Sessions - Show Create Session -->
+                    <flux:card class="p-6">
+                        <div class="text-center">
+                            <flux:icon name="plus" class="mx-auto h-8 w-8 text-gray-400 mb-3" />
+                            <flux:heading size="lg" class="mb-2">No Upcoming Sessions</flux:heading>
+                            <flux:text class="text-gray-500 mb-4">Create a new session to get started</flux:text>
+                            <flux:button 
+                                wire:click="openCreateSessionModal"
+                                variant="primary"
+                                icon="plus"
+                                class="w-full"
+                            >
+                                Create New Session
+                            </flux:button>
+                        </div>
                     </flux:card>
                 @endif
 

@@ -125,7 +125,7 @@ new class extends Component {
                             <div>
                                 <flux:label>Session Duration</flux:label>
                                 <div class="mt-1 text-gray-900">
-                                    {{ $course->classSettings->session_duration_hours }}h {{ $course->classSettings->session_duration_minutes }}m
+                                    {{ $course->classSettings->formatted_duration }}
                                 </div>
                             </div>
 
