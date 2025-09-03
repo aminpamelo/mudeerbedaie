@@ -582,10 +582,7 @@ x-effect="
                             size="sm"
                             title="Previous Week"
                         >
-                            <div class="flex items-center justify-center">
-                                <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
-                                Previous
-                            </div>
+                            <flux:icon name="chevron-left" class="w-4 h-4" />
                         </flux:button>
                         
                         <div class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 rounded border min-w-[200px] text-center">
@@ -599,10 +596,7 @@ x-effect="
                             size="sm"
                             title="Next Week"
                         >
-                            <div class="flex items-center justify-center">
-                                Next
-                                <flux:icon name="chevron-right" class="w-4 h-4 ml-1" />
-                            </div>
+                            <flux:icon name="chevron-right" class="w-4 h-4" />
                         </flux:button>
                         
                         <div class="border-l border-gray-300 dark:border-gray-600 pl-3">
@@ -613,8 +607,8 @@ x-effect="
                                 title="Go to current week"
                             >
                                 <div class="flex items-center justify-center">
-                                    <flux:icon name="calendar-days" class="w-4 h-4 mr-1" />
-                                    This Week
+                                    <flux:icon name="calendar-days" class="w-4 h-4 md:mr-1" />
+                                    <span class="hidden md:inline">This Week</span>
                                 </div>
                             </flux:button>
                         </div>
