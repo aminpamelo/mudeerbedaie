@@ -599,7 +599,7 @@ x-effect="
                             <flux:icon name="chevron-right" class="w-4 h-4" />
                         </flux:button>
                         
-                        <div class="border-l border-gray-300 dark:border-gray-600 pl-3">
+                        <div class="hidden md:block border-l border-gray-300 dark:border-gray-600 pl-3">
                             <flux:button 
                                 variant="primary" 
                                 wire:click="goToToday" 
@@ -607,8 +607,8 @@ x-effect="
                                 title="Go to current week"
                             >
                                 <div class="flex items-center justify-center">
-                                    <flux:icon name="calendar-days" class="w-4 h-4 md:mr-1" />
-                                    <span class="hidden md:inline">This Week</span>
+                                    <flux:icon name="calendar-days" class="w-4 h-4 mr-1" />
+                                    This Week
                                 </div>
                             </flux:button>
                         </div>
