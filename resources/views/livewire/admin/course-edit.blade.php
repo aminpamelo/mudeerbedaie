@@ -27,7 +27,6 @@ new class extends Component {
     public $teaching_mode = 'online';
     public $billing_type = 'per_month';
     public $sessions_per_month = '';
-    public $session_duration_hours = 0;
     public $session_duration_minutes = 60;
     public $price_per_session = '';
     public $price_per_month = '';
@@ -59,7 +58,6 @@ new class extends Component {
             $this->teaching_mode = $this->course->classSettings->teaching_mode;
             $this->billing_type = $this->course->classSettings->billing_type;
             $this->sessions_per_month = $this->course->classSettings->sessions_per_month ?? '';
-            $this->session_duration_hours = $this->course->classSettings->session_duration_hours;
             $this->session_duration_minutes = $this->course->classSettings->session_duration_minutes;
             $this->price_per_session = $this->course->classSettings->price_per_session ?? '';
             $this->price_per_month = $this->course->classSettings->price_per_month ?? '';
@@ -89,8 +87,7 @@ new class extends Component {
             'setup_fee' => 'nullable|numeric|min:0',
             'teaching_mode' => 'required|in:online,offline,hybrid',
             'billing_type' => 'required|in:per_month,per_session,per_minute',
-            'session_duration_hours' => 'required|integer|min:0|max:23',
-            'session_duration_minutes' => 'required|integer|min:0|max:59',
+            'session_duration_minutes' => 'required|integer|min:5|max:480',
             'sessions_per_month' => $this->billing_type === 'per_session' ? 'required|integer|min:1' : 'nullable',
             'price_per_session' => $this->billing_type === 'per_session' ? 'required|numeric|min:0' : 'nullable',
             'price_per_month' => $this->billing_type === 'per_month' ? 'required|numeric|min:0' : 'nullable',
@@ -124,7 +121,6 @@ new class extends Component {
                 'teaching_mode' => $this->teaching_mode,
                 'billing_type' => $this->billing_type,
                 'sessions_per_month' => $this->sessions_per_month ?: null,
-                'session_duration_hours' => $this->session_duration_hours,
                 'session_duration_minutes' => $this->session_duration_minutes,
                 'price_per_session' => $this->price_per_session ?: null,
                 'price_per_month' => $this->price_per_month ?: null,
@@ -479,9 +475,21 @@ new class extends Component {
                     <flux:input type="number" wire:model="sessions_per_month" label="Sessions Per Month" placeholder="4" />
                 @endif
 
-                <div class="grid grid-cols-2 gap-4">
-                    <flux:input type="number" wire:model="session_duration_hours" label="Session Duration (Hours)" placeholder="1" />
-                    <flux:input type="number" wire:model="session_duration_minutes" label="Session Duration (Minutes)" placeholder="30" />
+                <div>
+                    <flux:field>
+                        <flux:label for="session_duration_minutes">Session Duration (Minutes)</flux:label>
+                        <flux:select wire:model="session_duration_minutes" name="session_duration_minutes">
+                            <option value="15">15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">1 hour (60 minutes)</option>
+                            <option value="90">1.5 hours (90 minutes)</option>
+                            <option value="120">2 hours (120 minutes)</option>
+                            <option value="180">3 hours (180 minutes)</option>
+                            <option value="240">4 hours (240 minutes)</option>
+                        </flux:select>
+                    </flux:field>
+                    <flux:text size="sm" class="text-gray-500 mt-1">Select the duration for each session</flux:text>
                 </div>
 
                 @if($billing_type === 'per_session')

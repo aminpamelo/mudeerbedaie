@@ -240,8 +240,10 @@ new class extends Component {
                             href="{{ route('users.edit', $user) }}"
                             wire:navigate
                         >
-                            <flux:icon.pencil class="w-4 h-4" />
-                            Edit User
+                            <div class="flex items-center justify-center">
+                                <flux:icon.pencil class="w-4 h-4 mr-2" />
+                                Edit User
+                            </div>
                         </flux:button>
                         
                         @if ($user->status === 'active')
@@ -251,8 +253,10 @@ new class extends Component {
                                     class="w-full justify-start"
                                     wire:click="deactivateUser"
                                 >
-                                    <flux:icon.pause class="w-4 h-4" />
-                                    Deactivate User
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon.pause class="w-4 h-4 mr-2" />
+                                        Deactivate User
+                                    </div>
                                 </flux:button>
                                 
                                 <flux:button 
@@ -261,8 +265,10 @@ new class extends Component {
                                     wire:click="suspendUser"
                                     wire:confirm="Are you sure you want to suspend this user?"
                                 >
-                                    <flux:icon.exclamation-triangle class="w-4 h-4" />
-                                    Suspend User
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon.exclamation-triangle class="w-4 h-4 mr-2" />
+                                        Suspend User
+                                    </div>
                                 </flux:button>
                             @endif
                         @else
@@ -271,8 +277,10 @@ new class extends Component {
                                 class="w-full justify-start"
                                 wire:click="activateUser"
                             >
-                                <flux:icon.play class="w-4 h-4" />
-                                Activate User
+                                <div class="flex items-center justify-center">
+                                    <flux:icon.play class="w-4 h-4 mr-2" />
+                                    Activate User
+                                </div>
                             </flux:button>
                         @endif
                         
@@ -283,8 +291,10 @@ new class extends Component {
                                 wire:click="deleteUser"
                                 wire:confirm="Are you sure you want to delete this user? This action cannot be undone."
                             >
-                                <flux:icon.trash class="w-4 h-4" />
-                                Delete User
+                                <div class="flex items-center justify-center">
+                                    <flux:icon.trash class="w-4 h-4 mr-2" />
+                                    Delete User
+                                </div>
                             </flux:button>
                         @endif
                     </div>

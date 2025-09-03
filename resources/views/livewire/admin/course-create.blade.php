@@ -231,9 +231,21 @@ new class extends Component {
                         <flux:input type="number" wire:model="sessions_per_month" label="Sessions Per Month" placeholder="4" />
                     @endif
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <flux:input type="number" wire:model="session_duration_hours" label="Session Duration (Hours)" placeholder="1" />
-                        <flux:input type="number" wire:model="session_duration_minutes" label="Session Duration (Minutes)" placeholder="30" />
+                    <div>
+                        <flux:field>
+                            <flux:label for="session_duration_minutes">Session Duration (Minutes)</flux:label>
+                            <flux:select wire:model="session_duration_minutes" name="session_duration_minutes">
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="45">45 minutes</option>
+                                <option value="60">1 hour (60 minutes)</option>
+                                <option value="90">1.5 hours (90 minutes)</option>
+                                <option value="120">2 hours (120 minutes)</option>
+                                <option value="180">3 hours (180 minutes)</option>
+                                <option value="240">4 hours (240 minutes)</option>
+                            </flux:select>
+                        </flux:field>
+                        <flux:text size="sm" class="text-gray-500 mt-1">Select the duration for each session</flux:text>
                     </div>
 
                     @if($billing_type === 'per_session')
