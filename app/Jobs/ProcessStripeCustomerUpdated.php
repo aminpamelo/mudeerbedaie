@@ -26,8 +26,8 @@ class ProcessStripeCustomerUpdated implements ShouldQueue
     public function handle(StripeService $stripeService): void
     {
         try {
-            // Extract customer ID - handle both object and array formats
-            $customerId = $this->stripeCustomer['id'] ?? $this->stripeCustomer['object']->id ?? null;
+            // Extract customer ID - should now be properly converted by StripeService
+            $customerId = $this->stripeCustomer['id'] ?? null;
 
             if (! $customerId) {
                 Log::error('Customer ID not found in webhook data', [

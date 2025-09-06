@@ -28,8 +28,8 @@ class ProcessStripeInvoicePaymentSucceeded implements ShouldQueue
     public function handle(StripeService $stripeService): void
     {
         try {
-            // Extract invoice ID - handle both object and array formats
-            $invoiceId = $this->stripeInvoice['id'] ?? $this->stripeInvoice['object']->id ?? null;
+            // Extract invoice ID - should now be properly converted by StripeService
+            $invoiceId = $this->stripeInvoice['id'] ?? null;
 
             if (! $invoiceId) {
                 Log::error('Invoice ID not found in webhook data', [

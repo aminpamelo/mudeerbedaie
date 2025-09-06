@@ -26,8 +26,8 @@ class ProcessStripeSubscriptionUpdated implements ShouldQueue
     public function handle(StripeService $stripeService): void
     {
         try {
-            // Extract subscription ID - handle both object and array formats
-            $subscriptionId = $this->stripeSubscription['id'] ?? $this->stripeSubscription['object']->id ?? null;
+            // Extract subscription ID - should now be properly converted by StripeService
+            $subscriptionId = $this->stripeSubscription['id'] ?? null;
 
             if (! $subscriptionId) {
                 Log::error('Subscription ID not found in webhook data', [

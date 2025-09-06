@@ -1400,14 +1400,17 @@ class StripeService
             }
 
             // Dispatch appropriate job based on event type
+            // Convert Stripe objects to arrays using toArray() method when available, otherwise use array casting
+            $getArrayData = fn ($obj) => method_exists($obj, 'toArray') ? $obj->toArray() : (array) $obj;
+
             match ($event->type) {
-                'customer.updated' => \App\Jobs\ProcessStripeCustomerUpdated::dispatch($webhookEvent, (array) $event->data->object),
-                'invoice.payment_succeeded' => \App\Jobs\ProcessStripeInvoicePaymentSucceeded::dispatch($webhookEvent, (array) $event->data->object),
-                'invoice.payment_failed' => \App\Jobs\ProcessStripeInvoicePaymentFailed::dispatch($webhookEvent, (array) $event->data->object),
-                'customer.subscription.created' => \App\Jobs\ProcessStripeSubscriptionCreated::dispatch($webhookEvent, (array) $event->data->object),
-                'customer.subscription.updated' => \App\Jobs\ProcessStripeSubscriptionUpdated::dispatch($webhookEvent, (array) $event->data->object),
-                'customer.subscription.deleted' => \App\Jobs\ProcessStripeSubscriptionDeleted::dispatch($webhookEvent, (array) $event->data->object),
-                'customer.subscription.trial_will_end' => \App\Jobs\ProcessStripeSubscriptionTrialWillEnd::dispatch($webhookEvent, (array) $event->data->object),
+                'customer.updated' => \App\Jobs\ProcessStripeCustomerUpdated::dispatch($webhookEvent, $getArrayData($event->data->object)),
+                'invoice.payment_succeeded' => \App\Jobs\ProcessStripeInvoicePaymentSucceeded::dispatch($webhookEvent, $getArrayData($event->data->object)),
+                'invoice.payment_failed' => \App\Jobs\ProcessStripeInvoicePaymentFailed::dispatch($webhookEvent, $getArrayData($event->data->object)),
+                'customer.subscription.created' => \App\Jobs\ProcessStripeSubscriptionCreated::dispatch($webhookEvent, $getArrayData($event->data->object)),
+                'customer.subscription.updated' => \App\Jobs\ProcessStripeSubscriptionUpdated::dispatch($webhookEvent, $getArrayData($event->data->object)),
+                'customer.subscription.deleted' => \App\Jobs\ProcessStripeSubscriptionDeleted::dispatch($webhookEvent, $getArrayData($event->data->object)),
+                'customer.subscription.trial_will_end' => \App\Jobs\ProcessStripeSubscriptionTrialWillEnd::dispatch($webhookEvent, $getArrayData($event->data->object)),
                 default => Log::info('Unhandled webhook event', [
                     'type' => $event->type,
                     'id' => $event->id,
