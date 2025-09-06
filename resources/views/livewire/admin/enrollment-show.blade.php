@@ -31,6 +31,8 @@ new class extends Component {
         'proration_behavior' => 'create_prorations',
         'start_date' => null,
         'start_time' => '07:23',
+        'next_payment_date' => null,
+        'next_payment_time' => '07:23',
         'end_date' => null,
         'end_time' => null,
         'payment_method_id' => null,
@@ -136,6 +138,8 @@ new class extends Component {
             'proration_behavior' => 'create_prorations',
             'start_date' => now()->format('Y-m-d'),
             'start_time' => '07:23',
+            'next_payment_date' => null,
+            'next_payment_time' => '07:23',
             'end_date' => null,
             'end_time' => null,
             'payment_method_id' => $defaultPaymentMethod?->id,
@@ -163,6 +167,8 @@ new class extends Component {
             'createForm.proration_behavior' => 'required|in:create_prorations,none,always_invoice',
             'createForm.start_date' => 'nullable|date|after_or_equal:today',
             'createForm.start_time' => 'nullable|date_format:H:i',
+            'createForm.next_payment_date' => 'nullable|date|after_or_equal:today',
+            'createForm.next_payment_time' => 'nullable|date_format:H:i',
             'createForm.end_date' => 'nullable|date|after:today',
             'createForm.end_time' => 'nullable|date_format:H:i',
             'createForm.payment_method_id' => 'required|exists:payment_methods,id',
@@ -442,6 +448,42 @@ new class extends Component {
             // This can be extended later when StripeService supports more options
             $result = $stripeService->createSubscription($this->enrollment, $paymentMethod);
             
+            // Refresh enrollment to get the new subscription ID
+            $this->enrollment->refresh();
+            
+            // Handle next payment scheduling if provided
+            if ($this->createForm['next_payment_date'] && $this->enrollment->stripe_subscription_id) {
+                try {
+                    $nextPaymentDateTime = $this->createForm['next_payment_date'] . ' ' . ($this->createForm['next_payment_time'] ?? '07:23');
+                    $nextPaymentTimestamp = \Carbon\Carbon::parse($nextPaymentDateTime)
+                        ->setTimezone($this->createForm['subscription_timezone'])
+                        ->timestamp;
+                    
+                    // Update subscription schedule in Stripe
+                    $scheduleResult = $stripeService->updateSubscriptionSchedule(
+                        $this->enrollment->stripe_subscription_id,
+                        ['next_payment_date' => $nextPaymentTimestamp]
+                    );
+                    
+                    if ($scheduleResult['success']) {
+                        // Update stored next payment date in enrollment
+                        $nextPaymentCarbon = \Carbon\Carbon::createFromTimestamp($nextPaymentTimestamp);
+                        $this->enrollment->updateNextPaymentDate($nextPaymentCarbon);
+                        
+                        \Log::info('Next payment date set for new subscription', [
+                            'enrollment_id' => $this->enrollment->id,
+                            'next_payment_date' => $nextPaymentCarbon->toDateTimeString(),
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to set next payment date for new subscription', [
+                        'enrollment_id' => $this->enrollment->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Don't fail the entire process, just log the warning
+                }
+            }
+            
             // Store additional metadata if notes provided
             if ($this->createForm['notes']) {
                 $this->enrollment->update(['notes' => $this->createForm['notes']]);
@@ -452,7 +494,7 @@ new class extends Component {
                 'subscription_timezone' => $this->createForm['subscription_timezone']
             ]);
 
-            // Refresh enrollment to get updated subscription data
+            // Final refresh to get all updated data
             $this->enrollment->refresh();
             
             // Close modal
@@ -2112,6 +2154,28 @@ new class extends Component {
                         />
                         <flux:error name="createForm.start_time" />
                         <flux:description>Time for billing start (24-hour format).</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Next Payment Date</flux:label>
+                        <flux:input 
+                            type="date" 
+                            wire:model="createForm.next_payment_date" 
+                            placeholder="YYYY-MM-DD"
+                        />
+                        <flux:error name="createForm.next_payment_date" />
+                        <flux:description>Set when the first payment should occur. This overrides the start date for payment timing.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Next Payment Time</flux:label>
+                        <flux:input 
+                            type="time" 
+                            wire:model="createForm.next_payment_time" 
+                            placeholder="HH:MM"
+                        />
+                        <flux:error name="createForm.next_payment_time" />
+                        <flux:description>Time for the first payment (24-hour format).</flux:description>
                     </flux:field>
 
                     <flux:field>
