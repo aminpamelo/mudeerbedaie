@@ -92,8 +92,27 @@ class Student extends Model
 
     public function classes()
     {
-        return $this->belongsToMany(ClassModel::class, 'class_attendance', 'student_id', 'class_id')
-            ->withPivot(['status', 'checked_in_at', 'checked_out_at', 'notes', 'teacher_remarks']);
+        return $this->belongsToMany(ClassModel::class, 'class_students', 'student_id', 'class_id')
+            ->withPivot(['enrolled_at', 'left_at', 'status', 'reason'])
+            ->withTimestamps();
+    }
+
+    public function activeClasses()
+    {
+        return $this->belongsToMany(ClassModel::class, 'class_students', 'student_id', 'class_id')
+            ->withPivot(['enrolled_at', 'left_at', 'status', 'reason'])
+            ->withTimestamps()
+            ->wherePivot('status', 'active');
+    }
+
+    public function classStudents(): HasMany
+    {
+        return $this->hasMany(ClassStudent::class);
+    }
+
+    public function activeClassStudents(): HasMany
+    {
+        return $this->hasMany(ClassStudent::class)->where('status', 'active');
     }
 
     public function invoices(): HasMany

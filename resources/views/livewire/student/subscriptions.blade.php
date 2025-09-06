@@ -65,6 +65,39 @@ new class extends Component {
         }
     }
 
+    public function resumeSubscription($enrollmentId)
+    {
+        try {
+            $enrollment = Enrollment::where('id', $enrollmentId)
+                ->where('student_id', auth()->user()->student->id)
+                ->firstOrFail();
+
+            if (!$enrollment->stripe_subscription_id) {
+                session()->flash('error', 'This enrollment does not have an active subscription.');
+                return;
+            }
+
+            if (!$enrollment->isPendingCancellation()) {
+                session()->flash('error', 'This subscription is not scheduled for cancellation.');
+                return;
+            }
+
+            $stripeService = app(StripeService::class);
+            $result = $stripeService->undoCancellation($enrollment->stripe_subscription_id);
+            
+            if ($result['success']) {
+                // Update local status
+                $enrollment->updateSubscriptionCancellation(null);
+                session()->flash('success', 'Subscription cancellation has been undone. Your subscription will continue normally.');
+            } else {
+                session()->flash('error', 'Failed to resume subscription. Please try again or contact support.');
+            }
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to resume subscription: ' . $e->getMessage());
+        }
+    }
+
 
     public function with(): array
     {
@@ -126,7 +159,9 @@ new class extends Component {
                                             <div>
                                                 <flux:text class="text-gray-600">Status</flux:text>
                                                 <div class="flex items-center gap-2 mt-1">
-                                                    @if($enrollment->isSubscriptionActive())
+                                                    @if($enrollment->isPendingCancellation())
+                                                        <flux:badge variant="warning">{{ $enrollment->getSubscriptionStatusLabel() }}</flux:badge>
+                                                    @elseif($enrollment->isSubscriptionActive())
                                                         @if($enrollment->isCollectionPaused())
                                                             <flux:badge variant="warning">{{ $enrollment->getFullStatusDescription() }}</flux:badge>
                                                         @else
@@ -140,7 +175,12 @@ new class extends Component {
                                                         <flux:badge variant="gray">{{ $enrollment->getSubscriptionStatusLabel() }}</flux:badge>
                                                     @endif
                                                 </div>
-                                                @if($enrollment->isCollectionPaused() && $enrollment->collection_paused_at)
+                                                @if($enrollment->isPendingCancellation() && $enrollment->subscription_cancel_at)
+                                                    <flux:text size="sm" class="text-orange-600 mt-1">
+                                                        <flux:icon name="exclamation-triangle" class="w-4 h-4 inline mr-1" />
+                                                        Cancels: {{ $enrollment->getFormattedCancellationDate() }}
+                                                    </flux:text>
+                                                @elseif($enrollment->isCollectionPaused() && $enrollment->collection_paused_at)
                                                     <flux:text size="sm" class="text-gray-500 mt-1">
                                                         Paused: {{ $enrollment->getFormattedCollectionPausedDate() }}
                                                     </flux:text>
@@ -186,15 +226,17 @@ new class extends Component {
                             </div>
 
                             <div class="flex flex-col gap-2 ml-4">
-                                <flux:button 
-                                    wire:click="updatePaymentMethod({{ $enrollment->id }})" 
-                                    variant="outline" 
-                                    size="sm"
-                                >
-                                    Update Payment
-                                </flux:button>
+                                @if(!$enrollment->isPendingCancellation())
+                                    <flux:button 
+                                        wire:click="updatePaymentMethod({{ $enrollment->id }})" 
+                                        variant="outline" 
+                                        size="sm"
+                                    >
+                                        Update Payment
+                                    </flux:button>
+                                @endif
 
-                                @if($enrollment->isCollectionPaused() && $enrollment->isSubscriptionActive())
+                                @if($enrollment->isCollectionPaused() && $enrollment->isSubscriptionActive() && !$enrollment->isPendingCancellation())
                                     <flux:button 
                                         wire:click="resumeCollection({{ $enrollment->id }})"
                                         wire:confirm="Are you sure you want to resume collection? Future payments will be processed normally."
@@ -208,16 +250,29 @@ new class extends Component {
                                     </flux:button>
                                 @endif
 
-                                
-                                <flux:button 
-                                    wire:click="cancelSubscription({{ $enrollment->id }})"
-                                    wire:confirm="Are you sure you want to cancel this subscription? It will remain active until the end of the current billing period."
-                                    variant="outline" 
-                                    size="sm"
-                                    class="text-red-600 border-red-300 hover:bg-red-50"
-                                >
-                                    Cancel
-                                </flux:button>
+                                @if($enrollment->isPendingCancellation())
+                                    <flux:button 
+                                        wire:click="resumeSubscription({{ $enrollment->id }})"
+                                        wire:confirm="Are you sure you want to undo the cancellation? Your subscription will continue normally."
+                                        variant="primary" 
+                                        size="sm"
+                                    >
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
+                                            Resume Subscription
+                                        </div>
+                                    </flux:button>
+                                @else
+                                    <flux:button 
+                                        wire:click="cancelSubscription({{ $enrollment->id }})"
+                                        wire:confirm="Are you sure you want to cancel this subscription? It will remain active until the end of the current billing period."
+                                        variant="outline" 
+                                        size="sm"
+                                        class="text-red-600 border-red-300 hover:bg-red-50"
+                                    >
+                                        Cancel
+                                    </flux:button>
+                                @endif
                             </div>
                         </div>
                     </flux:card>

@@ -395,7 +395,27 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('livewire:initialized', function() {
         Livewire.on('show-add-card-modal', function() {
             setTimeout(() => {
-                if (cardElement) return; // Already initialized
+                // Clean up any existing card element first
+                if (cardElement) {
+                    try {
+                        cardElement.destroy();
+                    } catch (e) {
+                        console.warn('Error destroying existing card element:', e);
+                    }
+                    cardElement = null;
+                }
+
+                // Clear the container
+                const container = document.getElementById('stripe-card-element');
+                if (container) {
+                    container.innerHTML = '';
+                }
+
+                // Clear any existing errors
+                const errorContainer = document.getElementById('stripe-card-errors');
+                if (errorContainer) {
+                    errorContainer.textContent = '';
+                }
                 
                 cardElement = elements.create('card', {
                     style: {
@@ -414,43 +434,81 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Handle real-time validation errors
                 cardElement.on('change', ({error}) => {
                     const displayError = document.getElementById('stripe-card-errors');
-                    if (error) {
-                        displayError.textContent = error.message;
-                    } else {
-                        displayError.textContent = '';
+                    if (displayError) {
+                        if (error) {
+                            displayError.textContent = error.message;
+                        } else {
+                            displayError.textContent = '';
+                        }
                     }
                 });
 
                 // Handle form submission
                 const submitButton = document.getElementById('submit-payment-method');
-                if (submitButton && !submitButton.hasAttribute('data-stripe-listener')) {
-                    submitButton.setAttribute('data-stripe-listener', 'true');
-                    submitButton.addEventListener('click', async function(event) {
+                if (submitButton) {
+                    // Remove any existing event listeners
+                    const newSubmitButton = submitButton.cloneNode(true);
+                    submitButton.parentNode.replaceChild(newSubmitButton, submitButton);
+                    
+                    newSubmitButton.addEventListener('click', async function(event) {
                         event.preventDefault();
                         
-                        const {token, error} = await stripe.createToken(cardElement);
-                        
-                        if (error) {
-                            document.getElementById('stripe-card-errors').textContent = error.message;
-                        } else {
-                            // Send token to server
-                            const setAsDefault = document.getElementById('set-as-default').checked;
+                        if (!cardElement) {
+                            console.error('Card element not available');
+                            return;
+                        }
+
+                        try {
+                            const {token, error} = await stripe.createToken(cardElement);
                             
-                            @this.call('addPaymentMethod', {
-                                payment_method_id: token.id,
-                                set_as_default: setAsDefault
-                            });
+                            if (error) {
+                                const errorContainer = document.getElementById('stripe-card-errors');
+                                if (errorContainer) {
+                                    errorContainer.textContent = error.message;
+                                }
+                            } else {
+                                // Send token to server
+                                const setAsDefaultCheckbox = document.getElementById('set-as-default');
+                                const setAsDefault = setAsDefaultCheckbox ? setAsDefaultCheckbox.checked : false;
+                                
+                                @this.call('addPaymentMethod', {
+                                    payment_method_id: token.id,
+                                    set_as_default: setAsDefault
+                                });
+                            }
+                        } catch (e) {
+                            console.error('Error creating token:', e);
+                            const errorContainer = document.getElementById('stripe-card-errors');
+                            if (errorContainer) {
+                                errorContainer.textContent = 'An error occurred while processing your card.';
+                            }
                         }
                     });
                 }
-            }, 100);
+            }, 150);
         });
         
         // Clean up when modal closes
         Livewire.on('hide-add-card-modal', function() {
             if (cardElement) {
-                cardElement.unmount();
+                try {
+                    cardElement.destroy();
+                } catch (e) {
+                    console.warn('Error destroying card element:', e);
+                }
                 cardElement = null;
+            }
+
+            // Clear the container
+            const container = document.getElementById('stripe-card-element');
+            if (container) {
+                container.innerHTML = '';
+            }
+
+            // Clear any existing errors
+            const errorContainer = document.getElementById('stripe-card-errors');
+            if (errorContainer) {
+                errorContainer.textContent = '';
             }
         });
     });

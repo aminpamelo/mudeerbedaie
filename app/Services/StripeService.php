@@ -310,6 +310,17 @@ class StripeService
             throw new \Exception('Course must have a Stripe price ID before creating subscription');
         }
 
+        // Validate payment method before creating subscription
+        $validation = $this->validatePaymentMethod($paymentMethod);
+        if (! $validation['valid']) {
+            throw new \Exception('Payment method validation failed: '.$validation['error']);
+        }
+
+        Log::info('Payment method validated successfully', [
+            'enrollment_id' => $enrollment->id,
+            'payment_method_id' => $paymentMethod->id,
+        ]);
+
         $stripeCustomer = $this->createOrGetCustomer($enrollment->student->user);
 
         try {
@@ -657,10 +668,60 @@ class StripeService
 
             $paymentIntent = $latestInvoice->payment_intent;
             if (! $paymentIntent) {
-                return [
-                    'success' => false,
-                    'error' => 'No payment intent found for invoice',
-                ];
+                // Attempt to recover by creating a new payment intent for the invoice
+                try {
+                    Log::info('No payment intent found, attempting to create one for invoice', [
+                        'subscription_id' => $subscriptionId,
+                        'invoice_id' => $latestInvoice->id,
+                    ]);
+
+                    // Try to finalize the invoice, which should create a payment intent
+                    $finalizedInvoice = $this->stripe->invoices->finalizeInvoice($latestInvoice->id);
+
+                    // Re-retrieve the subscription with the updated invoice
+                    $subscription = $this->stripe->subscriptions->retrieve($subscriptionId, [
+                        'expand' => ['latest_invoice.payment_intent'],
+                    ]);
+
+                    $paymentIntent = $subscription->latest_invoice->payment_intent;
+
+                    if ($paymentIntent) {
+                        Log::info('Payment intent created successfully during recovery', [
+                            'subscription_id' => $subscriptionId,
+                            'payment_intent_id' => $paymentIntent->id,
+                            'status' => $paymentIntent->status,
+                        ]);
+                    } else {
+                        // If still no payment intent, try to pay the invoice directly
+                        $paidInvoice = $this->stripe->invoices->pay($latestInvoice->id);
+
+                        return [
+                            'success' => true,
+                            'message' => 'Invoice paid successfully without payment intent',
+                            'invoice' => $paidInvoice,
+                        ];
+                    }
+                } catch (ApiErrorException $e) {
+                    Log::error('Failed to recover missing payment intent', [
+                        'subscription_id' => $subscriptionId,
+                        'invoice_id' => $latestInvoice->id,
+                        'error' => $e->getMessage(),
+                        'stripe_code' => $e->getStripeCode(),
+                    ]);
+
+                    return [
+                        'success' => false,
+                        'error' => 'No payment intent found for invoice and unable to create one. '.
+                                 'This subscription may need to be canceled and recreated, or the student should complete payment setup directly.',
+                        'requires_manual_action' => true,
+                        'suggested_actions' => [
+                            'Cancel this subscription and create a new one',
+                            'Have the student complete payment setup in their account',
+                            'Check the payment method is still valid',
+                            'Contact Stripe support if the issue persists',
+                        ],
+                    ];
+                }
             }
 
             // If payment intent is already succeeded, subscription should be active
@@ -763,6 +824,68 @@ class StripeService
                 'success' => false,
                 'error' => $e->getMessage(),
                 'message' => 'Payment retry failed',
+            ];
+        }
+    }
+
+    public function validatePaymentMethod(PaymentMethod $paymentMethod): array
+    {
+        try {
+            if (! $paymentMethod->stripe_payment_method_id) {
+                return [
+                    'valid' => false,
+                    'error' => 'Payment method has no Stripe payment method ID',
+                ];
+            }
+
+            // Retrieve the payment method from Stripe to check its status
+            $stripePaymentMethod = $this->stripe->paymentMethods->retrieve($paymentMethod->stripe_payment_method_id);
+
+            if (! $stripePaymentMethod) {
+                return [
+                    'valid' => false,
+                    'error' => 'Payment method not found in Stripe',
+                ];
+            }
+
+            // Check if payment method is attached to a customer
+            if (! $stripePaymentMethod->customer) {
+                return [
+                    'valid' => false,
+                    'error' => 'Payment method is not attached to a customer',
+                ];
+            }
+
+            // For card payment methods, check if they're not expired
+            if ($stripePaymentMethod->type === 'card' && $stripePaymentMethod->card) {
+                $currentYear = (int) date('Y');
+                $currentMonth = (int) date('n');
+                $cardYear = (int) $stripePaymentMethod->card->exp_year;
+                $cardMonth = (int) $stripePaymentMethod->card->exp_month;
+
+                if ($cardYear < $currentYear || ($cardYear === $currentYear && $cardMonth < $currentMonth)) {
+                    return [
+                        'valid' => false,
+                        'error' => 'Card has expired',
+                    ];
+                }
+            }
+
+            return [
+                'valid' => true,
+                'payment_method' => $stripePaymentMethod,
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to validate payment method', [
+                'payment_method_id' => $paymentMethod->id,
+                'stripe_payment_method_id' => $paymentMethod->stripe_payment_method_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'valid' => false,
+                'error' => 'Unable to validate payment method: '.$e->getMessage(),
             ];
         }
     }
@@ -1706,6 +1829,172 @@ class StripeService
             ]);
 
             return null;
+        }
+    }
+
+    /**
+     * Create a custom price for a specific amount and billing cycle
+     */
+    public function createCustomPrice(string $productId, float $amount, string $currency = 'MYR', string $interval = 'month', int $intervalCount = 1): string
+    {
+        if (! $this->isConfigured()) {
+            throw new \Exception('Stripe is not properly configured.');
+        }
+
+        try {
+            $unitAmount = $this->convertToStripeAmount($amount);
+
+            Log::info('Creating custom Stripe price', [
+                'product_id' => $productId,
+                'amount' => $amount,
+                'unit_amount' => $unitAmount,
+                'currency' => $currency,
+                'interval' => $interval,
+                'interval_count' => $intervalCount,
+            ]);
+
+            $priceData = [
+                'product' => $productId,
+                'unit_amount' => $unitAmount,
+                'currency' => strtolower($currency),
+                'recurring' => [
+                    'interval' => $interval,
+                    'interval_count' => $intervalCount,
+                ],
+                'metadata' => [
+                    'custom_price' => 'true',
+                    'original_amount' => $amount,
+                    'system' => 'mudeer_bedaie',
+                    'created_at' => now()->toISOString(),
+                ],
+            ];
+
+            $price = $this->stripe->prices->create($priceData);
+
+            Log::info('Custom Stripe price created successfully', [
+                'price_id' => $price->id,
+                'product_id' => $productId,
+                'created_amount' => $price->unit_amount,
+                'created_currency' => $price->currency,
+            ]);
+
+            return $price->id;
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to create custom Stripe price', [
+                'product_id' => $productId,
+                'amount' => $amount,
+                'error_type' => $e->getStripeCode(),
+                'error_message' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to create custom price: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Update subscription to use a new price (change subscription fee)
+     */
+    public function updateSubscriptionPrice(string $subscriptionId, string $newPriceId): array
+    {
+        try {
+            // First get the current subscription
+            $subscription = $this->stripe->subscriptions->retrieve($subscriptionId, [
+                'expand' => ['items'],
+            ]);
+
+            if (empty($subscription->items->data)) {
+                throw new \Exception('Subscription has no items to update');
+            }
+
+            // Get the first (and typically only) subscription item
+            $subscriptionItem = $subscription->items->data[0];
+
+            // Update the subscription item to use the new price
+            $updatedSubscription = $this->stripe->subscriptions->update($subscriptionId, [
+                'items' => [
+                    [
+                        'id' => $subscriptionItem->id,
+                        'price' => $newPriceId,
+                    ],
+                ],
+                'proration_behavior' => 'create_prorations', // Generate prorated charges
+            ]);
+
+            Log::info('Subscription price updated successfully', [
+                'subscription_id' => $subscriptionId,
+                'old_price_id' => $subscriptionItem->price->id,
+                'new_price_id' => $newPriceId,
+                'subscription_status' => $updatedSubscription->status,
+            ]);
+
+            return [
+                'success' => true,
+                'subscription' => $updatedSubscription,
+                'message' => 'Subscription fee updated successfully',
+                'old_price_id' => $subscriptionItem->price->id,
+                'new_price_id' => $newPriceId,
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to update subscription price', [
+                'subscription_id' => $subscriptionId,
+                'new_price_id' => $newPriceId,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to update subscription fee: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Update subscription fee by creating a new price and updating the subscription
+     */
+    public function updateSubscriptionFee(Enrollment $enrollment, float $newFeeAmount): array
+    {
+        try {
+            if (! $enrollment->stripe_subscription_id) {
+                throw new \Exception('No active subscription found');
+            }
+
+            if (! $enrollment->course->stripe_product_id) {
+                throw new \Exception('Course must have a Stripe product ID');
+            }
+
+            // Create a new price for the updated fee
+            $currency = $enrollment->course->feeSettings?->currency ?? $this->getCurrency();
+            $newPriceId = $this->createCustomPrice(
+                $enrollment->course->stripe_product_id,
+                $newFeeAmount,
+                $currency
+            );
+
+            // Update the subscription to use the new price
+            $result = $this->updateSubscriptionPrice($enrollment->stripe_subscription_id, $newPriceId);
+
+            // Update the enrollment fee in our database
+            $enrollment->update(['enrollment_fee' => $newFeeAmount]);
+
+            Log::info('Subscription fee updated for enrollment', [
+                'enrollment_id' => $enrollment->id,
+                'old_fee' => $enrollment->getOriginal('enrollment_fee'),
+                'new_fee' => $newFeeAmount,
+                'new_price_id' => $newPriceId,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Subscription fee updated successfully to '.number_format($newFeeAmount, 2),
+                'old_fee' => $enrollment->getOriginal('enrollment_fee'),
+                'new_fee' => $newFeeAmount,
+                'price_id' => $newPriceId,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update subscription fee for enrollment', [
+                'enrollment_id' => $enrollment->id,
+                'new_fee' => $newFeeAmount,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
         }
     }
 }

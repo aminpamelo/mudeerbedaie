@@ -19,6 +19,7 @@ new class extends Component {
         'next_payment_time' => '07:23',
         'end_date' => null,
         'end_time' => null,
+        'subscription_fee' => null,
     ];
     
     // Subscription creation properties
@@ -34,6 +35,7 @@ new class extends Component {
         'end_time' => null,
         'payment_method_id' => null,
         'notes' => null,
+        'subscription_fee' => null,
     ];
 
     public function mount(): void
@@ -82,6 +84,7 @@ new class extends Component {
                     'next_payment_time' => $nextPaymentTime,
                     'end_date' => $schedule['cancel_at'] ? date('Y-m-d', $schedule['cancel_at']) : null,
                     'end_time' => $schedule['cancel_at'] ? date('H:i', $schedule['cancel_at']) : null,
+                    'subscription_fee' => $this->enrollment->enrollment_fee,
                 ];
             } catch (\Exception $e) {
                 // Fallback to basic form with next payment date only
@@ -94,6 +97,7 @@ new class extends Component {
                     'next_payment_time' => $nextPaymentTime,
                     'end_date' => null,
                     'end_time' => null,
+                    'subscription_fee' => $this->enrollment->enrollment_fee,
                 ];
                 
                 \Log::warning('Could not load subscription schedule details, using fallback', [
@@ -112,6 +116,7 @@ new class extends Component {
                 'next_payment_time' => $nextPaymentTime,
                 'end_date' => null,
                 'end_time' => null,
+                'subscription_fee' => $this->enrollment->enrollment_fee,
             ];
         }
     }
@@ -135,6 +140,7 @@ new class extends Component {
             'end_time' => null,
             'payment_method_id' => $defaultPaymentMethod?->id,
             'notes' => null,
+            'subscription_fee' => $this->enrollment->enrollment_fee,
         ];
     }
 
@@ -149,6 +155,7 @@ new class extends Component {
             'scheduleForm.next_payment_time' => 'nullable|date_format:H:i',
             'scheduleForm.end_date' => 'nullable|date|after:today',
             'scheduleForm.end_time' => 'nullable|date_format:H:i',
+            'scheduleForm.subscription_fee' => 'nullable|numeric|min:0.01|max:9999999.99',
             // Creation form rules
             'createForm.trial_end_at' => 'nullable|date|after_or_equal:today',
             'createForm.billing_cycle_anchor' => 'nullable|date|after_or_equal:today',
@@ -160,6 +167,7 @@ new class extends Component {
             'createForm.end_time' => 'nullable|date_format:H:i',
             'createForm.payment_method_id' => 'required|exists:payment_methods,id',
             'createForm.notes' => 'nullable|string|max:1000',
+            'createForm.subscription_fee' => 'nullable|numeric|min:0.01|max:9999999.99',
         ];
     }
     
@@ -420,6 +428,16 @@ new class extends Component {
 
             $stripeService = app(StripeService::class);
             
+            // Handle custom subscription fee if provided
+            if (isset($this->createForm['subscription_fee']) && 
+                $this->createForm['subscription_fee'] !== null && 
+                $this->createForm['subscription_fee'] != $this->enrollment->enrollment_fee) {
+                
+                // Update the enrollment fee before creating subscription
+                $this->enrollment->update(['enrollment_fee' => (float) $this->createForm['subscription_fee']]);
+                $this->enrollment->refresh();
+            }
+            
             // For now, use the existing createSubscription method with basic options
             // This can be extended later when StripeService supports more options
             $result = $stripeService->createSubscription($this->enrollment, $paymentMethod);
@@ -602,6 +620,64 @@ new class extends Component {
         }
     }
 
+    public function forceRecreateSubscription()
+    {
+        \Log::info('Force recreate subscription button clicked', [
+            'enrollment_id' => $this->enrollment->id,
+            'subscription_id' => $this->enrollment->stripe_subscription_id,
+            'user_id' => auth()->user()->id
+        ]);
+
+        try {
+            // First, cancel the problematic subscription
+            if ($this->enrollment->stripe_subscription_id) {
+                $stripeService = app(StripeService::class);
+                $stripeService->cancelSubscription($this->enrollment->stripe_subscription_id, true); // Cancel immediately
+                
+                \Log::info('Problematic subscription canceled', [
+                    'enrollment_id' => $this->enrollment->id,
+                    'old_subscription_id' => $this->enrollment->stripe_subscription_id,
+                ]);
+            }
+
+            // Get student's default payment method
+            $paymentMethod = $this->enrollment->student->user->paymentMethods()
+                ->active()
+                ->default()
+                ->first();
+
+            if (!$paymentMethod) {
+                session()->flash('error', 'Student must have a valid payment method before recreating subscription.');
+                return;
+            }
+
+            // Create a new subscription
+            $stripeService = app(StripeService::class);
+            $result = $stripeService->createSubscription($this->enrollment, $paymentMethod);
+
+            // Refresh enrollment to get updated subscription data
+            $this->enrollment->refresh();
+            
+            // Force refresh of the subscription log
+            $this->mount();
+
+            session()->flash('success', 'Subscription recreated successfully! The old problematic subscription has been canceled and a new one created.');
+
+            \Log::info('Subscription successfully recreated', [
+                'enrollment_id' => $this->enrollment->id,
+                'new_subscription_id' => $this->enrollment->stripe_subscription_id,
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to recreate subscription', [
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage(),
+            ]);
+            
+            session()->flash('error', 'Failed to recreate subscription: ' . $e->getMessage());
+        }
+    }
+
     public function confirmPayment()
     {
         \Log::info('Confirm payment button clicked', [
@@ -642,6 +718,13 @@ new class extends Component {
                 if (isset($result['requires_action']) && $result['requires_action']) {
                     // Payment requires customer action (3D Secure, etc.)
                     session()->flash('warning', $result['error'] . ' The customer must complete payment setup themselves.');
+                } elseif (isset($result['requires_manual_action']) && $result['requires_manual_action']) {
+                    // Payment intent missing and couldn't be recovered - provide detailed guidance
+                    $errorMessage = $result['error'];
+                    if (isset($result['suggested_actions'])) {
+                        $errorMessage .= "\n\nSuggested actions:\n• " . implode("\n• ", $result['suggested_actions']);
+                    }
+                    session()->flash('error', $errorMessage);
                 } else {
                     session()->flash('error', 'Failed to confirm payment: ' . $result['error']);
                 }
@@ -650,6 +733,8 @@ new class extends Component {
                     'enrollment_id' => $this->enrollment->id,
                     'subscription_id' => $this->enrollment->stripe_subscription_id,
                     'error' => $result['error'],
+                    'requires_manual_action' => $result['requires_manual_action'] ?? false,
+                    'suggested_actions' => $result['suggested_actions'] ?? [],
                 ]);
             }
 
@@ -784,6 +869,30 @@ new class extends Component {
                 $enrollmentData['subscription_cancel_at'] = \Carbon\Carbon::createFromTimestamp($endTimestamp);
             }
 
+            // Handle subscription fee update
+            $feeUpdateResult = null;
+            if (isset($this->scheduleForm['subscription_fee']) && 
+                $this->scheduleForm['subscription_fee'] !== null && 
+                $this->scheduleForm['subscription_fee'] != $this->enrollment->enrollment_fee) {
+                
+                try {
+                    $feeUpdateResult = $stripeService->updateSubscriptionFee($this->enrollment, (float) $this->scheduleForm['subscription_fee']);
+                    Log::info('Subscription fee updated', [
+                        'enrollment_id' => $this->enrollment->id,
+                        'old_fee' => $this->enrollment->enrollment_fee,
+                        'new_fee' => $this->scheduleForm['subscription_fee'],
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to update subscription fee', [
+                        'enrollment_id' => $this->enrollment->id,
+                        'new_fee' => $this->scheduleForm['subscription_fee'],
+                        'error' => $e->getMessage(),
+                    ]);
+                    session()->flash('error', 'Failed to update subscription fee: ' . $e->getMessage());
+                    return;
+                }
+            }
+
             // Update schedule in Stripe
             $result = $stripeService->updateSubscriptionSchedule($this->enrollment->stripe_subscription_id, $scheduleData);
 
@@ -803,7 +912,13 @@ new class extends Component {
                 // Refresh subscription events
                 $this->refreshSubscriptionEvents();
                 
-                session()->flash('success', $result['message']);
+                // Combine messages if fee was updated
+                $message = $result['message'];
+                if ($feeUpdateResult) {
+                    $message .= ' ' . $feeUpdateResult['message'];
+                }
+                
+                session()->flash('success', $message);
                 $this->showScheduleModal = false;
 
                 Log::info('Subscription schedule updated successfully', [
@@ -1132,6 +1247,10 @@ new class extends Component {
                                     <p class="text-sm text-gray-900">{{ $enrollment->course->formatted_fee ?? 'N/A' }}</p>
                                 </div>
                             @endif
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Enrollment Fee</p>
+                                <p class="text-sm text-gray-900">{{ $enrollment->formatted_enrollment_fee }}</p>
+                            </div>
                         </div>
 
                         <div class="mt-4">
@@ -1172,7 +1291,7 @@ new class extends Component {
                         
                         <div>
                             <p class="text-sm font-medium text-gray-500">Monthly Fee</p>
-                            <p class="text-sm text-gray-900">{{ $enrollment->course->feeSettings?->formatted_fee ?? 'N/A' }}</p>
+                            <p class="text-sm text-gray-900">{{ $enrollment->formatted_enrollment_fee }}</p>
                         </div>
                         
                         <div>
@@ -1219,6 +1338,10 @@ new class extends Component {
                                 @if($enrollment->subscription_status === 'incomplete')
                                     <flux:button size="sm" variant="primary" wire:click="confirmPayment" wire:confirm="Attempt to confirm the payment for this subscription. This may not work if customer authentication is required." icon="credit-card">
                                         Confirm Payment
+                                    </flux:button>
+                                    
+                                    <flux:button size="sm" variant="outline" wire:click="forceRecreateSubscription" wire:confirm="This will cancel the current problematic subscription and create a new one. The student will be charged immediately. Are you sure?" icon="arrow-path">
+                                        Force Recreate
                                     </flux:button>
                                 @endif
                                 
@@ -1809,6 +1932,19 @@ new class extends Component {
                         <flux:description>Time for the next payment (24-hour format).</flux:description>
                     </flux:field>
 
+                    <flux:field>
+                        <flux:label>Subscription Fee (RM)</flux:label>
+                        <flux:input 
+                            type="number" 
+                            step="0.01" 
+                            min="0.01" 
+                            wire:model="scheduleForm.subscription_fee" 
+                            placeholder="0.00"
+                        />
+                        <flux:error name="scheduleForm.subscription_fee" />
+                        <flux:description>Update the monthly subscription fee for this enrollment. Changes will be applied immediately with proration.</flux:description>
+                    </flux:field>
+
                 </div>
 
                 <!-- Trial & End Date Section -->
@@ -1944,6 +2080,19 @@ new class extends Component {
                     </flux:field>
 
                     <flux:field>
+                        <flux:label>Subscription Fee (RM)</flux:label>
+                        <flux:input 
+                            type="number" 
+                            step="0.01" 
+                            min="0.01" 
+                            wire:model="createForm.subscription_fee" 
+                            placeholder="0.00"
+                        />
+                        <flux:error name="createForm.subscription_fee" />
+                        <flux:description>Set a custom monthly fee for this subscription. Leave blank to use the default course fee ({{ $enrollment->course->formatted_fee ?? 'N/A' }}).</flux:description>
+                    </flux:field>
+
+                    <flux:field>
                         <flux:label>Start Date</flux:label>
                         <flux:input 
                             type="date" 
@@ -2051,7 +2200,7 @@ new class extends Component {
                         </div>
                         <div>
                             <span class="font-medium">Monthly Fee:</span>
-                            <span class="ml-2">{{ $enrollment->course->feeSettings->formatted_fee }}</span>
+                            <span class="ml-2">{{ $enrollment->formatted_enrollment_fee }}</span>
                         </div>
                         <div>
                             <span class="font-medium">Billing Cycle:</span>

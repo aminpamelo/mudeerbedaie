@@ -39,6 +39,13 @@ Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
     // Courses listing for students
     Volt::route('courses', 'student.courses')->name('student.courses');
 
+    // Classes for students
+    Volt::route('classes', 'student.my-classes')->name('student.classes.index');
+    Volt::route('classes/{class}', 'student.class-show')->name('student.classes.show');
+
+    // Timetable for students
+    Volt::route('timetable', 'student.my-timetable')->name('student.timetable');
+
     // Subscription management for students
     Volt::route('subscriptions', 'student.subscriptions')->name('student.subscriptions');
     Volt::route('subscriptions/{enrollment}/cancel', 'student.subscription-cancel')->name('student.subscriptions.cancel');

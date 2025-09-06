@@ -89,6 +89,11 @@
                     <flux:navlist.item icon="check-circle" :href="route('student.subscriptions')" :current="request()->routeIs('student.subscriptions*')" wire:navigate>{{ __('My Enrollments') }}</flux:navlist.item>
                 </flux:navlist.group>
                 
+                <flux:navlist.group :heading="__('Learning')" class="grid">
+                    <flux:navlist.item icon="calendar-days" :href="route('student.classes.index')" :current="request()->routeIs('student.classes.*')" wire:navigate>{{ __('My Classes') }}</flux:navlist.item>
+                    <flux:navlist.item icon="calendar" :href="route('student.timetable')" :current="request()->routeIs('student.timetable')" wire:navigate>{{ __('My Timetable') }}</flux:navlist.item>
+                </flux:navlist.group>
+                
                 <flux:navlist.group :heading="__('My Account')" class="grid">
                     <flux:navlist.item icon="clipboard-document-list" :href="route('student.orders')" :current="request()->routeIs('student.orders*')" wire:navigate>{{ __('Order History') }}</flux:navlist.item>
                     <flux:navlist.item icon="credit-card" :href="route('student.payment-methods')" :current="request()->routeIs('student.payment-methods*')" wire:navigate>{{ __('Payment Methods') }}</flux:navlist.item>

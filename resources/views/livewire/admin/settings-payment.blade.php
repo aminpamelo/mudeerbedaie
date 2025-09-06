@@ -202,8 +202,8 @@ new class extends Component {
                         <flux:field>
                             <flux:label>Payment Mode</flux:label>
                             <flux:radio.group wire:model="payment_mode">
-                                <flux:radio value="test">Test Mode (for development)</flux:radio>
-                                <flux:radio value="live">Live Mode (for production)</flux:radio>
+                                <flux:radio value="test" label="Test Mode (for development)" />
+                                <flux:radio value="live" label="Live Mode (for production)" />
                             </flux:radio.group>
                             <flux:error name="payment_mode" />
                         </flux:field>
