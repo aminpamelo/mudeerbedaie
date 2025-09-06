@@ -116,7 +116,7 @@ new class extends Component {
                     </div>
                 </div>
 
-                @if($order->failure_reason)
+                @if($order->isFailed() && $order->failure_reason)
                     <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                         <flux:text class="text-red-800 font-medium">Failure Reason</flux:text>
                         <flux:text class="text-red-700 mt-1">

@@ -186,6 +186,8 @@ class Order extends Model
         $this->update([
             'status' => self::STATUS_PAID,
             'paid_at' => now(),
+            'failed_at' => null,
+            'failure_reason' => null,
         ]);
     }
 
@@ -250,10 +252,10 @@ class Order extends Model
     public static function createFromStripeInvoice(array $stripeInvoice, Enrollment $enrollment): self
     {
         // Use total amount for failed invoices, amount_paid for successful ones
-        $amount = $stripeInvoice['status'] === 'paid' 
+        $amount = $stripeInvoice['status'] === 'paid'
             ? $stripeInvoice['amount_paid'] / 100
             : ($stripeInvoice['total'] ?? $stripeInvoice['amount_due'] ?? $stripeInvoice['amount_paid']) / 100;
-            
+
         // Determine status based on Stripe invoice status
         $status = match ($stripeInvoice['status']) {
             'paid' => self::STATUS_PAID,
