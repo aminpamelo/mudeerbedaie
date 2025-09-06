@@ -26,18 +26,31 @@ class ProcessStripeSubscriptionUpdated implements ShouldQueue
     public function handle(StripeService $stripeService): void
     {
         try {
+            // Extract subscription ID - handle both object and array formats
+            $subscriptionId = $this->stripeSubscription['id'] ?? $this->stripeSubscription['object']->id ?? null;
+
+            if (! $subscriptionId) {
+                Log::error('Subscription ID not found in webhook data', [
+                    'webhook_event_id' => $this->webhookEvent->id,
+                    'subscription_data_keys' => array_keys($this->stripeSubscription),
+                ]);
+                $this->webhookEvent->markAsFailed('Subscription ID not found in webhook data');
+
+                return;
+            }
+
             Log::info('Processing subscription updated webhook', [
                 'webhook_event_id' => $this->webhookEvent->id,
-                'stripe_subscription_id' => $this->stripeSubscription['id'],
+                'stripe_subscription_id' => $subscriptionId,
                 'status' => $this->stripeSubscription['status'] ?? 'unknown',
             ]);
 
             // Find the enrollment with this subscription ID
-            $enrollment = \App\Models\Enrollment::where('stripe_subscription_id', $this->stripeSubscription['id'])->first();
+            $enrollment = \App\Models\Enrollment::where('stripe_subscription_id', $subscriptionId)->first();
 
             if (! $enrollment) {
                 Log::warning('No enrollment found for subscription update', [
-                    'stripe_subscription_id' => $this->stripeSubscription['id'],
+                    'stripe_subscription_id' => $subscriptionId,
                 ]);
                 $this->webhookEvent->markAsProcessed();
 
@@ -60,7 +73,7 @@ class ProcessStripeSubscriptionUpdated implements ShouldQueue
                         $enrollment->pauseCollection();
                         Log::info('Collection status updated to paused via webhook', [
                             'enrollment_id' => $enrollment->id,
-                            'subscription_id' => $this->stripeSubscription['id'],
+                            'subscription_id' => $subscriptionId,
                         ]);
                     }
                 } else {
@@ -69,7 +82,7 @@ class ProcessStripeSubscriptionUpdated implements ShouldQueue
                         $enrollment->resumeCollection();
                         Log::info('Collection status updated to active via webhook', [
                             'enrollment_id' => $enrollment->id,
-                            'subscription_id' => $this->stripeSubscription['id'],
+                            'subscription_id' => $subscriptionId,
                         ]);
                     }
                 }
@@ -107,7 +120,7 @@ class ProcessStripeSubscriptionUpdated implements ShouldQueue
                 'enrollment_id' => $enrollment->id,
                 'old_status' => $oldStatus,
                 'new_status' => $newStatus,
-                'subscription_id' => $this->stripeSubscription['id'],
+                'subscription_id' => $subscriptionId,
             ]);
 
             $this->webhookEvent->markAsProcessed();

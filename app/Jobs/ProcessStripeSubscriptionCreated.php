@@ -26,9 +26,22 @@ class ProcessStripeSubscriptionCreated implements ShouldQueue
     public function handle(StripeService $stripeService): void
     {
         try {
+            // Extract subscription ID - handle both object and array formats
+            $subscriptionId = $this->stripeSubscription['id'] ?? $this->stripeSubscription['object']->id ?? null;
+
+            if (! $subscriptionId) {
+                Log::error('Subscription ID not found in webhook data', [
+                    'webhook_event_id' => $this->webhookEvent->id,
+                    'subscription_data_keys' => array_keys($this->stripeSubscription),
+                ]);
+                $this->webhookEvent->markAsFailed('Subscription ID not found in webhook data');
+
+                return;
+            }
+
             Log::info('Processing subscription created webhook', [
                 'webhook_event_id' => $this->webhookEvent->id,
-                'stripe_subscription_id' => $this->stripeSubscription['id'],
+                'stripe_subscription_id' => $subscriptionId,
             ]);
 
             // TODO: Implement subscription created logic
