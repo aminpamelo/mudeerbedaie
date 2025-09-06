@@ -28,28 +28,41 @@ class ProcessStripeInvoicePaymentSucceeded implements ShouldQueue
     public function handle(StripeService $stripeService): void
     {
         try {
+            // Extract invoice ID - handle both object and array formats
+            $invoiceId = $this->stripeInvoice['id'] ?? $this->stripeInvoice['object']->id ?? null;
+
+            if (! $invoiceId) {
+                Log::error('Invoice ID not found in webhook data', [
+                    'webhook_event_id' => $this->webhookEvent->id,
+                    'invoice_data_keys' => array_keys($this->stripeInvoice),
+                ]);
+                $this->webhookEvent->markAsFailed('Invoice ID not found in webhook data');
+
+                return;
+            }
+
             Log::info('Processing invoice payment succeeded webhook', [
                 'webhook_event_id' => $this->webhookEvent->id,
-                'stripe_invoice_id' => $this->stripeInvoice['id'] ?? 'unknown',
+                'stripe_invoice_id' => $invoiceId,
             ]);
 
             // If webhook data doesn't contain full invoice (common with Stripe CLI),
             // fetch complete invoice from Stripe API
             $fullInvoiceData = $this->stripeInvoice;
-            if (! isset($this->stripeInvoice['lines']) && isset($this->stripeInvoice['id'])) {
+            if (! isset($this->stripeInvoice['lines']) && $invoiceId) {
                 Log::info('Fetching full invoice data from Stripe API', [
-                    'invoice_id' => $this->stripeInvoice['id'],
+                    'invoice_id' => $invoiceId,
                 ]);
 
                 try {
                     $stripeInvoice = $stripeService->getStripe()->invoices->retrieve(
-                        $this->stripeInvoice['id'],
+                        $invoiceId,
                         ['expand' => ['lines']]
                     );
                     $fullInvoiceData = $stripeInvoice->toArray();
                 } catch (\Exception $e) {
                     Log::warning('Could not fetch full invoice from Stripe', [
-                        'invoice_id' => $this->stripeInvoice['id'],
+                        'invoice_id' => $invoiceId,
                         'error' => $e->getMessage(),
                     ]);
                 }
@@ -84,7 +97,7 @@ class ProcessStripeInvoicePaymentSucceeded implements ShouldQueue
         } catch (\Exception $e) {
             Log::error('Failed to process invoice payment succeeded webhook', [
                 'webhook_event_id' => $this->webhookEvent->id,
-                'stripe_invoice_id' => $this->stripeInvoice['id'],
+                'stripe_invoice_id' => $invoiceId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
