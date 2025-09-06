@@ -32,6 +32,40 @@ new class extends Component {
         return redirect()->route('student.payment-methods', ['enrollment' => $enrollmentId]);
     }
 
+    public function resumeCollection($enrollmentId)
+    {
+        try {
+            $enrollment = Enrollment::where('id', $enrollmentId)
+                ->where('student_id', auth()->user()->student->id)
+                ->firstOrFail();
+
+            if (!$enrollment->stripe_subscription_id) {
+                session()->flash('error', 'This enrollment does not have an active subscription.');
+                return;
+            }
+
+            if (!$enrollment->isCollectionPaused()) {
+                session()->flash('error', 'Collection is not currently paused.');
+                return;
+            }
+
+            $stripeService = app(StripeService::class);
+            $result = $stripeService->resumeSubscriptionCollection($enrollment->stripe_subscription_id);
+            
+            if ($result['success']) {
+                // Update local status
+                $enrollment->resumeCollection();
+                session()->flash('success', 'Collection has been resumed successfully. Future payments will be processed normally.');
+            } else {
+                session()->flash('error', 'Failed to resume collection. Please try again or contact support.');
+            }
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to resume collection: ' . $e->getMessage());
+        }
+    }
+
+
     public function with(): array
     {
         $student = auth()->user()->student;
@@ -93,7 +127,11 @@ new class extends Component {
                                                 <flux:text class="text-gray-600">Status</flux:text>
                                                 <div class="flex items-center gap-2 mt-1">
                                                     @if($enrollment->isSubscriptionActive())
-                                                        <flux:badge variant="success">{{ $enrollment->getSubscriptionStatusLabel() }}</flux:badge>
+                                                        @if($enrollment->isCollectionPaused())
+                                                            <flux:badge variant="warning">{{ $enrollment->getFullStatusDescription() }}</flux:badge>
+                                                        @else
+                                                            <flux:badge variant="success">{{ $enrollment->getSubscriptionStatusLabel() }}</flux:badge>
+                                                        @endif
                                                     @elseif($enrollment->isSubscriptionTrialing())
                                                         <flux:badge variant="info">{{ $enrollment->getSubscriptionStatusLabel() }}</flux:badge>
                                                     @elseif($enrollment->isSubscriptionPastDue())
@@ -102,6 +140,11 @@ new class extends Component {
                                                         <flux:badge variant="gray">{{ $enrollment->getSubscriptionStatusLabel() }}</flux:badge>
                                                     @endif
                                                 </div>
+                                                @if($enrollment->isCollectionPaused() && $enrollment->collection_paused_at)
+                                                    <flux:text size="sm" class="text-gray-500 mt-1">
+                                                        Paused: {{ $enrollment->getFormattedCollectionPausedDate() }}
+                                                    </flux:text>
+                                                @endif
                                             </div>
                                             
                                             @if($enrollment->course->feeSettings)
@@ -150,6 +193,21 @@ new class extends Component {
                                 >
                                     Update Payment
                                 </flux:button>
+
+                                @if($enrollment->isCollectionPaused() && $enrollment->isSubscriptionActive())
+                                    <flux:button 
+                                        wire:click="resumeCollection({{ $enrollment->id }})"
+                                        wire:confirm="Are you sure you want to resume collection? Future payments will be processed normally."
+                                        variant="primary" 
+                                        size="sm"
+                                    >
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="play" class="w-4 h-4 mr-1" />
+                                            Resume Collection
+                                        </div>
+                                    </flux:button>
+                                @endif
+
                                 
                                 <flux:button 
                                     wire:click="cancelSubscription({{ $enrollment->id }})"

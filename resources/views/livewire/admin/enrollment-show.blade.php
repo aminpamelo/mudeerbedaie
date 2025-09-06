@@ -7,6 +7,34 @@ use Livewire\Volt\Component;
 new class extends Component {
     public Enrollment $enrollment;
     public $subscriptionEvents;
+    
+    // Schedule management properties
+    public $showScheduleModal = false;
+    public $scheduleForm = [
+        'billing_cycle_anchor' => null,
+        'trial_end_at' => null,
+        'subscription_timezone' => 'Asia/Kuala_Lumpur',
+        'proration_behavior' => 'create_prorations',
+        'next_payment_date' => null,
+        'next_payment_time' => '07:23',
+        'end_date' => null,
+        'end_time' => null,
+    ];
+    
+    // Subscription creation properties
+    public $showCreateSubscriptionModal = false;
+    public $createForm = [
+        'trial_end_at' => null,
+        'billing_cycle_anchor' => null,
+        'subscription_timezone' => 'Asia/Kuala_Lumpur',
+        'proration_behavior' => 'create_prorations',
+        'start_date' => null,
+        'start_time' => '07:23',
+        'end_date' => null,
+        'end_time' => null,
+        'payment_method_id' => null,
+        'notes' => null,
+    ];
 
     public function mount(): void
     {
@@ -19,6 +47,120 @@ new class extends Component {
         if ($this->enrollment->stripe_subscription_id) {
             $this->refreshSubscriptionStatus();
         }
+
+        // Initialize schedule form
+        $this->initializeScheduleForm();
+        
+        // Initialize create form
+        $this->initializeCreateForm();
+    }
+
+    protected function initializeScheduleForm(): void
+    {
+        // Use the same reliable calculation as the main view
+        $nextPaymentDate = null;
+        $nextPaymentTime = '07:23';
+        
+        // Get next payment date from enrollment model (same as main view)
+        $nextPaymentCarbon = $this->enrollment->getNextPaymentDate();
+        if ($nextPaymentCarbon) {
+            $nextPaymentDate = $nextPaymentCarbon->format('Y-m-d');
+            $nextPaymentTime = $nextPaymentCarbon->format('H:i');
+        }
+
+        if ($this->enrollment->stripe_subscription_id) {
+            try {
+                $stripeService = app(StripeService::class);
+                $schedule = $stripeService->getDetailedSubscriptionSchedule($this->enrollment->stripe_subscription_id);
+
+                $this->scheduleForm = [
+                    'billing_cycle_anchor' => $schedule['billing_cycle_anchor'] ? date('Y-m-d', $schedule['billing_cycle_anchor']) : null,
+                    'trial_end_at' => ($schedule['trial_end'] && $schedule['trial_end'] > time()) ? date('Y-m-d', $schedule['trial_end']) : null,
+                    'subscription_timezone' => $this->enrollment->getSubscriptionTimezone(),
+                    'proration_behavior' => $this->enrollment->proration_behavior ?? 'create_prorations',
+                    'next_payment_date' => $nextPaymentDate,
+                    'next_payment_time' => $nextPaymentTime,
+                    'end_date' => $schedule['cancel_at'] ? date('Y-m-d', $schedule['cancel_at']) : null,
+                    'end_time' => $schedule['cancel_at'] ? date('H:i', $schedule['cancel_at']) : null,
+                ];
+            } catch (\Exception $e) {
+                // Fallback to basic form with next payment date only
+                $this->scheduleForm = [
+                    'billing_cycle_anchor' => null,
+                    'trial_end_at' => null,
+                    'subscription_timezone' => $this->enrollment->getSubscriptionTimezone(),
+                    'proration_behavior' => $this->enrollment->proration_behavior ?? 'create_prorations',
+                    'next_payment_date' => $nextPaymentDate,
+                    'next_payment_time' => $nextPaymentTime,
+                    'end_date' => null,
+                    'end_time' => null,
+                ];
+                
+                \Log::warning('Could not load subscription schedule details, using fallback', [
+                    'enrollment_id' => $this->enrollment->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        } else {
+            // No subscription, just set basic form
+            $this->scheduleForm = [
+                'billing_cycle_anchor' => null,
+                'trial_end_at' => null,
+                'subscription_timezone' => 'Asia/Kuala_Lumpur',
+                'proration_behavior' => 'create_prorations',
+                'next_payment_date' => $nextPaymentDate,
+                'next_payment_time' => $nextPaymentTime,
+                'end_date' => null,
+                'end_time' => null,
+            ];
+        }
+    }
+
+    protected function initializeCreateForm(): void
+    {
+        // Get student's available payment methods
+        $defaultPaymentMethod = $this->enrollment->student->user->paymentMethods()
+            ->active()
+            ->default()
+            ->first();
+
+        $this->createForm = [
+            'trial_end_at' => null,
+            'billing_cycle_anchor' => null,
+            'subscription_timezone' => 'Asia/Kuala_Lumpur',
+            'proration_behavior' => 'create_prorations',
+            'start_date' => now()->format('Y-m-d'),
+            'start_time' => '07:23',
+            'end_date' => null,
+            'end_time' => null,
+            'payment_method_id' => $defaultPaymentMethod?->id,
+            'notes' => null,
+        ];
+    }
+
+    protected function rules(): array
+    {
+        return [
+            'scheduleForm.billing_cycle_anchor' => 'nullable|date',
+            'scheduleForm.trial_end_at' => 'nullable|date|after_or_equal:today',
+            'scheduleForm.subscription_timezone' => 'required|string|max:50',
+            'scheduleForm.proration_behavior' => 'required|in:create_prorations,none,always_invoice',
+            'scheduleForm.next_payment_date' => 'nullable|date|after_or_equal:today',
+            'scheduleForm.next_payment_time' => 'nullable|date_format:H:i',
+            'scheduleForm.end_date' => 'nullable|date|after:today',
+            'scheduleForm.end_time' => 'nullable|date_format:H:i',
+            // Creation form rules
+            'createForm.trial_end_at' => 'nullable|date|after_or_equal:today',
+            'createForm.billing_cycle_anchor' => 'nullable|date|after_or_equal:today',
+            'createForm.subscription_timezone' => 'required|string|max:50',
+            'createForm.proration_behavior' => 'required|in:create_prorations,none,always_invoice',
+            'createForm.start_date' => 'nullable|date|after_or_equal:today',
+            'createForm.start_time' => 'nullable|date_format:H:i',
+            'createForm.end_date' => 'nullable|date|after:today',
+            'createForm.end_time' => 'nullable|date_format:H:i',
+            'createForm.payment_method_id' => 'required|exists:payment_methods,id',
+            'createForm.notes' => 'nullable|string|max:1000',
+        ];
     }
     
     public function refreshSubscriptionEvents(): void
@@ -58,6 +200,106 @@ new class extends Component {
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    public function syncSubscriptionData(): void
+    {
+        try {
+            if (!$this->enrollment->stripe_subscription_id) {
+                session()->flash('error', 'No subscription ID found to sync with Stripe.');
+                return;
+            }
+
+            $stripeService = app(StripeService::class);
+            
+            // Get comprehensive subscription details from Stripe
+            $details = $stripeService->getSubscriptionDetails($this->enrollment->stripe_subscription_id);
+            
+            \Log::info('Syncing subscription data from Stripe', [
+                'enrollment_id' => $this->enrollment->id,
+                'subscription_id' => $this->enrollment->stripe_subscription_id,
+                'stripe_status' => $details['status'] ?? 'unknown',
+            ]);
+            
+            // Update subscription status
+            if (isset($details['status']) && $details['status'] !== $this->enrollment->subscription_status) {
+                $this->enrollment->updateSubscriptionStatus($details['status']);
+            }
+            
+            // Sync collection status if available
+            if (isset($details['pause_collection'])) {
+                $pauseCollection = $details['pause_collection'];
+                
+                if ($pauseCollection && isset($pauseCollection['behavior']) && $pauseCollection['behavior'] === 'void') {
+                    // Collection is paused
+                    if (!$this->enrollment->isCollectionPaused()) {
+                        $this->enrollment->pauseCollection();
+                    }
+                } else {
+                    // Collection is active
+                    if ($this->enrollment->isCollectionPaused()) {
+                        $this->enrollment->resumeCollection();
+                    }
+                }
+            }
+            
+            // Update next payment date
+            if (in_array($details['status'] ?? '', ['active', 'trialing']) && isset($details['current_period_end'])) {
+                $nextPaymentDate = \Carbon\Carbon::createFromTimestamp($details['current_period_end'])->addDay();
+                $this->enrollment->updateNextPaymentDate($nextPaymentDate);
+            } elseif (in_array($details['status'] ?? '', ['canceled', 'incomplete_expired', 'past_due', 'unpaid'])) {
+                $this->enrollment->updateNextPaymentDate(null);
+            }
+            
+            // Update cancellation information
+            $cancelAt = null;
+            if ($details['cancel_at_period_end'] && $details['cancel_at']) {
+                $cancelAt = \Carbon\Carbon::createFromTimestamp($details['cancel_at']);
+            }
+            
+            $currentCancelAt = $this->enrollment->subscription_cancel_at;
+            if (($currentCancelAt && !$cancelAt) || 
+                (!$currentCancelAt && $cancelAt) || 
+                ($currentCancelAt && $cancelAt && !$currentCancelAt->equalTo($cancelAt))) {
+                $this->enrollment->updateSubscriptionCancellation($cancelAt);
+            }
+            
+            // Update trial information if available
+            if (isset($details['trial_end']) && $details['trial_end']) {
+                $trialEnd = \Carbon\Carbon::createFromTimestamp($details['trial_end']);
+                // Update trial end if different
+                if (!$this->enrollment->trial_end_at || !$this->enrollment->trial_end_at->equalTo($trialEnd)) {
+                    $this->enrollment->update(['trial_end_at' => $trialEnd]);
+                }
+            } elseif (isset($details['trial_end']) && !$details['trial_end'] && $this->enrollment->trial_end_at) {
+                // Clear trial end if no longer in trial
+                $this->enrollment->update(['trial_end_at' => null]);
+            }
+            
+            // Refresh enrollment data
+            $this->enrollment->refresh();
+            
+            // Refresh subscription events
+            $this->refreshSubscriptionEvents();
+            
+            session()->flash('success', 'Subscription data synchronized successfully from Stripe!');
+            
+            \Log::info('Subscription data synced successfully', [
+                'enrollment_id' => $this->enrollment->id,
+                'subscription_id' => $this->enrollment->stripe_subscription_id,
+                'new_status' => $this->enrollment->subscription_status,
+                'collection_status' => $this->enrollment->collection_status ?? 'active',
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Failed to sync subscription data from Stripe', [
+                'enrollment_id' => $this->enrollment->id,
+                'subscription_id' => $this->enrollment->stripe_subscription_id,
+                'error' => $e->getMessage(),
+            ]);
+            
+            session()->flash('error', 'Failed to sync subscription data: ' . $e->getMessage());
         }
     }
 
@@ -144,6 +386,72 @@ new class extends Component {
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
+            ]);
+            session()->flash('error', 'Failed to create subscription: ' . $e->getMessage());
+        }
+    }
+
+    public function createSubscriptionWithOptions()
+    {
+        \Log::info('Create subscription with options submitted', [
+            'enrollment_id' => $this->enrollment->id,
+            'user_id' => auth()->user()->id,
+            'form_data' => $this->createForm
+        ]);
+
+        $this->validate();
+
+        try {
+            // Validate course settings
+            if (!$this->enrollment->course->feeSettings || !$this->enrollment->course->feeSettings->stripe_price_id) {
+                session()->flash('error', 'Course must have fee settings configured and synced with Stripe.');
+                return;
+            }
+
+            // Get selected payment method
+            $paymentMethod = $this->enrollment->student->user->paymentMethods()
+                ->active()
+                ->find($this->createForm['payment_method_id']);
+
+            if (!$paymentMethod) {
+                session()->flash('error', 'Selected payment method not found or inactive.');
+                return;
+            }
+
+            $stripeService = app(StripeService::class);
+            
+            // For now, use the existing createSubscription method with basic options
+            // This can be extended later when StripeService supports more options
+            $result = $stripeService->createSubscription($this->enrollment, $paymentMethod);
+            
+            // Store additional metadata if notes provided
+            if ($this->createForm['notes']) {
+                $this->enrollment->update(['notes' => $this->createForm['notes']]);
+            }
+            
+            // Update enrollment with timezone preference
+            $this->enrollment->update([
+                'subscription_timezone' => $this->createForm['subscription_timezone']
+            ]);
+
+            // Refresh enrollment to get updated subscription data
+            $this->enrollment->refresh();
+            
+            // Close modal
+            $this->showCreateSubscriptionModal = false;
+            
+            \Log::info('Subscription created successfully with options', [
+                'enrollment_id' => $this->enrollment->id,
+                'stripe_subscription_id' => $this->enrollment->stripe_subscription_id
+            ]);
+
+            session()->flash('success', 'Subscription created successfully with your configured options!');
+            
+        } catch (\Exception $e) {
+            \Log::error('Failed to create subscription with options', [
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage(),
+                'form_data' => $this->createForm
             ]);
             session()->flash('error', 'Failed to create subscription: ' . $e->getMessage());
         }
@@ -355,6 +663,321 @@ new class extends Component {
             session()->flash('error', 'Failed to confirm payment: ' . $e->getMessage());
         }
     }
+
+    // Schedule management methods
+    public function openScheduleModal()
+    {
+        $this->showScheduleModal = true;
+        $this->initializeScheduleForm();
+        $this->resetErrorBag();
+    }
+
+    public function closeScheduleModal()
+    {
+        $this->showScheduleModal = false;
+        $this->resetErrorBag();
+    }
+    
+    // Subscription creation methods
+    public function openCreateSubscriptionModal()
+    {
+        $this->showCreateSubscriptionModal = true;
+        $this->initializeCreateForm();
+        $this->resetErrorBag();
+    }
+
+    public function closeCreateSubscriptionModal()
+    {
+        $this->showCreateSubscriptionModal = false;
+        $this->resetErrorBag();
+    }
+
+    // Called when modal is opened via wire:model
+    public function updatedShowScheduleModal($value)
+    {
+        if ($value) {
+            $this->initializeScheduleForm();
+            $this->resetErrorBag();
+        } else {
+            $this->resetErrorBag();
+        }
+    }
+
+    public function updateSubscriptionSchedule()
+    {
+        // Add debugging
+        Log::info('Form submission started', [
+            'enrollment_id' => $this->enrollment->id,
+            'schedule_form' => $this->scheduleForm,
+        ]);
+
+        $this->validate();
+
+        Log::info('Validation passed', [
+            'enrollment_id' => $this->enrollment->id,
+        ]);
+
+        try {
+            if (!$this->enrollment->stripe_subscription_id) {
+                session()->flash('error', 'No subscription found to update schedule.');
+                Log::error('No subscription ID found');
+                return;
+            }
+
+            $stripeService = app(StripeService::class);
+            
+            // Prepare schedule data for Stripe
+            $scheduleData = [];
+            $enrollmentData = [];
+
+            // Prioritize next payment date over billing cycle anchor
+            if ($this->scheduleForm['next_payment_date']) {
+                // Handle next payment date - this takes precedence
+                $nextPaymentDateTime = $this->scheduleForm['next_payment_date'] . ' ' . ($this->scheduleForm['next_payment_time'] ?? '07:23');
+                $nextPaymentTimestamp = \Carbon\Carbon::parse($nextPaymentDateTime)
+                    ->setTimezone($this->scheduleForm['subscription_timezone'])
+                    ->timestamp;
+                $scheduleData['next_payment_date'] = $nextPaymentTimestamp;
+                $enrollmentData['billing_cycle_anchor'] = \Carbon\Carbon::createFromTimestamp($nextPaymentTimestamp);
+            } else {
+                // Handle billing cycle anchor only if next payment date is not set
+                if ($this->scheduleForm['billing_cycle_anchor']) {
+                    $billingAnchor = \Carbon\Carbon::parse($this->scheduleForm['billing_cycle_anchor'])->timestamp;
+                    $scheduleData['billing_cycle_anchor'] = $billingAnchor;
+                    $enrollmentData['billing_cycle_anchor'] = \Carbon\Carbon::parse($this->scheduleForm['billing_cycle_anchor']);
+                }
+            }
+
+            // Handle trial end date (both setting and removal)
+            // Always process trial end changes regardless of other settings
+            if (array_key_exists('trial_end_at', $this->scheduleForm)) {
+                if ($this->scheduleForm['trial_end_at']) {
+                    // Setting a new trial end date
+                    $trialEnd = \Carbon\Carbon::parse($this->scheduleForm['trial_end_at'])->timestamp;
+                    $scheduleData['trial_end_at'] = $trialEnd;
+                    $enrollmentData['trial_end_at'] = \Carbon\Carbon::parse($this->scheduleForm['trial_end_at']);
+                } else {
+                    // Removing trial end date (empty field)
+                    $scheduleData['trial_end_at'] = null;
+                    $enrollmentData['trial_end_at'] = null;
+                }
+            }
+
+            // Handle proration behavior
+            if ($this->scheduleForm['proration_behavior']) {
+                $scheduleData['proration_behavior'] = $this->scheduleForm['proration_behavior'];
+                $enrollmentData['proration_behavior'] = $this->scheduleForm['proration_behavior'];
+            }
+
+            // Handle subscription timezone
+            if ($this->scheduleForm['subscription_timezone']) {
+                $enrollmentData['subscription_timezone'] = $this->scheduleForm['subscription_timezone'];
+            }
+
+            // Handle subscription end date
+            if ($this->scheduleForm['end_date']) {
+                $endDateTime = $this->scheduleForm['end_date'] . ' ' . ($this->scheduleForm['end_time'] ?? '23:59');
+                $endTimestamp = \Carbon\Carbon::parse($endDateTime)
+                    ->setTimezone($this->scheduleForm['subscription_timezone'])
+                    ->timestamp;
+                $scheduleData['cancel_at'] = $endTimestamp;
+                $enrollmentData['subscription_cancel_at'] = \Carbon\Carbon::createFromTimestamp($endTimestamp);
+            }
+
+            // Update schedule in Stripe
+            $result = $stripeService->updateSubscriptionSchedule($this->enrollment->stripe_subscription_id, $scheduleData);
+
+            if ($result['success']) {
+                // Update local enrollment data
+                $this->enrollment->updateSubscriptionSchedule($enrollmentData);
+                
+                // Update stored next payment date directly
+                if ($this->scheduleForm['next_payment_date']) {
+                    $nextPaymentDateTime = \Carbon\Carbon::parse($this->scheduleForm['next_payment_date'] . ' ' . ($this->scheduleForm['next_payment_time'] ?? '07:23'))
+                        ->setTimezone($this->scheduleForm['subscription_timezone']);
+                    $this->enrollment->updateNextPaymentDate($nextPaymentDateTime);
+                }
+                
+                $this->enrollment->refresh();
+                
+                // Refresh subscription events
+                $this->refreshSubscriptionEvents();
+                
+                session()->flash('success', $result['message']);
+                $this->showScheduleModal = false;
+
+                Log::info('Subscription schedule updated successfully', [
+                    'enrollment_id' => $this->enrollment->id,
+                    'subscription_id' => $this->enrollment->stripe_subscription_id,
+                    'schedule_data' => $scheduleData,
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update subscription schedule', [
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage(),
+                'schedule_form' => $this->scheduleForm,
+            ]);
+            session()->flash('error', 'Failed to update subscription schedule: ' . $e->getMessage());
+        }
+    }
+
+    public function rescheduleNextPayment()
+    {
+        try {
+            if (!$this->enrollment->stripe_subscription_id) {
+                session()->flash('error', 'No subscription found to reschedule payment.');
+                return;
+            }
+
+            if (!$this->scheduleForm['next_payment_date']) {
+                session()->flash('error', 'Next payment date is required.');
+                return;
+            }
+
+            $nextPaymentDateTime = \Carbon\Carbon::parse($this->scheduleForm['next_payment_date'] . ' ' . ($this->scheduleForm['next_payment_time'] ?? '07:23'))
+                ->setTimezone($this->scheduleForm['subscription_timezone'])
+                ->timestamp;
+
+            $stripeService = app(StripeService::class);
+            $result = $stripeService->rescheduleNextPayment($this->enrollment->stripe_subscription_id, $nextPaymentDateTime);
+
+            if ($result['success']) {
+                // Update local data
+                $this->enrollment->update([
+                    'billing_cycle_anchor' => \Carbon\Carbon::createFromTimestamp($nextPaymentDateTime),
+                ]);
+                
+                // Update stored next payment date
+                $this->enrollment->updateNextPaymentDate(\Carbon\Carbon::createFromTimestamp($nextPaymentDateTime));
+                $this->enrollment->refresh();
+                
+                // Refresh subscription events
+                $this->refreshSubscriptionEvents();
+                
+                session()->flash('success', $result['message']);
+                $this->showScheduleModal = false;
+
+                Log::info('Next payment rescheduled successfully', [
+                    'enrollment_id' => $this->enrollment->id,
+                    'subscription_id' => $this->enrollment->stripe_subscription_id,
+                    'next_payment_timestamp' => $nextPaymentDateTime,
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to reschedule next payment', [
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage(),
+                'next_payment_data' => [
+                    'date' => $this->scheduleForm['next_payment_date'],
+                    'time' => $this->scheduleForm['next_payment_time'],
+                ],
+            ]);
+            session()->flash('error', 'Failed to reschedule next payment: ' . $e->getMessage());
+        }
+    }
+
+    public function updateTrialEnd()
+    {
+        try {
+            if (!$this->enrollment->stripe_subscription_id) {
+                session()->flash('error', 'No subscription found to update trial.');
+                return;
+            }
+
+            $trialEndTimestamp = null;
+            if ($this->scheduleForm['trial_end_at']) {
+                $trialEndTimestamp = \Carbon\Carbon::parse($this->scheduleForm['trial_end_at'])
+                    ->setTimezone($this->scheduleForm['subscription_timezone'])
+                    ->timestamp;
+            }
+
+            $stripeService = app(StripeService::class);
+            $result = $stripeService->updateTrialEnd($this->enrollment->stripe_subscription_id, $trialEndTimestamp);
+
+            if ($result['success']) {
+                // Update local data
+                $this->enrollment->update([
+                    'trial_end_at' => $trialEndTimestamp ? \Carbon\Carbon::createFromTimestamp($trialEndTimestamp) : null,
+                ]);
+                $this->enrollment->refresh();
+                
+                // Refresh subscription events
+                $this->refreshSubscriptionEvents();
+                
+                session()->flash('success', $result['message']);
+                $this->showScheduleModal = false;
+
+                Log::info('Trial end updated successfully', [
+                    'enrollment_id' => $this->enrollment->id,
+                    'subscription_id' => $this->enrollment->stripe_subscription_id,
+                    'trial_end_timestamp' => $trialEndTimestamp,
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update trial end', [
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage(),
+                'trial_end_at' => $this->scheduleForm['trial_end_at'],
+            ]);
+            session()->flash('error', 'Failed to update trial end: ' . $e->getMessage());
+        }
+    }
+
+    public function updateSubscriptionEndDate()
+    {
+        try {
+            if (!$this->enrollment->stripe_subscription_id) {
+                session()->flash('error', 'No subscription found to update end date.');
+                return;
+            }
+
+            $endTimestamp = null;
+            if ($this->scheduleForm['end_date']) {
+                $endDateTime = $this->scheduleForm['end_date'] . ' ' . ($this->scheduleForm['end_time'] ?? '23:59');
+                $endTimestamp = \Carbon\Carbon::parse($endDateTime)
+                    ->setTimezone($this->scheduleForm['subscription_timezone'])
+                    ->timestamp;
+            }
+
+            $stripeService = app(StripeService::class);
+            $result = $stripeService->updateSubscriptionEndDate($this->enrollment->stripe_subscription_id, $endTimestamp);
+
+            if ($result['success']) {
+                // Update local data
+                $this->enrollment->update([
+                    'subscription_cancel_at' => $endTimestamp ? \Carbon\Carbon::createFromTimestamp($endTimestamp) : null,
+                ]);
+                $this->enrollment->refresh();
+                
+                // Refresh subscription events
+                $this->refreshSubscriptionEvents();
+                
+                session()->flash('success', $result['message']);
+                $this->showScheduleModal = false;
+
+                Log::info('Subscription end date updated successfully', [
+                    'enrollment_id' => $this->enrollment->id,
+                    'subscription_id' => $this->enrollment->stripe_subscription_id,
+                    'end_timestamp' => $endTimestamp,
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update subscription end date', [
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage(),
+                'end_date_data' => [
+                    'date' => $this->scheduleForm['end_date'],
+                    'time' => $this->scheduleForm['end_time'],
+                ],
+            ]);
+            session()->flash('error', 'Failed to update subscription end date: ' . $e->getMessage());
+        }
+    }
 }; ?>
 
 <div>
@@ -564,7 +1187,14 @@ new class extends Component {
                                 @if($enrollment->isPendingCancellation())
                                     <span class="text-orange-600 font-medium">{{ $enrollment->getFormattedCancellationDate() }}</span>
                                 @elseif($enrollment->hasActiveSubscription())
-                                    <span class="text-green-600">In 2 days</span>
+                                    @php 
+                                        $nextPayment = $enrollment->getFormattedNextPaymentDate();
+                                    @endphp
+                                    @if($nextPayment)
+                                        <span class="text-green-600">{{ $nextPayment }}</span>
+                                    @else
+                                        <span class="text-gray-400">Not scheduled</span>
+                                    @endif
                                 @elseif($enrollment->isSubscriptionPastDue())
                                     <span class="text-red-600">Overdue</span>
                                 @else
@@ -578,6 +1208,14 @@ new class extends Component {
                     @if(!$enrollment->isSubscriptionCanceled())
                         <div class="mt-6 pt-6 border-t border-gray-200">
                             <div class="flex flex-wrap gap-3">
+                                <flux:button size="sm" variant="primary" wire:click="syncSubscriptionData" wire:confirm="This will sync all subscription data from Stripe including status, collection status, next payment date, and cancellation information. Continue?" icon="arrow-path">
+                                    Sync from Stripe
+                                </flux:button>
+                                
+                                <flux:button size="sm" variant="outline" wire:click="openScheduleModal" icon="calendar-days">
+                                    Manage Schedule
+                                </flux:button>
+                                
                                 @if($enrollment->subscription_status === 'incomplete')
                                     <flux:button size="sm" variant="primary" wire:click="confirmPayment" wire:confirm="Attempt to confirm the payment for this subscription. This may not work if customer authentication is required." icon="credit-card">
                                         Confirm Payment
@@ -629,6 +1267,10 @@ new class extends Component {
                         <!-- Actions for canceled/expired subscriptions -->
                         <div class="mt-6 pt-6 border-t border-gray-200">
                             <div class="flex flex-wrap gap-3">
+                                <flux:button size="sm" variant="outline" wire:click="syncSubscriptionData" wire:confirm="This will sync the latest subscription data from Stripe. Continue?" icon="arrow-path">
+                                    Sync from Stripe
+                                </flux:button>
+                                
                                 @if($enrollment->course->feeSettings && $enrollment->course->feeSettings->stripe_price_id)
                                     <flux:button size="sm" variant="primary" wire:click="resumeCanceledSubscription" wire:confirm="This will create a new subscription for the student. Are you sure you want to resume the subscription?">
                                         Resume Subscription
@@ -662,23 +1304,111 @@ new class extends Component {
                     <h3 class="mt-2 text-sm font-medium text-gray-900">No Active Subscription</h3>
                     <p class="mt-1 text-sm text-gray-500">This enrollment does not have an active subscription.</p>
                     
-                    @if($enrollment->course->feeSettings && $enrollment->course->feeSettings->stripe_price_id)
-                        <div class="mt-6 space-y-3">
-                            <flux:button variant="primary" wire:click="createSubscription">
-                                Create Subscription
-                            </flux:button>
-                            <div class="flex space-x-3">
-                                <flux:button variant="ghost" size="sm" href="{{ route('admin.students.payment-methods', $enrollment->student) }}" icon="credit-card">
-                                    Manage Payment Methods
-                                </flux:button>
-                                <flux:button variant="ghost" size="sm" href="{{ route('students.show', $enrollment->student) }}">
-                                    View Student Profile
-                                </flux:button>
+                    @php
+                        // Check subscription creation requirements
+                        $hasFeeSettings = $enrollment->course->feeSettings && $enrollment->course->feeSettings->stripe_price_id;
+                        $hasPaymentMethod = $enrollment->student->user->paymentMethods()->active()->default()->exists();
+                        $canCreateSubscription = $hasFeeSettings && $hasPaymentMethod;
+                        
+                        // Get default payment method for display
+                        $defaultPaymentMethod = $enrollment->student->user->paymentMethods()->active()->default()->first();
+                    @endphp
+
+                    <!-- Requirements Status -->
+                    <div class="mt-6 bg-gray-50 rounded-lg p-4">
+                        <h4 class="text-sm font-medium text-gray-900 mb-3">Subscription Requirements</h4>
+                        <div class="space-y-2 text-sm text-left">
+                            <!-- Course Fee Settings -->
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Course fee settings configured</span>
+                                @if($hasFeeSettings)
+                                    <div class="flex items-center text-green-600">
+                                        <flux:icon.check-circle class="h-4 w-4 mr-1" />
+                                        <span class="font-medium">Ready</span>
+                                    </div>
+                                @else
+                                    <div class="flex items-center text-red-600">
+                                        <flux:icon.x-circle class="h-4 w-4 mr-1" />
+                                        <span class="font-medium">Missing</span>
+                                    </div>
+                                @endif
+                            </div>
+                            
+                            <!-- Payment Method -->
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Student payment method</span>
+                                @if($hasPaymentMethod)
+                                    <div class="flex items-center text-green-600">
+                                        <flux:icon.check-circle class="h-4 w-4 mr-1" />
+                                        <span class="font-medium">{{ $defaultPaymentMethod->display_name ?? 'Available' }}</span>
+                                    </div>
+                                @else
+                                    <div class="flex items-center text-red-600">
+                                        <flux:icon.x-circle class="h-4 w-4 mr-1" />
+                                        <span class="font-medium">None</span>
+                                    </div>
+                                @endif
                             </div>
                         </div>
-                    @else
-                        <div class="mt-4">
-                            <p class="text-xs text-gray-500">Course must have fee settings configured and synced with Stripe first.</p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="mt-6 space-y-3">
+                        @if($canCreateSubscription)
+                            <flux:button variant="primary" wire:click="openCreateSubscriptionModal" icon="plus">
+                                Create Subscription
+                            </flux:button>
+                            <div class="text-xs text-green-600 flex items-center justify-center">
+                                <flux:icon.check-circle class="h-3 w-3 mr-1" />
+                                All requirements met - ready to create subscription
+                            </div>
+                        @else
+                            <flux:button variant="primary" disabled>
+                                Create Subscription
+                            </flux:button>
+                            <div class="text-xs text-red-600 flex items-center justify-center">
+                                <flux:icon.exclamation-triangle class="h-3 w-3 mr-1" />
+                                Requirements must be met before creating subscription
+                            </div>
+                        @endif
+                        
+                        <!-- Management Actions -->
+                        <div class="flex flex-col sm:flex-row gap-2 justify-center">
+                            <flux:button variant="ghost" size="sm" href="{{ route('admin.students.payment-methods', $enrollment->student) }}" icon="credit-card">
+                                Manage Payment Methods
+                            </flux:button>
+                            
+                            @if(!$hasFeeSettings)
+                                <flux:button variant="ghost" size="sm" href="{{ route('courses.edit', $enrollment->course) }}" icon="cog-6-tooth">
+                                    Configure Course Fee
+                                </flux:button>
+                            @endif
+                            
+                            <flux:button variant="ghost" size="sm" href="{{ route('students.show', $enrollment->student) }}" icon="user">
+                                View Student Profile
+                            </flux:button>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Help Text -->
+                    @if(!$canCreateSubscription)
+                        <div class="mt-4 text-left">
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
+                                <div class="flex">
+                                    <flux:icon.information-circle class="h-4 w-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                                    <div class="text-yellow-800">
+                                        <p class="font-medium mb-1">To create a subscription:</p>
+                                        <ul class="list-disc ml-4 space-y-1">
+                                            @if(!$hasFeeSettings)
+                                                <li>Set up course fee settings and sync with Stripe in the Course edit page</li>
+                                            @endif
+                                            @if(!$hasPaymentMethod)
+                                                <li>Student needs to add a valid payment method (card)</li>
+                                            @endif
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     @endif
                 </div>
@@ -766,12 +1496,13 @@ new class extends Component {
                                             {{ $order->formatted_amount }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <flux:badge :class="match($order->status) {
-                                                'paid' => 'badge-green',
-                                                'pending' => 'badge-yellow',
-                                                'failed' => 'badge-red',
-                                                'refunded' => 'badge-gray',
-                                                default => 'badge-gray'
+                                            <flux:badge :variant="match($order->status) {
+                                                'paid' => 'success',
+                                                'pending' => 'warning',
+                                                'failed' => 'danger',
+                                                'refunded' => 'outline',
+                                                'void' => 'neutral',
+                                                default => 'outline'
                                             }" size="sm">
                                                 {{ $order->status_label }}
                                             </flux:badge>
@@ -1021,4 +1752,333 @@ new class extends Component {
             </flux:card>
         </div>
     </div>
+
+    <!-- Schedule Management Modal -->
+    <flux:modal wire:model="showScheduleModal" class="space-y-6">
+        <div>
+            <flux:heading size="lg">Manage Subscription Schedule</flux:heading>
+            <flux:subheading>Configure billing schedule, trial periods, and subscription timing</flux:subheading>
+        </div>
+
+        <form wire:submit="updateSubscriptionSchedule" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Payment Schedule Section -->
+                <div class="space-y-4">
+                    <flux:heading size="md">Payment Schedule</flux:heading>
+                    
+                    <flux:field>
+                        <flux:label>Payment Frequency</flux:label>
+                        <flux:select wire:model="scheduleForm.proration_behavior">
+                            <option value="create_prorations">Monthly (with proration)</option>
+                            <option value="none">Monthly (no proration)</option>
+                            <option value="always_invoice">Monthly (always invoice)</option>
+                        </flux:select>
+                        <flux:error name="scheduleForm.proration_behavior" />
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Billing Cycle Start Date</flux:label>
+                        <flux:input 
+                            type="date" 
+                            wire:model="scheduleForm.billing_cycle_anchor" 
+                            placeholder="YYYY-MM-DD"
+                        />
+                        <flux:error name="scheduleForm.billing_cycle_anchor" />
+                        <flux:description>For existing subscriptions: Today's date will reset billing cycle to now. Future dates are not supported by Stripe's API.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Next Payment Date</flux:label>
+                        <flux:input 
+                            type="date" 
+                            wire:model="scheduleForm.next_payment_date" 
+                            placeholder="YYYY-MM-DD"
+                        />
+                        <flux:error name="scheduleForm.next_payment_date" />
+                        <flux:description>Directly set when the next payment should occur. This overrides billing cycle calculations.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Next Payment Time</flux:label>
+                        <flux:input 
+                            type="time" 
+                            wire:model="scheduleForm.next_payment_time" 
+                            placeholder="HH:MM"
+                        />
+                        <flux:error name="scheduleForm.next_payment_time" />
+                        <flux:description>Time for the next payment (24-hour format).</flux:description>
+                    </flux:field>
+
+                </div>
+
+                <!-- Trial & End Date Section -->
+                <div class="space-y-4">
+                    <flux:heading size="md">Trial & End Date</flux:heading>
+                    
+                    <flux:field>
+                        <flux:label>Trial End Date</flux:label>
+                        <flux:input 
+                            type="date" 
+                            wire:model="scheduleForm.trial_end_at" 
+                            placeholder="YYYY-MM-DD"
+                        />
+                        <flux:error name="scheduleForm.trial_end_at" />
+                        <flux:description>When should the trial period end? Leave empty if no trial.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Subscription End Date</flux:label>
+                        <flux:input 
+                            type="date" 
+                            wire:model="scheduleForm.end_date" 
+                            placeholder="YYYY-MM-DD"
+                        />
+                        <flux:error name="scheduleForm.end_date" />
+                        <flux:description>When should the subscription automatically end? Leave empty for no end date.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>End Time</flux:label>
+                        <flux:input 
+                            type="time" 
+                            wire:model="scheduleForm.end_time" 
+                            placeholder="HH:MM"
+                        />
+                        <flux:error name="scheduleForm.end_time" />
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Timezone</flux:label>
+                        <flux:select wire:model="scheduleForm.subscription_timezone">
+                            <option value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur (MYT)</option>
+                            <option value="UTC">UTC</option>
+                            <option value="America/New_York">America/New_York (EST/EDT)</option>
+                            <option value="Europe/London">Europe/London (GMT/BST)</option>
+                            <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                            <option value="Australia/Sydney">Australia/Sydney (AEDT/AEST)</option>
+                        </flux:select>
+                        <flux:error name="scheduleForm.subscription_timezone" />
+                    </flux:field>
+                </div>
+            </div>
+
+            <!-- Current Schedule Preview -->
+            @if($enrollment->stripe_subscription_id)
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <flux:heading size="sm" class="mb-3">Current Schedule Preview</flux:heading>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="font-medium">Status:</span>
+                            <span class="ml-2">{{ $enrollment->getSubscriptionStatusLabel() }}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">Next Payment:</span>
+                            <span class="ml-2">{{ $enrollment->getFormattedNextPaymentDate() ?? 'Not scheduled' }}</span>
+                        </div>
+                        @if($enrollment->isInTrial())
+                            <div>
+                                <span class="font-medium">Trial Ends:</span>
+                                <span class="ml-2">{{ $enrollment->getFormattedTrialEnd() ?? 'No trial' }}</span>
+                            </div>
+                        @endif
+                        @if($enrollment->subscription_cancel_at)
+                            <div>
+                                <span class="font-medium">Cancellation Date:</span>
+                                <span class="ml-2">{{ $enrollment->getFormattedCancellationDate() }}</span>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            <!-- Action Buttons -->
+            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                <flux:button variant="ghost" type="button" wire:click="$set('showScheduleModal', false)">
+                    Cancel
+                </flux:button>
+                
+                <flux:button 
+                    variant="primary" 
+                    type="submit"
+                    wire:confirm="Are you sure you want to update the subscription schedule? This will affect billing and payments."
+                >
+                    Update
+                </flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    <!-- Subscription Creation Modal -->
+    <flux:modal wire:model="showCreateSubscriptionModal" class="space-y-6">
+        <div>
+            <flux:heading size="lg">Create New Subscription</flux:heading>
+            <flux:subheading>Configure subscription settings before creating</flux:subheading>
+        </div>
+
+        <form wire:submit="createSubscriptionWithOptions" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Subscription Settings Section -->
+                <div class="space-y-4">
+                    <flux:heading size="md">Subscription Settings</flux:heading>
+                    
+                    <flux:field>
+                        <flux:label>Payment Method</flux:label>
+                        <flux:select wire:model="createForm.payment_method_id">
+                            @foreach($enrollment->student->user->paymentMethods()->active()->get() as $paymentMethod)
+                                <option value="{{ $paymentMethod->id }}">{{ $paymentMethod->display_name }}</option>
+                            @endforeach
+                        </flux:select>
+                        <flux:error name="createForm.payment_method_id" />
+                        <flux:description>Select which payment method to use for this subscription.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Proration Behavior</flux:label>
+                        <flux:select wire:model="createForm.proration_behavior">
+                            <option value="create_prorations">Prorate charges (recommended)</option>
+                            <option value="none">No proration</option>
+                            <option value="always_invoice">Always create invoice</option>
+                        </flux:select>
+                        <flux:error name="createForm.proration_behavior" />
+                        <flux:description>How to handle partial month billing.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Start Date</flux:label>
+                        <flux:input 
+                            type="date" 
+                            wire:model="createForm.start_date" 
+                            placeholder="YYYY-MM-DD"
+                        />
+                        <flux:error name="createForm.start_date" />
+                        <flux:description>When should the subscription billing start?</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Start Time</flux:label>
+                        <flux:input 
+                            type="time" 
+                            wire:model="createForm.start_time" 
+                            placeholder="HH:MM"
+                        />
+                        <flux:error name="createForm.start_time" />
+                        <flux:description>Time for billing start (24-hour format).</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Timezone</flux:label>
+                        <flux:select wire:model="createForm.subscription_timezone">
+                            <option value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur (MYT)</option>
+                            <option value="UTC">UTC</option>
+                            <option value="America/New_York">America/New_York (EST/EDT)</option>
+                            <option value="Europe/London">Europe/London (GMT/BST)</option>
+                            <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                            <option value="Australia/Sydney">Australia/Sydney (AEDT/AEST)</option>
+                        </flux:select>
+                        <flux:error name="createForm.subscription_timezone" />
+                    </flux:field>
+                </div>
+
+                <!-- Advanced Options Section -->
+                <div class="space-y-4">
+                    <flux:heading size="md">Advanced Options</flux:heading>
+                    
+                    <flux:field>
+                        <flux:label>Trial End Date (Optional)</flux:label>
+                        <flux:input 
+                            type="date" 
+                            wire:model="createForm.trial_end_at" 
+                            placeholder="YYYY-MM-DD"
+                        />
+                        <flux:error name="createForm.trial_end_at" />
+                        <flux:description>Set a trial period before billing begins. Leave empty if no trial needed.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Billing Anchor Date (Optional)</flux:label>
+                        <flux:input 
+                            type="date" 
+                            wire:model="createForm.billing_cycle_anchor" 
+                            placeholder="YYYY-MM-DD"
+                        />
+                        <flux:error name="createForm.billing_cycle_anchor" />
+                        <flux:description>Set a specific billing cycle anchor. Overrides start date if set.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Subscription End Date (Optional)</flux:label>
+                        <flux:input 
+                            type="date" 
+                            wire:model="createForm.end_date" 
+                            placeholder="YYYY-MM-DD"
+                        />
+                        <flux:error name="createForm.end_date" />
+                        <flux:description>Automatically end the subscription on this date. Leave empty for no end date.</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>End Time</flux:label>
+                        <flux:input 
+                            type="time" 
+                            wire:model="createForm.end_time" 
+                            placeholder="HH:MM"
+                        />
+                        <flux:error name="createForm.end_time" />
+                        <flux:description>Time for subscription end (24-hour format).</flux:description>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Notes (Optional)</flux:label>
+                        <flux:textarea 
+                            wire:model="createForm.notes" 
+                            placeholder="Add any notes about this subscription..."
+                            rows="3"
+                        />
+                        <flux:error name="createForm.notes" />
+                        <flux:description>Internal notes about this subscription (will be saved to enrollment).</flux:description>
+                    </flux:field>
+                </div>
+            </div>
+
+            <!-- Subscription Preview -->
+            @if($enrollment->course->feeSettings)
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <flux:heading size="sm" class="mb-3">Subscription Preview</flux:heading>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="font-medium">Course:</span>
+                            <span class="ml-2">{{ $enrollment->course->name }}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">Monthly Fee:</span>
+                            <span class="ml-2">{{ $enrollment->course->feeSettings->formatted_fee }}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">Billing Cycle:</span>
+                            <span class="ml-2">{{ $enrollment->course->feeSettings->billing_cycle_label }}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">Student:</span>
+                            <span class="ml-2">{{ $enrollment->student->user->name }}</span>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            <!-- Action Buttons -->
+            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                <flux:button variant="ghost" type="button" wire:click="$set('showCreateSubscriptionModal', false)">
+                    Cancel
+                </flux:button>
+                
+                <flux:button 
+                    variant="primary" 
+                    type="submit"
+                    wire:confirm="Are you sure you want to create this subscription with the configured settings?"
+                >
+                    Create Subscription
+                </flux:button>
+            </div>
+        </form>
+    </flux:modal>
 </div>

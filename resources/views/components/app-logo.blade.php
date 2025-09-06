@@ -1,7 +1,7 @@
 @php
     $settingsService = app(\App\Services\SettingsService::class);
     $dynamicLogo = $settingsService->getLogo();
-    $siteName = $settingsService->get('site_name', 'Laravel Starter Kit');
+    $siteName = $settingsService->get('site_name', 'Mudeer Bedaie');
 @endphp
 
 @if($dynamicLogo)
@@ -9,8 +9,8 @@
         <img src="{{ $dynamicLogo }}" alt="{{ $siteName }}" class="size-8 object-contain" />
     </div>
 @else
-    <div class="flex aspect-square size-8 items-center justify-center rounded-md bg-accent-content text-accent-foreground">
-        <x-app-logo-icon class="size-5 fill-current text-white dark:text-black" />
+    <div class="flex aspect-square size-8 items-center justify-center rounded-md">
+        <x-app-logo-icon class="size-6 fill-current text-blue-600 dark:text-blue-400" />
     </div>
 @endif
 <div class="ms-1 grid flex-1 text-start text-sm">

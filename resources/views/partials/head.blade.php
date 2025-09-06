@@ -1,12 +1,13 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<title>{{ $title ?? config('app.name') }}</title>
-
 @php
     $settingsService = app(\App\Services\SettingsService::class);
+    $dynamicSiteName = $settingsService->get('site_name', config('app.name'));
     $dynamicFavicon = $settingsService->getFavicon();
 @endphp
+
+<title>{{ $title ?? $dynamicSiteName }}</title>
 
 @if($dynamicFavicon)
     <link rel="icon" href="{{ $dynamicFavicon }}" sizes="any">

@@ -7,7 +7,11 @@ use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
 Route::get('/', function () {
-    return view('welcome');
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+
+    return redirect()->route('login');
 })->name('home');
 
 Route::get('dashboard', function () {
@@ -32,6 +36,9 @@ Route::middleware(['auth'])->group(function () {
 
 // Student routes - accessible by students only
 Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
+    // Courses listing for students
+    Volt::route('courses', 'student.courses')->name('student.courses');
+
     // Subscription management for students
     Volt::route('subscriptions', 'student.subscriptions')->name('student.subscriptions');
     Volt::route('subscriptions/{enrollment}/cancel', 'student.subscription-cancel')->name('student.subscriptions.cancel');
@@ -39,6 +46,7 @@ Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
     // Order history and receipts for students
     Volt::route('orders', 'student.orders')->name('student.orders');
     Volt::route('orders/{order}', 'student.orders-show')->name('student.orders.show');
+    Volt::route('orders/{order}/receipt', 'student.orders-receipt')->name('student.orders.receipt');
 
     // Payment method management for students
     Volt::route('payment-methods', 'student.payment-methods')->name('student.payment-methods');
@@ -124,6 +132,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Order routes (replaces invoices)
     Volt::route('orders', 'admin.orders-index')->name('orders.index');
     Volt::route('orders/{order}', 'admin.orders-show')->name('orders.show');
+    Volt::route('orders/{order}/receipt', 'admin.orders-receipt')->name('orders.receipt');
 
     // Legacy invoice routes (will be removed later)
     Volt::route('invoices', 'admin.invoice-list')->name('invoices.index');

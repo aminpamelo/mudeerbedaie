@@ -479,7 +479,6 @@ x-effect="
                 <flux:text class="mt-2">Your teaching schedule and sessions</flux:text>
             </div>
         </div>
-        
         <!-- Statistics Cards -->
         <div class="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
             <flux:card class="p-4 md:p-6">

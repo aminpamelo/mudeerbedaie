@@ -15,6 +15,13 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public string $statusFilter = 'all';
     public string $search = '';
     
+    protected $queryString = [
+        'search' => ['except' => ''],
+        'dateFilter' => ['except' => 'upcoming'],
+        'classFilter' => ['except' => 'all'],
+        'statusFilter' => ['except' => 'all'],
+    ];
+    
     public function with()
     {
         $teacher = auth()->user()->teacher;

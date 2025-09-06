@@ -19,6 +19,7 @@ new class extends Component {
     // Fee settings
     public $fee_amount = '';
     public $billing_cycle = 'monthly';
+    public $billing_day = null;
     public $is_recurring = true;
     public $trial_period_days = 0;
     public $setup_fee = 0;
@@ -48,6 +49,7 @@ new class extends Component {
         if ($this->course->feeSettings) {
             $this->fee_amount = $this->course->feeSettings->fee_amount;
             $this->billing_cycle = $this->course->feeSettings->billing_cycle;
+            $this->billing_day = $this->course->feeSettings->billing_day;
             $this->is_recurring = $this->course->feeSettings->is_recurring;
             $this->trial_period_days = $this->course->feeSettings->trial_period_days ?? 0;
             $this->setup_fee = $this->course->feeSettings->setup_fee ?? 0;
@@ -83,6 +85,7 @@ new class extends Component {
             'teacher_id' => 'nullable|exists:teachers,id',
             'fee_amount' => 'required|numeric|min:0',
             'billing_cycle' => 'required|in:monthly,quarterly,yearly',
+            'billing_day' => 'nullable|integer|min:1|max:31',
             'trial_period_days' => 'nullable|integer|min:0|max:365',
             'setup_fee' => 'nullable|numeric|min:0',
             'teaching_mode' => 'required|in:online,offline,hybrid',
@@ -108,6 +111,7 @@ new class extends Component {
             [
                 'fee_amount' => $this->fee_amount,
                 'billing_cycle' => $this->billing_cycle,
+                'billing_day' => $this->billing_day,
                 'is_recurring' => $this->is_recurring,
                 'trial_period_days' => $this->trial_period_days ?: 0,
                 'setup_fee' => $this->setup_fee ?: 0,
@@ -381,6 +385,27 @@ new class extends Component {
                     <flux:select.option value="quarterly">Quarterly</flux:select.option>
                     <flux:select.option value="yearly">Yearly</flux:select.option>
                 </flux:select>
+
+                <flux:field>
+                    <flux:label>Billing Day (Optional)</flux:label>
+                    <flux:select wire:model="billing_day" placeholder="Default (billing cycle start)">
+                        @for($day = 1; $day <= 31; $day++)
+                            @php
+                                $suffix = match ($day % 10) {
+                                    1 => $day === 11 ? 'th' : 'st',
+                                    2 => $day === 12 ? 'th' : 'nd',
+                                    3 => $day === 13 ? 'th' : 'rd',
+                                    default => 'th',
+                                };
+                            @endphp
+                            <flux:select.option value="{{ $day }}">{{ $day }}{{ $suffix }} of each month</flux:select.option>
+                        @endfor
+                    </flux:select>
+                    <flux:text size="sm" class="text-gray-500 mt-1">
+                        Choose a specific day of the month to sync payments. Leave empty to use the default billing cycle start date.
+                    </flux:text>
+                    <flux:error name="billing_day" />
+                </flux:field>
 
                 <flux:field variant="inline">
                     <flux:checkbox wire:model="is_recurring" />

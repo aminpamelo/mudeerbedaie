@@ -1997,7 +1997,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         <flux:text>Regular class schedule with ability to start sessions</flux:text>
                     </div>
                     <div class="flex gap-2">
-                        <flux:button variant="outline" size="sm" icon="plus" wire:click="showCreateSessionModal">
+                        <flux:button variant="outline" size="sm" icon="plus" wire:click="openCreateSessionModal">
                             Add Session
                         </flux:button>
                     </div>
@@ -2170,7 +2170,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             <flux:icon name="calendar-days" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
                             <flux:heading size="lg" class="text-gray-600 dark:text-gray-400 mb-2">No timetable configured</flux:heading>
                             <flux:text class="text-gray-600 dark:text-gray-400 mb-6">Set up a regular schedule for this class to use the weekly timetable view</flux:text>
-                            <flux:button variant="primary" icon="plus" wire:click="showCreateSessionModal">
+                            <flux:button variant="primary" icon="plus" wire:click="openCreateSessionModal">
                                 Add Manual Session
                             </flux:button>
                         </div>

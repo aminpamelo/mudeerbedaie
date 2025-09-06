@@ -158,7 +158,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             size="sm" 
                             variant="ghost" 
                             class="flex-1"
-                            href="{{ route('teacher.classes.show', $class) }}"
+                            href="{{ route('teacher.classes.show', ['class' => $class, 'tab' => 'sessions']) }}"
                         >
                             <flux:icon icon="calendar" class="w-4 h-4 mr-1" />
                             Sessions

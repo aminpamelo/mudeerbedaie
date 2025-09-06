@@ -223,6 +223,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get default payment method for this user
+     */
+    public function defaultPaymentMethod(): HasOne
+    {
+        return $this->hasOne(PaymentMethod::class)->where('is_default', true);
+    }
+
+    /**
      * Get payments made by this user
      */
     public function payments(): HasMany

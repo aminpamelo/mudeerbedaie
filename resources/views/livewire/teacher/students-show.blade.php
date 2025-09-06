@@ -1,24 +1,23 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\Attributes\Layout;
-use App\Models\Student;
-use App\Models\ClassModel;
 use App\Models\ClassAttendance;
 use App\Models\ClassSession;
-use App\Models\Enrollment;
-use Illuminate\Database\Eloquent\Collection;
+use App\Models\Student;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.teacher')] class extends Component {
+new #[Layout('components.layouts.teacher')] class extends Component
+{
     public Student $student;
+
     public string $activeTab = 'overview';
-    
+
     public function mount(Student $student)
     {
         // Ensure the student belongs to one of the teacher's classes
         $teacher = auth()->user()->teacher;
         $hasAccess = false;
-        
+
         if ($teacher) {
             $teacherClassIds = $teacher->classes()->pluck('id');
             // Get student's class IDs through attendance -> sessions -> classes
@@ -30,24 +29,26 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 ->unique();
             $hasAccess = $teacherClassIds->intersect($studentClassIds)->isNotEmpty();
         }
-        
-        if (!$hasAccess) {
+
+        if (! $hasAccess) {
             abort(403, 'You do not have access to view this student.');
         }
-        
+
         $this->student = $student;
     }
-    
+
     public function setActiveTab(string $tab)
     {
         $this->activeTab = $tab;
     }
-    
+
     public function getTeacherClassesProperty()
     {
         $teacher = auth()->user()->teacher;
-        if (!$teacher) return collect();
-        
+        if (! $teacher) {
+            return collect();
+        }
+
         // Get classes where the student has attendance records
         $studentClassIds = $this->student->classAttendances()
             ->with('session.class')
@@ -55,25 +56,25 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             ->pluck('session.class.id')
             ->filter()
             ->unique();
-        
+
         return $teacher->classes()
             ->with(['course'])
             ->whereIn('id', $studentClassIds)
             ->get();
     }
-    
+
     public function getStudentAttendanceProperty()
     {
         return ClassAttendance::with(['session.class.course'])
             ->where('student_id', $this->student->id)
-            ->whereHas('session.class', function($query) {
+            ->whereHas('session.class', function ($query) {
                 $teacher = auth()->user()->teacher;
                 $query->where('teacher_id', $teacher->id);
             })
             ->orderBy('created_at', 'desc')
             ->get();
     }
-    
+
     public function getAttendanceStatsProperty()
     {
         $attendances = $this->studentAttendance;
@@ -81,7 +82,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         $present = $attendances->whereIn('status', ['present', 'late'])->count();
         $absent = $attendances->where('status', 'absent')->count();
         $excused = $attendances->where('status', 'excused')->count();
-        
+
         return [
             'total' => $total,
             'present' => $present,
@@ -90,17 +91,17 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             'attendance_rate' => $total > 0 ? round(($present / $total) * 100, 1) : 0,
         ];
     }
-    
+
     public function getRecentSessionsProperty()
     {
         return $this->studentAttendance->take(10);
     }
-    
+
     public function getUpcomingSessionsProperty()
     {
         $teacher = auth()->user()->teacher;
         $classIds = $this->teacherClasses->pluck('id');
-        
+
         return ClassSession::with(['class.course'])
             ->whereIn('class_id', $classIds)
             ->where('session_date', '>=', now()->toDateString())
@@ -110,24 +111,24 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             ->limit(5)
             ->get();
     }
-    
+
     public function getMonthlyAttendanceProperty()
     {
         $attendances = $this->studentAttendance;
         $monthlyData = [];
-        
+
         for ($i = 5; $i >= 0; $i--) {
             $month = now()->subMonths($i);
             $monthKey = $month->format('Y-m');
             $monthName = $month->format('M Y');
-            
-            $monthAttendances = $attendances->filter(function($attendance) use ($month) {
+
+            $monthAttendances = $attendances->filter(function ($attendance) use ($month) {
                 return $attendance->session->session_date->format('Y-m') === $month->format('Y-m');
             });
-            
+
             $total = $monthAttendances->count();
             $present = $monthAttendances->whereIn('status', ['present', 'late'])->count();
-            
+
             $monthlyData[] = [
                 'month' => $monthName,
                 'total' => $total,
@@ -135,15 +136,33 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 'rate' => $total > 0 ? round(($present / $total) * 100, 1) : 0,
             ];
         }
-        
+
         return collect($monthlyData);
     }
-    
+
     public function getStudentEnrollmentsProperty()
     {
         return $this->student->activeEnrollments()
             ->with(['course'])
             ->get();
+    }
+
+    public function sendEmail()
+    {
+        $email = $this->student->user->email;
+        $subject = urlencode('Student Communication - '.$this->student->user->name);
+        $mailtoLink = "mailto:{$email}?subject={$subject}";
+
+        $this->dispatch('open-mailto', url: $mailtoLink);
+    }
+
+    public function makeCall()
+    {
+        if ($this->student->phone) {
+            $phone = preg_replace('/[^0-9+]/', '', $this->student->phone);
+            $telLink = "tel:{$phone}";
+            $this->dispatch('open-tel', url: $telLink);
+        }
     }
 }; ?>
 
@@ -616,9 +635,11 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 <flux:text class="font-medium text-gray-700 dark:text-gray-300 mb-1">Email</flux:text>
                                 <div class="flex items-center justify-between">
                                     <flux:text>{{ $student->user->email }}</flux:text>
-                                    <flux:button size="sm" variant="ghost">
-                                        <flux:icon name="envelope" class="w-4 h-4 mr-1" />
-                                        Send Email
+                                    <flux:button size="sm" variant="ghost" wire:click="sendEmail">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="envelope" class="w-4 h-4 mr-1" />
+                                            Send Email
+                                        </div>
                                     </flux:button>
                                 </div>
                             </div>
@@ -628,9 +649,11 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                     <flux:text class="font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</flux:text>
                                     <div class="flex items-center justify-between">
                                         <flux:text>{{ $student->phone }}</flux:text>
-                                        <flux:button size="sm" variant="ghost">
-                                            <flux:icon name="phone" class="w-4 h-4 mr-1" />
-                                            Call
+                                        <flux:button size="sm" variant="ghost" wire:click="makeCall">
+                                            <div class="flex items-center justify-center">
+                                                <flux:icon name="phone" class="w-4 h-4 mr-1" />
+                                                Call
+                                            </div>
                                         </flux:button>
                                     </div>
                                 </div>
@@ -695,3 +718,15 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         
     </div>
 </div>
+
+<script>
+document.addEventListener('livewire:init', function () {
+    Livewire.on('open-mailto', (data) => {
+        window.open(data.url, '_blank');
+    });
+    
+    Livewire.on('open-tel', (data) => {
+        window.location.href = data.url;
+    });
+});
+</script>

@@ -56,8 +56,8 @@ new class extends Component {
             <flux:button href="{{ route('orders.index') }}" variant="outline">
                 Back to Orders
             </flux:button>
-            @if($order->receipt_url)
-                <flux:button href="{{ $order->receipt_url }}" target="_blank" variant="outline">
+            @if($order->isPaid())
+                <flux:button href="{{ route('orders.receipt', $order) }}" variant="outline">
                     View Receipt
                 </flux:button>
                 <flux:button wire:click="resendReceipt" variant="outline">
@@ -314,11 +314,12 @@ new class extends Component {
                             Process Refund
                         </flux:button>
                         
-                        @if($order->receipt_url)
-                            <flux:button wire:click="resendReceipt" variant="outline" class="w-full">
-                                Resend Receipt
-                            </flux:button>
-                        @endif
+                        <flux:button href="{{ route('orders.receipt', $order) }}" variant="outline" class="w-full">
+                            View Receipt
+                        </flux:button>
+                        <flux:button wire:click="resendReceipt" variant="outline" class="w-full">
+                            Resend Receipt
+                        </flux:button>
                     </div>
                 </flux:card>
             @endif

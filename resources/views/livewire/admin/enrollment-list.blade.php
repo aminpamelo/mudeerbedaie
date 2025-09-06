@@ -277,7 +277,12 @@ new class extends Component {
                                 <!-- Next Payment -->
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                     @if($enrollment->hasActiveSubscription())
-                                        <span class="text-green-600">In 2 days</span>
+                                        @php $nextPayment = $enrollment->getFormattedNextPaymentDate(); @endphp
+                                        @if($nextPayment)
+                                            <span class="text-green-600">{{ $nextPayment }}</span>
+                                        @else
+                                            <span class="text-gray-400">Not scheduled</span>
+                                        @endif
                                     @elseif($enrollment->isSubscriptionPastDue())
                                         <span class="text-red-600">Overdue</span>
                                     @else

@@ -49,6 +49,11 @@ class StripeService
         return ! empty($publishableKey) && ! empty($secretKey);
     }
 
+    public function getStripe(): StripeClient
+    {
+        return $this->stripe;
+    }
+
     public function getPublishableKey(): string
     {
         return $this->settingsService->get('stripe_publishable_key', '');
@@ -335,6 +340,21 @@ class StripeService
                 ],
             ];
 
+            // Add billing cycle anchor if a specific billing day is set
+            if ($enrollment->course->feeSettings->hasBillingDay()) {
+                $billingAnchor = $this->calculateBillingCycleAnchor($enrollment->course->feeSettings);
+                if ($billingAnchor) {
+                    $subscriptionData['billing_cycle_anchor'] = $billingAnchor;
+
+                    Log::info('Setting billing cycle anchor for subscription', [
+                        'enrollment_id' => $enrollment->id,
+                        'billing_day' => $enrollment->course->feeSettings->billing_day,
+                        'billing_cycle_anchor' => $billingAnchor,
+                        'billing_cycle_anchor_date' => date('Y-m-d H:i:s', $billingAnchor),
+                    ]);
+                }
+            }
+
             // Attach payment method if provided
             if ($paymentMethod->stripe_payment_method_id) {
                 $subscriptionData['default_payment_method'] = $paymentMethod->stripe_payment_method_id;
@@ -493,6 +513,7 @@ class StripeService
                 'cancel_at' => $subscription->cancel_at,
                 'current_period_end' => $subscription->current_period_end,
                 'current_period_start' => $subscription->current_period_start,
+                'pause_collection' => $subscription->pause_collection ?? null,
             ];
 
         } catch (ApiErrorException $e) {
@@ -501,11 +522,113 @@ class StripeService
                     'status' => 'not_found',
                     'cancel_at_period_end' => false,
                     'cancel_at' => null,
+                    'pause_collection' => null,
                 ];
             }
 
             throw new \Exception('Failed to retrieve subscription: '.$e->getMessage());
         }
+    }
+
+    public function pauseSubscriptionCollection(string $subscriptionId): array
+    {
+        try {
+            $subscription = $this->stripe->subscriptions->update($subscriptionId, [
+                'pause_collection' => [
+                    'behavior' => 'void',
+                ],
+            ]);
+
+            Log::info('Stripe subscription collection paused', [
+                'subscription_id' => $subscriptionId,
+                'pause_collection' => $subscription->pause_collection,
+            ]);
+
+            return [
+                'success' => true,
+                'subscription' => $subscription,
+                'message' => 'Collection has been paused successfully.',
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to pause Stripe subscription collection', [
+                'subscription_id' => $subscriptionId,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to pause collection: '.$e->getMessage());
+        }
+    }
+
+    public function resumeSubscriptionCollection(string $subscriptionId): array
+    {
+        try {
+            $subscription = $this->stripe->subscriptions->update($subscriptionId, [
+                'pause_collection' => null,
+            ]);
+
+            Log::info('Stripe subscription collection resumed', [
+                'subscription_id' => $subscriptionId,
+                'pause_collection' => $subscription->pause_collection,
+            ]);
+
+            return [
+                'success' => true,
+                'subscription' => $subscription,
+                'message' => 'Collection has been resumed successfully.',
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to resume Stripe subscription collection', [
+                'subscription_id' => $subscriptionId,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to resume collection: '.$e->getMessage());
+        }
+    }
+
+    public function syncSubscriptionCollectionStatus(Enrollment $enrollment): bool
+    {
+        if (! $enrollment->stripe_subscription_id) {
+            return false;
+        }
+
+        try {
+            $subscriptionDetails = $this->getSubscriptionDetails($enrollment->stripe_subscription_id);
+
+            if (isset($subscriptionDetails['pause_collection'])) {
+                $pauseCollection = $subscriptionDetails['pause_collection'];
+
+                if ($pauseCollection && isset($pauseCollection['behavior']) && $pauseCollection['behavior'] === 'void') {
+                    // Collection is paused
+                    if (! $enrollment->isCollectionPaused()) {
+                        $enrollment->pauseCollection();
+                        Log::info('Collection status synced to paused', [
+                            'enrollment_id' => $enrollment->id,
+                            'subscription_id' => $enrollment->stripe_subscription_id,
+                        ]);
+                    }
+                } else {
+                    // Collection is active
+                    if ($enrollment->isCollectionPaused()) {
+                        $enrollment->resumeCollection();
+                        Log::info('Collection status synced to active', [
+                            'enrollment_id' => $enrollment->id,
+                            'subscription_id' => $enrollment->stripe_subscription_id,
+                        ]);
+                    }
+                }
+
+                return true;
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to sync collection status', [
+                'enrollment_id' => $enrollment->id,
+                'subscription_id' => $enrollment->stripe_subscription_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return false;
     }
 
     public function confirmSubscriptionPayment(string $subscriptionId): array
@@ -734,6 +857,289 @@ class StripeService
         }
     }
 
+    // Subscription Scheduling Management
+    public function updateSubscriptionSchedule(string $subscriptionId, array $scheduleData): array
+    {
+        try {
+            $updateData = [];
+            $changes = [];
+
+            // Handle billing cycle anchor - Stripe only allows 'now', 'unchanged', or unset for existing subscriptions
+            // Skip this if next_payment_date is provided as it takes precedence
+            if (isset($scheduleData['billing_cycle_anchor']) && ! isset($scheduleData['next_payment_date'])) {
+                $billingAnchor = $scheduleData['billing_cycle_anchor'];
+                $today = now()->startOfDay()->timestamp;
+
+                if ($billingAnchor <= $today + 3600) { // Within 1 hour of today
+                    $updateData['billing_cycle_anchor'] = 'now';
+                    $changes[] = 'billing cycle reset to now';
+
+                    // If resetting billing cycle to now, end any existing trial to avoid conflicts
+                    if (! isset($scheduleData['trial_end_at'])) {
+                        $updateData['trial_end'] = 'now';
+                        $changes[] = 'trial ended (required when resetting billing cycle)';
+                    }
+                } else {
+                    // For future dates, we can use 'unchanged' to maintain current cycle
+                    // This limitation exists in Stripe's API for existing subscriptions
+                    $updateData['billing_cycle_anchor'] = 'unchanged';
+                    $changes[] = 'billing cycle maintained (future dates not supported for existing subscriptions)';
+                }
+            }
+
+            // Handle next payment date - this takes precedence over billing cycle anchor
+            if (isset($scheduleData['next_payment_date'])) {
+                $nextPaymentTimestamp = $scheduleData['next_payment_date'];
+                $today = now()->timestamp;
+                $tomorrow = now()->addDay()->timestamp;
+
+                if ($nextPaymentTimestamp >= $today) {
+                    if ($nextPaymentTimestamp <= $tomorrow) {
+                        // If next payment is today or tomorrow, reset billing cycle to now
+                        $updateData['billing_cycle_anchor'] = 'now';
+                        $updateData['trial_end'] = 'now'; // End any existing trial immediately
+                        $changes[] = 'billing cycle reset to now for immediate payment';
+                    } else {
+                        // For future dates, use trial to delay next payment
+                        // DO NOT set billing_cycle_anchor when using trial_end - this causes conflicts
+                        $updateData['trial_end'] = $nextPaymentTimestamp;
+                        $changes[] = 'next payment scheduled for '.date('M d, Y H:i', $nextPaymentTimestamp).' using trial period';
+                    }
+                } else {
+                    $changes[] = 'next payment date ignored (cannot be in the past)';
+                }
+            }
+
+            // Handle trial end date (both setting and removal)
+            // Always process trial end changes regardless of other settings
+            if (array_key_exists('trial_end_at', $scheduleData)) {
+                if ($scheduleData['trial_end_at'] !== null) {
+                    $updateData['trial_end'] = $scheduleData['trial_end_at'];
+                    $changes[] = 'trial end date updated';
+                } else {
+                    // Remove trial end date (set to 'now' to end immediately)
+                    $updateData['trial_end'] = 'now';
+                    $changes[] = 'trial ended immediately';
+                }
+            }
+
+            // Handle proration behavior
+            if (isset($scheduleData['proration_behavior'])) {
+                $updateData['proration_behavior'] = $scheduleData['proration_behavior'];
+                $changes[] = 'proration behavior updated';
+            }
+
+            // Handle subscription end date
+            if (isset($scheduleData['cancel_at'])) {
+                $updateData['cancel_at'] = $scheduleData['cancel_at'];
+                $changes[] = 'subscription end date set';
+            }
+
+            // Only update if we have changes
+            if (empty($updateData)) {
+                return [
+                    'success' => true,
+                    'subscription' => null,
+                    'message' => 'No changes to apply to subscription schedule',
+                ];
+            }
+
+            $subscription = $this->stripe->subscriptions->update($subscriptionId, $updateData);
+
+            Log::info('Subscription schedule updated', [
+                'subscription_id' => $subscriptionId,
+                'update_data' => $updateData,
+                'changes' => $changes,
+                'new_status' => $subscription->status,
+            ]);
+
+            $message = 'Subscription schedule updated: '.implode(', ', $changes);
+
+            return [
+                'success' => true,
+                'subscription' => $subscription,
+                'message' => $message,
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to update subscription schedule', [
+                'subscription_id' => $subscriptionId,
+                'schedule_data' => $scheduleData,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to update subscription schedule: '.$e->getMessage());
+        }
+    }
+
+    public function rescheduleNextPayment(string $subscriptionId, int $nextPaymentTimestamp): array
+    {
+        try {
+            // Get current subscription
+            $subscription = $this->stripe->subscriptions->retrieve($subscriptionId);
+
+            // Update billing cycle anchor to reschedule next payment
+            $updatedSubscription = $this->stripe->subscriptions->update($subscriptionId, [
+                'billing_cycle_anchor' => $nextPaymentTimestamp,
+                'proration_behavior' => 'create_prorations',
+            ]);
+
+            Log::info('Next payment rescheduled', [
+                'subscription_id' => $subscriptionId,
+                'old_current_period_end' => $subscription->current_period_end,
+                'new_billing_anchor' => $nextPaymentTimestamp,
+                'new_current_period_end' => $updatedSubscription->current_period_end,
+            ]);
+
+            return [
+                'success' => true,
+                'subscription' => $updatedSubscription,
+                'message' => 'Next payment date rescheduled successfully',
+                'old_period_end' => $subscription->current_period_end,
+                'new_period_end' => $updatedSubscription->current_period_end,
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to reschedule next payment', [
+                'subscription_id' => $subscriptionId,
+                'next_payment_timestamp' => $nextPaymentTimestamp,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to reschedule next payment: '.$e->getMessage());
+        }
+    }
+
+    public function updateTrialEnd(string $subscriptionId, ?int $trialEndTimestamp): array
+    {
+        try {
+            $updateData = [];
+
+            if ($trialEndTimestamp) {
+                $updateData['trial_end'] = $trialEndTimestamp;
+            } else {
+                $updateData['trial_end'] = 'now'; // End trial immediately
+            }
+
+            $subscription = $this->stripe->subscriptions->update($subscriptionId, $updateData);
+
+            Log::info('Subscription trial period updated', [
+                'subscription_id' => $subscriptionId,
+                'trial_end' => $trialEndTimestamp,
+                'new_status' => $subscription->status,
+            ]);
+
+            return [
+                'success' => true,
+                'subscription' => $subscription,
+                'message' => $trialEndTimestamp ? 'Trial end date updated successfully' : 'Trial ended immediately',
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to update trial end', [
+                'subscription_id' => $subscriptionId,
+                'trial_end_timestamp' => $trialEndTimestamp,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to update trial end: '.$e->getMessage());
+        }
+    }
+
+    public function changeBillingAnchor(string $subscriptionId, int $billingAnchorTimestamp): array
+    {
+        try {
+            $subscription = $this->stripe->subscriptions->update($subscriptionId, [
+                'billing_cycle_anchor' => $billingAnchorTimestamp,
+                'proration_behavior' => 'create_prorations',
+            ]);
+
+            Log::info('Billing cycle anchor changed', [
+                'subscription_id' => $subscriptionId,
+                'billing_cycle_anchor' => $billingAnchorTimestamp,
+                'billing_anchor_date' => date('Y-m-d H:i:s', $billingAnchorTimestamp),
+            ]);
+
+            return [
+                'success' => true,
+                'subscription' => $subscription,
+                'message' => 'Billing cycle anchor updated successfully',
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to change billing anchor', [
+                'subscription_id' => $subscriptionId,
+                'billing_anchor_timestamp' => $billingAnchorTimestamp,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to change billing anchor: '.$e->getMessage());
+        }
+    }
+
+    public function getDetailedSubscriptionSchedule(string $subscriptionId): array
+    {
+        try {
+            $subscription = $this->stripe->subscriptions->retrieve($subscriptionId);
+
+            return [
+                'id' => $subscription->id,
+                'status' => $subscription->status,
+                'current_period_start' => $subscription->current_period_start,
+                'current_period_end' => $subscription->current_period_end,
+                'billing_cycle_anchor' => $subscription->billing_cycle_anchor,
+                'trial_start' => $subscription->trial_start,
+                'trial_end' => $subscription->trial_end,
+                'cancel_at_period_end' => $subscription->cancel_at_period_end,
+                'cancel_at' => $subscription->cancel_at,
+                'canceled_at' => $subscription->canceled_at,
+                'created' => $subscription->created,
+                'items' => $subscription->items->data,
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to get detailed subscription schedule', [
+                'subscription_id' => $subscriptionId,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to retrieve subscription schedule: '.$e->getMessage());
+        }
+    }
+
+    public function updateSubscriptionEndDate(string $subscriptionId, ?int $endTimestamp): array
+    {
+        try {
+            $updateData = [];
+
+            if ($endTimestamp) {
+                $updateData['cancel_at'] = $endTimestamp;
+                $updateData['cancel_at_period_end'] = false;
+            } else {
+                // Remove end date
+                $updateData['cancel_at'] = null;
+                $updateData['cancel_at_period_end'] = false;
+            }
+
+            $subscription = $this->stripe->subscriptions->update($subscriptionId, $updateData);
+
+            Log::info('Subscription end date updated', [
+                'subscription_id' => $subscriptionId,
+                'end_timestamp' => $endTimestamp,
+                'cancel_at' => $subscription->cancel_at,
+            ]);
+
+            return [
+                'success' => true,
+                'subscription' => $subscription,
+                'message' => $endTimestamp ? 'Subscription end date set successfully' : 'Subscription end date removed',
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to update subscription end date', [
+                'subscription_id' => $subscriptionId,
+                'end_timestamp' => $endTimestamp,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to update subscription end date: '.$e->getMessage());
+        }
+    }
+
     // Payment Method Management
     public function createPaymentMethodFromToken(User $user, string $token): PaymentMethod
     {
@@ -870,44 +1276,22 @@ class StripeService
                 $webhookEvent = WebhookEvent::createFromStripeEvent($event);
             }
 
-            switch ($event->type) {
-                case 'customer.updated':
-                    $this->handleCustomerUpdated($event->data->object);
-                    break;
+            // Dispatch appropriate job based on event type
+            match ($event->type) {
+                'customer.updated' => \App\Jobs\ProcessStripeCustomerUpdated::dispatch($webhookEvent, (array) $event->data->object),
+                'invoice.payment_succeeded' => \App\Jobs\ProcessStripeInvoicePaymentSucceeded::dispatch($webhookEvent, (array) $event->data->object),
+                'invoice.payment_failed' => \App\Jobs\ProcessStripeInvoicePaymentFailed::dispatch($webhookEvent, (array) $event->data->object),
+                'customer.subscription.created' => \App\Jobs\ProcessStripeSubscriptionCreated::dispatch($webhookEvent, (array) $event->data->object),
+                'customer.subscription.updated' => \App\Jobs\ProcessStripeSubscriptionUpdated::dispatch($webhookEvent, (array) $event->data->object),
+                'customer.subscription.deleted' => \App\Jobs\ProcessStripeSubscriptionDeleted::dispatch($webhookEvent, (array) $event->data->object),
+                'customer.subscription.trial_will_end' => \App\Jobs\ProcessStripeSubscriptionTrialWillEnd::dispatch($webhookEvent, (array) $event->data->object),
+                default => Log::info('Unhandled webhook event', [
+                    'type' => $event->type,
+                    'id' => $event->id,
+                ]),
+            };
 
-                case 'invoice.payment_succeeded':
-                    $this->handleInvoicePaymentSucceeded($event->data->object);
-                    break;
-
-                case 'invoice.payment_failed':
-                    $this->handleInvoicePaymentFailed($event->data->object);
-                    break;
-
-                case 'customer.subscription.created':
-                    $this->handleSubscriptionCreated($event->data->object);
-                    break;
-
-                case 'customer.subscription.updated':
-                    $this->handleSubscriptionUpdated($event->data->object);
-                    break;
-
-                case 'customer.subscription.deleted':
-                    $this->handleSubscriptionDeleted($event->data->object);
-                    break;
-
-                case 'customer.subscription.trial_will_end':
-                    $this->handleSubscriptionTrialWillEnd($event->data->object);
-                    break;
-
-                default:
-                    Log::info('Unhandled webhook event', [
-                        'type' => $event->type,
-                        'id' => $event->id,
-                    ]);
-            }
-
-            // Mark webhook event as processed
-            $webhookEvent->markAsProcessed();
+            // Don't mark as processed here - the job will handle that
 
             Log::info('Webhook processed successfully', [
                 'event_id' => $event->id,
@@ -1260,6 +1644,68 @@ class StripeService
                 'success' => false,
                 'error' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Calculate the billing cycle anchor timestamp for a subscription
+     * based on the course fee settings billing day.
+     */
+    private function calculateBillingCycleAnchor(CourseFeeSettings $feeSettings): ?int
+    {
+        if (! $feeSettings->hasBillingDay()) {
+            return null;
+        }
+
+        $billingDay = $feeSettings->getValidatedBillingDay();
+        if (! $billingDay) {
+            return null;
+        }
+
+        $now = now();
+        $currentDay = $now->day;
+        $currentMonth = $now->month;
+        $currentYear = $now->year;
+
+        try {
+            // Determine the target month and year
+            if ($currentDay < $billingDay) {
+                // If the billing day hasn't occurred this month, use this month
+                $targetDate = $now->copy();
+            } else {
+                // If the billing day has passed this month, use next month
+                $targetDate = $now->copy()->addMonth();
+            }
+
+            // Check days in target month before setting the day
+            $daysInTargetMonth = $targetDate->daysInMonth;
+
+            if ($billingDay > $daysInTargetMonth) {
+                // Use the last day of the month if the billing day exceeds the month's days
+                $anchorDate = $targetDate->endOfMonth()->startOfDay();
+            } else {
+                // Set the specific billing day
+                $anchorDate = $targetDate->day($billingDay)->startOfDay();
+            }
+
+            Log::info('Calculated billing cycle anchor', [
+                'original_billing_day' => $billingDay,
+                'current_date' => $now->toDateString(),
+                'anchor_date' => $anchorDate->toDateString(),
+                'anchor_timestamp' => $anchorDate->timestamp,
+                'days_in_target_month' => $daysInTargetMonth,
+            ]);
+
+            return $anchorDate->timestamp;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to calculate billing cycle anchor', [
+                'billing_day' => $billingDay,
+                'current_date' => $now->toDateString(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 }

@@ -17,27 +17,43 @@ class TeacherSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create teacher user
-        $teacherUser = User::create([
-            'name' => 'John Teacher',
-            'email' => 'teacher@example.com',
-            'password' => Hash::make('password'),
-            'email_verified_at' => now(),
-            'role' => 'teacher',
-        ]);
+        $teacherNames = [
+            'Ahmad Faiz bin Abdullah',
+            'Fatimah binti Hassan',
+            'Mohammad Rizal bin Karim',
+            'Siti Aminah binti Omar',
+            'Yusuf bin Ibrahim',
+        ];
 
-        // Create teacher profile
-        $teacher = Teacher::create([
-            'user_id' => $teacherUser->id,
-            'teacher_id' => 'TID001',
-            'ic_number' => '880101-14-5678',
-            'phone' => '012-345-6789',
-            'status' => 'active',
-            'joined_at' => now(),
-            'bank_account_holder' => 'John Teacher',
-            'bank_account_number' => '1234567890',
-            'bank_name' => 'Maybank',
-        ]);
+        $teachers = [];
+
+        // Create 5 teachers
+        foreach ($teacherNames as $index => $name) {
+            $teacherUser = User::create([
+                'name' => $name,
+                'email' => $index === 0 ? 'teacher@example.com' : 'teacher'.($index + 1).'@example.com',
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+                'role' => 'teacher',
+            ]);
+
+            $teacher = Teacher::create([
+                'user_id' => $teacherUser->id,
+                'teacher_id' => 'TID'.str_pad($index + 1, 3, '0', STR_PAD_LEFT),
+                'ic_number' => '88010'.($index + 1).'-14-567'.($index + 8),
+                'phone' => '012-345-678'.($index + 1),
+                'status' => 'active',
+                'joined_at' => now(),
+                'bank_account_holder' => $name,
+                'bank_account_number' => '123456789'.($index + 1),
+                'bank_name' => $index % 2 === 0 ? 'Maybank' : 'CIMB Bank',
+            ]);
+
+            $teachers[] = $teacher;
+        }
+
+        // Use the first teacher for the main courses and classes
+        $teacher = $teachers[0];
 
         // Create courses
         $course1 = Course::create([
@@ -127,11 +143,21 @@ class TeacherSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // Create some students
+        // Create students with diverse names
+        $studentNames = [
+            'Aiman bin Rashid', 'Nur Aisyah binti Ahmad', 'Haziq bin Zulkifli', 'Siti Nurhaliza binti Yaacob',
+            'Amin bin Hakim', 'Fatimah Zahra binti Mohamed', 'Luqman bin Ismail', 'Khadijah binti Sulaiman',
+            'Hakim bin Rosli', 'Zainab binti Hashim', 'Irfan bin Mansor', 'Maryam binti Razak',
+            'Faisal bin Daud', 'Aminah binti Zakaria', 'Safwan bin Khalid', 'Hafsah binti Nasir',
+            'Zikri bin Amir', 'Ruqayyah binti Hasan', 'Ilham bin Aziz', 'Khadijahtul Kubra binti Rahman',
+        ];
+
         $students = [];
-        for ($i = 1; $i <= 5; $i++) {
+        for ($i = 1; $i <= 20; $i++) {
+            $studentName = $studentNames[$i - 1];
+
             $studentUser = User::create([
-                'name' => "Student {$i}",
+                'name' => $studentName,
                 'email' => "student{$i}@example.com",
                 'password' => Hash::make('password'),
                 'email_verified_at' => now(),
@@ -141,8 +167,8 @@ class TeacherSeeder extends Seeder
             $student = Student::create([
                 'user_id' => $studentUser->id,
                 'student_id' => 'STU'.str_pad($i, 3, '0', STR_PAD_LEFT),
-                'ic_number' => '90010'.$i.'-14-567'.$i,
-                'phone' => '012-345-678'.$i,
+                'ic_number' => '90010'.str_pad($i, 2, '0', STR_PAD_LEFT).'-14-567'.str_pad($i, 2, '0', STR_PAD_LEFT),
+                'phone' => '012-345-'.str_pad(6780 + $i, 4, '0', STR_PAD_LEFT),
                 'status' => 'active',
                 'enrolled_at' => now(),
             ]);

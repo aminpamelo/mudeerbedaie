@@ -84,8 +84,12 @@
                 @endif
                 
                 @if(auth()->user()->isStudent())
+                <flux:navlist.group :heading="__('Courses')" class="grid">
+                    <flux:navlist.item icon="academic-cap" :href="route('student.courses')" :current="request()->routeIs('student.courses*')" wire:navigate>{{ __('Browse Courses') }}</flux:navlist.item>
+                    <flux:navlist.item icon="check-circle" :href="route('student.subscriptions')" :current="request()->routeIs('student.subscriptions*')" wire:navigate>{{ __('My Enrollments') }}</flux:navlist.item>
+                </flux:navlist.group>
+                
                 <flux:navlist.group :heading="__('My Account')" class="grid">
-                    <flux:navlist.item icon="credit-card" :href="route('student.subscriptions')" :current="request()->routeIs('student.subscriptions*')" wire:navigate>{{ __('My Subscriptions') }}</flux:navlist.item>
                     <flux:navlist.item icon="clipboard-document-list" :href="route('student.orders')" :current="request()->routeIs('student.orders*')" wire:navigate>{{ __('Order History') }}</flux:navlist.item>
                     <flux:navlist.item icon="credit-card" :href="route('student.payment-methods')" :current="request()->routeIs('student.payment-methods*')" wire:navigate>{{ __('Payment Methods') }}</flux:navlist.item>
                 </flux:navlist.group>
@@ -94,15 +98,6 @@
 
             <flux:spacer />
 
-            <flux:navlist variant="outline">
-                <flux:navlist.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                {{ __('Repository') }}
-                </flux:navlist.item>
-
-                <flux:navlist.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                {{ __('Documentation') }}
-                </flux:navlist.item>
-            </flux:navlist>
 
             <!-- Desktop User Menu -->
             <flux:dropdown class="hidden lg:block" position="bottom" align="start">

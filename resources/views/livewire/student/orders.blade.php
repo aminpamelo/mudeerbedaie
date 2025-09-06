@@ -181,10 +181,9 @@ new class extends Component {
                                 View Details
                             </flux:button>
                             
-                            @if($order->receipt_url)
+                            @if($order->isPaid())
                                 <flux:button 
-                                    href="{{ $order->receipt_url }}" 
-                                    target="_blank"
+                                    href="{{ route('student.orders.receipt', $order) }}" 
                                     variant="outline" 
                                     size="sm"
                                 >

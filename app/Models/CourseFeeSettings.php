@@ -2,15 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CourseFeeSettings extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'course_id',
         'fee_amount',
         'billing_cycle',
+        'billing_day',
         'currency',
         'is_recurring',
         'stripe_price_id',
@@ -25,6 +29,7 @@ class CourseFeeSettings extends Model
             'is_recurring' => 'boolean',
             'trial_period_days' => 'integer',
             'setup_fee' => 'decimal:2',
+            'billing_day' => 'integer',
         ];
     }
 
@@ -87,5 +92,37 @@ class CourseFeeSettings extends Model
             'yearly' => 1,
             default => 1,
         };
+    }
+
+    // Billing day methods
+    public function hasBillingDay(): bool
+    {
+        return ! is_null($this->billing_day) && $this->billing_day >= 1 && $this->billing_day <= 31;
+    }
+
+    public function getBillingDayLabel(): string
+    {
+        if (! $this->hasBillingDay()) {
+            return 'Default (billing cycle start)';
+        }
+
+        $suffix = match ($this->billing_day % 10) {
+            1 => $this->billing_day === 11 ? 'th' : 'st',
+            2 => $this->billing_day === 12 ? 'th' : 'nd',
+            3 => $this->billing_day === 13 ? 'th' : 'rd',
+            default => 'th',
+        };
+
+        return $this->billing_day.$suffix.' of each '.str_replace('ly', '', $this->billing_cycle);
+    }
+
+    public function getValidatedBillingDay(): ?int
+    {
+        if (is_null($this->billing_day)) {
+            return null;
+        }
+
+        // Ensure billing day is within valid range
+        return max(1, min(31, $this->billing_day));
     }
 }
