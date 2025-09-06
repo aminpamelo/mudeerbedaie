@@ -249,6 +249,21 @@ class Order extends Model
     // Create order from Stripe invoice
     public static function createFromStripeInvoice(array $stripeInvoice, Enrollment $enrollment): self
     {
+        // Use total amount for failed invoices, amount_paid for successful ones
+        $amount = $stripeInvoice['status'] === 'paid' 
+            ? $stripeInvoice['amount_paid'] / 100
+            : ($stripeInvoice['total'] ?? $stripeInvoice['amount_due'] ?? $stripeInvoice['amount_paid']) / 100;
+            
+        // Determine status based on Stripe invoice status
+        $status = match ($stripeInvoice['status']) {
+            'paid' => self::STATUS_PAID,
+            'open' => self::STATUS_PENDING,
+            'draft' => self::STATUS_PENDING,
+            'uncollectible' => self::STATUS_FAILED,
+            'void' => self::STATUS_VOID,
+            default => self::STATUS_FAILED,
+        };
+
         return self::create([
             'enrollment_id' => $enrollment->id,
             'student_id' => $enrollment->student_id,
@@ -256,13 +271,14 @@ class Order extends Model
             'stripe_invoice_id' => $stripeInvoice['id'],
             'stripe_charge_id' => $stripeInvoice['charge'] ?? null,
             'stripe_payment_intent_id' => $stripeInvoice['payment_intent'] ?? null,
-            'amount' => $stripeInvoice['amount_paid'] / 100, // Convert from cents
+            'amount' => $amount,
             'currency' => strtoupper($stripeInvoice['currency']),
-            'status' => $stripeInvoice['status'] === 'paid' ? self::STATUS_PAID : self::STATUS_PENDING,
+            'status' => $status,
             'period_start' => Carbon::createFromTimestamp($stripeInvoice['period_start']),
             'period_end' => Carbon::createFromTimestamp($stripeInvoice['period_end']),
             'billing_reason' => $stripeInvoice['billing_reason'] ?? self::REASON_SUBSCRIPTION_CYCLE,
             'paid_at' => $stripeInvoice['status'] === 'paid' ? now() : null,
+            'failed_at' => in_array($stripeInvoice['status'], ['uncollectible']) ? now() : null,
             'receipt_url' => $stripeInvoice['hosted_invoice_url'] ?? null,
             'stripe_fee' => isset($stripeInvoice['application_fee_amount']) ? $stripeInvoice['application_fee_amount'] / 100 : null,
             'net_amount' => ($stripeInvoice['amount_paid'] - ($stripeInvoice['application_fee_amount'] ?? 0)) / 100,
