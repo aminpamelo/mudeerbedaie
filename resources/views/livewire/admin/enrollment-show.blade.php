@@ -3,13 +3,32 @@
 use App\Models\Enrollment;
 use App\Services\StripeService;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
-new class extends Component {
+new class extends Component
+{
+    use WithFileUploads;
+
     public Enrollment $enrollment;
+
     public $subscriptionEvents;
-    
+
+    // Manual payment properties
+    public $showManualPaymentModal = false;
+
+    public $showCreateManualOrderModal = false;
+
+    public $showApprovalModal = false;
+
+    public $selectedOrderForApproval = null;
+
+    public $paymentDate = '';
+
+    public $receiptFile = null;
+
     // Schedule management properties
     public $showScheduleModal = false;
+
     public $scheduleForm = [
         'billing_cycle_anchor' => null,
         'trial_end_at' => null,
@@ -21,9 +40,10 @@ new class extends Component {
         'end_time' => null,
         'subscription_fee' => null,
     ];
-    
+
     // Subscription creation properties
     public $showCreateSubscriptionModal = false;
+
     public $createForm = [
         'trial_end_at' => null,
         'billing_cycle_anchor' => null,
@@ -43,10 +63,10 @@ new class extends Component {
     public function mount(): void
     {
         $this->enrollment->load(['student.user', 'course.feeSettings', 'enrolledBy', 'orders']);
-        
+
         // Load subscription events
         $this->refreshSubscriptionEvents();
-        
+
         // Refresh subscription status from Stripe if there's a subscription
         if ($this->enrollment->stripe_subscription_id) {
             $this->refreshSubscriptionStatus();
@@ -54,7 +74,7 @@ new class extends Component {
 
         // Initialize schedule form
         $this->initializeScheduleForm();
-        
+
         // Initialize create form
         $this->initializeCreateForm();
     }
@@ -64,7 +84,7 @@ new class extends Component {
         // Use the same reliable calculation as the main view
         $nextPaymentDate = null;
         $nextPaymentTime = '07:23';
-        
+
         // Get next payment date from enrollment model (same as main view)
         $nextPaymentCarbon = $this->enrollment->getNextPaymentDate();
         if ($nextPaymentCarbon) {
@@ -101,7 +121,7 @@ new class extends Component {
                     'end_time' => null,
                     'subscription_fee' => $this->enrollment->enrollment_fee,
                 ];
-                
+
                 \Log::warning('Could not load subscription schedule details, using fallback', [
                     'enrollment_id' => $this->enrollment->id,
                     'error' => $e->getMessage(),
@@ -176,7 +196,7 @@ new class extends Component {
             'createForm.subscription_fee' => 'nullable|numeric|min:0.01|max:9999999.99',
         ];
     }
-    
+
     public function refreshSubscriptionEvents(): void
     {
         $this->subscriptionEvents = $this->enrollment->getSubscriptionEvents();
@@ -187,28 +207,28 @@ new class extends Component {
         try {
             $stripeService = app(StripeService::class);
             $details = $stripeService->getSubscriptionDetails($this->enrollment->stripe_subscription_id);
-            
+
             // Update subscription status if needed
             if ($details['status'] !== $this->enrollment->subscription_status) {
                 $this->enrollment->updateSubscriptionStatus($details['status']);
             }
-            
+
             // Update cancellation timestamp based on Stripe data
             $cancelAt = null;
             if ($details['cancel_at_period_end'] && $details['cancel_at']) {
                 $cancelAt = \Carbon\Carbon::createFromTimestamp($details['cancel_at']);
             }
-            
+
             // Only update if the cancellation timestamp has changed
             $currentCancelAt = $this->enrollment->subscription_cancel_at;
-            if (($currentCancelAt && !$cancelAt) || 
-                (!$currentCancelAt && $cancelAt) || 
-                ($currentCancelAt && $cancelAt && !$currentCancelAt->equalTo($cancelAt))) {
+            if (($currentCancelAt && ! $cancelAt) ||
+                (! $currentCancelAt && $cancelAt) ||
+                ($currentCancelAt && $cancelAt && ! $currentCancelAt->equalTo($cancelAt))) {
                 $this->enrollment->updateSubscriptionCancellation($cancelAt);
             }
-            
+
             $this->enrollment->refresh();
-            
+
         } catch (\Exception $e) {
             \Log::error('Failed to refresh subscription status from Stripe', [
                 'enrollment_id' => $this->enrollment->id,
@@ -220,34 +240,35 @@ new class extends Component {
     public function syncSubscriptionData(): void
     {
         try {
-            if (!$this->enrollment->stripe_subscription_id) {
+            if (! $this->enrollment->stripe_subscription_id) {
                 session()->flash('error', 'No subscription ID found to sync with Stripe.');
+
                 return;
             }
 
             $stripeService = app(StripeService::class);
-            
+
             // Get comprehensive subscription details from Stripe
             $details = $stripeService->getSubscriptionDetails($this->enrollment->stripe_subscription_id);
-            
+
             \Log::info('Syncing subscription data from Stripe', [
                 'enrollment_id' => $this->enrollment->id,
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'stripe_status' => $details['status'] ?? 'unknown',
             ]);
-            
+
             // Update subscription status
             if (isset($details['status']) && $details['status'] !== $this->enrollment->subscription_status) {
                 $this->enrollment->updateSubscriptionStatus($details['status']);
             }
-            
+
             // Sync collection status if available
             if (isset($details['pause_collection'])) {
                 $pauseCollection = $details['pause_collection'];
-                
+
                 if ($pauseCollection && isset($pauseCollection['behavior']) && $pauseCollection['behavior'] === 'void') {
                     // Collection is paused
-                    if (!$this->enrollment->isCollectionPaused()) {
+                    if (! $this->enrollment->isCollectionPaused()) {
                         $this->enrollment->pauseCollection();
                     }
                 } else {
@@ -257,7 +278,7 @@ new class extends Component {
                     }
                 }
             }
-            
+
             // Update next payment date
             if (in_array($details['status'] ?? '', ['active', 'trialing']) && isset($details['current_period_end'])) {
                 $nextPaymentDate = \Carbon\Carbon::createFromTimestamp($details['current_period_end'])->addDay();
@@ -265,55 +286,55 @@ new class extends Component {
             } elseif (in_array($details['status'] ?? '', ['canceled', 'incomplete_expired', 'past_due', 'unpaid'])) {
                 $this->enrollment->updateNextPaymentDate(null);
             }
-            
+
             // Update cancellation information
             $cancelAt = null;
             if ($details['cancel_at_period_end'] && $details['cancel_at']) {
                 $cancelAt = \Carbon\Carbon::createFromTimestamp($details['cancel_at']);
             }
-            
+
             $currentCancelAt = $this->enrollment->subscription_cancel_at;
-            if (($currentCancelAt && !$cancelAt) || 
-                (!$currentCancelAt && $cancelAt) || 
-                ($currentCancelAt && $cancelAt && !$currentCancelAt->equalTo($cancelAt))) {
+            if (($currentCancelAt && ! $cancelAt) ||
+                (! $currentCancelAt && $cancelAt) ||
+                ($currentCancelAt && $cancelAt && ! $currentCancelAt->equalTo($cancelAt))) {
                 $this->enrollment->updateSubscriptionCancellation($cancelAt);
             }
-            
+
             // Update trial information if available
             if (isset($details['trial_end']) && $details['trial_end']) {
                 $trialEnd = \Carbon\Carbon::createFromTimestamp($details['trial_end']);
                 // Update trial end if different
-                if (!$this->enrollment->trial_end_at || !$this->enrollment->trial_end_at->equalTo($trialEnd)) {
+                if (! $this->enrollment->trial_end_at || ! $this->enrollment->trial_end_at->equalTo($trialEnd)) {
                     $this->enrollment->update(['trial_end_at' => $trialEnd]);
                 }
-            } elseif (isset($details['trial_end']) && !$details['trial_end'] && $this->enrollment->trial_end_at) {
+            } elseif (isset($details['trial_end']) && ! $details['trial_end'] && $this->enrollment->trial_end_at) {
                 // Clear trial end if no longer in trial
                 $this->enrollment->update(['trial_end_at' => null]);
             }
-            
+
             // Refresh enrollment data
             $this->enrollment->refresh();
-            
+
             // Refresh subscription events
             $this->refreshSubscriptionEvents();
-            
+
             session()->flash('success', 'Subscription data synchronized successfully from Stripe!');
-            
+
             \Log::info('Subscription data synced successfully', [
                 'enrollment_id' => $this->enrollment->id,
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'new_status' => $this->enrollment->subscription_status,
                 'collection_status' => $this->enrollment->collection_status ?? 'active',
             ]);
-            
+
         } catch (\Exception $e) {
             \Log::error('Failed to sync subscription data from Stripe', [
                 'enrollment_id' => $this->enrollment->id,
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'error' => $e->getMessage(),
             ]);
-            
-            session()->flash('error', 'Failed to sync subscription data: ' . $e->getMessage());
+
+            session()->flash('error', 'Failed to sync subscription data: '.$e->getMessage());
         }
     }
 
@@ -321,29 +342,31 @@ new class extends Component {
     {
         \Log::info('Create subscription button clicked', [
             'enrollment_id' => $this->enrollment->id,
-            'user_id' => auth()->user()->id
+            'user_id' => auth()->user()->id,
         ]);
 
         try {
             \Log::info('Checking course fee settings', [
                 'enrollment_id' => $this->enrollment->id,
-                'has_fee_settings' => (bool) $this->enrollment->course->feeSettings
+                'has_fee_settings' => (bool) $this->enrollment->course->feeSettings,
             ]);
 
-            if (!$this->enrollment->course->feeSettings) {
+            if (! $this->enrollment->course->feeSettings) {
                 \Log::warning('Course missing fee settings', ['enrollment_id' => $this->enrollment->id]);
                 session()->flash('error', 'Course must have fee settings configured first.');
+
                 return;
             }
 
             \Log::info('Checking Stripe price ID', [
                 'enrollment_id' => $this->enrollment->id,
-                'stripe_price_id' => $this->enrollment->course->feeSettings->stripe_price_id
+                'stripe_price_id' => $this->enrollment->course->feeSettings->stripe_price_id,
             ]);
 
-            if (!$this->enrollment->course->feeSettings->stripe_price_id) {
+            if (! $this->enrollment->course->feeSettings->stripe_price_id) {
                 \Log::warning('Course missing Stripe price ID', ['enrollment_id' => $this->enrollment->id]);
                 session()->flash('error', 'Course must be synced with Stripe first. Go to Course Edit page and click "Sync to Stripe".');
+
                 return;
             }
 
@@ -351,57 +374,58 @@ new class extends Component {
             \Log::info('Looking for student payment methods', [
                 'enrollment_id' => $this->enrollment->id,
                 'student_id' => $this->enrollment->student->id,
-                'user_id' => $this->enrollment->student->user->id
+                'user_id' => $this->enrollment->student->user->id,
             ]);
 
             $paymentMethod = $this->enrollment->student->user->paymentMethods()
                 ->active()
                 ->default()
                 ->first();
-            
+
             \Log::info('Payment method check result', [
                 'enrollment_id' => $this->enrollment->id,
                 'payment_method_found' => (bool) $paymentMethod,
-                'payment_method_id' => $paymentMethod?->id
+                'payment_method_id' => $paymentMethod?->id,
             ]);
 
-            if (!$paymentMethod) {
+            if (! $paymentMethod) {
                 \Log::warning('Student has no default payment method', ['enrollment_id' => $this->enrollment->id]);
                 session()->flash('warning', 'Student must add a payment method first. You can add one for them or direct them to their Payment Methods page.');
+
                 return;
             }
 
             // Create subscription using StripeService
             \Log::info('Creating Stripe subscription', [
                 'enrollment_id' => $this->enrollment->id,
-                'payment_method_id' => $paymentMethod->id
+                'payment_method_id' => $paymentMethod->id,
             ]);
 
             $stripeService = app(StripeService::class);
             $result = $stripeService->createSubscription($this->enrollment, $paymentMethod);
-            
+
             \Log::info('Stripe subscription creation result', [
                 'enrollment_id' => $this->enrollment->id,
-                'subscription_id' => $result['subscription']->id ?? null
+                'subscription_id' => $result['subscription']->id ?? null,
             ]);
 
             // Refresh enrollment to get updated subscription data
             $this->enrollment->refresh();
-            
+
             \Log::info('Subscription created successfully', [
                 'enrollment_id' => $this->enrollment->id,
-                'stripe_subscription_id' => $this->enrollment->stripe_subscription_id
+                'stripe_subscription_id' => $this->enrollment->stripe_subscription_id,
             ]);
 
             session()->flash('success', 'Subscription created successfully! The student will be charged according to the billing cycle.');
-            
+
         } catch (\Exception $e) {
             \Log::error('Failed to create subscription', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            session()->flash('error', 'Failed to create subscription: ' . $e->getMessage());
+            session()->flash('error', 'Failed to create subscription: '.$e->getMessage());
         }
     }
 
@@ -410,15 +434,16 @@ new class extends Component {
         \Log::info('Create subscription with options submitted', [
             'enrollment_id' => $this->enrollment->id,
             'user_id' => auth()->user()->id,
-            'form_data' => $this->createForm
+            'form_data' => $this->createForm,
         ]);
 
         $this->validate();
 
         try {
             // Validate course settings
-            if (!$this->enrollment->course->feeSettings || !$this->enrollment->course->feeSettings->stripe_price_id) {
+            if (! $this->enrollment->course->feeSettings || ! $this->enrollment->course->feeSettings->stripe_price_id) {
                 session()->flash('error', 'Course must have fee settings configured and synced with Stripe.');
+
                 return;
             }
 
@@ -427,49 +452,50 @@ new class extends Component {
                 ->active()
                 ->find($this->createForm['payment_method_id']);
 
-            if (!$paymentMethod) {
+            if (! $paymentMethod) {
                 session()->flash('error', 'Selected payment method not found or inactive.');
+
                 return;
             }
 
             $stripeService = app(StripeService::class);
-            
+
             // Handle custom subscription fee if provided
-            if (isset($this->createForm['subscription_fee']) && 
-                $this->createForm['subscription_fee'] !== null && 
+            if (isset($this->createForm['subscription_fee']) &&
+                $this->createForm['subscription_fee'] !== null &&
                 $this->createForm['subscription_fee'] != $this->enrollment->enrollment_fee) {
-                
+
                 // Update the enrollment fee before creating subscription
                 $this->enrollment->update(['enrollment_fee' => (float) $this->createForm['subscription_fee']]);
                 $this->enrollment->refresh();
             }
-            
+
             // For now, use the existing createSubscription method with basic options
             // This can be extended later when StripeService supports more options
             $result = $stripeService->createSubscription($this->enrollment, $paymentMethod);
-            
+
             // Refresh enrollment to get the new subscription ID
             $this->enrollment->refresh();
-            
+
             // Handle next payment scheduling if provided
             if ($this->createForm['next_payment_date'] && $this->enrollment->stripe_subscription_id) {
                 try {
-                    $nextPaymentDateTime = $this->createForm['next_payment_date'] . ' ' . ($this->createForm['next_payment_time'] ?? '07:23');
+                    $nextPaymentDateTime = $this->createForm['next_payment_date'].' '.($this->createForm['next_payment_time'] ?? '07:23');
                     $nextPaymentTimestamp = \Carbon\Carbon::parse($nextPaymentDateTime)
                         ->setTimezone($this->createForm['subscription_timezone'])
                         ->timestamp;
-                    
+
                     // Update subscription schedule in Stripe
                     $scheduleResult = $stripeService->updateSubscriptionSchedule(
                         $this->enrollment->stripe_subscription_id,
                         ['next_payment_date' => $nextPaymentTimestamp]
                     );
-                    
+
                     if ($scheduleResult['success']) {
                         // Update stored next payment date in enrollment
                         $nextPaymentCarbon = \Carbon\Carbon::createFromTimestamp($nextPaymentTimestamp);
                         $this->enrollment->updateNextPaymentDate($nextPaymentCarbon);
-                        
+
                         \Log::info('Next payment date set for new subscription', [
                             'enrollment_id' => $this->enrollment->id,
                             'next_payment_date' => $nextPaymentCarbon->toDateTimeString(),
@@ -483,57 +509,58 @@ new class extends Component {
                     // Don't fail the entire process, just log the warning
                 }
             }
-            
+
             // Store additional metadata if notes provided
             if ($this->createForm['notes']) {
                 $this->enrollment->update(['notes' => $this->createForm['notes']]);
             }
-            
+
             // Update enrollment with timezone preference
             $this->enrollment->update([
-                'subscription_timezone' => $this->createForm['subscription_timezone']
+                'subscription_timezone' => $this->createForm['subscription_timezone'],
             ]);
 
             // Final refresh to get all updated data
             $this->enrollment->refresh();
-            
+
             // Close modal
             $this->showCreateSubscriptionModal = false;
-            
+
             \Log::info('Subscription created successfully with options', [
                 'enrollment_id' => $this->enrollment->id,
-                'stripe_subscription_id' => $this->enrollment->stripe_subscription_id
+                'stripe_subscription_id' => $this->enrollment->stripe_subscription_id,
             ]);
 
             session()->flash('success', 'Subscription created successfully with your configured options!');
-            
+
         } catch (\Exception $e) {
             \Log::error('Failed to create subscription with options', [
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
-                'form_data' => $this->createForm
+                'form_data' => $this->createForm,
             ]);
-            session()->flash('error', 'Failed to create subscription: ' . $e->getMessage());
+            session()->flash('error', 'Failed to create subscription: '.$e->getMessage());
         }
     }
 
     public function cancelSubscription()
     {
         try {
-            if (!$this->enrollment->stripe_subscription_id) {
+            if (! $this->enrollment->stripe_subscription_id) {
                 session()->flash('error', 'No active subscription found.');
+
                 return;
             }
 
             $stripeService = app(StripeService::class);
             $result = $stripeService->cancelSubscription($this->enrollment->stripe_subscription_id, false);
-            
+
             // Refresh enrollment to get updated status
             $this->enrollment->refresh();
-            
+
             // Force refresh of the subscription log
             $this->refreshSubscriptionEvents();
-            
+
             // Show appropriate message based on cancellation type
             if ($result['immediately']) {
                 session()->flash('success', $result['message']);
@@ -544,12 +571,12 @@ new class extends Component {
                     $this->enrollment->updateSubscriptionCancellation($cancelAt);
                     $this->enrollment->refresh(); // Refresh to get updated data
                 }
-                
-                session()->flash('info', $result['message'] . ' The subscription will automatically end at that time and no further charges will occur.');
+
+                session()->flash('info', $result['message'].' The subscription will automatically end at that time and no further charges will occur.');
             }
-            
+
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to cancel subscription: ' . $e->getMessage());
+            session()->flash('error', 'Failed to cancel subscription: '.$e->getMessage());
         }
     }
 
@@ -558,17 +585,19 @@ new class extends Component {
         \Log::info('Undo cancellation button clicked', [
             'enrollment_id' => $this->enrollment->id,
             'subscription_id' => $this->enrollment->stripe_subscription_id,
-            'user_id' => auth()->user()->id
+            'user_id' => auth()->user()->id,
         ]);
 
         try {
-            if (!$this->enrollment->stripe_subscription_id) {
+            if (! $this->enrollment->stripe_subscription_id) {
                 session()->flash('error', 'No subscription found to undo cancellation.');
+
                 return;
             }
 
-            if (!$this->enrollment->isPendingCancellation()) {
+            if (! $this->enrollment->isPendingCancellation()) {
                 session()->flash('info', 'Subscription is not pending cancellation.');
+
                 return;
             }
 
@@ -578,15 +607,15 @@ new class extends Component {
             if ($result['success']) {
                 // Clear the cancellation timestamp
                 $this->enrollment->updateSubscriptionCancellation(null);
-                
+
                 // Refresh enrollment to get updated status
                 $this->enrollment->refresh();
-                
+
                 // Force refresh of the subscription log
                 $this->mount();
-                
+
                 session()->flash('success', $result['message']);
-                
+
                 \Log::info('Cancellation undone successfully', [
                     'enrollment_id' => $this->enrollment->id,
                     'subscription_id' => $this->enrollment->stripe_subscription_id,
@@ -599,34 +628,36 @@ new class extends Component {
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'error' => $e->getMessage(),
             ]);
-            
-            session()->flash('error', 'Failed to undo cancellation: ' . $e->getMessage());
+
+            session()->flash('error', 'Failed to undo cancellation: '.$e->getMessage());
         }
     }
-
 
     public function resumeCanceledSubscription()
     {
         \Log::info('Resume canceled subscription button clicked', [
             'enrollment_id' => $this->enrollment->id,
-            'user_id' => auth()->user()->id
+            'user_id' => auth()->user()->id,
         ]);
 
         try {
             // Verify that subscription is in a resumable state
-            if (!in_array($this->enrollment->subscription_status, ['canceled', 'incomplete_expired', 'incomplete'])) {
+            if (! in_array($this->enrollment->subscription_status, ['canceled', 'incomplete_expired', 'incomplete'])) {
                 session()->flash('error', 'Subscription is not in a state that can be resumed.');
+
                 return;
             }
 
             // Check course fee settings and Stripe configuration
-            if (!$this->enrollment->course->feeSettings) {
+            if (! $this->enrollment->course->feeSettings) {
                 session()->flash('error', 'Course must have fee settings configured first.');
+
                 return;
             }
 
-            if (!$this->enrollment->course->feeSettings->stripe_price_id) {
+            if (! $this->enrollment->course->feeSettings->stripe_price_id) {
                 session()->flash('error', 'Course must be synced with Stripe first. Go to Course Edit page and click "Sync to Stripe".');
+
                 return;
             }
 
@@ -636,8 +667,9 @@ new class extends Component {
                 ->default()
                 ->first();
 
-            if (!$paymentMethod) {
+            if (! $paymentMethod) {
                 session()->flash('warning', 'Student must add a payment method first. You can add one for them or direct them to their Payment Methods page.');
+
                 return;
             }
 
@@ -647,7 +679,7 @@ new class extends Component {
 
             // Refresh enrollment to get updated subscription data
             $this->enrollment->refresh();
-            
+
             // Force refresh of the subscription log to show events for the new subscription
             $this->mount();
 
@@ -658,7 +690,7 @@ new class extends Component {
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
             ]);
-            session()->flash('error', 'Failed to resume subscription: ' . $e->getMessage());
+            session()->flash('error', 'Failed to resume subscription: '.$e->getMessage());
         }
     }
 
@@ -667,7 +699,7 @@ new class extends Component {
         \Log::info('Force recreate subscription button clicked', [
             'enrollment_id' => $this->enrollment->id,
             'subscription_id' => $this->enrollment->stripe_subscription_id,
-            'user_id' => auth()->user()->id
+            'user_id' => auth()->user()->id,
         ]);
 
         try {
@@ -675,7 +707,7 @@ new class extends Component {
             if ($this->enrollment->stripe_subscription_id) {
                 $stripeService = app(StripeService::class);
                 $stripeService->cancelSubscription($this->enrollment->stripe_subscription_id, true); // Cancel immediately
-                
+
                 \Log::info('Problematic subscription canceled', [
                     'enrollment_id' => $this->enrollment->id,
                     'old_subscription_id' => $this->enrollment->stripe_subscription_id,
@@ -688,8 +720,9 @@ new class extends Component {
                 ->default()
                 ->first();
 
-            if (!$paymentMethod) {
+            if (! $paymentMethod) {
                 session()->flash('error', 'Student must have a valid payment method before recreating subscription.');
+
                 return;
             }
 
@@ -699,7 +732,7 @@ new class extends Component {
 
             // Refresh enrollment to get updated subscription data
             $this->enrollment->refresh();
-            
+
             // Force refresh of the subscription log
             $this->mount();
 
@@ -715,8 +748,8 @@ new class extends Component {
                 'enrollment_id' => $this->enrollment->id,
                 'error' => $e->getMessage(),
             ]);
-            
-            session()->flash('error', 'Failed to recreate subscription: ' . $e->getMessage());
+
+            session()->flash('error', 'Failed to recreate subscription: '.$e->getMessage());
         }
     }
 
@@ -725,17 +758,19 @@ new class extends Component {
         \Log::info('Confirm payment button clicked', [
             'enrollment_id' => $this->enrollment->id,
             'subscription_id' => $this->enrollment->stripe_subscription_id,
-            'user_id' => auth()->user()->id
+            'user_id' => auth()->user()->id,
         ]);
 
         try {
-            if (!$this->enrollment->stripe_subscription_id) {
+            if (! $this->enrollment->stripe_subscription_id) {
                 session()->flash('error', 'No subscription found to confirm payment.');
+
                 return;
             }
 
             if ($this->enrollment->subscription_status !== 'incomplete') {
                 session()->flash('info', 'Subscription is not in incomplete status - no payment confirmation needed.');
+
                 return;
             }
 
@@ -745,32 +780,32 @@ new class extends Component {
             if ($result['success']) {
                 // Refresh enrollment to get updated status from webhooks
                 $this->enrollment->refresh();
-                
+
                 // Force refresh of the subscription log
                 $this->mount();
-                
+
                 session()->flash('success', $result['message'] ?? 'Payment confirmed successfully! Subscription should activate shortly.');
-                
+
                 \Log::info('Payment confirmed successfully', [
                     'enrollment_id' => $this->enrollment->id,
                     'subscription_id' => $this->enrollment->stripe_subscription_id,
                 ]);
-                
+
             } else {
                 if (isset($result['requires_action']) && $result['requires_action']) {
                     // Payment requires customer action (3D Secure, etc.)
-                    session()->flash('warning', $result['error'] . ' The customer must complete payment setup themselves.');
+                    session()->flash('warning', $result['error'].' The customer must complete payment setup themselves.');
                 } elseif (isset($result['requires_manual_action']) && $result['requires_manual_action']) {
                     // Payment intent missing and couldn't be recovered - provide detailed guidance
                     $errorMessage = $result['error'];
                     if (isset($result['suggested_actions'])) {
-                        $errorMessage .= "\n\nSuggested actions:\n• " . implode("\n• ", $result['suggested_actions']);
+                        $errorMessage .= "\n\nSuggested actions:\n• ".implode("\n• ", $result['suggested_actions']);
                     }
                     session()->flash('error', $errorMessage);
                 } else {
-                    session()->flash('error', 'Failed to confirm payment: ' . $result['error']);
+                    session()->flash('error', 'Failed to confirm payment: '.$result['error']);
                 }
-                
+
                 \Log::warning('Payment confirmation failed', [
                     'enrollment_id' => $this->enrollment->id,
                     'subscription_id' => $this->enrollment->stripe_subscription_id,
@@ -786,8 +821,8 @@ new class extends Component {
                 'subscription_id' => $this->enrollment->stripe_subscription_id,
                 'error' => $e->getMessage(),
             ]);
-            
-            session()->flash('error', 'Failed to confirm payment: ' . $e->getMessage());
+
+            session()->flash('error', 'Failed to confirm payment: '.$e->getMessage());
         }
     }
 
@@ -804,7 +839,7 @@ new class extends Component {
         $this->showScheduleModal = false;
         $this->resetErrorBag();
     }
-    
+
     // Subscription creation methods
     public function openCreateSubscriptionModal()
     {
@@ -845,14 +880,15 @@ new class extends Component {
         ]);
 
         try {
-            if (!$this->enrollment->stripe_subscription_id) {
+            if (! $this->enrollment->stripe_subscription_id) {
                 session()->flash('error', 'No subscription found to update schedule.');
                 Log::error('No subscription ID found');
+
                 return;
             }
 
             $stripeService = app(StripeService::class);
-            
+
             // Prepare schedule data for Stripe
             $scheduleData = [];
             $enrollmentData = [];
@@ -860,7 +896,7 @@ new class extends Component {
             // Prioritize next payment date over billing cycle anchor
             if ($this->scheduleForm['next_payment_date']) {
                 // Handle next payment date - this takes precedence
-                $nextPaymentDateTime = $this->scheduleForm['next_payment_date'] . ' ' . ($this->scheduleForm['next_payment_time'] ?? '07:23');
+                $nextPaymentDateTime = $this->scheduleForm['next_payment_date'].' '.($this->scheduleForm['next_payment_time'] ?? '07:23');
                 $nextPaymentTimestamp = \Carbon\Carbon::parse($nextPaymentDateTime)
                     ->setTimezone($this->scheduleForm['subscription_timezone'])
                     ->timestamp;
@@ -903,7 +939,7 @@ new class extends Component {
 
             // Handle subscription end date
             if ($this->scheduleForm['end_date']) {
-                $endDateTime = $this->scheduleForm['end_date'] . ' ' . ($this->scheduleForm['end_time'] ?? '23:59');
+                $endDateTime = $this->scheduleForm['end_date'].' '.($this->scheduleForm['end_time'] ?? '23:59');
                 $endTimestamp = \Carbon\Carbon::parse($endDateTime)
                     ->setTimezone($this->scheduleForm['subscription_timezone'])
                     ->timestamp;
@@ -913,10 +949,10 @@ new class extends Component {
 
             // Handle subscription fee update
             $feeUpdateResult = null;
-            if (isset($this->scheduleForm['subscription_fee']) && 
-                $this->scheduleForm['subscription_fee'] !== null && 
+            if (isset($this->scheduleForm['subscription_fee']) &&
+                $this->scheduleForm['subscription_fee'] !== null &&
                 $this->scheduleForm['subscription_fee'] != $this->enrollment->enrollment_fee) {
-                
+
                 try {
                     $feeUpdateResult = $stripeService->updateSubscriptionFee($this->enrollment, (float) $this->scheduleForm['subscription_fee']);
                     Log::info('Subscription fee updated', [
@@ -930,7 +966,8 @@ new class extends Component {
                         'new_fee' => $this->scheduleForm['subscription_fee'],
                         'error' => $e->getMessage(),
                     ]);
-                    session()->flash('error', 'Failed to update subscription fee: ' . $e->getMessage());
+                    session()->flash('error', 'Failed to update subscription fee: '.$e->getMessage());
+
                     return;
                 }
             }
@@ -941,25 +978,25 @@ new class extends Component {
             if ($result['success']) {
                 // Update local enrollment data
                 $this->enrollment->updateSubscriptionSchedule($enrollmentData);
-                
+
                 // Update stored next payment date directly
                 if ($this->scheduleForm['next_payment_date']) {
-                    $nextPaymentDateTime = \Carbon\Carbon::parse($this->scheduleForm['next_payment_date'] . ' ' . ($this->scheduleForm['next_payment_time'] ?? '07:23'))
+                    $nextPaymentDateTime = \Carbon\Carbon::parse($this->scheduleForm['next_payment_date'].' '.($this->scheduleForm['next_payment_time'] ?? '07:23'))
                         ->setTimezone($this->scheduleForm['subscription_timezone']);
                     $this->enrollment->updateNextPaymentDate($nextPaymentDateTime);
                 }
-                
+
                 $this->enrollment->refresh();
-                
+
                 // Refresh subscription events
                 $this->refreshSubscriptionEvents();
-                
+
                 // Combine messages if fee was updated
                 $message = $result['message'];
                 if ($feeUpdateResult) {
-                    $message .= ' ' . $feeUpdateResult['message'];
+                    $message .= ' '.$feeUpdateResult['message'];
                 }
-                
+
                 session()->flash('success', $message);
                 $this->showScheduleModal = false;
 
@@ -976,24 +1013,26 @@ new class extends Component {
                 'error' => $e->getMessage(),
                 'schedule_form' => $this->scheduleForm,
             ]);
-            session()->flash('error', 'Failed to update subscription schedule: ' . $e->getMessage());
+            session()->flash('error', 'Failed to update subscription schedule: '.$e->getMessage());
         }
     }
 
     public function rescheduleNextPayment()
     {
         try {
-            if (!$this->enrollment->stripe_subscription_id) {
+            if (! $this->enrollment->stripe_subscription_id) {
                 session()->flash('error', 'No subscription found to reschedule payment.');
+
                 return;
             }
 
-            if (!$this->scheduleForm['next_payment_date']) {
+            if (! $this->scheduleForm['next_payment_date']) {
                 session()->flash('error', 'Next payment date is required.');
+
                 return;
             }
 
-            $nextPaymentDateTime = \Carbon\Carbon::parse($this->scheduleForm['next_payment_date'] . ' ' . ($this->scheduleForm['next_payment_time'] ?? '07:23'))
+            $nextPaymentDateTime = \Carbon\Carbon::parse($this->scheduleForm['next_payment_date'].' '.($this->scheduleForm['next_payment_time'] ?? '07:23'))
                 ->setTimezone($this->scheduleForm['subscription_timezone'])
                 ->timestamp;
 
@@ -1005,14 +1044,14 @@ new class extends Component {
                 $this->enrollment->update([
                     'billing_cycle_anchor' => \Carbon\Carbon::createFromTimestamp($nextPaymentDateTime),
                 ]);
-                
+
                 // Update stored next payment date
                 $this->enrollment->updateNextPaymentDate(\Carbon\Carbon::createFromTimestamp($nextPaymentDateTime));
                 $this->enrollment->refresh();
-                
+
                 // Refresh subscription events
                 $this->refreshSubscriptionEvents();
-                
+
                 session()->flash('success', $result['message']);
                 $this->showScheduleModal = false;
 
@@ -1032,15 +1071,16 @@ new class extends Component {
                     'time' => $this->scheduleForm['next_payment_time'],
                 ],
             ]);
-            session()->flash('error', 'Failed to reschedule next payment: ' . $e->getMessage());
+            session()->flash('error', 'Failed to reschedule next payment: '.$e->getMessage());
         }
     }
 
     public function updateTrialEnd()
     {
         try {
-            if (!$this->enrollment->stripe_subscription_id) {
+            if (! $this->enrollment->stripe_subscription_id) {
                 session()->flash('error', 'No subscription found to update trial.');
+
                 return;
             }
 
@@ -1060,10 +1100,10 @@ new class extends Component {
                     'trial_end_at' => $trialEndTimestamp ? \Carbon\Carbon::createFromTimestamp($trialEndTimestamp) : null,
                 ]);
                 $this->enrollment->refresh();
-                
+
                 // Refresh subscription events
                 $this->refreshSubscriptionEvents();
-                
+
                 session()->flash('success', $result['message']);
                 $this->showScheduleModal = false;
 
@@ -1080,21 +1120,22 @@ new class extends Component {
                 'error' => $e->getMessage(),
                 'trial_end_at' => $this->scheduleForm['trial_end_at'],
             ]);
-            session()->flash('error', 'Failed to update trial end: ' . $e->getMessage());
+            session()->flash('error', 'Failed to update trial end: '.$e->getMessage());
         }
     }
 
     public function updateSubscriptionEndDate()
     {
         try {
-            if (!$this->enrollment->stripe_subscription_id) {
+            if (! $this->enrollment->stripe_subscription_id) {
                 session()->flash('error', 'No subscription found to update end date.');
+
                 return;
             }
 
             $endTimestamp = null;
             if ($this->scheduleForm['end_date']) {
-                $endDateTime = $this->scheduleForm['end_date'] . ' ' . ($this->scheduleForm['end_time'] ?? '23:59');
+                $endDateTime = $this->scheduleForm['end_date'].' '.($this->scheduleForm['end_time'] ?? '23:59');
                 $endTimestamp = \Carbon\Carbon::parse($endDateTime)
                     ->setTimezone($this->scheduleForm['subscription_timezone'])
                     ->timestamp;
@@ -1109,10 +1150,10 @@ new class extends Component {
                     'subscription_cancel_at' => $endTimestamp ? \Carbon\Carbon::createFromTimestamp($endTimestamp) : null,
                 ]);
                 $this->enrollment->refresh();
-                
+
                 // Refresh subscription events
                 $this->refreshSubscriptionEvents();
-                
+
                 session()->flash('success', $result['message']);
                 $this->showScheduleModal = false;
 
@@ -1132,8 +1173,420 @@ new class extends Component {
                     'time' => $this->scheduleForm['end_time'],
                 ],
             ]);
-            session()->flash('error', 'Failed to update subscription end date: ' . $e->getMessage());
+            session()->flash('error', 'Failed to update subscription end date: '.$e->getMessage());
         }
+    }
+
+    // Manual payment methods
+    public function createManualSubscription()
+    {
+        if (! $this->enrollment->isManualPaymentType()) {
+            session()->flash('error', 'This enrollment is not set up for manual payments.');
+
+            return;
+        }
+
+        try {
+            $stripeService = app(StripeService::class);
+            $result = $stripeService->createManualSubscription($this->enrollment);
+
+            if ($result['success']) {
+                $this->enrollment->refresh();
+                session()->flash('success', $result['message']);
+            }
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to create manual subscription: '.$e->getMessage());
+        }
+    }
+
+    public function openManualPaymentModal()
+    {
+        $this->showManualPaymentModal = true;
+    }
+
+    public function closeManualPaymentModal()
+    {
+        $this->showManualPaymentModal = false;
+    }
+
+    public function openCreateManualOrderModal()
+    {
+        $this->showCreateManualOrderModal = true;
+    }
+
+    public function closeCreateManualOrderModal()
+    {
+        $this->showCreateManualOrderModal = false;
+    }
+
+    public function generateManualPaymentOrder()
+    {
+        try {
+            $stripeService = app(StripeService::class);
+            $order = $stripeService->generateNextManualPaymentOrder($this->enrollment);
+
+            $this->enrollment->refresh();
+            $this->closeCreateManualOrderModal();
+
+            session()->flash('success', "Manual payment order generated successfully! Order ID: {$order->order_number}");
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to generate manual payment order: '.$e->getMessage());
+        }
+    }
+
+    public function openApprovalModal($orderId)
+    {
+        $this->selectedOrderForApproval = $orderId;
+        $this->paymentDate = now()->format('Y-m-d');
+        $this->receiptFile = null;
+        $this->showApprovalModal = true;
+    }
+
+    public function closeApprovalModal()
+    {
+        $this->showApprovalModal = false;
+        $this->selectedOrderForApproval = null;
+        $this->paymentDate = '';
+        $this->receiptFile = null;
+    }
+
+    public function approveManualPayment()
+    {
+        $this->validate([
+            'paymentDate' => 'required|date',
+            'receiptFile' => 'nullable|file|max:10240', // 10MB max
+        ]);
+
+        try {
+            $order = $this->enrollment->orders()->findOrFail($this->selectedOrderForApproval);
+
+            if ($order->isPaid()) {
+                session()->flash('warning', 'This order has already been paid.');
+                $this->closeApprovalModal();
+
+                return;
+            }
+
+            // Handle receipt file upload if provided
+            $receiptPath = null;
+            if ($this->receiptFile) {
+                $receiptPath = $this->receiptFile->store('receipts', 'public');
+            }
+
+            $stripeService = app(StripeService::class);
+
+            if ($this->enrollment->stripe_subscription_id) {
+                $result = $stripeService->processManualSubscriptionPayment($this->enrollment, $order);
+            } else {
+                $order->markAsPaid();
+                $result = ['success' => true, 'message' => 'Manual payment approved successfully'];
+            }
+
+            // Update order with payment details
+            if ($result['success']) {
+                $order->update([
+                    'paid_at' => $this->paymentDate,
+                    'metadata' => array_merge($order->metadata ?? [], [
+                        'manual_approval' => true,
+                        'approved_by' => auth()->id(),
+                        'approved_at' => now(),
+                        'receipt_file' => $receiptPath,
+                        'payment_date' => $this->paymentDate,
+                    ]),
+                ]);
+
+                $this->enrollment->refresh();
+                session()->flash('success', $result['message']);
+                $this->closeApprovalModal();
+            } else {
+                session()->flash('error', $result['message']);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error approving manual payment', [
+                'order_id' => $this->selectedOrderForApproval,
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage(),
+            ]);
+            session()->flash('error', 'Failed to approve payment: '.$e->getMessage());
+        }
+    }
+
+    public function hasReceiptAttachment($order): bool
+    {
+        return isset($order->metadata['receipt_file']) && ! empty($order->metadata['receipt_file']);
+    }
+
+    public function getReceiptUrl($order): ?string
+    {
+        if (! $this->hasReceiptAttachment($order)) {
+            return null;
+        }
+
+        return asset('storage/'.$order->metadata['receipt_file']);
+    }
+
+    public function downloadReceipt($orderId)
+    {
+        $order = $this->enrollment->orders()->findOrFail($orderId);
+
+        if (! $this->hasReceiptAttachment($order)) {
+            session()->flash('error', 'No receipt attachment found.');
+
+            return;
+        }
+
+        $filePath = storage_path('app/public/'.$order->metadata['receipt_file']);
+
+        if (! file_exists($filePath)) {
+            session()->flash('error', 'Receipt file not found.');
+
+            return;
+        }
+
+        return response()->download($filePath, 'receipt-'.$order->order_number.'.'.pathinfo($filePath, PATHINFO_EXTENSION));
+    }
+
+    public function getApprover($order)
+    {
+        if (! isset($order->metadata['approved_by'])) {
+            return null;
+        }
+
+        return \App\Models\User::find($order->metadata['approved_by']);
+    }
+
+    public function switchToAutomaticPayments($paymentMethodId = null)
+    {
+        if (! $this->enrollment->canSwitchPaymentMethod()) {
+            session()->flash('error', 'Cannot switch payment method at this time.');
+            return;
+        }
+
+        try {
+            $stripeService = app(\App\Services\StripeService::class);
+            
+            // Ensure we have the latest student data with proper relationships
+            $this->enrollment->load('student.user');
+            
+            // Check if student's user has a Stripe customer account
+            $user = $this->enrollment->student->user;
+            $stripeCustomer = $user->stripeCustomer ?? null;
+            
+            if (! $stripeCustomer) {
+                // First try to find existing customer by email
+                try {
+                    $existingCustomer = $stripeService->findCustomerByEmail($user->email);
+                    
+                    if ($existingCustomer) {
+                        // Create StripeCustomer record linking to this user
+                        $stripeCustomer = \App\Models\StripeCustomer::create([
+                            'user_id' => $user->id,
+                            'stripe_customer_id' => $existingCustomer->id,
+                            'metadata' => json_encode($existingCustomer->toArray()),
+                            'last_synced_at' => now(),
+                        ]);
+                        
+                        session()->flash('success', 'Found and linked existing Stripe customer account. Checking payment methods...');
+                    } else {
+                        // Create new customer in Stripe
+                        $customer = $stripeService->createCustomer($user->email, $user->name);
+                        
+                        // Create StripeCustomer record
+                        $stripeCustomer = \App\Models\StripeCustomer::create([
+                            'user_id' => $user->id,
+                            'stripe_customer_id' => $customer->id,
+                            'metadata' => json_encode($customer->toArray()),
+                            'last_synced_at' => now(),
+                        ]);
+                        
+                        session()->flash('info', 'Created new Stripe customer account. Student needs to add a payment method.');
+                        return;
+                    }
+                    
+                } catch (\Exception $e) {
+                    session()->flash('error', 'Failed to setup Stripe customer account: ' . $e->getMessage());
+                    return;
+                }
+            }
+            
+            // Now check if the user has payment methods
+            $hasPaymentMethods = $user->paymentMethods()->where('is_active', true)->exists();
+            if (! $hasPaymentMethods) {
+                session()->flash('error', 'Student has a Stripe customer account but no active payment methods found. Please ask the student to add a card in their account settings.');
+                return;
+            }
+            
+            // At this point, we know the student has a Stripe customer account and payment methods
+            // (either pre-existing or newly linked)
+
+            // If there's an active subscription, use the existing Stripe method
+            if ($this->enrollment->stripe_subscription_id) {
+                // Get the student's default payment method
+                $student = $this->enrollment->student;
+                $defaultPaymentMethod = $student->user->paymentMethods()->where('is_default', true)->first();
+                
+                if (! $defaultPaymentMethod) {
+                    // Try to get the first available payment method
+                    $defaultPaymentMethod = $student->user->paymentMethods()->first();
+                }
+
+                if (! $defaultPaymentMethod) {
+                    session()->flash('error', 'No payment method found for student. Please ask them to add a payment method first.');
+                    return;
+                }
+
+                // Use the StripeService method to switch to automatic payments
+                $result = $stripeService->switchToAutomaticPayments($this->enrollment, $defaultPaymentMethod);
+                
+                session()->flash('success', 'Payment method switched to automatic payments successfully. Future payments will be charged automatically.');
+            } else {
+                // For enrollments without active subscriptions, just update the enrollment type
+                $this->enrollment->update([
+                    'payment_method_type' => 'automatic',
+                    'manual_payment_required' => false,
+                ]);
+                
+                session()->flash('success', 'Payment method switched to automatic. A subscription will be created when the next payment is due.');
+            }
+
+            // Refresh enrollment data
+            $this->enrollment->refresh();
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to switch payment method to automatic', [
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            session()->flash('error', 'Failed to switch payment method: ' . $e->getMessage());
+        }
+    }
+
+    public function switchToManualPayments()
+    {
+        if (! $this->enrollment->canSwitchPaymentMethod()) {
+            session()->flash('error', 'Cannot switch payment method at this time.');
+            return;
+        }
+
+        try {
+            $stripeService = app(\App\Services\StripeService::class);
+
+            // If there's an active subscription, use the StripeService method
+            if ($this->enrollment->stripe_subscription_id) {
+                $result = $stripeService->switchToManualPayments($this->enrollment);
+                
+                session()->flash('success', 'Payment method switched to manual payments successfully. Collection has been paused and future payments will require manual processing.');
+            } else {
+                // For enrollments without active subscriptions, just update the enrollment type
+                $this->enrollment->update([
+                    'payment_method_type' => 'manual',
+                    'manual_payment_required' => true,
+                ]);
+                
+                session()->flash('success', 'Payment method switched to manual. Future payments will require manual processing.');
+            }
+
+            // Refresh enrollment data
+            $this->enrollment->refresh();
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to switch payment method to manual', [
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            session()->flash('error', 'Failed to switch payment method: ' . $e->getMessage());
+        }
+    }
+
+    public function getStudentPaymentMethodsDetails(): array
+    {
+        if (!$this->enrollment->student || !$this->enrollment->student->user) {
+            return [
+                'ready' => false,
+                'has_customer' => false,
+                'payment_methods' => [],
+                'status' => 'No user account',
+                'message' => 'Student needs a valid user account first'
+            ];
+        }
+
+        try {
+            $user = $this->enrollment->student->user;
+            $stripeService = app(\App\Services\StripeService::class);
+            
+            // Check if user has a linked Stripe customer
+            $stripeCustomer = $user->stripeCustomer;
+            
+            // If no linked customer, try to find existing customer by email
+            if (!$stripeCustomer) {
+                try {
+                    $existingCustomer = $stripeService->findCustomerByEmail($user->email);
+                    if ($existingCustomer) {
+                        // Found existing customer - we can link it
+                        return [
+                            'ready' => true, // We can link this customer and their payment methods
+                            'has_customer' => false, // Not yet linked in our database
+                            'payment_methods' => [],
+                            'status' => 'Stripe customer found, not yet linked',
+                            'message' => 'Found existing Stripe customer. Click "Switch to Automatic Payment" to link and activate.'
+                        ];
+                    } else {
+                        // No existing customer found
+                        return [
+                            'ready' => false,
+                            'has_customer' => false,
+                            'payment_methods' => [],
+                            'status' => 'No Stripe customer account',
+                            'message' => 'Student needs to be set up in Stripe first'
+                        ];
+                    }
+                } catch (\Exception $e) {
+                    return [
+                        'ready' => false,
+                        'has_customer' => false,
+                        'payment_methods' => [],
+                        'status' => 'Cannot check Stripe customer',
+                        'message' => 'Error checking for existing customer account'
+                    ];
+                }
+            }
+            
+            // We have a linked customer, check their payment methods using our database
+            $hasPaymentMethods = $user->paymentMethods()->where('is_active', true)->exists();
+            $paymentMethodCount = $user->paymentMethods()->where('is_active', true)->count();
+            
+            return [
+                'ready' => $hasPaymentMethods && $this->enrollment->canSwitchPaymentMethod(),
+                'has_customer' => true,
+                'payment_methods' => $user->paymentMethods()->where('is_active', true)->get(),
+                'payment_method_count' => $paymentMethodCount,
+                'status' => $hasPaymentMethods ? 'Ready for automatic payments' : 'No payment methods found',
+                'message' => $hasPaymentMethods 
+                    ? 'Student has ' . $paymentMethodCount . ' payment method(s) on file'
+                    : 'Student must add a payment method first. Ask them to set up a card in their account settings.'
+            ];
+        } catch (\Exception $e) {
+            \Log::warning('Failed to check customer payment methods for readiness display', [
+                'student_id' => $this->enrollment->student_id,
+                'user_id' => $this->enrollment->student->user->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'ready' => false,
+                'has_customer' => false,
+                'payment_methods' => [],
+                'status' => 'Unable to check payment methods',
+                'message' => 'Error checking payment methods. Please try again.'
+            ];
+        }
+    }
+
+    public function getPaymentMethodsDetailsProperty(): array
+    {
+        return $this->getStudentPaymentMethodsDetails();
     }
 }; ?>
 
@@ -1251,9 +1704,12 @@ new class extends Component {
                             </div>
                         </div>
 
-                        <div class="mt-4">
+                        <div class="mt-4 flex gap-3">
                             <flux:button size="sm" variant="ghost" href="{{ route('students.show', $enrollment->student) }}">
                                 View Full Student Profile
+                            </flux:button>
+                            <flux:button size="sm" variant="outline" href="{{ route('admin.students.payment-methods', $enrollment->student) }}" icon="credit-card">
+                                Manage Payment Methods
                             </flux:button>
                         </div>
                     </div>
@@ -1576,6 +2032,300 @@ new class extends Component {
                             </div>
                         </div>
                     @endif
+                </div>
+            </flux:card>
+        @endif
+        
+        <!-- Manual Payment Management -->
+        @if($enrollment->isManualPaymentType())
+            <flux:card>
+                <flux:heading size="lg">Manual Payment Management</flux:heading>
+                <flux:text class="mt-2 text-gray-600">
+                    This enrollment is set up for manual payments. Manage payment orders and approvals here.
+                </flux:text>
+                
+                <div class="mt-6">
+                    <!-- Payment Method Info -->
+                    <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-6">
+                        <div class="flex items-start">
+                            <flux:icon icon="banknotes" class="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
+                            <div>
+                                <flux:text class="text-amber-800 font-medium">Payment Method: {{ $enrollment->getPaymentMethodLabel() }}</flux:text>
+                                <flux:text class="mt-1 text-sm text-amber-700">
+                                    Student will pay manually via bank transfer, cash, or other offline methods.
+                                </flux:text>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                        @if(!$enrollment->stripe_subscription_id && $enrollment->course->feeSettings && $enrollment->course->feeSettings->billing_cycle !== 'one_time')
+                            <flux:button wire:click="createManualSubscription" variant="primary" icon="plus">
+                                Create Manual Subscription
+                            </flux:button>
+                        @endif
+
+                        @if($enrollment->stripe_subscription_id)
+                            <flux:button wire:click="openCreateManualOrderModal" variant="outline" icon="document-plus">
+                                Generate Payment Order
+                            </flux:button>
+                        @endif
+
+                        @if($enrollment->canSwitchPaymentMethod())
+                            <div class="space-y-3">
+                                @php $paymentMethodsDetails = $this->paymentMethodsDetails; @endphp
+                                
+                                <!-- Payment Method Readiness Status -->
+                                <div class="p-4 border rounded-lg {{ $paymentMethodsDetails['ready'] ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200' }}">
+                                    <div class="flex items-start">
+                                        @if($paymentMethodsDetails['ready'])
+                                            <flux:icon icon="check-circle" class="w-5 h-5 text-green-600 mr-3 mt-0.5" />
+                                        @else
+                                            <flux:icon icon="information-circle" class="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
+                                        @endif
+                                        <div class="flex-1">
+                                            <div class="flex items-center justify-between">
+                                                <flux:text class="{{ $paymentMethodsDetails['ready'] ? 'text-green-800' : 'text-blue-800' }} font-medium">
+                                                    Automatic Payment Readiness
+                                                </flux:text>
+                                                @if($paymentMethodsDetails['ready'])
+                                                    <flux:badge variant="success" size="sm">Ready</flux:badge>
+                                                @else
+                                                    <flux:badge variant="warning" size="sm">Not Ready</flux:badge>
+                                                @endif
+                                            </div>
+                                            
+                                            <div class="mt-2 space-y-1">
+                                                <flux:text class="{{ $paymentMethodsDetails['ready'] ? 'text-green-700' : 'text-blue-700' }} text-sm font-medium">
+                                                    Status: {{ $paymentMethodsDetails['status'] }}
+                                                </flux:text>
+                                                <flux:text class="{{ $paymentMethodsDetails['ready'] ? 'text-green-600' : 'text-blue-600' }} text-xs">
+                                                    {{ $paymentMethodsDetails['message'] }}
+                                                </flux:text>
+                                            </div>
+
+                                            @if($paymentMethodsDetails['has_customer'])
+                                                <div class="mt-3 text-xs {{ $paymentMethodsDetails['ready'] ? 'text-green-600' : 'text-blue-600' }}">
+                                                    <div class="flex items-center justify-between">
+                                                        <span>Stripe Customer:</span>
+                                                        <flux:badge variant="outline" size="xs">✓ Connected</flux:badge>
+                                                    </div>
+                                                    <div class="flex items-center justify-between mt-1">
+                                                        <span>Payment Methods:</span>
+                                                        <span class="font-medium">{{ $paymentMethodsDetails['payment_method_count'] ?? 0 }} method(s)</span>
+                                                    </div>
+                                                    <div class="flex items-center justify-between mt-1">
+                                                        <span>Can Switch Payment:</span>
+                                                        <span class="font-medium">{{ $enrollment->canSwitchPaymentMethod() ? 'Yes' : 'No' }}</span>
+                                                    </div>
+                                                </div>
+                                            @else
+                                                <div class="mt-3 text-xs text-blue-600">
+                                                    <div class="flex items-center justify-between">
+                                                        <span>Stripe Customer:</span>
+                                                        <flux:badge variant="danger" size="xs">✗ Not Set Up</flux:badge>
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                @if($enrollment->canSwitchToAutomatic())
+                                    <flux:button wire:click="switchToAutomaticPayments" variant="primary" icon="credit-card">
+                                        Switch to Automatic Payment
+                                    </flux:button>
+                                @else
+                                    <flux:button wire:click="switchToAutomaticPayments" variant="outline" icon="credit-card" 
+                                                class="{{ !$paymentMethodsDetails['ready'] ? 'opacity-75' : '' }}">
+                                        Switch to Automatic Payment
+                                    </flux:button>
+                                    @if(!$paymentMethodsDetails['ready'])
+                                        <flux:text class="text-xs text-gray-500 mt-1">
+                                            ⚠️ This button will show an error until the student adds a payment method.
+                                        </flux:text>
+                                    @endif
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Manual Orders List -->
+                    @if($enrollment->orders->where('billing_reason', 'manual')->isNotEmpty())
+                        <div class="space-y-4">
+                            <flux:heading size="md">Manual Payment Orders</flux:heading>
+                            
+                            <div class="space-y-3">
+                                @foreach($enrollment->orders->where('billing_reason', 'manual')->sortByDesc('created_at') as $order)
+                                    <div class="border rounded-lg p-4 {{ $order->isPaid() ? 'bg-green-50 border-green-200' : ($order->isFailed() ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200') }}">
+                                        <div class="flex items-center justify-between">
+                                            <div>
+                                                <div class="flex items-center space-x-2">
+                                                    <flux:text class="font-medium">Order #{{ $order->order_number }}</flux:text>
+                                                    <flux:badge variant="{{ $order->isPaid() ? 'success' : ($order->isFailed() ? 'danger' : 'warning') }}">
+                                                        {{ $order->status_label }}
+                                                    </flux:badge>
+                                                </div>
+                                                <flux:text size="sm" class="text-gray-600 mt-1">
+                                                    Amount: {{ $order->formatted_amount }} • 
+                                                    Created: {{ $order->created_at->format('M d, Y H:i') }}
+                                                    @if($order->period_start && $order->period_end)
+                                                        • Period: {{ $order->period_start->format('M d') }} - {{ $order->period_end->format('M d, Y') }}
+                                                    @endif
+                                                </flux:text>
+                                                @if($order->notes)
+                                                    <flux:text size="sm" class="text-gray-500 mt-1">{{ $order->notes }}</flux:text>
+                                                @endif
+                                            </div>
+                                            
+                                            <div class="flex items-center space-x-2">
+                                                @if($order->isPending())
+                                                    <flux:button 
+                                                        wire:click="openApprovalModal({{ $order->id }})" 
+                                                        size="sm" 
+                                                        variant="primary"
+                                                        color="green"
+                                                        icon="check">
+                                                        Approve Payment
+                                                    </flux:button>
+                                                @elseif($order->isPaid())
+                                                    <div class="flex items-center space-x-2">
+                                                        <div class="flex items-center text-green-600">
+                                                            <flux:icon icon="check-circle" class="w-4 h-4 mr-1" />
+                                                            <flux:text size="sm">Paid</flux:text>
+                                                        </div>
+                                                        
+                                                        @if($this->hasReceiptAttachment($order))
+                                                            <flux:button 
+                                                                wire:click="downloadReceipt({{ $order->id }})" 
+                                                                size="sm" 
+                                                                variant="ghost"
+                                                                icon="document">
+                                                                Receipt
+                                                            </flux:button>
+                                                            <a href="{{ $this->getReceiptUrl($order) }}" target="_blank">
+                                                                <flux:button 
+                                                                    size="sm" 
+                                                                    variant="ghost"
+                                                                    icon="magnifying-glass">
+                                                                    View
+                                                                </flux:button>
+                                                            </a>
+                                                        @endif
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @else
+                        <div class="text-center py-8">
+                            <flux:icon icon="document-text" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                            <flux:heading size="md" class="text-gray-600 mb-2">No Payment Orders Yet</flux:heading>
+                            <flux:text class="text-gray-500 mb-4">
+                                Generate a payment order to start collecting manual payments from the student.
+                            </flux:text>
+                        </div>
+                    @endif
+
+                    @if($enrollment->requiresManualPayment())
+                        <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div class="flex items-start">
+                                <flux:icon icon="information-circle" class="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
+                                <div>
+                                    <flux:text class="text-blue-800 font-medium">Action Required</flux:text>
+                                    <flux:text class="mt-1 text-sm text-blue-700">
+                                        This enrollment requires manual payment approval before it can be activated.
+                                    </flux:text>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </flux:card>
+        @else
+            <!-- Automatic Payment Management -->
+            <flux:card>
+                <flux:heading size="lg">Automatic Payment Management</flux:heading>
+                <flux:text class="mt-2 text-gray-600">
+                    This enrollment is set up for automatic payments. Payments are processed automatically via the student's saved payment method.
+                </flux:text>
+                
+                <div class="mt-6">
+                    <!-- Payment Method Info -->
+                    <div class="p-4 bg-green-50 border border-green-200 rounded-lg mb-6">
+                        <div class="flex items-start">
+                            <flux:icon icon="credit-card" class="w-5 h-5 text-green-600 mr-3 mt-0.5" />
+                            <div>
+                                <flux:text class="text-green-800 font-medium">Payment Method: {{ $enrollment->getPaymentMethodLabel() }}</flux:text>
+                                <flux:text class="mt-1 text-sm text-green-700">
+                                    Payments are automatically charged to the student's saved payment method.
+                                </flux:text>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Switch to Manual Payment Section -->
+                    @if($enrollment->canSwitchToManual())
+                        <div class="space-y-3">
+                            <!-- Manual Payment Switching Status -->
+                            <div class="p-4 border rounded-lg bg-amber-50 border-amber-200">
+                                <div class="flex items-start">
+                                    <flux:icon icon="exclamation-triangle" class="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <flux:text class="text-amber-800 font-medium">
+                                                Switch to Manual Payment
+                                            </flux:text>
+                                            <flux:badge variant="warning" size="sm">Available</flux:badge>
+                                        </div>
+                                        
+                                        <div class="mt-2 space-y-1">
+                                            <flux:text class="text-amber-700 text-sm">
+                                                You can switch this enrollment to manual payment processing. This will:
+                                            </flux:text>
+                                            <ul class="text-xs text-amber-600 ml-4 space-y-1 list-disc">
+                                                <li>Pause automatic collection in Stripe</li>
+                                                <li>Require manual payment orders to be generated</li>
+                                                <li>Require admin approval for each payment</li>
+                                                <li>Allow payment via bank transfer, cash, or other offline methods</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Button -->
+                            <div class="flex justify-start">
+                                <flux:button wire:click="switchToManualPayments" variant="outline" icon="banknotes">
+                                    Switch to Manual Payment
+                                </flux:button>
+                            </div>
+                        </div>
+                    @else
+                        <div class="p-4 border rounded-lg bg-gray-50 border-gray-200">
+                            <div class="flex items-start">
+                                <flux:icon icon="information-circle" class="w-5 h-5 text-gray-600 mr-3 mt-0.5" />
+                                <div>
+                                    <flux:text class="text-gray-800 font-medium">Manual Payment Not Available</flux:text>
+                                    <flux:text class="mt-1 text-sm text-gray-600">
+                                        Payment method switching is not available at this time due to business rules or active billing cycles.
+                                    </flux:text>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    <!-- Quick Actions -->
+                    <div class="mt-6 flex justify-start">
+                        <flux:button size="sm" variant="ghost" href="{{ route('admin.students.payment-methods', $enrollment->student) }}" icon="credit-card">
+                            Manage Payment Methods
+                        </flux:button>
+                    </div>
                 </div>
             </flux:card>
         @endif
@@ -1916,7 +2666,42 @@ new class extends Component {
                 </div>
             </flux:card>
         </div>
+
     </div>
+
+    <!-- Create Manual Order Modal -->
+    <flux:modal wire:model="showCreateManualOrderModal" class="space-y-6">
+        <div>
+            <flux:heading size="lg">Generate Manual Payment Order</flux:heading>
+            <flux:subheading>Create a payment order for manual processing</flux:subheading>
+        </div>
+        
+        <div class="space-y-4">
+            <flux:text>
+                This will generate a new payment order for the student to pay manually. 
+                The order will include payment instructions and can be tracked until payment is received.
+            </flux:text>
+            
+            <div class="p-4 bg-gray-50 rounded-lg">
+                <flux:text class="font-medium">Order Details:</flux:text>
+                <ul class="mt-2 text-sm text-gray-600 space-y-1">
+                    <li>• Amount: {{ $enrollment->formatted_enrollment_fee }}</li>
+                    <li>• Student: {{ $enrollment->student->user->name }}</li>
+                    <li>• Course: {{ $enrollment->course->name }}</li>
+                    <li>• Payment Method: Manual</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="flex justify-end space-x-3">
+            <flux:button wire:click="closeCreateManualOrderModal" variant="ghost">
+                Cancel
+            </flux:button>
+            <flux:button wire:click="generateManualPaymentOrder" variant="primary">
+                Generate Order
+            </flux:button>
+        </div>
+    </flux:modal>
 
     <!-- Schedule Management Modal -->
     <flux:modal wire:model="showScheduleModal" class="space-y-6">
@@ -2293,5 +3078,48 @@ new class extends Component {
                 </flux:button>
             </div>
         </form>
+    </flux:modal>
+
+    <!-- Payment Approval Modal -->
+    <flux:modal wire:model="showApprovalModal" class="space-y-6">
+        <div>
+            <flux:heading size="lg">Approve Manual Payment</flux:heading>
+            <flux:subheading>Confirm payment details and attach receipt (optional)</flux:subheading>
+        </div>
+
+        <div class="space-y-4">
+            <flux:input 
+                type="date" 
+                wire:model="paymentDate" 
+                label="Payment Date" 
+                placeholder="Select payment date"
+                required />
+
+            <flux:input 
+                type="file" 
+                wire:model="receiptFile" 
+                label="Receipt (Optional)" 
+                accept="image/*,.pdf"
+                placeholder="Attach payment receipt"
+                description="Upload payment receipt (images or PDF, max 10MB)" />
+
+            @if($receiptFile)
+                <div class="mt-2">
+                    <flux:text size="sm" class="text-green-600">
+                        File selected: {{ $receiptFile->getClientOriginalName() }}
+                    </flux:text>
+                </div>
+            @endif
+        </div>
+
+        <div class="flex justify-between">
+            <flux:button wire:click="closeApprovalModal" variant="ghost">
+                Cancel
+            </flux:button>
+            <flux:button wire:click="approveManualPayment" variant="primary" color="green">
+                <flux:icon icon="check" class="w-4 h-4 mr-1" />
+                Approve Payment
+            </flux:button>
+        </div>
     </flux:modal>
 </div>

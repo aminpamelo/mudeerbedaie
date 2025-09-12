@@ -517,13 +517,25 @@ class StripeService
         try {
             $subscription = $this->stripe->subscriptions->retrieve($subscriptionId);
 
+            // Handle subscriptions where current_period_* fields are null
+            // This commonly happens with subscriptions that haven't had their first recurring billing cycle yet
+            $currentPeriodEnd = $subscription->current_period_end;
+            $currentPeriodStart = $subscription->current_period_start;
+
+            // Fall back to billing_cycle_anchor if period fields are null
+            if (is_null($currentPeriodEnd) && ! is_null($subscription->billing_cycle_anchor)) {
+                $currentPeriodEnd = $subscription->billing_cycle_anchor;
+                // For subscriptions using billing cycle anchor, period start is typically the anchor date
+                $currentPeriodStart = $subscription->billing_cycle_anchor;
+            }
+
             return [
                 'id' => $subscription->id,
                 'status' => $subscription->status,
                 'cancel_at_period_end' => $subscription->cancel_at_period_end,
                 'cancel_at' => $subscription->cancel_at,
-                'current_period_end' => $subscription->current_period_end,
-                'current_period_start' => $subscription->current_period_start,
+                'current_period_end' => $currentPeriodEnd,
+                'current_period_start' => $currentPeriodStart,
                 'pause_collection' => $subscription->pause_collection ?? null,
             ];
 
@@ -1023,10 +1035,10 @@ class StripeService
                         $updateData['trial_end'] = 'now'; // End any existing trial immediately
                         $changes[] = 'billing cycle reset to now for immediate payment';
                     } else {
-                        // For future dates, use trial to delay next payment
-                        // DO NOT set billing_cycle_anchor when using trial_end - this causes conflicts
+                        // For future dates on existing subscriptions, use trial_end to delay next payment
+                        // This is the correct approach as billing_cycle_anchor cannot be set to future dates
                         $updateData['trial_end'] = $nextPaymentTimestamp;
-                        $changes[] = 'next payment scheduled for '.date('M d, Y H:i', $nextPaymentTimestamp).' using trial period';
+                        $changes[] = 'next payment rescheduled for '.date('M d, Y H:i', $nextPaymentTimestamp).' using trial extension';
                     }
                 } else {
                     $changes[] = 'next payment date ignored (cannot be in the past)';
@@ -1034,8 +1046,8 @@ class StripeService
             }
 
             // Handle trial end date (both setting and removal)
-            // Always process trial end changes regardless of other settings
-            if (array_key_exists('trial_end_at', $scheduleData)) {
+            // Only process if next_payment_date is not being used for rescheduling
+            if (array_key_exists('trial_end_at', $scheduleData) && ! isset($scheduleData['next_payment_date'])) {
                 if ($scheduleData['trial_end_at'] !== null) {
                     $updateData['trial_end'] = $scheduleData['trial_end_at'];
                     $changes[] = 'trial end date updated';
@@ -1366,6 +1378,26 @@ class StripeService
             ]);
 
             return false;
+        }
+    }
+
+    public function getCustomerPaymentMethods(string $stripeCustomerId): array
+    {
+        try {
+            $paymentMethods = $this->stripe->paymentMethods->all([
+                'customer' => $stripeCustomerId,
+                'type' => 'card',
+            ]);
+
+            return $paymentMethods->data;
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to retrieve customer payment methods', [
+                'stripe_customer_id' => $stripeCustomerId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
         }
     }
 
@@ -1995,6 +2027,418 @@ class StripeService
             Log::error('Failed to update subscription fee for enrollment', [
                 'enrollment_id' => $enrollment->id,
                 'new_fee' => $newFeeAmount,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Create a manual subscription (paused collection for manual payments)
+     */
+    public function createManualSubscription(Enrollment $enrollment): array
+    {
+        if (! $this->isConfigured()) {
+            throw new \Exception('Stripe is not properly configured.');
+        }
+
+        if (! $enrollment->course->feeSettings->stripe_price_id) {
+            throw new \Exception('Course must have a Stripe price ID before creating manual subscription');
+        }
+
+        $stripeCustomer = $this->createOrGetCustomer($enrollment->student->user);
+
+        try {
+            Log::info('Creating manual subscription', [
+                'enrollment_id' => $enrollment->id,
+                'customer_id' => $stripeCustomer->stripe_customer_id,
+            ]);
+
+            $subscriptionData = [
+                'customer' => $stripeCustomer->stripe_customer_id,
+                'items' => [
+                    [
+                        'price' => $enrollment->course->feeSettings->stripe_price_id,
+                    ],
+                ],
+                'collection_method' => 'send_invoice', // Use invoice-based collection for manual payments
+                'days_until_due' => 30, // Give 30 days to pay invoices
+                'expand' => ['latest_invoice'],
+                'metadata' => [
+                    'enrollment_id' => $enrollment->id,
+                    'student_id' => $enrollment->student_id,
+                    'course_id' => $enrollment->course_id,
+                    'payment_method_type' => 'manual',
+                    'system' => 'mudeer_bedaie',
+                ],
+            ];
+
+            // Add billing cycle anchor if a specific billing day is set
+            if ($enrollment->course->feeSettings->hasBillingDay()) {
+                $billingAnchor = $this->calculateBillingCycleAnchor($enrollment->course->feeSettings);
+                if ($billingAnchor) {
+                    $subscriptionData['billing_cycle_anchor'] = $billingAnchor;
+
+                    Log::info('Setting billing cycle anchor for manual subscription', [
+                        'enrollment_id' => $enrollment->id,
+                        'billing_day' => $enrollment->course->feeSettings->billing_day,
+                        'billing_cycle_anchor' => $billingAnchor,
+                    ]);
+                }
+            }
+
+            // Create the subscription with invoice collection method (no payment method required)
+            $subscription = $this->stripe->subscriptions->create($subscriptionData);
+
+            // Immediately pause collection to prevent automatic invoice generation
+            $subscription = $this->stripe->subscriptions->update($subscription->id, [
+                'pause_collection' => [
+                    'behavior' => 'keep_as_draft', // Keep invoices as drafts
+                ],
+            ]);
+
+            Log::info('Subscription created and collection paused', [
+                'enrollment_id' => $enrollment->id,
+                'subscription_id' => $subscription->id,
+                'pause_collection' => $subscription->pause_collection ?? null,
+            ]);
+
+            // Update enrollment with subscription details
+            $enrollment->update([
+                'stripe_subscription_id' => $subscription->id,
+                'subscription_status' => $subscription->status,
+                'collection_status' => 'paused',
+                'collection_paused_at' => now(),
+            ]);
+
+            Log::info('Manual subscription created successfully', [
+                'enrollment_id' => $enrollment->id,
+                'stripe_subscription_id' => $subscription->id,
+                'status' => $subscription->status,
+            ]);
+
+            return [
+                'subscription' => $subscription,
+                'success' => true,
+                'message' => 'Manual subscription created successfully. Collection is paused until payment is received.',
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to create manual subscription', [
+                'enrollment_id' => $enrollment->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to create manual subscription: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Process manual payment for a subscription
+     */
+    public function processManualSubscriptionPayment(Enrollment $enrollment, Order $order): array
+    {
+        try {
+            if (! $enrollment->stripe_subscription_id) {
+                throw new \Exception('No subscription found for this enrollment');
+            }
+
+            // Mark the order as paid first
+            $order->markAsPaid();
+
+            // Get the subscription details
+            $subscription = $this->stripe->subscriptions->retrieve($enrollment->stripe_subscription_id, [
+                'expand' => ['latest_invoice'],
+            ]);
+
+            Log::info('Processing manual payment for subscription', [
+                'enrollment_id' => $enrollment->id,
+                'subscription_id' => $subscription->id,
+                'order_id' => $order->id,
+                'subscription_status' => $subscription->status,
+            ]);
+
+            // If this is the first payment and subscription is incomplete
+            if ($subscription->status === 'incomplete' && $subscription->latest_invoice) {
+                // Manually mark the invoice as paid
+                $this->stripe->invoices->pay($subscription->latest_invoice->id, [
+                    'paid_out_of_band' => true,
+                ]);
+
+                Log::info('Marked invoice as paid out of band', [
+                    'invoice_id' => $subscription->latest_invoice->id,
+                    'subscription_id' => $subscription->id,
+                ]);
+            }
+
+            // Resume collection for future payments (optional - can be kept paused for continued manual payments)
+            // Uncomment the next lines if you want to switch to automatic collection after first manual payment
+            /*
+            $this->resumeSubscriptionCollection($subscription->id);
+            $enrollment->update(['collection_status' => 'active', 'collection_paused_at' => null]);
+            */
+
+            // Update enrollment payment status
+            $enrollment->markManualPaymentCompleted();
+
+            Log::info('Manual payment processed successfully', [
+                'enrollment_id' => $enrollment->id,
+                'order_id' => $order->id,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Manual payment processed successfully',
+                'subscription' => $subscription,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to process manual subscription payment', [
+                'enrollment_id' => $enrollment->id,
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Generate next manual payment order for subscription
+     */
+    public function generateNextManualPaymentOrder(Enrollment $enrollment): Order
+    {
+        if (! $enrollment->stripe_subscription_id) {
+            throw new \Exception('No subscription found for this enrollment');
+        }
+
+        try {
+            $subscription = $this->stripe->subscriptions->retrieve($enrollment->stripe_subscription_id);
+
+            // Calculate next period dates
+            $lastOrder = $enrollment->orders()
+                ->where('status', Order::STATUS_PAID)
+                ->orderBy('period_end', 'desc')
+                ->first();
+
+            $periodStart = $lastOrder ? $lastOrder->period_end->addDay() : now();
+            $periodEnd = $enrollment->course->feeSettings->billing_cycle === 'monthly'
+                ? $periodStart->copy()->addMonth()
+                : $periodStart->copy()->addYear();
+
+            $order = Order::create([
+                'enrollment_id' => $enrollment->id,
+                'student_id' => $enrollment->student_id,
+                'course_id' => $enrollment->course_id,
+                'amount' => $enrollment->enrollment_fee,
+                'currency' => 'MYR',
+                'status' => Order::STATUS_PENDING,
+                'billing_reason' => Order::REASON_MANUAL,
+                'period_start' => $periodStart,
+                'period_end' => $periodEnd,
+                'metadata' => [
+                    'payment_method_type' => 'manual',
+                    'stripe_subscription_id' => $subscription->id,
+                    'generated_at' => now()->toISOString(),
+                ],
+            ]);
+
+            // Create order item for the course fee
+            $order->items()->create([
+                'description' => "Course Fee - {$enrollment->course->name}",
+                'quantity' => 1,
+                'unit_price' => $enrollment->enrollment_fee,
+                'total_price' => $enrollment->enrollment_fee,
+                'metadata' => [
+                    'course_id' => $enrollment->course->id,
+                    'course_name' => $enrollment->course->name,
+                    'billing_cycle' => $enrollment->course->feeSettings->billing_cycle ?? 'monthly',
+                    'period_start' => $periodStart->toDateString(),
+                    'period_end' => $periodEnd->toDateString(),
+                ],
+            ]);
+
+            Log::info('Generated next manual payment order', [
+                'enrollment_id' => $enrollment->id,
+                'order_id' => $order->id,
+                'amount' => $order->amount,
+                'period_start' => $periodStart,
+                'period_end' => $periodEnd,
+            ]);
+
+            return $order;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to generate next manual payment order', [
+                'enrollment_id' => $enrollment->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Switch enrollment from manual to automatic payments
+     */
+    public function switchToAutomaticPayments(Enrollment $enrollment, PaymentMethod $paymentMethod): array
+    {
+        try {
+            if (! $enrollment->stripe_subscription_id) {
+                throw new \Exception('No subscription found for this enrollment');
+            }
+
+            // Validate payment method
+            $validation = $this->validatePaymentMethod($paymentMethod);
+            if (! $validation['valid']) {
+                throw new \Exception('Payment method validation failed: '.$validation['error']);
+            }
+
+            // Update subscription payment method and resume collection safely
+            $this->updateSubscriptionPaymentMethod($enrollment->stripe_subscription_id, $paymentMethod->stripe_payment_method_id);
+            
+            // Get current subscription to check trial status
+            $subscription = $this->stripe->subscriptions->retrieve($enrollment->stripe_subscription_id);
+            
+            // If trial has expired and collection is paused, we need to resume safely
+            // to prevent immediate charging for "missed" periods
+            if ($subscription->pause_collection && $subscription->status !== 'trialing') {
+                // Resume collection but set billing cycle anchor to prevent immediate charge
+                $this->stripe->subscriptions->update($enrollment->stripe_subscription_id, [
+                    'pause_collection' => null,
+                    'billing_cycle_anchor' => 'now', // Start fresh billing cycle from now
+                    'proration_behavior' => 'none', // Don't charge for missed periods
+                ]);
+                
+                Log::info('Resumed collection safely after trial expiration', [
+                    'subscription_id' => $enrollment->stripe_subscription_id,
+                    'enrollment_id' => $enrollment->id,
+                ]);
+            } else {
+                // Trial is still active or collection not paused, resume normally
+                $this->resumeSubscriptionCollection($enrollment->stripe_subscription_id);
+            }
+
+            // Update enrollment
+            $enrollment->update([
+                'payment_method_type' => 'automatic',
+                'manual_payment_required' => false,
+                'collection_status' => 'active',
+                'collection_paused_at' => null,
+            ]);
+
+            Log::info('Switched enrollment to automatic payments', [
+                'enrollment_id' => $enrollment->id,
+                'subscription_id' => $enrollment->stripe_subscription_id,
+                'payment_method_id' => $paymentMethod->id,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Successfully switched to automatic payments',
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to switch to automatic payments', [
+                'enrollment_id' => $enrollment->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Switch enrollment from automatic to manual payments
+     */
+    public function switchToManualPayments(Enrollment $enrollment): array
+    {
+        try {
+            if (! $enrollment->stripe_subscription_id) {
+                throw new \Exception('No subscription found for this enrollment');
+            }
+
+            // Pause collection to switch to manual payments
+            $this->pauseSubscriptionCollection($enrollment->stripe_subscription_id);
+
+            // Update enrollment
+            $enrollment->update([
+                'payment_method_type' => 'manual',
+                'manual_payment_required' => true,
+                'collection_status' => 'paused',
+                'collection_paused_at' => now(),
+            ]);
+
+            Log::info('Switched enrollment to manual payments', [
+                'enrollment_id' => $enrollment->id,
+                'subscription_id' => $enrollment->stripe_subscription_id,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Successfully switched to manual payments. Collection has been paused.',
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to switch to manual payments', [
+                'enrollment_id' => $enrollment->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Find existing Stripe customer by email
+     */
+    public function findCustomerByEmail(string $email): ?\Stripe\Customer
+    {
+        try {
+            $customers = $this->stripe->customers->all([
+                'email' => $email,
+                'limit' => 1,
+            ]);
+
+            if ($customers->data && count($customers->data) > 0) {
+                $customer = $customers->data[0];
+                Log::info('Found existing Stripe customer', [
+                    'customer_id' => $customer->id,
+                    'email' => $email,
+                ]);
+
+                return $customer;
+            }
+
+            return null;
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to search for Stripe customer', [
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Create a new Stripe customer
+     */
+    public function createCustomer(string $email, string $name): \Stripe\Customer
+    {
+        try {
+            $customer = $this->stripe->customers->create([
+                'email' => $email,
+                'name' => $name,
+            ]);
+
+            Log::info('Created Stripe customer', [
+                'customer_id' => $customer->id,
+                'email' => $email,
+                'name' => $name,
+            ]);
+
+            return $customer;
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to create Stripe customer', [
+                'email' => $email,
+                'name' => $name,
                 'error' => $e->getMessage(),
             ]);
             throw $e;

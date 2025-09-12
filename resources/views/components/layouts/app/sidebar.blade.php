@@ -23,6 +23,8 @@
                     <flux:navlist.item icon="users" :href="route('students.index')" :current="request()->routeIs('students.*')" wire:navigate>{{ __('Students') }}</flux:navlist.item>
                     <flux:navlist.item icon="user-group" :href="route('teachers.index')" :current="request()->routeIs('teachers.*')" wire:navigate>{{ __('Teachers') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar-days" :href="route('classes.index')" :current="request()->routeIs('classes.*')" wire:navigate>{{ __('Classes') }}</flux:navlist.item>
+                    <flux:navlist.item icon="presentation-chart-bar" :href="route('admin.sessions.index')" :current="request()->routeIs('admin.sessions.*')" wire:navigate>{{ __('Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="banknotes" :href="route('admin.payslips.index')" :current="request()->routeIs('admin.payslips.*')" wire:navigate>{{ __('Payslips') }}</flux:navlist.item>
                     <flux:navlist.item icon="clipboard" :href="route('enrollments.index')" :current="request()->routeIs('enrollments.*')" wire:navigate>{{ __('Enrollments') }}</flux:navlist.item>
                 </flux:navlist.group>
                 
@@ -78,6 +80,8 @@
                 <flux:navlist.group :heading="__('Teaching')" class="grid">
                     <flux:navlist.item icon="academic-cap" :href="route('teacher.courses.index')" :current="request()->routeIs('teacher.courses.*')" wire:navigate>{{ __('My Courses') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar-days" :href="route('teacher.classes.index')" :current="request()->routeIs('teacher.classes.*')" wire:navigate>{{ __('My Classes') }}</flux:navlist.item>
+                    <flux:navlist.item icon="presentation-chart-bar" :href="route('teacher.sessions.index')" :current="request()->routeIs('teacher.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="banknotes" :href="route('teacher.payslips.index')" :current="request()->routeIs('teacher.payslips.*')" wire:navigate>{{ __('My Payslips') }}</flux:navlist.item>
                     <flux:navlist.item icon="users" :href="route('teacher.students.index')" :current="request()->routeIs('teacher.students.*')" wire:navigate>{{ __('Students') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar" :href="route('teacher.timetable')" :current="request()->routeIs('teacher.timetable')" wire:navigate>{{ __('Timetable') }}</flux:navlist.item>
                 </flux:navlist.group>

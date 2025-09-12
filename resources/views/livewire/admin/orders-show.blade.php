@@ -2,6 +2,7 @@
 use App\Models\Order;
 use App\Services\StripeService;
 use Livewire\Volt\Component;
+use Carbon\Carbon;
 
 new class extends Component {
     public Order $order;
@@ -38,6 +39,46 @@ new class extends Component {
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to send receipt: ' . $e->getMessage());
         }
+    }
+
+    public function hasReceiptAttachment(): bool
+    {
+        return isset($this->order->metadata['receipt_file']) && !empty($this->order->metadata['receipt_file']);
+    }
+
+    public function getReceiptUrl(): ?string
+    {
+        if (!$this->hasReceiptAttachment()) {
+            return null;
+        }
+        
+        return asset('storage/' . $this->order->metadata['receipt_file']);
+    }
+
+    public function getApprover()
+    {
+        if (!isset($this->order->metadata['approved_by'])) {
+            return null;
+        }
+
+        return \App\Models\User::find($this->order->metadata['approved_by']);
+    }
+
+    public function downloadReceipt()
+    {
+        if (!$this->hasReceiptAttachment()) {
+            session()->flash('error', 'No receipt attachment found.');
+            return;
+        }
+
+        $filePath = storage_path('app/public/' . $this->order->metadata['receipt_file']);
+        
+        if (!file_exists($filePath)) {
+            session()->flash('error', 'Receipt file not found.');
+            return;
+        }
+
+        return response()->download($filePath, 'receipt-' . $this->order->order_number . '.' . pathinfo($filePath, PATHINFO_EXTENSION));
     }
 
     public function with(): array
@@ -218,6 +259,38 @@ new class extends Component {
                         <flux:text class="text-gray-600">Currency</flux:text>
                         <flux:text class="font-semibold">{{ strtoupper($order->currency) }}</flux:text>
                     </div>
+
+                    @if($this->hasReceiptAttachment())
+                        <div class="md:col-span-2">
+                            <flux:text class="text-gray-600">Payment Receipt</flux:text>
+                            <div class="mt-2 flex items-center space-x-3">
+                                <flux:icon icon="document" class="w-5 h-5 text-green-600" />
+                                <flux:text class="text-sm text-green-700">Receipt attachment available</flux:text>
+                                <flux:button 
+                                    wire:click="downloadReceipt" 
+                                    variant="outline" 
+                                    size="sm"
+                                    icon="document">
+                                    Download
+                                </flux:button>
+                                <a href="{{ $this->getReceiptUrl() }}" target="_blank">
+                                    <flux:button variant="ghost" size="sm" icon="magnifying-glass">
+                                        View
+                                    </flux:button>
+                                </a>
+                            </div>
+                            @if(isset($order->metadata['approved_by']) && isset($order->metadata['approved_at']))
+                                <div class="mt-2">
+                                    <flux:text size="xs" class="text-gray-500">
+                                        Approved manually on {{ \Carbon\Carbon::parse($order->metadata['approved_at'])->format('M j, Y g:i A') }}
+                                        @if($this->getApprover())
+                                            by {{ $this->getApprover()->name }}
+                                        @endif
+                                    </flux:text>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </flux:card>
         </div>
@@ -315,8 +388,13 @@ new class extends Component {
                         </flux:button>
                         
                         <flux:button href="{{ route('orders.receipt', $order) }}" variant="outline" class="w-full">
-                            View Receipt
+                            View Official Receipt
                         </flux:button>
+                        @if($this->hasReceiptAttachment())
+                            <flux:button wire:click="downloadReceipt" variant="outline" class="w-full">
+                                Download Payment Receipt
+                            </flux:button>
+                        @endif
                         <flux:button wire:click="resendReceipt" variant="outline" class="w-full">
                             Resend Receipt
                         </flux:button>

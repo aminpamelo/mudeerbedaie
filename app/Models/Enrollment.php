@@ -34,6 +34,8 @@ class Enrollment extends Model
         'subscription_timezone',
         'proration_behavior',
         'next_payment_date',
+        'payment_method_type',
+        'manual_payment_required',
     ];
 
     protected function casts(): array
@@ -508,5 +510,92 @@ class Enrollment extends Model
     public function updateSubscriptionSchedule(array $scheduleData): void
     {
         $this->update($scheduleData);
+    }
+
+    // Manual payment utility methods
+    public function isManualPaymentType(): bool
+    {
+        return $this->payment_method_type === 'manual';
+    }
+
+    public function isAutomaticPaymentType(): bool
+    {
+        return $this->payment_method_type === 'automatic';
+    }
+
+    public function requiresManualPayment(): bool
+    {
+        return $this->manual_payment_required;
+    }
+
+    public function markManualPaymentRequired(): void
+    {
+        $this->update(['manual_payment_required' => true]);
+    }
+
+    public function markManualPaymentCompleted(): void
+    {
+        $this->update(['manual_payment_required' => false]);
+    }
+
+    public function getPaymentMethodLabel(): string
+    {
+        return match ($this->payment_method_type) {
+            'automatic' => 'Automatic (Card)',
+            'manual' => 'Manual Payment',
+            default => ucfirst($this->payment_method_type ?? 'automatic'),
+        };
+    }
+
+    public function canSwitchPaymentMethod(): bool
+    {
+        // Allow switching in most cases - individual methods have specific validation
+        // Only restriction: don't switch if there are business constraints
+        return true;
+    }
+
+    public function hasManualOrders(): bool
+    {
+        return $this->orders()->where('billing_reason', Order::REASON_MANUAL)->exists();
+    }
+
+    public function getLatestManualOrder(): ?Order
+    {
+        return $this->orders()
+            ->where('billing_reason', Order::REASON_MANUAL)
+            ->orderBy('created_at', 'desc')
+            ->first();
+    }
+
+    public function studentHasPaymentMethods(): bool
+    {
+        // Check if student's user has active payment methods
+        if (! $this->student || ! $this->student->user) {
+            return false;
+        }
+
+        return $this->student->user->paymentMethods()
+            ->where('is_active', true)
+            ->exists();
+    }
+
+    public function canSwitchToAutomatic(): bool
+    {
+        // Can switch to automatic if:
+        // 1. Currently manual payment method, AND
+        // 2. Can switch payment method (business rules), AND
+        // 3. Student has payment methods in Stripe
+        return $this->isManualPaymentType() &&
+               $this->canSwitchPaymentMethod() &&
+               $this->studentHasPaymentMethods();
+    }
+
+    public function canSwitchToManual(): bool
+    {
+        // Can switch to manual if:
+        // 1. Currently automatic payment method, AND
+        // 2. Can switch payment method (business rules)
+        return $this->isAutomaticPaymentType() &&
+               $this->canSwitchPaymentMethod();
     }
 }

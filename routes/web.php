@@ -91,6 +91,10 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
     Volt::route('sessions', 'teacher.sessions-index')->name('teacher.sessions.index');
     Volt::route('sessions/{session}', 'teacher.session-show')->name('teacher.sessions.show');
 
+    // Payslip routes for teachers (read-only)
+    Volt::route('payslips', 'teacher.payslips-index')->name('teacher.payslips.index');
+    Volt::route('payslips/{payslip}', 'teacher.payslips-show')->name('teacher.payslips.show');
+
     Volt::route('timetable', 'teacher.timetable')->name('teacher.timetable');
     Volt::route('enrollments/{enrollment}', 'teacher.enrollments-show')->name('teacher.enrollments.show');
 });
@@ -127,6 +131,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('classes/{class}', 'admin.class-show')->name('classes.show');
     Volt::route('classes/{class}/edit', 'admin.class-edit')->name('classes.edit');
 
+    // Session routes
+    Volt::route('sessions', 'admin.sessions-index')->name('admin.sessions.index');
+    Volt::route('sessions/{session}', 'admin.sessions-show')->name('admin.sessions.show');
+
     // Student payment method management (admin-only)
     Volt::route('students/{student}/payment-methods', 'admin.student-payment-methods')->name('admin.students.payment-methods');
 
@@ -150,6 +158,12 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('payments', 'admin.payment-dashboard')->name('admin.payments');
     Volt::route('payments/{payment}', 'admin.payment-show')->name('admin.payments.show');
     Volt::route('bank-transfers', 'admin.bank-transfer-list')->name('admin.bank-transfers');
+
+    // Payslip management routes
+    Volt::route('payslips', 'admin.payslips-index')->name('admin.payslips.index');
+    Volt::route('payslips/generate', 'admin.payslips-generate')->name('admin.payslips.generate');
+    Volt::route('payslips/{payslip}', 'admin.payslips-show')->name('admin.payslips.show');
+    Volt::route('payslips/{payslip}/edit', 'admin.payslips-edit')->name('admin.payslips.edit');
 
     // Admin Settings routes
     Route::redirect('settings', 'admin/settings/general');

@@ -3,6 +3,7 @@
 use App\Models\Student;
 use App\Models\Course;
 use App\Models\Enrollment;
+use App\Models\Order;
 use App\Services\StripeService;
 use Livewire\Volt\Component;
 
@@ -15,6 +16,7 @@ new class extends Component {
     public $end_date = '';
     public $enrollment_fee = '';
     public $notes = '';
+    public $payment_method_type = 'automatic';
 
     public function mount(): void
     {
@@ -40,6 +42,7 @@ new class extends Component {
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'enrollment_fee' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:1000',
+            'payment_method_type' => 'required|in:automatic,manual',
         ]);
 
         // Check if student is already enrolled in this course with an active status
@@ -67,30 +70,38 @@ new class extends Component {
             'end_date' => $this->end_date ?: null,
             'enrollment_fee' => $enrollmentFee,
             'notes' => $this->notes ?: null,
+            'payment_method_type' => $this->payment_method_type,
+            'manual_payment_required' => $this->payment_method_type === 'manual',
         ]);
 
-        // Auto-create Stripe subscription if course has recurring billing
+        // Handle recurring billing based on payment method type
         try {
             if ($course->feeSettings && 
                 $course->feeSettings->billing_cycle !== 'one_time' && 
                 $course->feeSettings->stripe_price_id) {
                 
-                // Note: This creates a subscription that requires payment method setup
-                // In a real implementation, you'd need to collect payment method first
-                session()->flash('info', 'Enrollment created. Student will need to set up payment method for recurring billing.');
-                
-                // TODO: Implement payment method collection flow
-                // This would typically redirect to a payment setup page
+                if ($this->payment_method_type === 'automatic') {
+                    session()->flash('info', 'Enrollment created. Student will need to set up payment method for recurring billing.');
+                } else {
+                    // For manual payments, create first payment order
+                    $this->createManualPaymentOrder($enrollment, $course);
+                    session()->flash('info', 'Enrollment created with manual payment. First payment order has been generated.');
+                }
             }
         } catch (\Exception $e) {
             // Log but don't fail enrollment creation
-            \Log::warning('Failed to create subscription for enrollment', [
+            \Log::warning('Failed to setup payment for enrollment', [
                 'enrollment_id' => $enrollment->id,
+                'payment_method_type' => $this->payment_method_type,
                 'error' => $e->getMessage()
             ]);
         }
 
-        session()->flash('success', 'Student enrolled successfully!');
+        $successMessage = $this->payment_method_type === 'manual' 
+            ? 'Student enrolled successfully! Manual payment is required to activate the enrollment.'
+            : 'Student enrolled successfully!';
+        
+        session()->flash('success', $successMessage);
         
         $this->redirect(route('enrollments.show', $enrollment));
     }
@@ -102,6 +113,42 @@ new class extends Component {
         }
 
         return Course::with('feeSettings')->find($this->course_id);
+    }
+
+    private function createManualPaymentOrder(Enrollment $enrollment, Course $course): void
+    {
+        // Create the first payment order for manual payment
+        $order = Order::create([
+            'enrollment_id' => $enrollment->id,
+            'student_id' => $enrollment->student_id,
+            'course_id' => $enrollment->course_id,
+            'amount' => $enrollment->enrollment_fee,
+            'currency' => 'MYR',
+            'status' => Order::STATUS_PENDING,
+            'billing_reason' => Order::REASON_MANUAL,
+            'period_start' => now(),
+            'period_end' => $course->feeSettings->billing_cycle === 'monthly' 
+                ? now()->addMonth() 
+                : now()->addYear(),
+            'metadata' => [
+                'payment_method_type' => 'manual',
+                'created_by' => auth()->id(),
+                'description' => "Manual payment for {$course->name} enrollment",
+            ],
+        ]);
+
+        // Create order item for the course fee
+        $order->items()->create([
+            'description' => "Course Fee - {$course->name}",
+            'quantity' => 1,
+            'unit_price' => $enrollment->enrollment_fee,
+            'total_price' => $enrollment->enrollment_fee,
+            'metadata' => [
+                'course_id' => $course->id,
+                'course_name' => $course->name,
+                'billing_cycle' => $course->feeSettings->billing_cycle ?? 'monthly',
+            ],
+        ]);
     }
 }; ?>
 
@@ -181,6 +228,49 @@ new class extends Component {
                 @endif
 
                 <flux:textarea wire:model="notes" label="Notes" placeholder="Any additional notes about this enrollment..." rows="3" />
+            </div>
+        </flux:card>
+
+        <!-- Payment Method Selection -->
+        <flux:card>
+            <flux:heading size="lg">Payment Method</flux:heading>
+            
+            <div class="mt-6 space-y-6">
+                <flux:radio.group wire:model.live="payment_method_type" label="How will the student pay?" required>
+                    <flux:radio value="automatic" label="Automatic (Card Payment)" 
+                                description="Student will set up a credit/debit card for automatic recurring payments" />
+                    <flux:radio value="manual" label="Manual Payment" 
+                                description="Student will pay manually via bank transfer, cash, or other methods" />
+                </flux:radio.group>
+
+                @if($payment_method_type === 'manual')
+                    <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div class="flex items-start">
+                            <flux:icon icon="information-circle" class="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
+                            <div>
+                                <flux:text class="text-amber-800 font-medium">Manual Payment Selected</flux:text>
+                                <ul class="mt-2 text-sm text-amber-700 space-y-1">
+                                    <li>• A payment order will be generated for the student</li>
+                                    <li>• Student will receive payment instructions</li>
+                                    <li>• Admin must approve payment before enrollment is activated</li>
+                                    <li>• Future payments can be manual or switched to automatic</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                @elseif($payment_method_type === 'automatic')
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div class="flex items-start">
+                            <flux:icon icon="credit-card" class="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
+                            <div>
+                                <flux:text class="text-blue-800 font-medium">Automatic Payment Selected</flux:text>
+                                <flux:text class="mt-2 text-sm text-blue-700">
+                                    Student will need to set up a payment method after enrollment is created for automatic recurring billing.
+                                </flux:text>
+                            </div>
+                        </div>
+                    </div>
+                @endif
             </div>
         </flux:card>
 

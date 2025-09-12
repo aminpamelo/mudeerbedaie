@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -115,30 +114,24 @@ class Student extends Model
         return $this->hasMany(ClassStudent::class)->where('status', 'active');
     }
 
-    public function invoices(): HasMany
+    public function orders(): HasMany
     {
-        return $this->hasMany(Invoice::class);
+        return $this->hasMany(Order::class);
     }
 
-    public function paidInvoices(): HasMany
+    public function paidOrders(): HasMany
     {
-        return $this->hasMany(Invoice::class)->where('status', 'paid');
+        return $this->hasMany(Order::class)->where('status', Order::STATUS_PAID);
     }
 
-    public function pendingInvoices(): HasMany
+    public function pendingOrders(): HasMany
     {
-        return $this->hasMany(Invoice::class)->whereIn('status', ['draft', 'sent']);
+        return $this->hasMany(Order::class)->where('status', Order::STATUS_PENDING);
     }
 
-    public function overdueInvoices(): HasMany
+    public function failedOrders(): HasMany
     {
-        return $this->hasMany(Invoice::class)->where(function ($query) {
-            $query->where('status', 'overdue')
-                ->orWhere(function ($q) {
-                    $q->where('status', '!=', 'paid')
-                        ->where('due_date', '<', Carbon::today());
-                });
-        });
+        return $this->hasMany(Order::class)->where('status', Order::STATUS_FAILED);
     }
 
     public function isActive(): bool
@@ -165,40 +158,40 @@ class Student extends Model
         return $studentId;
     }
 
-    // Invoice-related utility methods
+    // Order-related utility methods
     public function getTotalPaidAmountAttribute(): float
     {
-        return $this->paidInvoices()->sum('amount');
+        return $this->paidOrders()->sum('amount');
     }
 
-    public function getTotalOutstandingAmountAttribute(): float
+    public function getTotalPendingAmountAttribute(): float
     {
-        return $this->pendingInvoices()->sum('amount') + $this->overdueInvoices()->sum('amount');
+        return $this->pendingOrders()->sum('amount');
     }
 
-    public function getInvoiceCountAttribute(): int
+    public function getOrderCountAttribute(): int
     {
-        return $this->invoices()->count();
+        return $this->orders()->count();
     }
 
-    public function getPaidInvoiceCountAttribute(): int
+    public function getPaidOrderCountAttribute(): int
     {
-        return $this->paidInvoices()->count();
+        return $this->paidOrders()->count();
     }
 
-    public function getOverdueInvoiceCountAttribute(): int
+    public function getFailedOrderCountAttribute(): int
     {
-        return $this->overdueInvoices()->count();
+        return $this->failedOrders()->count();
     }
 
-    public function hasOverduePayments(): bool
+    public function hasFailedPayments(): bool
     {
-        return $this->overdueInvoices()->exists();
+        return $this->failedOrders()->exists();
     }
 
-    public function getFormattedTotalOutstandingAttribute(): string
+    public function getFormattedTotalPendingAttribute(): string
     {
-        return 'RM '.number_format($this->total_outstanding_amount, 2);
+        return 'RM '.number_format($this->total_pending_amount, 2);
     }
 
     public function getFormattedTotalPaidAttribute(): string

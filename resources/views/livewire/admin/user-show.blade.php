@@ -212,12 +212,12 @@ new class extends Component {
                                         <span class="font-medium">{{ $user->paymentMethods->count() }}</span>
                                     </div>
                                     <div class="flex justify-between">
-                                        <span class="text-gray-600">Total Payments:</span>
-                                        <span class="font-medium">{{ $user->payments->count() }}</span>
+                                        <span class="text-gray-600">Total Orders:</span>
+                                        <span class="font-medium">{{ $user->orders->count() }}</span>
                                     </div>
                                     <div class="flex justify-between">
-                                        <span class="text-gray-600">Invoices:</span>
-                                        <span class="font-medium">{{ $user->invoices->count() }}</span>
+                                        <span class="text-gray-600">Paid Orders:</span>
+                                        <span class="font-medium">{{ $user->student ? $user->student->paidOrders->count() : 0 }}</span>
                                     </div>
                                 </div>
                             </div>

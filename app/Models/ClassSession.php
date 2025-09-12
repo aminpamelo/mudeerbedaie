@@ -38,6 +38,10 @@ class ClassSession extends Model
         'completed_at',
         'started_at',
         'allowance_amount',
+        'verified_at',
+        'verified_by',
+        'verifier_role',
+        'payout_status',
     ];
 
     protected function casts(): array
@@ -47,6 +51,7 @@ class ClassSession extends Model
             'session_time' => 'datetime:H:i',
             'completed_at' => 'datetime',
             'started_at' => 'datetime',
+            'verified_at' => 'datetime',
         ];
     }
 
@@ -63,6 +68,11 @@ class ClassSession extends Model
     public function presentAttendances(): HasMany
     {
         return $this->hasMany(ClassAttendance::class, 'session_id')->where('status', 'present');
+    }
+
+    public function verifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
     }
 
     public function isScheduled(): bool
@@ -93,6 +103,42 @@ class ClassSession extends Model
     public function isRescheduled(): bool
     {
         return $this->status === 'rescheduled';
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->verified_at !== null;
+    }
+
+    public function canBeVerified(): bool
+    {
+        return $this->isCompleted() && ! $this->isVerified();
+    }
+
+    public function verify(User $verifier): void
+    {
+        if (! $this->canBeVerified()) {
+            throw new \Exception('Session cannot be verified. Must be completed and not already verified.');
+        }
+
+        $this->update([
+            'verified_at' => now(),
+            'verified_by' => $verifier->id,
+            'verifier_role' => $verifier->role,
+        ]);
+    }
+
+    public function unverify(): void
+    {
+        if (! $this->isVerified()) {
+            throw new \Exception('Session is not verified.');
+        }
+
+        $this->update([
+            'verified_at' => null,
+            'verified_by' => null,
+            'verifier_role' => null,
+        ]);
     }
 
     public function markCompleted(?string $notes = null): void
@@ -341,6 +387,23 @@ class ClassSession extends Model
         return $query->where('session_date', '<', now()->toDateString());
     }
 
+    public function scopeVerified($query)
+    {
+        return $query->whereNotNull('verified_at');
+    }
+
+    public function scopeUnverified($query)
+    {
+        return $query->whereNull('verified_at');
+    }
+
+    public function scopeVerifiableForPayroll($query)
+    {
+        return $query->where('status', 'completed')
+            ->whereNotNull('allowance_amount')
+            ->whereNull('verified_at');
+    }
+
     protected function updateClassStatusIfNeeded(): void
     {
         $class = $this->class;
@@ -409,5 +472,91 @@ class ClassSession extends Model
             'rescheduled' => 'Rescheduled',
             default => ucfirst($this->status),
         };
+    }
+
+    // Payslip relationships
+    public function payslipSessions(): HasMany
+    {
+        return $this->hasMany(PayslipSession::class, 'session_id');
+    }
+
+    public function payslip(): BelongsTo
+    {
+        return $this->belongsTo(Payslip::class, 'payslip_id');
+    }
+
+    public function payslips()
+    {
+        return $this->belongsToMany(Payslip::class, 'payslip_sessions', 'session_id', 'payslip_id')
+            ->withPivot(['amount', 'included_at'])
+            ->withTimestamps();
+    }
+
+    // Payout status methods
+    public function isUnpaid(): bool
+    {
+        return $this->payout_status === 'unpaid';
+    }
+
+    public function isIncludedInPayslip(): bool
+    {
+        return $this->payout_status === 'included_in_payslip';
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->payout_status === 'paid';
+    }
+
+    public function canBeIncludedInPayslip(): bool
+    {
+        return $this->isCompleted()
+               && $this->isVerified()
+               && $this->isUnpaid()
+               && $this->allowance_amount !== null;
+    }
+
+    public function getPayoutStatusBadgeClassAttribute(): string
+    {
+        return match ($this->payout_status) {
+            'unpaid' => 'badge-red',
+            'included_in_payslip' => 'badge-yellow',
+            'paid' => 'badge-green',
+            default => 'badge-gray',
+        };
+    }
+
+    public function getPayoutStatusLabelAttribute(): string
+    {
+        return match ($this->payout_status) {
+            'unpaid' => 'Unpaid',
+            'included_in_payslip' => 'In Payslip',
+            'paid' => 'Paid',
+            default => ucfirst(str_replace('_', ' ', $this->payout_status)),
+        };
+    }
+
+    // Enhanced scopes for payslip functionality
+    public function scopeEligibleForPayslip($query)
+    {
+        return $query->where('status', 'completed')
+            ->whereNotNull('verified_at')
+            ->whereNotNull('allowance_amount')
+            ->where('payout_status', 'unpaid');
+    }
+
+    public function scopeUnpaid($query)
+    {
+        return $query->where('payout_status', 'unpaid');
+    }
+
+    public function scopeIncludedInPayslip($query)
+    {
+        return $query->where('payout_status', 'included_in_payslip');
+    }
+
+    public function scopePaidOut($query)
+    {
+        return $query->where('payout_status', 'paid');
     }
 }

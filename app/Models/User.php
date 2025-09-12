@@ -231,19 +231,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Get payments made by this user
+     * Get orders for this user (if they're a student)
      */
-    public function payments(): HasMany
+    public function orders()
     {
-        return $this->hasMany(Payment::class);
-    }
-
-    /**
-     * Get invoices for this user (if they're a student)
-     */
-    public function invoices(): HasMany
-    {
-        return $this->hasMany(Invoice::class, 'student_id');
+        return $this->hasManyThrough(Order::class, Student::class, 'user_id', 'student_id');
     }
 
     /**
