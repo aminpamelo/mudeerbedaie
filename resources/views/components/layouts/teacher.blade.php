@@ -18,7 +18,6 @@
                 
                 @if(auth()->user()->isTeacher())
                 <flux:navlist.group :heading="__('Teaching')" class="grid">
-                    <flux:navlist.item icon="academic-cap" :href="route('teacher.courses.index')" :current="request()->routeIs('teacher.courses.*')" wire:navigate>{{ __('My Courses') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar-days" :href="route('teacher.classes.index')" :current="request()->routeIs('teacher.classes.*')" wire:navigate>{{ __('My Classes') }}</flux:navlist.item>
                     <flux:navlist.item icon="clock" :href="route('teacher.sessions.index')" :current="request()->routeIs('teacher.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
                     <flux:navlist.item icon="users" :href="route('teacher.students.index')" :current="request()->routeIs('teacher.students.*')" wire:navigate>{{ __('Students') }}</flux:navlist.item>
