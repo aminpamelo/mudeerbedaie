@@ -104,7 +104,7 @@ new class extends Component {
                 
                 <div class="p-4 bg-blue-50 rounded-lg">
                     <p class="text-sm text-blue-700">
-                        <strong>Note:</strong> To change the password, the student should use the "Forgot Password" feature or contact an administrator separately.
+                        <strong>Note:</strong> To change the password, the student should use the"Forgot Password" feature or contact an administrator separately.
                     </p>
                 </div>
             </div>

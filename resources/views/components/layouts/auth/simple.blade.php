@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="">
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900">
+    <body class="min-h-screen bg-white antialiased">
         <div class="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
             <div class="flex w-full max-w-sm flex-col gap-2">
                 @php
@@ -20,12 +20,12 @@
                         </div>
                     @else
                         <span class="flex h-12 w-12 items-center justify-center rounded-md">
-                            <x-app-logo-icon class="size-12 fill-current text-blue-600 dark:text-blue-400" />
+                            <x-app-logo-icon class="size-12 fill-current text-blue-600" />
                         </span>
                     @endif
-                    <span class="text-xl font-bold text-gray-900 dark:text-white">{{ $siteName }}</span>
+                    <span class="text-xl font-bold text-gray-900">{{ $siteName }}</span>
                     @if($siteDescription)
-                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $siteDescription }}</span>
+                        <span class="text-sm text-gray-600">{{ $siteDescription }}</span>
                     @endif
                 </a>
                 <div class="flex flex-col gap-6">

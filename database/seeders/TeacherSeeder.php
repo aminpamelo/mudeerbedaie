@@ -29,25 +29,29 @@ class TeacherSeeder extends Seeder
 
         // Create 5 teachers
         foreach ($teacherNames as $index => $name) {
-            $teacherUser = User::create([
-                'name' => $name,
-                'email' => $index === 0 ? 'teacher@example.com' : 'teacher'.($index + 1).'@example.com',
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-                'role' => 'teacher',
-            ]);
+            $teacherUser = User::firstOrCreate(
+                ['email' => $index === 0 ? 'teacher@example.com' : 'teacher'.($index + 1).'@example.com'],
+                [
+                    'name' => $name,
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                    'role' => 'teacher',
+                ]
+            );
 
-            $teacher = Teacher::create([
-                'user_id' => $teacherUser->id,
-                'teacher_id' => 'TID'.str_pad($index + 1, 3, '0', STR_PAD_LEFT),
-                'ic_number' => '88010'.($index + 1).'-14-567'.($index + 8),
-                'phone' => '012-345-678'.($index + 1),
-                'status' => 'active',
-                'joined_at' => now(),
-                'bank_account_holder' => $name,
-                'bank_account_number' => '123456789'.($index + 1),
-                'bank_name' => $index % 2 === 0 ? 'Maybank' : 'CIMB Bank',
-            ]);
+            $teacher = Teacher::firstOrCreate(
+                ['teacher_id' => 'TID'.str_pad($index + 1, 3, '0', STR_PAD_LEFT)],
+                [
+                    'user_id' => $teacherUser->id,
+                    'ic_number' => '8801'.str_pad($index + 1, 2, '0', STR_PAD_LEFT).'145670',
+                    'phone' => '012-345-678'.($index + 1),
+                    'status' => 'active',
+                    'joined_at' => now(),
+                    'bank_account_holder' => $name,
+                    'bank_account_number' => '123456789'.($index + 1),
+                    'bank_name' => $index % 2 === 0 ? 'Maybank' : 'CIMB Bank',
+                ]
+            );
 
             $teachers[] = $teacher;
         }
@@ -60,8 +64,8 @@ class TeacherSeeder extends Seeder
             'teacher_id' => $teacher->id,
             'name' => 'Islamic Studies',
             'description' => 'Comprehensive Islamic Studies course covering Quran, Hadith, and Islamic jurisprudence.',
-            'price' => 150.00,
             'status' => 'active',
+            'created_by' => $teacher->user_id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -70,8 +74,8 @@ class TeacherSeeder extends Seeder
             'teacher_id' => $teacher->id,
             'name' => 'Arabic Language',
             'description' => 'Learn Arabic language from beginner to advanced level.',
-            'price' => 120.00,
             'status' => 'active',
+            'created_by' => $teacher->user_id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -156,22 +160,25 @@ class TeacherSeeder extends Seeder
         for ($i = 1; $i <= 20; $i++) {
             $studentName = $studentNames[$i - 1];
 
-            $studentUser = User::create([
-                'name' => $studentName,
-                'email' => "student{$i}@example.com",
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-                'role' => 'student',
-            ]);
+            $studentUser = User::firstOrCreate(
+                ['email' => "student{$i}@example.com"],
+                [
+                    'name' => $studentName,
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                    'role' => 'student',
+                ]
+            );
 
-            $student = Student::create([
-                'user_id' => $studentUser->id,
-                'student_id' => 'STU'.str_pad($i, 3, '0', STR_PAD_LEFT),
-                'ic_number' => '90010'.str_pad($i, 2, '0', STR_PAD_LEFT).'-14-567'.str_pad($i, 2, '0', STR_PAD_LEFT),
-                'phone' => '012-345-'.str_pad(6780 + $i, 4, '0', STR_PAD_LEFT),
-                'status' => 'active',
-                'enrolled_at' => now(),
-            ]);
+            $student = Student::firstOrCreate(
+                ['student_id' => 'STU'.str_pad($i, 3, '0', STR_PAD_LEFT)],
+                [
+                    'user_id' => $studentUser->id,
+                    'ic_number' => '9001'.str_pad($i, 2, '0', STR_PAD_LEFT).'145670',
+                    'phone' => '012-345-'.str_pad(6780 + $i, 4, '0', STR_PAD_LEFT),
+                    'status' => 'active',
+                ]
+            );
 
             $students[] = $student;
         }

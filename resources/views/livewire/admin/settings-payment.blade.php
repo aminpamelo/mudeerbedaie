@@ -107,7 +107,7 @@ new class extends Component {
             <button 
                 type="button"
                 wire:click="switchTab('stripe')"
-                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'stripe') border-indigo-500 text-indigo-600 dark:text-indigo-400 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 @endif"
+                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'stripe') border-indigo-500 text-indigo-600  @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300  :text-gray-300 @endif"
                 role="tab"
                 aria-selected="{{ $activeTab === 'stripe' ? 'true' : 'false' }}"
             >
@@ -120,7 +120,7 @@ new class extends Component {
             <button 
                 type="button"
                 wire:click="switchTab('manual')"
-                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'manual') border-indigo-500 text-indigo-600 dark:text-indigo-400 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 @endif opacity-50 cursor-not-allowed"
+                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'manual') border-indigo-500 text-indigo-600  @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300  :text-gray-300 @endif opacity-50 cursor-not-allowed"
                 role="tab"
                 aria-selected="{{ $activeTab === 'manual' ? 'true' : 'false' }}"
                 disabled
@@ -135,7 +135,7 @@ new class extends Component {
             <button 
                 type="button"
                 wire:click="switchTab('fpx')"
-                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'fpx') border-indigo-500 text-indigo-600 dark:text-indigo-400 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 @endif opacity-50 cursor-not-allowed"
+                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'fpx') border-indigo-500 text-indigo-600  @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300  :text-gray-300 @endif opacity-50 cursor-not-allowed"
                 role="tab"
                 aria-selected="{{ $activeTab === 'fpx' ? 'true' : 'false' }}"
                 disabled
@@ -159,7 +159,7 @@ new class extends Component {
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <flux:heading size="lg">Stripe Configuration</flux:heading>
-                        <flux:text class="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                        <flux:text class="text-gray-600  text-sm mt-1">
                             Configure Stripe to accept credit and debit card payments
                         </flux:text>
                     </div>
@@ -259,17 +259,17 @@ new class extends Component {
                     </div>
 
                     <!-- Webhook Configuration Info -->
-                    <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                        <flux:heading size="sm" class="text-blue-800 dark:text-blue-200 mb-2">
+                    <div class="bg-blue-50 /20 p-4 rounded-lg">
+                        <flux:heading size="sm" class="text-blue-800  mb-2">
                             Webhook Configuration
                         </flux:heading>
-                        <flux:text class="text-blue-700 dark:text-blue-300 text-sm">
+                        <flux:text class="text-blue-700  text-sm">
                             Configure your Stripe webhook endpoint with this URL:
                         </flux:text>
-                        <code class="block mt-2 p-2 bg-white dark:bg-gray-800 rounded text-sm font-mono">
+                        <code class="block mt-2 p-2 bg-white  rounded text-sm font-mono">
                             {{ url('/stripe/webhook') }}
                         </code>
-                        <flux:text class="text-blue-700 dark:text-blue-300 text-sm mt-2">
+                        <flux:text class="text-blue-700  text-sm mt-2">
                             Events to listen for: payment_intent.succeeded, payment_intent.payment_failed
                         </flux:text>
                     </div>
@@ -295,7 +295,7 @@ new class extends Component {
             <flux:card>
                 <div class="text-center py-12">
                     <flux:icon name="banknotes" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <flux:heading size="lg" class="text-gray-600 dark:text-gray-400 mb-2">
+                    <flux:heading size="lg" class="text-gray-600  mb-2">
                         Manual Bank Transfer
                     </flux:heading>
                     <flux:text class="text-gray-500">
@@ -315,7 +315,7 @@ new class extends Component {
             <flux:card>
                 <div class="text-center py-12">
                     <flux:icon name="building-library" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <flux:heading size="lg" class="text-gray-600 dark:text-gray-400 mb-2">
+                    <flux:heading size="lg" class="text-gray-600  mb-2">
                         FPX Online Banking
                     </flux:heading>
                     <flux:text class="text-gray-500">

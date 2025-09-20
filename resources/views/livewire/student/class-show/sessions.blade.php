@@ -3,12 +3,12 @@
     <flux:card class="p-4">
         <div class="flex items-center justify-between">
             <div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Total</flux:text>
+                <flux:text size="sm" class="text-gray-600">Total</flux:text>
                 <flux:heading size="lg">{{ $statistics['total_sessions'] }}</flux:heading>
                 <flux:text size="sm" class="text-gray-500">Sessions</flux:text>
             </div>
-            <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <flux:icon name="calendar-days" class="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <div class="p-2 bg-blue-50 /20 rounded-lg">
+                <flux:icon name="calendar-days" class="w-6 h-6 text-blue-600" />
             </div>
         </div>
     </flux:card>
@@ -16,12 +16,12 @@
     <flux:card class="p-4">
         <div class="flex items-center justify-between">
             <div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Completed</flux:text>
+                <flux:text size="sm" class="text-gray-600">Completed</flux:text>
                 <flux:heading size="lg">{{ $statistics['completed_sessions'] }}</flux:heading>
                 <flux:text size="sm" class="text-gray-500">Sessions</flux:text>
             </div>
-            <div class="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <flux:icon name="check-circle" class="w-6 h-6 text-green-600 dark:text-green-400" />
+            <div class="p-2 bg-green-50 /20 rounded-lg">
+                <flux:icon name="check-circle" class="w-6 h-6 text-green-600" />
             </div>
         </div>
     </flux:card>
@@ -29,12 +29,12 @@
     <flux:card class="p-4">
         <div class="flex items-center justify-between">
             <div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Upcoming</flux:text>
+                <flux:text size="sm" class="text-gray-600">Upcoming</flux:text>
                 <flux:heading size="lg">{{ $statistics['upcoming_sessions'] }}</flux:heading>
                 <flux:text size="sm" class="text-gray-500">Sessions</flux:text>
             </div>
-            <div class="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <flux:icon name="clock" class="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            <div class="p-2 bg-purple-50 /20 rounded-lg">
+                <flux:icon name="clock" class="w-6 h-6 text-purple-600" />
             </div>
         </div>
     </flux:card>
@@ -42,12 +42,12 @@
     <flux:card class="p-4">
         <div class="flex items-center justify-between">
             <div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Attended</flux:text>
+                <flux:text size="sm" class="text-gray-600">Attended</flux:text>
                 <flux:heading size="lg">{{ $statistics['attended_sessions'] }}</flux:heading>
                 <flux:text size="sm" class="text-gray-500">Sessions</flux:text>
             </div>
-            <div class="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                <flux:icon name="check-circle" class="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            <div class="p-2 bg-emerald-50 /20 rounded-lg">
+                <flux:icon name="check-circle" class="w-6 h-6 text-emerald-600" />
             </div>
         </div>
     </flux:card>
@@ -71,7 +71,7 @@
                 
                 <div>
                     <div class="flex items-center justify-between mb-3">
-                        <flux:heading size="md" class="text-gray-700 dark:text-gray-300">{{ $monthLabel }}</flux:heading>
+                        <flux:heading size="md" class="text-gray-700">{{ $monthLabel }}</flux:heading>
                         <flux:badge variant="outline" size="sm">
                             {{ $monthSessions->count() }} session{{ $monthSessions->count() !== 1 ? 's' : '' }}
                         </flux:badge>
@@ -80,7 +80,7 @@
                     <div class="space-y-2">
                         @foreach($monthSessions->sortByDesc('session_date') as $session)
                             <div 
-                                class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors
+                                class="flex items-center justify-between p-4 border border-gray-200  rounded-lg hover:bg-gray-50 :bg-gray-800 transition-colors
                                        {{ $session->status === 'completed' ? 'cursor-pointer' : '' }}"
                                 @if($session->status === 'completed')
                                     wire:click="selectSession({{ $session->id }})"
@@ -91,10 +91,10 @@
                                         <!-- Date and Time -->
                                         <div class="flex-shrink-0">
                                             <div class="text-center">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                <div class="text-sm font-medium text-gray-900">
                                                     {{ $session->session_date->format('M j') }}
                                                 </div>
-                                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                                <div class="text-xs text-gray-500">
                                                     {{ $session->session_date->format('D') }}
                                                 </div>
                                             </div>
@@ -112,7 +112,7 @@
                                             </div>
                                             
                                             @if($session->teacher_notes && $session->status === 'completed')
-                                                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                                                <flux:text size="sm" class="text-gray-600">
                                                     {{ Str::limit($session->teacher_notes, 120) }}
                                                 </flux:text>
                                             @endif
@@ -143,7 +143,7 @@
                                     @if($session->status === 'ongoing')
                                         <div class="flex items-center gap-2">
                                             <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                            <flux:text size="sm" class="text-green-600 dark:text-green-400">Live</flux:text>
+                                            <flux:text size="sm" class="text-green-600">Live</flux:text>
                                         </div>
                                     @endif
                                     
@@ -199,8 +199,8 @@
             $monthLabel = \Carbon\Carbon::parse($monthYear . '-01')->format('F Y');
         @endphp
         
-        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="bg-white  border border-gray-200  rounded-lg">
+            <div class="p-4 border-b border-gray-200">
                 <div class="flex items-center justify-between">
                     <flux:heading size="md">{{ $monthLabel }}</flux:heading>
                     <flux:badge variant="outline" size="sm">
@@ -209,20 +209,20 @@
                 </div>
             </div>
             
-            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+            <div class="divide-y divide-gray-200">
                 @foreach($monthSessions->sortByDesc('session_date') as $session)
                     <div 
-                        class="p-4 {{ $session->status === 'completed' ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : '' }}"
+                        class="p-4 {{ $session->status === 'completed' ? 'cursor-pointer hover:bg-gray-50 :bg-gray-800' : '' }}"
                         @if($session->status === 'completed')
                             wire:click="selectSession({{ $session->id }})"
                         @endif
                     >
                         <div class="flex items-start justify-between mb-3">
                             <div>
-                                <div class="font-medium text-gray-900 dark:text-gray-100">
+                                <div class="font-medium text-gray-900">
                                     {{ $session->session_date->format('M j, Y') }}
                                 </div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400">
+                                <div class="text-sm text-gray-600">
                                     {{ $session->session_time->format('g:i A') }} - {{ $session->formatted_duration }}
                                 </div>
                             </div>
@@ -249,7 +249,7 @@
                         @endif
                         
                         @if($session->teacher_notes && $session->status === 'completed')
-                            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                            <flux:text size="sm" class="text-gray-600">
                                 {{ Str::limit($session->teacher_notes, 80) }}
                             </flux:text>
                         @endif

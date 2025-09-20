@@ -1,15 +1,15 @@
 {{-- Week View with Horizontal Scrolling --}}
 <div class="overflow-x-auto scrollbar-hide">
-    <div class="grid gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden" style="grid-template-columns: repeat(7, minmax(280px, 1fr)); min-width: 1960px;">
+    <div class="grid gap-px bg-gray-200  rounded-lg overflow-hidden" style="grid-template-columns: repeat(7, minmax(280px, 1fr)); min-width: 1960px;">
         @foreach($days as $day)
-            <div class="bg-white dark:bg-gray-800 {{ $day['isToday'] ? 'ring-2 ring-blue-500 dark:ring-blue-400' : '' }}">
+            <div class="bg-white  {{ $day['isToday'] ? 'ring-2 ring-blue-500 ' : '' }}">
                 {{-- Day Header --}}
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div class="p-4 border-b border-gray-200">
                     <div class="text-center">
-                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        <div class="text-xs font-medium text-gray-500  uppercase tracking-wide">
                             {{ $day['dayName'] }}
                         </div>
-                        <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100' }}">
+                        <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600 ' : 'text-gray-900 ' }}">
                             {{ $day['dayNumber'] }}
                         </div>
                     </div>
@@ -57,39 +57,39 @@
                                 class="group cursor-pointer rounded-lg p-2 text-xs transition-all duration-200 hover:shadow-md
                                        @switch($session->status)
                                            @case('scheduled')
-                                               bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 hover:bg-blue-200 dark:hover:bg-blue-900/50
+                                               bg-blue-100 /30 border border-blue-200  hover:bg-blue-200 :bg-blue-900/50
                                                @break
                                            @case('ongoing')
-                                               bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 hover:bg-green-200 dark:hover:bg-green-900/50 animate-pulse
+                                               bg-green-100 /30 border border-green-200  hover:bg-green-200 :bg-green-900/50 animate-pulse
                                                @break
                                            @case('completed')
-                                               bg-gray-100 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 hover:bg-gray-200 dark:hover:bg-gray-900/50
+                                               bg-gray-100 /30 border border-gray-200  hover:bg-gray-200 :bg-gray-900/50
                                                @break
                                            @case('cancelled')
-                                               bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50
+                                               bg-red-100 /30 border border-red-200  hover:bg-red-200 :bg-red-900/50
                                                @break
                                            @default
-                                               bg-gray-100 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 hover:bg-gray-200 dark:hover:bg-gray-900/50
+                                               bg-gray-100 /30 border border-gray-200  hover:bg-gray-200 :bg-gray-900/50
                                        @endswitch"
                                 wire:click="selectSession({{ $session->id }})"
                             >
                                 {{-- Session Time --}}
-                                <div class="font-medium {{ $session->status === 'ongoing' ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100' }}">
+                                <div class="font-medium {{ $session->status === 'ongoing' ? 'text-green-800 ' : 'text-gray-900 ' }}">
                                     {{ $item['displayTime'] }}
                                 </div>
                                 
                                 {{-- Session Title --}}
-                                <div class="text-gray-800 dark:text-gray-200 font-medium truncate" title="{{ $session->class->title }}">
+                                <div class="text-gray-800  font-medium truncate" title="{{ $session->class->title }}">
                                     {{ $session->class->title }}
                                 </div>
                                 
                                 {{-- Session Course --}}
-                                <div class="text-gray-600 dark:text-gray-400 truncate" title="{{ $session->class->course->title }}">
+                                <div class="text-gray-600  truncate" title="{{ $session->class->course->title }}">
                                     {{ $session->class->course->title }}
                                 </div>
                                 
                                 {{-- Session Duration & Students --}}
-                                <div class="flex items-center justify-between mt-1 text-gray-500 dark:text-gray-500">
+                                <div class="flex items-center justify-between mt-1 text-gray-500">
                                     <span>{{ $session->formatted_duration }}</span>
                                     @if($session->attendances->count() > 0)
                                         <span class="text-xs">{{ $session->attendances->count() }} students</span>
@@ -108,7 +108,7 @@
                                     @if($session->status === 'ongoing')
                                         <div class="flex items-center gap-1">
                                             <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                            <span class="text-xs text-green-600 dark:text-green-400">Live</span>
+                                            <span class="text-xs text-green-600">Live</span>
                                         </div>
                                     @endif
                                 </div>
@@ -134,11 +134,11 @@
                                         timer = setInterval(() => {
                                             elapsedTime = Math.floor((Date.now() - startTime) / 1000);
                                         }, 1000);
-                                    " x-destroy="timer && clearInterval(timer)">
-                                        <div class="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded px-2 py-1">
-                                            <div class="text-xs font-mono font-semibold text-green-700 dark:text-green-300" x-text="formatTime(elapsedTime)">
+" x-destroy="timer && clearInterval(timer)">
+                                        <div class="bg-green-100 /30 border border-green-200  rounded px-2 py-1">
+                                            <div class="text-xs font-mono font-semibold text-green-700" x-text="formatTime(elapsedTime)">
                                             </div>
-                                            <div class="text-xs text-green-600 dark:text-green-400">Elapsed</div>
+                                            <div class="text-xs text-green-600">Elapsed</div>
                                         </div>
                                     </div>
                                 @endif
@@ -147,19 +147,19 @@
                         @else
                             {{-- Scheduled Slot Without Session --}}
                             @php $class = $item['class']; @endphp
-                            <div class="rounded-lg p-2 text-xs bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 transition-all duration-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/50">
+                            <div class="rounded-lg p-2 text-xs bg-indigo-50 /30 border border-indigo-200  transition-all duration-200 hover:bg-indigo-100 :bg-indigo-900/50">
                                 {{-- Scheduled Time --}}
-                                <div class="font-medium text-indigo-900 dark:text-indigo-100">
+                                <div class="font-medium text-indigo-900">
                                     {{ $item['displayTime'] }}
                                 </div>
                                 
                                 {{-- Class Title --}}
-                                <div class="text-indigo-800 dark:text-indigo-200 font-medium truncate" title="{{ $class->title }}">
+                                <div class="text-indigo-800  font-medium truncate" title="{{ $class->title }}">
                                     {{ $class->title }}
                                 </div>
                                 
                                 {{-- Course Name --}}
-                                <div class="text-indigo-600 dark:text-indigo-400 truncate" title="{{ $class->course->title }}">
+                                <div class="text-indigo-600  truncate" title="{{ $class->course->title }}">
                                     {{ $class->course->title }}
                                 </div>
                                 
@@ -185,7 +185,7 @@
                             </div>
                         @endif
                     @empty
-                        <div class="text-center py-8 text-gray-400 dark:text-gray-500">
+                        <div class="text-center py-8 text-gray-400">
                             <flux:icon name="calendar" class="w-8 h-8 mx-auto mb-2 opacity-50" />
                             <div class="text-sm">No sessions or scheduled classes</div>
                         </div>
@@ -254,19 +254,19 @@
             size="sm" 
             x-on:click="previousDay()" 
             x-bind:disabled="currentDayIndex === 0"
-            x-bind:class="currentDayIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800'"
+            x-bind:class="currentDayIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 :bg-gray-800'"
         >
             <flux:icon name="chevron-left" class="w-5 h-5" />
         </flux:button>
         
         <div class="text-center">
-            <div class="text-sm font-medium text-gray-900 dark:text-gray-100" x-text="
+            <div class="text-sm font-medium text-gray-900" x-text="
                 (() => {
                     const days = {{ collect($days)->map(function($day) { return $day['dayName'] . ', ' . $day['date']->format('M d'); })->toJson() }};
                     return days[currentDayIndex] || 'Current Day';
                 })()">
             </div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">
+            <div class="text-xs text-gray-500">
                 Day <span x-text="currentDayIndex + 1"></span> of {{ count($days) }}
             </div>
         </div>
@@ -276,7 +276,7 @@
             size="sm" 
             x-on:click="nextDay()" 
             x-bind:disabled="currentDayIndex === {{ count($days) - 1 }}"
-            x-bind:class="currentDayIndex === {{ count($days) - 1 }} ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800'"
+            x-bind:class="currentDayIndex === {{ count($days) - 1 }} ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 :bg-gray-800'"
         >
             <flux:icon name="chevron-right" class="w-5 h-5" />
         </flux:button>
@@ -287,7 +287,7 @@
         @foreach($days as $index => $day)
             <button 
                 class="w-2 h-2 rounded-full transition-all duration-200"
-                x-bind:class="currentDayIndex === {{ $index }} ? 'bg-blue-500 w-6' : 'bg-gray-300 dark:bg-gray-600'"
+                x-bind:class="currentDayIndex === {{ $index }} ? 'bg-blue-500 w-6' : 'bg-gray-300 '"
                 x-on:click="scrollToDay({{ $index }})"
                 title="{{ $day['dayName'] }}, {{ $day['date']->format('M d') }}"
             ></button>
@@ -303,16 +303,16 @@
         <div class="flex gap-4 pb-4" style="width: {{ count($days) * 100 }}%;">
             @foreach($days as $day)
                 <div 
-                    class="flex-shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg {{ $day['isToday'] ? 'ring-2 ring-blue-500 dark:ring-blue-400' : '' }}"
+                    class="flex-shrink-0 bg-white  border border-gray-200  rounded-lg {{ $day['isToday'] ? 'ring-2 ring-blue-500 ' : '' }}"
                     style="width: calc(100% / {{ count($days) }} - 0.75rem); scroll-snap-align: start;"
                 >
                     {{-- Mobile Day Header --}}
-                    <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <div class="p-4 border-b border-gray-200">
                         <div class="text-center">
-                            <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            <div class="text-xs font-medium text-gray-500  uppercase tracking-wide">
                                 {{ $day['dayName'] }}
                             </div>
-                            <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100' }}">
+                            <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600 ' : 'text-gray-900 ' }}">
                                 {{ $day['dayNumber'] }}
                             </div>
                             @if($day['isToday'])
@@ -367,35 +367,35 @@
                                     class="group cursor-pointer rounded-lg p-3 text-sm transition-all duration-200 hover:shadow-md
                                            @switch($session->status)
                                                @case('scheduled')
-                                                   bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 hover:bg-blue-200 dark:hover:bg-blue-900/50
+                                                   bg-blue-100 /30 border border-blue-200  hover:bg-blue-200 :bg-blue-900/50
                                                    @break
                                                @case('ongoing')
-                                                   bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 hover:bg-green-200 dark:hover:bg-green-900/50 animate-pulse
+                                                   bg-green-100 /30 border border-green-200  hover:bg-green-200 :bg-green-900/50 animate-pulse
                                                    @break
                                                @case('completed')
-                                                   bg-gray-100 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 hover:bg-gray-200 dark:hover:bg-gray-900/50
+                                                   bg-gray-100 /30 border border-gray-200  hover:bg-gray-200 :bg-gray-900/50
                                                    @break
                                                @case('cancelled')
-                                                   bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50
+                                                   bg-red-100 /30 border border-red-200  hover:bg-red-200 :bg-red-900/50
                                                    @break
                                                @default
-                                                   bg-gray-100 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-800 hover:bg-gray-200 dark:hover:bg-gray-900/50
+                                                   bg-gray-100 /30 border border-gray-200  hover:bg-gray-200 :bg-gray-900/50
                                            @endswitch"
                                     wire:click="selectSession({{ $session->id }})"
                                 >
-                                    <div class="font-medium {{ $session->status === 'ongoing' ? 'text-green-800 dark:text-green-200' : 'text-gray-900 dark:text-gray-100' }} mb-1">
+                                    <div class="font-medium {{ $session->status === 'ongoing' ? 'text-green-800 ' : 'text-gray-900 ' }} mb-1">
                                         {{ $item['displayTime'] }}
                                     </div>
                                     
-                                    <div class="text-gray-800 dark:text-gray-200 font-medium truncate mb-1" title="{{ $session->class->title }}">
+                                    <div class="text-gray-800  font-medium truncate mb-1" title="{{ $session->class->title }}">
                                         {{ $session->class->title }}
                                     </div>
                                     
-                                    <div class="text-gray-600 dark:text-gray-400 text-xs truncate mb-2" title="{{ $session->class->course->title }}">
+                                    <div class="text-gray-600  text-xs truncate mb-2" title="{{ $session->class->course->title }}">
                                         {{ $session->class->course->title }}
                                     </div>
                                     
-                                    <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-500 mb-2">
+                                    <div class="flex items-center justify-between text-xs text-gray-500  mb-2">
                                         <span>{{ $session->formatted_duration }}</span>
                                         @if($session->attendances->count() > 0)
                                             <span>{{ $session->attendances->count() }} students</span>
@@ -413,7 +413,7 @@
                                         @if($session->status === 'ongoing')
                                             <div class="flex items-center gap-1">
                                                 <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                                <span class="text-xs text-green-600 dark:text-green-400">Live</span>
+                                                <span class="text-xs text-green-600">Live</span>
                                             </div>
                                         @endif
                                     </div>
@@ -439,9 +439,9 @@
                                             timer = setInterval(() => {
                                                 elapsedTime = Math.floor((Date.now() - startTime) / 1000);
                                             }, 1000);
-                                        " x-destroy="timer && clearInterval(timer)">
-                                            <div class="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-full px-2 py-1 inline-flex items-center gap-1">
-                                                <div class="text-xs font-mono font-semibold text-green-700 dark:text-green-300" x-text="formatTime(elapsedTime)">
+" x-destroy="timer && clearInterval(timer)">
+                                            <div class="bg-green-100 /30 border border-green-200  rounded-full px-2 py-1 inline-flex items-center gap-1">
+                                                <div class="text-xs font-mono font-semibold text-green-700" x-text="formatTime(elapsedTime)">
                                                 </div>
                                             </div>
                                         </div>
@@ -451,16 +451,16 @@
                             @else
                                 {{-- Scheduled Slot Without Session --}}
                                 @php $class = $item['class']; @endphp
-                                <div class="rounded-lg p-3 text-sm bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 transition-all duration-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/50">
-                                    <div class="font-medium text-indigo-900 dark:text-indigo-100 mb-1">
+                                <div class="rounded-lg p-3 text-sm bg-indigo-50 /30 border border-indigo-200  transition-all duration-200 hover:bg-indigo-100 :bg-indigo-900/50">
+                                    <div class="font-medium text-indigo-900  mb-1">
                                         {{ $item['displayTime'] }}
                                     </div>
                                     
-                                    <div class="text-indigo-800 dark:text-indigo-200 font-medium truncate mb-1" title="{{ $class->title }}">
+                                    <div class="text-indigo-800  font-medium truncate mb-1" title="{{ $class->title }}">
                                         {{ $class->title }}
                                     </div>
                                     
-                                    <div class="text-indigo-600 dark:text-indigo-400 text-xs truncate mb-2" title="{{ $class->course->title }}">
+                                    <div class="text-indigo-600  text-xs truncate mb-2" title="{{ $class->course->title }}">
                                         {{ $class->course->title }}
                                     </div>
                                     
@@ -482,7 +482,7 @@
                                 </div>
                             @endif
                         @empty
-                            <div class="text-center py-8 text-gray-400 dark:text-gray-500">
+                            <div class="text-center py-8 text-gray-400">
                                 <flux:icon name="calendar" class="w-8 h-8 mx-auto mb-2 opacity-50" />
                                 <div class="text-sm">No sessions scheduled</div>
                             </div>

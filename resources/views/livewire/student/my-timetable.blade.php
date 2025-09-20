@@ -279,12 +279,12 @@ x-effect="
             <flux:card class="p-4 md:p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">This Week</flux:text>
+                        <flux:text size="sm" class="text-gray-600">This Week</flux:text>
                         <flux:heading size="lg">{{ $statistics['sessions_this_week'] }}</flux:heading>
                         <flux:text size="sm" class="text-gray-500">Sessions</flux:text>
                     </div>
-                    <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <flux:icon name="calendar-days" class="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    <div class="p-2 bg-blue-50 /20 rounded-lg">
+                        <flux:icon name="calendar-days" class="w-6 h-6 text-blue-600" />
                     </div>
                 </div>
             </flux:card>
@@ -292,12 +292,12 @@ x-effect="
             <flux:card class="p-4 md:p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">This Month</flux:text>
+                        <flux:text size="sm" class="text-gray-600">This Month</flux:text>
                         <flux:heading size="lg">{{ $statistics['sessions_this_month'] }}</flux:heading>
                         <flux:text size="sm" class="text-gray-500">Sessions</flux:text>
                     </div>
-                    <div class="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <flux:icon name="calendar" class="w-6 h-6 text-green-600 dark:text-green-400" />
+                    <div class="p-2 bg-green-50 /20 rounded-lg">
+                        <flux:icon name="calendar" class="w-6 h-6 text-green-600" />
                     </div>
                 </div>
             </flux:card>
@@ -305,12 +305,12 @@ x-effect="
             <flux:card class="p-4 md:p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Upcoming</flux:text>
+                        <flux:text size="sm" class="text-gray-600">Upcoming</flux:text>
                         <flux:heading size="lg">{{ $statistics['upcoming_sessions'] }}</flux:heading>
                         <flux:text size="sm" class="text-gray-500">Sessions</flux:text>
                     </div>
-                    <div class="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                        <flux:icon name="clock" class="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                    <div class="p-2 bg-purple-50 /20 rounded-lg">
+                        <flux:icon name="clock" class="w-6 h-6 text-purple-600" />
                     </div>
                 </div>
             </flux:card>
@@ -318,12 +318,12 @@ x-effect="
             <flux:card class="p-4 md:p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Attended</flux:text>
+                        <flux:text size="sm" class="text-gray-600">Attended</flux:text>
                         <flux:heading size="lg">{{ $statistics['attended_this_month'] }}</flux:heading>
                         <flux:text size="sm" class="text-gray-500">This Month</flux:text>
                     </div>
-                    <div class="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                        <flux:icon name="check-circle" class="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                    <div class="p-2 bg-emerald-50 /20 rounded-lg">
+                        <flux:icon name="check-circle" class="w-6 h-6 text-emerald-600" />
                     </div>
                 </div>
             </flux:card>
@@ -342,7 +342,7 @@ x-effect="
             <!-- Navigation and Filters -->
             <div class="flex flex-col lg:flex-row items-start lg:items-center gap-4">
                 <!-- Week Navigation -->
-                <div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-lg p-2 border">
+                <div class="flex items-center gap-3 bg-gray-50  rounded-lg p-2 border">
                     <flux:button 
                         variant="outline" 
                         wire:click="previousPeriod" 
@@ -354,8 +354,8 @@ x-effect="
                         </div>
                     </flux:button>
                     
-                    <div class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 rounded border min-w-[200px] text-center">
-                        <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Current Week</div>
+                    <div class="px-4 py-2 text-sm font-semibold text-gray-900  bg-white  rounded border min-w-[200px] text-center">
+                        <div class="text-xs text-gray-500  uppercase tracking-wide">Current Week</div>
                         <div class="font-medium">{{ $currentPeriodLabel }}</div>
                     </div>
                     
@@ -370,7 +370,7 @@ x-effect="
                         </div>
                     </flux:button>
                     
-                    <div class="hidden md:block border-l border-gray-300 dark:border-gray-600 pl-3">
+                    <div class="hidden md:block border-l border-gray-300  pl-3">
                         <flux:button 
                             variant="primary" 
                             wire:click="goToToday" 
@@ -414,7 +414,7 @@ x-effect="
     <!-- Session Details Modal -->
     <flux:modal wire:model="showModal" class="max-w-2xl" wire:poll.5s="$refresh">
         @if($selectedSession)
-            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="p-6 border-b border-gray-200">
                 <flux:heading size="lg">{{ $selectedSession->class->title }}</flux:heading>
             </div>
             
@@ -423,13 +423,13 @@ x-effect="
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <flux:text class="font-medium">Date & Time</flux:text>
-                            <flux:text class="text-gray-600 dark:text-gray-400">
+                            <flux:text class="text-gray-600">
                                 {{ $selectedSession->formatted_date_time }}
                             </flux:text>
                         </div>
                         <div>
                             <flux:text class="font-medium">Duration</flux:text>
-                            <flux:text class="text-gray-600 dark:text-gray-400">
+                            <flux:text class="text-gray-600">
                                 {{ $selectedSession->formatted_duration }}
                             </flux:text>
                         </div>
@@ -441,24 +441,24 @@ x-effect="
                         </div>
                         <div>
                             <flux:text class="font-medium">Course</flux:text>
-                            <flux:text class="text-gray-600 dark:text-gray-400">
+                            <flux:text class="text-gray-600">
                                 {{ $selectedSession->class->course->name }}
                             </flux:text>
                         </div>
                         <div>
                             <flux:text class="font-medium">Teacher</flux:text>
-                            <flux:text class="text-gray-600 dark:text-gray-400">
+                            <flux:text class="text-gray-600">
                                 {{ $selectedSession->class->teacher->user->name }}
                             </flux:text>
                         </div>
                     </div>
                     
                     @if($selectedSession->isOngoing())
-                        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                        <div class="bg-green-50 /20 border border-green-200  rounded-lg p-4">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <flux:text class="font-medium text-green-800 dark:text-green-200">Session Timer</flux:text>
-                                    <flux:text class="text-green-600 dark:text-green-400 text-sm">Session in progress</flux:text>
+                                    <flux:text class="font-medium text-green-800">Session Timer</flux:text>
+                                    <flux:text class="text-green-600  text-sm">Session in progress</flux:text>
                                 </div>
                                 <div class="text-right" x-data="{ 
                                     modalTimer: 0,
@@ -480,9 +480,9 @@ x-effect="
                                         }
                                     }
                                 }" x-init="initModalTimer()" x-destroy="stopModalTimer()">
-                                    <div class="text-2xl font-mono font-bold text-green-700 dark:text-green-300" x-text="formatTime(modalTimer)">
+                                    <div class="text-2xl font-mono font-bold text-green-700" x-text="formatTime(modalTimer)">
                                     </div>
-                                    <flux:text class="text-green-600 dark:text-green-400 text-xs">Elapsed time</flux:text>
+                                    <flux:text class="text-green-600  text-xs">Elapsed time</flux:text>
                                 </div>
                             </div>
                         </div>
@@ -502,7 +502,7 @@ x-effect="
                                 {{ $myAttendance->status_label }}
                             </flux:badge>
                             @if($myAttendance->teacher_remarks)
-                                <flux:text class="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                <flux:text class="text-gray-600  text-sm mt-1">
                                     {{ $myAttendance->teacher_remarks }}
                                 </flux:text>
                             @endif
@@ -529,7 +529,7 @@ x-effect="
                     @if($selectedSession->teacher_notes)
                         <div>
                             <flux:text class="font-medium">Session Notes</flux:text>
-                            <flux:text class="text-gray-600 dark:text-gray-400 text-sm">
+                            <flux:text class="text-gray-600  text-sm">
                                 {{ $selectedSession->teacher_notes }}
                             </flux:text>
                         </div>
@@ -537,7 +537,7 @@ x-effect="
                 </div>
             </div>
             
-            <div class="p-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="p-6 border-t border-gray-200">
                 <div class="flex items-center justify-end">
                     <flux:button wire:click="closeModal" variant="ghost">
                         Close

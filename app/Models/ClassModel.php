@@ -376,4 +376,108 @@ class ClassModel extends Model
     {
         return $this->timetable !== null;
     }
+
+    // Enrollment verification and management methods
+
+    public function getEligibleEnrollments(): \Illuminate\Database\Eloquent\Collection
+    {
+        // Get all active enrollments for this class's course that are not already in this class
+        return $this->course->activeEnrollments()
+            ->whereNotIn('student_id', function ($query) {
+                $query->select('student_id')
+                    ->from('class_students')
+                    ->where('class_id', $this->id)
+                    ->where('status', 'active');
+            })
+            ->with('student')
+            ->get();
+    }
+
+    public function enrollAllEligibleStudents(): array
+    {
+        return $this->course->autoEnrollEligibleStudents($this);
+    }
+
+    public function getEnrollmentRequiredStudents(): \Illuminate\Database\Eloquent\Collection
+    {
+        // Students who are in this class but don't have active enrollment
+        return $this->students()
+            ->whereDoesntHave('enrollments', function ($query) {
+                $query->where('course_id', $this->course_id)
+                    ->whereIn('status', ['enrolled', 'active']);
+            })
+            ->get();
+    }
+
+    public function validateAllStudentEnrollments(): array
+    {
+        $validStudents = [];
+        $invalidStudents = [];
+
+        foreach ($this->classStudents()->with('student')->get() as $classStudent) {
+            if ($classStudent->hasValidEnrollment()) {
+                $validStudents[] = $classStudent;
+            } else {
+                $invalidStudents[] = [
+                    'class_student' => $classStudent,
+                    'message' => $classStudent->getEnrollmentValidationMessage(),
+                ];
+            }
+        }
+
+        return [
+            'valid' => $validStudents,
+            'invalid' => $invalidStudents,
+            'total_valid' => count($validStudents),
+            'total_invalid' => count($invalidStudents),
+        ];
+    }
+
+    public function getEnrollmentStats(): array
+    {
+        $totalEnrolledStudents = $this->activeStudents()->count();
+        $eligibleEnrollments = $this->getEligibleEnrollments()->count();
+        $totalCourseEnrollments = $this->course->activeEnrollments()->count();
+
+        return [
+            'enrolled_in_class' => $totalEnrolledStudents,
+            'eligible_for_class' => $eligibleEnrollments,
+            'total_course_enrollments' => $totalCourseEnrollments,
+            'enrollment_rate' => $totalCourseEnrollments > 0 ?
+                round(($totalEnrolledStudents / $totalCourseEnrollments) * 100, 2) : 0,
+            'capacity_utilization' => $this->max_capacity ?
+                round(($totalEnrolledStudents / $this->max_capacity) * 100, 2) : 0,
+        ];
+    }
+
+    public function addStudentWithEnrollmentCheck(Student $student): array
+    {
+        // Check if student has active enrollment first
+        $enrollment = $this->course->getStudentEnrollmentForClass($student, $this);
+
+        if (! $enrollment) {
+            return [
+                'success' => false,
+                'message' => 'Student does not have an active enrollment in this course.',
+                'class_student' => null,
+            ];
+        }
+
+        // Use enrollment's method for proper validation
+        $classStudent = $enrollment->joinClass($this);
+
+        if ($classStudent) {
+            return [
+                'success' => true,
+                'message' => 'Student successfully added to class.',
+                'class_student' => $classStudent,
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Failed to add student to class. Class may be full or student already enrolled.',
+            'class_student' => null,
+        ];
+    }
 }

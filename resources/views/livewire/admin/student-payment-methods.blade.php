@@ -231,39 +231,39 @@ new class extends Component {
 
     <!-- Flash Messages -->
     @if (session('success'))
-        <div class="mb-6 rounded-md bg-green-50 p-4 dark:bg-green-900/20">
+        <div class="mb-6 rounded-md bg-green-50 p-4 /20">
             <div class="flex">
                 <div class="flex-shrink-0">
                     <flux:icon.check-circle class="h-5 w-5 text-green-400" />
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ session('success') }}</p>
+                    <p class="text-sm font-medium text-green-800">{{ session('success') }}</p>
                 </div>
             </div>
         </div>
     @endif
 
     @if (session('error'))
-        <div class="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
+        <div class="mb-6 rounded-md bg-red-50 p-4 /20">
             <div class="flex">
                 <div class="flex-shrink-0">
                     <flux:icon.x-circle class="h-5 w-5 text-red-400" />
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-red-800 dark:text-red-200">{{ session('error') }}</p>
+                    <p class="text-sm font-medium text-red-800">{{ session('error') }}</p>
                 </div>
             </div>
         </div>
     @endif
 
     @if (session('warning'))
-        <div class="mb-6 rounded-md bg-yellow-50 p-4 dark:bg-yellow-900/20">
+        <div class="mb-6 rounded-md bg-yellow-50 p-4 /20">
             <div class="flex">
                 <div class="flex-shrink-0">
                     <flux:icon.exclamation-triangle class="h-5 w-5 text-yellow-400" />
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-yellow-800 dark:text-yellow-200">{{ session('warning') }}</p>
+                    <p class="text-sm font-medium text-yellow-800">{{ session('warning') }}</p>
                 </div>
             </div>
         </div>
@@ -279,10 +279,10 @@ new class extends Component {
 
             <div class="space-y-4">
                 @foreach($paymentMethods as $method)
-                    <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $method->is_default ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700' }}">
+                    <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 :bg-gray-800/50 {{ $method->is_default ? 'border-blue-500 bg-blue-50 /20' : 'border-gray-200 ' }}">
                         <div class="flex items-center space-x-4">
                             <!-- Card Icon -->
-                            <div class="w-12 h-8 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
+                            <div class="w-12 h-8 bg-gray-200  rounded flex items-center justify-center">
                                 <span class="text-xs font-bold text-gray-600">
                                     {{ strtoupper($method->card_details['brand'] ?? 'CARD') }}
                                 </span>
@@ -341,8 +341,8 @@ new class extends Component {
         <flux:card>
             <div class="text-center py-12">
                 <flux:icon icon="credit-card" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <flux:heading size="md" class="text-gray-600 dark:text-gray-400 mb-2">No Payment Methods</flux:heading>
-                <flux:text class="text-gray-600 dark:text-gray-400 mb-6">
+                <flux:heading size="md" class="text-gray-600  mb-2">No Payment Methods</flux:heading>
+                <flux:text class="text-gray-600  mb-6">
                     {{ $student->user->name }} hasn't added any payment methods yet. You can add one for them to enable subscription creation.
                 </flux:text>
                 @if($canAddPaymentMethods)
@@ -359,12 +359,12 @@ new class extends Component {
     @endif
 
     <!-- Admin Notice -->
-    <flux:card class="mt-6 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700">
+    <flux:card class="mt-6 bg-amber-50 /20 border-amber-200">
         <div class="flex items-start space-x-3">
             <flux:icon.information-circle class="w-5 h-5 text-amber-600 mt-1" />
             <div>
-                <flux:heading size="sm" class="text-amber-800 dark:text-amber-200">Admin Notice</flux:heading>
-                <flux:text size="sm" class="text-amber-700 dark:text-amber-300 mt-1">
+                <flux:heading size="sm" class="text-amber-800">Admin Notice</flux:heading>
+                <flux:text size="sm" class="text-amber-700  mt-1">
                     You are managing payment methods for {{ $student->user->name }}. All actions will be logged for audit purposes. 
                     The student will receive email notifications about changes to their payment methods.
                 </flux:text>
@@ -389,7 +389,7 @@ new class extends Component {
                 <!-- Stripe Elements Card Input -->
                 <div>
                     <flux:text class="font-medium mb-3">Card Information</flux:text>
-                    <div id="stripe-card-element" class="p-4 border rounded-lg bg-white dark:bg-gray-800">
+                    <div id="stripe-card-element" class="p-4 border rounded-lg bg-white">
                         <!-- Stripe Elements will be mounted here -->
                         <div class="text-center text-gray-500 py-8">
                             <flux:icon icon="credit-card" class="w-8 h-8 mx-auto mb-2" />
@@ -409,7 +409,7 @@ new class extends Component {
                 </div>
 
                 <!-- Security Notice -->
-                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <div class="bg-gray-50  p-4 rounded-lg">
                     <div class="flex items-center text-sm">
                         <flux:icon icon="shield-check" class="w-4 h-4 mr-2 text-green-500" />
                         <span>Card information is securely processed by Stripe and never stored on our servers.</span>
@@ -417,7 +417,7 @@ new class extends Component {
                 </div>
 
                 <!-- Admin Notice -->
-                <div class="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg">
+                <div class="bg-amber-50 /20 p-4 rounded-lg">
                     <div class="flex items-center text-sm">
                         <flux:icon icon="information-circle" class="w-4 h-4 mr-2 text-amber-500" />
                         <span>This action will be logged and {{ $student->user->name }} will be notified.</span>

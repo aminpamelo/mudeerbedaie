@@ -202,10 +202,10 @@ new class extends Component {
 
             <div class="space-y-4">
                 @foreach($paymentMethods as $method)
-                    <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $method->is_default ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700' }}">
+                    <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 :bg-gray-800/50 {{ $method->is_default ? 'border-blue-500 bg-blue-50 /20' : 'border-gray-200 ' }}">
                         <div class="flex items-center space-x-4">
                             <!-- Card Icon -->
-                            <div class="w-12 h-8 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
+                            <div class="w-12 h-8 bg-gray-200  rounded flex items-center justify-center">
                                 <span class="text-xs font-bold text-gray-600">
                                     {{ strtoupper($method->card_details['brand'] ?? 'CARD') }}
                                 </span>
@@ -264,8 +264,8 @@ new class extends Component {
         <flux:card>
             <div class="text-center py-12">
                 <flux:icon icon="credit-card" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <flux:heading size="md" class="text-gray-600 dark:text-gray-400 mb-2">No Payment Methods</flux:heading>
-                <flux:text class="text-gray-600 dark:text-gray-400 mb-6">
+                <flux:heading size="md" class="text-gray-600  mb-2">No Payment Methods</flux:heading>
+                <flux:text class="text-gray-600  mb-6">
                     You haven't added any payment methods yet. Add a card to make payments faster and easier.
                 </flux:text>
                 @if($canAddPaymentMethods)
@@ -289,7 +289,7 @@ new class extends Component {
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="text-center">
-                <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mx-auto mb-3">
+                <div class="w-12 h-12 bg-blue-100 /30 rounded-lg flex items-center justify-center mx-auto mb-3">
                     <flux:icon icon="bolt" class="w-6 h-6 text-blue-600" />
                 </div>
                 <flux:text class="font-medium">Faster Payments</flux:text>
@@ -297,7 +297,7 @@ new class extends Component {
             </div>
 
             <div class="text-center">
-                <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center mx-auto mb-3">
+                <div class="w-12 h-12 bg-emerald-100 /30 rounded-lg flex items-center justify-center mx-auto mb-3">
                     <flux:icon icon="shield-check" class="w-6 h-6 text-emerald-600" />
                 </div>
                 <flux:text class="font-medium">Secure Storage</flux:text>
@@ -305,7 +305,7 @@ new class extends Component {
             </div>
 
             <div class="text-center">
-                <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mx-auto mb-3">
+                <div class="w-12 h-12 bg-purple-100 /30 rounded-lg flex items-center justify-center mx-auto mb-3">
                     <flux:icon icon="sparkles" class="w-6 h-6 text-purple-600" />
                 </div>
                 <flux:text class="font-medium">Auto-Pay Ready</flux:text>
@@ -328,7 +328,7 @@ new class extends Component {
                 <!-- Stripe Elements Card Input -->
                 <div>
                     <flux:text class="font-medium mb-3">Card Information</flux:text>
-                    <div id="stripe-card-element" class="p-4 border rounded-lg bg-white dark:bg-gray-800">
+                    <div id="stripe-card-element" class="p-4 border rounded-lg bg-white">
                         <!-- Stripe Elements will be mounted here -->
                         <div class="text-center text-gray-500 py-8">
                             <flux:icon icon="credit-card" class="w-8 h-8 mx-auto mb-2" />
@@ -348,7 +348,7 @@ new class extends Component {
                 </div>
 
                 <!-- Security Notice -->
-                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <div class="bg-gray-50  p-4 rounded-lg">
                     <div class="flex items-center text-sm">
                         <flux:icon icon="shield-check" class="w-4 h-4 mr-2 text-green-500" />
                         <span>Your card information is securely processed by Stripe and never stored on our servers.</span>

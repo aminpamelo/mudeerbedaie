@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\AcademicStatus;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +18,7 @@ class Enrollment extends Model
         'course_id',
         'enrolled_by',
         'status',
+        'academic_status',
         'enrollment_date',
         'start_date',
         'end_date',
@@ -41,6 +43,7 @@ class Enrollment extends Model
     protected function casts(): array
     {
         return [
+            'academic_status' => AcademicStatus::class,
             'enrollment_date' => 'date',
             'start_date' => 'date',
             'end_date' => 'date',
@@ -106,6 +109,40 @@ class Enrollment extends Model
         return $this->hasMany(ClassAttendance::class);
     }
 
+    // Relationship to get all classes available in this enrollment's course
+    public function availableClasses(): HasMany
+    {
+        return $this->hasMany(ClassModel::class, 'course_id', 'course_id');
+    }
+
+    // Get all classes that this enrolled student is participating in
+    public function studentClasses()
+    {
+        return $this->availableClasses()
+            ->whereHas('classStudents', function ($query) {
+                $query->where('student_id', $this->student_id);
+            });
+    }
+
+    // Get active classes that this enrolled student is currently in
+    public function activeStudentClasses()
+    {
+        return $this->studentClasses()
+            ->whereHas('classStudents', function ($query) {
+                $query->where('student_id', $this->student_id)
+                    ->where('status', 'active');
+            });
+    }
+
+    // Get the specific ClassStudent records for this enrollment
+    public function classStudentRecords(): HasMany
+    {
+        return $this->hasMany(ClassStudent::class, 'student_id', 'student_id')
+            ->whereHas('class', function ($query) {
+                $query->where('course_id', $this->course_id);
+            });
+    }
+
     public function presentAttendances(): HasMany
     {
         return $this->hasMany(ClassAttendance::class)->where('status', 'present');
@@ -118,32 +155,56 @@ class Enrollment extends Model
 
     public function isActive(): bool
     {
-        return in_array($this->status, ['enrolled', 'active']);
+        return $this->academic_status === AcademicStatus::ACTIVE;
     }
 
     public function isCompleted(): bool
     {
-        return $this->status === 'completed';
+        return $this->academic_status === AcademicStatus::COMPLETED;
     }
 
+    public function isWithdrawn(): bool
+    {
+        return $this->academic_status === AcademicStatus::WITHDRAWN;
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->academic_status === AcademicStatus::SUSPENDED;
+    }
+
+    // Legacy method for backward compatibility
     public function isDropped(): bool
     {
-        return $this->status === 'dropped';
+        return $this->isWithdrawn();
     }
 
     public function markAsCompleted(): bool
     {
         return $this->update([
-            'status' => 'completed',
+            'academic_status' => AcademicStatus::COMPLETED,
             'completion_date' => Carbon::today(),
         ]);
     }
 
-    public function markAsDropped(): bool
+    public function markAsWithdrawn(): bool
     {
         return $this->update([
-            'status' => 'dropped',
+            'academic_status' => AcademicStatus::WITHDRAWN,
         ]);
+    }
+
+    public function markAsSuspended(): bool
+    {
+        return $this->update([
+            'academic_status' => AcademicStatus::SUSPENDED,
+        ]);
+    }
+
+    // Legacy method for backward compatibility
+    public function markAsDropped(): bool
+    {
+        return $this->markAsWithdrawn();
     }
 
     public function getDurationAttribute(): ?int
@@ -170,15 +231,35 @@ class Enrollment extends Model
 
     public function getStatusBadgeClassAttribute(): string
     {
-        return match ($this->status) {
-            'enrolled' => 'badge-blue',
-            'active' => 'badge-green',
-            'completed' => 'badge-emerald',
-            'dropped' => 'badge-red',
-            'suspended' => 'badge-yellow',
-            'pending' => 'badge-gray',
-            default => 'badge-gray',
-        };
+        return $this->academic_status->badgeClass();
+    }
+
+    public function getAcademicStatusLabelAttribute(): string
+    {
+        return $this->academic_status->label();
+    }
+
+    public function getDisplayStatusAttribute(): string
+    {
+        // Priority: academic status overrides subscription for display
+        if ($this->academic_status === AcademicStatus::COMPLETED) {
+            return 'Completed';
+        }
+        if ($this->academic_status === AcademicStatus::WITHDRAWN) {
+            return 'Withdrawn';
+        }
+        if ($this->academic_status === AcademicStatus::SUSPENDED) {
+            return 'Suspended';
+        }
+
+        // For active academic status, show subscription status
+        return $this->getSubscriptionStatusLabel();
+    }
+
+    public function canParticipate(): bool
+    {
+        return $this->hasActiveSubscription() &&
+               $this->academic_status === AcademicStatus::ACTIVE;
     }
 
     // Subscription-related utility methods
@@ -454,12 +535,27 @@ class Enrollment extends Model
     // Scopes
     public function scopeActive($query)
     {
-        return $query->whereIn('status', ['enrolled', 'active']);
+        return $query->where('academic_status', AcademicStatus::ACTIVE);
     }
 
     public function scopeCompleted($query)
     {
-        return $query->where('status', 'completed');
+        return $query->where('academic_status', AcademicStatus::COMPLETED);
+    }
+
+    public function scopeWithdrawn($query)
+    {
+        return $query->where('academic_status', AcademicStatus::WITHDRAWN);
+    }
+
+    public function scopeSuspended($query)
+    {
+        return $query->where('academic_status', AcademicStatus::SUSPENDED);
+    }
+
+    public function scopeByAcademicStatus($query, AcademicStatus $status)
+    {
+        return $query->where('academic_status', $status);
     }
 
     public function scopeForCourse($query, $courseId)
@@ -597,5 +693,95 @@ class Enrollment extends Model
         // 2. Can switch payment method (business rules)
         return $this->isAutomaticPaymentType() &&
                $this->canSwitchPaymentMethod();
+    }
+
+    // Enrollment-Class relationship helper methods
+
+    public function canJoinClass(ClassModel $class): bool
+    {
+        // Student can join a class if:
+        // 1. Enrollment is active
+        // 2. Class belongs to the same course as enrollment
+        // 3. Class has capacity
+        // 4. Student is not already in the class
+        return $this->isActive() &&
+               $class->course_id === $this->course_id &&
+               $class->canAddStudent() &&
+               ! $this->isStudentInClass($class);
+    }
+
+    public function isStudentInClass(ClassModel $class): bool
+    {
+        return $class->classStudents()
+            ->where('student_id', $this->student_id)
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    public function joinClass(ClassModel $class): ?ClassStudent
+    {
+        if (! $this->canJoinClass($class)) {
+            return null;
+        }
+
+        return $class->addStudent($this->student);
+    }
+
+    public function leaveClass(ClassModel $class, ?string $reason = null): bool
+    {
+        if (! $this->isStudentInClass($class)) {
+            return false;
+        }
+
+        $class->removeStudent($this->student, $reason);
+
+        return true;
+    }
+
+    public function getClassEnrollmentStats(): array
+    {
+        $totalClasses = $this->availableClasses()->count();
+        $enrolledClasses = $this->activeStudentClasses()->count();
+
+        return [
+            'total_available_classes' => $totalClasses,
+            'enrolled_classes' => $enrolledClasses,
+            'enrollment_percentage' => $totalClasses > 0 ? round(($enrolledClasses / $totalClasses) * 100, 2) : 0,
+        ];
+    }
+
+    public function getTotalClassAttendanceCount(): int
+    {
+        return $this->classAttendances()
+            ->whereHas('session.class', function ($query) {
+                $query->where('course_id', $this->course_id);
+            })
+            ->count();
+    }
+
+    public function getClassAttendanceRate(): float
+    {
+        $totalSessions = ClassSession::whereHas('class', function ($query) {
+            $query->where('course_id', $this->course_id)
+                ->whereHas('classStudents', function ($q) {
+                    $q->where('student_id', $this->student_id)
+                        ->where('status', 'active');
+                });
+        })
+            ->where('status', 'completed')
+            ->count();
+
+        if ($totalSessions === 0) {
+            return 0;
+        }
+
+        $attendedSessions = $this->classAttendances()
+            ->whereHas('session.class', function ($query) {
+                $query->where('course_id', $this->course_id);
+            })
+            ->where('status', 'present')
+            ->count();
+
+        return round(($attendedSessions / $totalSessions) * 100, 2);
     }
 }

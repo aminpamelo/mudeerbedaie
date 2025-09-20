@@ -178,7 +178,7 @@ new class extends Component {
         @if($availableSessions->count() > 0)
             <div class="space-y-3">
                 @foreach($availableSessions as $session)
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <div class="border border-gray-200  rounded-lg p-4 hover:bg-gray-50 :bg-gray-800 transition-colors">
                         <div class="flex items-start justify-between">
                             <div class="flex items-start space-x-3">
                                 <flux:checkbox 
@@ -198,7 +198,7 @@ new class extends Component {
                                         </div>
                                     </div>
                                     
-                                    <div class="mt-2 flex items-center space-x-6 text-sm text-gray-600 dark:text-gray-400">
+                                    <div class="mt-2 flex items-center space-x-6 text-sm text-gray-600">
                                         <div class="flex items-center">
                                             <flux:icon name="calendar" class="w-4 h-4 mr-1" />
                                             {{ $session->session_date->format('M d, Y') }}
@@ -218,12 +218,12 @@ new class extends Component {
                                     </div>
                                     
                                     @if($session->verified_at)
-                                        <div class="mt-2 flex items-center text-sm text-green-600 dark:text-green-400">
+                                        <div class="mt-2 flex items-center text-sm text-green-600">
                                             <flux:icon name="check" class="w-4 h-4 mr-1" />
                                             Verified on {{ $session->verified_at->format('M d, Y g:i A') }}
                                         </div>
                                     @else
-                                        <div class="mt-2 flex items-center text-sm text-yellow-600 dark:text-yellow-400">
+                                        <div class="mt-2 flex items-center text-sm text-yellow-600">
                                             <span class="w-4 h-4 mr-1">⚠️</span>
                                             Not yet verified
                                         </div>
@@ -243,11 +243,11 @@ new class extends Component {
                 @endforeach
             </div>
             
-            <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div class="mt-6 p-4 bg-blue-50 /20 rounded-lg">
                 <div class="flex items-center">
-                    <span class="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2">ℹ️</span>
+                    <span class="w-5 h-5 text-blue-600  mr-2">ℹ️</span>
                     <flux:text size="sm" variant="muted">
-                        Only completed and verified sessions are eligible for payslips. Unchecking sessions will reset their payout status to "unpaid".
+                        Only completed and verified sessions are eligible for payslips. Unchecking sessions will reset their payout status to"unpaid".
                     </flux:text>
                 </div>
             </div>

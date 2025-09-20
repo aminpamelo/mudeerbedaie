@@ -369,9 +369,9 @@ new class extends Component {
     <!-- Session Details Modal -->
     <flux:modal wire:model="showModal" class="max-w-2xl">
         @if($selectedSession)
-            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="p-6 border-b border-gray-200">
                 <flux:heading size="lg">{{ $class->title }}</flux:heading>
-                <flux:text class="text-gray-600 dark:text-gray-400">Session Details</flux:text>
+                <flux:text class="text-gray-600">Session Details</flux:text>
             </div>
             
             <div class="p-6">
@@ -379,13 +379,13 @@ new class extends Component {
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <flux:text class="font-medium">Date & Time</flux:text>
-                            <flux:text class="text-gray-600 dark:text-gray-400">
+                            <flux:text class="text-gray-600">
                                 {{ $selectedSession->formatted_date_time }}
                             </flux:text>
                         </div>
                         <div>
                             <flux:text class="font-medium">Duration</flux:text>
-                            <flux:text class="text-gray-600 dark:text-gray-400">
+                            <flux:text class="text-gray-600">
                                 {{ $selectedSession->formatted_duration }}
                             </flux:text>
                         </div>
@@ -397,7 +397,7 @@ new class extends Component {
                         </div>
                         <div>
                             <flux:text class="font-medium">Teacher</flux:text>
-                            <flux:text class="text-gray-600 dark:text-gray-400">
+                            <flux:text class="text-gray-600">
                                 {{ $class->teacher->user->name }}
                             </flux:text>
                         </div>
@@ -426,7 +426,7 @@ new class extends Component {
                     @if($selectedSession->teacher_notes)
                         <div>
                             <flux:text class="font-medium">Session Notes</flux:text>
-                            <flux:text class="text-gray-600 dark:text-gray-400 text-sm">
+                            <flux:text class="text-gray-600  text-sm">
                                 {{ $selectedSession->teacher_notes }}
                             </flux:text>
                         </div>
@@ -434,7 +434,7 @@ new class extends Component {
                 </div>
             </div>
             
-            <div class="p-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="p-6 border-t border-gray-200">
                 <div class="flex justify-end">
                     <flux:button wire:click="closeModal" variant="ghost">
                         Close

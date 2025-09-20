@@ -166,10 +166,10 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     private function getSessionActivityMessage($session)
     {
         return match($session->status) {
-            'completed' => "Completed session for {$session->class->course->name}",
-            'cancelled' => "Cancelled session for {$session->class->course->name}",
-            'no_show' => "No-show session for {$session->class->course->name}",
-            default => "Session updated for {$session->class->course->name}"
+            'completed' =>"Completed session for {$session->class->course->name}",
+            'cancelled' =>"Cancelled session for {$session->class->course->name}",
+            'no_show' =>"No-show session for {$session->class->course->name}",
+            default =>"Session updated for {$session->class->course->name}"
         };
     }
     
@@ -200,7 +200,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Today's Sessions</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Today's Sessions</flux:heading>
                     <flux:heading size="xl">{{ $this->todaySessions->count() }}</flux:heading>
                     <flux:text size="sm" class="text-blue-600">
                         {{ $this->todaySessions->where('status', 'completed')->count() }} completed
@@ -214,7 +214,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Week Earnings</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Week Earnings</flux:heading>
                     <flux:heading size="xl">RM {{ number_format($this->weeklyStats['total_earnings'], 2) }}</flux:heading>
                     <flux:text size="sm" class="text-emerald-600">
                         {{ $this->weeklyStats['completed_sessions'] }} sessions
@@ -228,7 +228,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Active Students</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Active Students</flux:heading>
                     <flux:heading size="xl">{{ $this->weeklyStats['total_students'] }}</flux:heading>
                     <flux:text size="sm" class="text-purple-600">Across all classes</flux:text>
                 </div>
@@ -240,7 +240,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Attendance Rate</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Attendance Rate</flux:heading>
                     <flux:heading size="xl">{{ $this->weeklyStats['attendance_rate'] }}%</flux:heading>
                     <flux:text size="sm" class="text-orange-600">This week</flux:text>
                 </div>
@@ -256,13 +256,13 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             <flux:card>
                 <flux:header>
                     <flux:heading size="lg">Today's Schedule</flux:heading>
-                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400">{{ now()->format('l, F j, Y') }}</flux:text>
+                    <flux:text size="sm" class="text-gray-600">{{ now()->format('l, F j, Y') }}</flux:text>
                 </flux:header>
                 
                 @if($this->todaySessions->isNotEmpty())
                     <div class="space-y-4">
                         @foreach($this->todaySessions as $session)
-                            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <div class="flex items-center justify-between p-4 bg-gray-50  rounded-lg">
                                 <div class="flex items-center space-x-4">
                                     <div class="text-center min-w-[60px]">
                                         <flux:text size="sm" class="font-medium">{{ $session->session_time->format('g:i A') }}</flux:text>
@@ -270,7 +270,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                     </div>
                                     <div class="flex-1">
                                         <flux:heading size="sm">{{ $session->class->course->name }}</flux:heading>
-                                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                                        <flux:text size="sm" class="text-gray-600">
                                             {{ $session->class->activeStudents()->count() }} students • {{ $session->class->location ?? 'Online' }}
                                         </flux:text>
                                     </div>
@@ -317,12 +317,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 @else
                     <div class="text-center py-12">
                         <flux:icon icon="calendar-days" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <flux:heading size="lg" class="text-gray-600 dark:text-gray-400 mb-2">No sessions today</flux:heading>
-                        <flux:text class="text-gray-600 dark:text-gray-400">Take a well-deserved break!</flux:text>
+                        <flux:heading size="lg" class="text-gray-600  mb-2">No sessions today</flux:heading>
+                        <flux:text class="text-gray-600">Take a well-deserved break!</flux:text>
                     </div>
                 @endif
                 
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="mt-4 pt-4 border-t border-gray-200">
                     <flux:link :href="route('teacher.sessions.index')" wire:navigate variant="subtle" icon="calendar-days">
                         View all sessions
                     </flux:link>
@@ -341,17 +341,17 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <div class="space-y-4">
                     <div class="text-center">
                         <flux:heading size="2xl" class="text-emerald-600">RM {{ number_format($this->monthlyEarnings, 2) }}</flux:heading>
-                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Total Earnings</flux:text>
+                        <flux:text size="sm" class="text-gray-600">Total Earnings</flux:text>
                     </div>
                     
                     <div class="grid grid-cols-2 gap-4 text-center">
                         <div>
                             <flux:text class="font-medium">{{ $this->weeklyStats['completed_sessions'] }}</flux:text>
-                            <flux:text size="xs" class="text-gray-600 dark:text-gray-400">Sessions</flux:text>
+                            <flux:text size="xs" class="text-gray-600">Sessions</flux:text>
                         </div>
                         <div>
                             <flux:text class="font-medium">{{ $this->weeklyStats['attendance_rate'] }}%</flux:text>
-                            <flux:text size="xs" class="text-gray-600 dark:text-gray-400">Attendance</flux:text>
+                            <flux:text size="xs" class="text-gray-600">Attendance</flux:text>
                         </div>
                     </div>
                 </div>
@@ -367,18 +367,18 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     <div class="space-y-3">
                         @foreach($this->recentActivities as $activity)
                             <div class="flex items-start space-x-3">
-                                <div class="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                                    <flux:icon icon="{{ $activity['icon'] }}" class="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                <div class="w-8 h-8 bg-gray-100  rounded-full flex items-center justify-center">
+                                    <flux:icon icon="{{ $activity['icon'] }}" class="w-4 h-4 text-gray-600" />
                                 </div>
                                 <div class="flex-1">
                                     <flux:text size="sm">{{ $activity['message'] }}</flux:text>
-                                    <flux:text size="xs" class="text-gray-600 dark:text-gray-400">{{ $activity['time'] }}</flux:text>
+                                    <flux:text size="xs" class="text-gray-600">{{ $activity['time'] }}</flux:text>
                                 </div>
                             </div>
                         @endforeach
                     </div>
                 @else
-                    <flux:text class="text-gray-600 dark:text-gray-400">No recent activity</flux:text>
+                    <flux:text class="text-gray-600">No recent activity</flux:text>
                 @endif
             </flux:card>
 
@@ -391,10 +391,10 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 @if($this->upcomingSessions->isNotEmpty())
                     <div class="space-y-3">
                         @foreach($this->upcomingSessions as $session)
-                            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <div class="flex items-center justify-between p-3 bg-gray-50  rounded-lg">
                                 <div>
                                     <flux:text size="sm" class="font-medium">{{ $session->class->course->name }}</flux:text>
-                                    <flux:text size="xs" class="text-gray-600 dark:text-gray-400">
+                                    <flux:text size="xs" class="text-gray-600">
                                         {{ $session->session_date->format('M j') }} at {{ $session->session_time->format('g:i A') }}
                                     </flux:text>
                                 </div>
@@ -405,10 +405,10 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         @endforeach
                     </div>
                 @else
-                    <flux:text class="text-gray-600 dark:text-gray-400">No upcoming sessions</flux:text>
+                    <flux:text class="text-gray-600">No upcoming sessions</flux:text>
                 @endif
                 
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="mt-4 pt-4 border-t border-gray-200">
                     <flux:link :href="route('teacher.timetable')" wire:navigate variant="subtle" icon="calendar">
                         View timetable
                     </flux:link>

@@ -2,7 +2,7 @@
 <div class="space-y-4">
     @forelse($sessions as $session)
         <flux:card 
-            class="cursor-pointer transition-all duration-200 hover:shadow-md hover:bg-gray-50 dark:hover:bg-gray-800 group"
+            class="cursor-pointer transition-all duration-200 hover:shadow-md hover:bg-gray-50 :bg-gray-800 group"
             wire:click="selectSession({{ $session->id }})"
         >
             <div class="flex items-start justify-between">
@@ -11,16 +11,16 @@
                     <div class="flex items-start gap-4">
                         {{-- Date/Time Column --}}
                         <div class="flex-shrink-0 text-center min-w-[80px]">
-                            <div class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                            <div class="text-lg font-bold text-gray-900">
                                 {{ $session->session_date->format('d') }}
                             </div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            <div class="text-xs text-gray-500  uppercase tracking-wide">
                                 {{ $session->session_date->format('M') }}
                             </div>
-                            <div class="text-xs text-gray-400 dark:text-gray-500">
+                            <div class="text-xs text-gray-400">
                                 {{ $session->session_date->format('Y') }}
                             </div>
-                            <div class="mt-2 text-sm font-medium text-blue-600 dark:text-blue-400">
+                            <div class="mt-2 text-sm font-medium text-blue-600">
                                 {{ $session->session_time->format('g:i A') }}
                             </div>
                         </div>
@@ -30,10 +30,10 @@
                             {{-- Title and Status --}}
                             <div class="flex items-start justify-between mb-2">
                                 <div class="flex-1 min-w-0">
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                    <h3 class="text-lg font-semibold text-gray-900  truncate group-hover:text-blue-600 :text-blue-400 transition-colors">
                                         {{ $session->class->title }}
                                     </h3>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400 truncate">
+                                    <p class="text-sm text-gray-600  truncate">
                                         {{ $session->class->course->title }}
                                     </p>
                                 </div>
@@ -47,12 +47,12 @@
                                         <div class="flex items-center gap-2">
                                             <div class="flex items-center gap-1">
                                                 <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                                <span class="text-xs text-green-600 dark:text-green-400 font-medium">Live</span>
+                                                <span class="text-xs text-green-600  font-medium">Live</span>
                                             </div>
                                             
                                             {{-- Timer Display --}}
-                                            <div class="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-full px-3 py-1">
-                                                <div class="text-xs font-mono font-semibold text-green-700 dark:text-green-300">
+                                            <div class="bg-green-100 /30 border border-green-200  rounded-full px-3 py-1">
+                                                <div class="text-xs font-mono font-semibold text-green-700">
                                                     {{ $session->formatted_elapsed_time }}
                                                 </div>
                                             </div>
@@ -62,7 +62,7 @@
                             </div>
                             
                             {{-- Session Meta --}}
-                            <div class="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
+                            <div class="flex items-center gap-6 text-sm text-gray-500">
                                 <div class="flex items-center gap-1">
                                     <flux:icon name="clock" class="w-4 h-4" />
                                     <span>{{ $session->formatted_duration }}</span>
@@ -94,8 +94,8 @@
                             {{-- Teacher Notes Preview --}}
                             @if($session->teacher_notes)
                                 <div class="mt-2">
-                                    <div class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Notes</div>
-                                    <div class="text-sm text-gray-600 dark:text-gray-400 truncate">
+                                    <div class="text-xs text-gray-400  uppercase tracking-wide">Notes</div>
+                                    <div class="text-sm text-gray-600  truncate">
                                         {{ Str::limit($session->teacher_notes, 100) }}
                                     </div>
                                 </div>
@@ -105,20 +105,20 @@
                             @if($session->attendances->count() > 0)
                                 <div class="mt-3">
                                     <div class="flex items-center gap-2">
-                                        <div class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Students</div>
+                                        <div class="text-xs text-gray-400  uppercase tracking-wide">Students</div>
                                         <div class="flex -space-x-2">
                                             @foreach($session->attendances->take(3) as $attendance)
                                                 <div class="relative">
-                                                    <div class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-700 dark:text-gray-300 ring-2 ring-white dark:ring-gray-800">
+                                                    <div class="w-6 h-6 rounded-full bg-gray-300  flex items-center justify-center text-xs font-medium text-gray-700  ring-2 ring-white">
                                                         {{ substr($attendance->student->user->name, 0, 1) }}
                                                     </div>
-                                                    <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white dark:border-gray-800 
+                                                    <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white  
                                                                {{ $attendance->isPresent() ? 'bg-green-500' : ($attendance->isAbsent() ? 'bg-red-500' : 'bg-gray-400') }}">
                                                     </div>
                                                 </div>
                                             @endforeach
                                             @if($session->attendances->count() > 3)
-                                                <div class="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-400 ring-2 ring-white dark:ring-gray-800">
+                                                <div class="w-6 h-6 rounded-full bg-gray-100  flex items-center justify-center text-xs font-medium text-gray-600  ring-2 ring-white">
                                                     +{{ $session->attendances->count() - 3 }}
                                                 </div>
                                             @endif
@@ -154,7 +154,7 @@
                 
                 {{-- Chevron Icon --}}
                 <div class="flex-shrink-0 ml-2">
-                    <flux:icon name="chevron-right" class="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
+                    <flux:icon name="chevron-right" class="w-5 h-5 text-gray-400 group-hover:text-gray-600 :text-gray-300 transition-colors" />
                 </div>
             </div>
         </flux:card>
@@ -162,13 +162,13 @@
         {{-- Empty State --}}
         <flux:card class="text-center py-16">
             <div class="max-w-sm mx-auto">
-                <flux:icon name="calendar" class="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                <flux:icon name="calendar" class="w-16 h-16 mx-auto mb-4 text-gray-300" />
                 
-                <flux:heading size="lg" class="text-gray-500 dark:text-gray-400 mb-2">
+                <flux:heading size="lg" class="text-gray-500  mb-2">
                     No Upcoming Sessions
                 </flux:heading>
                 
-                <flux:text class="text-gray-400 dark:text-gray-500 mb-6">
+                <flux:text class="text-gray-400  mb-6">
                     You don't have any sessions scheduled. Your upcoming sessions will appear here once they're created.
                 </flux:text>
                 
@@ -189,7 +189,7 @@
     {{-- Load More (if there are many sessions) --}}
     @if($sessions->count() >= 50)
         <div class="text-center py-6">
-            <flux:text class="text-gray-500 dark:text-gray-400">
+            <flux:text class="text-gray-500">
                 Showing first 50 sessions. Use filters to narrow down results.
             </flux:text>
         </div>

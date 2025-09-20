@@ -98,8 +98,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
 <div>
     <!-- Page Header -->
     <div class="mb-6">
-        <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
-            <flux:link href="{{ route('teacher.sessions.index') }}" class="hover:text-gray-700 dark:hover:text-gray-300">Sessions</flux:link>
+        <div class="flex items-center gap-2 text-sm text-gray-500  mb-2">
+            <flux:link href="{{ route('teacher.sessions.index') }}" class="hover:text-gray-700 :text-gray-300">Sessions</flux:link>
             <flux:icon name="chevron-right" class="w-4 h-4" />
             <span>{{ $session->class->title }} - {{ $session->session_date->format('M d, Y') }}</span>
         </div>
@@ -116,8 +116,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     </div>
 
     @if(session('success'))
-        <flux:card class="p-4 mb-6 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-            <flux:text class="text-green-800 dark:text-green-200">{{ session('success') }}</flux:text>
+        <flux:card class="p-4 mb-6 bg-green-50 /20 border-green-200">
+            <flux:text class="text-green-800">{{ session('success') }}</flux:text>
         </flux:card>
     @endif
 
@@ -130,43 +130,43 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <flux:text class="text-sm text-gray-500 dark:text-gray-400 mb-1">Class</flux:text>
+                        <flux:text class="text-sm text-gray-500  mb-1">Class</flux:text>
                         <flux:text size="lg">{{ $session->class->title }}</flux:text>
                     </div>
                     
                     <div>
-                        <flux:text class="text-sm text-gray-500 dark:text-gray-400 mb-1">Course</flux:text>
+                        <flux:text class="text-sm text-gray-500  mb-1">Course</flux:text>
                         <flux:text size="lg">{{ $session->class->course->name }}</flux:text>
                     </div>
                     
                     <div>
-                        <flux:text class="text-sm text-gray-500 dark:text-gray-400 mb-1">Date & Time</flux:text>
+                        <flux:text class="text-sm text-gray-500  mb-1">Date & Time</flux:text>
                         <flux:text size="lg">{{ $session->formatted_date_time }}</flux:text>
                     </div>
                     
                     <div>
-                        <flux:text class="text-sm text-gray-500 dark:text-gray-400 mb-1">Duration</flux:text>
+                        <flux:text class="text-sm text-gray-500  mb-1">Duration</flux:text>
                         <flux:text size="lg">{{ $session->formatted_duration }}</flux:text>
                     </div>
                     
                     @if($session->isOngoing())
                         <div>
-                            <flux:text class="text-sm text-gray-500 dark:text-gray-400 mb-1">Elapsed Time</flux:text>
-                            <flux:text size="lg" class="text-blue-600 dark:text-blue-400">{{ $session->formatted_elapsed_time }}</flux:text>
+                            <flux:text class="text-sm text-gray-500  mb-1">Elapsed Time</flux:text>
+                            <flux:text size="lg" class="text-blue-600">{{ $session->formatted_elapsed_time }}</flux:text>
                         </div>
                     @endif
                     
                     @if($session->completed_at)
                         <div>
-                            <flux:text class="text-sm text-gray-500 dark:text-gray-400 mb-1">Completed At</flux:text>
+                            <flux:text class="text-sm text-gray-500  mb-1">Completed At</flux:text>
                             <flux:text size="lg">{{ $session->completed_at->format('M d, Y g:i A') }}</flux:text>
                         </div>
                     @endif
                     
                     @if($session->allowance_amount)
                         <div>
-                            <flux:text class="text-sm text-gray-500 dark:text-gray-400 mb-1">Teacher Allowance</flux:text>
-                            <flux:text size="lg" class="text-green-600 dark:text-green-400 font-semibold">
+                            <flux:text class="text-sm text-gray-500  mb-1">Teacher Allowance</flux:text>
+                            <flux:text size="lg" class="text-green-600  font-semibold">
                                 RM{{ number_format($session->allowance_amount, 2) }}
                             </flux:text>
                         </div>
@@ -202,14 +202,14 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 @if($session->attendances->count() > 0)
                     <div class="space-y-3">
                         @foreach($session->attendances as $attendance)
-                            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                            <div class="flex items-center justify-between p-4 bg-gray-50 /50 rounded-lg">
                                 <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                                        <flux:icon name="user" class="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                    <div class="w-10 h-10 bg-gray-300  rounded-full flex items-center justify-center">
+                                        <flux:icon name="user" class="w-5 h-5 text-gray-600" />
                                     </div>
                                     <div>
                                         <flux:text size="sm" class="font-medium">{{ $attendance->student->user->name }}</flux:text>
-                                        <flux:text size="xs" class="text-gray-500 dark:text-gray-400">{{ $attendance->student->user->email }}</flux:text>
+                                        <flux:text size="xs" class="text-gray-500">{{ $attendance->student->user->email }}</flux:text>
                                     </div>
                                 </div>
                                 
@@ -238,7 +238,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         @endforeach
                     </div>
                 @else
-                    <flux:text class="text-gray-500 dark:text-gray-400">No attendance records available.</flux:text>
+                    <flux:text class="text-gray-500">No attendance records available.</flux:text>
                 @endif
             </flux:card>
         </div>
@@ -295,7 +295,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         <div class="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                         <div>
                             <flux:text size="sm" class="font-medium">Session Scheduled</flux:text>
-                            <flux:text size="xs" class="text-gray-500 dark:text-gray-400">{{ $session->created_at->format('M d, Y g:i A') }}</flux:text>
+                            <flux:text size="xs" class="text-gray-500">{{ $session->created_at->format('M d, Y g:i A') }}</flux:text>
                         </div>
                     </div>
                     
@@ -304,7 +304,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             <div class="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
                             <div>
                                 <flux:text size="sm" class="font-medium">Session Started</flux:text>
-                                <flux:text size="xs" class="text-gray-500 dark:text-gray-400">{{ $session->started_at->format('M d, Y g:i A') }}</flux:text>
+                                <flux:text size="xs" class="text-gray-500">{{ $session->started_at->format('M d, Y g:i A') }}</flux:text>
                             </div>
                         </div>
                     @endif
@@ -314,7 +314,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             <div class="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                             <div>
                                 <flux:text size="sm" class="font-medium">Session Completed</flux:text>
-                                <flux:text size="xs" class="text-gray-500 dark:text-gray-400">{{ $session->completed_at->format('M d, Y g:i A') }}</flux:text>
+                                <flux:text size="xs" class="text-gray-500">{{ $session->completed_at->format('M d, Y g:i A') }}</flux:text>
                             </div>
                         </div>
                     @endif
@@ -331,7 +331,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 
                 <div class="space-y-4">
                     <div>
-                        <flux:text class="text-sm text-gray-500 dark:text-gray-400 mb-2">Attendance Status</flux:text>
+                        <flux:text class="text-sm text-gray-500  mb-2">Attendance Status</flux:text>
                         <flux:select wire:model="attendanceStatus" class="w-full">
                             <option value="present">Present</option>
                             <option value="late">Late</option>

@@ -189,7 +189,7 @@ new class extends Component {
                             <input 
                                 type="color" 
                                 wire:model.live="primary_color" 
-                                class="h-10 w-20 rounded border border-gray-300 dark:border-gray-600"
+                                class="h-10 w-20 rounded border border-gray-300"
                             >
                             <flux:input 
                                 wire:model="primary_color" 
@@ -209,7 +209,7 @@ new class extends Component {
                             <input 
                                 type="color" 
                                 wire:model.live="secondary_color" 
-                                class="h-10 w-20 rounded border border-gray-300 dark:border-gray-600"
+                                class="h-10 w-20 rounded border border-gray-300"
                             >
                             <flux:input 
                                 wire:model="secondary_color" 
@@ -222,7 +222,7 @@ new class extends Component {
                 </div>
 
                 <!-- Color Preview -->
-                <div class="mt-6 p-4 border rounded-lg dark:border-gray-600">
+                <div class="mt-6 p-4 border rounded-lg">
                     <flux:text class="font-medium mb-3">Color Preview</flux:text>
                     <div class="flex items-center space-x-4">
                         <div class="flex items-center space-x-2">

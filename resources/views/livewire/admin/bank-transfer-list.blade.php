@@ -162,7 +162,7 @@ new class extends Component {
             $payment->update([
                 'status' => Payment::STATUS_SUCCEEDED,
                 'paid_at' => now(),
-                'notes' => $payment->notes . "\n\nApproved by: " . auth()->user()->name . " on " . now()->format('Y-m-d H:i:s')
+                'notes' => $payment->notes ."\n\nApproved by: " . auth()->user()->name . " on " . now()->format('Y-m-d H:i:s')
             ]);
 
             // Mark invoice as paid
@@ -205,7 +205,7 @@ new class extends Component {
                 'status' => Payment::STATUS_FAILED,
                 'failed_at' => now(),
                 'failure_reason' => ['reason' => $rejectionReason],
-                'notes' => $payment->notes . "\n\nRejected by: " . auth()->user()->name . " on " . now()->format('Y-m-d H:i:s') . "\nReason: " . $rejectionReason
+                'notes' => $payment->notes ."\n\nRejected by: " . auth()->user()->name . " on " . now()->format('Y-m-d H:i:s') . "\nReason: " . $rejectionReason
             ]);
 
             // Send rejection email
@@ -262,7 +262,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Pending Review</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Pending Review</flux:heading>
                     <flux:heading size="xl" class="text-amber-600">{{ $pendingBankTransfers }}</flux:heading>
                     <flux:text size="sm" class="text-gray-600">Awaiting approval</flux:text>
                 </div>
@@ -273,7 +273,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Approved</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Approved</flux:heading>
                     <flux:heading size="xl" class="text-emerald-600">{{ $approvedBankTransfers }}</flux:heading>
                     <flux:text size="sm" class="text-gray-600">Successfully processed</flux:text>
                 </div>
@@ -284,7 +284,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Rejected</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Rejected</flux:heading>
                     <flux:heading size="xl" class="text-red-600">{{ $rejectedBankTransfers }}</flux:heading>
                     <flux:text size="sm" class="text-gray-600">Declined transfers</flux:text>
                 </div>
@@ -295,7 +295,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Total Value</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Total Value</flux:heading>
                     <flux:heading size="xl" class="text-blue-600">RM {{ number_format($totalAmount, 2) }}</flux:heading>
                     <flux:text size="sm" class="text-gray-600">Approved transfers</flux:text>
                 </div>
@@ -334,7 +334,7 @@ new class extends Component {
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <tr class="border-b border-gray-200">
                             <th class="text-left py-3 px-4">
                                 <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-blue-600">
                                     <span>Submitted</span>
@@ -360,7 +360,7 @@ new class extends Component {
                     </thead>
                     <tbody>
                         @foreach($bankTransfers as $transfer)
-                            <tr class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <tr class="border-b border-gray-100  hover:bg-gray-50 :bg-gray-800/50">
                                 <td class="py-3 px-4">
                                     <div class="font-medium">{{ $transfer->created_at->format('M d, Y') }}</div>
                                     <div class="text-sm text-gray-600">{{ $transfer->created_at->format('H:i') }}</div>
@@ -437,8 +437,8 @@ new class extends Component {
         @else
             <div class="text-center py-12">
                 <flux:icon icon="building-library" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <flux:heading size="md" class="text-gray-600 dark:text-gray-400 mb-2">No bank transfers found</flux:heading>
-                <flux:text class="text-gray-600 dark:text-gray-400">
+                <flux:heading size="md" class="text-gray-600  mb-2">No bank transfers found</flux:heading>
+                <flux:text class="text-gray-600">
                     @if($search || $statusFilter)
                         No bank transfers match your current filters.
                         <button 

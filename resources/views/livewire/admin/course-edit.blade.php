@@ -3,7 +3,6 @@
 use App\Models\Course;
 use App\Models\CourseFeeSettings;
 use App\Models\CourseClassSettings;
-use App\Models\Teacher;
 use App\Services\StripeService;
 use Livewire\Volt\Component;
 
@@ -14,7 +13,6 @@ new class extends Component {
     public $name = '';
     public $description = '';
     public $status = '';
-    public $teacher_id = '';
     
     // Fee settings
     public $fee_amount = '';
@@ -43,7 +41,6 @@ new class extends Component {
         $this->name = $this->course->name;
         $this->description = $this->course->description ?? '';
         $this->status = $this->course->status;
-        $this->teacher_id = $this->course->teacher_id ?? '';
         
         // Load fee settings
         if ($this->course->feeSettings) {
@@ -69,12 +66,6 @@ new class extends Component {
         }
     }
 
-    public function with(): array
-    {
-        return [
-            'teachers' => Teacher::with('user')->where('status', 'active')->get(),
-        ];
-    }
 
     public function update()
     {
@@ -82,7 +73,6 @@ new class extends Component {
             'name' => 'required|string|min:3|max:255',
             'description' => 'nullable|string|max:1000',
             'status' => 'required|in:active,inactive,archived',
-            'teacher_id' => 'nullable|exists:teachers,id',
             'fee_amount' => 'required|numeric|min:0',
             'billing_cycle' => 'required|in:monthly,quarterly,yearly',
             'billing_day' => 'nullable|integer|min:1|max:31',
@@ -102,7 +92,6 @@ new class extends Component {
             'name' => $this->name,
             'description' => $this->description,
             'status' => $this->status,
-            'teacher_id' => $this->teacher_id ?: null,
         ]);
 
         // Update or create fee settings
@@ -355,15 +344,6 @@ new class extends Component {
 
                 <flux:textarea wire:model="description" label="Description" placeholder="Course description (optional)" rows="4" />
 
-                <flux:field>
-                    <flux:label>Assign Teacher (Optional)</flux:label>
-                    <flux:select wire:model="teacher_id" placeholder="Select a teacher">
-                        @foreach($teachers as $teacher)
-                            <flux:select.option value="{{ $teacher->id }}">{{ $teacher->user->name }} ({{ $teacher->teacher_id }})</flux:select.option>
-                        @endforeach
-                    </flux:select>
-                    <flux:error name="teacher_id" />
-                </flux:field>
 
                 <flux:select wire:model="status" label="Status">
                     <flux:select.option value="active">Active</flux:select.option>

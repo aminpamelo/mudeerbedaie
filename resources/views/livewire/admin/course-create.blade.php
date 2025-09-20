@@ -3,7 +3,6 @@
 use App\Models\Course;
 use App\Models\CourseFeeSettings;
 use App\Models\CourseClassSettings;
-use App\Models\Teacher;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Volt\Component;
 
@@ -13,7 +12,6 @@ new class extends Component {
     // Course basic info
     public $name = '';
     public $description = '';
-    public $teacher_id = '';
     
     // Fee settings
     public $fee_amount = '';
@@ -42,12 +40,6 @@ new class extends Component {
         $this->step--;
     }
 
-    public function with(): array
-    {
-        return [
-            'teachers' => Teacher::with('user')->where('status', 'active')->get(),
-        ];
-    }
 
     public function create(): void
     {
@@ -56,7 +48,6 @@ new class extends Component {
         $course = Course::create([
             'name' => $this->name,
             'description' => $this->description,
-            'teacher_id' => $this->teacher_id ?: null,
             'created_by' => Auth::id(),
         ]);
 
@@ -93,7 +84,6 @@ new class extends Component {
             $rules = array_merge($rules, [
                 'name' => 'required|string|min:3|max:255',
                 'description' => 'nullable|string|max:1000',
-                'teacher_id' => 'nullable|exists:teachers,id',
             ]);
         }
 
@@ -127,7 +117,7 @@ new class extends Component {
 
 <div>
     <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Create New Course</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Create New Course</h1>
     </div>
 
     <div class="mt-6">
@@ -169,15 +159,6 @@ new class extends Component {
                     
                     <flux:textarea wire:model="description" label="Description" placeholder="Course description (optional)" rows="4" />
 
-                    <flux:field>
-                        <flux:label>Assign Teacher (Optional)</flux:label>
-                        <flux:select wire:model="teacher_id" placeholder="Select a teacher">
-                            @foreach($teachers as $teacher)
-                                <flux:select.option value="{{ $teacher->id }}">{{ $teacher->user->name }} ({{ $teacher->teacher_id }})</flux:select.option>
-                            @endforeach
-                        </flux:select>
-                        <flux:error name="teacher_id" />
-                    </flux:field>
 
                     <div class="flex justify-end">
                         <flux:button wire:click="nextStep">Next</flux:button>

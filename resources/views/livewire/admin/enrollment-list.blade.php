@@ -3,6 +3,7 @@
 use App\Models\Enrollment;
 use App\Models\Course;
 use App\Models\Student;
+use App\AcademicStatus;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Str;
@@ -44,7 +45,7 @@ new class extends Component {
         }
 
         if ($this->statusFilter) {
-            $query->where('status', $this->statusFilter);
+            $query->where('academic_status', $this->statusFilter);
         }
 
         if ($this->courseFilter) {
@@ -170,9 +171,10 @@ new class extends Component {
                     <div class="w-full sm:w-48">
                         <flux:select wire:model.live="statusFilter" placeholder="Filter by status">
                             <flux:select.option value="">All Statuses</flux:select.option>
-                            <flux:select.option value="enrolled">Enrolled</flux:select.option>
                             <flux:select.option value="active">Active</flux:select.option>
                             <flux:select.option value="completed">Completed</flux:select.option>
+                            <flux:select.option value="withdrawn">Withdrawn</flux:select.option>
+                            <flux:select.option value="suspended">Suspended</flux:select.option>
                             <flux:select.option value="dropped">Dropped</flux:select.option>
                             <flux:select.option value="suspended">Suspended</flux:select.option>
                             <flux:select.option value="pending">Pending</flux:select.option>
@@ -245,8 +247,8 @@ new class extends Component {
                                     <div class="text-sm text-gray-500">{{ Str::limit($enrollment->course->description, 50) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <flux:badge :class="$enrollment->status_badge_class">
-                                        {{ ucfirst($enrollment->status) }}
+                                    <flux:badge :class="$enrollment->academic_status->badgeClass()">
+                                        {{ $enrollment->academic_status->label() }}
                                     </flux:badge>
                                 </td>
                                 <!-- Subscription Status -->

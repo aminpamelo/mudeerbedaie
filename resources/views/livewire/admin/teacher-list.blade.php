@@ -130,31 +130,31 @@ new class extends Component {
         <!-- Teachers List -->
         <flux:card>
             <div class="overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <div class="px-6 py-4 border-b border-gray-200">
                     <flux:heading size="lg">Teachers List</flux:heading>
                 </div>
                 
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead class="bg-gray-50 dark:bg-gray-800">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teacher</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Contact</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bank</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Joined</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Teacher</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Contact</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Bank</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Joined</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        <tbody class="bg-white  divide-y divide-gray-200">
                             @forelse ($this->teachers as $teacher)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150">
+                                <tr class="hover:bg-gray-50 :bg-gray-800 transition-colors duration-150">
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-3">
                                             <flux:avatar size="sm" :name="$teacher->fullName" />
                                             <div>
-                                                <div class="font-medium text-gray-900 dark:text-gray-100">{{ $teacher->fullName }}</div>
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">
+                                                <div class="font-medium text-gray-900">{{ $teacher->fullName }}</div>
+                                                <div class="text-sm text-gray-500">
                                                     ID: {{ $teacher->teacher_id }}
                                                 </div>
                                             </div>
@@ -163,15 +163,15 @@ new class extends Component {
                                     
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div>
-                                            <div class="text-sm text-gray-900 dark:text-gray-100">{{ $teacher->email }}</div>
+                                            <div class="text-sm text-gray-900">{{ $teacher->email }}</div>
                                             @if($teacher->phone)
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $teacher->phone }}</div>
+                                                <div class="text-sm text-gray-500">{{ $teacher->phone }}</div>
                                             @endif
                                         </div>
                                     </td>
 
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900 dark:text-gray-100">
+                                        <div class="text-sm text-gray-900">
                                             @if($teacher->bank_name)
                                                 <div class="flex items-center gap-2">
                                                     <flux:icon.credit-card class="h-4 w-4 text-gray-400" />
@@ -192,7 +192,7 @@ new class extends Component {
                                         </flux:badge>
                                     </td>
                                     
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         @if($teacher->joined_at)
                                             {{ $teacher->joined_at->format('M d, Y') }}
                                         @else
@@ -222,7 +222,7 @@ new class extends Component {
                                     <td colspan="6" class="px-6 py-12 text-center">
                                         <div class="text-gray-500">
                                             <flux:icon.users class="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                                            <p class="text-gray-600 dark:text-gray-400">No teachers found</p>
+                                            <p class="text-gray-600">No teachers found</p>
                                             @if($search || $statusFilter)
                                                 <flux:button 
                                                     wire:click="clearFilters" 
@@ -243,7 +243,7 @@ new class extends Component {
                 
                 <!-- Pagination -->
                 @if($this->teachers->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                    <div class="px-6 py-4 border-t border-gray-200">
                         {{ $this->teachers->links() }}
                     </div>
                 @endif

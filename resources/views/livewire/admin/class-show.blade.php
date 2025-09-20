@@ -258,7 +258,7 @@ new class extends Component {
         }
 
         if ($enrolled > 0) {
-            session()->flash('success', "Successfully enrolled {$enrolled} student(s) in the class.");
+            session()->flash('success',"Successfully enrolled {$enrolled} student(s) in the class.");
             $this->closeEnrollStudentsModal();
             
             // Refresh the class data to show updated student list
@@ -544,7 +544,7 @@ new class extends Component {
     </div>
 
     <!-- Tab Navigation -->
-    <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
+    <div class="mb-6 border-b border-gray-200">
         <nav class="flex space-x-8">
             <button 
                 wire:click="setActiveTab('overview')"
@@ -857,22 +857,22 @@ new class extends Component {
                                     <div 
                                         x-data="sessionTimer('{{ $ongoingSession->started_at ? $ongoingSession->started_at->toISOString() : now()->toISOString() }}')" 
                                         x-init="startTimer()"
-                                        class="flex items-center gap-2 mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800"
+                                        class="flex items-center gap-2 mb-3 p-2 bg-yellow-50 /20 rounded border border-yellow-200"
                                     >
                                         <div class="flex items-center gap-2">
                                             <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                                            <span class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Running:</span>
-                                            <span class="text-sm font-mono font-semibold text-yellow-900 dark:text-yellow-100" x-text="formattedTime"></span>
+                                            <span class="text-sm font-medium text-yellow-800">Running:</span>
+                                            <span class="text-sm font-mono font-semibold text-yellow-900" x-text="formattedTime"></span>
                                         </div>
                                     </div>
                                     
                                     @if($ongoingSession->hasBookmark())
-                                        <div class="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
+                                        <div class="mb-3 p-2 bg-amber-50 /20 rounded border border-amber-200">
                                             <div class="flex items-center gap-2 mb-1">
                                                 <flux:icon.bookmark class="h-3 w-3 text-amber-600" />
-                                                <span class="text-xs font-medium text-amber-800 dark:text-amber-200">Current Progress:</span>
+                                                <span class="text-xs font-medium text-amber-800">Current Progress:</span>
                                             </div>
-                                            <div class="text-sm text-amber-900 dark:text-amber-100 font-medium">
+                                            <div class="text-sm text-amber-900  font-medium">
                                                 {{ $ongoingSession->bookmark }}
                                             </div>
                                         </div>
@@ -901,7 +901,7 @@ new class extends Component {
     @if($this->total_sessions_count > 0)
         <flux:card>
             <div class="overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
                     <flux:heading size="lg">Sessions</flux:heading>
                     <flux:button variant="primary" size="sm" icon="plus" wire:click="openCreateSessionModal">
                         Add Session
@@ -909,29 +909,29 @@ new class extends Component {
                 </div>
                 
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead class="bg-gray-50 dark:bg-gray-800">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date & Time</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Duration</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bookmark</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Attendance</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Allowance</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Date & Time</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Duration</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Bookmark</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Allowance</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-gray-900">
+                        <tbody class="bg-white">
                             @php $hasAnySessions = count($this->sessions_by_month) > 0; @endphp
                             @if($hasAnySessions)
                                 @foreach($this->sessions_by_month as $monthData)
                                     <!-- Month Header Row -->
-                                    <tr class="bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-600">
+                                    <tr class="bg-gray-50  border-t-2 border-gray-300">
                                         <td colspan="7" class="px-6 py-3">
                                             <div class="flex items-center justify-between">
                                                 <div class="flex items-center gap-3">
                                                     <flux:icon.calendar class="h-5 w-5 text-gray-500" />
-                                                    <span class="font-semibold text-gray-700 dark:text-gray-300">{{ $monthData['month_name'] }} {{ $monthData['year'] }}</span>
+                                                    <span class="font-semibold text-gray-700">{{ $monthData['month_name'] }} {{ $monthData['year'] }}</span>
                                                     <flux:badge size="sm" variant="outline">{{ $monthData['stats']['total'] }} sessions</flux:badge>
                                                 </div>
                                                 <div class="flex gap-3 text-sm text-gray-500">
@@ -957,9 +957,9 @@ new class extends Component {
                                     
                                     <!-- Sessions for this month -->
                                     @foreach($monthData['sessions'] as $session)
-                                        <tr class="divide-y divide-gray-200 dark:divide-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                        <tr class="divide-y divide-gray-200  hover:bg-gray-50 :bg-gray-800/50">
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                <div class="text-sm font-medium text-gray-900">
                                                     {{ $session->formatted_date_time }}
                                                 </div>
                                             </td>
@@ -977,9 +977,9 @@ new class extends Component {
                                                     >
                                                         <div class="flex items-center gap-1">
                                                             <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                                                            <span class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Running</span>
+                                                            <span class="text-sm font-medium text-yellow-800">Running</span>
                                                         </div>
-                                                        <span class="text-sm font-mono font-semibold text-yellow-900 dark:text-yellow-100" x-text="formattedTime"></span>
+                                                        <span class="text-sm font-mono font-semibold text-yellow-900" x-text="formattedTime"></span>
                                                     </div>
                                                 @else
                                                     <flux:badge size="sm" :class="match($session->status) {
@@ -1004,7 +1004,7 @@ new class extends Component {
                                                 @if($session->hasBookmark())
                                                     <div class="flex items-center gap-2 group" title="{{ $session->bookmark }}">
                                                         <flux:icon.bookmark class="h-4 w-4 text-amber-500" />
-                                                        <span class="text-gray-900 dark:text-gray-100">{{ $session->formatted_bookmark }}</span>
+                                                        <span class="text-gray-900">{{ $session->formatted_bookmark }}</span>
                                                         @if($session->isOngoing())
                                                             <flux:button 
                                                                 wire:click="openSessionModal({{ $session->id }})"
@@ -1206,7 +1206,7 @@ new class extends Component {
     @if($class->activeStudents->count() > 0)
         <flux:card>
             <div class="overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
                     <div>
                         <flux:heading size="lg">Enrolled Students</flux:heading>
                         <flux:text size="sm" class="text-gray-500">
@@ -1225,17 +1225,17 @@ new class extends Component {
                 </div>
                 
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead class="bg-gray-50 dark:bg-gray-800">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Student</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Enrolled</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sessions Attended</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Attendance Rate</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Student</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Enrolled</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Sessions Attended</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance Rate</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        <tbody class="bg-white  divide-y divide-gray-200">
                             @foreach($class->activeStudents as $classStudent)
                                 @php
                                     $student = $classStudent->student;
@@ -1259,8 +1259,8 @@ new class extends Component {
                                         <div class="flex items-center gap-3">
                                             <flux:avatar size="sm" :name="$student->fullName" />
                                             <div>
-                                                <div class="font-medium text-gray-900 dark:text-gray-100">{{ $student->fullName }}</div>
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $student->student_id }}</div>
+                                                <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
+                                                <div class="text-sm text-gray-500">{{ $student->student_id }}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -1335,30 +1335,30 @@ new class extends Component {
 
                         <!-- Timetable Info -->
                         <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                                <flux:text class="text-sm font-medium text-blue-800 dark:text-blue-200">Recurrence Pattern</flux:text>
-                                <flux:text class="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                            <div class="bg-blue-50 /20 p-4 rounded-lg">
+                                <flux:text class="text-sm font-medium text-blue-800">Recurrence Pattern</flux:text>
+                                <flux:text class="text-lg font-semibold text-blue-900">
                                     {{ ucfirst(str_replace('_', ' ', $class->timetable->recurrence_pattern)) }}
                                 </flux:text>
                             </div>
 
-                            <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                                <flux:text class="text-sm font-medium text-green-800 dark:text-green-200">Total Sessions</flux:text>
-                                <flux:text class="text-lg font-semibold text-green-900 dark:text-green-100">
+                            <div class="bg-green-50 /20 p-4 rounded-lg">
+                                <flux:text class="text-sm font-medium text-green-800">Total Sessions</flux:text>
+                                <flux:text class="text-lg font-semibold text-green-900">
                                     {{ $class->timetable->total_sessions ?? 'Unlimited' }}
                                 </flux:text>
                             </div>
 
-                            <div class="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
-                                <flux:text class="text-sm font-medium text-purple-800 dark:text-purple-200">Duration</flux:text>
-                                <flux:text class="text-lg font-semibold text-purple-900 dark:text-purple-100">
+                            <div class="bg-purple-50 /20 p-4 rounded-lg">
+                                <flux:text class="text-sm font-medium text-purple-800">Duration</flux:text>
+                                <flux:text class="text-lg font-semibold text-purple-900">
                                     {{ $class->formatted_duration }}
                                 </flux:text>
                             </div>
                         </div>
 
                         <!-- Date Range -->
-                        <div class="mb-6 flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div class="mb-6 flex items-center gap-4 p-4 bg-gray-50  rounded-lg">
                             <div class="flex items-center gap-2">
                                 <flux:icon.calendar-days class="h-5 w-5 text-gray-600" />
                                 <flux:text class="font-medium">Start Date:</flux:text>
@@ -1384,7 +1384,7 @@ new class extends Component {
                                         <flux:button size="sm" variant="ghost" wire:click="previousMonth">
                                             <flux:icon.chevron-left class="h-4 w-4" />
                                         </flux:button>
-                                        <div class="font-medium text-gray-900 dark:text-gray-100 px-4">
+                                        <div class="font-medium text-gray-900  px-4">
                                             {{ $this->current_month_name }}
                                         </div>
                                         <flux:button size="sm" variant="ghost" wire:click="nextMonth">
@@ -1396,7 +1396,7 @@ new class extends Component {
                                 <!-- Days of Week Header -->
                                 <div class="grid grid-cols-7 gap-1 mb-2">
                                     @foreach(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $day)
-                                        <div class="text-center p-2 font-semibold text-gray-700 dark:text-gray-300 text-sm bg-gray-100 dark:bg-gray-800 rounded">
+                                        <div class="text-center p-2 font-semibold text-gray-700  text-sm bg-gray-100  rounded">
                                             {{ $day }}
                                         </div>
                                     @endforeach
@@ -1406,9 +1406,9 @@ new class extends Component {
                                 <div class="grid grid-cols-7 gap-1">
                                     @foreach(collect($this->monthly_calendar_data)->chunk(7) as $week)
                                         @foreach($week as $day)
-                                            <div class="min-h-24 border border-gray-200 dark:border-gray-700 rounded p-1 {{ $day['isCurrentMonth'] ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900' }} {{ $day['isToday'] ? 'ring-2 ring-blue-500' : '' }}">
+                                            <div class="min-h-24 border border-gray-200  rounded p-1 {{ $day['isCurrentMonth'] ? 'bg-white ' : 'bg-gray-50 ' }} {{ $day['isToday'] ? 'ring-2 ring-blue-500' : '' }}">
                                                 <!-- Date Number -->
-                                                <div class="text-xs font-medium mb-1 {{ $day['isCurrentMonth'] ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400' }} {{ $day['isToday'] ? 'text-blue-600 font-bold' : '' }}">
+                                                <div class="text-xs font-medium mb-1 {{ $day['isCurrentMonth'] ? 'text-gray-900 ' : 'text-gray-400' }} {{ $day['isToday'] ? 'text-blue-600 font-bold' : '' }}">
                                                     {{ $day['date']->day }}
                                                 </div>
                                                 
@@ -1416,9 +1416,9 @@ new class extends Component {
                                                 @if($day['sessions']->count() > 0)
                                                     @foreach($day['sessions'] as $session)
                                                         <div class="mb-1 px-1 py-0.5 text-xs rounded {{ 
-                                                            $session->status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 
-                                                            ($session->status === 'cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' : 
-                                                            'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200') 
+                                                            $session->status === 'completed' ? 'bg-green-100 text-green-800 /30 ' : 
+                                                            ($session->status === 'cancelled' ? 'bg-red-100 text-red-800 /30 ' : 
+                                                            'bg-blue-100 text-blue-800 /30 ') 
                                                         }}">
                                                             {{ \Carbon\Carbon::parse($session->start_time)->format('g:iA') }}
                                                         </div>
@@ -1432,7 +1432,7 @@ new class extends Component {
                                                         @endphp
                                                         @if($hasScheduledClass)
                                                             @foreach($class->timetable->weekly_schedule[$dayName] as $time)
-                                                                <div class="mb-1 px-1 py-0.5 text-xs rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 opacity-60">
+                                                                <div class="mb-1 px-1 py-0.5 text-xs rounded bg-gray-100 text-gray-600   opacity-60">
                                                                     {{ date('g:iA', strtotime($time)) }}
                                                                 </div>
                                                             @endforeach
@@ -1447,20 +1447,20 @@ new class extends Component {
                                 <!-- Legend -->
                                 <div class="mt-4 flex flex-wrap gap-4 text-xs">
                                     <div class="flex items-center gap-1">
-                                        <div class="w-3 h-3 bg-blue-100 dark:bg-blue-900/30 rounded"></div>
-                                        <span class="text-gray-600 dark:text-gray-300">Scheduled</span>
+                                        <div class="w-3 h-3 bg-blue-100 /30 rounded"></div>
+                                        <span class="text-gray-600">Scheduled</span>
                                     </div>
                                     <div class="flex items-center gap-1">
-                                        <div class="w-3 h-3 bg-green-100 dark:bg-green-900/30 rounded"></div>
-                                        <span class="text-gray-600 dark:text-gray-300">Completed</span>
+                                        <div class="w-3 h-3 bg-green-100 /30 rounded"></div>
+                                        <span class="text-gray-600">Completed</span>
                                     </div>
                                     <div class="flex items-center gap-1">
-                                        <div class="w-3 h-3 bg-red-100 dark:bg-red-900/30 rounded"></div>
-                                        <span class="text-gray-600 dark:text-gray-300">Cancelled</span>
+                                        <div class="w-3 h-3 bg-red-100 /30 rounded"></div>
+                                        <span class="text-gray-600">Cancelled</span>
                                     </div>
                                     <div class="flex items-center gap-1">
-                                        <div class="w-3 h-3 bg-gray-100 dark:bg-gray-700 rounded opacity-60"></div>
-                                        <span class="text-gray-600 dark:text-gray-300">Recurring Schedule</span>
+                                        <div class="w-3 h-3 bg-gray-100  rounded opacity-60"></div>
+                                        <span class="text-gray-600">Recurring Schedule</span>
                                     </div>
                                 </div>
                             </div>
@@ -1591,7 +1591,7 @@ new class extends Component {
                         </flux:text>
                     @else
                         <flux:text class="text-gray-500">
-                            No students found matching "{{ $studentSearch }}"
+                            No students found matching"{{ $studentSearch }}"
                         </flux:text>
                     @endif
                 </div>
@@ -1622,15 +1622,15 @@ new class extends Component {
             <div 
                 x-data="sessionTimer('{{ $currentSession->started_at ? $currentSession->started_at->toISOString() : now()->toISOString() }}')" 
                 x-init="startTimer()"
-                class="flex items-center gap-3 mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
+                class="flex items-center gap-3 mb-6 p-4 bg-yellow-50 /20 rounded-lg border border-yellow-200"
             >
                 <div class="flex items-center gap-2">
                     <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-                    <span class="font-medium text-yellow-800 dark:text-yellow-200">Session Running:</span>
-                    <span class="font-mono font-bold text-yellow-900 dark:text-yellow-100" x-text="formattedTime"></span>
+                    <span class="font-medium text-yellow-800">Session Running:</span>
+                    <span class="font-mono font-bold text-yellow-900" x-text="formattedTime"></span>
                 </div>
                 
-                <div class="ml-auto flex items-center gap-2 text-sm text-yellow-700 dark:text-yellow-300">
+                <div class="ml-auto flex items-center gap-2 text-sm text-yellow-700">
                     <span>{{ $currentSession->attendances->where('status', 'present')->count() }} present</span>
                     <span>•</span>
                     <span>{{ $currentSession->attendances->count() }} total</span>
@@ -1638,10 +1638,10 @@ new class extends Component {
             </div>
 
             <!-- Session Bookmark -->
-            <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+            <div class="mb-6 p-4 bg-amber-50 /20 rounded-lg border border-amber-200">
                 <div class="flex items-center gap-2 mb-3">
                     <flux:icon.bookmark class="h-5 w-5 text-amber-600" />
-                    <flux:heading size="sm" class="text-amber-800 dark:text-amber-200">Session Bookmark</flux:heading>
+                    <flux:heading size="sm" class="text-amber-800">Session Bookmark</flux:heading>
                 </div>
                 
                 <div class="space-y-3">
@@ -1654,7 +1654,7 @@ new class extends Component {
                     
                     
                     @if($currentSession->hasBookmark())
-                        <div class="text-sm text-amber-700 dark:text-amber-300">
+                        <div class="text-sm text-amber-700">
                             Current bookmark: <span class="font-medium">{{ $currentSession->bookmark }}</span>
                         </div>
                     @endif
@@ -1664,12 +1664,12 @@ new class extends Component {
             <!-- Student Attendance List -->
             <div class="space-y-3 max-h-96 overflow-y-auto">
                 @foreach($currentSession->attendances as $attendance)
-                    <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div class="flex items-center justify-between p-3 border border-gray-200  rounded-lg">
                         <div class="flex items-center gap-3">
                             <flux:avatar size="sm" :name="$attendance->student->fullName" />
                             <div>
-                                <div class="font-medium text-gray-900 dark:text-gray-100">{{ $attendance->student->fullName }}</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $attendance->student->student_id }}</div>
+                                <div class="font-medium text-gray-900">{{ $attendance->student->fullName }}</div>
+                                <div class="text-sm text-gray-500">{{ $attendance->student->student_id }}</div>
                             </div>
                         </div>
                         
@@ -1736,8 +1736,8 @@ new class extends Component {
                 </div>
                 
                 @if($completingSession->attendances->count() > 0)
-                    <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
-                        <div class="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
+                    <div class="p-3 bg-green-50 /20 rounded border border-green-200">
+                        <div class="flex items-center gap-2 text-sm text-green-800">
                             <flux:icon.check-circle class="h-4 w-4" />
                             <span>{{ $completingSession->attendances->where('status', 'present')->count() }} of {{ $completingSession->attendances->count() }} students marked as present</span>
                         </div>
@@ -1767,34 +1767,34 @@ new class extends Component {
             </div>
 
             <!-- Session Summary -->
-            <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div class="mb-6 p-4 bg-gray-50  rounded-lg">
                 <div class="grid grid-cols-4 gap-4 text-center">
                     <div>
-                        <div class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $viewingSession->attendances->count() }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Total</div>
+                        <div class="text-2xl font-semibold text-gray-900">{{ $viewingSession->attendances->count() }}</div>
+                        <div class="text-sm text-gray-600">Total</div>
                     </div>
                     <div>
                         <div class="text-2xl font-semibold text-green-600">{{ $viewingSession->attendances->where('status', 'present')->count() }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Present</div>
+                        <div class="text-sm text-gray-600">Present</div>
                     </div>
                     <div>
                         <div class="text-2xl font-semibold text-yellow-600">{{ $viewingSession->attendances->where('status', 'late')->count() }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Late</div>
+                        <div class="text-sm text-gray-600">Late</div>
                     </div>
                     <div>
                         <div class="text-2xl font-semibold text-red-600">{{ $viewingSession->attendances->where('status', 'absent')->count() }}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400">Absent</div>
+                        <div class="text-sm text-gray-600">Absent</div>
                     </div>
                 </div>
             </div>
 
             @if($viewingSession->hasBookmark())
-                <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div class="mb-6 p-4 bg-blue-50 /20 rounded-lg border border-blue-200">
                     <div class="flex items-start gap-3">
                         <flux:icon.bookmark class="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                         <div>
-                            <div class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">Session Bookmark</div>
-                            <div class="text-sm text-blue-800 dark:text-blue-200">{{ $viewingSession->bookmark }}</div>
+                            <div class="text-sm font-medium text-blue-900  mb-1">Session Bookmark</div>
+                            <div class="text-sm text-blue-800">{{ $viewingSession->bookmark }}</div>
                         </div>
                     </div>
                 </div>
@@ -1803,12 +1803,12 @@ new class extends Component {
             <!-- Student Attendance List -->
             <div class="space-y-3 max-h-96 overflow-y-auto">
                 @foreach($viewingSession->attendances->sortBy('student.user.name') as $attendance)
-                    <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div class="flex items-center justify-between p-3 border border-gray-200  rounded-lg">
                         <div class="flex items-center gap-3">
                             <flux:avatar size="sm" :name="$attendance->student->fullName" />
                             <div>
-                                <div class="font-medium text-gray-900 dark:text-gray-100">{{ $attendance->student->fullName }}</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $attendance->student->student_id }}</div>
+                                <div class="font-medium text-gray-900">{{ $attendance->student->fullName }}</div>
+                                <div class="text-sm text-gray-500">{{ $attendance->student->student_id }}</div>
                             </div>
                         </div>
                         
@@ -1816,17 +1816,17 @@ new class extends Component {
                             <flux:badge 
                                 size="sm"
                                 :class="match($attendance->status) {
-                                    'present' => 'text-green-700 bg-green-100 dark:text-green-400 dark:bg-green-900/20',
-                                    'late' => 'text-yellow-700 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20',
-                                    'absent' => 'text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-900/20',
-                                    'excused' => 'text-blue-700 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20',
-                                    default => 'text-gray-700 bg-gray-100 dark:text-gray-400 dark:bg-gray-900/20'
+                                    'present' => 'text-green-700 bg-green-100  /20',
+                                    'late' => 'text-yellow-700 bg-yellow-100  /20',
+                                    'absent' => 'text-red-700 bg-red-100  /20',
+                                    'excused' => 'text-blue-700 bg-blue-100  /20',
+                                    default => 'text-gray-700 bg-gray-100  /20'
                                 }"
                             >
                                 {{ ucfirst($attendance->status) }}
                             </flux:badge>
                             @if($attendance->checked_in_at)
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <div class="text-xs text-gray-500  mt-1">
                                     {{ $attendance->checked_in_at->format('g:i A') }}
                                 </div>
                             @endif

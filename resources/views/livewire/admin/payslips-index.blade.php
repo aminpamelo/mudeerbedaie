@@ -272,14 +272,14 @@ new class extends Component {
     </div>
 
     @if(session('success'))
-        <flux:card class="p-4 mb-6 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-            <flux:text class="text-green-800 dark:text-green-200">{{ session('success') }}</flux:text>
+        <flux:card class="p-4 mb-6 bg-green-50 /20 border-green-200">
+            <flux:text class="text-green-800">{{ session('success') }}</flux:text>
         </flux:card>
     @endif
     
     @if(session('error'))
-        <flux:card class="p-4 mb-6 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
-            <flux:text class="text-red-800 dark:text-red-200">{{ session('error') }}</flux:text>
+        <flux:card class="p-4 mb-6 bg-red-50 /20 border-red-200">
+            <flux:text class="text-red-800">{{ session('error') }}</flux:text>
         </flux:card>
     @endif
 
@@ -288,8 +288,8 @@ new class extends Component {
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $statistics['total_payslips'] }}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Total Payslips</div>
+                    <div class="text-2xl font-bold text-blue-600">{{ $statistics['total_payslips'] }}</div>
+                    <div class="text-sm text-gray-600">Total Payslips</div>
                 </div>
                 <flux:icon name="document-text" class="h-8 w-8 text-blue-500" />
             </div>
@@ -298,8 +298,8 @@ new class extends Component {
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ $statistics['draft_payslips'] }}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Draft</div>
+                    <div class="text-2xl font-bold text-yellow-600">{{ $statistics['draft_payslips'] }}</div>
+                    <div class="text-sm text-gray-600">Draft</div>
                 </div>
                 <flux:icon name="pencil-square" class="h-8 w-8 text-yellow-500" />
             </div>
@@ -308,8 +308,8 @@ new class extends Component {
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $statistics['finalized_payslips'] }}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Finalized</div>
+                    <div class="text-2xl font-bold text-blue-600">{{ $statistics['finalized_payslips'] }}</div>
+                    <div class="text-sm text-gray-600">Finalized</div>
                 </div>
                 <flux:icon name="check-circle" class="h-8 w-8 text-blue-500" />
             </div>
@@ -318,8 +318,8 @@ new class extends Component {
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ $statistics['paid_payslips'] }}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Paid</div>
+                    <div class="text-2xl font-bold text-green-600">{{ $statistics['paid_payslips'] }}</div>
+                    <div class="text-sm text-gray-600">Paid</div>
                 </div>
                 <flux:icon name="banknotes" class="h-8 w-8 text-green-500" />
             </div>
@@ -391,7 +391,7 @@ new class extends Component {
                                     <div class="flex items-start justify-between">
                                         <div>
                                             <flux:heading size="sm" class="mb-2">{{ $payslip->teacher->name }}</flux:heading>
-                                            <flux:text size="sm" class="text-gray-600 dark:text-gray-400 mb-2">
+                                            <flux:text size="sm" class="text-gray-600  mb-2">
                                                 {{ $payslip->formatted_month }}
                                             </flux:text>
                                         </div>
@@ -412,19 +412,19 @@ new class extends Component {
                             
                             <!-- Payslip Details Grid -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="calendar-days" class="w-4 h-4 mr-2 text-gray-400" />
                                     <span>{{ $payslip->total_sessions }} sessions</span>
                                 </div>
-                                <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="banknotes" class="w-4 h-4 mr-2 text-gray-400" />
                                     <span>RM{{ number_format($payslip->total_amount, 2) }}</span>
                                 </div>
-                                <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="user" class="w-4 h-4 mr-2 text-gray-400" />
                                     <span>By {{ $payslip->generatedBy->name }}</span>
                                 </div>
-                                <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="clock" class="w-4 h-4 mr-2 text-gray-400" />
                                     <span>{{ $payslip->generated_at->format('M d, Y') }}</span>
                                 </div>
@@ -433,12 +433,12 @@ new class extends Component {
                         
                         <!-- Actions -->
                         <div class="flex flex-col items-end gap-3 lg:min-w-fit">
-                            <div class="text-lg font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-md">
+                            <div class="text-lg font-bold text-green-600  bg-green-50 /20 px-3 py-1 rounded-md">
                                 RM{{ number_format($payslip->total_amount, 2) }}
                             </div>
                             
                             <flux:dropdown position="bottom" align="end">
-                                <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" class="hover:bg-gray-100 dark:hover:bg-gray-800" />
+                                <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" class="hover:bg-gray-100 :bg-gray-800" />
                                 
                                 <flux:menu class="min-w-48">
                                     <flux:menu.item icon="eye" href="{{ route('admin.payslips.show', $payslip) }}" wire:navigate>
@@ -472,7 +472,7 @@ new class extends Component {
             <flux:icon name="document-text" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
             @if($monthFilter || $teacherFilter !== 'all' || $statusFilter !== 'all' || $search)
                 <flux:heading size="lg" class="mb-4">No Payslips Found</flux:heading>
-                <flux:text class="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                <flux:text class="text-gray-600  mb-6 max-w-md mx-auto">
                     No payslips match your current filter criteria. Try adjusting your filters.
                 </flux:text>
                 <flux:button variant="ghost" wire:click="$set('monthFilter', ''); $set('teacherFilter', 'all'); $set('statusFilter', 'all'); $set('search', '')">
@@ -480,7 +480,7 @@ new class extends Component {
                 </flux:button>
             @else
                 <flux:heading size="lg" class="mb-4">No Payslips Generated</flux:heading>
-                <flux:text class="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                <flux:text class="text-gray-600  mb-6 max-w-md mx-auto">
                     No payslips have been generated yet. Start by generating payslips for your teachers.
                 </flux:text>
                 <flux:button variant="primary" wire:click="openGenerateModal">
@@ -523,12 +523,12 @@ new class extends Component {
                             </div>
                             <div class="mt-2 max-h-60 overflow-y-auto border rounded-md p-4">
                                 @foreach($teachers as $teacher)
-                                    <label class="flex items-center mb-2 hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded">
+                                    <label class="flex items-center mb-2 hover:bg-gray-50 :bg-gray-800 p-2 rounded">
                                         <input type="checkbox" wire:model="selectedTeachers" value="{{ $teacher->id }}" 
                                                class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
                                         <div class="ml-3 flex-1">
-                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $teacher->name }}</div>
-                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ $teacher->email }} • ID: {{ $teacher->id }}</div>
+                                            <div class="text-sm font-medium text-gray-900">{{ $teacher->name }}</div>
+                                            <div class="text-xs text-gray-500">{{ $teacher->email }} • ID: {{ $teacher->id }}</div>
                                         </div>
                                     </label>
                                 @endforeach
@@ -554,24 +554,24 @@ new class extends Component {
                 @if(count($generationPreview) > 0)
                     <div class="space-y-4 max-h-96 overflow-y-auto">
                         @foreach($generationPreview as $preview)
-                            <div class="border rounded-lg p-4 {{ $preview['can_generate'] ? 'border-green-200 bg-green-50 dark:bg-green-900/20' : 'border-red-200 bg-red-50 dark:bg-red-900/20' }}">
+                            <div class="border rounded-lg p-4 {{ $preview['can_generate'] ? 'border-green-200 bg-green-50 /20' : 'border-red-200 bg-red-50 /20' }}">
                                 <div class="flex items-start justify-between">
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2 mb-2">
                                             @if($preview['can_generate'])
-                                                <span class="text-green-600 dark:text-green-400">✅</span>
+                                                <span class="text-green-600">✅</span>
                                             @else
-                                                <span class="text-red-600 dark:text-red-400">❌</span>
+                                                <span class="text-red-600">❌</span>
                                             @endif
                                             <flux:text class="font-medium">{{ $preview['teacher_name'] }}</flux:text>
                                         </div>
                                         
                                         @if($preview['can_generate'])
-                                            <flux:text size="sm" class="text-green-700 dark:text-green-300">
+                                            <flux:text size="sm" class="text-green-700">
                                                 {{ $preview['sessions_count'] }} sessions • RM{{ number_format($preview['total_amount'], 2) }}
                                             </flux:text>
                                         @else
-                                            <flux:text size="sm" class="text-red-700 dark:text-red-300">
+                                            <flux:text size="sm" class="text-red-700">
                                                 {{ $this->getReadableError($preview['reason']) }}
                                             </flux:text>
                                         @endif
@@ -586,12 +586,12 @@ new class extends Component {
                         $invalidTeachers = collect($generationPreview)->where('can_generate', false);
                     @endphp
                     
-                    <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div class="mt-6 p-4 bg-blue-50 /20 rounded-lg">
                         <div class="flex items-center gap-2 mb-2">
-                            <span class="text-blue-600 dark:text-blue-400">ℹ️</span>
+                            <span class="text-blue-600">ℹ️</span>
                             <flux:text class="font-medium">Summary</flux:text>
                         </div>
-                        <flux:text size="sm" class="text-blue-700 dark:text-blue-300">
+                        <flux:text size="sm" class="text-blue-700">
                             {{ $validTeachers->count() }} teachers ready for generation • 
                             {{ $invalidTeachers->count() }} teachers have issues • 
                             Total: RM{{ number_format($validTeachers->sum('total_amount'), 2) }}
@@ -619,7 +619,7 @@ new class extends Component {
                     <div class="text-center py-12">
                         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
                         <flux:heading size="lg" class="mb-2">Generating Payslips...</flux:heading>
-                        <flux:text class="text-gray-600 dark:text-gray-400">Please wait while we process the payslips.</flux:text>
+                        <flux:text class="text-gray-600">Please wait while we process the payslips.</flux:text>
                     </div>
                 @else
                     <flux:heading size="lg" class="mb-4">Generation Results</flux:heading>
@@ -627,21 +627,21 @@ new class extends Component {
                     @if(count($generationResults['successful']) > 0)
                         <div class="mb-6">
                             <div class="flex items-center gap-2 mb-3">
-                                <span class="text-green-600 dark:text-green-400">✅</span>
-                                <flux:text class="font-medium text-green-700 dark:text-green-300">
+                                <span class="text-green-600">✅</span>
+                                <flux:text class="font-medium text-green-700">
                                     Successfully Generated ({{ count($generationResults['successful']) }})
                                 </flux:text>
                             </div>
                             <div class="space-y-2 max-h-40 overflow-y-auto">
                                 @foreach($generationResults['successful'] as $success)
-                                    <div class="border border-green-200 bg-green-50 dark:bg-green-900/20 rounded p-3">
+                                    <div class="border border-green-200 bg-green-50 /20 rounded p-3">
                                         <div class="flex justify-between items-center">
                                             <flux:text class="font-medium">{{ $success['teacher_name'] }}</flux:text>
                                             <div class="text-right">
-                                                <flux:text size="sm" class="text-green-700 dark:text-green-300">
+                                                <flux:text size="sm" class="text-green-700">
                                                     {{ $success['sessions_count'] }} sessions
                                                 </flux:text>
-                                                <flux:text class="font-medium text-green-800 dark:text-green-200">
+                                                <flux:text class="font-medium text-green-800">
                                                     RM{{ number_format($success['amount'], 2) }}
                                                 </flux:text>
                                             </div>
@@ -655,16 +655,16 @@ new class extends Component {
                     @if(count($generationResults['failed']) > 0)
                         <div class="mb-6">
                             <div class="flex items-center gap-2 mb-3">
-                                <span class="text-red-600 dark:text-red-400">❌</span>
-                                <flux:text class="font-medium text-red-700 dark:text-red-300">
+                                <span class="text-red-600">❌</span>
+                                <flux:text class="font-medium text-red-700">
                                     Failed to Generate ({{ count($generationResults['failed']) }})
                                 </flux:text>
                             </div>
                             <div class="space-y-2 max-h-40 overflow-y-auto">
                                 @foreach($generationResults['failed'] as $failure)
-                                    <div class="border border-red-200 bg-red-50 dark:bg-red-900/20 rounded p-3">
+                                    <div class="border border-red-200 bg-red-50 /20 rounded p-3">
                                         <flux:text class="font-medium">{{ $failure['teacher_name'] }}</flux:text>
-                                        <flux:text size="sm" class="text-red-700 dark:text-red-300 mt-1">
+                                        <flux:text size="sm" class="text-red-700  mt-1">
                                             {{ $failure['error'] }}
                                         </flux:text>
                                     </div>
@@ -674,12 +674,12 @@ new class extends Component {
                     @endif
                     
                     @if(count($generationResults['successful']) > 0)
-                        <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div class="p-4 bg-blue-50 /20 rounded-lg">
                             <div class="flex items-center gap-2 mb-2">
-                                <span class="text-blue-600 dark:text-blue-400">📊</span>
+                                <span class="text-blue-600">📊</span>
                                 <flux:text class="font-medium">Total Summary</flux:text>
                             </div>
-                            <flux:text size="sm" class="text-blue-700 dark:text-blue-300">
+                            <flux:text size="sm" class="text-blue-700">
                                 {{ $generationResults['total_sessions'] }} sessions • 
                                 RM{{ number_format($generationResults['total_amount'], 2) }} total amount • 
                                 {{ count($generationResults['successful']) }} payslips created

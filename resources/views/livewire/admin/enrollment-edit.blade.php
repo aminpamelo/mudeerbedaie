@@ -1,12 +1,13 @@
 <?php
 
 use App\Models\Enrollment;
+use App\AcademicStatus;
 use Livewire\Volt\Component;
 
 new class extends Component {
     public Enrollment $enrollment;
     
-    public $status = '';
+    public $academic_status = '';
     public $enrollment_date = '';
     public $start_date = '';
     public $end_date = '';
@@ -18,7 +19,7 @@ new class extends Component {
     {
         $this->enrollment->load(['student.user', 'course', 'enrolledBy']);
         
-        $this->status = $this->enrollment->status;
+        $this->academic_status = $this->enrollment->academic_status->value;
         $this->enrollment_date = $this->enrollment->enrollment_date->format('Y-m-d');
         $this->start_date = $this->enrollment->start_date?->format('Y-m-d') ?? '';
         $this->end_date = $this->enrollment->end_date?->format('Y-m-d') ?? '';
@@ -30,7 +31,7 @@ new class extends Component {
     public function update(): void
     {
         $this->validate([
-            'status' => 'required|in:enrolled,active,completed,dropped,suspended,pending',
+            'academic_status' => 'required|in:active,completed,withdrawn,suspended',
             'enrollment_date' => 'required|date',
             'start_date' => 'nullable|date|after_or_equal:enrollment_date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
@@ -39,16 +40,16 @@ new class extends Component {
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        // Auto-set completion date if status is changed to completed
+        // Auto-set completion date if academic status is changed to completed
         $completionDate = null;
-        if ($this->status === 'completed' && !$this->completion_date) {
+        if ($this->academic_status === 'completed' && !$this->completion_date) {
             $completionDate = today();
         } elseif ($this->completion_date) {
             $completionDate = $this->completion_date;
         }
 
         $this->enrollment->update([
-            'status' => $this->status,
+            'academic_status' => AcademicStatus::from($this->academic_status),
             'enrollment_date' => $this->enrollment_date,
             'start_date' => $this->start_date ?: null,
             'end_date' => $this->end_date ?: null,
@@ -129,11 +130,10 @@ new class extends Component {
             
             <div class="mt-6 space-y-6">
                 <div class="flex space-x-4">
-                    <flux:select wire:model.live="status" label="Status" required class="flex-1">
-                        <flux:select.option value="enrolled">Enrolled</flux:select.option>
+                    <flux:select wire:model.live="academic_status" label="Academic Status" required class="flex-1">
                         <flux:select.option value="active">Active</flux:select.option>
                         <flux:select.option value="completed">Completed</flux:select.option>
-                        <flux:select.option value="dropped">Dropped</flux:select.option>
+                        <flux:select.option value="withdrawn">Withdrawn</flux:select.option>
                         <flux:select.option value="suspended">Suspended</flux:select.option>
                         <flux:select.option value="pending">Pending</flux:select.option>
                     </flux:select>
@@ -152,7 +152,7 @@ new class extends Component {
                     <flux:input type="date" wire:model="enrollment_date" label="Enrollment Date" required />
                     <flux:input type="date" wire:model="start_date" label="Start Date" />
                     <flux:input type="date" wire:model="end_date" label="End Date" />
-                    @if($status === 'completed' || $completion_date)
+                    @if($academic_status === 'completed' || $completion_date)
                         <flux:input type="date" wire:model="completion_date" label="Completion Date" />
                     @endif
                 </div>
@@ -175,16 +175,14 @@ new class extends Component {
             <div class="mt-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <flux:badge size="lg" :class="match($status) {
-                            'enrolled' => 'badge-blue',
+                        <flux:badge size="lg" :class="match($academic_status) {
                             'active' => 'badge-green',
                             'completed' => 'badge-emerald',
-                            'dropped' => 'badge-red',
+                            'withdrawn' => 'badge-red',
                             'suspended' => 'badge-yellow',
-                            'pending' => 'badge-gray',
                             default => 'badge-gray'
                         }">
-                            {{ ucfirst($status) }}
+                            {{ ucfirst($academic_status) }}
                         </flux:badge>
                     </div>
                     
@@ -194,7 +192,7 @@ new class extends Component {
                     </div>
                 </div>
 
-                @if($status === 'completed' && ($completion_date || $start_date))
+                @if($academic_status === 'completed' && ($completion_date || $start_date))
                     <div class="mt-4 p-3 bg-emerald-50 rounded-lg">
                         <p class="text-sm text-emerald-700">
                             <strong>Congratulations!</strong> This student has completed the course.
@@ -203,13 +201,13 @@ new class extends Component {
                             @endif
                         </p>
                     </div>
-                @elseif($status === 'dropped')
+                @elseif($academic_status === 'withdrawn')
                     <div class="mt-4 p-3 bg-red-50 rounded-lg">
                         <p class="text-sm text-red-700">
-                            <strong>Note:</strong> This student has dropped out of the course.
+                            <strong>Note:</strong> This student has withdrawn from the course.
                         </p>
                     </div>
-                @elseif($status === 'suspended')
+                @elseif($academic_status === 'suspended')
                     <div class="mt-4 p-3 bg-yellow-50 rounded-lg">
                         <p class="text-sm text-yellow-700">
                             <strong>Warning:</strong> This enrollment is currently suspended.

@@ -263,7 +263,7 @@ new class extends Component {
             
             <div class="space-y-4">
                 <!-- Gmail -->
-                <div class="border rounded-lg p-4 dark:border-gray-600">
+                <div class="border rounded-lg p-4">
                     <flux:heading size="sm" class="font-semibold mb-2">Gmail</flux:heading>
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div><strong>Host:</strong> smtp.gmail.com</div>
@@ -274,7 +274,7 @@ new class extends Component {
                 </div>
 
                 <!-- Mailgun -->
-                <div class="border rounded-lg p-4 dark:border-gray-600">
+                <div class="border rounded-lg p-4">
                     <flux:heading size="sm" class="font-semibold mb-2">Mailgun</flux:heading>
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div><strong>Host:</strong> smtp.mailgun.org</div>
@@ -285,7 +285,7 @@ new class extends Component {
                 </div>
 
                 <!-- SendGrid -->
-                <div class="border rounded-lg p-4 dark:border-gray-600">
+                <div class="border rounded-lg p-4">
                     <flux:heading size="sm" class="font-semibold mb-2">SendGrid</flux:heading>
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div><strong>Host:</strong> smtp.sendgrid.net</div>

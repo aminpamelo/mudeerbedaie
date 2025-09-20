@@ -17,7 +17,6 @@ class Course extends Model
         'description',
         'status',
         'created_by',
-        'teacher_id',
         'stripe_product_id',
         'stripe_sync_status',
         'stripe_last_synced_at',
@@ -34,11 +33,6 @@ class Course extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(Teacher::class, 'teacher_id');
     }
 
     public function feeSettings(): HasOne
@@ -160,5 +154,98 @@ class Course extends Model
     public function markStripeSyncAsFailed(): void
     {
         $this->update(['stripe_sync_status' => 'failed']);
+    }
+
+    // Enrollment-Class management helper methods
+
+    public function enrollStudentInClass(Student $student, ClassModel $class): ?ClassStudent
+    {
+        // First check if student has active enrollment in this course
+        $enrollment = $this->enrollments()
+            ->where('student_id', $student->id)
+            ->whereIn('status', ['enrolled', 'active'])
+            ->first();
+
+        if (! $enrollment) {
+            return null; // No active enrollment
+        }
+
+        // Use the enrollment's joinClass method for validation and enrollment
+        return $enrollment->joinClass($class);
+    }
+
+    public function getStudentEnrollmentForClass(Student $student, ClassModel $class): ?Enrollment
+    {
+        return $this->enrollments()
+            ->where('student_id', $student->id)
+            ->whereIn('status', ['enrolled', 'active'])
+            ->first();
+    }
+
+    public function getEligibleStudentsForClass(ClassModel $class): \Illuminate\Database\Eloquent\Collection
+    {
+        // Get all students with active enrollment in this course who are not already in the class
+        return $this->activeStudents()
+            ->whereNotIn('students.id', function ($query) use ($class) {
+                $query->select('student_id')
+                    ->from('class_students')
+                    ->where('class_id', $class->id)
+                    ->where('status', 'active');
+            })
+            ->get();
+    }
+
+    public function autoEnrollEligibleStudents(ClassModel $class): array
+    {
+        $eligibleStudents = $this->getEligibleStudentsForClass($class);
+        $enrolled = [];
+        $failed = [];
+
+        foreach ($eligibleStudents as $student) {
+            $classStudent = $this->enrollStudentInClass($student, $class);
+
+            if ($classStudent) {
+                $enrolled[] = $student;
+            } else {
+                $failed[] = $student;
+            }
+
+            // Stop if class reaches capacity
+            if (! $class->canAddStudent()) {
+                break;
+            }
+        }
+
+        return [
+            'enrolled' => $enrolled,
+            'failed' => $failed,
+            'total_enrolled' => count($enrolled),
+            'total_failed' => count($failed),
+        ];
+    }
+
+    public function getClassEnrollmentSummary(): array
+    {
+        $classes = $this->classes()->with('classStudents')->get();
+        $totalClasses = $classes->count();
+        $totalActiveEnrollments = $this->activeEnrollments()->count();
+
+        $classStats = $classes->map(function ($class) {
+            return [
+                'class_id' => $class->id,
+                'class_title' => $class->title,
+                'enrolled_students' => $class->activeStudents()->count(),
+                'max_capacity' => $class->max_capacity,
+                'utilization_rate' => $class->max_capacity ?
+                    round(($class->activeStudents()->count() / $class->max_capacity) * 100, 2) : 0,
+            ];
+        });
+
+        return [
+            'total_classes' => $totalClasses,
+            'total_course_enrollments' => $totalActiveEnrollments,
+            'classes' => $classStats,
+            'average_utilization' => $classStats->avg('utilization_rate'),
+        ];
     }
 }

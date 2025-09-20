@@ -331,7 +331,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Total Revenue</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Total Revenue</flux:heading>
                     <flux:heading size="xl" class="text-emerald-600">RM {{ number_format($totalRevenue, 2) }}</flux:heading>
                     <flux:text size="sm" class="text-gray-600">{{ $successfulOrders }} successful orders</flux:text>
                 </div>
@@ -342,7 +342,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Success Rate</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Success Rate</flux:heading>
                     <flux:heading size="xl" class="text-blue-600">{{ number_format($successRate, 1) }}%</flux:heading>
                     <flux:text size="sm" class="text-gray-600">{{ $totalOrders }} total orders</flux:text>
                 </div>
@@ -353,7 +353,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Pending</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Pending</flux:heading>
                     <flux:heading size="xl" class="text-amber-600">{{ $pendingOrders }}</flux:heading>
                     <flux:text size="sm" class="text-gray-600">Awaiting payment</flux:text>
                 </div>
@@ -364,7 +364,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Failed</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">Failed</flux:heading>
                     <flux:heading size="xl" class="text-red-600">{{ $failedOrders }}</flux:heading>
                     <flux:text size="sm" class="text-gray-600">Payment failed</flux:text>
                 </div>
@@ -452,25 +452,25 @@ new class extends Component {
             </flux:header>
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div class="text-center p-4 bg-blue-50 /20 rounded-lg">
                     <flux:heading size="lg" class="text-blue-600">{{ $webhookStats['totalWebhooks'] }}</flux:heading>
                     <flux:text size="sm" class="text-gray-600">Total Events</flux:text>
                 </div>
                 
-                <div class="text-center p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                <div class="text-center p-4 bg-emerald-50 /20 rounded-lg">
                     <flux:heading size="lg" class="text-emerald-600">{{ $webhookStats['processedWebhooks'] }}</flux:heading>
                     <flux:text size="sm" class="text-gray-600">Processed</flux:text>
                 </div>
                 
                 @if($webhookStats['failedWebhooks'] > 0)
-                    <div class="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                    <div class="text-center p-4 bg-red-50 /20 rounded-lg">
                         <flux:heading size="lg" class="text-red-600">{{ $webhookStats['failedWebhooks'] }}</flux:heading>
                         <flux:text size="sm" class="text-gray-600">Failed</flux:text>
                     </div>
                 @endif
                 
                 @if($webhookStats['pendingWebhooks'] > 0)
-                    <div class="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <div class="text-center p-4 bg-amber-50 /20 rounded-lg">
                         <flux:heading size="lg" class="text-amber-600">{{ $webhookStats['pendingWebhooks'] }}</flux:heading>
                         <flux:text size="sm" class="text-gray-600">Pending</flux:text>
                     </div>
@@ -478,7 +478,7 @@ new class extends Component {
             </div>
 
             @if($webhookStats['failedWebhooks'] > 0)
-                <div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-lg">
+                <div class="mt-4 p-3 bg-red-50 /20 border border-red-200 rounded-lg">
                     <flux:text class="text-red-800 text-sm">
                         <flux:icon icon="exclamation-triangle" class="w-4 h-4 inline mr-1" />
                         {{ $webhookStats['failedWebhooks'] }} webhook events failed processing. Check logs for details.
@@ -534,7 +534,7 @@ new class extends Component {
                 </flux:button>
                 
                 @if($failedOrders > 0)
-                    <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-lg text-center">
+                    <div class="p-3 bg-red-50 /20 border border-red-200 rounded-lg text-center">
                         <flux:text class="text-red-800 text-sm">
                             {{ $failedOrders }} orders failed payment
                         </flux:text>
@@ -553,7 +553,7 @@ new class extends Component {
 
             <div class="space-y-3">
                 @foreach($recentActivity as $activity)
-                    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div class="flex items-center justify-between p-3 bg-gray-50  rounded-lg">
                         <div class="flex items-center space-x-3">
                             <div class="w-2 h-2 rounded-full {{ $activity->isPaid() ? 'bg-emerald-500' : ($activity->isFailed() ? 'bg-red-500' : 'bg-amber-500') }}"></div>
                             <div>
@@ -615,7 +615,7 @@ new class extends Component {
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <tr class="border-b border-gray-200">
                             <th class="text-left py-3 px-4">
                                 <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-blue-600">
                                     <span>Date</span>
@@ -641,7 +641,7 @@ new class extends Component {
                     </thead>
                     <tbody>
                         @foreach($orders as $order)
-                            <tr class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <tr class="border-b border-gray-100  hover:bg-gray-50 :bg-gray-800/50">
                                 <td class="py-3 px-4">
                                     <div class="font-medium">{{ $order->created_at->format('M d, Y') }}</div>
                                     <div class="text-sm text-gray-600">{{ $order->created_at->format('H:i') }}</div>
@@ -695,8 +695,8 @@ new class extends Component {
         @else
             <div class="text-center py-12">
                 <flux:icon icon="clipboard-document-list" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <flux:heading size="md" class="text-gray-600 dark:text-gray-400 mb-2">No orders found</flux:heading>
-                <flux:text class="text-gray-600 dark:text-gray-400">
+                <flux:heading size="md" class="text-gray-600  mb-2">No orders found</flux:heading>
+                <flux:text class="text-gray-600">
                     @if($search || $statusFilter || $typeFilter)
                         No orders match your current filters.
                         <button wire:click="$set('search', '')" wire:click="$set('statusFilter', '')" wire:click="$set('typeFilter', '')" class="text-blue-600 hover:underline ml-1">Clear filters</button>

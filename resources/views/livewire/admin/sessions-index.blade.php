@@ -248,7 +248,7 @@ new class extends Component {
                          ->get();
         
         // Create CSV content
-        $csvContent = "Date,Time,Class,Course,Teacher,Duration,Status,Students,Present,Allowance,Notes\n";
+        $csvContent ="Date,Time,Class,Course,Teacher,Duration,Status,Students,Present,Allowance,Notes\n";
         
         foreach ($sessions as $session) {
             $attendanceCount = $session->attendances->count();
@@ -257,7 +257,7 @@ new class extends Component {
             $teacherName = $session->class->teacher ? $session->class->teacher->user->name : 'N/A';
             
             $csvContent .= sprintf(
-                "%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s\n",
+"%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s\n",
                 $session->session_date->format('Y-m-d'),
                 $session->session_time->format('H:i'),
                 '"' . str_replace('"', '""', $session->class->title) . '"',
@@ -298,14 +298,14 @@ new class extends Component {
     </div>
 
     @if(session('success'))
-        <flux:card class="p-4 mb-6 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-            <flux:text class="text-green-800 dark:text-green-200">{{ session('success') }}</flux:text>
+        <flux:card class="p-4 mb-6 bg-green-50 /20 border-green-200">
+            <flux:text class="text-green-800">{{ session('success') }}</flux:text>
         </flux:card>
     @endif
     
     @if(session('error'))
-        <flux:card class="p-4 mb-6 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
-            <flux:text class="text-red-800 dark:text-red-200">{{ session('error') }}</flux:text>
+        <flux:card class="p-4 mb-6 bg-red-50 /20 border-red-200">
+            <flux:text class="text-red-800">{{ session('error') }}</flux:text>
         </flux:card>
     @endif
 
@@ -314,8 +314,8 @@ new class extends Component {
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $statistics['total_sessions'] }}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Total Sessions</div>
+                    <div class="text-2xl font-bold text-blue-600">{{ $statistics['total_sessions'] }}</div>
+                    <div class="text-sm text-gray-600">Total Sessions</div>
                 </div>
                 <flux:icon name="calendar-days" class="h-8 w-8 text-blue-500" />
             </div>
@@ -324,8 +324,8 @@ new class extends Component {
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ $statistics['upcoming_sessions'] }}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Upcoming</div>
+                    <div class="text-2xl font-bold text-emerald-600">{{ $statistics['upcoming_sessions'] }}</div>
+                    <div class="text-sm text-gray-600">Upcoming</div>
                 </div>
                 <flux:icon name="clock" class="h-8 w-8 text-emerald-500" />
             </div>
@@ -334,8 +334,8 @@ new class extends Component {
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $statistics['completed_sessions'] }}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Completed</div>
+                    <div class="text-2xl font-bold text-purple-600">{{ $statistics['completed_sessions'] }}</div>
+                    <div class="text-sm text-gray-600">Completed</div>
                 </div>
                 <flux:icon name="check-circle" class="h-8 w-8 text-purple-500" />
             </div>
@@ -344,8 +344,8 @@ new class extends Component {
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ $statistics['verified_sessions'] }}</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">Verified</div>
+                    <div class="text-2xl font-bold text-green-600">{{ $statistics['verified_sessions'] }}</div>
+                    <div class="text-sm text-gray-600">Verified</div>
                 </div>
                 <flux:icon name="check-badge" class="h-8 w-8 text-green-500" />
             </div>
@@ -441,16 +441,16 @@ new class extends Component {
                                     <div class="flex items-start justify-between">
                                         <div>
                                             <flux:heading size="sm" class="mb-2">{{ $session->class->title }}</flux:heading>
-                                            <flux:text size="xs" class="text-gray-500 dark:text-gray-400 mb-1">
+                                            <flux:text size="xs" class="text-gray-500  mb-1">
                                                 {{ $session->class->course->name }}
                                             </flux:text>
                                             @if($session->class->teacher)
-                                                <flux:text size="xs" class="text-gray-500 dark:text-gray-400 mb-2">
+                                                <flux:text size="xs" class="text-gray-500  mb-2">
                                                     Teacher: {{ $session->class->teacher->user->name }}
                                                 </flux:text>
                                             @endif
                                             @if($session->topic)
-                                                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                                                <flux:text size="sm" class="text-gray-600">
                                                     Topic: {{ $session->topic }}
                                                 </flux:text>
                                             @endif
@@ -513,20 +513,20 @@ new class extends Component {
                             
                             <!-- Session Details Grid -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="calendar" class="w-4 h-4 mr-2 text-gray-400" />
                                     <span>{{ $session->session_date->format('M d, Y') }}</span>
                                 </div>
-                                <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="clock" class="w-4 h-4 mr-2 text-gray-400" />
                                     <span>{{ $session->session_time->format('g:i A') }} ({{ $session->duration_minutes }}min)</span>
                                 </div>
-                                <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="users" class="w-4 h-4 mr-2 text-gray-400" />
                                     <span>{{ $attendanceCount }} students</span>
                                 </div>
                                 @if($session->status === 'completed')
-                                    <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                    <div class="flex items-center text-sm text-gray-600">
                                         <flux:icon name="chart-bar" class="w-4 h-4 mr-2 text-gray-400" />
                                         <span>{{ $attendanceCount > 0 ? round(($presentCount / $attendanceCount) * 100) : 0 }}% attendance</span>
                                     </div>
@@ -535,18 +535,18 @@ new class extends Component {
                             
                             {{-- Payslip Information --}}
                             @if($session->status === 'completed' && $session->verified_at)
-                                <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-md">
+                                <div class="mt-4 p-3 bg-gray-50 /50 rounded-md">
                                     <div class="flex items-center justify-between">
                                         <div class="flex items-center text-sm">
                                             <flux:icon name="document-text" class="w-4 h-4 mr-2 text-gray-500" />
-                                            <span class="font-medium text-gray-700 dark:text-gray-300">Payslip Status:</span>
+                                            <span class="font-medium text-gray-700">Payslip Status:</span>
                                         </div>
                                         <div class="flex items-center gap-2">
                                             @if($session->isPaid())
                                                 @php
                                                     $payslip = $session->payslips->first();
                                                 @endphp
-                                                <flux:text size="sm" class="text-green-700 dark:text-green-300">Paid</flux:text>
+                                                <flux:text size="sm" class="text-green-700">Paid</flux:text>
                                                 @if($payslip)
                                                     <flux:button size="xs" variant="ghost" href="{{ route('admin.payslips.show', $payslip) }}" wire:navigate class="text-green-600 hover:text-green-700">
                                                         View Payslip
@@ -556,14 +556,14 @@ new class extends Component {
                                                 @php
                                                     $payslip = $session->payslips->first();
                                                 @endphp
-                                                <flux:text size="sm" class="text-yellow-700 dark:text-yellow-300">Included in Payslip</flux:text>
+                                                <flux:text size="sm" class="text-yellow-700">Included in Payslip</flux:text>
                                                 @if($payslip)
                                                     <flux:button size="xs" variant="ghost" href="{{ route('admin.payslips.show', $payslip) }}" wire:navigate class="text-yellow-600 hover:text-yellow-700">
                                                         View Payslip
                                                     </flux:button>
                                                 @endif
                                             @elseif($session->isUnpaid())
-                                                <flux:text size="sm" class="text-orange-700 dark:text-orange-300">Ready for Payslip</flux:text>
+                                                <flux:text size="sm" class="text-orange-700">Ready for Payslip</flux:text>
                                                 <flux:button size="xs" variant="ghost" href="{{ route('admin.payslips.index') }}" wire:navigate class="text-orange-600 hover:text-orange-700">
                                                     Generate Payslip
                                                 </flux:button>
@@ -577,7 +577,7 @@ new class extends Component {
                         <!-- Actions -->
                         <div class="flex flex-col items-end gap-3 lg:min-w-fit">
                             @if($session->status === 'completed' && $session->allowance_amount)
-                                <div class="text-lg font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-md">
+                                <div class="text-lg font-bold text-green-600  bg-green-50 /20 px-3 py-1 rounded-md">
                                     RM{{ number_format($session->allowance_amount, 2) }}
                                 </div>
                             @endif
@@ -602,7 +602,7 @@ new class extends Component {
                                 
                                 <!-- Navigation Actions Dropdown -->
                                 <flux:dropdown position="bottom" align="end">
-                                    <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" class="hover:bg-gray-100 dark:hover:bg-gray-800" />
+                                    <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" class="hover:bg-gray-100 :bg-gray-800" />
                                     
                                     <flux:menu class="min-w-48">
                                         <flux:menu.item icon="eye" href="{{ route('admin.sessions.show', $session) }}" wire:navigate>
@@ -637,7 +637,7 @@ new class extends Component {
             <flux:icon name="calendar-days" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
             @if($dateFilter !== 'all' || $classFilter !== 'all' || $statusFilter !== 'all' || $teacherFilter !== 'all' || $verificationFilter !== 'all')
                 <flux:heading size="lg" class="mb-4">No Sessions Found</flux:heading>
-                <flux:text class="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                <flux:text class="text-gray-600  mb-6 max-w-md mx-auto">
                     No sessions match your current filter criteria. Try adjusting your filters.
                 </flux:text>
                 <flux:button variant="ghost" wire:click="$set('dateFilter', 'upcoming'); $set('classFilter', 'all'); $set('statusFilter', 'all'); $set('teacherFilter', 'all'); $set('verificationFilter', 'all')">
@@ -645,7 +645,7 @@ new class extends Component {
                 </flux:button>
             @else
                 <flux:heading size="lg" class="mb-4">No Sessions Scheduled</flux:heading>
-                <flux:text class="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                <flux:text class="text-gray-600  mb-6 max-w-md mx-auto">
                     There are no sessions scheduled in the system yet.
                 </flux:text>
                 <flux:button variant="primary" href="{{ route('classes.index') }}" wire:navigate>

@@ -40,37 +40,37 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         <!-- Summary Cards -->
         <div class="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6 mb-8">
             <flux:card class="text-center p-4 md:p-6">
-                <div class="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                <div class="text-xl md:text-2xl font-bold text-blue-600  mb-2">
                     {{ $classes->count() }}
                 </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                <flux:text size="sm" class="text-gray-600">
                     Total Classes
                 </flux:text>
             </flux:card>
 
             <flux:card class="text-center p-4 md:p-6">
-                <div class="text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
+                <div class="text-xl md:text-2xl font-bold text-emerald-600  mb-2">
                     {{ $classes->where('status', 'active')->count() }}
                 </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                <flux:text size="sm" class="text-gray-600">
                     Active Classes
                 </flux:text>
             </flux:card>
 
             <flux:card class="text-center p-4 md:p-6">
-                <div class="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                <div class="text-xl md:text-2xl font-bold text-purple-600  mb-2">
                     {{ $classes->where('class_type', 'individual')->count() }}
                 </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                <flux:text size="sm" class="text-gray-600">
                     Individual
                 </flux:text>
             </flux:card>
 
             <flux:card class="text-center p-4 md:p-6">
-                <div class="text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400 mb-2">
+                <div class="text-xl md:text-2xl font-bold text-orange-600  mb-2">
                     {{ $classes->where('class_type', 'group')->count() }}
                 </div>
-                <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+                <flux:text size="sm" class="text-gray-600">
                     Group Classes
                 </flux:text>
             </flux:card>
@@ -82,10 +82,10 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     <div class="flex items-start justify-between mb-4">
                         <div class="flex-1">
                             <flux:heading size="sm" class="mb-2">{{ $class->title }}</flux:heading>
-                            <flux:text size="xs" class="text-gray-500 dark:text-gray-400 mb-2">
+                            <flux:text size="xs" class="text-gray-500  mb-2">
                                 {{ $class->course->name }}
                             </flux:text>
-                            <flux:text size="sm" class="text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                            <flux:text size="sm" class="text-gray-600  mb-3 line-clamp-2">
                                 {{ $class->description ?? 'No description available' }}
                             </flux:text>
                         </div>
@@ -103,7 +103,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     </div>
 
                     <div class="space-y-2 mb-4">
-                        <div class="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                        <div class="flex items-center justify-between text-sm text-gray-600">
                             <div class="flex items-center">
                                 <flux:icon icon="users" class="w-4 h-4 mr-1" />
                                 {{ $class->active_students_count }} 
@@ -118,7 +118,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             </flux:badge>
                         </div>
 
-                        <div class="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                        <div class="flex items-center justify-between text-sm text-gray-600">
                             <div class="flex items-center">
                                 <flux:icon icon="clock" class="w-4 h-4 mr-1" />
                                 {{ $class->formatted_duration }}
@@ -130,14 +130,14 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         </div>
 
                         @if($class->location)
-                            <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                            <div class="flex items-center text-sm text-gray-600">
                                 <flux:icon icon="map-pin" class="w-4 h-4 mr-1" />
                                 {{ $class->location }}
                             </div>
                         @endif
 
                         @if($class->date_time)
-                            <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                            <div class="flex items-center text-sm text-gray-600">
                                 <flux:icon icon="calendar-days" class="w-4 h-4 mr-1" />
                                 {{ $class->formatted_date_time }}
                             </div>
@@ -172,7 +172,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         <flux:card class="text-center py-12">
             <flux:icon icon="calendar-days" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <flux:heading size="lg" class="mb-4">No Classes Assigned</flux:heading>
-            <flux:text class="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+            <flux:text class="text-gray-600  mb-6 max-w-md mx-auto">
                 You don't have any classes assigned yet. Contact your administrator to get classes assigned to you.
             </flux:text>
         </flux:card>

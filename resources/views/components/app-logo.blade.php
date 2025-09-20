@@ -10,7 +10,7 @@
     </div>
 @else
     <div class="flex aspect-square size-8 items-center justify-center rounded-md">
-        <x-app-logo-icon class="size-6 fill-current text-blue-600 dark:text-blue-400" />
+        <x-app-logo-icon class="size-6 fill-current text-blue-600" />
     </div>
 @endif
 <div class="ms-1 grid flex-1 text-start text-sm">

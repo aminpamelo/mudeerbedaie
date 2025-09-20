@@ -604,7 +604,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     </div>
 
     <!-- Tab Navigation -->
-    <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
+    <div class="mb-6 border-b border-gray-200">
         <nav class="flex space-x-8">
             <button 
                 wire:click="setActiveTab('overview')"
@@ -663,12 +663,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                                 <div>
                                     <dt class="text-sm font-medium text-gray-500">Course</dt>
-                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $class->course->name }}</dd>
+                                    <dd class="mt-1 text-sm text-gray-900">{{ $class->course->name }}</dd>
                                 </div>
                                 
                                 <div>
                                     <dt class="text-sm font-medium text-gray-500">Duration</dt>
-                                    <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $class->formatted_duration }}</dd>
+                                    <dd class="mt-1 text-sm text-gray-900">{{ $class->formatted_duration }}</dd>
                                 </div>
                                 
                                 <div>
@@ -677,10 +677,10 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                         <div class="flex items-center gap-2">
                                             @if($class->isIndividual())
                                                 <flux:icon name="user" class="h-4 w-4 text-blue-500" />
-                                                <span class="text-sm text-gray-900 dark:text-gray-100">Individual</span>
+                                                <span class="text-sm text-gray-900">Individual</span>
                                             @else
                                                 <flux:icon name="users" class="h-4 w-4 text-green-500" />
-                                                <span class="text-sm text-gray-900 dark:text-gray-100">Group</span>
+                                                <span class="text-sm text-gray-900">Group</span>
                                                 @if($class->max_capacity)
                                                     <span class="text-xs text-gray-500">(Max: {{ $class->max_capacity }})</span>
                                                 @endif
@@ -709,7 +709,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 @if($class->location)
                                     <div>
                                         <dt class="text-sm font-medium text-gray-500">Location</dt>
-                                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $class->location }}</dd>
+                                        <dd class="mt-1 text-sm text-gray-900">{{ $class->location }}</dd>
                                     </div>
                                 @endif
 
@@ -727,7 +727,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 @if($class->description)
                                     <div class="sm:col-span-2">
                                         <dt class="text-sm font-medium text-gray-500">Description</dt>
-                                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $class->description }}</dd>
+                                        <dd class="mt-1 text-sm text-gray-900">{{ $class->description }}</dd>
                                     </div>
                                 @endif
                             </dl>
@@ -812,7 +812,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                 $nextSession = $class->sessions->where('status', 'scheduled')->where('session_date', '>', now()->toDateString())->sortBy('session_date')->first();
                                             @endphp
                                             @if($nextSession)
-                                                <div class="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                                                <div class="text-sm text-gray-700  mb-2">
                                                     {{ $nextSession->formatted_date_time }}
                                                 </div>
                                                 <flux:button 
@@ -834,29 +834,29 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                     @if($ongoingSession)
                                         <div class="pt-2 border-t">
                                             <div class="text-xs font-medium text-gray-500 mb-2">Current Session</div>
-                                            <div class="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                                            <div class="text-sm text-gray-700  mb-2">
                                                 {{ $ongoingSession->formatted_date_time }}
                                             </div>
                                             
                                             <div 
                                                 x-data="sessionTimer('{{ $ongoingSession->started_at ? $ongoingSession->started_at->toISOString() : now()->toISOString() }}')" 
                                                 x-init="startTimer()"
-                                                class="flex items-center gap-2 mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800"
+                                                class="flex items-center gap-2 mb-3 p-2 bg-yellow-50 /20 rounded border border-yellow-200"
                                             >
                                                 <div class="flex items-center gap-2">
                                                     <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                                                    <span class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Running:</span>
-                                                    <span class="text-sm font-mono font-semibold text-yellow-900 dark:text-yellow-100" x-text="formattedTime"></span>
+                                                    <span class="text-sm font-medium text-yellow-800">Running:</span>
+                                                    <span class="text-sm font-mono font-semibold text-yellow-900" x-text="formattedTime"></span>
                                                 </div>
                                             </div>
                                             
                                             @if($ongoingSession->hasBookmark())
-                                                <div class="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
+                                                <div class="mb-3 p-2 bg-amber-50 /20 rounded border border-amber-200">
                                                     <div class="flex items-center gap-2 mb-1">
                                                         <flux:icon name="bookmark" class="h-3 w-3 text-amber-600" />
-                                                        <span class="text-xs font-medium text-amber-800 dark:text-amber-200">Current Progress:</span>
+                                                        <span class="text-xs font-medium text-amber-800">Current Progress:</span>
                                                     </div>
-                                                    <div class="text-sm text-amber-900 dark:text-amber-100 font-medium">
+                                                    <div class="text-sm text-amber-900  font-medium">
                                                         {{ $ongoingSession->bookmark }}
                                                     </div>
                                                 </div>
@@ -910,33 +910,33 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             @if($this->total_sessions_count > 0)
                 <flux:card>
                     <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
                             <flux:heading size="lg">Sessions</flux:heading>
                         </div>
                         
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-800">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date & Time</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Duration</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bookmark</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Attendance</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Date & Time</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Duration</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Bookmark</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-900">
+                                <tbody class="bg-white">
                                     @php $hasAnySessions = count($this->sessions_by_month) > 0; @endphp
                                     @if($hasAnySessions)
                                         @foreach($this->sessions_by_month as $monthData)
                                             <!-- Month Header Row -->
-                                            <tr class="bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-600">
+                                            <tr class="bg-gray-50  border-t-2 border-gray-300">
                                                 <td colspan="6" class="px-6 py-3">
                                                     <div class="flex items-center justify-between">
                                                         <div class="flex items-center gap-3">
                                                             <flux:icon name="calendar" class="h-5 w-5 text-gray-500" />
-                                                            <span class="font-semibold text-gray-700 dark:text-gray-300">{{ $monthData['month_name'] }} {{ $monthData['year'] }}</span>
+                                                            <span class="font-semibold text-gray-700">{{ $monthData['month_name'] }} {{ $monthData['year'] }}</span>
                                                             <flux:badge color="gray" size="sm">{{ $monthData['stats']['total'] }} sessions</flux:badge>
                                                         </div>
                                                         <div class="flex gap-3 text-sm text-gray-500">
@@ -956,9 +956,9 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                             
                                             <!-- Sessions for this month -->
                                             @foreach($monthData['sessions'] as $session)
-                                                <tr class="divide-y divide-gray-200 dark:divide-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                                <tr class="divide-y divide-gray-200  hover:bg-gray-50 :bg-gray-800/50">
                                                     <td class="px-6 py-4 whitespace-nowrap">
-                                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                        <div class="text-sm font-medium text-gray-900">
                                                             {{ $session->formatted_date_time }}
                                                         </div>
                                                     </td>
@@ -976,9 +976,9 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                             >
                                                                 <div class="flex items-center gap-1">
                                                                     <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                                                                    <span class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Running</span>
+                                                                    <span class="text-sm font-medium text-yellow-800">Running</span>
                                                                 </div>
-                                                                <span class="text-sm font-mono font-semibold text-yellow-900 dark:text-yellow-100" x-text="formattedTime"></span>
+                                                                <span class="text-sm font-mono font-semibold text-yellow-900" x-text="formattedTime"></span>
                                                             </div>
                                                         @else
                                                             @if($session->status === 'completed')
@@ -999,7 +999,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                         @if($session->hasBookmark())
                                                             <div class="flex items-center gap-2 group" title="{{ $session->bookmark }}">
                                                                 <flux:icon name="bookmark" class="h-4 w-4 text-amber-500" />
-                                                                <span class="text-gray-900 dark:text-gray-100">{{ $session->formatted_bookmark }}</span>
+                                                                <span class="text-gray-900">{{ $session->formatted_bookmark }}</span>
                                                             </div>
                                                         @else
                                                             <span class="text-gray-400">—</span>
@@ -1122,7 +1122,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             @if($class->activeStudents->count() > 0)
                 <flux:card>
                     <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
                             <div>
                                 <flux:heading size="lg">Enrolled Students</flux:heading>
                                 <flux:text size="sm" class="text-gray-500">
@@ -1135,17 +1135,17 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         </div>
                         
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-800">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Student</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Enrolled</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sessions Attended</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Attendance Rate</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Student</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Enrolled</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Sessions Attended</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance Rate</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tbody class="bg-white  divide-y divide-gray-200">
                                     @foreach($class->activeStudents as $classStudent)
                                         @php
                                             $student = $classStudent->student;
@@ -1169,8 +1169,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                 <div class="flex items-center gap-3">
                                                     <flux:avatar size="sm" :name="$student->fullName" />
                                                     <div>
-                                                        <div class="font-medium text-gray-900 dark:text-gray-100">{{ $student->fullName }}</div>
-                                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ $student->student_id }}</div>
+                                                        <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
+                                                        <div class="text-sm text-gray-500">{{ $student->student_id }}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -1235,8 +1235,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $this->total_sessions_count }}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Total Sessions</div>
+                            <div class="text-2xl font-bold text-blue-600">{{ $this->total_sessions_count }}</div>
+                            <div class="text-sm text-gray-600">Total Sessions</div>
                         </div>
                         <flux:icon name="calendar" class="h-8 w-8 text-blue-500" />
                     </div>
@@ -1245,8 +1245,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ $this->completed_sessions_count }}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Completed</div>
+                            <div class="text-2xl font-bold text-green-600">{{ $this->completed_sessions_count }}</div>
+                            <div class="text-sm text-gray-600">Completed</div>
                         </div>
                         <flux:icon name="check-circle" class="h-8 w-8 text-green-500" />
                     </div>
@@ -1255,8 +1255,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $this->upcoming_sessions_count }}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Upcoming</div>
+                            <div class="text-2xl font-bold text-blue-600">{{ $this->upcoming_sessions_count }}</div>
+                            <div class="text-sm text-gray-600">Upcoming</div>
                         </div>
                         <flux:icon name="clock" class="h-8 w-8 text-blue-500" />
                     </div>
@@ -1265,10 +1265,10 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                            <div class="text-2xl font-bold text-yellow-600">
                                 {{ $class->sessions->where('status', 'ongoing')->count() }}
                             </div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Active Now</div>
+                            <div class="text-sm text-gray-600">Active Now</div>
                         </div>
                         <flux:icon name="play" class="h-8 w-8 text-yellow-500" />
                     </div>
@@ -1341,16 +1341,16 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             <div 
                                 x-data="sessionTimer('{{ $ongoingSession->started_at ? $ongoingSession->started_at->toISOString() : now()->toISOString() }}')"
                                 x-init="startTimer()"
-                                class="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800"
+                                class="p-3 bg-yellow-50 /20 rounded border border-yellow-200"
                             >
-                                <div class="text-sm text-yellow-800 dark:text-yellow-200 mb-1">Duration</div>
-                                <div class="text-xl font-mono font-bold text-yellow-900 dark:text-yellow-100" x-text="formattedTime"></div>
+                                <div class="text-sm text-yellow-800  mb-1">Duration</div>
+                                <div class="text-xl font-mono font-bold text-yellow-900" x-text="formattedTime"></div>
                             </div>
                             
                             @if($ongoingSession->hasBookmark())
-                                <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                                    <div class="text-sm text-blue-800 dark:text-blue-200 mb-1">Current Progress</div>
-                                    <div class="text-sm text-blue-900 dark:text-blue-100">{{ $ongoingSession->formatted_bookmark }}</div>
+                                <div class="p-3 bg-blue-50 /20 rounded border border-blue-200">
+                                    <div class="text-sm text-blue-800  mb-1">Current Progress</div>
+                                    <div class="text-sm text-blue-900">{{ $ongoingSession->formatted_bookmark }}</div>
                                 </div>
                             @endif
                             
@@ -1381,7 +1381,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             @if($this->total_sessions_count > 0)
                 <flux:card>
                     <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
                             <div>
                                 <flux:heading size="lg">Session Calendar</flux:heading>
                                 <div class="text-sm text-gray-500">
@@ -1398,28 +1398,28 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         </div>
                         
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-800">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date & Time</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Duration</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Progress</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Attendance</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Date & Time</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Duration</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Progress</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-900">
+                                <tbody class="bg-white">
                                     @php $hasAnySessions = count($this->sessions_by_month) > 0; @endphp
                                     @if($hasAnySessions)
                                         @foreach($this->sessions_by_month as $monthData)
                                             <!-- Month Header Row -->
-                                            <tr class="bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-600">
+                                            <tr class="bg-gray-50  border-t-2 border-gray-300">
                                                 <td colspan="6" class="px-6 py-4">
                                                     <div class="flex items-center justify-between">
                                                         <div class="flex items-center gap-3">
                                                             <flux:icon name="calendar" class="h-5 w-5 text-gray-500" />
-                                                            <span class="font-semibold text-gray-700 dark:text-gray-300">{{ $monthData['month_name'] }} {{ $monthData['year'] }}</span>
+                                                            <span class="font-semibold text-gray-700">{{ $monthData['month_name'] }} {{ $monthData['year'] }}</span>
                                                             <flux:badge color="gray" size="sm">{{ $monthData['stats']['total'] }} sessions</flux:badge>
                                                         </div>
                                                         <div class="flex gap-2 text-sm">
@@ -1439,13 +1439,13 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                             
                                             <!-- Sessions for this month -->
                                             @foreach($monthData['sessions'] as $session)
-                                                <tr class="divide-y divide-gray-200 dark:divide-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $session->isOngoing() ? 'bg-yellow-50 dark:bg-yellow-900/10' : '' }}">
+                                                <tr class="divide-y divide-gray-200  hover:bg-gray-50 :bg-gray-800/50 {{ $session->isOngoing() ? 'bg-yellow-50 /10' : '' }}">
                                                     <td class="px-6 py-4 whitespace-nowrap">
-                                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                        <div class="text-sm font-medium text-gray-900">
                                                             {{ $session->formatted_date_time }}
                                                         </div>
                                                         @if($session->isOngoing())
-                                                            <div class="text-xs text-yellow-700 dark:text-yellow-300 mt-1 flex items-center gap-1">
+                                                            <div class="text-xs text-yellow-700  mt-1 flex items-center gap-1">
                                                                 <div class="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>
                                                                 Active session
                                                             </div>
@@ -1458,7 +1458,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                             <div 
                                                                 x-data="sessionTimer('{{ $session->started_at ? $session->started_at->toISOString() : now()->toISOString() }}')"
                                                                 x-init="startTimer()"
-                                                                class="text-xs text-yellow-700 dark:text-yellow-300 font-mono mt-1"
+                                                                class="text-xs text-yellow-700  font-mono mt-1"
                                                             >
                                                                 <span x-text="formattedTime"></span>
                                                             </div>
@@ -1469,7 +1469,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                         @if($session->isOngoing())
                                                             <div class="flex items-center gap-2">
                                                                 <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                                                                <span class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Running</span>
+                                                                <span class="text-sm font-medium text-yellow-800">Running</span>
                                                             </div>
                                                         @else
                                                             @if($session->status === 'completed')
@@ -1490,7 +1490,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                         @if($session->hasBookmark())
                                                             <div class="flex items-center gap-2 group max-w-xs" title="{{ $session->bookmark }}">
                                                                 <flux:icon name="bookmark" class="h-4 w-4 text-amber-500 flex-shrink-0" />
-                                                                <span class="text-gray-900 dark:text-gray-100 truncate">{{ $session->formatted_bookmark }}</span>
+                                                                <span class="text-gray-900  truncate">{{ $session->formatted_bookmark }}</span>
                                                             </div>
                                                         @else
                                                             <span class="text-gray-400">No progress notes</span>
@@ -1603,8 +1603,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         <flux:icon name="calendar" class="mx-auto h-16 w-16 text-gray-400 mb-6" />
                         <flux:heading size="xl" class="mb-4">No Sessions Scheduled</flux:heading>
                         <flux:text class="text-lg mb-6 text-gray-600">This class doesn't have any sessions yet. Contact your administrator to schedule sessions.</flux:text>
-                        <div class="max-w-md mx-auto p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                            <flux:text size="sm" class="text-blue-800 dark:text-blue-200">
+                        <div class="max-w-md mx-auto p-4 bg-blue-50 /20 rounded-lg border border-blue-200">
+                            <flux:text size="sm" class="text-blue-800">
                                 💡 <strong>Tip:</strong> Sessions are where you'll conduct your classes, track attendance, and monitor progress.
                             </flux:text>
                         </div>
@@ -1621,8 +1621,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $this->enrolled_students_count }}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Total Students</div>
+                            <div class="text-2xl font-bold text-blue-600">{{ $this->enrolled_students_count }}</div>
+                            <div class="text-sm text-gray-600">Total Students</div>
                         </div>
                         <flux:icon name="users" class="h-8 w-8 text-blue-500" />
                     </div>
@@ -1631,8 +1631,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ $this->overall_attendance_rate }}%</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Avg. Attendance</div>
+                            <div class="text-2xl font-bold text-green-600">{{ $this->overall_attendance_rate }}%</div>
+                            <div class="text-sm text-gray-600">Avg. Attendance</div>
                         </div>
                         <flux:icon name="chart-bar" class="h-8 w-8 text-green-500" />
                     </div>
@@ -1641,8 +1641,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ $this->total_present_count }}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Total Present</div>
+                            <div class="text-2xl font-bold text-emerald-600">{{ $this->total_present_count }}</div>
+                            <div class="text-sm text-gray-600">Total Present</div>
                         </div>
                         <flux:icon name="check-circle" class="h-8 w-8 text-emerald-500" />
                     </div>
@@ -1651,8 +1651,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ $this->total_absent_count }}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Total Absent</div>
+                            <div class="text-2xl font-bold text-red-600">{{ $this->total_absent_count }}</div>
+                            <div class="text-sm text-gray-600">Total Absent</div>
                         </div>
                         <flux:icon name="x-circle" class="h-8 w-8 text-red-500" />
                     </div>
@@ -1668,7 +1668,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 <div class="flex items-center gap-3">
                                     <flux:icon name="users" class="h-5 w-5 text-blue-600" />
                                     <div>
-                                        <div class="font-medium text-gray-900 dark:text-gray-100">Class Capacity</div>
+                                        <div class="font-medium text-gray-900">Class Capacity</div>
                                         <div class="text-sm text-gray-500">{{ $this->enrolled_students_count }} of {{ $class->max_capacity }} students enrolled</div>
                                     </div>
                                 </div>
@@ -1676,7 +1676,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                     <div class="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
                                         <div class="h-full bg-blue-500 rounded-full" style="width: {{ ($this->enrolled_students_count / $class->max_capacity) * 100 }}%"></div>
                                     </div>
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ round(($this->enrolled_students_count / $class->max_capacity) * 100, 1) }}%</span>
+                                    <span class="text-sm font-medium text-gray-700">{{ round(($this->enrolled_students_count / $class->max_capacity) * 100, 1) }}%</span>
                                 </div>
                             </div>
                         </flux:card>
@@ -1686,7 +1686,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <!-- Students List -->
                 <flux:card>
                     <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
                             <div>
                                 <flux:heading size="lg">Student Performance</flux:heading>
                                 <flux:text size="sm" class="text-gray-500">
@@ -1699,18 +1699,18 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         </div>
                         
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-800">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Student</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Enrollment Date</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sessions Attended</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Attendance Rate</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Performance</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Student</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Enrollment Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Sessions Attended</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance Rate</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Performance</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tbody class="bg-white  divide-y divide-gray-200">
                                     @foreach($class->activeStudents->sortBy('student.user.name') as $classStudent)
                                         @php
                                             $student = $classStudent->student;
@@ -1736,13 +1736,13 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                             $performanceColor = $attendanceRate >= 90 ? 'text-green-600' : ($attendanceRate >= 80 ? 'text-yellow-600' : ($attendanceRate >= 70 ? 'text-orange-600' : 'text-red-600'));
                                             $performanceText = $attendanceRate >= 90 ? 'Excellent' : ($attendanceRate >= 80 ? 'Good' : ($attendanceRate >= 70 ? 'Needs Improvement' : 'Poor'));
                                         @endphp
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                        <tr class="hover:bg-gray-50 :bg-gray-800/50">
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <div class="flex items-center gap-3">
                                                     <flux:avatar size="md" :name="$student->fullName" />
                                                     <div>
-                                                        <div class="font-medium text-gray-900 dark:text-gray-100">{{ $student->fullName }}</div>
-                                                        <div class="text-sm text-gray-500 dark:text-gray-400">ID: {{ $student->student_id }}</div>
+                                                        <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
+                                                        <div class="text-sm text-gray-500">ID: {{ $student->student_id }}</div>
                                                         @if($student->user->email)
                                                             <div class="text-xs text-gray-400">{{ $student->user->email }}</div>
                                                         @endif
@@ -1854,46 +1854,46 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                     <!-- Present Attendance -->
-                                    <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                    <div class="text-center p-4 bg-green-50 /20 rounded-lg">
                                         <div class="text-3xl font-bold text-green-600 mb-2">{{ $this->total_present_count }}</div>
-                                        <div class="text-sm text-green-800 dark:text-green-200 font-medium">Present Records</div>
-                                        <div class="text-xs text-green-700 dark:text-green-300 mt-1">
+                                        <div class="text-sm text-green-800  font-medium">Present Records</div>
+                                        <div class="text-xs text-green-700  mt-1">
                                             {{ round(($this->total_present_count / $this->total_attendance_records) * 100, 1) }}% of all records
                                         </div>
                                     </div>
                                     
                                     <!-- Late Attendance -->
-                                    <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                                    <div class="text-center p-4 bg-yellow-50 /20 rounded-lg">
                                         <div class="text-3xl font-bold text-yellow-600 mb-2">{{ $this->total_late_count }}</div>
-                                        <div class="text-sm text-yellow-800 dark:text-yellow-200 font-medium">Late Records</div>
-                                        <div class="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                                        <div class="text-sm text-yellow-800  font-medium">Late Records</div>
+                                        <div class="text-xs text-yellow-700  mt-1">
                                             {{ $this->total_attendance_records > 0 ? round(($this->total_late_count / $this->total_attendance_records) * 100, 1) : 0 }}% of all records
                                         </div>
                                     </div>
                                     
                                     <!-- Absent Records -->
-                                    <div class="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                    <div class="text-center p-4 bg-red-50 /20 rounded-lg">
                                         <div class="text-3xl font-bold text-red-600 mb-2">{{ $this->total_absent_count }}</div>
-                                        <div class="text-sm text-red-800 dark:text-red-200 font-medium">Absent Records</div>
-                                        <div class="text-xs text-red-700 dark:text-red-300 mt-1">
+                                        <div class="text-sm text-red-800  font-medium">Absent Records</div>
+                                        <div class="text-xs text-red-700  mt-1">
                                             {{ round(($this->total_absent_count / $this->total_attendance_records) * 100, 1) }}% of all records
                                         </div>
                                     </div>
                                     
                                     <!-- Excused Records -->
-                                    <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                    <div class="text-center p-4 bg-blue-50 /20 rounded-lg">
                                         <div class="text-3xl font-bold text-blue-600 mb-2">{{ $this->total_excused_count }}</div>
-                                        <div class="text-sm text-blue-800 dark:text-blue-200 font-medium">Excused Records</div>
-                                        <div class="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                                        <div class="text-sm text-blue-800  font-medium">Excused Records</div>
+                                        <div class="text-xs text-blue-700  mt-1">
                                             {{ $this->total_attendance_records > 0 ? round(($this->total_excused_count / $this->total_attendance_records) * 100, 1) : 0 }}% of all records
                                         </div>
                                     </div>
                                 </div>
                                 
                                 <!-- Overall Class Performance -->
-                                <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <div class="mt-6 p-4 bg-gray-50  rounded-lg">
                                     <div class="flex items-center justify-between mb-3">
-                                        <div class="font-medium text-gray-900 dark:text-gray-100">Overall Class Performance</div>
+                                        <div class="font-medium text-gray-900">Overall Class Performance</div>
                                         <div class="text-xl font-bold text-blue-600">{{ $this->overall_attendance_rate }}%</div>
                                     </div>
                                     
@@ -1902,7 +1902,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                              style="width: {{ $this->overall_attendance_rate }}%"></div>
                                     </div>
                                     
-                                    <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    <div class="mt-2 text-sm text-gray-600">
                                         Based on {{ $this->total_attendance_records }} attendance records across {{ $this->completed_sessions_count }} completed sessions
                                     </div>
                                 </div>
@@ -1919,8 +1919,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         <flux:text class="text-lg mb-6 text-gray-600">This class doesn't have any students enrolled yet.</flux:text>
                         
                         <div class="max-w-md mx-auto space-y-4">
-                            <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                                <flux:text size="sm" class="text-blue-800 dark:text-blue-200">
+                            <div class="p-4 bg-blue-50 /20 rounded-lg border border-blue-200">
+                                <flux:text size="sm" class="text-blue-800">
                                     📚 <strong>Class Type:</strong> {{ ucfirst($class->class_type) }} 
                                     @if($class->max_capacity)
                                         (Max {{ $class->max_capacity }} students)
@@ -1928,8 +1928,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 </flux:text>
                             </div>
                             
-                            <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                                <flux:text size="sm" class="text-green-800 dark:text-green-200">
+                            <div class="p-4 bg-green-50 /20 rounded-lg border border-green-200">
+                                <flux:text size="sm" class="text-green-800">
                                     📈 <strong>Ready to teach:</strong> Once students are enrolled, you'll be able to track their attendance and monitor their progress here.
                                 </flux:text>
                             </div>
@@ -1947,7 +1947,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Total Sessions</flux:heading>
+                            <flux:heading size="sm" class="text-gray-600">Total Sessions</flux:heading>
                             <flux:heading size="xl">{{ $this->class_sessions_count }}</flux:heading>
                             <flux:text size="sm" class="text-blue-600">All time</flux:text>
                         </div>
@@ -1958,7 +1958,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Upcoming</flux:heading>
+                            <flux:heading size="sm" class="text-gray-600">Upcoming</flux:heading>
                             <flux:heading size="xl">{{ $this->upcoming_sessions_count }}</flux:heading>
                             <flux:text size="sm" class="text-emerald-600">Next 7 days</flux:text>
                         </div>
@@ -1969,7 +1969,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Completed</flux:heading>
+                            <flux:heading size="sm" class="text-gray-600">Completed</flux:heading>
                             <flux:heading size="xl">{{ $this->completed_sessions_count }}</flux:heading>
                             <flux:text size="sm" class="text-green-600">Finished</flux:text>
                         </div>
@@ -1980,7 +1980,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <flux:card class="p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Weekly Hours</flux:heading>
+                            <flux:heading size="sm" class="text-gray-600">Weekly Hours</flux:heading>
                             <flux:heading size="xl">{{ round($this->weekly_hours, 1) }}</flux:heading>
                             <flux:text size="sm" class="text-purple-600">Average</flux:text>
                         </div>
@@ -2005,7 +2005,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
 
                 <!-- Week Navigation -->
                 <div class="mb-4">
-                    <div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border">
+                    <div class="flex items-center gap-3 bg-gray-50  rounded-lg p-3 border">
                         <flux:button 
                             variant="outline" 
                             wire:click="previousWeek" 
@@ -2018,8 +2018,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             </span>
                         </flux:button>
                         
-                        <div class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 rounded border min-w-[200px] text-center">
-                            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Current Week</div>
+                        <div class="px-4 py-2 text-sm font-semibold text-gray-900  bg-white  rounded border min-w-[200px] text-center">
+                            <div class="text-xs text-gray-500  uppercase tracking-wide">Current Week</div>
                             <div class="font-medium">{{ $this->current_week_label }}</div>
                         </div>
                         
@@ -2035,7 +2035,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             </span>
                         </flux:button>
                         
-                        <div class="border-l border-gray-300 dark:border-gray-600 pl-3">
+                        <div class="border-l border-gray-300  pl-3">
                             <flux:button 
                                 variant="primary" 
                                 wire:click="goToCurrentWeek" 
@@ -2053,9 +2053,9 @@ new #[Layout('components.layouts.teacher')] class extends Component {
 
                 @if($this->class->timetable && $this->class->timetable->weekly_schedule)
                     <flux:card>
-                        <div class="grid grid-cols-8 gap-0 border-b border-gray-200 dark:border-gray-700">
+                        <div class="grid grid-cols-8 gap-0 border-b border-gray-200">
                             <!-- Time column header -->
-                            <div class="p-3 font-medium text-gray-600 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700">
+                            <div class="p-3 font-medium text-gray-600  border-r border-gray-200">
                                 Time
                             </div>
                             
@@ -2064,8 +2064,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 @php
                                     $dayData = $this->weekly_calendar_data[$dayKey] ?? null;
                                 @endphp
-                                <div class="p-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0">
-                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ ucfirst(substr($dayKey, 0, 3)) }}</div>
+                                <div class="p-3 text-center border-r border-gray-200  last:border-r-0">
+                                    <div class="font-medium text-gray-900">{{ ucfirst(substr($dayKey, 0, 3)) }}</div>
                                     @if($dayData)
                                         <div class="text-sm {{ $dayData['is_today'] ? 'text-blue-600 font-semibold' : 'text-gray-500' }}">
                                             {{ $dayData['day_number'] }}
@@ -2081,9 +2081,9 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         @endphp
                         
                         @foreach($timeSlots as $timeSlot)
-                            <div class="grid grid-cols-8 gap-0 border-b border-gray-100 dark:border-gray-600">
+                            <div class="grid grid-cols-8 gap-0 border-b border-gray-100">
                                 <!-- Time label -->
-                                <div class="p-4 text-sm font-medium text-gray-600 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                <div class="p-4 text-sm font-medium text-gray-600  border-r border-gray-200  bg-gray-50">
                                     {{ Carbon::parse($timeSlot)->format('g:i A') }}
                                 </div>
                                 
@@ -2100,7 +2100,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                         }
                                     @endphp
                                     
-                                    <div class="p-2 border-r border-gray-200 dark:border-gray-700 last:border-r-0 min-h-[60px] relative">
+                                    <div class="p-2 border-r border-gray-200  last:border-r-0 min-h-[60px] relative">
                                         @if($isScheduled)
                                             <div class="h-full">
                                                 @if($session)
@@ -2168,8 +2168,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     <flux:card>
                         <div class="text-center py-12">
                             <flux:icon name="calendar-days" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                            <flux:heading size="lg" class="text-gray-600 dark:text-gray-400 mb-2">No timetable configured</flux:heading>
-                            <flux:text class="text-gray-600 dark:text-gray-400 mb-6">Set up a regular schedule for this class to use the weekly timetable view</flux:text>
+                            <flux:heading size="lg" class="text-gray-600  mb-2">No timetable configured</flux:heading>
+                            <flux:text class="text-gray-600  mb-6">Set up a regular schedule for this class to use the weekly timetable view</flux:text>
                             <flux:button variant="primary" icon="plus" wire:click="openCreateSessionModal">
                                 Add Manual Session
                             </flux:button>
@@ -2196,15 +2196,15 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <div 
                     x-data="sessionTimer('{{ $currentSession->started_at ? $currentSession->started_at->toISOString() : now()->toISOString() }}')" 
                     x-init="startTimer()"
-                    class="flex items-center gap-3 mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
+                    class="flex items-center gap-3 mb-6 p-4 bg-yellow-50 /20 rounded-lg border border-yellow-200"
                 >
                     <div class="flex items-center gap-2">
                         <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-                        <span class="font-medium text-yellow-800 dark:text-yellow-200">Session Running:</span>
-                        <span class="font-mono font-bold text-yellow-900 dark:text-yellow-100" x-text="formattedTime"></span>
+                        <span class="font-medium text-yellow-800">Session Running:</span>
+                        <span class="font-mono font-bold text-yellow-900" x-text="formattedTime"></span>
                     </div>
                     
-                    <div class="ml-auto flex items-center gap-2 text-sm text-yellow-700 dark:text-yellow-300">
+                    <div class="ml-auto flex items-center gap-2 text-sm text-yellow-700">
                         <span>{{ $currentSession->attendances->where('status', 'present')->count() }} present</span>
                         <span>•</span>
                         <span>{{ $currentSession->attendances->count() }} total</span>
@@ -2215,12 +2215,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 <!-- Student Attendance List -->
                 <div class="space-y-3 max-h-96 overflow-y-auto">
                     @foreach($currentSession->attendances as $attendance)
-                        <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div class="flex items-center justify-between p-3 border border-gray-200  rounded-lg">
                             <div class="flex items-center gap-3">
                                 <flux:avatar size="sm" :name="$attendance->student->fullName" />
                                 <div>
-                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $attendance->student->fullName }}</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ $attendance->student->student_id }}</div>
+                                    <div class="font-medium text-gray-900">{{ $attendance->student->fullName }}</div>
+                                    <div class="text-sm text-gray-500">{{ $attendance->student->student_id }}</div>
                                 </div>
                             </div>
                             
@@ -2284,8 +2284,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     </div>
                     
                     @if($currentSession->attendances->count() > 0)
-                        <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
-                            <div class="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
+                        <div class="p-3 bg-green-50 /20 rounded border border-green-200">
+                            <div class="flex items-center gap-2 text-sm text-green-800">
                                 <flux:icon name="check-circle" class="h-4 w-4" />
                                 <span>{{ $currentSession->attendances->where('status', 'present')->count() }} of {{ $currentSession->attendances->count() }} students marked as present</span>
                             </div>
@@ -2317,12 +2317,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             </div>
 
             @if($viewingSession->hasBookmark())
-                <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div class="mb-6 p-4 bg-blue-50 /20 rounded-lg border border-blue-200">
                     <div class="flex items-start gap-3">
                         <flux:icon name="bookmark" class="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                         <div>
-                            <div class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">Session Bookmark</div>
-                            <div class="text-sm text-blue-800 dark:text-blue-200">{{ $viewingSession->bookmark }}</div>
+                            <div class="text-sm font-medium text-blue-900  mb-1">Session Bookmark</div>
+                            <div class="text-sm text-blue-800">{{ $viewingSession->bookmark }}</div>
                         </div>
                     </div>
                 </div>
@@ -2343,7 +2343,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     <!-- Create Session Modal -->
     <flux:modal wire:model="showCreateSessionModal" variant="flyout">
         <form wire:submit="createSession">
-            <div class="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-200">
                 <flux:heading size="lg">Create New Session</flux:heading>
             </div>
             
@@ -2394,7 +2394,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 </div>
             </div>
             
-            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
                 <flux:button 
                     wire:click="closeCreateSessionModal"
                     variant="ghost"

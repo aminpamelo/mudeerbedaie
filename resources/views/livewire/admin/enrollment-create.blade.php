@@ -133,13 +133,13 @@ new class extends Component {
             'metadata' => [
                 'payment_method_type' => 'manual',
                 'created_by' => auth()->id(),
-                'description' => "Manual payment for {$course->name} enrollment",
+                'description' =>"Manual payment for {$course->name} enrollment",
             ],
         ]);
 
         // Create order item for the course fee
         $order->items()->create([
-            'description' => "Course Fee - {$course->name}",
+            'description' =>"Course Fee - {$course->name}",
             'quantity' => 1,
             'unit_price' => $enrollment->enrollment_fee,
             'total_price' => $enrollment->enrollment_fee,

@@ -134,14 +134,14 @@ new class extends Component {
             </div>
 
             @if($student->user->paymentMethods->isEmpty())
-                <div class="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                <div class="mt-6 p-4 bg-amber-50 /20 border border-amber-200  rounded-lg">
                     <div class="flex items-start space-x-3">
                         <flux:icon.exclamation-triangle class="w-5 h-5 text-amber-600 mt-0.5" />
                         <div>
-                            <flux:text class="font-medium text-amber-800 dark:text-amber-200">No Payment Methods</flux:text>
-                            <flux:text class="text-amber-700 dark:text-amber-300 mt-1">
+                            <flux:text class="font-medium text-amber-800">No Payment Methods</flux:text>
+                            <flux:text class="text-amber-700  mt-1">
                                 This student cannot create subscriptions until a payment method is added. 
-                                Click "Manage Payment Methods" to add one.
+                                Click"Manage Payment Methods" to add one.
                             </flux:text>
                         </div>
                     </div>

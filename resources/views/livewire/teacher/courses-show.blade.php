@@ -87,7 +87,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     Back to Courses
                 </div>
             </flux:button>
-            <div class="border-l border-gray-300 dark:border-gray-600 h-6"></div>
+            <div class="border-l border-gray-300  h-6"></div>
             <div>
                 <flux:heading size="xl">{{ $course->name }}</flux:heading>
                 <flux:text class="mt-1">{{ $course->description ?: 'Course details and class management' }}</flux:text>
@@ -107,37 +107,37 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     <!-- Stats Cards -->
     <div class="grid gap-4 md:grid-cols-4 mb-8">
         <flux:card class="text-center p-4">
-            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+            <div class="text-2xl font-bold text-blue-600  mb-2">
                 {{ $totalClasses }}
             </div>
-            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+            <flux:text size="sm" class="text-gray-600">
                 Total Classes
             </flux:text>
         </flux:card>
 
         <flux:card class="text-center p-4">
-            <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
+            <div class="text-2xl font-bold text-emerald-600  mb-2">
                 {{ $activeClasses }}
             </div>
-            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+            <flux:text size="sm" class="text-gray-600">
                 Active Classes
             </flux:text>
         </flux:card>
 
         <flux:card class="text-center p-4">
-            <div class="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+            <div class="text-2xl font-bold text-purple-600  mb-2">
                 {{ $totalStudents }}
             </div>
-            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+            <flux:text size="sm" class="text-gray-600">
                 Total Students
             </flux:text>
         </flux:card>
 
         <flux:card class="text-center p-4">
-            <div class="text-2xl font-bold text-orange-600 dark:text-orange-400 mb-2">
+            <div class="text-2xl font-bold text-orange-600  mb-2">
                 {{ $totalSessions }}
             </div>
-            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
+            <flux:text size="sm" class="text-gray-600">
                 Total Sessions
             </flux:text>
         </flux:card>
@@ -154,7 +154,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 @if($classes->count() > 0)
                     <div class="space-y-4">
                         @foreach($classes as $class)
-                            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <div class="border border-gray-200  rounded-lg p-4 hover:bg-gray-50 :bg-gray-800 transition-colors">
                                 <div class="flex items-start justify-between mb-3">
                                     <div class="flex-1">
                                         <div class="flex items-center space-x-3 mb-2">
@@ -170,14 +170,14 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                             @endif
                                         </div>
                                         @if($class->description)
-                                            <flux:text size="sm" class="text-gray-600 dark:text-gray-400 mb-2">
+                                            <flux:text size="sm" class="text-gray-600  mb-2">
                                                 {{ $class->description }}
                                             </flux:text>
                                         @endif
                                     </div>
                                 </div>
 
-                                <div class="grid grid-cols-3 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                <div class="grid grid-cols-3 gap-4 text-sm text-gray-600  mb-4">
                                     <div class="flex items-center">
                                         <flux:icon icon="users" class="w-4 h-4 mr-1" />
                                         {{ $class->active_students_count }} students
@@ -215,7 +215,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                     <div class="text-center py-8">
                         <flux:icon icon="academic-cap" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
                         <flux:heading size="md" class="mb-2">No Classes Yet</flux:heading>
-                        <flux:text class="text-gray-600 dark:text-gray-400">
+                        <flux:text class="text-gray-600">
                             You don't have any classes for this course yet.
                         </flux:text>
                     </div>
@@ -231,12 +231,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 @if($students->count() > 0)
                     <div class="space-y-3">
                         @foreach($students->take(10) as $studentData)
-                            <div class="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <div class="flex items-center space-x-3 p-3 border border-gray-200  rounded-lg">
                                 <div class="flex-1 min-w-0">
                                     <flux:text size="sm" class="font-medium">
                                         {{ $studentData['student']->user->name }}
                                     </flux:text>
-                                    <flux:text size="xs" class="text-gray-500 dark:text-gray-400">
+                                    <flux:text size="xs" class="text-gray-500">
                                         {{ $studentData['class']->title }}
                                     </flux:text>
                                 </div>
@@ -248,7 +248,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
 
                         @if($students->count() > 10)
                             <div class="text-center pt-4">
-                                <flux:text size="sm" class="text-gray-500 dark:text-gray-400">
+                                <flux:text size="sm" class="text-gray-500">
                                     And {{ $students->count() - 10 }} more students...
                                 </flux:text>
                             </div>
@@ -257,7 +257,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 @else
                     <div class="text-center py-8">
                         <flux:icon icon="users" class="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <flux:text class="text-gray-600 dark:text-gray-400">
+                        <flux:text class="text-gray-600">
                             No students enrolled yet
                         </flux:text>
                     </div>

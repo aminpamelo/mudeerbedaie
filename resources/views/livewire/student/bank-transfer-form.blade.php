@@ -99,16 +99,16 @@ new class extends Component {
 
     private function buildPaymentNotes(): string
     {
-        $notes = "Bank Transfer Payment Submission:\n";
-        $notes .= "Transaction Reference: {$this->transactionReference}\n";
-        $notes .= "Payment Date: {$this->paymentDate}\n";
-        $notes .= "Submitted: " . now()->format('Y-m-d H:i:s') . "\n";
+        $notes ="Bank Transfer Payment Submission:\n";
+        $notes .="Transaction Reference: {$this->transactionReference}\n";
+        $notes .="Payment Date: {$this->paymentDate}\n";
+        $notes .="Submitted: " . now()->format('Y-m-d H:i:s') . "\n";
         
         if ($this->notes) {
-            $notes .= "Student Notes: {$this->notes}\n";
+            $notes .="Student Notes: {$this->notes}\n";
         }
         
-        $notes .= "Status: Awaiting admin verification\n";
+        $notes .="Status: Awaiting admin verification\n";
         
         return $notes;
     }
@@ -161,7 +161,7 @@ new class extends Component {
                         <flux:text size="sm" class="text-gray-600">Transfer the exact invoice amount to this account</flux:text>
                     </flux:header>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <div class="bg-blue-50 /20 p-4 rounded-lg">
                         <div class="grid grid-cols-1 gap-4">
                             @if($bankDetails['bank_name'])
                                 <div>
@@ -198,7 +198,7 @@ new class extends Component {
                         </div>
                     </div>
 
-                    <div class="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg">
+                    <div class="mt-4 p-4 bg-amber-50 /20 border border-amber-200 rounded-lg">
                         <div class="flex items-start">
                             <flux:icon icon="exclamation-triangle" class="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
                             <div>

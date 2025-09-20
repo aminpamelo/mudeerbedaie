@@ -41,7 +41,7 @@ new class extends Component {
                     $this->payment->update([
                         'status' => Payment::STATUS_REFUNDED,
                         'stripe_refund_id' => $refund->id,
-                        'notes' => ($this->payment->notes ?: '') . "\nRefunded by admin: " . auth()->user()->name . ' at ' . now()->format('Y-m-d H:i:s')
+                        'notes' => ($this->payment->notes ?: '') ."\nRefunded by admin: " . auth()->user()->name . ' at ' . now()->format('Y-m-d H:i:s')
                     ]);
 
                     session()->flash('success', 'Payment refunded successfully.');
@@ -52,7 +52,7 @@ new class extends Component {
                 // Mark bank transfer as refunded
                 $this->payment->update([
                     'status' => Payment::STATUS_REFUNDED,
-                    'notes' => ($this->payment->notes ?: '') . "\nMarked as refunded by admin: " . auth()->user()->name . ' at ' . now()->format('Y-m-d H:i:s')
+                    'notes' => ($this->payment->notes ?: '') ."\nMarked as refunded by admin: " . auth()->user()->name . ' at ' . now()->format('Y-m-d H:i:s')
                 ]);
 
                 session()->flash('success', 'Payment marked as refunded.');
@@ -81,7 +81,7 @@ new class extends Component {
                 'status' => Payment::STATUS_SUCCEEDED,
                 'approved_at' => now(),
                 'approved_by' => auth()->id(),
-                'notes' => ($this->payment->notes ?: '') . "\nApproved by admin: " . auth()->user()->name . ' at ' . now()->format('Y-m-d H:i:s')
+                'notes' => ($this->payment->notes ?: '') ."\nApproved by admin: " . auth()->user()->name . ' at ' . now()->format('Y-m-d H:i:s')
             ]);
 
             // Mark invoice as paid if this payment covers the full amount
@@ -128,7 +128,7 @@ new class extends Component {
         try {
             $this->payment->update([
                 'status' => Payment::STATUS_FAILED,
-                'notes' => ($this->payment->notes ?: '') . "\nRejected by admin: " . auth()->user()->name . ' at ' . now()->format('Y-m-d H:i:s')
+                'notes' => ($this->payment->notes ?: '') ."\nRejected by admin: " . auth()->user()->name . ' at ' . now()->format('Y-m-d H:i:s')
             ]);
 
             // Send payment failed email
@@ -285,7 +285,7 @@ new class extends Component {
                 @if($payment->notes)
                     <div class="mt-6 border-t pt-6">
                         <flux:text size="sm" class="text-gray-600 mb-2">Notes</flux:text>
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                        <div class="bg-gray-50  rounded-lg p-4">
                             <flux:text class="whitespace-pre-wrap">{{ $payment->notes }}</flux:text>
                         </div>
                     </div>
@@ -332,7 +332,7 @@ new class extends Component {
                     @if(isset($payment->stripe_metadata['student_notes']) && $payment->stripe_metadata['student_notes'])
                         <div class="mt-4">
                             <flux:text size="sm" class="text-gray-600 mb-2">Student Notes</flux:text>
-                            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                            <div class="bg-blue-50 /20 rounded-lg p-4">
                                 <flux:text class="text-sm">{{ $payment->stripe_metadata['student_notes'] }}</flux:text>
                             </div>
                         </div>
@@ -341,7 +341,7 @@ new class extends Component {
                     @if(isset($payment->stripe_metadata['proof_file_path']))
                         <div class="mt-6 border-t pt-6">
                             <flux:text size="sm" class="text-gray-600 mb-4">Proof of Payment</flux:text>
-                            <div class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                            <div class="border rounded-lg p-4 bg-gray-50">
                                 @php
                                     $filePath = $payment->stripe_metadata['proof_file_path'];
                                     $fileUrl = Storage::disk('public')->url($filePath);

@@ -63,7 +63,7 @@ new class extends Component {
             'description' => 'nullable|string',
             'duration_minutes' => 'required|integer|min:15|max:480',
             'class_type' => 'required|in:individual,group',
-            'max_capacity' => 'nullable|integer|min:1|max:100',
+            'max_capacity' => 'nullable|integer|min:1|max:10000',
             'location' => 'nullable|string|max:255',
             'meeting_url' => 'nullable|url|max:255',
             'teacher_rate' => 'required|numeric|min:0',
@@ -381,7 +381,7 @@ new class extends Component {
                     @if($class_type === 'group')
                         <flux:field>
                             <flux:label>Max Capacity</flux:label>
-                            <flux:input wire:model="max_capacity" type="number" min="1" max="100" placeholder="Optional" />
+                            <flux:input wire:model="max_capacity" type="number" min="1" max="10000" placeholder="Optional" />
                             <flux:description>Maximum number of students (optional)</flux:description>
                             <flux:error name="max_capacity" />
                         </flux:field>

@@ -2293,10 +2293,10 @@ class StripeService
 
             // Update subscription payment method and resume collection safely
             $this->updateSubscriptionPaymentMethod($enrollment->stripe_subscription_id, $paymentMethod->stripe_payment_method_id);
-            
+
             // Get current subscription to check trial status
             $subscription = $this->stripe->subscriptions->retrieve($enrollment->stripe_subscription_id);
-            
+
             // If trial has expired and collection is paused, we need to resume safely
             // to prevent immediate charging for "missed" periods
             if ($subscription->pause_collection && $subscription->status !== 'trialing') {
@@ -2306,7 +2306,7 @@ class StripeService
                     'billing_cycle_anchor' => 'now', // Start fresh billing cycle from now
                     'proration_behavior' => 'none', // Don't charge for missed periods
                 ]);
-                
+
                 Log::info('Resumed collection safely after trial expiration', [
                     'subscription_id' => $enrollment->stripe_subscription_id,
                     'enrollment_id' => $enrollment->id,

@@ -121,7 +121,7 @@ new class extends Component {
         
         // TODO: Send password reset email with new password
         
-        session()->flash('success', "Password reset successfully. New password: {$newPassword}");
+        session()->flash('success',"Password reset successfully. New password: {$newPassword}");
     }
     
     public function cancel()

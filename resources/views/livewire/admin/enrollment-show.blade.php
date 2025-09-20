@@ -62,7 +62,7 @@ new class extends Component
 
     public function mount(): void
     {
-        $this->enrollment->load(['student.user', 'course.feeSettings', 'enrolledBy', 'orders']);
+        $this->enrollment->load(['student.user', 'student.classStudents.class', 'course.feeSettings', 'course.classes', 'enrolledBy', 'orders']);
 
         // Load subscription events
         $this->refreshSubscriptionEvents();
@@ -365,7 +365,7 @@ new class extends Component
 
             if (! $this->enrollment->course->feeSettings->stripe_price_id) {
                 \Log::warning('Course missing Stripe price ID', ['enrollment_id' => $this->enrollment->id]);
-                session()->flash('error', 'Course must be synced with Stripe first. Go to Course Edit page and click "Sync to Stripe".');
+                session()->flash('error', 'Course must be synced with Stripe first. Go to Course Edit page and click"Sync to Stripe".');
 
                 return;
             }
@@ -656,7 +656,7 @@ new class extends Component
             }
 
             if (! $this->enrollment->course->feeSettings->stripe_price_id) {
-                session()->flash('error', 'Course must be synced with Stripe first. Go to Course Edit page and click "Sync to Stripe".');
+                session()->flash('error', 'Course must be synced with Stripe first. Go to Course Edit page and click"Sync to Stripe".');
 
                 return;
             }
@@ -1359,24 +1359,25 @@ new class extends Component
     {
         if (! $this->enrollment->canSwitchPaymentMethod()) {
             session()->flash('error', 'Cannot switch payment method at this time.');
+
             return;
         }
 
         try {
             $stripeService = app(\App\Services\StripeService::class);
-            
+
             // Ensure we have the latest student data with proper relationships
             $this->enrollment->load('student.user');
-            
+
             // Check if student's user has a Stripe customer account
             $user = $this->enrollment->student->user;
             $stripeCustomer = $user->stripeCustomer ?? null;
-            
+
             if (! $stripeCustomer) {
                 // First try to find existing customer by email
                 try {
                     $existingCustomer = $stripeService->findCustomerByEmail($user->email);
-                    
+
                     if ($existingCustomer) {
                         // Create StripeCustomer record linking to this user
                         $stripeCustomer = \App\Models\StripeCustomer::create([
@@ -1385,12 +1386,12 @@ new class extends Component
                             'metadata' => json_encode($existingCustomer->toArray()),
                             'last_synced_at' => now(),
                         ]);
-                        
+
                         session()->flash('success', 'Found and linked existing Stripe customer account. Checking payment methods...');
                     } else {
                         // Create new customer in Stripe
                         $customer = $stripeService->createCustomer($user->email, $user->name);
-                        
+
                         // Create StripeCustomer record
                         $stripeCustomer = \App\Models\StripeCustomer::create([
                             'user_id' => $user->id,
@@ -1398,24 +1399,27 @@ new class extends Component
                             'metadata' => json_encode($customer->toArray()),
                             'last_synced_at' => now(),
                         ]);
-                        
+
                         session()->flash('info', 'Created new Stripe customer account. Student needs to add a payment method.');
+
                         return;
                     }
-                    
+
                 } catch (\Exception $e) {
-                    session()->flash('error', 'Failed to setup Stripe customer account: ' . $e->getMessage());
+                    session()->flash('error', 'Failed to setup Stripe customer account: '.$e->getMessage());
+
                     return;
                 }
             }
-            
+
             // Now check if the user has payment methods
             $hasPaymentMethods = $user->paymentMethods()->where('is_active', true)->exists();
             if (! $hasPaymentMethods) {
                 session()->flash('error', 'Student has a Stripe customer account but no active payment methods found. Please ask the student to add a card in their account settings.');
+
                 return;
             }
-            
+
             // At this point, we know the student has a Stripe customer account and payment methods
             // (either pre-existing or newly linked)
 
@@ -1424,7 +1428,7 @@ new class extends Component
                 // Get the student's default payment method
                 $student = $this->enrollment->student;
                 $defaultPaymentMethod = $student->user->paymentMethods()->where('is_default', true)->first();
-                
+
                 if (! $defaultPaymentMethod) {
                     // Try to get the first available payment method
                     $defaultPaymentMethod = $student->user->paymentMethods()->first();
@@ -1432,12 +1436,13 @@ new class extends Component
 
                 if (! $defaultPaymentMethod) {
                     session()->flash('error', 'No payment method found for student. Please ask them to add a payment method first.');
+
                     return;
                 }
 
                 // Use the StripeService method to switch to automatic payments
                 $result = $stripeService->switchToAutomaticPayments($this->enrollment, $defaultPaymentMethod);
-                
+
                 session()->flash('success', 'Payment method switched to automatic payments successfully. Future payments will be charged automatically.');
             } else {
                 // For enrollments without active subscriptions, just update the enrollment type
@@ -1445,7 +1450,7 @@ new class extends Component
                     'payment_method_type' => 'automatic',
                     'manual_payment_required' => false,
                 ]);
-                
+
                 session()->flash('success', 'Payment method switched to automatic. A subscription will be created when the next payment is due.');
             }
 
@@ -1455,10 +1460,10 @@ new class extends Component
         } catch (\Exception $e) {
             \Log::error('Failed to switch payment method to automatic', [
                 'enrollment_id' => $this->enrollment->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
-            session()->flash('error', 'Failed to switch payment method: ' . $e->getMessage());
+
+            session()->flash('error', 'Failed to switch payment method: '.$e->getMessage());
         }
     }
 
@@ -1466,6 +1471,7 @@ new class extends Component
     {
         if (! $this->enrollment->canSwitchPaymentMethod()) {
             session()->flash('error', 'Cannot switch payment method at this time.');
+
             return;
         }
 
@@ -1475,7 +1481,7 @@ new class extends Component
             // If there's an active subscription, use the StripeService method
             if ($this->enrollment->stripe_subscription_id) {
                 $result = $stripeService->switchToManualPayments($this->enrollment);
-                
+
                 session()->flash('success', 'Payment method switched to manual payments successfully. Collection has been paused and future payments will require manual processing.');
             } else {
                 // For enrollments without active subscriptions, just update the enrollment type
@@ -1483,7 +1489,7 @@ new class extends Component
                     'payment_method_type' => 'manual',
                     'manual_payment_required' => true,
                 ]);
-                
+
                 session()->flash('success', 'Payment method switched to manual. Future payments will require manual processing.');
             }
 
@@ -1493,34 +1499,34 @@ new class extends Component
         } catch (\Exception $e) {
             \Log::error('Failed to switch payment method to manual', [
                 'enrollment_id' => $this->enrollment->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
-            session()->flash('error', 'Failed to switch payment method: ' . $e->getMessage());
+
+            session()->flash('error', 'Failed to switch payment method: '.$e->getMessage());
         }
     }
 
     public function getStudentPaymentMethodsDetails(): array
     {
-        if (!$this->enrollment->student || !$this->enrollment->student->user) {
+        if (! $this->enrollment->student || ! $this->enrollment->student->user) {
             return [
                 'ready' => false,
                 'has_customer' => false,
                 'payment_methods' => [],
                 'status' => 'No user account',
-                'message' => 'Student needs a valid user account first'
+                'message' => 'Student needs a valid user account first',
             ];
         }
 
         try {
             $user = $this->enrollment->student->user;
             $stripeService = app(\App\Services\StripeService::class);
-            
+
             // Check if user has a linked Stripe customer
             $stripeCustomer = $user->stripeCustomer;
-            
+
             // If no linked customer, try to find existing customer by email
-            if (!$stripeCustomer) {
+            if (! $stripeCustomer) {
                 try {
                     $existingCustomer = $stripeService->findCustomerByEmail($user->email);
                     if ($existingCustomer) {
@@ -1530,7 +1536,7 @@ new class extends Component
                             'has_customer' => false, // Not yet linked in our database
                             'payment_methods' => [],
                             'status' => 'Stripe customer found, not yet linked',
-                            'message' => 'Found existing Stripe customer. Click "Switch to Automatic Payment" to link and activate.'
+                            'message' => 'Found existing Stripe customer. Click"Switch to Automatic Payment" to link and activate.',
                         ];
                     } else {
                         // No existing customer found
@@ -1539,7 +1545,7 @@ new class extends Component
                             'has_customer' => false,
                             'payment_methods' => [],
                             'status' => 'No Stripe customer account',
-                            'message' => 'Student needs to be set up in Stripe first'
+                            'message' => 'Student needs to be set up in Stripe first',
                         ];
                     }
                 } catch (\Exception $e) {
@@ -1548,24 +1554,24 @@ new class extends Component
                         'has_customer' => false,
                         'payment_methods' => [],
                         'status' => 'Cannot check Stripe customer',
-                        'message' => 'Error checking for existing customer account'
+                        'message' => 'Error checking for existing customer account',
                     ];
                 }
             }
-            
+
             // We have a linked customer, check their payment methods using our database
             $hasPaymentMethods = $user->paymentMethods()->where('is_active', true)->exists();
             $paymentMethodCount = $user->paymentMethods()->where('is_active', true)->count();
-            
+
             return [
                 'ready' => $hasPaymentMethods && $this->enrollment->canSwitchPaymentMethod(),
                 'has_customer' => true,
                 'payment_methods' => $user->paymentMethods()->where('is_active', true)->get(),
                 'payment_method_count' => $paymentMethodCount,
                 'status' => $hasPaymentMethods ? 'Ready for automatic payments' : 'No payment methods found',
-                'message' => $hasPaymentMethods 
-                    ? 'Student has ' . $paymentMethodCount . ' payment method(s) on file'
-                    : 'Student must add a payment method first. Ask them to set up a card in their account settings.'
+                'message' => $hasPaymentMethods
+                    ? 'Student has '.$paymentMethodCount.' payment method(s) on file'
+                    : 'Student must add a payment method first. Ask them to set up a card in their account settings.',
             ];
         } catch (\Exception $e) {
             \Log::warning('Failed to check customer payment methods for readiness display', [
@@ -1579,7 +1585,7 @@ new class extends Component
                 'has_customer' => false,
                 'payment_methods' => [],
                 'status' => 'Unable to check payment methods',
-                'message' => 'Error checking payment methods. Please try again.'
+                'message' => 'Error checking payment methods. Please try again.',
             ];
         }
     }
@@ -1588,57 +1594,130 @@ new class extends Component
     {
         return $this->getStudentPaymentMethodsDetails();
     }
+
+    public function joinClass($classId)
+    {
+        try {
+            $class = \App\Models\ClassModel::findOrFail($classId);
+
+            // Validate the enrollment can join this class
+            if (! $this->enrollment->canJoinClass($class)) {
+                session()->flash('error', 'Cannot join this class. Please check enrollment status and class availability.');
+
+                return;
+            }
+
+            // Check if already enrolled
+            $existingEnrollment = \App\Models\ClassStudent::where('class_id', $classId)
+                ->where('student_id', $this->enrollment->student_id)
+                ->where('status', 'active')
+                ->first();
+
+            if ($existingEnrollment) {
+                session()->flash('warning', 'Student is already enrolled in this class.');
+
+                return;
+            }
+
+            // Join the class using the enrollment method
+            $classStudent = $this->enrollment->joinClass($class);
+
+            if ($classStudent) {
+                session()->flash('success', "Successfully enrolled student in '{$class->title}'.");
+
+                // Refresh the enrollment to show updated data
+                $this->enrollment->refresh();
+            } else {
+                session()->flash('error', 'Failed to enroll student in class.');
+            }
+        } catch (\Exception $e) {
+            session()->flash('error', 'Error joining class: '.$e->getMessage());
+        }
+    }
+
+    public function leaveClass($classId, $reason = 'Left by admin')
+    {
+        try {
+            $class = \App\Models\ClassModel::findOrFail($classId);
+
+            // Find the active class enrollment
+            $classStudent = \App\Models\ClassStudent::where('class_id', $classId)
+                ->where('student_id', $this->enrollment->student_id)
+                ->where('status', 'active')
+                ->first();
+
+            if (! $classStudent) {
+                session()->flash('warning', 'Student is not enrolled in this class.');
+
+                return;
+            }
+
+            // Leave the class using the enrollment method
+            $result = $this->enrollment->leaveClass($class, $reason);
+
+            if ($result) {
+                session()->flash('success', "Successfully removed student from '{$class->title}'.");
+
+                // Refresh the enrollment to show updated data
+                $this->enrollment->refresh();
+            } else {
+                session()->flash('error', 'Failed to remove student from class.');
+            }
+        } catch (\Exception $e) {
+            session()->flash('error', 'Error leaving class: '.$e->getMessage());
+        }
+    }
 }; ?>
 
 <div>
     <!-- Flash Messages -->
     @if (session('success'))
-        <div class="mb-6 rounded-md bg-green-50 p-4 dark:bg-green-900/20">
+        <div class="mb-6 rounded-md bg-green-50 p-4 /20">
             <div class="flex">
                 <div class="flex-shrink-0">
                     <flux:icon.check-circle class="h-5 w-5 text-green-400" />
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ session('success') }}</p>
+                    <p class="text-sm font-medium text-green-800">{{ session('success') }}</p>
                 </div>
             </div>
         </div>
     @endif
 
     @if (session('error'))
-        <div class="mb-6 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
+        <div class="mb-6 rounded-md bg-red-50 p-4 /20">
             <div class="flex">
                 <div class="flex-shrink-0">
                     <flux:icon.x-circle class="h-5 w-5 text-red-400" />
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-red-800 dark:text-red-200">{{ session('error') }}</p>
+                    <p class="text-sm font-medium text-red-800">{{ session('error') }}</p>
                 </div>
             </div>
         </div>
     @endif
 
     @if (session('warning'))
-        <div class="mb-6 rounded-md bg-yellow-50 p-4 dark:bg-yellow-900/20">
+        <div class="mb-6 rounded-md bg-yellow-50 p-4 /20">
             <div class="flex">
                 <div class="flex-shrink-0">
                     <flux:icon.exclamation-triangle class="h-5 w-5 text-yellow-400" />
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-yellow-800 dark:text-yellow-200">{{ session('warning') }}</p>
+                    <p class="text-sm font-medium text-yellow-800">{{ session('warning') }}</p>
                 </div>
             </div>
         </div>
     @endif
 
     @if (session('info'))
-        <div class="mb-6 rounded-md bg-blue-50 p-4 dark:bg-blue-900/20">
+        <div class="mb-6 rounded-md bg-blue-50 p-4 /20">
             <div class="flex">
                 <div class="flex-shrink-0">
                     <flux:icon.information-circle class="h-5 w-5 text-blue-400" />
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-blue-800 dark:text-blue-200">{{ session('info') }}</p>
+                    <p class="text-sm font-medium text-blue-800">{{ session('info') }}</p>
                 </div>
             </div>
         </div>
@@ -1662,8 +1741,8 @@ new class extends Component
     <div class="mt-6 space-y-8">
         <!-- Status Badge -->
         <div class="flex justify-center">
-            <flux:badge size="lg" :class="$enrollment->status_badge_class">
-                {{ ucfirst($enrollment->status) }}
+            <flux:badge size="lg" :class="$enrollment->academic_status->badgeClass()">
+                {{ $enrollment->academic_status->label() }}
             </flux:badge>
         </div>
 
@@ -1862,18 +1941,18 @@ new class extends Component
                                 <div class="mt-4">
                                     <p class="text-xs text-gray-500">
                                         <flux:icon.exclamation-triangle class="h-3 w-3 inline mr-1" />
-                                        This subscription is waiting for payment confirmation. Click "Confirm Payment" to attempt automatic processing, or the student can complete payment setup themselves.
+                                        This subscription is waiting for payment confirmation. Click"Confirm Payment" to attempt automatic processing, or the student can complete payment setup themselves.
                                     </p>
                                 </div>
                             @elseif($enrollment->isPendingCancellation())
                                 <div class="mt-4">
-                                    <div class="rounded-md bg-orange-50 p-3 dark:bg-orange-900/20">
+                                    <div class="rounded-md bg-orange-50 p-3 /20">
                                         <div class="flex">
                                             <div class="flex-shrink-0">
                                                 <flux:icon.clock class="h-4 w-4 text-orange-400" />
                                             </div>
                                             <div class="ml-3">
-                                                <p class="text-xs text-orange-800 dark:text-orange-200">
+                                                <p class="text-xs text-orange-800">
                                                     <strong>Pending Cancellation:</strong> This subscription is scheduled to be canceled on {{ $enrollment->getFormattedCancellationDate() }}. 
                                                     The student will have access until that date, and no further charges will occur after cancellation. 
                                                     You can undo this cancellation at any time before it takes effect.
@@ -2666,6 +2745,143 @@ new class extends Component
                 </div>
             </flux:card>
         </div>
+
+        <!-- Class Management -->
+        <flux:card>
+            <flux:heading size="lg">Class Management</flux:heading>
+            <flux:text class="mt-2">Manage which classes this student is enrolled in for this course</flux:text>
+
+            <div class="mt-6">
+                @php
+                    $availableClasses = $enrollment->availableClasses;
+                    $enrolledClasses = $enrollment->student->classStudents()
+                        ->whereHas('class', function($query) {
+                            $query->where('course_id', $this->enrollment->course_id);
+                        })
+                        ->with('class')
+                        ->get();
+                @endphp
+
+                @if($availableClasses->count() > 0)
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Available Classes -->
+                        <div>
+                            <flux:heading size="md" class="mb-4">Available Classes</flux:heading>
+                            <div class="space-y-3">
+                                @foreach($availableClasses as $class)
+                                    @php
+                                        $isEnrolled = $enrolledClasses->contains(function($cs) use ($class) {
+                                            return $cs->class_id === $class->id && $cs->status === 'active';
+                                        });
+                                    @endphp
+                                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                        <div class="flex-1">
+                                            <flux:heading size="sm">
+                                                <a href="{{ route('classes.show', $class) }}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                                                    {{ $class->title }}
+                                                </a>
+                                            </flux:heading>
+                                            <flux:text size="sm" class="text-gray-600 mt-1">
+                                                {{ $class->date_time->format('M j, Y \a\t g:i A') }}
+                                                ({{ $class->duration_minutes }} min)
+                                            </flux:text>
+                                            <flux:text size="sm" class="text-gray-500">
+                                                {{ $class->class_type }} • Max: {{ $class->max_capacity }} students
+                                            </flux:text>
+                                        </div>
+                                        <div class="ml-4">
+                                            @if($isEnrolled)
+                                                <flux:badge variant="success" size="sm">Enrolled</flux:badge>
+                                                <flux:button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    color="red"
+                                                    wire:click="leaveClass({{ $class->id }})"
+                                                    class="ml-2"
+                                                >
+                                                    Leave Class
+                                                </flux:button>
+                                            @else
+                                                @if($enrollment->canJoinClass($class))
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="primary"
+                                                        wire:click="joinClass({{ $class->id }})"
+                                                    >
+                                                        Join Class
+                                                    </flux:button>
+                                                @else
+                                                    <flux:text size="sm" class="text-gray-500">
+                                                        Cannot join
+                                                    </flux:text>
+                                                @endif
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Enrolled Classes Details -->
+                        <div>
+                            <flux:heading size="md" class="mb-4">Enrollment Status</flux:heading>
+                            @if($enrolledClasses->count() > 0)
+                                <div class="space-y-3">
+                                    @foreach($enrolledClasses as $classStudent)
+                                        <div class="p-4 border border-gray-200 rounded-lg">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex-1">
+                                                    <flux:heading size="sm">
+                                                        <a href="{{ route('classes.show', $classStudent->class) }}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                                                            {{ $classStudent->class->title }}
+                                                        </a>
+                                                    </flux:heading>
+                                                    <flux:text size="sm" class="text-gray-600 mt-1">
+                                                        Enrolled: {{ $classStudent->enrolled_at->format('M j, Y') }}
+                                                    </flux:text>
+                                                </div>
+                                                <flux:badge
+                                                    :variant="$classStudent->status === 'active' ? 'success' : 'warning'"
+                                                    size="sm"
+                                                >
+                                                    {{ ucfirst($classStudent->status) }}
+                                                </flux:badge>
+                                            </div>
+                                            @if($classStudent->status !== 'active' && $classStudent->reason)
+                                                <flux:text size="sm" class="text-gray-500 mt-2">
+                                                    Reason: {{ $classStudent->reason }}
+                                                </flux:text>
+                                            @endif
+                                            @if($classStudent->left_at)
+                                                <flux:text size="sm" class="text-gray-500 mt-1">
+                                                    Left: {{ $classStudent->left_at->format('M j, Y') }}
+                                                </flux:text>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="text-center py-8">
+                                    <flux:icon.academic-cap class="mx-auto h-12 w-12 text-gray-400" />
+                                    <flux:heading size="sm" class="mt-2 text-gray-900">No Class Enrollments</flux:heading>
+                                    <flux:text size="sm" class="mt-1 text-gray-500">
+                                        This student is not enrolled in any classes for this course yet.
+                                    </flux:text>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @else
+                    <div class="text-center py-8">
+                        <flux:icon.calendar class="mx-auto h-12 w-12 text-gray-400" />
+                        <flux:heading size="sm" class="mt-2 text-gray-900">No Classes Available</flux:heading>
+                        <flux:text size="sm" class="mt-1 text-gray-500">
+                            There are no classes available for this course yet.
+                        </flux:text>
+                    </div>
+                @endif
+            </div>
+        </flux:card>
 
     </div>
 

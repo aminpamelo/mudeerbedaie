@@ -83,7 +83,7 @@ new class extends Component {
             'date_time' => 'required|date',
             'duration_minutes' => 'required|integer|min:15|max:480',
             'class_type' => 'required|in:individual,group',
-            'max_capacity' => 'nullable|integer|min:1|max:100',
+            'max_capacity' => 'nullable|integer|min:1|max:10000',
             'location' => 'nullable|string|max:255',
             'meeting_url' => 'nullable|url|max:255',
             'teacher_rate' => 'required|numeric|min:0',
@@ -373,7 +373,7 @@ new class extends Component {
                     @if($class_type === 'group')
                         <flux:field>
                             <flux:label>Max Capacity</flux:label>
-                            <flux:input wire:model="max_capacity" type="number" min="1" max="100" />
+                            <flux:input wire:model="max_capacity" type="number" min="1" max="10000" />
                             <flux:error name="max_capacity" />
                         </flux:field>
                     @endif
@@ -484,7 +484,7 @@ new class extends Component {
 
                 @if($enable_timetable)
                     <!-- Timetable Configuration -->
-                    <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 space-y-4">
+                    <div class="p-4 bg-blue-50 /20 rounded-lg border border-blue-200  space-y-4">
                         <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
                             <flux:field>
                                 <flux:label>Recurrence Pattern</flux:label>
@@ -512,8 +512,8 @@ new class extends Component {
                             
                             <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
                                 @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $day)
-                                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-center">
+                                    <div class="border border-gray-200  rounded-lg p-3">
+                                        <div class="text-sm font-medium text-gray-700  mb-3 text-center">
                                             {{ ucfirst($day) }}
                                         </div>
                                         

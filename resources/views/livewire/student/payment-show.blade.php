@@ -129,8 +129,8 @@ new class extends Component {
                 @if($payment->failure_reason && $payment->isFailed())
                     <div class="mt-6 border-t pt-6">
                         <flux:text size="sm" class="text-gray-600 mb-2">Failure Reason</flux:text>
-                        <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-                            <flux:text class="text-red-800 dark:text-red-200">{{ $payment->failure_reason }}</flux:text>
+                        <div class="bg-red-50 /20 rounded-lg p-4">
+                            <flux:text class="text-red-800">{{ $payment->failure_reason }}</flux:text>
                         </div>
                     </div>
                 @endif
@@ -266,16 +266,16 @@ new class extends Component {
                     </flux:text>
 
                     @if($payment->isFailed())
-                        <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-                            <flux:text size="sm" class="text-red-800 dark:text-red-200">
+                        <div class="bg-red-50 /20 rounded-lg p-4">
+                            <flux:text size="sm" class="text-red-800">
                                 <strong>Payment Failed:</strong> This usually occurs due to insufficient funds, expired cards, or bank security measures. Please try again with a different payment method.
                             </flux:text>
                         </div>
                     @endif
 
                     @if($payment->isPending())
-                        <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4">
-                            <flux:text size="sm" class="text-amber-800 dark:text-amber-200">
+                        <div class="bg-amber-50 /20 rounded-lg p-4">
+                            <flux:text size="sm" class="text-amber-800">
                                 <strong>Payment Pending:</strong> Bank transfers require manual verification. You'll receive an email confirmation once processed.
                             </flux:text>
                         </div>

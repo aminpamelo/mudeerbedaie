@@ -30,7 +30,7 @@
         <div class="flex flex-col lg:flex-row items-start lg:items-center gap-4">
             <!-- Enhanced Week Navigation -->
             @if($currentView === 'week')
-                <div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-lg p-2 border">
+                <div class="flex items-center gap-3 bg-gray-50  rounded-lg p-2 border">
                     <flux:button 
                         variant="outline" 
                         wire:click="previousPeriod" 
@@ -42,8 +42,8 @@
                         </div>
                     </flux:button>
                     
-                    <div class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 rounded border min-w-[200px] text-center">
-                        <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Current Week</div>
+                    <div class="px-4 py-2 text-sm font-semibold text-gray-900  bg-white  rounded border min-w-[200px] text-center">
+                        <div class="text-xs text-gray-500  uppercase tracking-wide">Current Week</div>
                         <div class="font-medium">{{ $currentPeriodLabel }}</div>
                     </div>
                     
@@ -58,7 +58,7 @@
                         </div>
                     </flux:button>
                     
-                    <div class="hidden md:block border-l border-gray-300 dark:border-gray-600 pl-3">
+                    <div class="hidden md:block border-l border-gray-300  pl-3">
                         <flux:button 
                             variant="primary" 
                             wire:click="goToToday" 
@@ -81,7 +81,7 @@
                         </div>
                     </flux:button>
                     
-                    <div class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 min-w-0">
+                    <div class="px-4 py-2 text-sm font-medium text-gray-900  min-w-0">
                         {{ $currentPeriodLabel }}
                     </div>
                     

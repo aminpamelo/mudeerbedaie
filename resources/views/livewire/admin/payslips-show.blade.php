@@ -62,7 +62,7 @@ new class extends Component {
             
             $this->payslip->delete();
             
-            session()->flash('success', "Payslip for {$teacherName} ({$month}) has been deleted.");
+            session()->flash('success',"Payslip for {$teacherName} ({$month}) has been deleted.");
             return redirect()->route('admin.payslips.index');
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to delete payslip: ' . $e->getMessage());
@@ -129,7 +129,7 @@ new class extends Component {
         </div>
         
         @if($payslip->finalized_at)
-            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="mt-4 pt-4 border-t border-gray-200">
                 <flux:text variant="muted" size="sm">Finalized on {{ $payslip->finalized_at->format('M d, Y g:i A') }}</flux:text>
             </div>
         @endif
@@ -141,7 +141,7 @@ new class extends Component {
         @endif
         
         @if($payslip->notes)
-            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="mt-4 pt-4 border-t border-gray-200">
                 <flux:text variant="muted" size="sm">Notes</flux:text>
                 <flux:text class="mt-1">{{ $payslip->notes }}</flux:text>
             </div>
@@ -176,7 +176,7 @@ new class extends Component {
             @endif
         </div>
         
-        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div class="mt-4 pt-4 border-t border-gray-200">
             <flux:button variant="outline" href="{{ route('teachers.show', $payslip->teacher) }}" wire:navigate>
                 <div class="flex items-center justify-center">
                     <flux:icon name="user" class="w-4 h-4 mr-1" />
@@ -194,7 +194,7 @@ new class extends Component {
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead>
-                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <tr class="border-b border-gray-200">
                             <th class="text-left py-3 px-4">Date & Time</th>
                             <th class="text-left py-3 px-4">Course & Class</th>
                             <th class="text-left py-3 px-4">Students</th>
@@ -204,7 +204,7 @@ new class extends Component {
                     </thead>
                     <tbody>
                         @foreach($payslip->sessions as $session)
-                            <tr class="border-b border-gray-100 dark:border-gray-800">
+                            <tr class="border-b border-gray-100">
                                 <td class="py-3 px-4">
                                     <flux:text>{{ $session->session_date->format('M d, Y') }}</flux:text>
                                     <flux:text variant="muted" size="sm" class="block">{{ $session->session_time->format('g:i A') }}</flux:text>
@@ -225,7 +225,7 @@ new class extends Component {
                             </tr>
                         @endforeach
                         
-                        <tr class="bg-gray-50 dark:bg-gray-900 font-semibold">
+                        <tr class="bg-gray-50  font-semibold">
                             <td colspan="4" class="py-3 px-4 text-right">
                                 <flux:text>Total Amount:</flux:text>
                             </td>
@@ -285,7 +285,7 @@ new class extends Component {
         </div>
         
         @if(!$payslip->canBeEdited() && !$payslip->canBeFinalized() && !$payslip->isFinalized())
-            <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div class="mt-4 p-4 bg-blue-50 /20 rounded-lg">
                 <flux:text variant="muted" size="sm">This payslip has been paid and cannot be modified.</flux:text>
             </div>
         @endif

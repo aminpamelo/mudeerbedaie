@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\AcademicStatus;
 use App\Models\Course;
 use App\Models\Student;
 use App\Models\User;
@@ -23,7 +24,7 @@ class EnrollmentFactory extends Factory
             'student_id' => Student::factory(),
             'course_id' => Course::factory(),
             'enrolled_by' => User::factory(),
-            'status' => 'enrolled',
+            'academic_status' => AcademicStatus::ACTIVE,
             'enrollment_date' => $this->faker->date(),
             'start_date' => $this->faker->dateTimeBetween('now', '+1 month'),
             'end_date' => $this->faker->dateTimeBetween('+1 month', '+6 months'),
@@ -43,7 +44,7 @@ class EnrollmentFactory extends Factory
     public function active(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'active',
+            'academic_status' => AcademicStatus::ACTIVE,
         ]);
     }
 
@@ -53,7 +54,7 @@ class EnrollmentFactory extends Factory
     public function completed(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'completed',
+            'academic_status' => AcademicStatus::COMPLETED,
             'completion_date' => $this->faker->dateTimeBetween('-1 month', 'now'),
         ]);
     }
@@ -104,12 +105,30 @@ class EnrollmentFactory extends Factory
     }
 
     /**
-     * Dropped enrollment.
+     * Withdrawn enrollment.
+     */
+    public function withdrawn(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'academic_status' => AcademicStatus::WITHDRAWN,
+        ]);
+    }
+
+    /**
+     * Suspended enrollment.
+     */
+    public function suspended(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'academic_status' => AcademicStatus::SUSPENDED,
+        ]);
+    }
+
+    /**
+     * Legacy method for backward compatibility.
      */
     public function dropped(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'status' => 'dropped',
-        ]);
+        return $this->withdrawn();
     }
 }

@@ -200,32 +200,32 @@ new class extends Component {
         <!-- Classes List -->
         <flux:card>
             <div class="overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <div class="px-6 py-4 border-b border-gray-200">
                     <flux:heading size="lg">Classes List</flux:heading>
                 </div>
                 
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead class="bg-gray-50 dark:bg-gray-800">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Class</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Course</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teacher</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Schedule</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Students & Sessions</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Class</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Course</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Teacher</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Schedule</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Students & Sessions</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        <tbody class="bg-white  divide-y divide-gray-200">
                             @forelse ($this->classes as $class)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150">
+                                <tr class="hover:bg-gray-50 :bg-gray-800 transition-colors duration-150">
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div>
-                                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ $class->title }}</div>
+                                            <div class="font-medium text-gray-900">{{ $class->title }}</div>
                                             @if($class->description)
-                                                <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
+                                                <div class="text-sm text-gray-500  truncate max-w-xs">
                                                     {{ Str::limit($class->description, 50) }}
                                                 </div>
                                             @endif
@@ -233,20 +233,20 @@ new class extends Component {
                                     </td>
                                     
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->course->name }}</div>
+                                        <div class="text-sm text-gray-900">{{ $class->course->name }}</div>
                                     </td>
                                     
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-2">
                                             <flux:avatar size="sm" :name="$class->teacher->fullName" />
-                                            <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->teacher->fullName }}</div>
+                                            <div class="text-sm text-gray-900">{{ $class->teacher->fullName }}</div>
                                         </div>
                                     </td>
                                     
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div>
-                                            <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->date_time->format('M d, Y') }}</div>
-                                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                                            <div class="text-sm text-gray-900">{{ $class->date_time->format('M d, Y') }}</div>
+                                            <div class="text-sm text-gray-500">
                                                 {{ $class->date_time->format('g:i A') }} ({{ $class->formatted_duration }})
                                             </div>
                                         </div>
@@ -256,10 +256,10 @@ new class extends Component {
                                         <div class="flex items-center gap-2">
                                             @if($class->isIndividual())
                                                 <flux:icon.user class="h-4 w-4 text-blue-500" />
-                                                <span class="text-sm text-gray-900 dark:text-gray-100">Individual</span>
+                                                <span class="text-sm text-gray-900">Individual</span>
                                             @else
                                                 <flux:icon.users class="h-4 w-4 text-green-500" />
-                                                <span class="text-sm text-gray-900 dark:text-gray-100">Group</span>
+                                                <span class="text-sm text-gray-900">Group</span>
                                                 @if($class->max_capacity)
                                                     <span class="text-xs text-gray-500">(Max: {{ $class->max_capacity }})</span>
                                                 @endif
@@ -274,7 +274,7 @@ new class extends Component {
                                     </td>
                                     
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900 dark:text-gray-100">
+                                        <div class="text-sm text-gray-900">
                                             {{ $class->active_student_count }} student(s)
                                         </div>
                                         <div class="text-xs text-gray-500">
@@ -309,7 +309,7 @@ new class extends Component {
                                     <td colspan="8" class="px-6 py-12 text-center">
                                         <div class="text-gray-500">
                                             <flux:icon.calendar-days class="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                                            <p class="text-gray-600 dark:text-gray-400">No classes found</p>
+                                            <p class="text-gray-600">No classes found</p>
                                             @if($search || $courseFilter || $statusFilter || $classTypeFilter)
                                                 <flux:button 
                                                     wire:click="clearFilters" 
@@ -330,7 +330,7 @@ new class extends Component {
                 
                 <!-- Pagination -->
                 @if($this->classes->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                    <div class="px-6 py-4 border-t border-gray-200">
                         {{ $this->classes->links() }}
                     </div>
                 @endif
