@@ -518,20 +518,17 @@ new class extends Component {
                                                 <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full">
                                                     <flux:icon icon="check" class="w-4 h-4" />
                                                 </div>
-                                                <div class="text-xs font-medium text-emerald-600">
-                                                    RM {{ number_format($payment['total_amount'], 2) }}
-                                                </div>
                                                 @if($payment['orders']->count() > 0)
-                                                    <div class="space-y-1">
-                                                        @foreach($payment['orders'] as $order)
-                                                            <flux:link
-                                                                :href="route('orders.show', $order)"
-                                                                class="block text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                                                                wire:navigate
-                                                            >
-                                                                {{ $order->order_number }}
-                                                            </flux:link>
-                                                        @endforeach
+                                                    <flux:link
+                                                        :href="route('orders.show', $payment['orders']->first())"
+                                                        class="block text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline cursor-pointer"
+                                                        wire:navigate
+                                                    >
+                                                        RM {{ number_format($payment['total_amount'], 2) }}
+                                                    </flux:link>
+                                                @else
+                                                    <div class="text-xs font-medium text-emerald-600">
+                                                        RM {{ number_format($payment['total_amount'], 2) }}
                                                     </div>
                                                 @endif
                                             </div>
@@ -594,7 +591,7 @@ new class extends Component {
                     <flux:text>No Payment</flux:text>
                 </div>
                 <div class="text-sm text-gray-600">
-                    Click on order numbers to view payment details
+                    Click on payment amounts to view order details
                 </div>
             </div>
         </flux:card>
