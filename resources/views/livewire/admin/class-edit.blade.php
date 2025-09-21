@@ -17,6 +17,7 @@ new class extends Component {
     public $max_capacity;
     public $location;
     public $meeting_url;
+    public $whatsapp_group_link;
     public $teacher_rate;
     public $rate_type;
     public $commission_type;
@@ -46,6 +47,7 @@ new class extends Component {
         $this->max_capacity = $class->max_capacity;
         $this->location = $class->location;
         $this->meeting_url = $class->meeting_url;
+        $this->whatsapp_group_link = $class->whatsapp_group_link;
         $this->teacher_rate = $class->teacher_rate;
         $this->rate_type = $class->rate_type;
         $this->commission_type = $class->commission_type;
@@ -86,6 +88,7 @@ new class extends Component {
             'max_capacity' => 'nullable|integer|min:1|max:10000',
             'location' => 'nullable|string|max:255',
             'meeting_url' => 'nullable|url|max:255',
+            'whatsapp_group_link' => 'nullable|url|max:255',
             'teacher_rate' => 'required|numeric|min:0',
             'rate_type' => 'required|in:per_class,per_student,per_session',
             'commission_type' => 'required_if:rate_type,per_session|in:percentage,fixed',
@@ -122,6 +125,7 @@ new class extends Component {
             'max_capacity' => $validated['class_type'] === 'individual' ? 1 : $validated['max_capacity'],
             'location' => $validated['location'],
             'meeting_url' => $validated['meeting_url'],
+            'whatsapp_group_link' => $validated['whatsapp_group_link'],
             'teacher_rate' => $validated['teacher_rate'],
             'rate_type' => $validated['rate_type'],
             'commission_type' => $validated['commission_type'],
@@ -402,6 +406,15 @@ new class extends Component {
                         <flux:label>Meeting URL</flux:label>
                         <flux:input wire:model="meeting_url" type="url" />
                         <flux:error name="meeting_url" />
+                    </flux:field>
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <flux:field>
+                        <flux:label>WhatsApp Group Link</flux:label>
+                        <flux:input wire:model="whatsapp_group_link" type="url" placeholder="https://chat.whatsapp.com/..." />
+                        <flux:description>Link to the class WhatsApp group for communication</flux:description>
+                        <flux:error name="whatsapp_group_link" />
                     </flux:field>
                 </div>
             </div>

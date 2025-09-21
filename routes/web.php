@@ -110,6 +110,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Student routes
     Route::get('students', [StudentController::class, 'index'])->name('students.index');
     Route::get('students/create', [StudentController::class, 'create'])->name('students.create');
+    Route::get('students/import', fn () => view('students.import'))->name('students.import');
+    Route::get('students/export', [StudentController::class, 'export'])->name('students.export');
+    Route::get('students/sample-csv', [StudentController::class, 'sampleCsv'])->name('students.sample-csv');
     Route::get('students/{student}', [StudentController::class, 'show'])->name('students.show');
     Route::get('students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
 
@@ -164,6 +167,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('payslips/generate', 'admin.payslips-generate')->name('admin.payslips.generate');
     Volt::route('payslips/{payslip}', 'admin.payslips-show')->name('admin.payslips.show');
     Volt::route('payslips/{payslip}/edit', 'admin.payslips-edit')->name('admin.payslips.edit');
+
+    // Reports routes
+    Volt::route('reports/subscriptions', 'admin.subscription-reports')->name('admin.reports.subscriptions');
+    Volt::route('reports/student-payments', 'admin.student-payment-report')->name('admin.reports.student-payments');
 
     // Admin Settings routes
     Route::redirect('settings', 'admin/settings/general');

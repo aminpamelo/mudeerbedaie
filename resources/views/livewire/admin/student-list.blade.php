@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Student;
+use App\Services\StudentImportService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -59,6 +60,25 @@ new class extends Component {
         $this->statusFilter = '';
         $this->resetPage();
     }
+
+    public function exportStudents(): void
+    {
+        // Store current filters in session for the download route
+        session([
+            'export_search' => $this->search,
+            'export_status_filter' => $this->statusFilter
+        ]);
+
+        // Redirect to the download route
+        $this->redirect(route('students.export'));
+    }
+
+    public function downloadSampleCsv(): void
+    {
+        // Redirect to the sample download route
+        $this->redirect(route('students.sample-csv'));
+    }
+
 }; ?>
 
 <div>
@@ -67,9 +87,30 @@ new class extends Component {
             <flux:heading size="xl">Students</flux:heading>
             <flux:text class="mt-2">Manage student profiles and information</flux:text>
         </div>
-        <flux:button variant="primary" href="{{ route('students.create') }}" icon="user-plus">
-            Add New Student
-        </flux:button>
+        <div class="flex space-x-3">
+            <flux:dropdown>
+                <flux:button variant="outline" icon="document-arrow-down">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="document-arrow-down" class="w-4 h-4 mr-1" />
+                        Export/Import
+                    </div>
+                </flux:button>
+                <flux:menu>
+                    <flux:menu.item wire:click="exportStudents" icon="document-arrow-down">
+                        Export Students (CSV)
+                    </flux:menu.item>
+                    <flux:menu.item href="{{ route('students.import') }}" icon="document-arrow-up">
+                        Import Students
+                    </flux:menu.item>
+                    <flux:menu.item wire:click="downloadSampleCsv" icon="document-text">
+                        Download Sample CSV
+                    </flux:menu.item>
+                </flux:menu>
+            </flux:dropdown>
+            <flux:button variant="primary" href="{{ route('students.create') }}" icon="user-plus">
+                Add New Student
+            </flux:button>
+        </div>
     </div>
 
     <div class="mt-6 space-y-6">

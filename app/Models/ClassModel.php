@@ -23,6 +23,7 @@ class ClassModel extends Model
         'max_capacity',
         'location',
         'meeting_url',
+        'whatsapp_group_link',
         'teacher_rate',
         'rate_type',
         'commission_type',

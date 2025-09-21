@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Services\StudentImportService;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response as BaseResponse;
 
 class StudentController extends Controller
 {
@@ -41,5 +43,51 @@ class StudentController extends Controller
         $student->load(['user']);
 
         return view('students.edit', compact('student'));
+    }
+
+    /**
+     * Export students to CSV with applied filters.
+     */
+    public function export(): BaseResponse
+    {
+        $query = Student::query()->with(['user']);
+
+        // Apply filters from session
+        $search = session('export_search');
+        $statusFilter = session('export_status_filter');
+
+        if ($search) {
+            $query->whereHas('user', function ($q) use ($search) {
+                $q->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('email', 'like', '%'.$search.'%');
+            })
+                ->orWhere('student_id', 'like', '%'.$search.'%')
+                ->orWhere('ic_number', 'like', '%'.$search.'%')
+                ->orWhere('phone', 'like', '%'.$search.'%');
+        }
+
+        if ($statusFilter) {
+            $query->where('status', $statusFilter);
+        }
+
+        $students = $query->get();
+        $service = new StudentImportService;
+        $filePath = $service->exportToCsv($students);
+
+        // Clear session data
+        session()->forget(['export_search', 'export_status_filter']);
+
+        return response()->download($filePath)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Download sample CSV file for import.
+     */
+    public function sampleCsv(): BaseResponse
+    {
+        $service = new StudentImportService;
+        $filePath = $service->generateSampleCsv();
+
+        return response()->download($filePath, 'students_import_sample.csv')->deleteFileAfterSend(true);
     }
 }

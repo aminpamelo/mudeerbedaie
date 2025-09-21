@@ -19,8 +19,8 @@ class CourseFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->words(3, true).' Course',
-            'description' => $this->faker->paragraph(),
+            'name' => 'Test Course '.rand(1000, 9999),
+            'description' => 'Test course description',
             'status' => 'active',
             'created_by' => User::factory(),
             'teacher_id' => null, // Optional teacher assignment
@@ -36,7 +36,7 @@ class CourseFactory extends Factory
     public function withStripe(): static
     {
         return $this->state(fn (array $attributes) => [
-            'stripe_product_id' => 'prod_'.$this->faker->lexify('????????????????'),
+            'stripe_product_id' => 'prod_'.substr(md5(rand()), 0, 16),
             'stripe_sync_status' => 'completed',
             'stripe_last_synced_at' => now(),
         ]);

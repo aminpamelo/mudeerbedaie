@@ -237,6 +237,109 @@ new class extends Component
         }
     }
 
+    public function getPaymentReportData()
+    {
+        if (!$this->enrollment->stripe_subscription_id) {
+            return collect([]);
+        }
+
+        // Use enrollment start date as the foundation for billing periods
+        if (!$this->enrollment->start_date) {
+            return collect([]);
+        }
+
+        // Get all paid and failed orders ordered by period
+        $orders = $this->enrollment->orders()
+            ->whereNotNull('period_start')
+            ->whereNotNull('period_end')
+            ->orderBy('period_start', 'asc')
+            ->get();
+
+        // Get subscription interval from course fee settings
+        $billingCycle = $this->enrollment->course->feeSettings->billing_cycle ?? 'monthly';
+        $interval = str_contains($billingCycle, 'month') ? 'month' : (str_contains($billingCycle, 'year') ? 'year' : 'month');
+        $intervalCount = 1; // Default to 1 for standard monthly/yearly cycles
+
+        // Generate all expected payment periods from enrollment start to appropriate end date
+        $paymentPeriods = collect([]);
+        $startDate = $this->enrollment->start_date->copy();
+
+        // Determine appropriate end date for subscription billing periods
+        $endDate = $this->enrollment->subscription_cancel_at ?? now();
+
+        // For subscription scenarios, extend beyond course end date if needed
+        if ($this->enrollment->end_date && $this->enrollment->end_date->lt($endDate)) {
+            // If this is an ongoing subscription, extend beyond course end date
+            $endDate = now()->addMonths(6); // Show future periods for active subscriptions
+        }
+
+        $currentPeriodStart = $startDate->copy();
+        $maxPeriods = 60; // Limit to prevent infinite loops
+        $periodCount = 0;
+
+        while ($currentPeriodStart->lte($endDate) && $periodCount < $maxPeriods) {
+            // Calculate period end based on interval
+            $currentPeriodEnd = $currentPeriodStart->copy();
+            if ($interval === 'month') {
+                $currentPeriodEnd->addMonths($intervalCount)->subDay();
+            } elseif ($interval === 'year') {
+                $currentPeriodEnd->addYears($intervalCount)->subDay();
+            } else {
+                $currentPeriodEnd->addDays($intervalCount * 30)->subDay(); // Fallback
+            }
+
+            // Find matching order for this period
+            $matchingOrder = $orders->first(function ($order) use ($currentPeriodStart, $currentPeriodEnd) {
+                return $order->period_start->equalTo($currentPeriodStart) ||
+                       ($order->period_start->gte($currentPeriodStart) && $order->period_start->lte($currentPeriodEnd));
+            });
+
+            // Determine period status
+            $status = 'unpaid';
+            $amount = $this->enrollment->enrollment_fee ?? 0;
+            $order = null;
+
+            if ($matchingOrder) {
+                $order = $matchingOrder;
+                $status = $matchingOrder->status;
+                $amount = $matchingOrder->amount;
+            } elseif ($currentPeriodEnd->isFuture()) {
+                $status = 'upcoming';
+            }
+
+            // Format period name based on interval
+            $periodName = $this->formatPeriodName($currentPeriodStart, $currentPeriodEnd, $interval);
+
+            $paymentPeriods->push([
+                'period_name' => $periodName,
+                'period_start' => $currentPeriodStart->copy(),
+                'period_end' => $currentPeriodEnd->copy(),
+                'status' => $status,
+                'amount' => $amount,
+                'order' => $order,
+                'is_current' => $currentPeriodStart->lte(now()) && $currentPeriodEnd->gte(now()),
+                'is_future' => $currentPeriodStart->isFuture(),
+            ]);
+
+            // Move to next period
+            $currentPeriodStart = $currentPeriodEnd->copy()->addDay();
+            $periodCount++;
+        }
+
+        return $paymentPeriods;
+    }
+
+    private function formatPeriodName($startDate, $endDate, $interval)
+    {
+        if ($interval === 'year') {
+            return $startDate->format('Y');
+        } elseif ($interval === 'month') {
+            return $startDate->format('M Y');
+        } else {
+            return $startDate->format('M d') . ' - ' . $endDate->format('M d, Y');
+        }
+    }
+
     public function syncSubscriptionData(): void
     {
         try {
@@ -2458,7 +2561,123 @@ new class extends Component
                 @endif
             </div>
         </flux:card>
-        
+
+        <!-- Payment Report -->
+        @if($enrollment->stripe_subscription_id)
+            @php
+                $paymentReport = $this->getPaymentReportData();
+            @endphp
+
+            @if($paymentReport->isNotEmpty())
+                <flux:card>
+                    <flux:heading size="lg">Subscription Payment Report</flux:heading>
+                    <flux:text class="mt-2 text-gray-600">
+                        Payment periods based on subscription billing cycle with status tracking
+                    </flux:text>
+
+                    <div class="mt-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Range</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    @foreach($paymentReport as $period)
+                                        <tr class="{{ $period['is_current'] ? 'bg-blue-50' : '' }}">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    @if($period['is_current'])
+                                                        <flux:icon.arrow-right class="w-4 h-4 text-blue-600 mr-2" />
+                                                    @endif
+                                                    <div class="text-sm font-medium text-gray-900">
+                                                        {{ $period['period_name'] }}
+                                                        @if($period['is_current'])
+                                                            <span class="text-xs text-blue-600 ml-1">(Current)</span>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {{ $period['period_start']->format('M d') }} - {{ $period['period_end']->format('M d, Y') }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                RM {{ number_format($period['amount'], 2) }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                @if($period['status'] === 'paid')
+                                                    <flux:badge variant="filled" color="green" size="sm">Paid</flux:badge>
+                                                @elseif($period['status'] === 'failed')
+                                                    <flux:badge variant="filled" color="red" size="sm">Failed</flux:badge>
+                                                @elseif($period['status'] === 'pending')
+                                                    <flux:badge variant="filled" color="orange" size="sm">Pending</flux:badge>
+                                                @elseif($period['status'] === 'upcoming')
+                                                    <flux:badge variant="filled" color="blue" size="sm">Upcoming</flux:badge>
+                                                @else
+                                                    <flux:badge variant="outline" size="sm">Unpaid</flux:badge>
+                                                @endif
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                @if($period['order'] && $period['order']->paid_at)
+                                                    {{ $period['order']->paid_at->format('M d, Y') }}
+                                                @elseif($period['status'] === 'upcoming')
+                                                    <span class="text-gray-400">{{ $period['period_end']->addDay()->format('M d, Y') }}</span>
+                                                @else
+                                                    <span class="text-gray-400">-</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @php
+                            $paidCount = $paymentReport->where('status', 'paid')->count();
+                            $failedCount = $paymentReport->where('status', 'failed')->count();
+                            $upcomingCount = $paymentReport->where('status', 'upcoming')->count();
+                            $totalAmount = $paymentReport->where('status', 'paid')->sum('amount');
+                        @endphp
+
+                        <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <div class="text-sm font-medium text-green-800">Paid Periods</div>
+                                <div class="text-2xl font-bold text-green-900">{{ $paidCount }}</div>
+                                <div class="text-xs text-green-600">RM {{ number_format($totalAmount, 2) }} collected</div>
+                            </div>
+
+                            @if($failedCount > 0)
+                                <div class="bg-red-50 p-4 rounded-lg">
+                                    <div class="text-sm font-medium text-red-800">Failed Periods</div>
+                                    <div class="text-2xl font-bold text-red-900">{{ $failedCount }}</div>
+                                    <div class="text-xs text-red-600">Requires attention</div>
+                                </div>
+                            @endif
+
+                            @if($upcomingCount > 0)
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <div class="text-sm font-medium text-blue-800">Upcoming Periods</div>
+                                    <div class="text-2xl font-bold text-blue-900">{{ $upcomingCount }}</div>
+                                    <div class="text-xs text-blue-600">Future payments</div>
+                                </div>
+                            @endif
+
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <div class="text-sm font-medium text-gray-800">Total Periods</div>
+                                <div class="text-2xl font-bold text-gray-900">{{ $paymentReport->count() }}</div>
+                                <div class="text-xs text-gray-600">Billing cycles</div>
+                            </div>
+                        </div>
+                    </div>
+                </flux:card>
+            @endif
+        @endif
+
         <!-- Payment History -->
         @if($enrollment->orders->isNotEmpty())
             <flux:card>
