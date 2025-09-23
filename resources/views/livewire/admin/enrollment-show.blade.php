@@ -1943,6 +1943,143 @@ new class extends Component
             </flux:card>
         </div>
 
+        <!-- Class Management -->
+        <flux:card>
+            <flux:heading size="lg">Class Management</flux:heading>
+            <flux:text class="mt-2">Manage which classes this student is enrolled in for this course</flux:text>
+
+            <div class="mt-6">
+                @php
+                    $availableClasses = $enrollment->availableClasses;
+                    $enrolledClasses = $enrollment->student->classStudents()
+                        ->whereHas('class', function($query) {
+                            $query->where('course_id', $this->enrollment->course_id);
+                        })
+                        ->with('class')
+                        ->get();
+                @endphp
+
+                @if($availableClasses->count() > 0)
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Available Classes -->
+                        <div>
+                            <flux:heading size="md" class="mb-4">Available Classes</flux:heading>
+                            <div class="space-y-3">
+                                @foreach($availableClasses as $class)
+                                    @php
+                                        $isEnrolled = $enrolledClasses->contains(function($cs) use ($class) {
+                                            return $cs->class_id === $class->id && $cs->status === 'active';
+                                        });
+                                    @endphp
+                                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                        <div class="flex-1">
+                                            <flux:heading size="sm">
+                                                <a href="{{ route('classes.show', $class) }}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                                                    {{ $class->title }}
+                                                </a>
+                                            </flux:heading>
+                                            <flux:text size="sm" class="text-gray-600 mt-1">
+                                                {{ $class->date_time->format('M j, Y \a\t g:i A') }}
+                                                ({{ $class->duration_minutes }} min)
+                                            </flux:text>
+                                            <flux:text size="sm" class="text-gray-500">
+                                                {{ $class->class_type }} • Max: {{ $class->max_capacity }} students
+                                            </flux:text>
+                                        </div>
+                                        <div class="ml-4">
+                                            @if($isEnrolled)
+                                                <flux:badge variant="success" size="sm">Enrolled</flux:badge>
+                                                <flux:button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    color="red"
+                                                    wire:click="leaveClass({{ $class->id }})"
+                                                    class="ml-2"
+                                                >
+                                                    Leave Class
+                                                </flux:button>
+                                            @else
+                                                @if($enrollment->canJoinClass($class))
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="primary"
+                                                        wire:click="joinClass({{ $class->id }})"
+                                                    >
+                                                        Join Class
+                                                    </flux:button>
+                                                @else
+                                                    <flux:text size="sm" class="text-gray-500">
+                                                        Cannot join
+                                                    </flux:text>
+                                                @endif
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Enrolled Classes Details -->
+                        <div>
+                            <flux:heading size="md" class="mb-4">Enrollment Status</flux:heading>
+                            @if($enrolledClasses->count() > 0)
+                                <div class="space-y-3">
+                                    @foreach($enrolledClasses as $classStudent)
+                                        <div class="p-4 border border-gray-200 rounded-lg">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex-1">
+                                                    <flux:heading size="sm">
+                                                        <a href="{{ route('classes.show', $classStudent->class) }}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                                                            {{ $classStudent->class->title }}
+                                                        </a>
+                                                    </flux:heading>
+                                                    <flux:text size="sm" class="text-gray-600 mt-1">
+                                                        Enrolled: {{ $classStudent->enrolled_at->format('M j, Y') }}
+                                                    </flux:text>
+                                                </div>
+                                                <flux:badge
+                                                    :variant="$classStudent->status === 'active' ? 'success' : 'warning'"
+                                                    size="sm"
+                                                >
+                                                    {{ ucfirst($classStudent->status) }}
+                                                </flux:badge>
+                                            </div>
+                                            @if($classStudent->status !== 'active' && $classStudent->reason)
+                                                <flux:text size="sm" class="text-gray-500 mt-2">
+                                                    Reason: {{ $classStudent->reason }}
+                                                </flux:text>
+                                            @endif
+                                            @if($classStudent->left_at)
+                                                <flux:text size="sm" class="text-gray-500 mt-1">
+                                                    Left: {{ $classStudent->left_at->format('M j, Y') }}
+                                                </flux:text>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="text-center py-8">
+                                    <flux:icon.academic-cap class="mx-auto h-12 w-12 text-gray-400" />
+                                    <flux:heading size="sm" class="mt-2 text-gray-900">No Class Enrollments</flux:heading>
+                                    <flux:text size="sm" class="mt-1 text-gray-500">
+                                        This student is not enrolled in any classes for this course yet.
+                                    </flux:text>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @else
+                    <div class="text-center py-8">
+                        <flux:icon.calendar class="mx-auto h-12 w-12 text-gray-400" />
+                        <flux:heading size="sm" class="mt-2 text-gray-900">No Classes Available</flux:heading>
+                        <flux:text size="sm" class="mt-1 text-gray-500">
+                            There are no classes available for this course yet.
+                        </flux:text>
+                    </div>
+                @endif
+            </div>
+        </flux:card>
+
         <!-- Subscription Management -->
         @if($enrollment->stripe_subscription_id)
             <flux:card>
@@ -2345,7 +2482,9 @@ new class extends Component
                                         <div class="flex items-center justify-between">
                                             <div>
                                                 <div class="flex items-center space-x-2">
-                                                    <flux:text class="font-medium">Order #{{ $order->order_number }}</flux:text>
+                                                    <a href="{{ route('orders.show', $order) }}" class="font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                                                        Order #{{ $order->order_number }}
+                                                    </a>
                                                     <flux:badge variant="{{ $order->isPaid() ? 'success' : ($order->isFailed() ? 'danger' : 'warning') }}">
                                                         {{ $order->status_label }}
                                                     </flux:badge>
@@ -2692,6 +2831,7 @@ new class extends Component
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
                                 </tr>
@@ -2719,6 +2859,17 @@ new class extends Component
                                             }" size="sm">
                                                 {{ $order->status_label }}
                                             </flux:badge>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <div class="flex items-center">
+                                                @if($order->payment_method === 'stripe')
+                                                    <flux:icon.credit-card class="w-4 h-4 mr-2 text-blue-500" />
+                                                    <span>{{ $order->payment_method_label }}</span>
+                                                @else
+                                                    <flux:icon.banknotes class="w-4 h-4 mr-2 text-green-500" />
+                                                    <span>{{ $order->payment_method_label }}</span>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             @if($order->period_start && $order->period_end)
@@ -2964,143 +3115,6 @@ new class extends Component
                 </div>
             </flux:card>
         </div>
-
-        <!-- Class Management -->
-        <flux:card>
-            <flux:heading size="lg">Class Management</flux:heading>
-            <flux:text class="mt-2">Manage which classes this student is enrolled in for this course</flux:text>
-
-            <div class="mt-6">
-                @php
-                    $availableClasses = $enrollment->availableClasses;
-                    $enrolledClasses = $enrollment->student->classStudents()
-                        ->whereHas('class', function($query) {
-                            $query->where('course_id', $this->enrollment->course_id);
-                        })
-                        ->with('class')
-                        ->get();
-                @endphp
-
-                @if($availableClasses->count() > 0)
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Available Classes -->
-                        <div>
-                            <flux:heading size="md" class="mb-4">Available Classes</flux:heading>
-                            <div class="space-y-3">
-                                @foreach($availableClasses as $class)
-                                    @php
-                                        $isEnrolled = $enrolledClasses->contains(function($cs) use ($class) {
-                                            return $cs->class_id === $class->id && $cs->status === 'active';
-                                        });
-                                    @endphp
-                                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                        <div class="flex-1">
-                                            <flux:heading size="sm">
-                                                <a href="{{ route('classes.show', $class) }}" class="text-blue-600 hover:text-blue-800 hover:underline">
-                                                    {{ $class->title }}
-                                                </a>
-                                            </flux:heading>
-                                            <flux:text size="sm" class="text-gray-600 mt-1">
-                                                {{ $class->date_time->format('M j, Y \a\t g:i A') }}
-                                                ({{ $class->duration_minutes }} min)
-                                            </flux:text>
-                                            <flux:text size="sm" class="text-gray-500">
-                                                {{ $class->class_type }} • Max: {{ $class->max_capacity }} students
-                                            </flux:text>
-                                        </div>
-                                        <div class="ml-4">
-                                            @if($isEnrolled)
-                                                <flux:badge variant="success" size="sm">Enrolled</flux:badge>
-                                                <flux:button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    color="red"
-                                                    wire:click="leaveClass({{ $class->id }})"
-                                                    class="ml-2"
-                                                >
-                                                    Leave Class
-                                                </flux:button>
-                                            @else
-                                                @if($enrollment->canJoinClass($class))
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="primary"
-                                                        wire:click="joinClass({{ $class->id }})"
-                                                    >
-                                                        Join Class
-                                                    </flux:button>
-                                                @else
-                                                    <flux:text size="sm" class="text-gray-500">
-                                                        Cannot join
-                                                    </flux:text>
-                                                @endif
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-
-                        <!-- Enrolled Classes Details -->
-                        <div>
-                            <flux:heading size="md" class="mb-4">Enrollment Status</flux:heading>
-                            @if($enrolledClasses->count() > 0)
-                                <div class="space-y-3">
-                                    @foreach($enrolledClasses as $classStudent)
-                                        <div class="p-4 border border-gray-200 rounded-lg">
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex-1">
-                                                    <flux:heading size="sm">
-                                                        <a href="{{ route('classes.show', $classStudent->class) }}" class="text-blue-600 hover:text-blue-800 hover:underline">
-                                                            {{ $classStudent->class->title }}
-                                                        </a>
-                                                    </flux:heading>
-                                                    <flux:text size="sm" class="text-gray-600 mt-1">
-                                                        Enrolled: {{ $classStudent->enrolled_at->format('M j, Y') }}
-                                                    </flux:text>
-                                                </div>
-                                                <flux:badge
-                                                    :variant="$classStudent->status === 'active' ? 'success' : 'warning'"
-                                                    size="sm"
-                                                >
-                                                    {{ ucfirst($classStudent->status) }}
-                                                </flux:badge>
-                                            </div>
-                                            @if($classStudent->status !== 'active' && $classStudent->reason)
-                                                <flux:text size="sm" class="text-gray-500 mt-2">
-                                                    Reason: {{ $classStudent->reason }}
-                                                </flux:text>
-                                            @endif
-                                            @if($classStudent->left_at)
-                                                <flux:text size="sm" class="text-gray-500 mt-1">
-                                                    Left: {{ $classStudent->left_at->format('M j, Y') }}
-                                                </flux:text>
-                                            @endif
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @else
-                                <div class="text-center py-8">
-                                    <flux:icon.academic-cap class="mx-auto h-12 w-12 text-gray-400" />
-                                    <flux:heading size="sm" class="mt-2 text-gray-900">No Class Enrollments</flux:heading>
-                                    <flux:text size="sm" class="mt-1 text-gray-500">
-                                        This student is not enrolled in any classes for this course yet.
-                                    </flux:text>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                @else
-                    <div class="text-center py-8">
-                        <flux:icon.calendar class="mx-auto h-12 w-12 text-gray-400" />
-                        <flux:heading size="sm" class="mt-2 text-gray-900">No Classes Available</flux:heading>
-                        <flux:text size="sm" class="mt-1 text-gray-500">
-                            There are no classes available for this course yet.
-                        </flux:text>
-                    </div>
-                @endif
-            </div>
-        </flux:card>
 
     </div>
 

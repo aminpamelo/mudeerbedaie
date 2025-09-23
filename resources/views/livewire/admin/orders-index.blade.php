@@ -12,6 +12,7 @@ new class extends Component {
     public $statusFilter = '';
     public $courseFilter = '';
     public $studentFilter = '';
+    public $paymentMethodFilter = '';
     public $sortBy = 'created_at';
     public $sortDirection = 'desc';
 
@@ -20,6 +21,7 @@ new class extends Component {
         'statusFilter' => ['except' => ''],
         'courseFilter' => ['except' => ''],
         'studentFilter' => ['except' => ''],
+        'paymentMethodFilter' => ['except' => ''],
         'sortBy' => ['except' => 'created_at'],
         'sortDirection' => ['except' => 'desc'],
     ];
@@ -44,6 +46,11 @@ new class extends Component {
         $this->resetPage();
     }
 
+    public function updatingPaymentMethodFilter()
+    {
+        $this->resetPage();
+    }
+
     public function sortBy($field)
     {
         if ($this->sortBy === $field) {
@@ -60,6 +67,7 @@ new class extends Component {
         $this->statusFilter = '';
         $this->courseFilter = '';
         $this->studentFilter = '';
+        $this->paymentMethodFilter = '';
         $this->resetPage();
     }
 
@@ -89,6 +97,9 @@ new class extends Component {
             ->when($this->studentFilter, function ($query) {
                 $query->where('student_id', $this->studentFilter);
             })
+            ->when($this->paymentMethodFilter, function ($query) {
+                $query->where('payment_method', $this->paymentMethodFilter);
+            })
             ->orderBy($this->sortBy, $this->sortDirection);
 
         return [
@@ -96,6 +107,8 @@ new class extends Component {
             'totalRevenue' => Order::paid()->sum('amount'),
             'totalOrders' => Order::count(),
             'failedOrders' => Order::failed()->count(),
+            'stripeOrders' => Order::where('payment_method', 'stripe')->count(),
+            'manualOrders' => Order::where('payment_method', 'manual')->count(),
             'courses' => Course::orderBy('name')->get(['id', 'name']),
             'students' => Student::with('user')->get()->map(function ($student) {
                 return (object) [
@@ -104,6 +117,7 @@ new class extends Component {
                 ];
             }),
             'orderStatuses' => Order::getStatuses(),
+            'paymentMethods' => Order::getPaymentMethods(),
         ];
     }
 }; ?>
@@ -121,7 +135,7 @@ new class extends Component {
     </div>
 
     <!-- Summary Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
@@ -151,11 +165,31 @@ new class extends Component {
                 <flux:icon name="exclamation-triangle" class="w-8 h-8 text-red-500" />
             </div>
         </flux:card>
+
+        <flux:card>
+            <div class="flex items-center justify-between">
+                <div>
+                    <flux:text class="text-gray-600">Stripe Orders</flux:text>
+                    <flux:heading size="lg" class="text-blue-600">{{ number_format($stripeOrders) }}</flux:heading>
+                </div>
+                <flux:icon name="credit-card" class="w-8 h-8 text-blue-500" />
+            </div>
+        </flux:card>
+
+        <flux:card>
+            <div class="flex items-center justify-between">
+                <div>
+                    <flux:text class="text-gray-600">Manual Orders</flux:text>
+                    <flux:heading size="lg" class="text-green-600">{{ number_format($manualOrders) }}</flux:heading>
+                </div>
+                <flux:icon name="banknotes" class="w-8 h-8 text-green-500" />
+            </div>
+        </flux:card>
     </div>
 
     <!-- Filters -->
     <flux:card class="mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <flux:input wire:model.live="search" placeholder="Search orders..." />
             
             <flux:select wire:model.live="statusFilter">
@@ -176,6 +210,13 @@ new class extends Component {
                 <flux:select.option value="">All Students</flux:select.option>
                 @foreach($students as $student)
                     <flux:select.option value="{{ $student->id }}">{{ $student->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select wire:model.live="paymentMethodFilter">
+                <flux:select.option value="">All Payment Methods</flux:select.option>
+                @foreach($paymentMethods as $value => $label)
+                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                 @endforeach
             </flux:select>
 
@@ -208,6 +249,7 @@ new class extends Component {
                             </button>
                         </th>
                         <th class="text-left py-3 px-4">Status</th>
+                        <th class="text-left py-3 px-4">Payment Method</th>
                         <th class="text-left py-3 px-4">Period</th>
                         <th class="text-left py-3 px-4">
                             <button wire:click="sortBy('created_at')" class="flex items-center gap-1 hover:text-blue-600">
@@ -254,6 +296,16 @@ new class extends Component {
                                 @endif
                             </td>
                             <td class="py-3 px-4">
+                                <div class="flex items-center">
+                                    @if($order->payment_method === 'stripe')
+                                        <flux:icon name="credit-card" class="w-4 h-4 mr-2 text-blue-500" />
+                                    @else
+                                        <flux:icon name="banknotes" class="w-4 h-4 mr-2 text-green-500" />
+                                    @endif
+                                    <flux:text size="sm">{{ $order->payment_method_label }}</flux:text>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4">
                                 <flux:text size="sm">{{ $order->getPeriodDescription() }}</flux:text>
                             </td>
                             <td class="py-3 px-4">
@@ -275,7 +327,7 @@ new class extends Component {
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="py-8 text-center">
+                            <td colspan="9" class="py-8 text-center">
                                 <flux:text class="text-gray-500">No orders found.</flux:text>
                             </td>
                         </tr>

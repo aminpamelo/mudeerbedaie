@@ -2232,6 +2232,7 @@ class StripeService
                 'currency' => 'MYR',
                 'status' => Order::STATUS_PENDING,
                 'billing_reason' => Order::REASON_MANUAL,
+                'payment_method' => Order::PAYMENT_METHOD_MANUAL,
                 'period_start' => $periodStart,
                 'period_end' => $periodEnd,
                 'metadata' => [

@@ -301,6 +301,118 @@ class ClassSession extends Model
         return now()->diffInSeconds($this->started_at);
     }
 
+    /**
+     * Get the actual duration in minutes for completed sessions
+     */
+    public function getActualDurationInMinutes(): ?int
+    {
+        if (! $this->started_at || ! $this->completed_at || ! $this->isCompleted()) {
+            return null;
+        }
+
+        return $this->completed_at->diffInMinutes($this->started_at);
+    }
+
+    /**
+     * Get the actual duration formatted as string (e.g., "1h 30m", "45m")
+     */
+    public function getFormattedActualDurationAttribute(): ?string
+    {
+        $actualMinutes = $this->getActualDurationInMinutes();
+
+        if ($actualMinutes === null) {
+            return null;
+        }
+
+        $hours = floor($actualMinutes / 60);
+        $minutes = $actualMinutes % 60;
+
+        if ($hours > 0 && $minutes > 0) {
+            return $hours.'h '.$minutes.'m';
+        } elseif ($hours > 0) {
+            return $hours.'h';
+        } else {
+            return $minutes.'m';
+        }
+    }
+
+    /**
+     * Get the duration variance (actual - estimated) in minutes
+     */
+    public function getDurationVarianceInMinutes(): ?int
+    {
+        $actualMinutes = $this->getActualDurationInMinutes();
+
+        if ($actualMinutes === null) {
+            return null;
+        }
+
+        return $actualMinutes - $this->duration_minutes;
+    }
+
+    /**
+     * Check if the session met the duration KPI (within acceptable variance)
+     *
+     * @param  int  $toleranceMinutes  Acceptable variance in minutes (default: 10)
+     */
+    public function meetsKpi(int $toleranceMinutes = 10): ?bool
+    {
+        $variance = $this->getDurationVarianceInMinutes();
+
+        if ($variance === null) {
+            return null; // Cannot determine for incomplete sessions
+        }
+
+        return abs($variance) <= $toleranceMinutes;
+    }
+
+    /**
+     * Get KPI status as string
+     */
+    public function getKpiStatusAttribute(): string
+    {
+        $meetsKpi = $this->meetsKpi();
+
+        if ($meetsKpi === null) {
+            return 'pending';
+        }
+
+        return $meetsKpi ? 'met' : 'missed';
+    }
+
+    /**
+     * Get KPI badge class for styling
+     */
+    public function getKpiBadgeClassAttribute(): string
+    {
+        return match ($this->kpi_status) {
+            'met' => 'badge-green',
+            'missed' => 'badge-red',
+            'pending' => 'badge-gray',
+            default => 'badge-gray',
+        };
+    }
+
+    /**
+     * Get duration comparison text
+     */
+    public function getDurationComparisonAttribute(): string
+    {
+        $variance = $this->getDurationVarianceInMinutes();
+
+        if ($variance === null) {
+            return '—';
+        }
+
+        if ($variance > 0) {
+            return '+'.$variance.'m longer';
+        } elseif ($variance < 0) {
+            return abs($variance).'m shorter';
+        } else {
+            return 'Exact match';
+        }
+    }
+
     public function calculateTeacherAllowance(): float
     {
         return match ($this->class->rate_type) {

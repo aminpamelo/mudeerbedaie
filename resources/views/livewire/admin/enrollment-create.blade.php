@@ -126,9 +126,10 @@ new class extends Component {
             'currency' => 'MYR',
             'status' => Order::STATUS_PENDING,
             'billing_reason' => Order::REASON_MANUAL,
+            'payment_method' => Order::PAYMENT_METHOD_MANUAL,
             'period_start' => now(),
-            'period_end' => $course->feeSettings->billing_cycle === 'monthly' 
-                ? now()->addMonth() 
+            'period_end' => $course->feeSettings->billing_cycle === 'monthly'
+                ? now()->addMonth()
                 : now()->addYear(),
             'metadata' => [
                 'payment_method_type' => 'manual',

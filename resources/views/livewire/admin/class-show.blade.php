@@ -927,6 +927,7 @@ new class extends Component {
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Date & Time</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Duration</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">KPI</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Bookmark</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Attendance</th>
@@ -940,7 +941,7 @@ new class extends Component {
                                 @foreach($this->sessions_by_month as $monthData)
                                     <!-- Month Header Row -->
                                     <tr class="bg-gray-50  border-t-2 border-gray-300">
-                                        <td colspan="7" class="px-6 py-3">
+                                        <td colspan="8" class="px-6 py-3">
                                             <div class="flex items-center justify-between">
                                                 <div class="flex items-center gap-3">
                                                     <flux:icon.calendar class="h-5 w-5 text-gray-500" />
@@ -978,9 +979,58 @@ new class extends Component {
                                             </td>
                                             
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ $session->formatted_duration }}
+                                                <div class="space-y-1">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="text-gray-600">Target:</span>
+                                                        <span class="font-medium">{{ $session->formatted_duration }}</span>
+                                                    </div>
+                                                    @if($session->formatted_actual_duration)
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="text-gray-600">Actual:</span>
+                                                            <span class="font-medium {{ $session->meetsKpi() === true ? 'text-green-700' : ($session->meetsKpi() === false ? 'text-red-700' : 'text-gray-700') }}">
+                                                                {{ $session->formatted_actual_duration }}
+                                                            </span>
+                                                        </div>
+                                                        <div class="text-xs {{ $session->meetsKpi() === true ? 'text-green-600' : ($session->meetsKpi() === false ? 'text-red-600' : 'text-gray-500') }}">
+                                                            {{ $session->duration_comparison }}
+                                                        </div>
+                                                    @elseif($session->isOngoing())
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="text-gray-600">Current:</span>
+                                                            <span
+                                                                x-data="sessionTimer('{{ $session->started_at ? $session->started_at->toISOString() : now()->toISOString() }}')"
+                                                                x-init="startTimer()"
+                                                                class="font-mono text-yellow-700"
+                                                                x-text="formattedTime"
+                                                            ></span>
+                                                        </div>
+                                                    @else
+                                                        <div class="text-xs text-gray-400">Not started yet</div>
+                                                    @endif
+                                                </div>
                                             </td>
-                                            
+
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                                @if($session->isCompleted() && $session->meetsKpi() !== null)
+                                                    <div class="flex flex-col items-center gap-1">
+                                                        <flux:badge size="sm" :class="$session->kpi_badge_class">
+                                                            {{ $session->meetsKpi() ? 'Met' : 'Missed' }}
+                                                        </flux:badge>
+                                                        @if(!$session->meetsKpi())
+                                                            <div class="text-xs text-gray-500">
+                                                                {{ $session->duration_comparison }}
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @elseif($session->isOngoing())
+                                                    <flux:badge size="sm" variant="outline" class="animate-pulse">
+                                                        In Progress
+                                                    </flux:badge>
+                                                @else
+                                                    <span class="text-gray-400">—</span>
+                                                @endif
+                                            </td>
+
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 @if($session->isOngoing())
                                                     <div 
@@ -1185,7 +1235,7 @@ new class extends Component {
                                 @endforeach
                             @else
                                 <tr>
-                                    <td colspan="7" class="px-6 py-12 text-center">
+                                    <td colspan="8" class="px-6 py-12 text-center">
                                         <div class="text-gray-500">
                                             <flux:icon.calendar class="mx-auto h-8 w-8 text-gray-400 mb-4" />
                                             <p>No sessions scheduled yet</p>

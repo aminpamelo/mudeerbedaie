@@ -13,6 +13,7 @@ new class extends Component {
     public string $search = '';
     public string $statusFilter = '';
     public string $typeFilter = '';
+    public string $paymentMethodFilter = '';
     public string $dateRange = '';
     public string $sortBy = 'created_at';
     public string $sortDirection = 'desc';
@@ -39,6 +40,11 @@ new class extends Component {
     }
 
     public function updatedTypeFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPaymentMethodFilter()
     {
         $this->resetPage();
     }
@@ -104,7 +110,11 @@ new class extends Component {
         
         // Pending orders
         $pendingOrders = (clone $baseQuery)->pending()->count();
-        
+
+        // Payment method stats
+        $stripeOrders = (clone $baseQuery)->where('payment_method', 'stripe')->count();
+        $manualOrders = (clone $baseQuery)->where('payment_method', 'manual')->count();
+
         // Stripe fees total
         $stripeFees = (clone $baseQuery)->paid()->sum('stripe_fee');
         
@@ -151,6 +161,8 @@ new class extends Component {
             'successfulOrders' => $successfulOrders,
             'failedOrders' => $failedOrders,
             'pendingOrders' => $pendingOrders,
+            'stripeOrders' => $stripeOrders,
+            'manualOrders' => $manualOrders,
             'averageOrder' => $averageOrder,
             'successRate' => $successRate,
             'recentActivity' => $recentActivity,
@@ -174,6 +186,9 @@ new class extends Component {
             })
             ->when($this->typeFilter, function($q) {
                 $q->where('billing_reason', $this->typeFilter);
+            })
+            ->when($this->paymentMethodFilter, function($q) {
+                $q->where('payment_method', $this->paymentMethodFilter);
             })
             ->when($this->dateRange, function($q) {
                 if (strlen($this->dateRange) === 7) { // YYYY-MM format
@@ -207,8 +222,8 @@ new class extends Component {
         
         $csvData = [];
         $csvData[] = [
-            'Date', 'Order Number', 'Student Name', 'Student Email', 'Course', 
-            'Amount', 'Stripe Fee', 'Net Amount', 'Billing Reason', 'Status', 
+            'Date', 'Order Number', 'Student Name', 'Student Email', 'Course',
+            'Amount', 'Stripe Fee', 'Net Amount', 'Payment Method', 'Billing Reason', 'Status',
             'Stripe Invoice ID', 'Created At'
         ];
 
@@ -222,6 +237,7 @@ new class extends Component {
                 $order->amount,
                 $order->stripe_fee ?? 0,
                 $order->net_amount ?? ($order->amount - ($order->stripe_fee ?? 0)),
+                $order->payment_method_label,
                 $order->billing_reason_label,
                 $order->status_label,
                 $order->stripe_invoice_id,
@@ -259,6 +275,9 @@ new class extends Component {
             })
             ->when($this->typeFilter, function($q) {
                 $q->where('billing_reason', $this->typeFilter);
+            })
+            ->when($this->paymentMethodFilter, function($q) {
+                $q->where('payment_method', $this->paymentMethodFilter);
             })
             ->when($this->dateRange, function($q) {
                 if (strlen($this->dateRange) === 7) {
@@ -327,7 +346,7 @@ new class extends Component {
     </div>
 
     <!-- Statistics Cards -->
-    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-6 mb-6">
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
@@ -369,6 +388,28 @@ new class extends Component {
                     <flux:text size="sm" class="text-gray-600">Payment failed</flux:text>
                 </div>
                 <flux:icon icon="exclamation-triangle" class="w-8 h-8 text-red-500" />
+            </div>
+        </flux:card>
+
+        <flux:card>
+            <div class="flex items-center justify-between">
+                <div>
+                    <flux:heading size="sm" class="text-gray-600">Stripe Orders</flux:heading>
+                    <flux:heading size="xl" class="text-blue-600">{{ $stripeOrders }}</flux:heading>
+                    <flux:text size="sm" class="text-gray-600">Card payments</flux:text>
+                </div>
+                <flux:icon icon="credit-card" class="w-8 h-8 text-blue-500" />
+            </div>
+        </flux:card>
+
+        <flux:card>
+            <div class="flex items-center justify-between">
+                <div>
+                    <flux:heading size="sm" class="text-gray-600">Manual Orders</flux:heading>
+                    <flux:heading size="xl" class="text-green-600">{{ $manualOrders }}</flux:heading>
+                    <flux:text size="sm" class="text-gray-600">Manual payments</flux:text>
+                </div>
+                <flux:icon icon="banknotes" class="w-8 h-8 text-green-500" />
             </div>
         </flux:card>
     </div>
@@ -606,6 +647,14 @@ new class extends Component {
                     @endforeach
                 </flux:select>
 
+                <!-- Payment Method Filter -->
+                <flux:select wire:model.live="paymentMethodFilter" placeholder="All Methods" class="w-40">
+                    <flux:select.option value="">All Methods</flux:select.option>
+                    @foreach(Order::getPaymentMethods() as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
                 <!-- Date Range -->
                 <flux:input type="month" wire:model.live="dateRange" class="w-36" />
             </div>
@@ -635,6 +684,7 @@ new class extends Component {
                                 </button>
                             </th>
                             <th class="text-center py-3 px-4">Reason</th>
+                            <th class="text-center py-3 px-4">Payment Method</th>
                             <th class="text-center py-3 px-4">Status</th>
                             <th class="text-right py-3 px-4">Actions</th>
                         </tr>
@@ -668,6 +718,16 @@ new class extends Component {
                                     </flux:badge>
                                 </td>
                                 <td class="py-3 px-4 text-center">
+                                    <div class="flex items-center justify-center">
+                                        @if($order->payment_method === 'stripe')
+                                            <flux:icon name="credit-card" class="w-4 h-4 mr-1 text-blue-500" />
+                                        @else
+                                            <flux:icon name="banknotes" class="w-4 h-4 mr-1 text-green-500" />
+                                        @endif
+                                        <flux:text size="sm">{{ $order->payment_method_label }}</flux:text>
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4 text-center">
                                     <flux:badge :color="$this->getStatusBadgeColor($order->status)">
                                         {{ $order->status_label }}
                                     </flux:badge>
@@ -697,9 +757,9 @@ new class extends Component {
                 <flux:icon icon="clipboard-document-list" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <flux:heading size="md" class="text-gray-600  mb-2">No orders found</flux:heading>
                 <flux:text class="text-gray-600">
-                    @if($search || $statusFilter || $typeFilter)
+                    @if($search || $statusFilter || $typeFilter || $paymentMethodFilter)
                         No orders match your current filters.
-                        <button wire:click="$set('search', '')" wire:click="$set('statusFilter', '')" wire:click="$set('typeFilter', '')" class="text-blue-600 hover:underline ml-1">Clear filters</button>
+                        <button wire:click="$set('search', '')" wire:click="$set('statusFilter', '')" wire:click="$set('typeFilter', '')" wire:click="$set('paymentMethodFilter', '')" class="text-blue-600 hover:underline ml-1">Clear filters</button>
                     @else
                         No subscription orders have been created yet.
                     @endif

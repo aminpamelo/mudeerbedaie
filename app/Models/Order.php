@@ -26,6 +26,7 @@ class Order extends Model
         'period_start',
         'period_end',
         'billing_reason',
+        'payment_method',
         'paid_at',
         'failed_at',
         'failure_reason',
@@ -69,6 +70,11 @@ class Order extends Model
 
     public const REASON_MANUAL = 'manual';
 
+    // Payment methods
+    public const PAYMENT_METHOD_STRIPE = 'stripe';
+
+    public const PAYMENT_METHOD_MANUAL = 'manual';
+
     public static function getStatuses(): array
     {
         return [
@@ -88,6 +94,14 @@ class Order extends Model
             self::REASON_SUBSCRIPTION_UPDATE => 'Subscription Updated',
             self::REASON_SUBSCRIPTION_THRESHOLD => 'Usage Threshold',
             self::REASON_MANUAL => 'Manual',
+        ];
+    }
+
+    public static function getPaymentMethods(): array
+    {
+        return [
+            self::PAYMENT_METHOD_STRIPE => 'Stripe Card',
+            self::PAYMENT_METHOD_MANUAL => 'Manual Payment',
         ];
     }
 
@@ -222,6 +236,11 @@ class Order extends Model
         return self::getBillingReasons()[$this->billing_reason] ?? ucfirst(str_replace('_', ' ', $this->billing_reason));
     }
 
+    public function getPaymentMethodLabelAttribute(): string
+    {
+        return self::getPaymentMethods()[$this->payment_method] ?? ucfirst(str_replace('_', ' ', $this->payment_method));
+    }
+
     public function getPeriodDescription(): string
     {
         return $this->period_start->format('M j').' - '.$this->period_end->format('M j, Y');
@@ -279,6 +298,7 @@ class Order extends Model
             'period_start' => Carbon::createFromTimestamp($stripeInvoice['period_start']),
             'period_end' => Carbon::createFromTimestamp($stripeInvoice['period_end']),
             'billing_reason' => $stripeInvoice['billing_reason'] ?? self::REASON_SUBSCRIPTION_CYCLE,
+            'payment_method' => self::PAYMENT_METHOD_STRIPE,
             'paid_at' => $stripeInvoice['status'] === 'paid' ? now() : null,
             'failed_at' => in_array($stripeInvoice['status'], ['uncollectible']) ? now() : null,
             'receipt_url' => $stripeInvoice['hosted_invoice_url'] ?? null,

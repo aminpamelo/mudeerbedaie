@@ -131,7 +131,7 @@ new class extends Component {
                         <flux:text class="text-gray-600">Order Date</flux:text>
                         <flux:text class="font-semibold">{{ $order->created_at->format('M j, Y g:i A') }}</flux:text>
                     </div>
-                    
+
                     @if($order->paid_at)
                         <div>
                             <flux:text class="text-gray-600">Paid Date</flux:text>
@@ -145,6 +145,18 @@ new class extends Component {
                             <flux:text class="font-semibold">{{ $order->failed_at->format('M j, Y g:i A') }}</flux:text>
                         </div>
                     @endif
+
+                    <div>
+                        <flux:text class="text-gray-600">Payment Method</flux:text>
+                        <div class="flex items-center">
+                            @if($order->payment_method === 'stripe')
+                                <flux:icon name="credit-card" class="w-4 h-4 mr-2 text-blue-500" />
+                            @else
+                                <flux:icon name="banknotes" class="w-4 h-4 mr-2 text-green-500" />
+                            @endif
+                            <flux:text class="font-semibold">{{ $order->payment_method_label }}</flux:text>
+                        </div>
+                    </div>
 
                     <div>
                         <flux:text class="text-gray-600">Billing Period</flux:text>
@@ -229,30 +241,63 @@ new class extends Component {
                 </div>
             </flux:card>
 
-            <!-- Stripe Information -->
+            <!-- Payment Information -->
             <flux:card>
                 <flux:heading size="lg" class="mb-4">Payment Details</flux:heading>
+
+                <!-- Payment Method Section -->
+                <div class="mb-6 p-4 rounded-lg {{ $order->payment_method === 'stripe' ? 'bg-blue-50 border border-blue-200' : 'bg-green-50 border border-green-200' }}">
+                    <div class="flex items-center">
+                        @if($order->payment_method === 'stripe')
+                            <flux:icon name="credit-card" class="w-6 h-6 mr-3 text-blue-600" />
+                            <div>
+                                <flux:text class="font-semibold text-blue-900">Stripe Card Payment</flux:text>
+                                <flux:text size="sm" class="text-blue-700">Processed automatically via Stripe</flux:text>
+                            </div>
+                        @else
+                            <flux:icon name="banknotes" class="w-6 h-6 mr-3 text-green-600" />
+                            <div>
+                                <flux:text class="font-semibold text-green-900">Manual Payment</flux:text>
+                                <flux:text size="sm" class="text-green-700">Payment processed manually (bank transfer, cash, etc.)</flux:text>
+                            </div>
+                        @endif
+                    </div>
+                </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    @if($order->stripe_invoice_id)
-                        <div>
-                            <flux:text class="text-gray-600">Stripe Invoice ID</flux:text>
-                            <flux:text class="font-mono text-sm">{{ $order->stripe_invoice_id }}</flux:text>
-                        </div>
-                    @endif
+                    @if($order->payment_method === 'stripe')
+                        @if($order->stripe_invoice_id)
+                            <div>
+                                <flux:text class="text-gray-600">Stripe Invoice ID</flux:text>
+                                <flux:text class="font-mono text-sm">{{ $order->stripe_invoice_id }}</flux:text>
+                            </div>
+                        @endif
 
-                    @if($order->stripe_charge_id)
-                        <div>
-                            <flux:text class="text-gray-600">Stripe Charge ID</flux:text>
-                            <flux:text class="font-mono text-sm">{{ $order->stripe_charge_id }}</flux:text>
-                        </div>
-                    @endif
+                        @if($order->stripe_charge_id)
+                            <div>
+                                <flux:text class="text-gray-600">Stripe Charge ID</flux:text>
+                                <flux:text class="font-mono text-sm">{{ $order->stripe_charge_id }}</flux:text>
+                            </div>
+                        @endif
 
-                    @if($order->stripe_payment_intent_id)
+                        @if($order->stripe_payment_intent_id)
+                            <div>
+                                <flux:text class="text-gray-600">Payment Intent ID</flux:text>
+                                <flux:text class="font-mono text-sm">{{ $order->stripe_payment_intent_id }}</flux:text>
+                            </div>
+                        @endif
+                    @else
                         <div>
-                            <flux:text class="text-gray-600">Payment Intent ID</flux:text>
-                            <flux:text class="font-mono text-sm">{{ $order->stripe_payment_intent_id }}</flux:text>
+                            <flux:text class="text-gray-600">Payment Type</flux:text>
+                            <flux:text class="font-semibold">Manual Payment</flux:text>
                         </div>
+
+                        @if(isset($order->metadata['payment_notes']))
+                            <div>
+                                <flux:text class="text-gray-600">Payment Notes</flux:text>
+                                <flux:text class="text-sm">{{ $order->metadata['payment_notes'] }}</flux:text>
+                            </div>
+                        @endif
                     @endif
 
                     <div>
@@ -260,15 +305,15 @@ new class extends Component {
                         <flux:text class="font-semibold">{{ strtoupper($order->currency) }}</flux:text>
                     </div>
 
-                    @if($this->hasReceiptAttachment())
+                    @if($order->payment_method === 'manual' && $this->hasReceiptAttachment())
                         <div class="md:col-span-2">
                             <flux:text class="text-gray-600">Payment Receipt</flux:text>
                             <div class="mt-2 flex items-center space-x-3">
                                 <flux:icon icon="document" class="w-5 h-5 text-green-600" />
                                 <flux:text class="text-sm text-green-700">Receipt attachment available</flux:text>
-                                <flux:button 
-                                    wire:click="downloadReceipt" 
-                                    variant="outline" 
+                                <flux:button
+                                    wire:click="downloadReceipt"
+                                    variant="outline"
                                     size="sm"
                                     icon="document">
                                     Download
@@ -289,6 +334,19 @@ new class extends Component {
                                     </flux:text>
                                 </div>
                             @endif
+                        </div>
+                    @elseif($order->payment_method === 'stripe' && $order->receipt_url)
+                        <div class="md:col-span-2">
+                            <flux:text class="text-gray-600">Stripe Receipt</flux:text>
+                            <div class="mt-2 flex items-center space-x-3">
+                                <flux:icon icon="document" class="w-5 h-5 text-blue-600" />
+                                <flux:text class="text-sm text-blue-700">Official Stripe receipt available</flux:text>
+                                <a href="{{ $order->receipt_url }}" target="_blank">
+                                    <flux:button variant="outline" size="sm" icon="external-link">
+                                        View Stripe Receipt
+                                    </flux:button>
+                                </a>
+                            </div>
                         </div>
                     @endif
                 </div>
