@@ -310,7 +310,7 @@ class ClassSession extends Model
             return null;
         }
 
-        return $this->completed_at->diffInMinutes($this->started_at);
+        return $this->started_at->diffInMinutes($this->completed_at);
     }
 
     /**
