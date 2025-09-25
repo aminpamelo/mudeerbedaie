@@ -1,5 +1,6 @@
 <?php
 use App\Models\Order;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -8,11 +9,35 @@ new class extends Component {
     public function mount()
     {
         $this->order->load(['student.user', 'course', 'enrollment', 'items']);
-        
+
         // Only allow viewing receipts for paid orders
         if (!$this->order->isPaid()) {
             abort(404, 'Receipt not available for unpaid orders');
         }
+    }
+
+    public function downloadPdf()
+    {
+        // Load the order with relationships for PDF generation
+        $order = $this->order->load(['student.user', 'course', 'enrollment', 'items']);
+
+        // Generate PDF from a PDF-optimized view
+        $pdf = Pdf::loadView('livewire.admin.orders-receipt-pdf', compact('order'))
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isHtml5ParserEnabled' => true,
+                'isPhpEnabled' => false,
+                'isRemoteEnabled' => false,
+            ]);
+
+        $filename = 'receipt-' . $order->order_number . '.pdf';
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->stream();
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
     }
 
     public function with(): array
@@ -32,6 +57,12 @@ new class extends Component {
             <div class="flex gap-3">
                 <flux:button href="{{ route('orders.show', $order) }}" variant="outline">
                     ← Back to Order
+                </flux:button>
+                <flux:button wire:click="downloadPdf" variant="outline">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
+                        Download PDF
+                    </div>
                 </flux:button>
                 <flux:button onclick="window.print()" variant="primary">
                     Print Receipt

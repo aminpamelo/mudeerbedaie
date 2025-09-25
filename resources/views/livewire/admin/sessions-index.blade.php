@@ -10,16 +10,24 @@ use Carbon\Carbon;
 new class extends Component {
     use WithPagination;
     
-    public string $dateFilter = 'upcoming';
+    public string $dateFilter = 'all';
     public string $classFilter = 'all';
     public string $statusFilter = 'all';
     public string $teacherFilter = 'all';
     public string $verificationFilter = 'all';
     public string $search = '';
+
+    // Date range filter properties
+    public string $dateFrom = '';
+    public string $dateTo = '';
+
+    // Bulk action properties
+    public array $selectedSessions = [];
+    public bool $selectAll = false;
     
     protected $queryString = [
         'search' => ['except' => ''],
-        'dateFilter' => ['except' => 'upcoming'],
+        'dateFilter' => ['except' => 'all'],
         'classFilter' => ['except' => 'all'],
         'statusFilter' => ['except' => 'all'],
         'teacherFilter' => ['except' => 'all'],
@@ -37,22 +45,32 @@ new class extends Component {
         
         // Apply date filter
         $today = now()->startOfDay();
-        switch ($this->dateFilter) {
-            case 'today':
-                $query->whereDate('session_date', $today);
-                break;
-            case 'upcoming':
-                $query->where('session_date', '>=', $today);
-                break;
-            case 'past':
-                $query->where('session_date', '<', $today);
-                break;
-            case 'this_week':
-                $query->whereBetween('session_date', [
-                    $today->startOfWeek(),
-                    $today->copy()->endOfWeek()
-                ]);
-                break;
+        if ($this->dateFilter === 'custom' && $this->dateFrom && $this->dateTo) {
+            $query->whereBetween('session_date', [
+                Carbon::parse($this->dateFrom)->startOfDay(),
+                Carbon::parse($this->dateTo)->endOfDay()
+            ]);
+        } else {
+            switch ($this->dateFilter) {
+                case 'all':
+                    // Show all sessions - no date filter applied
+                    break;
+                case 'today':
+                    $query->whereDate('session_date', $today);
+                    break;
+                case 'upcoming':
+                    $query->where('session_date', '>=', $today);
+                    break;
+                case 'past':
+                    $query->where('session_date', '<', $today);
+                    break;
+                case 'this_week':
+                    $query->whereBetween('session_date', [
+                        $today->startOfWeek(),
+                        $today->copy()->endOfWeek()
+                    ]);
+                    break;
+            }
         }
         
         // Apply class filter
@@ -178,11 +196,193 @@ new class extends Component {
         try {
             $session = ClassSession::findOrFail($sessionId);
             $session->unverify();
-            
+
             session()->flash('success', 'Session verification has been removed.');
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to unverify session: ' . $e->getMessage());
         }
+    }
+
+    public function updatedDateFrom()
+    {
+        if ($this->dateFrom) {
+            $this->dateFilter = 'custom';
+        }
+        $this->resetPage();
+    }
+
+    public function updatedDateTo()
+    {
+        if ($this->dateTo) {
+            $this->dateFilter = 'custom';
+        }
+        $this->resetPage();
+    }
+
+    // Bulk action methods
+    public function updatedSelectAll()
+    {
+        if ($this->selectAll) {
+            // Get all session IDs from current page
+            $sessions = $this->getCurrentPageSessions();
+            $this->selectedSessions = $sessions->pluck('id')->toArray();
+        } else {
+            $this->selectedSessions = [];
+        }
+    }
+
+    public function updatedSelectedSessions()
+    {
+        // Update selectAll based on current selection
+        $sessions = $this->getCurrentPageSessions();
+        $this->selectAll = count($this->selectedSessions) === $sessions->count() && $sessions->count() > 0;
+    }
+
+    private function getCurrentPageSessions()
+    {
+        // Build same query as in with() method to get current page sessions
+        $query = ClassSession::with(['class.course', 'class.teacher.user', 'attendances.student.user', 'payslips']);
+
+        // Apply same filters as in with() method
+        $today = now()->startOfDay();
+        if ($this->dateFilter === 'custom' && $this->dateFrom && $this->dateTo) {
+            $query->whereBetween('session_date', [
+                Carbon::parse($this->dateFrom)->startOfDay(),
+                Carbon::parse($this->dateTo)->endOfDay()
+            ]);
+        } else {
+            switch ($this->dateFilter) {
+                case 'all':
+                    // Show all sessions - no date filter applied
+                    break;
+                case 'today':
+                    $query->whereDate('session_date', $today);
+                    break;
+                case 'upcoming':
+                    $query->where('session_date', '>=', $today);
+                    break;
+                case 'past':
+                    $query->where('session_date', '<', $today);
+                    break;
+                case 'this_week':
+                    $query->whereBetween('session_date', [
+                        $today->startOfWeek(),
+                        $today->copy()->endOfWeek()
+                    ]);
+                    break;
+            }
+        }
+
+        if ($this->classFilter !== 'all') {
+            $query->where('class_id', $this->classFilter);
+        }
+
+        if ($this->teacherFilter !== 'all') {
+            $query->whereHas('class', function($q) {
+                $q->where('teacher_id', $this->teacherFilter);
+            });
+        }
+
+        if ($this->statusFilter !== 'all') {
+            $query->where('status', $this->statusFilter);
+        }
+
+        if ($this->verificationFilter !== 'all') {
+            if ($this->verificationFilter === 'verified') {
+                $query->whereNotNull('verified_at');
+            } elseif ($this->verificationFilter === 'unverified') {
+                $query->whereNull('verified_at');
+            } elseif ($this->verificationFilter === 'verifiable') {
+                $query->verifiableForPayroll();
+            }
+        }
+
+        if ($this->search) {
+            $query->where(function($q) {
+                $q->whereHas('class', function($classQuery) {
+                    $classQuery->where('title', 'like', '%' . $this->search . '%')
+                              ->orWhereHas('course', function($courseQuery) {
+                                  $courseQuery->where('name', 'like', '%' . $this->search . '%');
+                              })
+                              ->orWhereHas('teacher.user', function($teacherQuery) {
+                                  $teacherQuery->where('name', 'like', '%' . $this->search . '%');
+                              });
+                })
+                ->orWhere('teacher_notes', 'like', '%' . $this->search . '%')
+                ->orWhere('topic', 'like', '%' . $this->search . '%')
+                ->orWhereHas('attendances.student.user', function($userQuery) {
+                    $userQuery->where('name', 'like', '%' . $this->search . '%');
+                });
+            });
+        }
+
+        return $query->orderBy('session_date', 'desc')
+                     ->orderBy('session_time', 'desc')
+                     ->paginate(10);
+    }
+
+    public function bulkVerifySessions()
+    {
+        if (empty($this->selectedSessions)) {
+            session()->flash('error', 'Please select sessions to verify.');
+            return;
+        }
+
+        try {
+            $sessions = ClassSession::whereIn('id', $this->selectedSessions)
+                ->where('status', 'completed')
+                ->whereNotNull('allowance_amount')
+                ->whereNull('verified_at')
+                ->get();
+
+            $verifiedCount = 0;
+            foreach ($sessions as $session) {
+                $session->verify(auth()->user());
+                $verifiedCount++;
+            }
+
+            $this->selectedSessions = [];
+            $this->selectAll = false;
+
+            session()->flash('success', "Successfully verified {$verifiedCount} sessions.");
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to verify sessions: ' . $e->getMessage());
+        }
+    }
+
+    public function bulkUnverifySessions()
+    {
+        if (empty($this->selectedSessions)) {
+            session()->flash('error', 'Please select sessions to unverify.');
+            return;
+        }
+
+        try {
+            $sessions = ClassSession::whereIn('id', $this->selectedSessions)
+                ->whereNotNull('verified_at')
+                ->get();
+
+            $unverifiedCount = 0;
+            foreach ($sessions as $session) {
+                $session->unverify();
+                $unverifiedCount++;
+            }
+
+            $this->selectedSessions = [];
+            $this->selectAll = false;
+
+            session()->flash('success', "Successfully unverified {$unverifiedCount} sessions.");
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to unverify sessions: ' . $e->getMessage());
+        }
+    }
+
+    public function clearDateRange()
+    {
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->dateFilter = 'all';
+        $this->resetPage();
     }
     
     public function exportSessions()
@@ -192,22 +392,32 @@ new class extends Component {
         
         // Apply the same filters
         $today = now()->startOfDay();
-        switch ($this->dateFilter) {
-            case 'today':
-                $query->whereDate('session_date', $today);
-                break;
-            case 'upcoming':
-                $query->where('session_date', '>=', $today);
-                break;
-            case 'past':
-                $query->where('session_date', '<', $today);
-                break;
-            case 'this_week':
-                $query->whereBetween('session_date', [
-                    $today->startOfWeek(),
-                    $today->copy()->endOfWeek()
-                ]);
-                break;
+        if ($this->dateFilter === 'custom' && $this->dateFrom && $this->dateTo) {
+            $query->whereBetween('session_date', [
+                Carbon::parse($this->dateFrom)->startOfDay(),
+                Carbon::parse($this->dateTo)->endOfDay()
+            ]);
+        } else {
+            switch ($this->dateFilter) {
+                case 'all':
+                    // Show all sessions - no date filter applied
+                    break;
+                case 'today':
+                    $query->whereDate('session_date', $today);
+                    break;
+                case 'upcoming':
+                    $query->where('session_date', '>=', $today);
+                    break;
+                case 'past':
+                    $query->where('session_date', '<', $today);
+                    break;
+                case 'this_week':
+                    $query->whereBetween('session_date', [
+                        $today->startOfWeek(),
+                        $today->copy()->endOfWeek()
+                    ]);
+                    break;
+            }
         }
         
         if ($this->classFilter !== 'all') {
@@ -380,10 +590,12 @@ new class extends Component {
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div class="flex flex-col sm:flex-row gap-3">
                     <flux:select wire:model.live="dateFilter" class="min-w-40">
+                        <option value="all">All Sessions</option>
                         <option value="upcoming">Upcoming Sessions</option>
                         <option value="today">Today's Sessions</option>
                         <option value="this_week">This Week</option>
                         <option value="past">Past Sessions</option>
+                        <option value="custom">Custom Date Range</option>
                     </flux:select>
                     
                     <flux:select wire:model.live="classFilter" placeholder="All Classes" class="min-w-40">
@@ -418,10 +630,71 @@ new class extends Component {
                     </flux:select>
                 </div>
             </div>
+
+            <!-- Custom Date Range Inputs -->
+            @if($dateFilter === 'custom')
+                <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                    <div class="flex-1">
+                        <flux:input type="date" wire:model.live="dateFrom" placeholder="From Date" class="w-full" />
+                    </div>
+                    <div class="flex-1">
+                        <flux:input type="date" wire:model.live="dateTo" placeholder="To Date" class="w-full" />
+                    </div>
+                    <flux:button variant="outline" wire:click="clearDateRange" size="sm" class="whitespace-nowrap">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="x-mark" class="w-4 h-4 mr-1" />
+                            Clear
+                        </div>
+                    </flux:button>
+                </div>
+            @endif
         </div>
     </flux:card>
 
     @if($sessions->count() > 0)
+        <!-- Bulk Actions Bar -->
+        <flux:card class="p-4 mb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <flux:checkbox wire:model.live="selectAll" />
+                    <flux:text size="sm" class="font-medium">
+                        Select All
+                        @if(count($selectedSessions) > 0)
+                            ({{ count($selectedSessions) }} selected)
+                        @endif
+                    </flux:text>
+                </div>
+
+                @if(count($selectedSessions) > 0)
+                    <div class="flex items-center gap-2">
+                        <flux:button
+                            variant="primary"
+                            size="sm"
+                            wire:click="bulkVerifySessions"
+                            class="bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
+                        >
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="check-badge" class="w-4 h-4 mr-1" />
+                                Verify Selected
+                            </div>
+                        </flux:button>
+
+                        <flux:button
+                            variant="outline"
+                            size="sm"
+                            wire:click="bulkUnverifySessions"
+                            class="text-amber-700 border-amber-300 hover:bg-amber-50 hover:border-amber-400"
+                        >
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="x-mark" class="w-4 h-4 mr-1" />
+                                Unverify Selected
+                            </div>
+                        </flux:button>
+                    </div>
+                @endif
+            </div>
+        </flux:card>
+
         <!-- Sessions List -->
         <div class="space-y-4">
             @foreach($sessions as $session)
@@ -436,6 +709,13 @@ new class extends Component {
                     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                         <!-- Session Info -->
                         <div class="flex-1 min-w-0">
+                            <div class="flex items-start gap-4">
+                                <flux:checkbox
+                                    wire:model.live="selectedSessions"
+                                    value="{{ $session->id }}"
+                                    class="mt-1"
+                                />
+                                <div class="flex-1 min-w-0">
                             <div class="flex items-start justify-between mb-4">
                                 <div class="flex-1">
                                     <div class="flex items-start justify-between">
@@ -512,25 +792,69 @@ new class extends Component {
                             </div>
                             
                             <!-- Session Details Grid -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                                 <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="calendar" class="w-4 h-4 mr-2 text-gray-400" />
                                     <span>{{ $session->session_date->format('M d, Y') }}</span>
                                 </div>
                                 <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="clock" class="w-4 h-4 mr-2 text-gray-400" />
-                                    <span>{{ $session->session_time->format('g:i A') }} ({{ $session->duration_minutes }}min)</span>
+                                    <span>{{ $session->session_time->format('g:i A') }}</span>
                                 </div>
+
+                                <!-- Enhanced Duration Tracking -->
+                                <div class="flex flex-col text-sm">
+                                    <div class="flex items-center text-gray-600 mb-1">
+                                        <flux:icon name="clock" class="w-4 h-4 mr-2 text-gray-400" />
+                                        <span class="font-medium">Target: {{ $session->formatted_duration }}</span>
+                                    </div>
+                                    @if($session->formatted_actual_duration)
+                                        <div class="flex items-center {{ $session->meetsKpi() === true ? 'text-green-700' : ($session->meetsKpi() === false ? 'text-red-700' : 'text-gray-600') }}">
+                                            <span class="ml-6 font-medium">Actual: {{ $session->formatted_actual_duration }}</span>
+                                        </div>
+                                        <div class="text-xs {{ $session->meetsKpi() === true ? 'text-green-600' : ($session->meetsKpi() === false ? 'text-red-600' : 'text-gray-500') }} ml-6">
+                                            {{ $session->duration_comparison }}
+                                        </div>
+                                    @elseif($session->isOngoing())
+                                        <div class="flex items-center text-yellow-700 ml-6">
+                                            <span
+                                                x-data="sessionTimer('{{ $session->started_at ? $session->started_at->toISOString() : now()->toISOString() }}')"
+                                                x-init="startTimer()"
+                                                class="font-mono text-sm"
+                                                x-text="'Current: ' + formattedTime"
+                                            ></span>
+                                        </div>
+                                    @else
+                                        <div class="text-xs text-gray-400 ml-6">Not started</div>
+                                    @endif
+                                </div>
+
+                                <!-- KPI Status -->
+                                <div class="flex items-center text-sm">
+                                    @if($session->isCompleted() && $session->meetsKpi() !== null)
+                                        <div class="flex items-center gap-2">
+                                            <flux:badge size="xs" :class="$session->kpi_badge_class">
+                                                {{ $session->meetsKpi() ? 'Met KPI' : 'Missed KPI' }}
+                                            </flux:badge>
+                                        </div>
+                                    @elseif($session->isOngoing())
+                                        <flux:badge size="xs" variant="outline" class="animate-pulse">
+                                            In Progress
+                                        </flux:badge>
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </div>
+
                                 <div class="flex items-center text-sm text-gray-600">
                                     <flux:icon name="users" class="w-4 h-4 mr-2 text-gray-400" />
                                     <span>{{ $attendanceCount }} students</span>
+                                    @if($session->status === 'completed' && $attendanceCount > 0)
+                                        <span class="text-xs text-gray-500 ml-1">
+                                            ({{ round(($presentCount / $attendanceCount) * 100) }}% attended)
+                                        </span>
+                                    @endif
                                 </div>
-                                @if($session->status === 'completed')
-                                    <div class="flex items-center text-sm text-gray-600">
-                                        <flux:icon name="chart-bar" class="w-4 h-4 mr-2 text-gray-400" />
-                                        <span>{{ $attendanceCount > 0 ? round(($presentCount / $attendanceCount) * 100) : 0 }}% attendance</span>
-                                    </div>
-                                @endif
                             </div>
                             
                             {{-- Payslip Information --}}
@@ -573,7 +897,9 @@ new class extends Component {
                                 </div>
                             @endif
                         </div>
-                        
+                            </div>
+                        </div>
+
                         <!-- Actions -->
                         <div class="flex flex-col items-end gap-3 lg:min-w-fit">
                             @if($session->status === 'completed' && $session->allowance_amount)
@@ -640,7 +966,7 @@ new class extends Component {
                 <flux:text class="text-gray-600  mb-6 max-w-md mx-auto">
                     No sessions match your current filter criteria. Try adjusting your filters.
                 </flux:text>
-                <flux:button variant="ghost" wire:click="$set('dateFilter', 'upcoming'); $set('classFilter', 'all'); $set('statusFilter', 'all'); $set('teacherFilter', 'all'); $set('verificationFilter', 'all')">
+                <flux:button variant="ghost" wire:click="$set('dateFilter', 'all'); $set('classFilter', 'all'); $set('statusFilter', 'all'); $set('teacherFilter', 'all'); $set('verificationFilter', 'all')">
                     Clear All Filters
                 </flux:button>
             @else
@@ -655,3 +981,47 @@ new class extends Component {
         </flux:card>
     @endif
 </div>
+
+<script>
+function sessionTimer(startTime) {
+    return {
+        startTime: new Date(startTime),
+        currentTime: '',
+        formattedTime: '',
+        interval: null,
+
+        startTimer() {
+            this.updateTime();
+            this.interval = setInterval(() => {
+                this.updateTime();
+            }, 1000);
+        },
+
+        updateTime() {
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - this.startTime) / 1000);
+
+            if (diffInSeconds < 0) {
+                this.formattedTime = '0:00';
+                return;
+            }
+
+            const hours = Math.floor(diffInSeconds / 3600);
+            const minutes = Math.floor((diffInSeconds % 3600) / 60);
+            const seconds = diffInSeconds % 60;
+
+            if (hours > 0) {
+                this.formattedTime = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                this.formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        },
+
+        destroy() {
+            if (this.interval) {
+                clearInterval(this.interval);
+            }
+        }
+    }
+}
+</script>

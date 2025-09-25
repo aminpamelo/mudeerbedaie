@@ -67,7 +67,7 @@ new class extends Component {
             'max_capacity' => 'nullable|integer|min:1|max:10000',
             'location' => 'nullable|string|max:255',
             'meeting_url' => 'nullable|url|max:255',
-            'whatsapp_group_link' => 'nullable|url|max:255',
+            'whatsapp_group_link' => 'required|url|max:255',
             'teacher_rate' => 'required|numeric|min:0',
             'rate_type' => 'required|in:per_class,per_student,per_session',
             'commission_type' => 'required_if:rate_type,per_session|in:percentage,fixed',
@@ -308,7 +308,7 @@ new class extends Component {
                 
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <flux:field>
-                        <flux:label>Course</flux:label>
+                        <flux:label><span class="text-red-500">*</span> Course</flux:label>
                         <flux:select wire:model.live="course_id" placeholder="Select course">
                             @foreach($courses as $course)
                                 <flux:select.option value="{{ $course->id }}">{{ $course->name }}</flux:select.option>
@@ -318,7 +318,7 @@ new class extends Component {
                     </flux:field>
 
                     <flux:field>
-                        <flux:label>Teacher</flux:label>
+                        <flux:label><span class="text-red-500">*</span> Teacher</flux:label>
                         <flux:select wire:model="teacher_id" placeholder="Select teacher">
                             @foreach($teachers as $teacher)
                                 <flux:select.option value="{{ $teacher->id }}">{{ $teacher->fullName }} ({{ $teacher->teacher_id }})</flux:select.option>
@@ -329,7 +329,7 @@ new class extends Component {
 
                     <div class="sm:col-span-2">
                         <flux:field>
-                            <flux:label>Class Title</flux:label>
+                            <flux:label><span class="text-red-500">*</span> Class Title</flux:label>
                             <flux:input wire:model="title" type="text" placeholder="e.g., Introduction to Laravel" />
                             <flux:error name="title" />
                         </flux:field>
@@ -359,21 +359,21 @@ new class extends Component {
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     @if(!$enable_timetable)
                         <flux:field>
-                            <flux:label>Date & Time</flux:label>
+                            <flux:label><span class="text-red-500">*</span> Date & Time</flux:label>
                             <flux:input wire:model="date_time" type="datetime-local" />
                             <flux:error name="date_time" />
                         </flux:field>
                     @endif
 
                     <flux:field>
-                        <flux:label>Duration (minutes)</flux:label>
+                        <flux:label><span class="text-red-500">*</span> Duration (minutes)</flux:label>
                         <flux:input wire:model="duration_minutes" type="number" min="15" max="480" />
                         <flux:description>Duration in minutes (15-480)</flux:description>
                         <flux:error name="duration_minutes" />
                     </flux:field>
 
                     <flux:field>
-                        <flux:label>Class Type</flux:label>
+                        <flux:label><span class="text-red-500">*</span> Class Type</flux:label>
                         <flux:select wire:model.live="class_type">
                             <flux:select.option value="group">Group Class</flux:select.option>
                             <flux:select.option value="individual">Individual Class</flux:select.option>
@@ -408,9 +408,9 @@ new class extends Component {
 
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <flux:field>
-                        <flux:label>WhatsApp Group Link</flux:label>
+                        <flux:label><span class="text-red-500">*</span> WhatsApp Group Link</flux:label>
                         <flux:input wire:model="whatsapp_group_link" type="url" placeholder="https://chat.whatsapp.com/..." />
-                        <flux:description>Link to the class WhatsApp group for communication</flux:description>
+                        <flux:description>Required: Link to the class WhatsApp group for communication</flux:description>
                         <flux:error name="whatsapp_group_link" />
                     </flux:field>
                 </div>
@@ -503,7 +503,7 @@ new class extends Component {
                 
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <flux:field>
-                        <flux:label>Rate Type</flux:label>
+                        <flux:label><span class="text-red-500">*</span> Rate Type</flux:label>
                         <flux:select wire:model.live="rate_type">
                             <flux:select.option value="per_class">Per Class (Fixed)</flux:select.option>
                             <flux:select.option value="per_student">Per Student</flux:select.option>
@@ -516,11 +516,11 @@ new class extends Component {
                         <flux:field>
                             <flux:label>
                                 @if($rate_type === 'per_class')
-                                    Fixed Rate (RM)
+                                    <span class="text-red-500">*</span> Fixed Rate (RM)
                                 @elseif($rate_type === 'per_student')
-                                    Rate per Student (RM)
+                                    <span class="text-red-500">*</span> Rate per Student (RM)
                                 @else
-                                    Base Rate (RM)
+                                    <span class="text-red-500">*</span> Base Rate (RM)
                                 @endif
                             </flux:label>
                             <flux:input wire:model.live="teacher_rate" type="number" step="0.01" min="0" />

@@ -1357,7 +1357,7 @@ new class extends Component
     {
         $this->validate([
             'paymentDate' => 'required|date',
-            'receiptFile' => 'nullable|file|max:10240', // 10MB max
+            'receiptFile' => 'required|file|max:10240', // 10MB max
         ]);
 
         try {
@@ -3547,10 +3547,11 @@ new class extends Component
             <flux:input 
                 type="file" 
                 wire:model="receiptFile" 
-                label="Receipt (Optional)" 
+                label="Receipt" 
                 accept="image/*,.pdf"
                 placeholder="Attach payment receipt"
-                description="Upload payment receipt (images or PDF, max 10MB)" />
+                description="Upload payment receipt (required - images or PDF, max 10MB)"
+                required />
 
             @if($receiptFile)
                 <div class="mt-2">

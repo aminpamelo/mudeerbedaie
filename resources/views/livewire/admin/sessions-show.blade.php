@@ -107,9 +107,51 @@ new class extends Component {
                         <flux:text size="lg">{{ $session->formatted_date_time }}</flux:text>
                     </div>
                     
-                    <div>
-                        <flux:text class="text-sm text-gray-500  mb-1">Duration</flux:text>
-                        <flux:text size="lg">{{ $session->formatted_duration }}</flux:text>
+                    <!-- Enhanced Duration Tracking -->
+                    <div class="md:col-span-2">
+                        <flux:text class="text-sm text-gray-500  mb-1">Duration Tracking</flux:text>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <flux:text size="lg" class="text-gray-700">
+                                    <span class="font-medium">Target:</span> {{ $session->formatted_duration }}
+                                </flux:text>
+                            </div>
+
+                            @if($session->formatted_actual_duration)
+                                <div class="flex items-center gap-2">
+                                    <flux:text size="lg" class="{{ $session->meetsKpi() === true ? 'text-green-700' : ($session->meetsKpi() === false ? 'text-red-700' : 'text-gray-700') }}">
+                                        <span class="font-medium">Actual:</span> {{ $session->formatted_actual_duration }}
+                                    </flux:text>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <flux:badge :class="$session->kpi_badge_class">
+                                        {{ $session->meetsKpi() ? 'KPI Met' : 'KPI Missed' }}
+                                    </flux:badge>
+                                    <flux:text size="sm" class="{{ $session->meetsKpi() === true ? 'text-green-600' : ($session->meetsKpi() === false ? 'text-red-600' : 'text-gray-500') }}">
+                                        {{ $session->duration_comparison }}
+                                    </flux:text>
+                                </div>
+                            @elseif($session->isOngoing())
+                                <div class="flex items-center gap-2">
+                                    <flux:text size="lg" class="text-yellow-700">
+                                        <span class="font-medium">Current:</span>
+                                        <span
+                                            x-data="sessionTimer('{{ $session->started_at ? $session->started_at->toISOString() : now()->toISOString() }}')"
+                                            x-init="startTimer()"
+                                            class="font-mono"
+                                            x-text="formattedTime"
+                                        ></span>
+                                    </flux:text>
+                                </div>
+                                <flux:badge variant="outline" class="animate-pulse">
+                                    Session In Progress
+                                </flux:badge>
+                            @else
+                                <flux:text size="sm" class="text-gray-500">
+                                    Session not started yet
+                                </flux:text>
+                            @endif
+                        </div>
                     </div>
                     
                     @if($session->topic)
@@ -261,31 +303,41 @@ new class extends Component {
                 <div class="space-y-3">
                     @if($session->status === 'completed' && $session->allowance_amount && !$session->verified_at)
                         <flux:button wire:click="verifySession" variant="primary" class="w-full">
-                            <flux:icon name="check-badge" class="w-4 h-4 mr-2" />
-                            Verify Session for Payroll
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="check-badge" class="w-4 h-4 mr-2" />
+                                Verify Session for Payroll
+                            </div>
                         </flux:button>
                     @elseif($session->verified_at)
                         <flux:button wire:click="unverifySession" variant="ghost" class="w-full">
-                            <flux:icon name="x-mark" class="w-4 h-4 mr-2" />
-                            Remove Verification
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="x-mark" class="w-4 h-4 mr-2" />
+                                Remove Verification
+                            </div>
                         </flux:button>
                     @endif
                     
                     <flux:button href="{{ route('classes.show', $session->class) }}" variant="ghost" class="w-full">
-                        <flux:icon name="academic-cap" class="w-4 h-4 mr-2" />
-                        View Class Details
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="academic-cap" class="w-4 h-4 mr-2" />
+                            View Class Details
+                        </div>
                     </flux:button>
                     
                     @if($session->class->teacher)
                         <flux:button href="{{ route('teachers.show', $session->class->teacher) }}" variant="ghost" class="w-full">
-                            <flux:icon name="user" class="w-4 h-4 mr-2" />
-                            View Teacher Profile
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="user" class="w-4 h-4 mr-2" />
+                                View Teacher Profile
+                            </div>
                         </flux:button>
                     @endif
                     
                     <flux:button href="{{ route('admin.sessions.index') }}" variant="ghost" class="w-full">
-                        <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
-                        Back to Sessions List
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
+                            Back to Sessions List
+                        </div>
                     </flux:button>
                 </div>
             </flux:card>
@@ -381,3 +433,47 @@ new class extends Component {
         </div>
     </div>
 </div>
+
+<script>
+function sessionTimer(startTime) {
+    return {
+        startTime: new Date(startTime),
+        currentTime: '',
+        formattedTime: '',
+        interval: null,
+
+        startTimer() {
+            this.updateTime();
+            this.interval = setInterval(() => {
+                this.updateTime();
+            }, 1000);
+        },
+
+        updateTime() {
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - this.startTime) / 1000);
+
+            if (diffInSeconds < 0) {
+                this.formattedTime = '0:00';
+                return;
+            }
+
+            const hours = Math.floor(diffInSeconds / 3600);
+            const minutes = Math.floor((diffInSeconds % 3600) / 60);
+            const seconds = diffInSeconds % 60;
+
+            if (hours > 0) {
+                this.formattedTime = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                this.formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        },
+
+        destroy() {
+            if (this.interval) {
+                clearInterval(this.interval);
+            }
+        }
+    }
+}
+</script>
