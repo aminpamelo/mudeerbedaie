@@ -1,203 +1,5 @@
-{{-- Week View with Horizontal Scrolling --}}
-<div class="overflow-x-auto scrollbar-hide">
-    <div class="grid gap-px bg-gray-200  rounded-lg overflow-hidden" style="grid-template-columns: repeat(7, minmax(280px, 1fr)); min-width: 1960px;">
-        @foreach($days as $day)
-            <div class="bg-white  {{ $day['isToday'] ? 'ring-2 ring-blue-500 ' : '' }}">
-                {{-- Day Header --}}
-                <div class="p-4 border-b border-gray-200">
-                    <div class="text-center">
-                        <div class="text-xs font-medium text-gray-500  uppercase tracking-wide">
-                            {{ $day['dayName'] }}
-                        </div>
-                        <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600 ' : 'text-gray-900 ' }}">
-                            {{ $day['dayNumber'] }}
-                        </div>
-                    </div>
-                </div>
-                
-                {{-- Day Sessions and Scheduled Slots --}}
-                <div class="p-2 min-h-[200px] space-y-1">
-                    @php
-                        // Combine sessions and scheduled slots, sorted by time
-                        $combinedItems = collect();
-                        
-                        // Add existing sessions
-                        foreach($day['sessions'] as $session) {
-                            $combinedItems->push([
-                                'type' => 'session',
-                                'time' => $session->session_time->format('H:i'),
-                                'displayTime' => $session->session_time->format('g:i A'),
-                                'session' => $session,
-                                'class' => $session->class,
-                            ]);
-                        }
-                        
-                        // Add scheduled slots without existing sessions
-                        foreach($day['scheduledSlots'] as $slot) {
-                            // Only add if there's no existing session for this time/class combo
-                            if (!$slot['session']) {
-                                $combinedItems->push([
-                                    'type' => 'scheduled',
-                                    'time' => $slot['time'],
-                                    'displayTime' => \Carbon\Carbon::parse($slot['time'])->format('g:i A'),
-                                    'session' => null,
-                                    'class' => $slot['class'],
-                                ]);
-                            }
-                        }
-                        
-                        $sortedItems = $combinedItems->sortBy('time');
-                    @endphp
-                    
-                    @forelse($sortedItems as $item)
-                        @if($item['type'] === 'session')
-                            {{-- Existing Session --}}
-                            @php $session = $item['session']; @endphp
-                            <div 
-                                class="group cursor-pointer rounded-lg p-2 text-xs transition-all duration-200 hover:shadow-md
-                                       @switch($session->status)
-                                           @case('scheduled')
-                                               bg-blue-100 /30 border border-blue-200  hover:bg-blue-200 :bg-blue-900/50
-                                               @break
-                                           @case('ongoing')
-                                               bg-green-100 /30 border border-green-200  hover:bg-green-200 :bg-green-900/50 animate-pulse
-                                               @break
-                                           @case('completed')
-                                               bg-gray-100 /30 border border-gray-200  hover:bg-gray-200 :bg-gray-900/50
-                                               @break
-                                           @case('cancelled')
-                                               bg-red-100 /30 border border-red-200  hover:bg-red-200 :bg-red-900/50
-                                               @break
-                                           @default
-                                               bg-gray-100 /30 border border-gray-200  hover:bg-gray-200 :bg-gray-900/50
-                                       @endswitch"
-                                wire:click="selectSession({{ $session->id }})"
-                            >
-                                {{-- Session Time --}}
-                                <div class="font-medium {{ $session->status === 'ongoing' ? 'text-green-800 ' : 'text-gray-900 ' }}">
-                                    {{ $item['displayTime'] }}
-                                </div>
-                                
-                                {{-- Session Title --}}
-                                <div class="text-gray-800  font-medium truncate" title="{{ $session->class->title }}">
-                                    {{ $session->class->title }}
-                                </div>
-                                
-                                {{-- Session Course --}}
-                                <div class="text-gray-600  truncate" title="{{ $session->class->course->title }}">
-                                    {{ $session->class->course->title }}
-                                </div>
-                                
-                                {{-- Session Duration & Students --}}
-                                <div class="flex items-center justify-between mt-1 text-gray-500">
-                                    <span>{{ $session->formatted_duration }}</span>
-                                    @if($session->attendances->count() > 0)
-                                        <span class="text-xs">{{ $session->attendances->count() }} students</span>
-                                    @endif
-                                </div>
-                                
-                                {{-- Status Indicator and Actions --}}
-                                <div class="flex items-center justify-between mt-1">
-                                    <flux:badge 
-                                        size="sm" 
-                                        class="{{ $session->status_badge_class }}"
-                                    >
-                                        {{ ucfirst($session->status) }}
-                                    </flux:badge>
-                                    
-                                    @if($session->status === 'ongoing')
-                                        <div class="flex items-center gap-1">
-                                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                            <span class="text-xs text-green-600">Live</span>
-                                        </div>
-                                    @endif
-                                </div>
-                                
-                                {{-- Timer Display for Ongoing Sessions --}}
-                                @if($session->status === 'ongoing')
-                                    <div class="mt-2 text-center" x-data="{ 
-                                        elapsedTime: 0,
-                                        timer: null,
-                                        formatTime(seconds) {
-                                            const hours = Math.floor(seconds / 3600);
-                                            const minutes = Math.floor((seconds % 3600) / 60);
-                                            const secs = seconds % 60;
-                                            if (hours > 0) {
-                                                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-                                            } else {
-                                                return `${minutes}:${secs.toString().padStart(2, '0')}`;
-                                            }
-                                        }
-                                    }" x-init="
-                                        const startTime = new Date('{{ $session->started_at ? $session->started_at->toISOString() : now()->toISOString() }}').getTime();
-                                        elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-                                        timer = setInterval(() => {
-                                            elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-                                        }, 1000);
-" x-destroy="timer && clearInterval(timer)">
-                                        <div class="bg-green-100 /30 border border-green-200  rounded px-2 py-1">
-                                            <div class="text-xs font-mono font-semibold text-green-700" x-text="formatTime(elapsedTime)">
-                                            </div>
-                                            <div class="text-xs text-green-600">Elapsed</div>
-                                        </div>
-                                    </div>
-                                @endif
-                            </div>
-                            
-                        @else
-                            {{-- Scheduled Slot Without Session --}}
-                            @php $class = $item['class']; @endphp
-                            <div class="rounded-lg p-2 text-xs bg-indigo-50 /30 border border-indigo-200  transition-all duration-200 hover:bg-indigo-100 :bg-indigo-900/50">
-                                {{-- Scheduled Time --}}
-                                <div class="font-medium text-indigo-900">
-                                    {{ $item['displayTime'] }}
-                                </div>
-                                
-                                {{-- Class Title --}}
-                                <div class="text-indigo-800  font-medium truncate" title="{{ $class->title }}">
-                                    {{ $class->title }}
-                                </div>
-                                
-                                {{-- Course Name --}}
-                                <div class="text-indigo-600  truncate" title="{{ $class->course->title }}">
-                                    {{ $class->course->title }}
-                                </div>
-                                
-                                {{-- Scheduled Badge --}}
-                                <div class="flex items-center justify-between mt-1">
-                                    <flux:badge size="sm" color="indigo">Scheduled</flux:badge>
-                                </div>
-                                
-                                {{-- Start Session Button --}}
-                                <div class="mt-2">
-                                    <flux:button 
-                                        variant="primary" 
-                                        size="xs" 
-                                        class="w-full"
-                                        wire:click.stop="startSessionFromTimetable({{ $class->id }}, '{{ $day['date']->toDateString() }}', '{{ $item['time'] }}')"
-                                    >
-                                        <div class="flex items-center justify-center gap-1">
-                                            <flux:icon name="play" variant="micro" />
-                                            <span>Start Session</span>
-                                        </div>
-                                    </flux:button>
-                                </div>
-                            </div>
-                        @endif
-                    @empty
-                        <div class="text-center py-8 text-gray-400">
-                            <flux:icon name="calendar" class="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <div class="text-sm">No sessions or scheduled classes</div>
-                        </div>
-                    @endforelse
-                </div>
-            </div>
-        @endforeach
-    </div>
-</div>
-
 {{-- Mobile Week View with Horizontal Scrolling --}}
-<div class="md:hidden mt-6" x-data="{
+<div class="md:hidden" x-data="{
     scrollContainer: null,
     currentDayIndex: 0,
     
@@ -491,6 +293,204 @@
                 </div>
             @endforeach
         </div>
+    </div>
+</div>
+
+{{-- Desktop Week View with Horizontal Scrolling (hidden on mobile) --}}
+<div class="hidden md:block overflow-x-auto scrollbar-hide">
+    <div class="grid gap-px bg-gray-200  rounded-lg overflow-hidden" style="grid-template-columns: repeat(7, minmax(280px, 1fr)); min-width: 1960px;">
+        @foreach($days as $day)
+            <div class="bg-white  {{ $day['isToday'] ? 'ring-2 ring-blue-500 ' : '' }}">
+                {{-- Day Header --}}
+                <div class="p-4 border-b border-gray-200">
+                    <div class="text-center">
+                        <div class="text-xs font-medium text-gray-500  uppercase tracking-wide">
+                            {{ $day['dayName'] }}
+                        </div>
+                        <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600 ' : 'text-gray-900 ' }}">
+                            {{ $day['dayNumber'] }}
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Day Sessions and Scheduled Slots --}}
+                <div class="p-2 min-h-[200px] space-y-1">
+                    @php
+                        // Combine sessions and scheduled slots, sorted by time
+                        $combinedItems = collect();
+
+                        // Add existing sessions
+                        foreach($day['sessions'] as $session) {
+                            $combinedItems->push([
+                                'type' => 'session',
+                                'time' => $session->session_time->format('H:i'),
+                                'displayTime' => $session->session_time->format('g:i A'),
+                                'session' => $session,
+                                'class' => $session->class,
+                            ]);
+                        }
+
+                        // Add scheduled slots without existing sessions
+                        foreach($day['scheduledSlots'] as $slot) {
+                            // Only add if there's no existing session for this time/class combo
+                            if (!$slot['session']) {
+                                $combinedItems->push([
+                                    'type' => 'scheduled',
+                                    'time' => $slot['time'],
+                                    'displayTime' => \Carbon\Carbon::parse($slot['time'])->format('g:i A'),
+                                    'session' => null,
+                                    'class' => $slot['class'],
+                                ]);
+                            }
+                        }
+
+                        $sortedItems = $combinedItems->sortBy('time');
+                    @endphp
+
+                    @forelse($sortedItems as $item)
+                        @if($item['type'] === 'session')
+                            {{-- Existing Session --}}
+                            @php $session = $item['session']; @endphp
+                            <div
+                                class="group cursor-pointer rounded-lg p-2 text-xs transition-all duration-200 hover:shadow-md
+                                       @switch($session->status)
+                                           @case('scheduled')
+                                               bg-blue-100 /30 border border-blue-200  hover:bg-blue-200 :bg-blue-900/50
+                                               @break
+                                           @case('ongoing')
+                                               bg-green-100 /30 border border-green-200  hover:bg-green-200 :bg-green-900/50 animate-pulse
+                                               @break
+                                           @case('completed')
+                                               bg-gray-100 /30 border border-gray-200  hover:bg-gray-200 :bg-gray-900/50
+                                               @break
+                                           @case('cancelled')
+                                               bg-red-100 /30 border border-red-200  hover:bg-red-200 :bg-red-900/50
+                                               @break
+                                           @default
+                                               bg-gray-100 /30 border border-gray-200  hover:bg-gray-200 :bg-gray-900/50
+                                       @endswitch"
+                                wire:click="selectSession({{ $session->id }})"
+                            >
+                                {{-- Session Time --}}
+                                <div class="font-medium {{ $session->status === 'ongoing' ? 'text-green-800 ' : 'text-gray-900 ' }}">
+                                    {{ $item['displayTime'] }}
+                                </div>
+
+                                {{-- Session Title --}}
+                                <div class="text-gray-800  font-medium truncate" title="{{ $session->class->title }}">
+                                    {{ $session->class->title }}
+                                </div>
+
+                                {{-- Session Course --}}
+                                <div class="text-gray-600  truncate" title="{{ $session->class->course->title }}">
+                                    {{ $session->class->course->title }}
+                                </div>
+
+                                {{-- Session Duration & Students --}}
+                                <div class="flex items-center justify-between mt-1 text-gray-500">
+                                    <span>{{ $session->formatted_duration }}</span>
+                                    @if($session->attendances->count() > 0)
+                                        <span class="text-xs">{{ $session->attendances->count() }} students</span>
+                                    @endif
+                                </div>
+
+                                {{-- Status Indicator and Actions --}}
+                                <div class="flex items-center justify-between mt-1">
+                                    <flux:badge
+                                        size="sm"
+                                        class="{{ $session->status_badge_class }}"
+                                    >
+                                        {{ ucfirst($session->status) }}
+                                    </flux:badge>
+
+                                    @if($session->status === 'ongoing')
+                                        <div class="flex items-center gap-1">
+                                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                            <span class="text-xs text-green-600">Live</span>
+                                        </div>
+                                    @endif
+                                </div>
+
+                                {{-- Timer Display for Ongoing Sessions --}}
+                                @if($session->status === 'ongoing')
+                                    <div class="mt-2 text-center" x-data="{
+                                        elapsedTime: 0,
+                                        timer: null,
+                                        formatTime(seconds) {
+                                            const hours = Math.floor(seconds / 3600);
+                                            const minutes = Math.floor((seconds % 3600) / 60);
+                                            const secs = seconds % 60;
+                                            if (hours > 0) {
+                                                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                                            } else {
+                                                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+                                            }
+                                        }
+                                    }" x-init="
+                                        const startTime = new Date('{{ $session->started_at ? $session->started_at->toISOString() : now()->toISOString() }}').getTime();
+                                        elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                                        timer = setInterval(() => {
+                                            elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                                        }, 1000);
+" x-destroy="timer && clearInterval(timer)">
+                                        <div class="bg-green-100 /30 border border-green-200  rounded px-2 py-1">
+                                            <div class="text-xs font-mono font-semibold text-green-700" x-text="formatTime(elapsedTime)">
+                                            </div>
+                                            <div class="text-xs text-green-600">Elapsed</div>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+
+                        @else
+                            {{-- Scheduled Slot Without Session --}}
+                            @php $class = $item['class']; @endphp
+                            <div class="rounded-lg p-2 text-xs bg-indigo-50 /30 border border-indigo-200  transition-all duration-200 hover:bg-indigo-100 :bg-indigo-900/50">
+                                {{-- Scheduled Time --}}
+                                <div class="font-medium text-indigo-900">
+                                    {{ $item['displayTime'] }}
+                                </div>
+
+                                {{-- Class Title --}}
+                                <div class="text-indigo-800  font-medium truncate" title="{{ $class->title }}">
+                                    {{ $class->title }}
+                                </div>
+
+                                {{-- Course Name --}}
+                                <div class="text-indigo-600  truncate" title="{{ $class->course->title }}">
+                                    {{ $class->course->title }}
+                                </div>
+
+                                {{-- Scheduled Badge --}}
+                                <div class="flex items-center justify-between mt-1">
+                                    <flux:badge size="sm" color="indigo">Scheduled</flux:badge>
+                                </div>
+
+                                {{-- Start Session Button --}}
+                                <div class="mt-2">
+                                    <flux:button
+                                        variant="primary"
+                                        size="xs"
+                                        class="w-full"
+                                        wire:click.stop="startSessionFromTimetable({{ $class->id }}, '{{ $day['date']->toDateString() }}', '{{ $item['time'] }}')"
+                                    >
+                                        <div class="flex items-center justify-center gap-1">
+                                            <flux:icon name="play" variant="micro" />
+                                            <span>Start Session</span>
+                                        </div>
+                                    </flux:button>
+                                </div>
+                            </div>
+                        @endif
+                    @empty
+                        <div class="text-center py-8 text-gray-400">
+                            <flux:icon name="calendar" class="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <div class="text-sm">No sessions or scheduled classes</div>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        @endforeach
     </div>
 </div>
 

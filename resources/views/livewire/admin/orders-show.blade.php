@@ -1,11 +1,18 @@
 <?php
 use App\Models\Order;
 use App\Services\StripeService;
+use Livewire\WithFileUploads;
 use Livewire\Volt\Component;
 use Carbon\Carbon;
 
 new class extends Component {
+    use WithFileUploads;
+
     public Order $order;
+    public $approvalReceipt;
+    public string $approvalNotes = '';
+    public string $paymentDate = '';
+    public bool $showApprovalModal = false;
 
     public function mount()
     {
@@ -72,13 +79,109 @@ new class extends Component {
         }
 
         $filePath = storage_path('app/public/' . $this->order->metadata['receipt_file']);
-        
+
         if (!file_exists($filePath)) {
             session()->flash('error', 'Receipt file not found.');
             return;
         }
 
         return response()->download($filePath, 'receipt-' . $this->order->order_number . '.' . pathinfo($filePath, PATHINFO_EXTENSION));
+    }
+
+    public function openApprovalModal()
+    {
+        $this->showApprovalModal = true;
+        $this->approvalNotes = '';
+        $this->approvalReceipt = null;
+        $this->paymentDate = now()->format('Y-m-d');
+    }
+
+    public function closeApprovalModal()
+    {
+        $this->showApprovalModal = false;
+        $this->approvalNotes = '';
+        $this->approvalReceipt = null;
+        $this->paymentDate = '';
+    }
+
+    public function approvalRules()
+    {
+        return [
+            'approvalReceipt' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120', // 5MB max
+            'paymentDate' => 'required|date|before_or_equal:today',
+            'approvalNotes' => 'nullable|string|max:500',
+        ];
+    }
+
+    public function approvePayment()
+    {
+        if (!$this->order->isPending() || $this->order->payment_method !== 'manual') {
+            session()->flash('error', 'Only pending manual payments can be approved.');
+            return;
+        }
+
+        $this->validate($this->approvalRules());
+
+        try {
+            // Store the approval receipt
+            $receiptPath = $this->approvalReceipt->store('approval-receipts', 'public');
+
+            $metadata = $this->order->metadata ?? [];
+            $metadata['approved_by'] = auth()->id();
+            $metadata['approved_at'] = now()->toISOString();
+            $metadata['payment_date'] = $this->paymentDate;
+            $metadata['approval_notes'] = $this->approvalNotes ?: 'Payment manually approved by admin';
+            $metadata['receipt_file'] = $receiptPath;
+            $metadata['approval_receipt_original_name'] = $this->approvalReceipt->getClientOriginalName();
+
+            $paymentDate = \Carbon\Carbon::parse($this->paymentDate);
+
+            $this->order->update([
+                'status' => \App\Models\Order::STATUS_PAID,
+                'paid_at' => $paymentDate,
+                'metadata' => $metadata,
+                'failed_at' => null,
+                'failure_reason' => null,
+            ]);
+
+            // Close modal and reset form
+            $this->closeApprovalModal();
+
+            session()->flash('success', 'Payment approved successfully! Payment date recorded as ' . $paymentDate->format('M j, Y') . ' and receipt attached.');
+
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to approve payment: ' . $e->getMessage());
+        }
+    }
+
+    public function rejectPayment($reason = null)
+    {
+        if (!$this->order->isPending() || $this->order->payment_method !== 'manual') {
+            session()->flash('error', 'Only pending manual payments can be rejected.');
+            return;
+        }
+
+        try {
+            $rejectionReason = $reason ?: 'Payment verification failed - insufficient or invalid proof of payment provided';
+
+            $metadata = $this->order->metadata ?? [];
+            $metadata['rejected_by'] = auth()->id();
+            $metadata['rejected_at'] = now()->toISOString();
+            $metadata['rejection_reason'] = $rejectionReason;
+
+            $this->order->markAsFailed([
+                'failure_message' => $rejectionReason,
+                'failure_code' => 'manual_rejection',
+                'rejected_by_admin' => true,
+            ]);
+
+            $this->order->update(['metadata' => $metadata]);
+
+            session()->flash('success', 'Payment rejected and student notified. The student will need to resubmit their payment with valid proof.');
+
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to reject payment: ' . $e->getMessage());
+        }
     }
 
     public function with(): array
@@ -104,9 +207,83 @@ new class extends Component {
                 <flux:button wire:click="resendReceipt" variant="outline">
                     Resend Receipt
                 </flux:button>
+            @elseif($order->isPending() && $order->payment_method === 'manual')
+                <div class="flex items-center justify-center">
+                    <flux:button
+                        wire:click="openApprovalModal"
+                        variant="primary"
+                    >
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="check" class="w-4 h-4 mr-1" />
+                            Approve Payment
+                        </div>
+                    </flux:button>
+                </div>
+                <div class="flex items-center justify-center">
+                    <flux:button
+                        wire:click="rejectPayment"
+                        variant="danger"
+                        wire:confirm="Are you sure you want to reject this payment? The student will be notified."
+                    >
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="x-mark" class="w-4 h-4 mr-1" />
+                            Reject Payment
+                        </div>
+                    </flux:button>
+                </div>
             @endif
         </div>
     </div>
+
+    @if(session()->has('success'))
+        <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <div class="flex items-center">
+                <flux:icon name="check-circle" class="w-5 h-5 text-emerald-600 mr-3" />
+                <flux:text class="text-emerald-800">{{ session('success') }}</flux:text>
+            </div>
+        </div>
+    @endif
+
+    @if(session()->has('error'))
+        <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="flex items-center">
+                <flux:icon name="exclamation-circle" class="w-5 h-5 text-red-600 mr-3" />
+                <flux:text class="text-red-800">{{ session('error') }}</flux:text>
+            </div>
+        </div>
+    @endif
+
+    @if($order->isPending() && $order->payment_method === 'manual')
+        <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div class="flex items-start">
+                <flux:icon name="exclamation-triangle" class="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
+                <div class="flex-1">
+                    <flux:text class="text-amber-800 font-medium">Payment Review Required</flux:text>
+                    <flux:text class="text-amber-700 text-sm mt-1">
+                        This manual payment is pending approval. Review the student's payment details and <strong>attach a receipt/proof of payment</strong> when approving to maintain proper records.
+                    </flux:text>
+                    @if($this->hasReceiptAttachment())
+                        <div class="mt-3 flex items-center space-x-3">
+                            <flux:button wire:click="downloadReceipt" variant="outline" size="sm">
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="document-arrow-down" class="w-4 h-4 mr-1" />
+                                    Download Receipt
+                                </div>
+                            </flux:button>
+                            <a href="{{ $this->getReceiptUrl() }}" target="_blank">
+                                <flux:button variant="ghost" size="sm">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="magnifying-glass" class="w-4 h-4 mr-1" />
+                                        View Receipt
+                                    </div>
+                                </flux:button>
+                            </a>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Order Details -->
@@ -115,15 +292,20 @@ new class extends Component {
             <flux:card>
                 <div class="flex items-center justify-between mb-4">
                     <flux:heading size="lg">Order Status</flux:heading>
-                    @if($order->isPaid())
-                        <flux:badge variant="success" size="lg">{{ $order->status_label }}</flux:badge>
-                    @elseif($order->isFailed())
-                        <flux:badge variant="danger" size="lg">{{ $order->status_label }}</flux:badge>
-                    @elseif($order->isPending())
-                        <flux:badge variant="warning" size="lg">{{ $order->status_label }}</flux:badge>
-                    @else
-                        <flux:badge variant="gray" size="lg">{{ $order->status_label }}</flux:badge>
-                    @endif
+                    <div class="flex items-center space-x-2">
+                        @if($order->isPaid())
+                            <flux:badge variant="success" size="lg">{{ $order->status_label }}</flux:badge>
+                        @elseif($order->isFailed())
+                            <flux:badge variant="danger" size="lg">{{ $order->status_label }}</flux:badge>
+                        @elseif($order->isPending())
+                            <flux:badge variant="warning" size="lg">{{ $order->status_label }}</flux:badge>
+                            @if($order->payment_method === 'manual')
+                                <flux:badge variant="amber" size="sm">Awaiting Review</flux:badge>
+                            @endif
+                        @else
+                            <flux:badge variant="gray" size="lg">{{ $order->status_label }}</flux:badge>
+                        @endif
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-6">
@@ -325,11 +507,32 @@ new class extends Component {
                                 </a>
                             </div>
                             @if(isset($order->metadata['approved_by']) && isset($order->metadata['approved_at']))
-                                <div class="mt-2">
-                                    <flux:text size="xs" class="text-gray-500">
-                                        Approved manually on {{ \Carbon\Carbon::parse($order->metadata['approved_at'])->format('M j, Y g:i A') }}
+                                <div class="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-md">
+                                    <div class="flex items-center">
+                                        <flux:icon name="check-circle" class="w-4 h-4 text-emerald-600 mr-2" />
+                                        <flux:text size="sm" class="text-emerald-800 font-medium">Payment Approved</flux:text>
+                                    </div>
+                                    <flux:text size="xs" class="text-emerald-700 mt-1">
+                                        @if(isset($order->metadata['payment_date']))
+                                            Payment received: {{ \Carbon\Carbon::parse($order->metadata['payment_date'])->format('M j, Y') }}
+                                            <br>
+                                        @endif
+                                        Approved on {{ \Carbon\Carbon::parse($order->metadata['approved_at'])->format('M j, Y g:i A') }}
                                         @if($this->getApprover())
                                             by {{ $this->getApprover()->name }}
+                                        @endif
+                                    </flux:text>
+                                </div>
+                            @elseif(isset($order->metadata['rejected_by']) && isset($order->metadata['rejected_at']))
+                                <div class="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                                    <div class="flex items-center">
+                                        <flux:icon name="x-circle" class="w-4 h-4 text-red-600 mr-2" />
+                                        <flux:text size="sm" class="text-red-800 font-medium">Payment Rejected</flux:text>
+                                    </div>
+                                    <flux:text size="xs" class="text-red-700 mt-1">
+                                        Rejected on {{ \Carbon\Carbon::parse($order->metadata['rejected_at'])->format('M j, Y g:i A') }}
+                                        @if(isset($order->metadata['rejection_reason']))
+                                            - {{ $order->metadata['rejection_reason'] }}
                                         @endif
                                     </flux:text>
                                 </div>
@@ -436,15 +639,63 @@ new class extends Component {
             </flux:card>
 
             <!-- Actions -->
-            @if($order->isPaid())
+            @if($order->isPending() && $order->payment_method === 'manual')
+                <flux:card>
+                    <flux:heading size="lg" class="mb-4">Payment Actions</flux:heading>
+
+                    <div class="space-y-3">
+                        <flux:button
+                            wire:click="openApprovalModal"
+                            variant="primary"
+                            class="w-full"
+                        >
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="check" class="w-4 h-4 mr-2" />
+                                Approve Payment
+                            </div>
+                        </flux:button>
+
+                        <flux:button
+                            wire:click="rejectPayment"
+                            variant="danger"
+                            class="w-full"
+                            wire:confirm="Are you sure you want to reject this payment? The student will be notified."
+                        >
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="x-mark" class="w-4 h-4 mr-2" />
+                                Reject Payment
+                            </div>
+                        </flux:button>
+
+                        @if($this->hasReceiptAttachment())
+                            <flux:separator class="my-4" />
+                            <flux:text size="sm" class="text-gray-600 mb-2">Payment Receipt</flux:text>
+                            <flux:button wire:click="downloadReceipt" variant="outline" class="w-full">
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="document-arrow-down" class="w-4 h-4 mr-2" />
+                                    Download Receipt
+                                </div>
+                            </flux:button>
+                            <a href="{{ $this->getReceiptUrl() }}" target="_blank">
+                                <flux:button variant="ghost" class="w-full">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="magnifying-glass" class="w-4 h-4 mr-2" />
+                                        View Receipt
+                                    </div>
+                                </flux:button>
+                            </a>
+                        @endif
+                    </div>
+                </flux:card>
+            @elseif($order->isPaid())
                 <flux:card>
                     <flux:heading size="lg" class="mb-4">Actions</flux:heading>
-                    
+
                     <div class="space-y-3">
                         <flux:button wire:click="processRefund" variant="outline" class="w-full">
                             Process Refund
                         </flux:button>
-                        
+
                         <flux:button href="{{ route('orders.receipt', $order) }}" variant="outline" class="w-full">
                             View Official Receipt
                         </flux:button>
@@ -461,4 +712,142 @@ new class extends Component {
             @endif
         </div>
     </div>
+
+    <!-- Payment Approval Modal -->
+    <flux:modal wire:model="showApprovalModal" variant="flyout">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Approve Payment</flux:heading>
+                <flux:text class="text-gray-600">
+                    Upload a receipt or proof of payment and add approval notes for Order {{ $order->order_number }}.
+                </flux:text>
+            </div>
+
+            <form wire:submit.prevent="approvePayment">
+                <div class="space-y-4">
+                    <!-- Receipt Upload -->
+                    <flux:field>
+                        <flux:label>Payment Receipt / Proof of Payment *</flux:label>
+                        <flux:description>
+                            Upload receipt, bank transfer proof, or other payment verification document (JPG, PNG, PDF - Max 5MB)
+                        </flux:description>
+
+                        <div class="mt-2">
+                            <input
+                                type="file"
+                                wire:model="approvalReceipt"
+                                accept=".jpg,.jpeg,.png,.pdf"
+                                class="block w-full text-sm text-gray-500
+                                       file:mr-4 file:py-2 file:px-4
+                                       file:rounded-md file:border-0
+                                       file:text-sm file:font-medium
+                                       file:bg-blue-50 file:text-blue-700
+                                       hover:file:bg-blue-100
+                                       focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                        </div>
+
+                        <flux:error name="approvalReceipt" />
+
+                        @if($approvalReceipt)
+                            <div class="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                                <div class="flex items-center">
+                                    <flux:icon name="document" class="w-4 h-4 text-green-600 mr-2" />
+                                    <flux:text size="sm" class="text-green-700">
+                                        {{ $approvalReceipt->getClientOriginalName() }}
+                                    </flux:text>
+                                </div>
+                            </div>
+                        @endif
+                    </flux:field>
+
+                    <!-- Payment Date -->
+                    <flux:field>
+                        <flux:label>Payment Date *</flux:label>
+                        <flux:description>
+                            Select the date when the payment was actually received (not the approval date).
+                        </flux:description>
+                        <flux:input
+                            type="date"
+                            wire:model="paymentDate"
+                            max="{{ now()->format('Y-m-d') }}"
+                            required
+                        />
+                        <flux:error name="paymentDate" />
+                    </flux:field>
+
+                    <!-- Approval Notes -->
+                    <flux:field>
+                        <flux:label>Approval Notes (Optional)</flux:label>
+                        <flux:description>
+                            Add any additional notes about the payment verification or approval process.
+                        </flux:description>
+                        <flux:textarea
+                            wire:model="approvalNotes"
+                            rows="3"
+                            placeholder="e.g., Verified bank transfer receipt, amount matches invoice, etc."
+                        />
+                        <flux:error name="approvalNotes" />
+                    </flux:field>
+
+                    <!-- Payment Summary -->
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <flux:heading size="sm" class="text-blue-900 mb-2">Payment Summary</flux:heading>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                                <span class="text-blue-700">Order Number:</span>
+                                <span class="font-medium">{{ $order->order_number }}</span>
+                            </div>
+                            <div>
+                                <span class="text-blue-700">Amount:</span>
+                                <span class="font-medium">{{ $order->formatted_amount }}</span>
+                            </div>
+                            <div>
+                                <span class="text-blue-700">Student:</span>
+                                <span class="font-medium">{{ $order->student->user->name }}</span>
+                            </div>
+                            <div>
+                                <span class="text-blue-700">Course:</span>
+                                <span class="font-medium">{{ $order->course->name }}</span>
+                            </div>
+                            @if($paymentDate)
+                                <div class="col-span-2 mt-2 pt-2 border-t border-blue-300">
+                                    <span class="text-blue-700">Payment Date:</span>
+                                    <span class="font-medium">{{ \Carbon\Carbon::parse($paymentDate)->format('M j, Y') }}</span>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center justify-end space-x-3 pt-4 border-t">
+                        <flux:button
+                            type="button"
+                            variant="ghost"
+                            wire:click="closeApprovalModal"
+                        >
+                            Cancel
+                        </flux:button>
+
+                        <flux:button
+                            type="submit"
+                            variant="primary"
+                            wire:loading.attr="disabled"
+                            wire:target="approvePayment"
+                        >
+                            <div wire:loading.remove wire:target="approvePayment" class="flex items-center">
+                                <flux:icon name="check" class="w-4 h-4 mr-2" />
+                                Approve Payment
+                            </div>
+                            <div wire:loading wire:target="approvePayment" class="flex items-center">
+                                <flux:icon name="arrow-path" class="w-4 h-4 mr-2 animate-spin" />
+                                Approving...
+                            </div>
+                        </flux:button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </flux:modal>
 </div>

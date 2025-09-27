@@ -125,6 +125,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Teacher routes
     Volt::route('teachers', 'admin.teacher-list')->name('teachers.index');
     Volt::route('teachers/create', 'admin.teacher-create')->name('teachers.create');
+    Route::get('teachers/import', fn () => view('teachers.import'))->name('teachers.import');
+    Route::get('teachers/export', [TeacherController::class, 'export'])->name('teachers.export');
+    Route::get('teachers/sample-csv', [TeacherController::class, 'sampleCsv'])->name('teachers.sample-csv');
     Volt::route('teachers/{teacher}', 'admin.teacher-show')->name('teachers.show');
     Volt::route('teachers/{teacher}/edit', 'admin.teacher-edit')->name('teachers.edit');
 

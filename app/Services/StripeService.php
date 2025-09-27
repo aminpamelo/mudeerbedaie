@@ -398,6 +398,208 @@ class StripeService
         }
     }
 
+    /**
+     * Create a subscription with advanced options including start date, trial periods, and custom scheduling
+     */
+    public function createSubscriptionWithOptions(
+        Enrollment $enrollment,
+        PaymentMethod $paymentMethod,
+        array $options = []
+    ): array {
+        if (! $this->isConfigured()) {
+            throw new \Exception('Stripe is not properly configured.');
+        }
+
+        if (! $enrollment->course->feeSettings->stripe_price_id) {
+            throw new \Exception('Course must have a Stripe price ID before creating subscription');
+        }
+
+        // Validate payment method before creating subscription
+        $validation = $this->validatePaymentMethod($paymentMethod);
+        if (! $validation['valid']) {
+            throw new \Exception('Payment method validation failed: '.$validation['error']);
+        }
+
+        Log::info('Creating subscription with options', [
+            'enrollment_id' => $enrollment->id,
+            'payment_method_id' => $paymentMethod->id,
+            'options' => $options,
+        ]);
+
+        $stripeCustomer = $this->createOrGetCustomer($enrollment->student->user);
+
+        try {
+            $subscriptionData = [
+                'customer' => $stripeCustomer->stripe_customer_id,
+                'items' => [
+                    [
+                        'price' => $enrollment->course->feeSettings->stripe_price_id,
+                    ],
+                ],
+                'payment_behavior' => 'allow_incomplete',
+                'off_session' => true,
+                'payment_settings' => [
+                    'payment_method_types' => ['card'],
+                    'save_default_payment_method' => 'on_subscription',
+                    'payment_method_options' => [
+                        'card' => [
+                            'request_three_d_secure' => 'automatic',
+                        ],
+                    ],
+                ],
+                'expand' => ['latest_invoice.payment_intent'],
+                'metadata' => [
+                    'enrollment_id' => $enrollment->id,
+                    'student_id' => $enrollment->student_id,
+                    'course_id' => $enrollment->course_id,
+                    'system' => 'mudeer_bedaie',
+                ],
+            ];
+
+            // Handle start date - this is the key fix for the user's issue
+            $startDateTime = null;
+            if (isset($options['start_date'])) {
+                $startTime = $options['start_time'] ?? '07:23';
+                $timezone = $options['timezone'] ?? 'Asia/Kuala_Lumpur';
+
+                $startDateTime = \Carbon\Carbon::parse($options['start_date'].' '.$startTime, $timezone);
+                $startTimestamp = $startDateTime->timestamp;
+
+                // Determine if we should use trial or billing cycle anchor
+                $now = now($timezone);
+
+                if ($startDateTime->isAfter($now)) {
+                    // Future start date - use trial to delay billing until start date
+                    $subscriptionData['trial_end'] = $startTimestamp;
+
+                    Log::info('Setting trial end for future start date', [
+                        'enrollment_id' => $enrollment->id,
+                        'start_date' => $startDateTime->toDateTimeString(),
+                        'trial_end_timestamp' => $startTimestamp,
+                    ]);
+                } else {
+                    // Start date is today or in the past - use billing cycle anchor to start immediately
+                    $subscriptionData['billing_cycle_anchor'] = 'now';
+
+                    Log::info('Starting subscription immediately (start date is not in future)', [
+                        'enrollment_id' => $enrollment->id,
+                        'start_date' => $startDateTime->toDateTimeString(),
+                    ]);
+                }
+            } else {
+                // No specific start date provided, use course billing day if available
+                if ($enrollment->course->feeSettings->hasBillingDay()) {
+                    $billingAnchor = $this->calculateBillingCycleAnchor($enrollment->course->feeSettings);
+                    if ($billingAnchor) {
+                        $subscriptionData['billing_cycle_anchor'] = $billingAnchor;
+
+                        Log::info('Setting billing cycle anchor from course settings', [
+                            'enrollment_id' => $enrollment->id,
+                            'billing_day' => $enrollment->course->feeSettings->billing_day,
+                            'billing_cycle_anchor' => $billingAnchor,
+                            'billing_cycle_anchor_date' => date('Y-m-d H:i:s', $billingAnchor),
+                        ]);
+                    }
+                }
+            }
+
+            // Handle explicit trial end date if provided (overrides start date trial)
+            if (isset($options['trial_end_at'])) {
+                $trialDateTime = \Carbon\Carbon::parse($options['trial_end_at'], $options['timezone'] ?? 'Asia/Kuala_Lumpur');
+                $subscriptionData['trial_end'] = $trialDateTime->timestamp;
+
+                Log::info('Setting explicit trial end date', [
+                    'enrollment_id' => $enrollment->id,
+                    'trial_end_at' => $trialDateTime->toDateTimeString(),
+                ]);
+            }
+
+            // Handle proration behavior
+            if (isset($options['proration_behavior'])) {
+                $subscriptionData['proration_behavior'] = $options['proration_behavior'];
+            }
+
+            // Handle subscription end date
+            if (isset($options['end_date'])) {
+                $endTime = $options['end_time'] ?? '23:59';
+                $timezone = $options['timezone'] ?? 'Asia/Kuala_Lumpur';
+                $endDateTime = \Carbon\Carbon::parse($options['end_date'].' '.$endTime, $timezone);
+                $subscriptionData['cancel_at'] = $endDateTime->timestamp;
+
+                Log::info('Setting subscription end date', [
+                    'enrollment_id' => $enrollment->id,
+                    'end_date' => $endDateTime->toDateTimeString(),
+                ]);
+            }
+
+            // Attach payment method if provided
+            if ($paymentMethod->stripe_payment_method_id) {
+                $subscriptionData['default_payment_method'] = $paymentMethod->stripe_payment_method_id;
+            }
+
+            $subscription = $this->stripe->subscriptions->create($subscriptionData);
+
+            // Update enrollment with subscription details
+            $enrollment->update([
+                'stripe_subscription_id' => $subscription->id,
+                'subscription_status' => $subscription->status,
+            ]);
+
+            // Handle next payment date scheduling if provided and different from start date
+            if (isset($options['next_payment_date']) &&
+                $options['next_payment_date'] !== $options['start_date']) {
+                try {
+                    $nextPaymentTime = $options['next_payment_time'] ?? '07:23';
+                    $timezone = $options['timezone'] ?? 'Asia/Kuala_Lumpur';
+                    $nextPaymentDateTime = \Carbon\Carbon::parse($options['next_payment_date'].' '.$nextPaymentTime, $timezone);
+                    $nextPaymentTimestamp = $nextPaymentDateTime->timestamp;
+
+                    // Update subscription schedule for next payment
+                    $scheduleResult = $this->updateSubscriptionSchedule(
+                        $subscription->id,
+                        ['next_payment_date' => $nextPaymentTimestamp]
+                    );
+
+                    if ($scheduleResult['success']) {
+                        Log::info('Next payment date set successfully', [
+                            'enrollment_id' => $enrollment->id,
+                            'subscription_id' => $subscription->id,
+                            'next_payment_date' => $nextPaymentDateTime->toDateTimeString(),
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to set next payment date', [
+                        'enrollment_id' => $enrollment->id,
+                        'subscription_id' => $subscription->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Don't fail the entire process
+                }
+            }
+
+            Log::info('Stripe subscription created successfully with options', [
+                'enrollment_id' => $enrollment->id,
+                'stripe_subscription_id' => $subscription->id,
+                'subscription_status' => $subscription->status,
+                'start_date' => $startDateTime?->toDateTimeString(),
+            ]);
+
+            return [
+                'subscription' => $subscription,
+                'client_secret' => $subscription->latest_invoice?->payment_intent?->client_secret,
+                'start_date' => $startDateTime,
+            ];
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to create Stripe subscription with options', [
+                'enrollment_id' => $enrollment->id,
+                'options' => $options,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to create subscription: '.$e->getMessage());
+        }
+    }
+
     public function cancelSubscription(string $subscriptionId, bool $immediately = false): array
     {
         try {

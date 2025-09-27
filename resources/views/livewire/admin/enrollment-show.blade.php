@@ -151,12 +151,15 @@ new class extends Component
             ->default()
             ->first();
 
+        // Calculate default start date based on course billing day
+        $defaultStartDate = $this->calculateDefaultStartDate();
+
         $this->createForm = [
             'trial_end_at' => null,
             'billing_cycle_anchor' => null,
             'subscription_timezone' => 'Asia/Kuala_Lumpur',
             'proration_behavior' => 'create_prorations',
-            'start_date' => now()->format('Y-m-d'),
+            'start_date' => $defaultStartDate->format('Y-m-d'),
             'start_time' => '07:23',
             'next_payment_date' => null,
             'next_payment_time' => '07:23',
@@ -166,6 +169,63 @@ new class extends Component
             'notes' => null,
             'subscription_fee' => $this->enrollment->enrollment_fee,
         ];
+    }
+
+    /**
+     * Calculate the default start date based on course billing day
+     */
+    private function calculateDefaultStartDate(): \Carbon\Carbon
+    {
+        $feeSettings = $this->enrollment->course->feeSettings;
+
+        if (! $feeSettings || ! $feeSettings->hasBillingDay()) {
+            // No billing day set, default to today
+            return now()->startOfDay();
+        }
+
+        $billingDay = $feeSettings->getValidatedBillingDay();
+        $now = now();
+        $currentDay = $now->day;
+
+        try {
+            // Determine if we should use this month or next month
+            if ($currentDay < $billingDay) {
+                // Billing day hasn't occurred this month, use this month
+                $targetDate = $now->copy();
+            } else {
+                // Billing day has passed this month, use next month
+                $targetDate = $now->copy()->addMonth();
+            }
+
+            // Check days in target month before setting the day
+            $daysInTargetMonth = $targetDate->daysInMonth;
+
+            if ($billingDay > $daysInTargetMonth) {
+                // Use the last day of the month if billing day exceeds the month's days
+                $defaultDate = $targetDate->endOfMonth()->startOfDay();
+            } else {
+                // Set the specific billing day
+                $defaultDate = $targetDate->day($billingDay)->startOfDay();
+            }
+
+            \Log::info('Calculated default start date from course billing day', [
+                'course_id' => $this->enrollment->course->id,
+                'billing_day' => $billingDay,
+                'current_date' => $now->toDateString(),
+                'calculated_start_date' => $defaultDate->toDateString(),
+            ]);
+
+            return $defaultDate;
+
+        } catch (\Exception $e) {
+            \Log::warning('Failed to calculate start date from billing day, using today', [
+                'course_id' => $this->enrollment->course->id,
+                'billing_day' => $billingDay,
+                'error' => $e->getMessage(),
+            ]);
+
+            return now()->startOfDay();
+        }
     }
 
     protected function rules(): array
@@ -239,12 +299,12 @@ new class extends Component
 
     public function getPaymentReportData()
     {
-        if (!$this->enrollment->stripe_subscription_id) {
+        if (! $this->enrollment->stripe_subscription_id) {
             return collect([]);
         }
 
         // Use enrollment start date as the foundation for billing periods
-        if (!$this->enrollment->start_date) {
+        if (! $this->enrollment->start_date) {
             return collect([]);
         }
 
@@ -336,7 +396,7 @@ new class extends Component
         } elseif ($interval === 'month') {
             return $startDate->format('M Y');
         } else {
-            return $startDate->format('M d') . ' - ' . $endDate->format('M d, Y');
+            return $startDate->format('M d').' - '.$endDate->format('M d, Y');
         }
     }
 
@@ -573,44 +633,45 @@ new class extends Component
                 $this->enrollment->refresh();
             }
 
-            // For now, use the existing createSubscription method with basic options
-            // This can be extended later when StripeService supports more options
-            $result = $stripeService->createSubscription($this->enrollment, $paymentMethod);
+            // Use the enhanced createSubscriptionWithOptions method that handles start dates properly
+            $options = [
+                'start_date' => $this->createForm['start_date'],
+                'start_time' => $this->createForm['start_time'],
+                'next_payment_date' => $this->createForm['next_payment_date'],
+                'next_payment_time' => $this->createForm['next_payment_time'],
+                'trial_end_at' => $this->createForm['trial_end_at'],
+                'billing_cycle_anchor' => $this->createForm['billing_cycle_anchor'],
+                'proration_behavior' => $this->createForm['proration_behavior'],
+                'end_date' => $this->createForm['end_date'],
+                'end_time' => $this->createForm['end_time'],
+                'timezone' => $this->createForm['subscription_timezone'],
+            ];
 
-            // Refresh enrollment to get the new subscription ID
+            $result = $stripeService->createSubscriptionWithOptions($this->enrollment, $paymentMethod, $options);
+
+            // Refresh enrollment to get the new subscription ID and updated status
             $this->enrollment->refresh();
 
-            // Handle next payment scheduling if provided
-            if ($this->createForm['next_payment_date'] && $this->enrollment->stripe_subscription_id) {
-                try {
-                    $nextPaymentDateTime = $this->createForm['next_payment_date'].' '.($this->createForm['next_payment_time'] ?? '07:23');
-                    $nextPaymentTimestamp = \Carbon\Carbon::parse($nextPaymentDateTime)
-                        ->setTimezone($this->createForm['subscription_timezone'])
-                        ->timestamp;
-
-                    // Update subscription schedule in Stripe
-                    $scheduleResult = $stripeService->updateSubscriptionSchedule(
-                        $this->enrollment->stripe_subscription_id,
-                        ['next_payment_date' => $nextPaymentTimestamp]
+            // Update enrollment with next payment date if it was calculated by the service
+            if (isset($result['start_date']) && $result['start_date']) {
+                $nextPaymentDate = $result['start_date'];
+                if ($this->createForm['next_payment_date'] && $this->createForm['next_payment_date'] !== $this->createForm['start_date']) {
+                    // Next payment date was explicitly set differently from start date
+                    $nextPaymentTime = $this->createForm['next_payment_time'] ?? '07:23';
+                    $nextPaymentDate = \Carbon\Carbon::parse(
+                        $this->createForm['next_payment_date'].' '.$nextPaymentTime,
+                        $this->createForm['subscription_timezone']
                     );
-
-                    if ($scheduleResult['success']) {
-                        // Update stored next payment date in enrollment
-                        $nextPaymentCarbon = \Carbon\Carbon::createFromTimestamp($nextPaymentTimestamp);
-                        $this->enrollment->updateNextPaymentDate($nextPaymentCarbon);
-
-                        \Log::info('Next payment date set for new subscription', [
-                            'enrollment_id' => $this->enrollment->id,
-                            'next_payment_date' => $nextPaymentCarbon->toDateTimeString(),
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    \Log::warning('Failed to set next payment date for new subscription', [
-                        'enrollment_id' => $this->enrollment->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                    // Don't fail the entire process, just log the warning
                 }
+
+                // Update stored next payment date in enrollment
+                $this->enrollment->updateNextPaymentDate($nextPaymentDate);
+
+                \Log::info('Next payment date updated for new subscription', [
+                    'enrollment_id' => $this->enrollment->id,
+                    'next_payment_date' => $nextPaymentDate->toDateTimeString(),
+                    'subscription_status' => $this->enrollment->subscription_status,
+                ]);
             }
 
             // Store additional metadata if notes provided

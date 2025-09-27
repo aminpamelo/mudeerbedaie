@@ -11,6 +11,7 @@ new class extends Component {
     public $showAddCardModal = false;
     public $stripePublishableKey = '';
     public bool $isProcessing = false;
+    public bool $isSubmitting = false;
 
     public function mount()
     {
@@ -56,7 +57,9 @@ new class extends Component {
     public function closeAddCardModal()
     {
         $this->showAddCardModal = false;
-        
+        $this->isSubmitting = false;
+        $this->isProcessing = false;
+
         // Dispatch event for JavaScript to clean up Stripe Elements
         $this->dispatch('hide-add-card-modal');
     }
@@ -171,6 +174,11 @@ new class extends Component {
         }
     }
 
+    public function setSubmitting($isSubmitting)
+    {
+        $this->isSubmitting = $isSubmitting;
+    }
+
     public function addPaymentMethod($paymentMethodData)
     {
         try {
@@ -178,7 +186,7 @@ new class extends Component {
 
             // This would be called from JavaScript after Stripe processing
             $response = $this->callAdminApi('POST', route('admin.students.payment-methods.store', $this->student), $paymentMethodData);
-            
+
             if ($response['success'] ?? false) {
                 session()->flash('success', 'Payment method added successfully for ' . $this->student->user->name . '.');
                 $this->loadPaymentMethods();
@@ -199,6 +207,7 @@ new class extends Component {
             session()->flash('error', 'Failed to add payment method: ' . $e->getMessage());
         } finally {
             $this->isProcessing = false;
+            $this->isSubmitting = false;
         }
     }
 
@@ -426,17 +435,23 @@ new class extends Component {
 
                 <!-- Action Buttons -->
                 <div class="flex justify-end space-x-3">
-                    <flux:button variant="outline" wire:click="closeAddCardModal" :disabled="$isProcessing">
+                    <flux:button variant="outline" wire:click="closeAddCardModal" :disabled="$isSubmitting || $isProcessing">
                         Cancel
                     </flux:button>
-                    <flux:button 
+                    <flux:button
                         id="submit-payment-method"
-                        variant="primary" 
-                        :disabled="$isProcessing"
+                        variant="primary"
+                        :disabled="$isSubmitting || $isProcessing"
                     >
-                        @if($isProcessing)
-                            <flux:icon icon="arrow-path" class="w-4 h-4 animate-spin" />
-                            Adding...
+                        @if($isSubmitting || $isProcessing)
+                            <div class="flex items-center">
+                                <flux:icon icon="arrow-path" class="w-4 h-4 animate-spin mr-2" />
+                                @if($isSubmitting && !$isProcessing)
+                                    Processing Card...
+                                @else
+                                    Adding...
+                                @endif
+                            </div>
                         @else
                             Add Payment Method
                         @endif
@@ -532,26 +547,36 @@ document.addEventListener('DOMContentLoaded', function() {
         submitButton.setAttribute('data-stripe-listener', 'true');
         submitButton.addEventListener('click', async function(event) {
             event.preventDefault();
-            
+
             if (!cardElement) {
                 console.error('Card element not initialized');
                 return;
             }
-            
+
+            // Immediately set loading state to provide user feedback
+            @this.call('setSubmitting', true);
+
+            // Clear any existing errors
+            const errorElement = document.getElementById('stripe-card-errors');
+            if (errorElement) {
+                errorElement.textContent = '';
+            }
+
             try {
                 const {token, error} = await stripe.createToken(cardElement);
-                
+
                 if (error) {
                     console.error('Stripe token creation error:', error);
-                    const errorElement = document.getElementById('stripe-card-errors');
                     if (errorElement) {
                         errorElement.textContent = error.message;
                     }
+                    // Reset loading state on error
+                    @this.call('setSubmitting', false);
                 } else {
                     console.log('Stripe token created successfully');
-                    // Send token to server
+                    // Send token to server - the addPaymentMethod will handle resetting isSubmitting
                     const setAsDefault = document.getElementById('set-as-default')?.checked || false;
-                    
+
                     @this.call('addPaymentMethod', {
                         payment_method_id: token.id,
                         set_as_default: setAsDefault
@@ -559,6 +584,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (error) {
                 console.error('Error during payment method submission:', error);
+                // Reset loading state on error
+                @this.call('setSubmitting', false);
+                if (errorElement) {
+                    errorElement.textContent = 'An unexpected error occurred. Please try again.';
+                }
             }
         });
     }
