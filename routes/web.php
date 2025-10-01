@@ -3,6 +3,7 @@
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\TeacherController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -33,6 +34,10 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
+
+// Product Cart routes - accessible by authenticated and guest users
+Volt::route('cart', 'cart.shopping-cart')->name('cart');
+Volt::route('checkout', 'cart.checkout')->name('checkout');
 
 // Student routes - accessible by students only
 Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
@@ -174,6 +179,82 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Reports routes
     Volt::route('reports/subscriptions', 'admin.subscription-reports')->name('admin.reports.subscriptions');
     Volt::route('reports/student-payments', 'admin.student-payment-report')->name('admin.reports.student-payments');
+
+    // Product Management routes
+    Volt::route('products', 'admin.products.product-list')->name('products.index');
+    Volt::route('products/create', 'admin.products.product-create')->name('products.create');
+    Volt::route('products/{product}', 'admin.products.product-show')->name('products.show');
+    Volt::route('products/{product}/edit', 'admin.products.product-edit')->name('products.edit');
+
+    // Product Categories routes
+    Volt::route('product-categories', 'admin.products.category-list')->name('product-categories.index');
+    Volt::route('product-categories/create', 'admin.products.category-create')->name('product-categories.create');
+    Volt::route('product-categories/{category}', 'admin.products.category-show')->name('product-categories.show');
+    Volt::route('product-categories/{category}/edit', 'admin.products.category-edit')->name('product-categories.edit');
+
+    // Product Attributes routes
+    Volt::route('product-attributes', 'admin.products.attribute-list')->name('product-attributes.index');
+    Volt::route('product-attributes/create', 'admin.products.attribute-create')->name('product-attributes.create');
+    Volt::route('product-attributes/{attribute}', 'admin.products.attribute-show')->name('product-attributes.show');
+    Volt::route('product-attributes/{attribute}/edit', 'admin.products.attribute-edit')->name('product-attributes.edit');
+
+    // Stock Management routes
+    Volt::route('inventory', 'admin.stock.stock-dashboard')->name('inventory.dashboard');
+    Volt::route('stock/movements', 'admin.stock.stock-movements')->name('stock.movements');
+    Volt::route('stock/movements/create', 'admin.stock.movement-create')->name('stock.movements.create');
+    Volt::route('stock/levels', 'admin.stock.stock-levels')->name('stock.levels');
+    Volt::route('stock/alerts', 'admin.stock.stock-alerts')->name('stock.alerts');
+
+    // Warehouse Management routes
+    Volt::route('warehouses', 'admin.stock.warehouse-list')->name('warehouses.index');
+    Volt::route('warehouses/create', 'admin.stock.warehouse-create')->name('warehouses.create');
+    Volt::route('warehouses/{warehouse}', 'admin.stock.warehouse-show')->name('warehouses.show');
+    Volt::route('warehouses/{warehouse}/edit', 'admin.stock.warehouse-edit')->name('warehouses.edit');
+
+    // Product Order Management routes
+    Volt::route('product-orders', 'admin.orders.order-list')->name('admin.orders.index');
+    Volt::route('product-orders/create', 'admin.orders.order-create')->name('admin.orders.create');
+    Volt::route('product-orders/{order}', 'admin.orders.order-show')->name('admin.orders.show');
+    Volt::route('product-orders/{order}/edit', 'admin.orders.order-edit')->name('admin.orders.edit');
+
+    // Package Management routes
+    Volt::route('packages', 'admin.packages.index')->name('packages.index');
+    Volt::route('packages/create', 'admin.packages.create')->name('packages.create');
+    Volt::route('packages/{package}', 'admin.packages.show')->name('packages.show');
+    Volt::route('packages/{package}/edit', 'admin.packages.edit')->name('packages.edit');
+
+    // Platform Management routes
+    Volt::route('platform-integration', 'admin.platforms.dashboard')->name('platforms.dashboard');
+    Volt::route('platforms', 'admin.platforms.index')->name('platforms.index');
+    Volt::route('platforms/create', 'admin.platforms.create')->name('platforms.create');
+
+    // Platform Order Import routes (general routes without platform requirement) - MUST come before wildcard routes
+    Volt::route('platforms/orders/import', 'admin.platforms.orders.tiktok-import')->name('platforms.orders.import');
+    Volt::route('platforms/orders', 'admin.platforms.orders.general-index')->name('platforms.orders.index');
+
+    // Platform Import History routes - MUST come before wildcard routes
+    Volt::route('platforms/import-history', 'admin.platforms.import-history')->name('platforms.import-history');
+
+    // Platform SKU Mapping routes - MUST come before wildcard routes
+    Volt::route('platforms/sku-mappings', 'admin.platforms.sku-mappings.index')->name('platforms.sku-mappings.index');
+    Volt::route('platforms/sku-mappings/create', 'admin.platforms.sku-mappings.create')->name('platforms.sku-mappings.create');
+    Volt::route('platforms/sku-mappings/{mapping}', 'admin.platforms.sku-mappings.show')->name('platforms.sku-mappings.show');
+    Volt::route('platforms/sku-mappings/{mapping}/edit', 'admin.platforms.sku-mappings.edit')->name('platforms.sku-mappings.edit');
+
+    // Platform wildcard routes - MUST come after specific routes
+    Volt::route('platforms/{platform}', 'admin.platforms.show')->name('platforms.show');
+    Volt::route('platforms/{platform}/edit', 'admin.platforms.edit')->name('platforms.edit');
+
+    // Platform Account Management routes
+    Volt::route('platforms/{platform}/accounts', 'admin.platforms.accounts.index')->name('platforms.accounts.index');
+    Volt::route('platforms/{platform}/accounts/create', 'admin.platforms.accounts.create')->name('platforms.accounts.create');
+    Volt::route('platforms/{platform}/accounts/{account}', 'admin.platforms.accounts.show')->name('platforms.accounts.show');
+    Volt::route('platforms/{platform}/accounts/{account}/edit', 'admin.platforms.accounts.edit')->name('platforms.accounts.edit');
+    Volt::route('platforms/{platform}/accounts/{account}/credentials', 'admin.platforms.accounts.credentials')->name('platforms.accounts.credentials');
+
+    // Platform-specific order routes
+    Volt::route('platforms/{platform}/orders', 'admin.platforms.orders.index')->name('platforms.orders.platform.index');
+    Volt::route('platforms/{platform}/orders/{order}', 'admin.platforms.orders.show')->name('platforms.orders.show');
 
     // Admin Settings routes
     Route::redirect('settings', 'admin/settings/general');

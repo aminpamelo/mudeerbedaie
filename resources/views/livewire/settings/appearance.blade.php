@@ -11,7 +11,17 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     @include('partials.settings-heading')
 
     <x-settings.layout :heading="__('Appearance')" :subheading=" __('Update the appearance settings for your account')">
-        <flux:radio.group x-data variant="segmented" x-model="lightMode" x-init="lightMode = 'light'; $flux.appearance = 'light'">
+        <flux:radio.group
+            x-data
+            variant="segmented"
+            x-model="lightMode"
+            x-init="
+                lightMode = 'light';
+                $flux.appearance = 'light';
+                document.documentElement.classList.remove('dark');
+                document.documentElement.style.colorScheme = 'light';
+            "
+        >
             <flux:radio value="light" icon="sun" checked>{{ __('Light') }}</flux:radio>
         </flux:radio.group>
     </x-settings.layout>
