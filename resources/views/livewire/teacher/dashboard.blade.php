@@ -113,17 +113,28 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public function getWeeklyStatsProperty()
     {
         $teacher = auth()->user()->teacher;
+
+        if (!$teacher) {
+            return [
+                'total_sessions' => 0,
+                'completed_sessions' => 0,
+                'total_earnings' => 0,
+                'total_students' => 0,
+                'attendance_rate' => 0
+            ];
+        }
+
         $weekStart = now()->startOfWeek();
         $weekEnd = now()->endOfWeek();
-        
+
         $weekSessions = ClassSession::whereHas('class', function($query) use ($teacher) {
             $query->where('teacher_id', $teacher->id);
         })
         ->whereBetween('session_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
         ->get();
-        
+
         $completedSessions = $weekSessions->where('status', 'completed');
-        
+
         return [
             'total_sessions' => $weekSessions->count(),
             'completed_sessions' => $completedSessions->count(),
@@ -137,9 +148,14 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public function getMonthlyEarningsProperty()
     {
         $teacher = auth()->user()->teacher;
+
+        if (!$teacher) {
+            return 0;
+        }
+
         $monthStart = now()->startOfMonth();
         $monthEnd = now()->endOfMonth();
-        
+
         return ClassSession::whereHas('class', function($query) use ($teacher) {
             $query->where('teacher_id', $teacher->id);
         })
@@ -220,7 +236,11 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public function getRecentActivitiesProperty()
     {
         $teacher = auth()->user()->teacher;
-        
+
+        if (!$teacher) {
+            return collect();
+        }
+
         $recentSessions = ClassSession::whereHas('class', function($query) use ($teacher) {
             $query->where('teacher_id', $teacher->id);
         })
@@ -229,9 +249,9 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         ->orderBy('updated_at', 'desc')
         ->limit(5)
         ->get();
-        
+
         $activities = collect();
-        
+
         foreach ($recentSessions as $session) {
             $activities->push([
                 'type' => 'session_' . $session->status,
@@ -240,7 +260,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 'icon' => $this->getSessionActivityIcon($session->status)
             ]);
         }
-        
+
         return $activities;
     }
     
