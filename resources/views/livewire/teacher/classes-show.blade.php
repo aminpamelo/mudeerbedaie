@@ -2437,6 +2437,39 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             </div>
         </form>
     </flux:modal>
+
+    <!-- Start Session Confirmation Modal -->
+    <flux:modal wire:model="showStartConfirmation" class="max-w-md">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <flux:icon name="play" class="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                    <flux:heading size="lg">Start Session?</flux:heading>
+                    <flux:text size="sm" class="text-gray-600">Are you ready to begin this session?</flux:text>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <flux:text size="sm" class="text-blue-800">
+                    Once you start the session, the timer will begin and you'll be able start your sessions.
+                </flux:text>
+            </div>
+
+            <div class="flex gap-3 justify-end">
+                <flux:button wire:click="closeStartConfirmation" variant="ghost">
+                    Cancel
+                </flux:button>
+                <flux:button wire:click="confirmStartSession" variant="primary">
+                    <div class="flex items-center justify-center gap-2">
+                        <flux:icon name="play" class="w-4 h-4" />
+                        Yes, Start Session
+                    </div>
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>
 
 <script>
@@ -2503,36 +2536,3 @@ document.addEventListener('livewire:init', () => {
     });
 });
 </script>
-
-<!-- Start Session Confirmation Modal -->
-<flux:modal wire:model="showStartConfirmation" class="max-w-md">
-    <div class="p-6">
-        <div class="flex items-center gap-3 mb-4">
-            <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <flux:icon name="play" class="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-                <flux:heading size="lg">Start Session?</flux:heading>
-                <flux:text size="sm" class="text-gray-600">Are you ready to begin this session?</flux:text>
-            </div>
-        </div>
-
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <flux:text size="sm" class="text-blue-800">
-                Once you start the session, the timer will begin and you'll be able start your sessions.
-            </flux:text>
-        </div>
-
-        <div class="flex gap-3 justify-end">
-            <flux:button wire:click="closeStartConfirmation" variant="ghost">
-                Cancel
-            </flux:button>
-            <flux:button wire:click="confirmStartSession" variant="primary">
-                <div class="flex items-center justify-center gap-2">
-                    <flux:icon name="play" class="w-4 h-4" />
-                    Yes, Start Session
-                </div>
-            </flux:button>
-        </div>
-    </div>
-</flux:modal>
