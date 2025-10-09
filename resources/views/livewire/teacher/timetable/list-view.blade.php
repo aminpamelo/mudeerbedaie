@@ -134,7 +134,7 @@
                 <div class="flex-shrink-0 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
                     <div class="flex flex-col gap-2">
                         @if($session->isScheduled())
-                            <flux:button wire:click.stop="startSession({{ $session->id }})" size="xs" variant="primary">
+                            <flux:button wire:click.stop="requestStartSession({{ $session->id }})" size="xs" variant="primary">
                                 <flux:icon name="play" class="w-3 h-3 mr-1" />
                                 Start
                             </flux:button>

@@ -178,7 +178,7 @@
                     <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
                         <div class="flex items-center gap-2">
                             @if($session->isScheduled())
-                                <flux:button wire:click="startSession({{ $session->id }})" size="sm" variant="primary">
+                                <flux:button wire:click="requestStartSession({{ $session->id }})" size="sm" variant="primary">
                                     Start Session
                                 </flux:button>
                             @elseif($session->isOngoing())

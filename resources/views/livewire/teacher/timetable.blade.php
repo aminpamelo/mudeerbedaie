@@ -16,6 +16,11 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public ?ClassSession $selectedSession = null;
     public string $completionNotes = '';
     public bool $showNotesField = false;
+    public bool $showStartConfirmation = false;
+    public ?int $sessionToStartId = null;
+    public ?int $classToStartId = null;
+    public ?string $dateToStart = null;
+    public ?string $timeToStart = null;
     
     public function mount()
     {
@@ -83,7 +88,44 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         $this->completionNotes = '';
         $this->showNotesField = false;
     }
-    
+
+    public function closeStartConfirmation()
+    {
+        $this->showStartConfirmation = false;
+        $this->sessionToStartId = null;
+        $this->classToStartId = null;
+        $this->dateToStart = null;
+        $this->timeToStart = null;
+    }
+
+    public function requestStartSession($sessionId)
+    {
+        $this->sessionToStartId = $sessionId;
+        $this->showStartConfirmation = true;
+    }
+
+    public function requestStartSessionFromTimetable($classId, $date, $time)
+    {
+        $this->classToStartId = $classId;
+        $this->dateToStart = $date;
+        $this->timeToStart = $time;
+        $this->showStartConfirmation = true;
+    }
+
+    public function confirmStartSession()
+    {
+        if ($this->sessionToStartId) {
+            // Start existing session
+            $session = ClassSession::findOrFail($this->sessionToStartId);
+            $this->startSession($session);
+        } elseif ($this->classToStartId && $this->dateToStart && $this->timeToStart) {
+            // Start session from timetable slot
+            $this->startSessionFromTimetable($this->classToStartId, $this->dateToStart, $this->timeToStart);
+        }
+
+        $this->closeStartConfirmation();
+    }
+
     public function startSession(ClassSession $session)
     {
         if ($session->isScheduled()) {
@@ -786,7 +828,7 @@ x-effect="
                 <div class="flex items-center justify-between w-full">
                     <div class="flex gap-2">
                         @if($selectedSession->isScheduled())
-                            <flux:button wire:click="startSession({{ $selectedSession->id }})" variant="primary" size="sm">
+                            <flux:button wire:click="requestStartSession({{ $selectedSession->id }})" variant="primary" size="sm">
                                 Start Session
                             </flux:button>
                         @elseif($selectedSession->isOngoing())
@@ -813,5 +855,38 @@ x-effect="
                 </div>
             </div>
         @endif
+    </flux:modal>
+
+    <!-- Start Session Confirmation Modal -->
+    <flux:modal wire:model="showStartConfirmation" class="max-w-md">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <flux:icon name="play" class="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                    <flux:heading size="lg">Start Session?</flux:heading>
+                    <flux:text size="sm" class="text-gray-600">Are you ready to begin this session?</flux:text>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <flux:text size="sm" class="text-blue-800">
+                    Once you start the session, the timer will begin and you'll be able start your sessions.
+                </flux:text>
+            </div>
+
+            <div class="flex gap-3 justify-end">
+                <flux:button wire:click="closeStartConfirmation" variant="ghost">
+                    Cancel
+                </flux:button>
+                <flux:button wire:click="confirmStartSession" variant="primary">
+                    <div class="flex items-center justify-center gap-2">
+                        <flux:icon name="play" class="w-4 h-4" />
+                        Yes, Start Session
+                    </div>
+                </flux:button>
+            </div>
+        </div>
     </flux:modal>
 </div>

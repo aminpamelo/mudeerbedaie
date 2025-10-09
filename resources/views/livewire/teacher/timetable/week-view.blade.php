@@ -270,11 +270,11 @@
                                         <flux:badge size="sm" color="indigo">Scheduled</flux:badge>
                                     </div>
                                     
-                                    <flux:button 
-                                        variant="primary" 
-                                        size="xs" 
+                                    <flux:button
+                                        variant="primary"
+                                        size="xs"
                                         class="w-full"
-                                        wire:click.stop="startSessionFromTimetable({{ $class->id }}, '{{ $day['date']->toDateString() }}', '{{ $item['time'] }}')"
+                                        wire:click.stop="requestStartSessionFromTimetable({{ $class->id }}, '{{ $day['date']->toDateString() }}', '{{ $item['time'] }}')"
                                     >
                                         <div class="flex items-center justify-center gap-1">
                                             <flux:icon name="play" variant="micro" />
@@ -472,7 +472,7 @@
                                         variant="primary"
                                         size="xs"
                                         class="w-full"
-                                        wire:click.stop="startSessionFromTimetable({{ $class->id }}, '{{ $day['date']->toDateString() }}', '{{ $item['time'] }}')"
+                                        wire:click.stop="requestStartSessionFromTimetable({{ $class->id }}, '{{ $day['date']->toDateString() }}', '{{ $item['time'] }}')"
                                     >
                                         <div class="flex items-center justify-center gap-1">
                                             <flux:icon name="play" variant="micro" />
