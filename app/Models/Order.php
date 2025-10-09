@@ -246,6 +246,71 @@ class Order extends Model
         return $this->period_start->format('M j').' - '.$this->period_end->format('M j, Y');
     }
 
+    // Financial breakdown helpers
+    public function getItemsSubtotal(): float
+    {
+        return $this->items->sum('total_price');
+    }
+
+    public function getDiscountAmount(): float
+    {
+        return $this->metadata['discount_amount'] ?? 0;
+    }
+
+    public function getShippingCost(): float
+    {
+        return $this->metadata['shipping_cost'] ?? 0;
+    }
+
+    public function getTaxAmount(): float
+    {
+        return $this->metadata['tax_amount'] ?? 0;
+    }
+
+    public function getSubtotalBeforeDiscount(): float
+    {
+        $itemsSubtotal = $this->getItemsSubtotal();
+        $discount = $this->getDiscountAmount();
+
+        return $discount > 0 ? ($itemsSubtotal + $discount) : $itemsSubtotal;
+    }
+
+    public function hasDiscount(): bool
+    {
+        return $this->getDiscountAmount() > 0;
+    }
+
+    public function getCouponCode(): ?string
+    {
+        return $this->metadata['coupon_code'] ?? null;
+    }
+
+    // Formatted financial values
+    public function getFormattedSubtotalAttribute(): string
+    {
+        return 'RM '.number_format($this->getItemsSubtotal(), 2);
+    }
+
+    public function getFormattedDiscountAttribute(): string
+    {
+        return 'RM '.number_format($this->getDiscountAmount(), 2);
+    }
+
+    public function getFormattedShippingAttribute(): string
+    {
+        return 'RM '.number_format($this->getShippingCost(), 2);
+    }
+
+    public function getFormattedTaxAttribute(): string
+    {
+        return 'RM '.number_format($this->getTaxAmount(), 2);
+    }
+
+    public function getFormattedSubtotalBeforeDiscountAttribute(): string
+    {
+        return 'RM '.number_format($this->getSubtotalBeforeDiscount(), 2);
+    }
+
     // Generate unique order number
     public static function generateOrderNumber(): string
     {

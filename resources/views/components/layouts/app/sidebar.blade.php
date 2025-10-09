@@ -46,12 +46,19 @@
                     <flux:navlist.item icon="gift" :href="route('packages.index')" :current="request()->routeIs('packages.*')" wire:navigate>{{ __('Packages') }}</flux:navlist.item>
                 </flux:navlist.group>
 
+                <flux:navlist.group :heading="__('Certificate Management')" class="grid">
+                    <flux:navlist.item icon="document-text" :href="route('certificates.index')" :current="request()->routeIs('certificates.index', 'certificates.create', 'certificates.edit', 'certificates.preview', 'certificates.assignments')" wire:navigate>{{ __('Certificate Templates') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clipboard-document-check" :href="route('certificates.issued')" :current="request()->routeIs('certificates.issued')" wire:navigate>{{ __('Issued Certificates') }}</flux:navlist.item>
+                    <flux:navlist.item icon="document-plus" :href="route('certificates.issue')" :current="request()->routeIs('certificates.issue', 'certificates.bulk-issue')" wire:navigate>{{ __('Issue Certificate') }}</flux:navlist.item>
+                </flux:navlist.group>
+
                 <flux:navlist.group :heading="__('Inventory Management')" class="grid">
                     <flux:navlist.item icon="chart-bar" :href="route('inventory.dashboard')" :current="request()->routeIs('inventory.*')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-path" :href="route('stock.movements')" :current="request()->routeIs('stock.movements*')" wire:navigate>{{ __('Stock Movements') }}</flux:navlist.item>
                     <flux:navlist.item icon="squares-2x2" :href="route('stock.levels')" :current="request()->routeIs('stock.levels*')" wire:navigate>{{ __('Stock Levels') }}</flux:navlist.item>
                     <flux:navlist.item icon="exclamation-triangle" :href="route('stock.alerts')" :current="request()->routeIs('stock.alerts*')" wire:navigate>{{ __('Stock Alerts') }}</flux:navlist.item>
                     <flux:navlist.item icon="building-storefront" :href="route('warehouses.index')" :current="request()->routeIs('warehouses.*')" wire:navigate>{{ __('Warehouses') }}</flux:navlist.item>
+                    <flux:navlist.item icon="building-office" :href="route('agents.index')" :current="request()->routeIs('agents.*')" wire:navigate>{{ __('Agents & Companies') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group :heading="__('Platform Management')" class="grid">

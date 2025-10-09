@@ -75,24 +75,25 @@ new class extends Component {
     </div>
 
     <!-- Attributes Table -->
-    <div class="overflow-hidden bg-white shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-        <table class="min-w-full divide-y divide-gray-300">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Attribute</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Values</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Required</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Used in Products</th>
-                    <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                        <span class="sr-only">Actions</span>
-                        <span class="text-sm font-semibold text-gray-900">Actions</span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 bg-white">
-                @forelse($attributes as $attribute)
-                    <tr wire:key="attribute-{{ $attribute->id }}" class="hover:bg-gray-50">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full border-collapse border-0">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Attribute</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Values</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Required</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Used in Products</th>
+                        <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                            <span class="sr-only">Actions</span>
+                            <span class="text-sm font-semibold text-gray-900">Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white">
+                    @forelse($attributes as $attribute)
+                        <tr wire:key="attribute-{{ $attribute->id }}" class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                             <div>
                                 <div class="font-medium text-gray-900">{{ $attribute->label }}</div>
@@ -180,7 +181,8 @@ new class extends Component {
                     </tr>
                 @endforelse
             </tbody>
-        </table>
+            </table>
+        </div>
     </div>
 
     <!-- Pagination -->

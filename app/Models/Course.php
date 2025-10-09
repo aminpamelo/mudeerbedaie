@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -100,6 +101,13 @@ class Course extends Model
         return $this->belongsToMany(Student::class, 'enrollments')
             ->withPivot(['status', 'enrollment_date', 'completion_date', 'notes'])
             ->wherePivotIn('status', ['enrolled', 'active']);
+    }
+
+    public function certificates(): BelongsToMany
+    {
+        return $this->belongsToMany(Certificate::class, 'certificate_course_assignments')
+            ->withPivot(['is_default'])
+            ->withTimestamps();
     }
 
     public function getEnrollmentCountAttribute(): int

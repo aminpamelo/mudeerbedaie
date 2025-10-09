@@ -1,14 +1,16 @@
 <?php
 
-use App\Models\Warehouse;
 use App\Models\StockMovement;
+use App\Models\Warehouse;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public Warehouse $warehouse;
+
     public $activeTab = 'stock-items';
 
     public function mount(Warehouse $warehouse): void
@@ -41,6 +43,7 @@ new class extends Component {
     {
         if ($this->warehouse->stockLevels()->count() > 0) {
             session()->flash('error', 'Cannot delete warehouse with existing stock levels.');
+
             return;
         }
 
@@ -76,10 +79,26 @@ new class extends Component {
         </div>
     </div>
 
-    <!-- Warehouse Status Badge -->
-    <div class="mb-6">
+    <!-- Warehouse Status & Type Badges -->
+    <div class="mb-6 flex items-center gap-3">
         <flux:badge :variant="$warehouse->status === 'active' ? 'success' : 'gray'" size="lg">
             {{ ucfirst($warehouse->status) }}
+        </flux:badge>
+        <flux:badge
+            :variant="match($warehouse->warehouse_type) {
+                'own' => 'primary',
+                'agent' => 'warning',
+                'company' => 'info',
+                default => 'outline'
+            }"
+            size="lg"
+        >
+            {{ match($warehouse->warehouse_type) {
+                'own' => 'Own Warehouse',
+                'agent' => 'Agent Location',
+                'company' => 'Company Location',
+                default => ucfirst($warehouse->warehouse_type)
+            } }}
         </flux:badge>
     </div>
 
@@ -107,6 +126,27 @@ new class extends Component {
                         </dd>
                     </div>
                     <div>
+                        <dt class="text-sm font-medium text-gray-500">Type</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            {{ match($warehouse->warehouse_type) {
+                                'own' => 'Own Warehouse',
+                                'agent' => 'Agent Location (Consignment)',
+                                'company' => 'Company Location (Consignment)',
+                                default => ucfirst($warehouse->warehouse_type)
+                            } }}
+                        </dd>
+                    </div>
+                    @if($warehouse->warehouse_type !== 'own' && $warehouse->agent)
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">{{ $warehouse->warehouse_type === 'agent' ? 'Agent' : 'Company' }}</dt>
+                            <dd class="mt-1 text-sm text-gray-900">
+                                <a href="{{ route('agents.show', $warehouse->agent) }}" class="text-blue-600 hover:text-blue-800">
+                                    {{ $warehouse->agent->name }} ({{ $warehouse->agent->agent_code }})
+                                </a>
+                            </dd>
+                        </div>
+                    @endif
+                    <div>
                         <dt class="text-sm font-medium text-gray-500">Created</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ $warehouse->created_at->format('M j, Y g:i A') }}</dd>
                     </div>
@@ -123,6 +163,39 @@ new class extends Component {
                     </div>
                 @endif
             </div>
+
+            <!-- Consignment Information (for Agent/Company warehouses) -->
+            @if($warehouse->warehouse_type !== 'own' && $warehouse->agent)
+                <div class="rounded-lg border border-gray-200 bg-yellow-50 p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <flux:icon name="exclamation-triangle" class="w-5 h-5 text-yellow-600" />
+                        <flux:heading size="lg">Consignment Stock Information</flux:heading>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div>
+                            <dt class="text-sm font-medium text-gray-600">Total Stock at Location</dt>
+                            <dd class="mt-1 text-2xl font-bold text-gray-900">{{ number_format($warehouse->stockLevels->sum('quantity')) }}</dd>
+                            <dd class="text-xs text-gray-500">units on consignment</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-600">Available for Sale</dt>
+                            <dd class="mt-1 text-2xl font-bold text-green-600">{{ number_format($warehouse->stockLevels->sum(fn($level) => $level->quantity - $level->reserved_quantity)) }}</dd>
+                            <dd class="text-xs text-gray-500">units available</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-600">Reserved/Committed</dt>
+                            <dd class="mt-1 text-2xl font-bold text-orange-600">{{ number_format($warehouse->stockLevels->sum('reserved_quantity')) }}</dd>
+                            <dd class="text-xs text-gray-500">units reserved</dd>
+                        </div>
+                    </div>
+                    <div class="mt-4 p-3 bg-yellow-100 rounded-lg">
+                        <p class="text-sm text-yellow-800">
+                            <flux:icon name="information-circle" class="inline w-4 h-4 mr-1" />
+                            This stock is on consignment with <strong>{{ $warehouse->agent->name }}</strong>. Settlement may be required for sold items.
+                        </p>
+                    </div>
+                </div>
+            @endif
 
             <!-- Manager Information -->
             @if($warehouse->manager_name || $warehouse->manager_email || $warehouse->manager_phone)
@@ -160,21 +233,24 @@ new class extends Component {
             @endif
 
             <!-- Address Information -->
-            @if($warehouse->address)
+            @if($warehouse->address && is_array($warehouse->address) && count(array_filter($warehouse->address)) > 0)
                 <div class="rounded-lg border border-gray-200 bg-white p-6">
                     <flux:heading size="lg" class="mb-4">Address</flux:heading>
                     <div class="text-sm text-gray-900">
-                        @if($warehouse->address['street'])
+                        @if(!empty($warehouse->address['street']))
                             <div>{{ $warehouse->address['street'] }}</div>
                         @endif
-                        <div>
-                            {{ collect([
+                        @php
+                            $addressParts = collect([
                                 $warehouse->address['city'] ?? '',
                                 $warehouse->address['state'] ?? '',
                                 $warehouse->address['postal_code'] ?? ''
-                            ])->filter()->implode(', ') }}
-                        </div>
-                        @if($warehouse->address['country'])
+                            ])->filter();
+                        @endphp
+                        @if($addressParts->isNotEmpty())
+                            <div>{{ $addressParts->implode(', ') }}</div>
+                        @endif
+                        @if(!empty($warehouse->address['country']))
                             <div>{{ $warehouse->address['country'] }}</div>
                         @endif
                     </div>

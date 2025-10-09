@@ -90,6 +90,23 @@ class ClassModel extends Model
         );
     }
 
+    public function certificates(): BelongsToMany
+    {
+        return $this->belongsToMany(Certificate::class, 'certificate_course_assignments', 'class_id', 'certificate_id')
+            ->withPivot(['is_default'])
+            ->withTimestamps();
+    }
+
+    public function certificateIssues(): HasMany
+    {
+        return $this->hasMany(CertificateIssue::class, 'class_id');
+    }
+
+    public function issuedCertificates(): HasMany
+    {
+        return $this->hasMany(CertificateIssue::class, 'class_id')->where('status', 'issued');
+    }
+
     public function isIndividual(): bool
     {
         return $this->class_type === 'individual';
@@ -480,5 +497,53 @@ class ClassModel extends Model
             'message' => 'Failed to add student to class. Class may be full or student already enrolled.',
             'class_student' => null,
         ];
+    }
+
+    // Certificate management methods
+
+    public function getAssignedCertificates(): \Illuminate\Database\Eloquent\Collection
+    {
+        return $this->certificates;
+    }
+
+    public function getDefaultCertificate(): ?Certificate
+    {
+        // First check class-specific default
+        $classCert = $this->certificates()->wherePivot('is_default', true)->first();
+
+        if ($classCert) {
+            return $classCert;
+        }
+
+        // Fall back to course default
+        return $this->course->certificates()->wherePivot('is_default', true)->first();
+    }
+
+    public function getCertificateIssuanceStats(?Certificate $certificate = null): array
+    {
+        $totalStudents = $this->activeStudents()->count();
+
+        $query = $this->certificateIssues();
+
+        if ($certificate) {
+            $query->where('certificate_id', $certificate->id);
+        }
+
+        $issuedCount = $query->where('status', 'issued')->count();
+        $revokedCount = $query->where('status', 'revoked')->count();
+        $pendingCount = $totalStudents - $issuedCount;
+
+        return [
+            'total_students' => $totalStudents,
+            'issued_count' => $issuedCount,
+            'revoked_count' => $revokedCount,
+            'pending_count' => max(0, $pendingCount),
+            'completion_rate' => $totalStudents > 0 ? round(($issuedCount / $totalStudents) * 100, 2) : 0,
+        ];
+    }
+
+    public function hasAssignedCertificates(): bool
+    {
+        return $this->certificates()->exists() || $this->course->certificates()->exists();
     }
 }

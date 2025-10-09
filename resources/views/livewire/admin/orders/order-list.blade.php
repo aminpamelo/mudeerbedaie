@@ -10,13 +10,19 @@ new class extends Component
     {
         return 'components.layouts.app.sidebar';
     }
+
     use WithPagination;
 
     public string $search = '';
+
     public string $statusFilter = '';
+
     public string $orderTypeFilter = '';
+
     public string $dateFilter = '';
+
     public string $sortBy = 'created_at';
+
     public string $sortDirection = 'desc';
 
     public function updatingSearch(): void
@@ -56,7 +62,7 @@ new class extends Component
         $order = ProductOrder::findOrFail($orderId);
 
         // Call appropriate status method based on status
-        match($status) {
+        match ($status) {
             'confirmed' => $order->markAsConfirmed(),
             'processing' => $order->markAsProcessing(),
             'shipped' => $order->markAsShipped(),
@@ -77,20 +83,20 @@ new class extends Component
                 'items.warehouse',
                 'payments',
                 'platform',
-                'platformAccount'
+                'platformAccount',
             ])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('order_number', 'like', '%' . $this->search . '%')
-                      ->orWhere('platform_order_id', 'like', '%' . $this->search . '%')
-                      ->orWhere('platform_order_number', 'like', '%' . $this->search . '%')
-                      ->orWhere('customer_name', 'like', '%' . $this->search . '%')
-                      ->orWhere('guest_email', 'like', '%' . $this->search . '%')
-                      ->orWhereHas('customer', function ($customerQuery) {
-                          $customerQuery->where('name', 'like', '%' . $this->search . '%')
-                                      ->orWhere('email', 'like', '%' . $this->search . '%');
-                      })
-                      ->orWhereRaw("JSON_EXTRACT(metadata, '$.package_name') LIKE ?", ['%' . $this->search . '%']);
+                    $q->where('order_number', 'like', '%'.$this->search.'%')
+                        ->orWhere('platform_order_id', 'like', '%'.$this->search.'%')
+                        ->orWhere('platform_order_number', 'like', '%'.$this->search.'%')
+                        ->orWhere('customer_name', 'like', '%'.$this->search.'%')
+                        ->orWhere('guest_email', 'like', '%'.$this->search.'%')
+                        ->orWhereHas('customer', function ($customerQuery) {
+                            $customerQuery->where('name', 'like', '%'.$this->search.'%')
+                                ->orWhere('email', 'like', '%'.$this->search.'%');
+                        })
+                        ->orWhereRaw("JSON_EXTRACT(metadata, '$.package_name') LIKE ?", ['%'.$this->search.'%']);
                 });
             })
             ->when($this->statusFilter, function ($query) {
@@ -106,7 +112,7 @@ new class extends Component
                 }
             })
             ->when($this->dateFilter, function ($query) {
-                match($this->dateFilter) {
+                match ($this->dateFilter) {
                     'today' => $query->whereDate('created_at', today()),
                     'week' => $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]),
                     'month' => $query->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year),
@@ -136,7 +142,7 @@ new class extends Component
 
     public function getStatusColor(string $status): string
     {
-        return match($status) {
+        return match ($status) {
             'draft' => 'gray',
             'pending' => 'yellow',
             'confirmed' => 'blue',
@@ -231,10 +237,10 @@ new class extends Component
     </div>
 
     <!-- Orders Table -->
-    <div class="bg-white rounded-lg border">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+            <table class="min-w-full border-collapse border-0">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <button wire:click="sortBy('order_number')" class="flex items-center space-x-1 hover:text-gray-700">
@@ -277,9 +283,9 @@ new class extends Component
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white">
                     @forelse($this->getOrders() as $order)
-                        <tr class="hover:bg-gray-50" wire:key="order-{{ $order->id }}">
+                        <tr class="border-b border-gray-200 hover:bg-gray-50" wire:key="order-{{ $order->id }}">
                             <!-- Order Number -->
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div>
@@ -418,7 +424,7 @@ new class extends Component
 
         <!-- Pagination -->
         @if($this->getOrders()->hasPages())
-            <div class="px-6 py-4 border-t">
+            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
                 {{ $this->getOrders()->links() }}
             </div>
         @endif

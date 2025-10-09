@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Warehouse extends Model
@@ -13,11 +14,14 @@ class Warehouse extends Model
     protected $fillable = [
         'name',
         'code',
+        'warehouse_type',
+        'agent_id',
         'description',
         'address',
-        'contact_person',
-        'contact_phone',
-        'contact_email',
+        'manager_name',
+        'manager_email',
+        'manager_phone',
+        'status',
         'is_active',
         'is_default',
     ];
@@ -46,6 +50,11 @@ class Warehouse extends Model
         return $this->hasMany(StockAlert::class);
     }
 
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class);
+    }
+
     public function isActive(): bool
     {
         return $this->is_active;
@@ -54,6 +63,26 @@ class Warehouse extends Model
     public function isDefault(): bool
     {
         return $this->is_default;
+    }
+
+    public function isOwn(): bool
+    {
+        return $this->warehouse_type === 'own';
+    }
+
+    public function isAgent(): bool
+    {
+        return $this->warehouse_type === 'agent';
+    }
+
+    public function isCompany(): bool
+    {
+        return $this->warehouse_type === 'company';
+    }
+
+    public function isConsignment(): bool
+    {
+        return in_array($this->warehouse_type, ['agent', 'company']);
     }
 
     public function getFormattedAddressAttribute(): string
@@ -110,12 +139,41 @@ class Warehouse extends Model
         return $query->where('is_default', true);
     }
 
+    public function scopeOwn($query)
+    {
+        return $query->where('warehouse_type', 'own');
+    }
+
+    public function scopeAgentWarehouses($query)
+    {
+        return $query->where('warehouse_type', 'agent');
+    }
+
+    public function scopeCompanyWarehouses($query)
+    {
+        return $query->where('warehouse_type', 'company');
+    }
+
+    public function scopeConsignment($query)
+    {
+        return $query->whereIn('warehouse_type', ['agent', 'company']);
+    }
+
+    public function scopeByType($query, $type)
+    {
+        return $query->where('warehouse_type', $type);
+    }
+
     public function scopeSearch($query, $search)
     {
         return $query->where(function ($q) use ($search) {
             $q->where('name', 'like', "%{$search}%")
                 ->orWhere('code', 'like', "%{$search}%")
-                ->orWhere('description', 'like', "%{$search}%");
+                ->orWhere('description', 'like', "%{$search}%")
+                ->orWhereHas('agent', function ($aq) use ($search) {
+                    $aq->where('name', 'like', "%{$search}%")
+                        ->orWhere('agent_code', 'like', "%{$search}%");
+                });
         });
     }
 }

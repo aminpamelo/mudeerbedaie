@@ -5,11 +5,14 @@ use App\Models\User;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public $search = '';
+
     public $statusFilter = '';
+
     public $creatorFilter = '';
 
     public function with(): array
@@ -17,9 +20,9 @@ new class extends Component {
         return [
             'packages' => Package::query()
                 ->with(['creator', 'products', 'courses', 'purchases'])
-                ->when($this->search, fn($query) => $query->search($this->search))
-                ->when($this->statusFilter, fn($query) => $query->where('status', $this->statusFilter))
-                ->when($this->creatorFilter, fn($query) => $query->where('created_by', $this->creatorFilter))
+                ->when($this->search, fn ($query) => $query->search($this->search))
+                ->when($this->statusFilter, fn ($query) => $query->where('status', $this->statusFilter))
+                ->when($this->creatorFilter, fn ($query) => $query->where('created_by', $this->creatorFilter))
                 ->latest()
                 ->paginate(15),
             'creators' => User::whereIn('id', Package::distinct()->pluck('created_by'))->get(),
@@ -31,6 +34,7 @@ new class extends Component {
         // Check if package has any completed purchases
         if ($package->completedPurchases()->exists()) {
             $this->dispatch('package-delete-error', message: 'Cannot delete package with completed purchases.');
+
             return;
         }
 
@@ -40,7 +44,7 @@ new class extends Component {
 
     public function toggleStatus(Package $package): void
     {
-        $newStatus = match($package->status) {
+        $newStatus = match ($package->status) {
             'active' => 'inactive',
             'inactive' => 'active',
             'draft' => 'active',
@@ -53,7 +57,7 @@ new class extends Component {
     public function duplicate(Package $package): void
     {
         $newPackage = $package->replicate();
-        $newPackage->name = $package->name . ' (Copy)';
+        $newPackage->name = $package->name.' (Copy)';
         $newPackage->slug = null; // Will be auto-generated
         $newPackage->status = 'draft';
         $newPackage->purchased_count = 0;
@@ -188,26 +192,24 @@ new class extends Component {
     </div>
 
     <!-- Packages Table -->
-    <div class="overflow-x-auto overflow-hidden bg-white shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-        <table class="min-w-full divide-y divide-gray-300">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Package</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Items</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Price</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Savings</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Sales</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Created By</th>
-                    <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                        <span class="sr-only">Actions</span>
-                        <span class="text-sm font-semibold text-gray-900">Actions</span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 bg-white">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full border-collapse border-0">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Savings</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white">
                 @forelse($packages as $package)
-                    <tr wire:key="package-{{ $package->id }}" class="hover:bg-gray-50">
+                    <tr wire:key="package-{{ $package->id }}" class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                             <div class="flex items-center space-x-3">
                                 @if($package->featured_image)
@@ -349,6 +351,7 @@ new class extends Component {
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 
     <!-- Pagination -->

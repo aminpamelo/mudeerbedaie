@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\PhoneNumberHelper;
 use App\Models\Package;
 use App\Models\PackagePurchase;
 use App\Models\Platform;
@@ -12,6 +13,8 @@ use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderItem;
 use App\Models\ProductVariant;
+use App\Models\Student;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -206,6 +209,161 @@ class TikTokOrderProcessor
     }
 
     /**
+     * Find or create student based on phone number
+     * Only creates/updates student if phone number is unmasked and valid
+     *
+     * @param  array  $mappedData  Order data containing customer info
+     * @return Student|null Student instance if found/created, null if phone is masked/invalid
+     */
+    protected function findOrCreateStudent(array $mappedData): ?Student
+    {
+        $phoneNumber = $mappedData['customer_phone'] ?? $mappedData['phone'] ?? null;
+        $customerName = $mappedData['customer_name'] ?? $mappedData['recipient'] ?? null;
+
+        // Skip if no phone number or customer name
+        if (empty($phoneNumber) || empty($customerName)) {
+            return null;
+        }
+
+        // Check if phone number is masked (contains asterisks)
+        if (PhoneNumberHelper::isMasked($phoneNumber)) {
+            Log::info('Skipping student creation - phone number is masked', [
+                'phone' => $phoneNumber,
+                'order_id' => $mappedData['order_id'] ?? null,
+            ]);
+
+            return null;
+        }
+
+        // Normalize phone number for consistent lookup
+        $normalizedPhone = PhoneNumberHelper::normalize($phoneNumber);
+
+        if (empty($normalizedPhone)) {
+            Log::warning('Could not normalize phone number for student lookup', [
+                'original_phone' => $phoneNumber,
+                'order_id' => $mappedData['order_id'] ?? null,
+            ]);
+
+            return null;
+        }
+
+        // Try to find existing student by normalized phone number
+        $student = Student::where('phone', $normalizedPhone)->first();
+
+        if ($student) {
+            // Update student info if we have better data (unmasked)
+            $this->updateStudentIfNeeded($student, $mappedData, $normalizedPhone);
+
+            Log::info('Found existing student for order', [
+                'student_id' => $student->id,
+                'phone' => $normalizedPhone,
+                'order_id' => $mappedData['order_id'] ?? null,
+            ]);
+
+            return $student;
+        }
+
+        // Create new student if not found
+        return $this->createStudentFromOrder($mappedData, $normalizedPhone, $customerName);
+    }
+
+    /**
+     * Create a new student from order data
+     */
+    protected function createStudentFromOrder(array $mappedData, string $normalizedPhone, string $customerName): Student
+    {
+        // Create user first
+        $user = User::create([
+            'name' => $customerName,
+            'email' => $this->generateEmailFromPhone($normalizedPhone),
+            'password' => bcrypt(str()->random(16)), // Random password, user needs to reset
+            'email_verified_at' => null, // Not verified since auto-created
+        ]);
+
+        // Create student record
+        $student = Student::create([
+            'user_id' => $user->id,
+            'phone' => $normalizedPhone,
+            'address' => $this->formatAddressFromOrder($mappedData),
+            'status' => 'active',
+        ]);
+
+        Log::info('Created new student from TikTok order', [
+            'student_id' => $student->id,
+            'user_id' => $user->id,
+            'phone' => $normalizedPhone,
+            'name' => $customerName,
+            'order_id' => $mappedData['order_id'] ?? null,
+        ]);
+
+        return $student;
+    }
+
+    /**
+     * Update student information if new data is better (unmasked)
+     */
+    protected function updateStudentIfNeeded(Student $student, array $mappedData, string $normalizedPhone): void
+    {
+        $updates = [];
+
+        // Update phone if different (normalized comparison)
+        if ($student->phone !== $normalizedPhone) {
+            $updates['phone'] = $normalizedPhone;
+        }
+
+        // Update address if we have new unmasked address data
+        $newAddress = $this->formatAddressFromOrder($mappedData);
+        if (! empty($newAddress) && $newAddress !== $student->address) {
+            // Only update if new address is not masked
+            if (! PhoneNumberHelper::isMasked($newAddress)) {
+                $updates['address'] = $newAddress;
+            }
+        }
+
+        // Update user name if we have unmasked name
+        $customerName = $mappedData['customer_name'] ?? $mappedData['recipient'] ?? null;
+        if ($customerName && ! PhoneNumberHelper::isMasked($customerName) && $student->user) {
+            if ($student->user->name !== $customerName) {
+                $student->user->update(['name' => $customerName]);
+            }
+        }
+
+        if (! empty($updates)) {
+            $student->update($updates);
+
+            Log::info('Updated student information from order', [
+                'student_id' => $student->id,
+                'updates' => array_keys($updates),
+                'order_id' => $mappedData['order_id'] ?? null,
+            ]);
+        }
+    }
+
+    /**
+     * Generate email from phone number for auto-created users
+     */
+    protected function generateEmailFromPhone(string $normalizedPhone): string
+    {
+        return "student_{$normalizedPhone}@mudeerbedaie.local";
+    }
+
+    /**
+     * Format address from order data
+     */
+    protected function formatAddressFromOrder(array $mappedData): ?string
+    {
+        $addressParts = array_filter([
+            $mappedData['detail_address'] ?? null,
+            $mappedData['city'] ?? $mappedData['post_town'] ?? null,
+            $mappedData['state'] ?? null,
+            $mappedData['postal_code'] ?? $mappedData['zipcode'] ?? null,
+            $mappedData['country'] ?? null,
+        ]);
+
+        return ! empty($addressParts) ? implode(', ', $addressParts) : null;
+    }
+
+    /**
      * Create or update product order with platform data
      */
     protected function createOrUpdateProductOrder(array $mappedData, PlatformCustomer $platformCustomer): ProductOrder
@@ -215,6 +373,9 @@ class TikTokOrderProcessor
             ->where('platform_account_id', $this->account->id)
             ->where('platform_order_id', $mappedData['order_id'])
             ->first();
+
+        // Find or create student based on phone number (only if unmasked)
+        $student = $this->findOrCreateStudent($mappedData);
 
         $orderData = [
             // Basic order fields
@@ -235,17 +396,29 @@ class TikTokOrderProcessor
             'package_id' => $mappedData['package_id'] ?? null,
             'buyer_username' => $mappedData['buyer_username'] ?? null,
 
-            // Customer info
-            'customer_name' => $mappedData['customer_name'] ?? $mappedData['recipient'] ?? null,
-            'customer_phone' => $mappedData['customer_phone'] ?? $mappedData['phone'] ?? null,
-            'shipping_address' => [
-                'country' => $mappedData['country'] ?? null,
-                'state' => $mappedData['state'] ?? null,
-                'city' => $mappedData['city'] ?? $mappedData['post_town'] ?? null,
-                'postal_code' => $mappedData['postal_code'] ?? $mappedData['zipcode'] ?? null,
-                'detail_address' => $mappedData['detail_address'] ?? null,
-                'additional_info' => $mappedData['additional_address_information'] ?? null,
-            ],
+            // Student link (only set if we found/created a student)
+            'student_id' => $student?->id,
+
+            // Customer info - Smart update logic applied
+            'customer_name' => $this->getSmartUpdateValue(
+                $existingOrder?->customer_name,
+                $mappedData['customer_name'] ?? $mappedData['recipient'] ?? null
+            ),
+            'customer_phone' => $this->getSmartUpdatePhoneValue(
+                $existingOrder?->customer_phone,
+                $mappedData['customer_phone'] ?? $mappedData['phone'] ?? null
+            ),
+            'shipping_address' => $this->getSmartUpdateAddress(
+                $existingOrder?->shipping_address ?? [],
+                [
+                    'country' => $mappedData['country'] ?? null,
+                    'state' => $mappedData['state'] ?? null,
+                    'city' => $mappedData['city'] ?? $mappedData['post_town'] ?? null,
+                    'postal_code' => $mappedData['postal_code'] ?? $mappedData['zipcode'] ?? null,
+                    'detail_address' => $mappedData['detail_address'] ?? null,
+                    'additional_info' => $mappedData['additional_address_information'] ?? null,
+                ]
+            ),
 
             // Pricing
             'subtotal' => $mappedData['sku_subtotal_after_discount'] ?? 0,
@@ -588,5 +761,135 @@ class TikTokOrderProcessor
             'cancelled' => 'cancelled',
             default => 'pending',
         };
+    }
+
+    /**
+     * Smart field update logic - only update if current value is masked
+     *
+     * @param  mixed  $existingValue  The current value in database
+     * @param  mixed  $newValue  The new value from CSV import
+     * @return mixed Returns the appropriate value based on masking detection
+     */
+    protected function getSmartUpdateValue($existingValue, $newValue)
+    {
+        // If no existing value, always use new value
+        if (empty($existingValue)) {
+            return $newValue;
+        }
+
+        // If new value is empty, keep existing value
+        if (empty($newValue)) {
+            return $existingValue;
+        }
+
+        // Check if existing value contains masking symbols (*)
+        if ($this->isMaskedValue($existingValue)) {
+            // Current data is masked, allow update with new value
+            return $newValue;
+        }
+
+        // Check if new value is masked
+        if ($this->isMaskedValue($newValue)) {
+            // New data is masked but existing is clean, keep existing (manually corrected data)
+            return $existingValue;
+        }
+
+        // Both values are unmasked, prefer new value (latest data from platform)
+        return $newValue;
+    }
+
+    /**
+     * Smart phone update logic with normalization
+     * Normalizes phone numbers and handles masked values intelligently
+     *
+     * @param  mixed  $existingValue  The current phone value in database
+     * @param  mixed  $newValue  The new phone value from CSV import
+     * @return mixed Returns normalized phone or appropriate value based on masking
+     */
+    protected function getSmartUpdatePhoneValue($existingValue, $newValue)
+    {
+        // If no existing value and new value is valid, normalize and use it
+        if (empty($existingValue)) {
+            $normalized = PhoneNumberHelper::normalize($newValue);
+
+            return $normalized ?? $newValue;
+        }
+
+        // If new value is empty, keep existing value
+        if (empty($newValue)) {
+            return $existingValue;
+        }
+
+        // Check if existing value is masked
+        if (PhoneNumberHelper::isMasked($existingValue)) {
+            // Current data is masked, normalize and use new value if valid
+            $normalized = PhoneNumberHelper::normalize($newValue);
+
+            return $normalized ?? $newValue;
+        }
+
+        // Check if new value is masked
+        if (PhoneNumberHelper::isMasked($newValue)) {
+            // New data is masked but existing is clean, keep existing
+            return $existingValue;
+        }
+
+        // Both values are unmasked - normalize both and compare
+        $normalizedExisting = PhoneNumberHelper::normalize($existingValue);
+        $normalizedNew = PhoneNumberHelper::normalize($newValue);
+
+        // If they're the same after normalization, keep existing format
+        if ($normalizedExisting === $normalizedNew) {
+            return $existingValue;
+        }
+
+        // Different numbers - prefer new normalized value (latest data)
+        return $normalizedNew ?? $newValue;
+    }
+
+    /**
+     * Smart address update logic - preserves unmasked address fields
+     *
+     * @param  array  $existingAddress  Current shipping address
+     * @param  array  $newAddress  New shipping address from CSV
+     * @return array Merged address with smart field updates
+     */
+    protected function getSmartUpdateAddress(array $existingAddress, array $newAddress): array
+    {
+        // If no existing address, return new address
+        if (empty($existingAddress)) {
+            return $newAddress;
+        }
+
+        $mergedAddress = [];
+
+        foreach ($newAddress as $field => $newValue) {
+            $existingValue = $existingAddress[$field] ?? null;
+            $mergedAddress[$field] = $this->getSmartUpdateValue($existingValue, $newValue);
+        }
+
+        return $mergedAddress;
+    }
+
+    /**
+     * Check if a value contains TikTok masking symbols
+     * TikTok masks personal data with asterisks (*) like: (+60)148****88, John***
+     *
+     * @param  mixed  $value  The value to check
+     * @return bool True if value appears to be masked
+     */
+    protected function isMaskedValue($value): bool
+    {
+        if (! is_string($value)) {
+            return false;
+        }
+
+        // Check for common masking patterns:
+        // 1. Contains asterisks (*) - most common
+        // 2. Multiple consecutive asterisks (****)
+        // 3. Phone number patterns with masking: (+60)148****88
+        // 4. Name patterns with masking: John*** or ***n Doe
+
+        return str_contains($value, '*');
     }
 }

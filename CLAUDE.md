@@ -256,7 +256,51 @@ Volt::route('teachers', 'admin.teacher-list')->name('teachers.index');
 - Always use `$this->property` to access computed properties in Volt templates
 - Volt components should be routed directly, not through controllers
 
+### Student Show Page - Tab-Based Navigation Pattern
 
+The student detail page (`resources/views/livewire/admin/student-show.blade.php`) uses a comprehensive tab-based navigation system for better UX and information organization.
+
+#### Architecture:
+- **6 Tabs**: Overview, Orders, Enrollments, Attendance, Payment Methods, Personal Info
+- **State Management**: `public string $activeTab = 'overview'` with `setActiveTab(string $tab)` method
+- **Quick Stats**: 6 metric cards at the top (Enrollments, Active Courses, Classes, Orders, Revenue, Attendance Rate)
+
+#### Key Features:
+
+**Recent Activity Timeline (Overview Tab)**:
+- Combines orders and attendance in chronological order
+- **Clickable Order Items**: Orders show chevron icon and link to order detail page
+- Hover effects with background color change and text color transition
+- Visual indicators: colored icons, timestamps with `diffForHumans()`
+
+**Implementation Pattern for Clickable Activity Items**:
+```blade
+@if($activity['url'])
+    <a href="{{ $activity['url'] }}" class="group flex items-start justify-between hover:bg-gray-50 -mx-2 px-2 py-1 rounded transition-colors">
+        <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{{ $activity['title'] }}</p>
+            <p class="text-sm text-gray-500">{{ $activity['description'] }}</p>
+        </div>
+        <flux:icon name="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0 ml-2 mt-0.5" />
+    </a>
+@else
+    <div>
+        <p class="text-sm font-medium text-gray-900">{{ $activity['title'] }}</p>
+        <p class="text-sm text-gray-500">{{ $activity['description'] }}</p>
+    </div>
+@endif
+```
+
+**Data Relationships**:
+- Student model uses `ProductOrder` (not `Order`) for e-commerce orders
+- Order relationships: `orders()`, `paidOrders()`, `pendingOrders()`, `failedOrders()`
+- Eager loading with limits to optimize performance (20 orders, 20 attendances)
+
+**UX Enhancements**:
+- Tab badges show counts (e.g., "Orders 3", "Enrollments 2")
+- Color-coded attendance rate (green ≥80%, yellow ≥60%, red <60%)
+- Empty states for all tabs with helpful messages
+- Responsive layouts with Tailwind grid system
 
 **Card For Testing**
 

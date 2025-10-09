@@ -3,6 +3,7 @@
 use App\Models\ProductOrder;
 use App\Models\ProductOrderPayment;
 use App\Models\Product;
+use App\Models\Package;
 use App\Models\Warehouse;
 use App\Models\User;
 use Livewire\Volt\Component;
@@ -27,7 +28,7 @@ new class extends Component
 
     public function mount(ProductOrder $order): void
     {
-        $this->order = $order->load(['items.product', 'items.warehouse', 'customer', 'addresses']);
+        $this->order = $order->load(['items.product', 'items.package', 'items.warehouse', 'customer', 'addresses']);
 
         // Get payment information from payments table
         $latestPayment = $this->order->payments()->latest()->first();
@@ -71,10 +72,12 @@ new class extends Component
             'notes' => $this->order->customer_notes ?? '',
         ];
 
-        // Initialize order items
+        // Initialize order items (support both products and packages)
         foreach ($this->order->items as $item) {
             $this->orderItems[] = [
-                'product_id' => $item->product_id,
+                'item_type' => $item->isPackage() ? 'package' : 'product',
+                'product_id' => $item->product_id ?? '',
+                'package_id' => $item->package_id ?? '',
                 'product_variant_id' => $item->product_variant_id,
                 'warehouse_id' => $item->warehouse_id,
                 'quantity' => $item->quantity_ordered,
@@ -135,13 +138,42 @@ new class extends Component
     public function addItem(): void
     {
         $this->orderItems[] = [
+            'item_type' => 'product',
             'product_id' => '',
+            'package_id' => '',
             'product_variant_id' => null,
             'warehouse_id' => '',
             'quantity' => 1,
             'unit_price' => '0',
             'total_price' => 0,
         ];
+    }
+
+    public function itemTypeChanged(int $index): void
+    {
+        // Reset item data when type changes
+        $this->orderItems[$index]['product_id'] = '';
+        $this->orderItems[$index]['package_id'] = '';
+        $this->orderItems[$index]['unit_price'] = '0';
+        $this->orderItems[$index]['total_price'] = 0;
+        $this->calculateTotals();
+    }
+
+    public function updatePackagePrice(int $index): void
+    {
+        if (isset($this->orderItems[$index]['package_id']) && $this->orderItems[$index]['package_id']) {
+            $package = Package::find($this->orderItems[$index]['package_id']);
+            if ($package) {
+                $this->orderItems[$index]['unit_price'] = number_format($package->price, 2);
+
+                // Set default warehouse from package if not set
+                if (empty($this->orderItems[$index]['warehouse_id']) && $package->default_warehouse_id) {
+                    $this->orderItems[$index]['warehouse_id'] = $package->default_warehouse_id;
+                }
+
+                $this->updateItemTotal($index);
+            }
+        }
     }
 
     public function removeItem(int $index): void
@@ -200,18 +232,41 @@ new class extends Component
             return;
         }
 
-        // Validate products and warehouses
+        // Validate products/packages and warehouses
         foreach ($this->orderItems as $item) {
-            if (empty($item['product_id']) || empty($item['warehouse_id'])) {
-                session()->flash('error', 'Please select product and warehouse for all items.');
+            if (empty($item['warehouse_id'])) {
+                session()->flash('error', 'Please select warehouse for all items.');
                 return;
             }
 
-            $productExists = Product::where('id', $item['product_id'])->exists();
-            $warehouseExists = Warehouse::where('id', $item['warehouse_id'])->exists();
+            // Validate based on item type
+            if ($item['item_type'] === 'product') {
+                if (empty($item['product_id'])) {
+                    session()->flash('error', 'Please select product for all product items.');
+                    return;
+                }
 
-            if (!$productExists || !$warehouseExists) {
-                session()->flash('error', 'Invalid product or warehouse selected.');
+                $productExists = Product::where('id', $item['product_id'])->exists();
+                if (!$productExists) {
+                    session()->flash('error', 'Invalid product selected.');
+                    return;
+                }
+            } elseif ($item['item_type'] === 'package') {
+                if (empty($item['package_id'])) {
+                    session()->flash('error', 'Please select package for all package items.');
+                    return;
+                }
+
+                $packageExists = Package::where('id', $item['package_id'])->exists();
+                if (!$packageExists) {
+                    session()->flash('error', 'Invalid package selected.');
+                    return;
+                }
+            }
+
+            $warehouseExists = Warehouse::where('id', $item['warehouse_id'])->exists();
+            if (!$warehouseExists) {
+                session()->flash('error', 'Invalid warehouse selected.');
                 return;
             }
         }
@@ -232,23 +287,45 @@ new class extends Component
             $this->updatePaymentInformation();
         });
 
-        // Update order items
+        // Update order items - delete old ones and create new
         $this->order->items()->delete();
         foreach ($this->orderItems as $item) {
-            $product = Product::find($item['product_id']);
-            $this->order->items()->create([
-                'product_id' => $item['product_id'],
-                'product_variant_id' => $item['product_variant_id'],
-                'warehouse_id' => $item['warehouse_id'],
-                'product_name' => $product->name,
-                'variant_name' => null,
-                'sku' => $product->sku,
-                'quantity_ordered' => $item['quantity'],
-                'unit_price' => $item['unit_price'],
-                'total_price' => $item['total_price'],
-                'unit_cost' => $product->cost_price,
-                'product_snapshot' => $product->toArray(),
-            ]);
+            if ($item['item_type'] === 'package') {
+                $package = Package::with(['products', 'courses'])->find($item['package_id']);
+
+                $this->order->items()->create([
+                    'itemable_type' => Package::class,
+                    'itemable_id' => $package->id,
+                    'package_id' => $package->id,
+                    'warehouse_id' => $item['warehouse_id'],
+                    'product_name' => $package->name,
+                    'sku' => 'PKG-' . $package->id,
+                    'quantity_ordered' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'total_price' => $item['total_price'],
+                    'unit_cost' => 0,
+                    'package_snapshot' => $package->toArray(),
+                    'package_items_snapshot' => $package->items->toArray(),
+                ]);
+            } else {
+                $product = Product::find($item['product_id']);
+
+                $this->order->items()->create([
+                    'itemable_type' => Product::class,
+                    'itemable_id' => $product->id,
+                    'product_id' => $item['product_id'],
+                    'product_variant_id' => $item['product_variant_id'],
+                    'warehouse_id' => $item['warehouse_id'],
+                    'product_name' => $product->name,
+                    'variant_name' => null,
+                    'sku' => $product->sku,
+                    'quantity_ordered' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'total_price' => $item['total_price'],
+                    'unit_cost' => $product->cost_price,
+                    'product_snapshot' => $product->toArray(),
+                ]);
+            }
         }
 
         // Update addresses
@@ -332,6 +409,7 @@ new class extends Component
     {
         return [
             'products' => Product::active()->get(),
+            'packages' => Package::active()->with(['products', 'courses'])->get(),
             'warehouses' => Warehouse::all(),
             'customers' => User::whereIn('role', ['student', 'user'])->get(),
         ];
@@ -438,18 +516,60 @@ new class extends Component
                 <div class="space-y-4">
                     @foreach($orderItems as $index => $item)
                         <div class="border rounded-lg p-4 bg-gray-50">
+                            <!-- Item Type Selection -->
+                            <div class="mb-4">
+                                <flux:field>
+                                    <flux:label>Item Type</flux:label>
+                                    <div class="flex gap-4">
+                                        <label class="flex items-center">
+                                            <input type="radio" wire:model.live="orderItems.{{ $index }}.item_type"
+                                                   wire:change="itemTypeChanged({{ $index }})"
+                                                   value="product" class="mr-2">
+                                            Product
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="radio" wire:model.live="orderItems.{{ $index }}.item_type"
+                                                   wire:change="itemTypeChanged({{ $index }})"
+                                                   value="package" class="mr-2">
+                                            Package
+                                        </label>
+                                    </div>
+                                </flux:field>
+                            </div>
+
                             <div class="grid md:grid-cols-4 gap-4 items-end">
-                                <div>
-                                    <flux:field>
-                                        <flux:label>Product</flux:label>
-                                        <flux:select wire:model.live="orderItems.{{ $index }}.product_id" wire:change="updateItemPrice({{ $index }})">
-                                            <option value="">Select Product...</option>
-                                            @foreach($products as $product)
-                                                <option value="{{ $product->id }}">{{ $product->name }} (RM {{ number_format($product->base_price, 2) }})</option>
-                                            @endforeach
-                                        </flux:select>
-                                    </flux:field>
-                                </div>
+                                <!-- Product or Package Selection -->
+                                @if($item['item_type'] === 'product')
+                                    <div>
+                                        <flux:field>
+                                            <flux:label>Product</flux:label>
+                                            <flux:select wire:model.live="orderItems.{{ $index }}.product_id" wire:change="updateItemPrice({{ $index }})">
+                                                <option value="">Select Product...</option>
+                                                @foreach($products as $product)
+                                                    <option value="{{ $product->id }}">{{ $product->name }} (RM {{ number_format($product->base_price, 2) }})</option>
+                                                @endforeach
+                                            </flux:select>
+                                        </flux:field>
+                                    </div>
+                                @else
+                                    <div>
+                                        <flux:field>
+                                            <flux:label>Package</flux:label>
+                                            <flux:select wire:model.live="orderItems.{{ $index }}.package_id" wire:change="updatePackagePrice({{ $index }})">
+                                                <option value="">Select Package...</option>
+                                                @foreach($packages as $package)
+                                                    <option value="{{ $package->id }}">
+                                                        {{ $package->name }} (RM {{ $package->price }})
+                                                        @if($package->track_stock)
+                                                            - Stock Tracked
+                                                        @endif
+                                                    </option>
+                                                @endforeach
+                                            </flux:select>
+                                        </flux:field>
+                                    </div>
+                                @endif
+
                                 <div>
                                     <flux:field>
                                         <flux:label>Warehouse</flux:label>
@@ -484,6 +604,7 @@ new class extends Component
                                     </flux:field>
                                 </div>
                             </div>
+
                             <div class="flex justify-between items-center mt-4">
                                 <p class="font-medium">Total: MYR {{ number_format($item['total_price'], 2) }}</p>
                                 @if(count($orderItems) > 1)
@@ -492,6 +613,32 @@ new class extends Component
                                     </flux:button>
                                 @endif
                             </div>
+
+                            <!-- Show package items if package is selected -->
+                            @if($item['item_type'] === 'package' && !empty($item['package_id']))
+                                @php
+                                    $selectedPackage = $packages->find($item['package_id']);
+                                @endphp
+                                @if($selectedPackage)
+                                    <div class="mt-4 p-3 bg-white rounded border">
+                                        <flux:text class="font-semibold mb-2">Package Contents:</flux:text>
+                                        <ul class="space-y-1 text-sm">
+                                            @foreach($selectedPackage->products as $product)
+                                                <li class="flex justify-between">
+                                                    <span>• {{ $product->name }}</span>
+                                                    <span class="text-gray-600">Qty: {{ $product->pivot->quantity }}</span>
+                                                </li>
+                                            @endforeach
+                                            @foreach($selectedPackage->courses as $course)
+                                                <li class="flex justify-between">
+                                                    <span>• {{ $course->name }}</span>
+                                                    <span class="text-gray-600">(Course)</span>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
+                            @endif
                         </div>
                     @endforeach
                 </div>

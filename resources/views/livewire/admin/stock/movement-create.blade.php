@@ -6,8 +6,11 @@ use App\Models\StockMovement;
 use App\Models\StockLevel;
 use App\Models\Warehouse;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 new class extends Component {
+    use WithFileUploads;
+
     public $product_id = '';
     public $product_variant_id = '';
     public $warehouse_id = '';
@@ -16,6 +19,7 @@ new class extends Component {
     public $reference_type = '';
     public $reference_id = '';
     public $notes = '';
+    public $attachment;
 
     public $selectedProduct = null;
     public $availableVariants = [];
@@ -31,6 +35,7 @@ new class extends Component {
             'reference_type' => 'nullable|string|max:255',
             'reference_id' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
+            'attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:10240',
         ];
     }
 
@@ -87,6 +92,12 @@ new class extends Component {
             return;
         }
 
+        // Handle file upload if provided
+        $attachmentPath = null;
+        if ($this->attachment) {
+            $attachmentPath = $this->attachment->store('stock-movements', 'public');
+        }
+
         // Create stock movement record
         StockMovement::create([
             'product_id' => $this->product_id,
@@ -99,6 +110,7 @@ new class extends Component {
             'reference_type' => $this->reference_type ?: null,
             'reference_id' => $this->reference_id ?: null,
             'notes' => $this->notes,
+            'attachment' => $attachmentPath,
             'created_by' => auth()->id(),
         ]);
 
@@ -220,6 +232,37 @@ new class extends Component {
             <flux:label>Notes</flux:label>
             <flux:textarea wire:model="notes" placeholder="Additional notes about this movement" rows="3" />
             <flux:error name="notes" />
+        </flux:field>
+
+        <!-- Attachment Upload -->
+        <flux:field>
+            <flux:label>Attachment / Receipt</flux:label>
+            <input
+                type="file"
+                wire:model="attachment"
+                class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+            />
+            <flux:error name="attachment" />
+            <flux:description>Upload a receipt, invoice, or related document (Max: 10MB, Formats: JPG, PNG, PDF, DOC, DOCX)</flux:description>
+
+            @if ($attachment)
+                <div class="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <flux:icon name="document" class="h-5 w-5 text-green-600 mr-2" />
+                            <span class="text-sm text-green-800 font-medium">{{ $attachment->getClientOriginalName() }}</span>
+                        </div>
+                        <button
+                            type="button"
+                            wire:click="$set('attachment', null)"
+                            class="text-red-600 hover:text-red-800 text-sm font-medium"
+                        >
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            @endif
         </flux:field>
 
         <!-- Current Stock Info -->

@@ -556,13 +556,23 @@ new class extends Component {
                 </div>
             </button>
             
-            <button 
+            <button
                 wire:click="setActiveTab('timetable')"
                 class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'timetable' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
             >
                 <div class="flex items-center gap-2">
                     <flux:icon.calendar class="h-4 w-4" />
                     Timetable
+                </div>
+            </button>
+
+            <button
+                wire:click="setActiveTab('certificates')"
+                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'certificates' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon.document-check class="h-4 w-4" />
+                    Certificates
                 </div>
             </button>
         </nav>
@@ -1547,6 +1557,12 @@ new class extends Component {
             @endif
         </div>
         <!-- End Timetable Tab -->
+
+        <!-- Certificates Tab -->
+        <div class="{{ $activeTab === 'certificates' ? 'block' : 'hidden' }}">
+            <livewire:admin.certificates.class-certificate-management :class="$class" />
+        </div>
+        <!-- End Certificates Tab -->
     </div>
 
     <!-- Create Session Modal -->

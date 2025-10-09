@@ -4,11 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ProductOrderItem extends Model
 {
     protected $fillable = [
         'order_id',
+        'itemable_type',
+        'itemable_id',
+        'package_id',
         'product_id',
         'product_variant_id',
         'warehouse_id',
@@ -22,6 +26,8 @@ class ProductOrderItem extends Model
         'total_price',
         'unit_cost',
         'product_snapshot',
+        'package_snapshot',
+        'package_items_snapshot',
         // Platform-specific fields
         'platform_sku',
         'platform_product_name',
@@ -48,6 +54,8 @@ class ProductOrderItem extends Model
             'total_price' => 'decimal:2',
             'unit_cost' => 'decimal:2',
             'product_snapshot' => 'array',
+            'package_snapshot' => 'array',
+            'package_items_snapshot' => 'array',
             // Platform fields
             'platform_discount' => 'decimal:2',
             'seller_discount' => 'decimal:2',
@@ -67,6 +75,16 @@ class ProductOrderItem extends Model
         return $this->belongsTo(ProductOrder::class, 'order_id');
     }
 
+    public function itemable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class);
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
@@ -80,6 +98,17 @@ class ProductOrderItem extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    // Type checking methods
+    public function isProduct(): bool
+    {
+        return $this->itemable_type === Product::class || ($this->product_id && ! $this->package_id);
+    }
+
+    public function isPackage(): bool
+    {
+        return $this->itemable_type === Package::class || $this->package_id !== null;
     }
 
     // Helper methods
@@ -189,5 +218,196 @@ class ProductOrderItem extends Model
         }
 
         return round(($this->getTotalDiscountAttribute() / $subtotal) * 100, 2);
+    }
+
+    /**
+     * Deduct stock for this order item
+     * If it's a package, deduct stock for all products in the package
+     */
+    public function deductStock(): void
+    {
+        if ($this->isPackage() && $this->package) {
+            $this->deductPackageStock();
+        } elseif ($this->isProduct() && $this->product) {
+            $this->deductProductStock();
+        }
+    }
+
+    /**
+     * Deduct stock for a package item
+     */
+    protected function deductPackageStock(): void
+    {
+        $package = $this->package;
+
+        if (! $package || ! $package->track_stock) {
+            return;
+        }
+
+        // Get warehouse from order item or use package default
+        $warehouseId = $this->warehouse_id ?? $package->default_warehouse_id;
+
+        // Deduct stock for each product in the package
+        foreach ($package->products as $product) {
+            $requiredQuantity = $product->pivot->quantity * $this->quantity_ordered;
+            $productWarehouseId = $warehouseId ?? $product->pivot->warehouse_id;
+
+            $stockLevel = $product->stockLevels()
+                ->where('warehouse_id', $productWarehouseId)
+                ->first();
+
+            if ($stockLevel) {
+                // Record quantity before deduction
+                $quantityBefore = $stockLevel->quantity;
+
+                // Deduct from stock
+                $stockLevel->decrement('quantity', $requiredQuantity);
+
+                // Refresh to get updated quantity
+                $stockLevel->refresh();
+                $quantityAfter = $stockLevel->quantity;
+
+                // Update last movement timestamp
+                $stockLevel->update(['last_movement_at' => now()]);
+
+                // Create stock movement record
+                StockMovement::create([
+                    'product_id' => $product->id,
+                    'product_variant_id' => $product->pivot->product_variant_id ?? null,
+                    'warehouse_id' => $productWarehouseId,
+                    'type' => 'out',
+                    'quantity' => -$requiredQuantity,
+                    'quantity_before' => $quantityBefore,
+                    'quantity_after' => $quantityAfter,
+                    'unit_cost' => $stockLevel->average_cost ?? 0,
+                    'reference_type' => ProductOrder::class,
+                    'reference_id' => $this->order_id,
+                    'notes' => "Package order sale: {$package->name} (Order #{$this->order->order_number})",
+                    'metadata' => [
+                        'order_item_id' => $this->id,
+                        'package_id' => $package->id,
+                        'package_name' => $package->name,
+                        'product_quantity_in_package' => $product->pivot->quantity,
+                        'packages_ordered' => $this->quantity_ordered,
+                        'total_product_quantity' => $requiredQuantity,
+                    ],
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Deduct stock for a regular product item
+     */
+    protected function deductProductStock(): void
+    {
+        $product = $this->product;
+
+        if (! $product || ! $product->shouldTrackQuantity()) {
+            return;
+        }
+
+        $stockLevel = $product->stockLevels()
+            ->where('warehouse_id', $this->warehouse_id)
+            ->first();
+
+        if ($stockLevel) {
+            // Record quantity before deduction
+            $quantityBefore = $stockLevel->quantity;
+
+            // Deduct from stock
+            $stockLevel->decrement('quantity', $this->quantity_ordered);
+
+            // Refresh to get updated quantity
+            $stockLevel->refresh();
+            $quantityAfter = $stockLevel->quantity;
+
+            // Update last movement timestamp
+            $stockLevel->update(['last_movement_at' => now()]);
+
+            // Create stock movement record
+            StockMovement::create([
+                'product_id' => $product->id,
+                'product_variant_id' => $this->product_variant_id ?? null,
+                'warehouse_id' => $this->warehouse_id,
+                'type' => 'out',
+                'quantity' => -$this->quantity_ordered,
+                'quantity_before' => $quantityBefore,
+                'quantity_after' => $quantityAfter,
+                'unit_cost' => $stockLevel->average_cost ?? 0,
+                'reference_type' => ProductOrder::class,
+                'reference_id' => $this->order_id,
+                'notes' => "Product order sale (Order #{$this->order->order_number})",
+                'metadata' => [
+                    'order_item_id' => $this->id,
+                    'product_name' => $product->name,
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Check if sufficient stock is available for this order item
+     */
+    public function hasInsufficientStock(): array
+    {
+        $insufficientItems = [];
+
+        if ($this->isPackage() && $this->package) {
+            $package = $this->package;
+
+            if (! $package->track_stock) {
+                return [];
+            }
+
+            $warehouseId = $this->warehouse_id ?? $package->default_warehouse_id;
+
+            foreach ($package->products as $product) {
+                $quantityPerPackage = $product->pivot->quantity;
+                $totalQuantityNeeded = $quantityPerPackage * $this->quantity_ordered;
+                $productWarehouseId = $warehouseId ?? $product->pivot->warehouse_id;
+
+                $stockLevel = $product->stockLevels()
+                    ->where('warehouse_id', $productWarehouseId)
+                    ->first();
+
+                $availableStock = $stockLevel ? $stockLevel->quantity : 0;
+
+                if ($availableStock < $totalQuantityNeeded) {
+                    $insufficientItems[] = [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'needed' => $totalQuantityNeeded,
+                        'available' => $availableStock,
+                        'shortage' => $totalQuantityNeeded - $availableStock,
+                        'package_name' => $package->name,
+                    ];
+                }
+            }
+        } elseif ($this->isProduct() && $this->product) {
+            $product = $this->product;
+
+            if (! $product->shouldTrackQuantity()) {
+                return [];
+            }
+
+            $stockLevel = $product->stockLevels()
+                ->where('warehouse_id', $this->warehouse_id)
+                ->first();
+
+            $availableStock = $stockLevel ? $stockLevel->quantity : 0;
+
+            if ($availableStock < $this->quantity_ordered) {
+                $insufficientItems[] = [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'needed' => $this->quantity_ordered,
+                    'available' => $availableStock,
+                    'shortage' => $this->quantity_ordered - $availableStock,
+                ];
+            }
+        }
+
+        return $insufficientItems;
     }
 }

@@ -17,6 +17,8 @@ new class extends Component
 
     public $paymentStatus = 'pending';
 
+    public $orderStatus = 'draft';
+
     public function mount(ProductOrder $order): void
     {
         $this->order = $order->load([
@@ -32,6 +34,9 @@ new class extends Component
         // Get payment status from payments table
         $latestPayment = $this->order->payments()->latest()->first();
         $this->paymentStatus = $latestPayment?->status ?? 'pending';
+
+        // Set order status to component property
+        $this->orderStatus = $this->order->status;
     }
 
     public function updateStatus(string $status): void
@@ -47,6 +52,9 @@ new class extends Component
 
             // Add system note for status change
             $this->order->addSystemNote("Order status changed from {$previousStatus} to {$status}");
+
+            // Update component property
+            $this->orderStatus = $status;
         });
 
         session()->flash('success', 'Order status updated successfully!');
@@ -247,15 +255,15 @@ new class extends Component
                     <div>
                         <flux:field>
                             <flux:label>Order Status</flux:label>
-                            <flux:select wire:model.live="order.status" wire:change="updateStatus($event.target.value)">
-                                <option value="draft" @selected($order->status === 'draft')>Draft</option>
-                                <option value="pending" @selected($order->status === 'pending')>Pending</option>
-                                <option value="processing" @selected($order->status === 'processing')>Processing</option>
-                                <option value="shipped" @selected($order->status === 'shipped')>Shipped</option>
-                                <option value="delivered" @selected($order->status === 'delivered')>Delivered</option>
-                                <option value="cancelled" @selected($order->status === 'cancelled')>Cancelled</option>
-                                <option value="refunded" @selected($order->status === 'refunded')>Refunded</option>
-                                <option value="returned" @selected($order->status === 'returned')>Returned</option>
+                            <flux:select wire:model="orderStatus" wire:change="updateStatus($event.target.value)">
+                                <option value="draft">Draft</option>
+                                <option value="pending">Pending</option>
+                                <option value="processing">Processing</option>
+                                <option value="shipped">Shipped</option>
+                                <option value="delivered">Delivered</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="refunded">Refunded</option>
+                                <option value="returned">Returned</option>
                             </flux:select>
                         </flux:field>
                     </div>
@@ -263,11 +271,11 @@ new class extends Component
                     <div>
                         <flux:field>
                             <flux:label>Payment Status</flux:label>
-                            <flux:select wire:model.live="paymentStatus" wire:change="updatePaymentStatus($event.target.value)">
-                                <option value="pending" @selected($paymentStatus === 'pending')>Pending</option>
-                                <option value="completed" @selected($paymentStatus === 'completed')>Completed</option>
-                                <option value="failed" @selected($paymentStatus === 'failed')>Failed</option>
-                                <option value="refunded" @selected($paymentStatus === 'refunded')>Refunded</option>
+                            <flux:select wire:model="paymentStatus" wire:change="updatePaymentStatus($event.target.value)">
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                                <option value="refunded">Refunded</option>
                             </flux:select>
                         </flux:field>
                     </div>
@@ -605,18 +613,112 @@ new class extends Component
 
                 <!-- Order Totals -->
                 <div class="space-y-3">
-                    <div class="flex justify-between">
-                        <flux:text>Subtotal</flux:text>
+                    @php
+                        // Calculate all discounts for platform orders
+                        $totalDiscount = 0;
+                        $subtotalBeforeDiscount = $order->subtotal;
+
+                        if($order->isPlatformOrder()) {
+                            $totalDiscount = $order->sku_platform_discount + $order->sku_seller_discount +
+                                           $order->shipping_fee_seller_discount + $order->shipping_fee_platform_discount +
+                                           $order->payment_platform_discount;
+
+                            // Calculate subtotal before discount
+                            if($totalDiscount > 0) {
+                                $subtotalBeforeDiscount = $order->subtotal + $order->sku_platform_discount + $order->sku_seller_discount;
+                            }
+                        } else {
+                            $totalDiscount = $order->discount_amount;
+                            if($totalDiscount > 0) {
+                                $subtotalBeforeDiscount = $order->subtotal + $totalDiscount;
+                            }
+                        }
+
+                        // Calculate original shipping cost for platform orders
+                        $originalShipping = $order->shipping_cost;
+                        $shippingDiscount = 0;
+                        if($order->isPlatformOrder() && $order->original_shipping_fee) {
+                            $originalShipping = $order->original_shipping_fee;
+                            $shippingDiscount = $order->shipping_fee_seller_discount + $order->shipping_fee_platform_discount;
+                        }
+                    @endphp
+
+                    <!-- Subtotal Before Discount (for clarity) -->
+                    @if($totalDiscount > 0)
+                        <div class="flex justify-between text-sm">
+                            <flux:text class="text-zinc-600">Subtotal (Before Discount)</flux:text>
+                            <flux:text class="text-zinc-600">{{ $order->currency }} {{ number_format($subtotalBeforeDiscount, 2) }}</flux:text>
+                        </div>
+
+                        <!-- Platform Discounts Breakdown -->
+                        @if($order->isPlatformOrder())
+                            @if($order->sku_platform_discount > 0)
+                                <div class="flex justify-between text-sm pl-3">
+                                    <flux:text class="text-green-600">- Platform Discount</flux:text>
+                                    <flux:text class="text-green-600">-{{ $order->currency }} {{ number_format($order->sku_platform_discount, 2) }}</flux:text>
+                                </div>
+                            @endif
+                            @if($order->sku_seller_discount > 0)
+                                <div class="flex justify-between text-sm pl-3">
+                                    <flux:text class="text-green-600">- Seller Discount</flux:text>
+                                    <flux:text class="text-green-600">-{{ $order->currency }} {{ number_format($order->sku_seller_discount, 2) }}</flux:text>
+                                </div>
+                            @endif
+                            @if($order->payment_platform_discount > 0)
+                                <div class="flex justify-between text-sm pl-3">
+                                    <flux:text class="text-green-600">- Payment Discount</flux:text>
+                                    <flux:text class="text-green-600">-{{ $order->currency }} {{ number_format($order->payment_platform_discount, 2) }}</flux:text>
+                                </div>
+                            @endif
+                        @else
+                            <div class="flex justify-between text-sm pl-3">
+                                <flux:text class="text-green-600">- Discount</flux:text>
+                                <flux:text class="text-green-600">-{{ $order->currency }} {{ number_format($totalDiscount, 2) }}</flux:text>
+                            </div>
+                        @endif
+                    @endif
+
+                    <!-- Subtotal (After Discount) -->
+                    <div class="flex justify-between {{ $totalDiscount > 0 ? 'font-medium' : '' }}">
+                        <flux:text>{{ $totalDiscount > 0 ? 'Subtotal' : 'Subtotal' }}</flux:text>
                         <flux:text>{{ $order->currency }} {{ number_format($order->subtotal, 2) }}</flux:text>
                     </div>
 
-                    @if($order->shipping_cost > 0)
-                        <div class="flex justify-between">
-                            <flux:text>Shipping</flux:text>
-                            <flux:text>{{ $order->currency }} {{ number_format($order->shipping_cost, 2) }}</flux:text>
-                        </div>
+                    <!-- Shipping Cost -->
+                    @if($order->shipping_cost > 0 || $originalShipping > 0)
+                        @if($order->isPlatformOrder() && $shippingDiscount > 0)
+                            <!-- Show original shipping -->
+                            <div class="flex justify-between text-sm">
+                                <flux:text class="text-zinc-600">Shipping (Original)</flux:text>
+                                <flux:text class="text-zinc-600">{{ $order->currency }} {{ number_format($originalShipping, 2) }}</flux:text>
+                            </div>
+                            <!-- Show shipping discounts -->
+                            @if($order->shipping_fee_platform_discount > 0)
+                                <div class="flex justify-between text-sm pl-3">
+                                    <flux:text class="text-green-600">- Platform Shipping Discount</flux:text>
+                                    <flux:text class="text-green-600">-{{ $order->currency }} {{ number_format($order->shipping_fee_platform_discount, 2) }}</flux:text>
+                                </div>
+                            @endif
+                            @if($order->shipping_fee_seller_discount > 0)
+                                <div class="flex justify-between text-sm pl-3">
+                                    <flux:text class="text-green-600">- Seller Shipping Discount</flux:text>
+                                    <flux:text class="text-green-600">-{{ $order->currency }} {{ number_format($order->shipping_fee_seller_discount, 2) }}</flux:text>
+                                </div>
+                            @endif
+                            <!-- Final shipping cost -->
+                            <div class="flex justify-between font-medium">
+                                <flux:text>Shipping</flux:text>
+                                <flux:text>{{ $order->currency }} {{ number_format($order->shipping_cost, 2) }}</flux:text>
+                            </div>
+                        @else
+                            <div class="flex justify-between">
+                                <flux:text>Shipping</flux:text>
+                                <flux:text>{{ $order->currency }} {{ number_format($order->shipping_cost, 2) }}</flux:text>
+                            </div>
+                        @endif
                     @endif
 
+                    <!-- Tax -->
                     @if($order->tax_amount > 0)
                         <div class="flex justify-between">
                             <flux:text>Tax</flux:text>
@@ -624,31 +726,82 @@ new class extends Component
                         </div>
                     @endif
 
-                    @if($order->isPlatformOrder())
-                        @php
-                            $totalDiscount = $order->sku_platform_discount + $order->sku_seller_discount +
-                                           $order->shipping_fee_seller_discount + $order->shipping_fee_platform_discount +
-                                           $order->payment_platform_discount;
-                        @endphp
-                        @if($totalDiscount > 0)
-                            <div class="flex justify-between text-green-600">
-                                <flux:text>Platform Discounts</flux:text>
-                                <flux:text>-{{ $order->currency }} {{ number_format($totalDiscount, 2) }}</flux:text>
-                            </div>
-                        @endif
-                    @elseif($order->discount_amount > 0)
-                        <div class="flex justify-between text-green-600">
-                            <flux:text>Discount</flux:text>
-                            <flux:text>-{{ $order->currency }} {{ number_format($order->discount_amount, 2) }}</flux:text>
-                        </div>
-                    @endif
-
-                    <div class="border-t pt-3">
+                    <!-- Total -->
+                    <div class="border-t-2 pt-3 mt-2">
                         <div class="flex justify-between">
                             <flux:text class="font-semibold text-lg">Total</flux:text>
-                            <flux:text class="font-semibold text-lg">{{ $order->currency }} {{ number_format($order->total_amount, 2) }}</flux:text>
+                            <flux:text class="font-semibold text-lg text-blue-600">{{ $order->currency }} {{ number_format($order->total_amount, 2) }}</flux:text>
                         </div>
                     </div>
+
+                    <!-- Calculation Summary Box (for complex orders) -->
+                    @if($totalDiscount > 0 || $shippingDiscount > 0)
+                        <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="text-xs font-medium text-blue-900 mb-2">Order Calculation</div>
+                            <div class="space-y-1 text-xs">
+                                @if($totalDiscount > 0)
+                                    <div class="flex justify-between text-blue-800">
+                                        <span>Items Before Discount:</span>
+                                        <span>{{ $order->currency }} {{ number_format($subtotalBeforeDiscount, 2) }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-green-700">
+                                        <span>- Total Item Discounts:</span>
+                                        <span>-{{ $order->currency }} {{ number_format($totalDiscount - $shippingDiscount, 2) }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-blue-800">
+                                        <span>= Items Subtotal:</span>
+                                        <span>{{ $order->currency }} {{ number_format($order->subtotal, 2) }}</span>
+                                    </div>
+                                @else
+                                    <div class="flex justify-between text-blue-800">
+                                        <span>Items Subtotal:</span>
+                                        <span>{{ $order->currency }} {{ number_format($order->subtotal, 2) }}</span>
+                                    </div>
+                                @endif
+
+                                @if($order->shipping_cost > 0)
+                                    @if($shippingDiscount > 0)
+                                        <div class="flex justify-between text-blue-800">
+                                            <span>+ Original Shipping:</span>
+                                            <span>{{ $order->currency }} {{ number_format($originalShipping, 2) }}</span>
+                                        </div>
+                                        <div class="flex justify-between text-green-700">
+                                            <span>- Shipping Discounts:</span>
+                                            <span>-{{ $order->currency }} {{ number_format($shippingDiscount, 2) }}</span>
+                                        </div>
+                                        <div class="flex justify-between text-blue-800">
+                                            <span>= Final Shipping:</span>
+                                            <span>{{ $order->currency }} {{ number_format($order->shipping_cost, 2) }}</span>
+                                        </div>
+                                    @else
+                                        <div class="flex justify-between text-blue-800">
+                                            <span>+ Shipping:</span>
+                                            <span>{{ $order->currency }} {{ number_format($order->shipping_cost, 2) }}</span>
+                                        </div>
+                                    @endif
+                                @endif
+
+                                @if($order->tax_amount > 0)
+                                    <div class="flex justify-between text-blue-800">
+                                        <span>+ Tax:</span>
+                                        <span>{{ $order->currency }} {{ number_format($order->tax_amount, 2) }}</span>
+                                    </div>
+                                @endif
+
+                                <div class="flex justify-between font-bold text-blue-900 pt-2 mt-1 border-t border-blue-300">
+                                    <span>= Final Total:</span>
+                                    <span>{{ $order->currency }} {{ number_format($order->total_amount, 2) }}</span>
+                                </div>
+
+                                @if($totalDiscount > 0)
+                                    <div class="flex justify-between text-green-700 font-medium pt-1 mt-1 border-t border-blue-200">
+                                        <span>Total Savings:</span>
+                                        <span>{{ $order->currency }} {{ number_format($totalDiscount, 2) }}</span>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                 </div>
 
                 <!-- Status Badges -->

@@ -12,6 +12,7 @@ class ProductOrder extends Model
     protected $fillable = [
         'order_number',
         'customer_id',
+        'student_id',
         'guest_email',
         'status',
         'order_type',
@@ -113,6 +114,11 @@ class ProductOrder extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(Student::class);
     }
 
     public function user(): BelongsTo

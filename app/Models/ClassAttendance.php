@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -37,9 +38,11 @@ class ClassAttendance extends Model
         return $this->belongsTo(Student::class);
     }
 
-    public function class(): BelongsTo
+    protected function class(): Attribute
     {
-        return $this->session()->with('class')->first()?->class ?? null;
+        return Attribute::make(
+            get: fn () => $this->session?->class,
+        );
     }
 
     public function isPresent(): bool

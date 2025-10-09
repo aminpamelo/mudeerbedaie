@@ -114,29 +114,44 @@ class Student extends Model
         return $this->hasMany(ClassStudent::class)->where('status', 'active');
     }
 
+    public function certificateIssues(): HasMany
+    {
+        return $this->hasMany(\App\Models\CertificateIssue::class);
+    }
+
     public function orders(): HasMany
     {
-        return $this->hasMany(Order::class);
+        return $this->hasMany(ProductOrder::class);
     }
 
     public function paidOrders(): HasMany
     {
-        return $this->hasMany(Order::class)->where('status', Order::STATUS_PAID);
+        return $this->hasMany(ProductOrder::class)->whereNotNull('paid_time');
     }
 
     public function pendingOrders(): HasMany
     {
-        return $this->hasMany(Order::class)->where('status', Order::STATUS_PENDING);
+        return $this->hasMany(ProductOrder::class)->where('status', 'pending');
     }
 
     public function failedOrders(): HasMany
     {
-        return $this->hasMany(Order::class)->where('status', Order::STATUS_FAILED);
+        return $this->hasMany(ProductOrder::class)->where('status', 'cancelled');
     }
 
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    public function getNameAttribute(): string
+    {
+        return $this->user->name ?? '';
+    }
+
+    public function getEmailAttribute(): string
+    {
+        return $this->user->email ?? '';
     }
 
     public function getFullNameAttribute(): string
@@ -161,12 +176,12 @@ class Student extends Model
     // Order-related utility methods
     public function getTotalPaidAmountAttribute(): float
     {
-        return $this->paidOrders()->sum('amount');
+        return $this->paidOrders()->sum('total_amount');
     }
 
     public function getTotalPendingAmountAttribute(): float
     {
-        return $this->pendingOrders()->sum('amount');
+        return $this->pendingOrders()->sum('total_amount');
     }
 
     public function getOrderCountAttribute(): int

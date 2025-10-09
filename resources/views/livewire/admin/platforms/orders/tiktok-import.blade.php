@@ -1,6 +1,8 @@
 <?php
 
+use App\Jobs\ProcessTikTokOrderImport;
 use App\Models\ImportJob;
+use App\Models\Package;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
 use App\Models\PlatformSkuMapping;
@@ -57,7 +59,11 @@ new class extends Component
 
     public $suggested_mappings = [];
 
+    public $suggested_package_mappings = [];
+
     public $product_mappings = [];
+
+    public $package_mappings = [];
 
     public $preview_data = [];
 
@@ -290,26 +296,130 @@ new class extends Component
             ->get()
             ->keyBy('platform_sku');
 
-        // Suggest mappings for products
+        // Suggest mappings for products and packages
         $this->suggested_mappings = [];
+        $this->suggested_package_mappings = [];
         $this->unmapped_skus = [];
 
         foreach ($uniqueProducts as $productName) {
-            // Try to find matching products by name similarity
-            $suggestedProduct = Product::where('name', 'like', "%{$productName}%")
-                ->where('status', 'active')
-                ->first();
+            $bestProduct = null;
+            $bestProductConfidence = 0;
+            $bestPackage = null;
+            $bestPackageConfidence = 0;
 
-            if ($suggestedProduct) {
+            // Extract key terms for progressive search (remove common words like "Bundle", "Set", "Package")
+            $searchTerms = $this->generateSearchTerms($productName);
+
+            // Try products with progressive search
+            foreach ($searchTerms as $searchTerm) {
+                $potentialProducts = Product::where('status', 'active')
+                    ->where(function ($query) use ($searchTerm) {
+                        $query->where('name', 'like', "%{$searchTerm}%")
+                            ->orWhereRaw('? like CONCAT("%", name, "%")', [$searchTerm]);
+                    })
+                    ->get();
+
+                foreach ($potentialProducts as $product) {
+                    $confidence = $this->calculateNameSimilarity($productName, $product->name);
+                    if ($confidence > $bestProductConfidence) {
+                        $bestProduct = $product;
+                        $bestProductConfidence = $confidence;
+                    }
+                }
+
+                if ($bestProduct) {
+                    break; // Found a match, stop searching
+                }
+            }
+
+            // Try packages with progressive search
+            foreach ($searchTerms as $searchTerm) {
+                $potentialPackages = Package::where('status', 'active')
+                    ->where(function ($query) use ($searchTerm) {
+                        $query->where('name', 'like', "%{$searchTerm}%")
+                            ->orWhereRaw('? like CONCAT("%", name, "%")', [$searchTerm]);
+                    })
+                    ->get();
+
+                foreach ($potentialPackages as $package) {
+                    $confidence = $this->calculateNameSimilarity($productName, $package->name);
+                    if ($confidence > $bestPackageConfidence) {
+                        $bestPackage = $package;
+                        $bestPackageConfidence = $confidence;
+                    }
+                }
+
+                if ($bestPackage) {
+                    break; // Found a match, stop searching
+                }
+            }
+
+            // Prioritize based on best match (minimum 35% confidence threshold)
+            $hasMapping = false;
+
+            if ($bestProduct && $bestProductConfidence >= 35) {
                 $this->suggested_mappings[$productName] = [
-                    'product_id' => $suggestedProduct->id,
-                    'product_name' => $suggestedProduct->name,
-                    'confidence' => $this->calculateNameSimilarity($productName, $suggestedProduct->name),
+                    'type' => 'product',
+                    'product_id' => $bestProduct->id,
+                    'product_name' => $bestProduct->name,
+                    'confidence' => $bestProductConfidence,
                 ];
-            } else {
+                $hasMapping = true;
+            }
+
+            if ($bestPackage && $bestPackageConfidence >= 35) {
+                // If package has higher confidence or no product found, suggest package
+                if (! $bestProduct || $bestPackageConfidence >= $bestProductConfidence) {
+                    $this->suggested_package_mappings[$productName] = [
+                        'type' => 'package',
+                        'package_id' => $bestPackage->id,
+                        'package_name' => $bestPackage->name,
+                        'confidence' => $bestPackageConfidence,
+                        'items_count' => $bestPackage->getItemCount(),
+                    ];
+                    $hasMapping = true;
+                }
+            }
+
+            if (! $hasMapping) {
                 $this->unmapped_skus[] = $productName;
             }
         }
+    }
+
+    private function generateSearchTerms($productName)
+    {
+        // List of common generic words to remove
+        $stopWords = ['bundle', 'set', 'package', 'combo', 'kit', 'pack', 'deal'];
+
+        $terms = [];
+
+        // First try: exact product name
+        $terms[] = $productName;
+
+        // Second try: remove stop words
+        $cleanedName = $productName;
+        foreach ($stopWords as $word) {
+            $cleanedName = preg_replace('/\b'.preg_quote($word, '/').'\b/i', '', $cleanedName);
+        }
+        $cleanedName = trim(preg_replace('/\s+/', ' ', $cleanedName)); // Clean extra spaces
+
+        if ($cleanedName !== $productName && strlen($cleanedName) > 3) {
+            $terms[] = $cleanedName;
+        }
+
+        // Third try: first significant word(s) - take first 3 words minimum
+        $words = preg_split('/\s+/', $productName);
+        if (count($words) >= 3) {
+            $terms[] = implode(' ', array_slice($words, 0, 3));
+        }
+
+        // Fourth try: first 2 words
+        if (count($words) >= 2) {
+            $terms[] = implode(' ', array_slice($words, 0, 2));
+        }
+
+        return array_unique(array_filter($terms, fn ($term) => strlen($term) > 3));
     }
 
     private function calculateNameSimilarity($name1, $name2)
@@ -319,14 +429,15 @@ new class extends Component
         return round($percent);
     }
 
-    // Step 3: Product Mapping
+    // Step 3: Product & Package Mapping
     public function confirmProductMapping()
     {
         // Auto-skip any unmapped products that user didn't explicitly map
         foreach ($this->unmapped_skus as $sku) {
-            if (! isset($this->product_mappings[$sku])) {
+            if (! isset($this->product_mappings[$sku]) && ! isset($this->package_mappings[$sku])) {
                 // Automatically skip unmapped products
                 $this->product_mappings[$sku] = [
+                    'type' => 'product',
                     'skipped' => true,
                     'product_id' => null,
                     'product_name' => $sku,
@@ -335,10 +446,17 @@ new class extends Component
             }
         }
 
-        // Convert suggested mappings to confirmed mappings
+        // Convert suggested product mappings to confirmed mappings
         foreach ($this->suggested_mappings as $productName => $suggestion) {
-            if (! isset($this->product_mappings[$productName])) {
+            if (! isset($this->product_mappings[$productName]) && ! isset($this->package_mappings[$productName])) {
                 $this->product_mappings[$productName] = $suggestion;
+            }
+        }
+
+        // Convert suggested package mappings to confirmed mappings
+        foreach ($this->suggested_package_mappings as $productName => $suggestion) {
+            if (! isset($this->package_mappings[$productName]) && ! isset($this->product_mappings[$productName])) {
+                $this->package_mappings[$productName] = $suggestion;
             }
         }
 
@@ -372,14 +490,42 @@ new class extends Component
     {
         // Mark product as skipped by adding it to product_mappings with skip flag
         $this->product_mappings[$productName] = [
+            'type' => 'product',
             'skipped' => true,
             'product_id' => null,
             'product_name' => $productName,
             'confidence' => 0,
         ];
 
-        // Remove from unmapped list
+        // Remove from unmapped list and package mappings
         $this->unmapped_skus = array_diff($this->unmapped_skus, [$productName]);
+        unset($this->package_mappings[$productName]);
+    }
+
+    public function mapPackage($productName, $packageId)
+    {
+        $package = Package::with(['products', 'courses'])->find($packageId);
+        if ($package) {
+            $this->package_mappings[$productName] = [
+                'type' => 'package',
+                'package_id' => $package->id,
+                'package_name' => $package->name,
+                'items_count' => $package->getItemCount(),
+                'confidence' => 100,
+            ];
+
+            // Remove from unmapped list and product mappings
+            $this->unmapped_skus = array_diff($this->unmapped_skus, [$productName]);
+            unset($this->product_mappings[$productName]);
+        }
+    }
+
+    public function unmapPackage($productName)
+    {
+        unset($this->package_mappings[$productName]);
+        if (! in_array($productName, $this->unmapped_skus)) {
+            $this->unmapped_skus[] = $productName;
+        }
     }
 
     public function createProductFromSku($productName)
@@ -463,11 +609,22 @@ new class extends Component
             }
         }
 
-        // Apply product mapping if exists
+        // Apply product or package mapping if exists
         if (isset($mapped['product_name'])) {
             $productName = trim($mapped['product_name']);
-            if (isset($this->product_mappings[$productName])) {
+
+            // Check for package mapping first (higher priority for combo deals)
+            if (isset($this->package_mappings[$productName])) {
+                $mapping = $this->package_mappings[$productName];
+                $mapped['mapping_type'] = 'package';
+                $mapped['internal_package_id'] = $mapping['package_id'];
+                $mapped['internal_package_name'] = $mapping['package_name'];
+                $mapped['internal_items_count'] = $mapping['items_count'];
+            }
+            // Then check for product mapping
+            elseif (isset($this->product_mappings[$productName])) {
                 $mapping = $this->product_mappings[$productName];
+                $mapped['mapping_type'] = 'product';
                 $mapped['internal_product_id'] = $mapping['product_id'];
                 $mapped['internal_product_name'] = $mapping['product_name'];
 
@@ -508,9 +665,14 @@ new class extends Component
             $errors[] = 'Order amount must be a number';
         }
 
-        // Product mapping validation
-        if (isset($mappedData['product_name']) && ! isset($mappedData['internal_product_id'])) {
-            $errors[] = "Product '{$mappedData['product_name']}' is not mapped to an internal product";
+        // Product/Package mapping validation
+        if (isset($mappedData['product_name'])) {
+            $hasProductMapping = isset($mappedData['internal_product_id']);
+            $hasPackageMapping = isset($mappedData['internal_package_id']);
+
+            if (! $hasProductMapping && ! $hasPackageMapping) {
+                $errors[] = "Product '{$mappedData['product_name']}' is not mapped to an internal product or package";
+            }
         }
 
         return $errors;
@@ -541,66 +703,79 @@ new class extends Component
         return $warnings;
     }
 
-    // Step 5: Execute Import
+    // Step 5: Execute Import (Queue-Based)
     public function executeImport()
     {
-        $this->importing = true;
-        $this->current_step = 5;
-
         try {
-            $importJob = ImportJob::find($this->import_job_id);
-            $importJob->markAsStarted();
+            $importJob = ImportJob::findOrFail($this->import_job_id);
 
-            $account = PlatformAccount::findOrFail($this->selected_account_id);
+            // Dispatch queue job for background processing
+            ProcessTikTokOrderImport::dispatch(
+                $importJob->id,
+                $this->platform->id,
+                $this->selected_account_id,
+                $this->field_mapping,
+                $this->product_mappings,
+                50 // Batch size
+            );
 
-            // Reload CSV data from stored file since Livewire state may not persist large arrays
-            $csvData = $this->reloadCsvDataFromFile($importJob->file_path);
+            // Move to step 5 to show progress tracking
+            $this->current_step = 5;
+            $this->importing = true;
 
-            $imported = 0;
-            $skipped = 0;
-            $errors = [];
-
-            foreach ($csvData as $index => $row) {
-                try {
-                    DB::transaction(function () use ($row, $account, &$imported) {
-                        $this->processOrderRow($row, $account);
-                        $imported++;
-                    });
-                } catch (\Exception $e) {
-                    $skipped++;
-                    $errors[] = 'Row '.($index + 2).': '.$e->getMessage();
-                    $importJob->addError($e->getMessage(), $index + 2);
-                }
-
-                // Update progress
-                $this->import_progress = round((($index + 1) / $this->total_rows) * 100);
-                $importJob->updateProgress($index + 1);
-            }
-
-            // Update import job results
-            $importJob->update([
-                'successful_rows' => $imported,
-                'failed_rows' => $skipped,
+            $this->dispatch('import-queued', [
+                'message' => 'Import job queued successfully. Processing in background...',
+                'import_job_id' => $importJob->id,
             ]);
+        } catch (\Exception $e) {
+            $this->addError('import', 'Failed to queue import: '.$e->getMessage());
+        }
+    }
 
-            $importJob->markAsCompleted();
+    // Check import status (called via polling)
+    public function checkImportStatus()
+    {
+        $importJob = ImportJob::find($this->import_job_id);
 
+        if (! $importJob) {
+            return;
+        }
+
+        // Update progress
+        if ($importJob->total_rows > 0) {
+            $this->import_progress = round(($importJob->processed_rows / $importJob->total_rows) * 100);
+        }
+
+        // Check if completed
+        if ($importJob->status === 'completed') {
+            $this->importing = false;
+
+            $metadata = $importJob->metadata ?? [];
             $this->import_results = [
-                'total_rows' => $this->total_rows,
-                'imported' => $imported,
-                'skipped' => $skipped,
-                'errors' => $errors,
+                'total_rows' => $importJob->total_rows,
+                'imported' => $metadata['imported'] ?? 0,
+                'updated' => $metadata['updated'] ?? 0,
+                'skipped' => $metadata['skipped'] ?? 0,
+                'errors' => $metadata['errors'] ?? [],
             ];
 
-            $this->dispatch('import-completed', [
-                'message' => "TikTok import completed: {$imported} orders imported to Orders & Package Sales, {$skipped} skipped",
-            ]);
+            $message = "TikTok import completed: {$this->import_results['imported']} orders created";
+            if ($this->import_results['updated'] > 0) {
+                $message .= ", {$this->import_results['updated']} orders updated";
+            }
+            if ($this->import_results['skipped'] > 0) {
+                $message .= ", {$this->import_results['skipped']} skipped";
+            }
 
-        } catch (\Exception $e) {
-            ImportJob::find($this->import_job_id)->markAsFailed($e->getMessage());
-            $this->addError('import', 'Import failed: '.$e->getMessage());
-        } finally {
+            $this->dispatch('import-completed', [
+                'message' => $message,
+            ]);
+        }
+
+        // Check if failed
+        if ($importJob->status === 'failed') {
             $this->importing = false;
+            $this->addError('import', 'Import failed: '.$importJob->error_message);
         }
     }
 
@@ -609,16 +784,8 @@ new class extends Component
         // Extract order data based on field mapping
         $orderData = $this->extractOrderData($row);
 
-        // Check for duplicate order
-        $existingOrder = ProductOrder::where('platform_account_id', $account->id)
-            ->where('platform_order_id', $orderData['order_id'])
-            ->first();
-
-        if ($existingOrder) {
-            throw new \Exception("Order {$orderData['order_id']} already exists");
-        }
-
-        // Use TikTokOrderProcessor to create unified product order
+        // Use TikTokOrderProcessor to create or update unified product order
+        // The processor will handle duplicate detection and smart field updates
         $processor = new TikTokOrderProcessor(
             $this->platform,
             $account,
@@ -908,46 +1075,126 @@ new class extends Component
     </div>
     @endif
 
-    {{-- Step 3: Product Mapping --}}
+    {{-- Step 3: Product & Package Mapping --}}
     @if($current_step === 3)
     <div class="bg-white rounded-lg border p-6">
-        <flux:heading size="lg" class="mb-4">Step 3: Map Products & SKUs</flux:heading>
-        <flux:text class="mb-6">Map TikTok products to your system products for accurate inventory tracking.</flux:text>
+        <flux:heading size="lg" class="mb-4">Step 3: Map Products & Packages</flux:heading>
+        <flux:text class="mb-6">Map TikTok products to your system products (individual items) or packages (combo bundles) for accurate inventory tracking and sales management.</flux:text>
 
+        {{-- Mapping Summary Stats --}}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="p-4 bg-blue-50 rounded-lg text-center">
+                <flux:text size="2xl" class="font-bold text-blue-600">{{ count($suggested_mappings) }}</flux:text>
+                <flux:text size="sm" class="text-blue-600">Product Suggestions</flux:text>
+            </div>
+            <div class="p-4 bg-purple-50 rounded-lg text-center">
+                <flux:text size="2xl" class="font-bold text-purple-600">{{ count($suggested_package_mappings) }}</flux:text>
+                <flux:text size="sm" class="text-purple-600">Package Suggestions</flux:text>
+            </div>
+            <div class="p-4 bg-amber-50 rounded-lg text-center">
+                <flux:text size="2xl" class="font-bold text-amber-600">{{ count($unmapped_skus) }}</flux:text>
+                <flux:text size="sm" class="text-amber-600">Unmapped Items</flux:text>
+            </div>
+        </div>
+
+        {{-- Product Mappings --}}
         @if(count($suggested_mappings) > 0)
             <div class="mb-6">
-                <flux:text class="font-medium mb-3">Suggested Product Mappings:</flux:text>
+                <flux:heading size="md" class="mb-3">
+                    <flux:icon name="cube" class="w-5 h-5 inline mr-2 text-blue-600" />
+                    Suggested Product Mappings
+                </flux:heading>
                 <div class="space-y-3">
                     @foreach($suggested_mappings as $tikTokProduct => $suggestion)
-                        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                            <div>
-                                <flux:text class="font-medium">{{ $tikTokProduct }}</flux:text>
-                                <flux:text size="sm" class="text-green-600">→ {{ $suggestion['product_name'] }} ({{ $suggestion['confidence'] }}% match)</flux:text>
+                        <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <flux:badge variant="blue" size="sm">Product</flux:badge>
+                                    <flux:text class="font-medium">{{ $tikTokProduct }}</flux:text>
+                                </div>
+                                <flux:text size="sm" class="text-blue-700">
+                                    <flux:icon name="arrow-right" class="w-4 h-4 inline" />
+                                    {{ $suggestion['product_name'] }}
+                                    <span class="ml-2 text-blue-600">({{ $suggestion['confidence'] }}% match)</span>
+                                </flux:text>
                             </div>
-                            <flux:button size="sm" variant="outline">
-                                Confirm Mapping
-                            </flux:button>
+                            <div class="flex gap-2">
+                                <flux:button size="sm" variant="primary" wire:click="mapProduct('{{ $tikTokProduct }}', {{ $suggestion['product_id'] }})">
+                                    <flux:icon name="check" class="w-4 h-4 mr-1" />
+                                    Confirm
+                                </flux:button>
+                                <flux:button size="sm" variant="ghost" wire:click="unmapProduct('{{ $tikTokProduct }}')">
+                                    <flux:icon name="x-mark" class="w-4 h-4" />
+                                </flux:button>
+                            </div>
                         </div>
                     @endforeach
                 </div>
             </div>
         @endif
 
+        {{-- Package Mappings --}}
+        @if(count($suggested_package_mappings) > 0)
+            <div class="mb-6">
+                <flux:heading size="md" class="mb-3">
+                    <flux:icon name="cube-transparent" class="w-5 h-5 inline mr-2 text-purple-600" />
+                    Suggested Package (Combo) Mappings
+                </flux:heading>
+                <div class="space-y-3">
+                    @foreach($suggested_package_mappings as $tikTokProduct => $suggestion)
+                        <div class="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <flux:badge variant="purple" size="sm">Package</flux:badge>
+                                    <flux:text class="font-medium">{{ $tikTokProduct }}</flux:text>
+                                </div>
+                                <flux:text size="sm" class="text-purple-700">
+                                    <flux:icon name="arrow-right" class="w-4 h-4 inline" />
+                                    {{ $suggestion['package_name'] }}
+                                    <span class="ml-2 text-purple-600">({{ $suggestion['confidence'] }}% match, {{ $suggestion['items_count'] }} items)</span>
+                                </flux:text>
+                            </div>
+                            <div class="flex gap-2">
+                                <flux:button size="sm" variant="primary" wire:click="mapPackage('{{ $tikTokProduct }}', {{ $suggestion['package_id'] }})">
+                                    <flux:icon name="check" class="w-4 h-4 mr-1" />
+                                    Confirm
+                                </flux:button>
+                                <flux:button size="sm" variant="ghost" wire:click="unmapPackage('{{ $tikTokProduct }}')">
+                                    <flux:icon name="x-mark" class="w-4 h-4" />
+                                </flux:button>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        {{-- Unmapped Items --}}
         @if(count($unmapped_skus) > 0)
             <div class="mb-6">
-                <flux:text class="font-medium mb-3 text-amber-600">Unmapped Products ({{ count($unmapped_skus) }}):</flux:text>
+                <flux:heading size="md" class="mb-3 text-amber-700">
+                    <flux:icon name="exclamation-triangle" class="w-5 h-5 inline mr-2" />
+                    Unmapped Products ({{ count($unmapped_skus) }})
+                </flux:heading>
+                <flux:text size="sm" class="text-amber-600 mb-3">
+                    These TikTok products couldn't be automatically matched. You can create new products, manually map them, or skip them.
+                </flux:text>
                 <div class="space-y-2">
                     @foreach($unmapped_skus as $sku)
-                        <div class="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-                            <flux:text>{{ $sku }}</flux:text>
+                        <div class="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
+                            <div class="flex-1">
+                                <flux:text class="font-medium">{{ $sku }}</flux:text>
+                                <flux:text size="xs" class="text-amber-600">No automatic match found</flux:text>
+                            </div>
                             <div class="flex gap-2">
                                 <flux:button size="sm" variant="outline" wire:click="createProductFromSku('{{ $sku }}')">
                                     <div class="flex items-center justify-center">
                                         <flux:icon name="plus" class="w-4 h-4 mr-1" />
-                                        Create New Product
+                                        Create Product
                                     </div>
                                 </flux:button>
                                 <flux:button size="sm" variant="ghost" wire:click="skipProduct('{{ $sku }}')">
+                                    <flux:icon name="forward" class="w-4 h-4 mr-1" />
                                     Skip
                                 </flux:button>
                             </div>
@@ -957,12 +1204,28 @@ new class extends Component
             </div>
         @endif
 
+        {{-- Help Info --}}
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <flux:heading size="sm" class="text-blue-900 mb-2">
+                <flux:icon name="information-circle" class="w-5 h-5 inline mr-1" />
+                Mapping Guide
+            </flux:heading>
+            <div class="space-y-1 text-sm text-blue-800">
+                <p><strong>Products:</strong> Individual items with their own SKU and inventory tracking.</p>
+                <p><strong>Packages:</strong> Combo bundles containing multiple products/courses sold together as one unit.</p>
+                <p><strong>Tip:</strong> If your TikTok product is sold as a bundle or combo deal, map it to a Package for better inventory management.</p>
+            </div>
+        </div>
+
+        {{-- Navigation --}}
         <div class="flex justify-between">
             <flux:button variant="ghost" wire:click="current_step = 2">
+                <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
                 Back to Field Mapping
             </flux:button>
             <flux:button wire:click="confirmProductMapping" variant="primary">
                 Continue to Preview
+                <flux:icon name="chevron-right" class="w-4 h-4 ml-1" />
             </flux:button>
         </div>
     </div>
@@ -975,24 +1238,28 @@ new class extends Component
         <flux:text class="mb-6">Review the first 5 orders to validate field mapping and product assignments before processing all {{ $total_rows }} orders.</flux:text>
 
         <!-- Summary Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
             <div class="p-4 bg-blue-50 rounded-lg text-center">
                 <flux:text size="2xl" class="font-bold text-blue-600">{{ $total_rows }}</flux:text>
                 <flux:text size="sm" class="text-blue-600">Total Orders</flux:text>
             </div>
             <div class="p-4 bg-green-50 rounded-lg text-center">
                 <flux:text size="2xl" class="font-bold text-green-600">{{ count($product_mappings) }}</flux:text>
-                <flux:text size="sm" class="text-green-600">Mapped Products</flux:text>
+                <flux:text size="sm" class="text-green-600">Product Mappings</flux:text>
+            </div>
+            <div class="p-4 bg-purple-50 rounded-lg text-center">
+                <flux:text size="2xl" class="font-bold text-purple-600">{{ count($package_mappings) }}</flux:text>
+                <flux:text size="sm" class="text-purple-600">Package Mappings</flux:text>
             </div>
             <div class="p-4 bg-amber-50 rounded-lg text-center">
                 <flux:text size="2xl" class="font-bold text-amber-600">{{ count($unmapped_skus) }}</flux:text>
-                <flux:text size="sm" class="text-amber-600">Unmapped Products</flux:text>
+                <flux:text size="sm" class="text-amber-600">Unmapped Items</flux:text>
             </div>
-            <div class="p-4 bg-purple-50 rounded-lg text-center">
-                <flux:text size="2xl" class="font-bold text-purple-600">
+            <div class="p-4 bg-red-50 rounded-lg text-center">
+                <flux:text size="2xl" class="font-bold text-red-600">
                     {{ collect($preview_data)->sum(fn($item) => count($item['validation_errors'])) }}
                 </flux:text>
-                <flux:text size="sm" class="text-purple-600">Validation Errors</flux:text>
+                <flux:text size="sm" class="text-red-600">Validation Errors</flux:text>
             </div>
         </div>
 
@@ -1028,10 +1295,21 @@ new class extends Component
                                 <div class="max-w-xs truncate">{{ $item['mapped_data']['product_name'] ?? 'N/A' }}</div>
                             </td>
                             <td class="px-4 py-3 text-sm text-zinc-900">
-                                @if(isset($item['mapped_data']['internal_product_name']))
-                                    <div class="text-green-600 font-medium">{{ $item['mapped_data']['internal_product_name'] }}</div>
+                                @if(isset($item['mapped_data']['internal_package_name']))
+                                    <div class="flex items-center gap-1">
+                                        <flux:badge variant="purple" size="sm">Package</flux:badge>
+                                        <span class="text-purple-600 font-medium">{{ $item['mapped_data']['internal_package_name'] }}</span>
+                                    </div>
+                                    @if(isset($item['mapped_data']['internal_items_count']))
+                                        <div class="text-xs text-purple-500 mt-1">{{ $item['mapped_data']['internal_items_count'] }} items in bundle</div>
+                                    @endif
+                                @elseif(isset($item['mapped_data']['internal_product_name']))
+                                    <div class="flex items-center gap-1">
+                                        <flux:badge variant="blue" size="sm">Product</flux:badge>
+                                        <span class="text-green-600 font-medium">{{ $item['mapped_data']['internal_product_name'] }}</span>
+                                    </div>
                                     @if(isset($item['mapped_data']['internal_variant_name']))
-                                        <div class="text-xs text-zinc-500">{{ $item['mapped_data']['internal_variant_name'] }}</div>
+                                        <div class="text-xs text-zinc-500 mt-1">Variant: {{ $item['mapped_data']['internal_variant_name'] }}</div>
                                     @endif
                                 @else
                                     <span class="text-red-500 font-medium">Not Mapped</span>
@@ -1181,7 +1459,7 @@ new class extends Component
 
     {{-- Step 5: Processing --}}
     @if($current_step === 5)
-    <div class="bg-white rounded-lg border p-6">
+    <div class="bg-white rounded-lg border p-6" wire:poll.2s="checkImportStatus">
         <flux:heading size="lg" class="mb-4">
             @if($importing)
                 Processing TikTok Orders...
@@ -1192,26 +1470,34 @@ new class extends Component
 
         @if($importing)
             <div class="space-y-4">
+                <div class="flex items-center justify-center mb-4">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
                 <div class="w-full bg-gray-200 rounded-full h-4">
                     <div class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: {{ $import_progress }}%"></div>
                 </div>
-                <flux:text class="text-center">{{ $import_progress }}% Complete</flux:text>
+                <flux:text class="text-center font-semibold">{{ $import_progress }}% Complete</flux:text>
+                <flux:text size="sm" class="text-center text-gray-600">Processing in background. This page will auto-update.</flux:text>
             </div>
         @endif
 
         @if($import_results)
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div class="text-center p-4 bg-green-50 rounded-lg">
                     <flux:text size="2xl" class="font-bold text-green-600">{{ $import_results['imported'] }}</flux:text>
-                    <flux:text size="sm" class="text-green-600">Orders Imported</flux:text>
+                    <flux:text size="sm" class="text-green-600">Orders Created</flux:text>
+                </div>
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <flux:text size="2xl" class="font-bold text-blue-600">{{ $import_results['updated'] ?? 0 }}</flux:text>
+                    <flux:text size="sm" class="text-blue-600">Orders Updated</flux:text>
                 </div>
                 <div class="text-center p-4 bg-amber-50 rounded-lg">
                     <flux:text size="2xl" class="font-bold text-amber-600">{{ $import_results['skipped'] }}</flux:text>
                     <flux:text size="sm" class="text-amber-600">Orders Skipped</flux:text>
                 </div>
-                <div class="text-center p-4 bg-blue-50 rounded-lg">
-                    <flux:text size="2xl" class="font-bold text-blue-600">{{ $import_results['total_rows'] }}</flux:text>
-                    <flux:text size="sm" class="text-blue-600">Total Rows</flux:text>
+                <div class="text-center p-4 bg-zinc-50 rounded-lg">
+                    <flux:text size="2xl" class="font-bold text-zinc-600">{{ $import_results['total_rows'] }}</flux:text>
+                    <flux:text size="sm" class="text-zinc-600">Total Rows</flux:text>
                 </div>
             </div>
 

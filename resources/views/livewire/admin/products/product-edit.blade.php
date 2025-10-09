@@ -266,7 +266,7 @@ new class extends Component {
             'description' => $this->description,
             'short_description' => $this->short_description,
             'sku' => $this->sku,
-            'barcode' => $this->barcode,
+            'barcode' => $this->barcode ?: null,
             'category_id' => $this->category_id ?: null,
             'status' => $this->status,
             'type' => $this->type,

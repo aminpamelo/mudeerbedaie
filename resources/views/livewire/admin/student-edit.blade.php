@@ -3,33 +3,57 @@
 use App\Models\Student;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Student $student;
-    
+
     // User information
     public $name = '';
+
     public $email = '';
-    
+
     // Student profile information
     public $ic_number = '';
+
     public $phone = '';
+
+    public $country_code = '+60'; // Default to Malaysia
+
     public $address = '';
+
     public $date_of_birth = '';
+
     public $gender = '';
+
     public $nationality = '';
+
     public $status = '';
 
     public function mount(): void
     {
         $this->student->load('user');
-        
+
         // Load user data
         $this->name = $this->student->user->name;
         $this->email = $this->student->user->email;
-        
+
         // Load student data
         $this->ic_number = $this->student->ic_number ?? '';
-        $this->phone = $this->student->phone ?? '';
+
+        // Parse existing phone number to extract country code if present
+        if ($this->student->phone) {
+            $phone = $this->student->phone;
+            // Check if phone starts with a country code
+            if (preg_match('/^(\+\d{1,4})\s*(.+)$/', $phone, $matches)) {
+                $this->country_code = $matches[1];
+                $this->phone = $matches[2];
+            } else {
+                $this->phone = $phone;
+            }
+        } else {
+            $this->phone = '';
+        }
+
         $this->address = $this->student->address ?? '';
         $this->date_of_birth = $this->student->date_of_birth?->format('Y-m-d') ?? '';
         $this->gender = $this->student->gender ?? '';
@@ -42,10 +66,11 @@ new class extends Component {
         $this->validate([
             // User validation
             'name' => 'required|string|min:3|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $this->student->user->id,
-            
+            'email' => 'required|string|email|max:255|unique:users,email,'.$this->student->user->id,
+
             // Student validation
-            'ic_number' => 'nullable|string|size:12|regex:/^[0-9]{12}$/|unique:students,ic_number,' . $this->student->id,
+            'ic_number' => 'nullable|string|size:12|regex:/^[0-9]{12}$/|unique:students,ic_number,'.$this->student->id,
+            'country_code' => 'nullable|string|max:5',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:500',
             'date_of_birth' => 'nullable|date|before:today',
@@ -61,9 +86,15 @@ new class extends Component {
         ]);
 
         // Update student
+        // Combine country code and phone number
+        $fullPhone = null;
+        if ($this->phone) {
+            $fullPhone = $this->country_code.' '.$this->phone;
+        }
+
         $this->student->update([
             'ic_number' => $this->ic_number ?: null,
-            'phone' => $this->phone ?: null,
+            'phone' => $fullPhone,
             'address' => $this->address ?: null,
             'date_of_birth' => $this->date_of_birth ?: null,
             'gender' => $this->gender ?: null,
@@ -72,7 +103,7 @@ new class extends Component {
         ]);
 
         session()->flash('success', 'Student updated successfully!');
-        
+
         $this->redirect(route('students.show', $this->student));
     }
 }; ?>
@@ -116,7 +147,35 @@ new class extends Component {
             
             <div class="mt-6 space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <flux:input wire:model="phone" label="Phone Number" placeholder="Enter phone number" />
+                    <div>
+                        <flux:field label="Phone Number">
+                            <div class="flex gap-2">
+                                <div class="w-28 shrink-0">
+                                    <flux:select wire:model="country_code">
+                                        <flux:select.option value="+60">🇲🇾 +60</flux:select.option>
+                                        <flux:select.option value="+65">🇸🇬 +65</flux:select.option>
+                                        <flux:select.option value="+62">🇮🇩 +62</flux:select.option>
+                                        <flux:select.option value="+66">🇹🇭 +66</flux:select.option>
+                                        <flux:select.option value="+84">🇻🇳 +84</flux:select.option>
+                                        <flux:select.option value="+63">🇵🇭 +63</flux:select.option>
+                                        <flux:select.option value="+95">🇲🇲 +95</flux:select.option>
+                                        <flux:select.option value="+855">🇰🇭 +855</flux:select.option>
+                                        <flux:select.option value="+856">🇱🇦 +856</flux:select.option>
+                                        <flux:select.option value="+673">🇧🇳 +673</flux:select.option>
+                                        <flux:select.option value="+1">🇺🇸 +1</flux:select.option>
+                                        <flux:select.option value="+44">🇬🇧 +44</flux:select.option>
+                                        <flux:select.option value="+86">🇨🇳 +86</flux:select.option>
+                                        <flux:select.option value="+91">🇮🇳 +91</flux:select.option>
+                                        <flux:select.option value="+81">🇯🇵 +81</flux:select.option>
+                                        <flux:select.option value="+82">🇰🇷 +82</flux:select.option>
+                                    </flux:select>
+                                </div>
+                                <div class="flex-1">
+                                    <flux:input wire:model="phone" placeholder="123456789" />
+                                </div>
+                            </div>
+                        </flux:field>
+                    </div>
                     <flux:input type="date" wire:model="date_of_birth" label="Date of Birth" />
                 </div>
 

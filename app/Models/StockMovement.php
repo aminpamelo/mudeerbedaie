@@ -22,7 +22,9 @@ class StockMovement extends Model
         'reference_type',
         'reference_id',
         'notes',
+        'attachment',
         'created_by',
+        'metadata',
     ];
 
     protected function casts(): array
@@ -32,6 +34,7 @@ class StockMovement extends Model
             'quantity_before' => 'integer',
             'quantity_after' => 'integer',
             'unit_cost' => 'decimal:2',
+            'metadata' => 'array',
         ];
     }
 

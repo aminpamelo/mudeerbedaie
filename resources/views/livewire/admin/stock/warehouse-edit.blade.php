@@ -1,25 +1,41 @@
 <?php
 
+use App\Models\Agent;
 use App\Models\Warehouse;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Warehouse $warehouse;
 
     public $name = '';
+
     public $code = '';
+
     public $description = '';
+
+    public $warehouse_type = 'own';
+
+    public $agent_id = null;
+
     public $manager_name = '';
+
     public $manager_email = '';
+
     public $manager_phone = '';
+
     public $status = 'active';
 
     // Address fields
     public $street = '';
+
     public $city = '';
+
     public $state = '';
+
     public $postal_code = '';
+
     public $country = 'Malaysia';
 
     public function mount(Warehouse $warehouse): void
@@ -28,6 +44,8 @@ new class extends Component {
         $this->name = $warehouse->name;
         $this->code = $warehouse->code;
         $this->description = $warehouse->description;
+        $this->warehouse_type = $warehouse->warehouse_type;
+        $this->agent_id = $warehouse->agent_id;
         $this->manager_name = $warehouse->manager_name;
         $this->manager_email = $warehouse->manager_email;
         $this->manager_phone = $warehouse->manager_phone;
@@ -43,12 +61,20 @@ new class extends Component {
         }
     }
 
-    public function rules(): array
+    public function with(): array
     {
         return [
+            'agents' => Agent::where('is_active', true)->orderBy('name')->get(),
+        ];
+    }
+
+    public function rules(): array
+    {
+        $rules = [
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:20|unique:warehouses,code,' . $this->warehouse->id,
+            'code' => 'required|string|max:20|unique:warehouses,code,'.$this->warehouse->id,
             'description' => 'nullable|string',
+            'warehouse_type' => 'required|in:own,agent,company',
             'manager_name' => 'nullable|string|max:255',
             'manager_email' => 'nullable|email|max:255',
             'manager_phone' => 'nullable|string|max:20',
@@ -59,11 +85,27 @@ new class extends Component {
             'postal_code' => 'nullable|string|max:20',
             'country' => 'nullable|string|max:255',
         ];
+
+        // Only require agent_id when warehouse_type is not 'own'
+        if ($this->warehouse_type !== 'own') {
+            $rules['agent_id'] = 'required|exists:agents,id';
+        } else {
+            $rules['agent_id'] = 'nullable';
+        }
+
+        return $rules;
     }
 
     public function updatedName(): void
     {
         $this->code = strtoupper(Str::slug($this->name, ''));
+    }
+
+    public function updatedWarehouseType(): void
+    {
+        if ($this->warehouse_type === 'own') {
+            $this->agent_id = null;
+        }
     }
 
     public function save(): void
@@ -82,6 +124,8 @@ new class extends Component {
             'name' => $this->name,
             'code' => $this->code,
             'description' => $this->description,
+            'warehouse_type' => $this->warehouse_type,
+            'agent_id' => $this->warehouse_type === 'own' ? null : $this->agent_id,
             'manager_name' => $this->manager_name,
             'manager_email' => $this->manager_email,
             'manager_phone' => $this->manager_phone,
@@ -133,6 +177,43 @@ new class extends Component {
                     <flux:textarea wire:model="description" placeholder="Warehouse description" rows="3" />
                     <flux:error name="description" />
                 </flux:field>
+
+                <flux:field>
+                    <flux:label>Warehouse Type</flux:label>
+                    <flux:select wire:model.live="warehouse_type">
+                        <flux:select.option value="own">Own Warehouse</flux:select.option>
+                        <flux:select.option value="agent">Agent Location</flux:select.option>
+                        <flux:select.option value="company">Company Location</flux:select.option>
+                    </flux:select>
+                    <flux:error name="warehouse_type" />
+                    <flux:description>
+                        @if($warehouse_type === 'own')
+                            Your company's warehouse
+                        @elseif($warehouse_type === 'agent')
+                            Stock at agent's location (consignment)
+                        @else
+                            Stock at company's location (consignment)
+                        @endif
+                    </flux:description>
+                </flux:field>
+
+                @if($warehouse_type !== 'own')
+                    <flux:field>
+                        <flux:label>{{ $warehouse_type === 'agent' ? 'Agent' : 'Company' }}</flux:label>
+                        <flux:select wire:model="agent_id">
+                            <flux:select.option value="">Select {{ $warehouse_type }}</flux:select.option>
+                            @foreach($agents->where('type', $warehouse_type) as $agent)
+                                <flux:select.option value="{{ $agent->id }}">
+                                    {{ $agent->name }} ({{ $agent->agent_code }})
+                                </flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        <flux:error name="agent_id" />
+                        <flux:description>
+                            Select which {{ $warehouse_type }} owns this location
+                        </flux:description>
+                    </flux:field>
+                @endif
 
                 <flux:field>
                     <flux:label>Status</flux:label>

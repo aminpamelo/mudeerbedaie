@@ -369,7 +369,7 @@ new class extends Component {
             <!-- Order Items -->
             <flux:card>
                 <flux:heading size="lg" class="mb-4">Order Items</flux:heading>
-                
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
@@ -403,24 +403,132 @@ new class extends Component {
                         </tbody>
                         <tfoot>
                             <tr class="border-t border-gray-300">
-                                <td colspan="3" class="py-3 text-right font-semibold">Order Total:</td>
+                                <td colspan="3" class="py-3 text-right font-semibold">Total:</td>
                                 <td class="py-3 text-right font-bold text-lg">{{ $order->formatted_amount }}</td>
                             </tr>
-                            @if($order->stripe_fee)
-                                <tr>
-                                    <td colspan="3" class="py-1 text-right text-gray-600">Stripe Fee:</td>
-                                    <td class="py-1 text-right text-gray-600">-RM {{ number_format($order->stripe_fee, 2) }}</td>
-                                </tr>
-                            @endif
-                            @if($order->net_amount && $order->net_amount != $order->amount)
-                                <tr>
-                                    <td colspan="3" class="py-1 text-right font-semibold">Net Amount:</td>
-                                    <td class="py-1 text-right font-semibold">RM {{ number_format($order->net_amount, 2) }}</td>
-                                </tr>
-                            @endif
                         </tfoot>
                     </table>
                 </div>
+            </flux:card>
+
+            <!-- Financial Summary -->
+            <flux:card>
+                <flux:heading size="lg" class="mb-4">Financial Details</flux:heading>
+
+                <div class="space-y-3">
+                    <!-- Subtotal Before Discount -->
+                    @if($order->hasDiscount())
+                        <div class="flex justify-between py-2 border-b border-gray-100">
+                            <flux:text class="text-gray-700">Subtotal (Before Discount):</flux:text>
+                            <flux:text class="font-semibold">{{ $order->formatted_subtotal_before_discount }}</flux:text>
+                        </div>
+
+                        <!-- Discount -->
+                        <div class="flex justify-between py-2 border-b border-gray-100">
+                            <flux:text class="text-green-700">
+                                Discount
+                                @if($order->getCouponCode())
+                                    <span class="text-xs">({{ $order->getCouponCode() }})</span>
+                                @endif
+                                :
+                            </flux:text>
+                            <flux:text class="font-semibold text-green-700">-{{ $order->formatted_discount }}</flux:text>
+                        </div>
+                    @endif
+
+                    <!-- Items Subtotal -->
+                    <div class="flex justify-between py-2 border-b border-gray-100">
+                        <flux:text class="text-gray-700">{{ $order->hasDiscount() ? 'Subtotal (After Discount):' : 'Subtotal:' }}</flux:text>
+                        <flux:text class="font-semibold">{{ $order->formatted_subtotal }}</flux:text>
+                    </div>
+
+                    <!-- Shipping Cost -->
+                    @if($order->getShippingCost() > 0)
+                        <div class="flex justify-between py-2 border-b border-gray-100">
+                            <flux:text class="text-gray-700">Shipping Cost:</flux:text>
+                            <flux:text class="font-semibold">{{ $order->formatted_shipping }}</flux:text>
+                        </div>
+                    @endif
+
+                    <!-- Tax -->
+                    @if($order->getTaxAmount() > 0)
+                        <div class="flex justify-between py-2 border-b border-gray-100">
+                            <flux:text class="text-gray-700">Tax:</flux:text>
+                            <flux:text class="font-semibold">{{ $order->formatted_tax }}</flux:text>
+                        </div>
+                    @endif
+
+                    <!-- Order Total -->
+                    <div class="flex justify-between py-3 border-t-2 border-gray-300 mt-2">
+                        <flux:text class="text-lg font-bold">Order Total:</flux:text>
+                        <flux:text class="text-lg font-bold text-blue-600">{{ $order->formatted_amount }}</flux:text>
+                    </div>
+
+                    <!-- Stripe Fee (for reference) -->
+                    @if($order->stripe_fee)
+                        <div class="pt-3 mt-3 border-t border-gray-200">
+                            <div class="flex justify-between py-1">
+                                <flux:text size="sm" class="text-gray-600">Stripe Processing Fee:</flux:text>
+                                <flux:text size="sm" class="text-gray-600">-RM {{ number_format($order->stripe_fee, 2) }}</flux:text>
+                            </div>
+                        </div>
+                    @endif
+
+                    <!-- Net Amount (after fees) -->
+                    @if($order->net_amount && $order->net_amount != $order->amount)
+                        <div class="flex justify-between py-2 bg-emerald-50 px-3 rounded-lg -mx-3">
+                            <flux:text class="font-semibold text-emerald-900">Net Amount Received:</flux:text>
+                            <flux:text class="font-semibold text-emerald-900">RM {{ number_format($order->net_amount, 2) }}</flux:text>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Financial Breakdown Summary Box -->
+                @if($order->hasDiscount() || $order->getShippingCost() > 0 || $order->getTaxAmount() > 0)
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <flux:heading size="sm" class="text-blue-900 mb-3">Order Calculation Breakdown</flux:heading>
+                        <div class="space-y-1 text-sm">
+                            @if($order->hasDiscount())
+                                <div class="flex justify-between text-blue-800">
+                                    <span>Items Total:</span>
+                                    <span>{{ $order->formatted_subtotal_before_discount }}</span>
+                                </div>
+                                <div class="flex justify-between text-green-700">
+                                    <span>- Discount:</span>
+                                    <span>-{{ $order->formatted_discount }}</span>
+                                </div>
+                                <div class="flex justify-between text-blue-800">
+                                    <span>= Subtotal:</span>
+                                    <span>{{ $order->formatted_subtotal }}</span>
+                                </div>
+                            @else
+                                <div class="flex justify-between text-blue-800">
+                                    <span>Subtotal:</span>
+                                    <span>{{ $order->formatted_subtotal }}</span>
+                                </div>
+                            @endif
+
+                            @if($order->getShippingCost() > 0)
+                                <div class="flex justify-between text-blue-800">
+                                    <span>+ Shipping:</span>
+                                    <span>{{ $order->formatted_shipping }}</span>
+                                </div>
+                            @endif
+
+                            @if($order->getTaxAmount() > 0)
+                                <div class="flex justify-between text-blue-800">
+                                    <span>+ Tax:</span>
+                                    <span>{{ $order->formatted_tax }}</span>
+                                </div>
+                            @endif
+
+                            <div class="flex justify-between font-bold text-blue-900 pt-2 mt-2 border-t border-blue-300">
+                                <span>= Final Total:</span>
+                                <span>{{ $order->formatted_amount }}</span>
+                            </div>
+                        </div>
+                    </div>
+                @endif
             </flux:card>
 
             <!-- Payment Information -->

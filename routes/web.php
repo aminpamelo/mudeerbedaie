@@ -211,6 +211,12 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('warehouses/{warehouse}', 'admin.stock.warehouse-show')->name('warehouses.show');
     Volt::route('warehouses/{warehouse}/edit', 'admin.stock.warehouse-edit')->name('warehouses.edit');
 
+    // Agent Management routes
+    Volt::route('agents', 'admin.agents.agent-list')->name('agents.index');
+    Volt::route('agents/create', 'admin.agents.agent-create')->name('agents.create');
+    Volt::route('agents/{agent}', 'admin.agents.agent-show')->name('agents.show');
+    Volt::route('agents/{agent}/edit', 'admin.agents.agent-edit')->name('agents.edit');
+
     // Product Order Management routes
     Volt::route('product-orders', 'admin.orders.order-list')->name('admin.orders.index');
     Volt::route('product-orders/create', 'admin.orders.order-create')->name('admin.orders.create');
@@ -255,6 +261,23 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Platform-specific order routes
     Volt::route('platforms/{platform}/orders', 'admin.platforms.orders.index')->name('platforms.orders.platform.index');
     Volt::route('platforms/{platform}/orders/{order}', 'admin.platforms.orders.show')->name('platforms.orders.show');
+
+    // Certificate Management routes
+    Volt::route('certificates', 'admin.certificates.certificate-list')->name('certificates.index');
+    Volt::route('certificates/create', 'admin.certificates.certificate-create')->name('certificates.create');
+    Volt::route('certificates/{certificate}/edit', 'admin.certificates.certificate-edit')->name('certificates.edit');
+    Volt::route('certificates/{certificate}/preview', 'admin.certificates.certificate-preview')->name('certificates.preview');
+    Volt::route('certificates/{certificate}/assignments', 'admin.certificates.certificate-assignments')->name('certificates.assignments');
+    Volt::route('certificates/issue', 'admin.certificates.certificate-issue')->name('certificates.issue');
+    Volt::route('certificates/issued', 'admin.certificates.certificate-issued-list')->name('certificates.issued');
+    Volt::route('certificates/bulk-issue', 'admin.certificates.certificate-bulk-issue')->name('certificates.bulk-issue');
+    Route::get('certificates/{certificateIssue}/download', function (\App\Models\CertificateIssue $certificateIssue) {
+        if (! $certificateIssue->hasFile()) {
+            abort(404, 'Certificate file not found');
+        }
+
+        return \Storage::download($certificateIssue->file_path, $certificateIssue->certificate_number.'.pdf');
+    })->name('certificates.download');
 
     // Admin Settings routes
     Route::redirect('settings', 'admin/settings/general');
