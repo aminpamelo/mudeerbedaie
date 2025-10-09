@@ -8,6 +8,9 @@ use Carbon\Carbon;
 new #[Layout('components.layouts.teacher')] class extends Component {
     public ClassModel $class;
     public Carbon $currentDate;
+    public bool $showStartConfirmation = false;
+    public ?string $dateToStart = null;
+    public ?string $timeToStart = null;
 
     public function mount(ClassModel $class): void
     {
@@ -464,6 +467,28 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         $end = $this->currentDate->endOfWeek();
         
         return $start->format('M d') . ' - ' . $end->format('M d, Y');
+    }
+
+    public function closeStartConfirmation()
+    {
+        $this->showStartConfirmation = false;
+        $this->dateToStart = null;
+        $this->timeToStart = null;
+    }
+
+    public function requestStartSessionFromTimetable($date, $time)
+    {
+        $this->dateToStart = $date;
+        $this->timeToStart = $time;
+        $this->showStartConfirmation = true;
+    }
+
+    public function confirmStartSession()
+    {
+        if ($this->dateToStart && $this->timeToStart) {
+            $this->startSessionFromTimetable($this->dateToStart, $this->timeToStart);
+        }
+        $this->closeStartConfirmation();
     }
 
     // Create or start session from timetable and open modal
@@ -2117,12 +2142,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                         </div>
                                                         
                                                         @if($session->isScheduled())
-                                                            <flux:button 
-                                                                variant="primary" 
-                                                                size="xs" 
+                                                            <flux:button
+                                                                variant="primary"
+                                                                size="xs"
                                                                 icon="play"
                                                                 class="mt-2 w-full"
-                                                                wire:click.stop="startSessionFromTimetable('{{ $dayData['date']->toDateString() }}', '{{ $timeSlot }}')">
+                                                                wire:click.stop="requestStartSessionFromTimetable('{{ $dayData['date']->toDateString() }}', '{{ $timeSlot }}')">
                                                                 Start
                                                             </flux:button>
                                                         @elseif($session->isOngoing())
@@ -2147,12 +2172,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                                             <div class="font-medium">{{ $class->course->name }}</div>
                                                             <div class="text-indigo-600 mt-1">Scheduled</div>
                                                         </div>
-                                                        <flux:button 
-                                                            variant="primary" 
-                                                            size="xs" 
+                                                        <flux:button
+                                                            variant="primary"
+                                                            size="xs"
                                                             icon="play"
                                                             class="mt-2 w-full"
-                                                            wire:click="startSessionFromTimetable('{{ $dayData['date']->toDateString() }}', '{{ $timeSlot }}')">
+                                                            wire:click="requestStartSessionFromTimetable('{{ $dayData['date']->toDateString() }}', '{{ $timeSlot }}')">
                                                             Start Session
                                                         </flux:button>
                                                     </div>
@@ -2478,3 +2503,36 @@ document.addEventListener('livewire:init', () => {
     });
 });
 </script>
+
+<!-- Start Session Confirmation Modal -->
+<flux:modal wire:model="showStartConfirmation" class="max-w-md">
+    <div class="p-6">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <flux:icon name="play" class="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+                <flux:heading size="lg">Start Session?</flux:heading>
+                <flux:text size="sm" class="text-gray-600">Are you ready to begin this session?</flux:text>
+            </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <flux:text size="sm" class="text-blue-800">
+                Once you start the session, the timer will begin and you'll be able start your sessions.
+            </flux:text>
+        </div>
+
+        <div class="flex gap-3 justify-end">
+            <flux:button wire:click="closeStartConfirmation" variant="ghost">
+                Cancel
+            </flux:button>
+            <flux:button wire:click="confirmStartSession" variant="primary">
+                <div class="flex items-center justify-center gap-2">
+                    <flux:icon name="play" class="w-4 h-4" />
+                    Yes, Start Session
+                </div>
+            </flux:button>
+        </div>
+    </div>
+</flux:modal>

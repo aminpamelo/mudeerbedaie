@@ -90,7 +90,7 @@
                                             {{-- Quick Actions --}}
                                             <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 @if($session->isScheduled())
-                                                    <flux:button wire:click.stop="startSession({{ $session->id }})" size="xs" variant="primary">
+                                                    <flux:button wire:click.stop="requestStartSession({{ $session->id }})" size="xs" variant="primary">
                                                         Start
                                                     </flux:button>
                                                 @elseif($session->isOngoing())
