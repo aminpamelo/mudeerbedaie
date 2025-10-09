@@ -166,18 +166,20 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     public function with()
     {
         $teacher = auth()->user()->teacher;
-        
+
         if (!$teacher) {
             return [
                 'sessions' => collect(),
                 'classes' => collect(),
-                'statistics' => $this->getEmptyStatistics()
+                'statistics' => $this->getEmptyStatistics(),
+                'currentPeriodLabel' => $this->getCurrentPeriodLabel(),
+                'calendarData' => []
             ];
         }
-        
+
         $classes = $teacher->classes()->with('course')->get();
         $sessions = $this->getSessionsForCurrentView($teacher);
-        
+
         return [
             'sessions' => $sessions,
             'classes' => $classes,
