@@ -22,6 +22,10 @@ new class extends Component
 
     public $selectedOrderForApproval = null;
 
+    public $showDeleteOrderModal = false;
+
+    public $selectedOrderForDeletion = null;
+
     public $paymentDate = '';
 
     public $receiptFile = null;
@@ -1414,6 +1418,55 @@ new class extends Component
         $this->receiptFile = null;
     }
 
+    public function confirmDeleteOrder($orderId)
+    {
+        $this->selectedOrderForDeletion = $orderId;
+        $this->showDeleteOrderModal = true;
+    }
+
+    public function closeDeleteOrderModal()
+    {
+        $this->showDeleteOrderModal = false;
+        $this->selectedOrderForDeletion = null;
+    }
+
+    public function deleteManualOrder()
+    {
+        try {
+            $order = $this->enrollment->orders()->findOrFail($this->selectedOrderForDeletion);
+
+            // Only allow deletion of manual orders
+            if ($order->billing_reason !== 'manual') {
+                session()->flash('error', 'Only manual payment orders can be deleted.');
+                $this->closeDeleteOrderModal();
+
+                return;
+            }
+
+            // Log the deletion
+            \Log::info('Manual order deleted', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'enrollment_id' => $this->enrollment->id,
+                'deleted_by' => auth()->id(),
+            ]);
+
+            $orderNumber = $order->order_number;
+            $order->delete();
+
+            $this->enrollment->refresh();
+            session()->flash('success', "Order #{$orderNumber} has been deleted successfully.");
+            $this->closeDeleteOrderModal();
+        } catch (\Exception $e) {
+            \Log::error('Error deleting manual order', [
+                'order_id' => $this->selectedOrderForDeletion,
+                'enrollment_id' => $this->enrollment->id,
+                'error' => $e->getMessage(),
+            ]);
+            session()->flash('error', 'Failed to delete order: '.$e->getMessage());
+        }
+    }
+
     public function approveManualPayment()
     {
         $this->validate([
@@ -2141,8 +2194,9 @@ new class extends Component
             </div>
         </flux:card>
 
-        <!-- Subscription Management -->
-        @if($enrollment->stripe_subscription_id)
+        <!-- Subscription Management (Only for Automatic Payments) -->
+        @if(!$enrollment->isManualPaymentType())
+            @if($enrollment->stripe_subscription_id)
             <flux:card>
                 <flux:heading size="lg">Subscription Information</flux:heading>
                 
@@ -2414,8 +2468,9 @@ new class extends Component
                     @endif
                 </div>
             </flux:card>
+            @endif
         @endif
-        
+
         <!-- Manual Payment Management -->
         @if($enrollment->isManualPaymentType())
             <flux:card>
@@ -2564,13 +2619,19 @@ new class extends Component
                                             
                                             <div class="flex items-center space-x-2">
                                                 @if($order->isPending())
-                                                    <flux:button 
-                                                        wire:click="openApprovalModal({{ $order->id }})" 
-                                                        size="sm" 
+                                                    <flux:button
+                                                        wire:click="openApprovalModal({{ $order->id }})"
+                                                        size="sm"
                                                         variant="primary"
                                                         color="green"
                                                         icon="check">
                                                         Approve Payment
+                                                    </flux:button>
+                                                    <flux:button
+                                                        wire:click="confirmDeleteOrder({{ $order->id }})"
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon="trash">
                                                     </flux:button>
                                                 @elseif($order->isPaid())
                                                     <div class="flex items-center space-x-2">
@@ -2578,24 +2639,30 @@ new class extends Component
                                                             <flux:icon icon="check-circle" class="w-4 h-4 mr-1" />
                                                             <flux:text size="sm">Paid</flux:text>
                                                         </div>
-                                                        
+
                                                         @if($this->hasReceiptAttachment($order))
-                                                            <flux:button 
-                                                                wire:click="downloadReceipt({{ $order->id }})" 
-                                                                size="sm" 
+                                                            <flux:button
+                                                                wire:click="downloadReceipt({{ $order->id }})"
+                                                                size="sm"
                                                                 variant="ghost"
                                                                 icon="document">
                                                                 Receipt
                                                             </flux:button>
                                                             <a href="{{ $this->getReceiptUrl($order) }}" target="_blank">
-                                                                <flux:button 
-                                                                    size="sm" 
+                                                                <flux:button
+                                                                    size="sm"
                                                                     variant="ghost"
                                                                     icon="magnifying-glass">
                                                                     View
                                                                 </flux:button>
                                                             </a>
                                                         @endif
+                                                        <flux:button
+                                                            wire:click="confirmDeleteOrder({{ $order->id }})"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            icon="trash">
+                                                        </flux:button>
                                                     </div>
                                                 @endif
                                             </div>
@@ -3630,6 +3697,28 @@ new class extends Component
             <flux:button wire:click="approveManualPayment" variant="primary" color="green">
                 <flux:icon icon="check" class="w-4 h-4 mr-1" />
                 Approve Payment
+            </flux:button>
+        </div>
+    </flux:modal>
+
+    <!-- Delete Order Confirmation Modal -->
+    <flux:modal wire:model="showDeleteOrderModal" class="space-y-6">
+        <div>
+            <flux:heading size="lg">Delete Order</flux:heading>
+            <flux:subheading>Are you sure you want to delete this order?</flux:subheading>
+        </div>
+
+        <flux:callout variant="warning">
+            This action cannot be undone. The order will be permanently deleted.
+        </flux:callout>
+
+        <div class="flex justify-between">
+            <flux:button wire:click="closeDeleteOrderModal" variant="ghost">
+                Cancel
+            </flux:button>
+            <flux:button wire:click="deleteManualOrder" variant="primary" color="red">
+                <flux:icon icon="trash" class="w-4 h-4 mr-1" />
+                Delete Order
             </flux:button>
         </div>
     </flux:modal>

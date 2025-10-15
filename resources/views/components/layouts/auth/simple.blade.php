@@ -3,8 +3,8 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white antialiased">
-        <div class="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
+    <body class="min-h-screen bg-white dark:bg-zinc-900 antialiased">
+        <div class="bg-background dark:bg-zinc-900 flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
             <div class="flex w-full max-w-sm flex-col gap-2">
                 @php
                     $settingsService = app(\App\Services\SettingsService::class);
@@ -23,9 +23,9 @@
                             <x-app-logo-icon class="size-12 fill-current text-blue-600" />
                         </span>
                     @endif
-                    <span class="text-xl font-bold text-gray-900">{{ $siteName }}</span>
+                    <span class="text-xl font-bold text-gray-900 dark:text-white">{{ $siteName }}</span>
                     @if($siteDescription)
-                        <span class="text-sm text-gray-600">{{ $siteDescription }}</span>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $siteDescription }}</span>
                     @endif
                 </a>
                 <div class="flex flex-col gap-6">

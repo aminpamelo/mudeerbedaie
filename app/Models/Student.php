@@ -16,7 +16,12 @@ class Student extends Model
         'student_id',
         'ic_number',
         'phone',
-        'address',
+        'address_line_1',
+        'address_line_2',
+        'city',
+        'state',
+        'postcode',
+        'country',
         'date_of_birth',
         'gender',
         'nationality',
@@ -152,6 +157,20 @@ class Student extends Model
     public function getEmailAttribute(): string
     {
         return $this->user->email ?? '';
+    }
+
+    public function getFullAddressAttribute(): string
+    {
+        $addressParts = array_filter([
+            $this->address_line_1,
+            $this->address_line_2,
+            $this->city,
+            $this->state,
+            $this->postcode,
+            $this->country,
+        ]);
+
+        return implode(', ', $addressParts);
     }
 
     public function getFullNameAttribute(): string

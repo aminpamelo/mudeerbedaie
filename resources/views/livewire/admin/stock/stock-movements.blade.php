@@ -5,13 +5,18 @@ use App\Models\Warehouse;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public $search = '';
+
     public $warehouseFilter = '';
+
     public $typeFilter = '';
+
     public $dateFrom = '';
+
     public $dateTo = '';
 
     public function with(): array
@@ -19,29 +24,29 @@ new class extends Component {
         return [
             'movements' => StockMovement::query()
                 ->with(['product', 'productVariant', 'warehouse', 'createdBy'])
-                ->when($this->search, function($query) {
-                    $query->whereHas('product', function($q) {
+                ->when($this->search, function ($query) {
+                    $query->whereHas('product', function ($q) {
                         $q->where('name', 'like', "%{$this->search}%")
-                          ->orWhere('sku', 'like', "%{$this->search}%");
+                            ->orWhere('sku', 'like', "%{$this->search}%");
                     });
                 })
-                ->when($this->warehouseFilter, fn($query) => $query->where('warehouse_id', $this->warehouseFilter))
-                ->when($this->typeFilter, fn($query) => $query->where('type', $this->typeFilter))
-                ->when($this->dateFrom, fn($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
-                ->when($this->dateTo, fn($query) => $query->whereDate('created_at', '<=', $this->dateTo))
+                ->when($this->warehouseFilter, fn ($query) => $query->where('warehouse_id', $this->warehouseFilter))
+                ->when($this->typeFilter, fn ($query) => $query->where('type', $this->typeFilter))
+                ->when($this->dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
+                ->when($this->dateTo, fn ($query) => $query->whereDate('created_at', '<=', $this->dateTo))
                 ->latest()
                 ->paginate(20),
             'warehouses' => Warehouse::active()->get(),
             'totalIncoming' => StockMovement::query()
-                ->when($this->warehouseFilter, fn($query) => $query->where('warehouse_id', $this->warehouseFilter))
-                ->when($this->dateFrom, fn($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
-                ->when($this->dateTo, fn($query) => $query->whereDate('created_at', '<=', $this->dateTo))
+                ->when($this->warehouseFilter, fn ($query) => $query->where('warehouse_id', $this->warehouseFilter))
+                ->when($this->dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
+                ->when($this->dateTo, fn ($query) => $query->whereDate('created_at', '<=', $this->dateTo))
                 ->where('quantity', '>', 0)
                 ->sum('quantity'),
             'totalOutgoing' => StockMovement::query()
-                ->when($this->warehouseFilter, fn($query) => $query->where('warehouse_id', $this->warehouseFilter))
-                ->when($this->dateFrom, fn($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
-                ->when($this->dateTo, fn($query) => $query->whereDate('created_at', '<=', $this->dateTo))
+                ->when($this->warehouseFilter, fn ($query) => $query->where('warehouse_id', $this->warehouseFilter))
+                ->when($this->dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
+                ->when($this->dateTo, fn ($query) => $query->whereDate('created_at', '<=', $this->dateTo))
                 ->where('quantity', '<', 0)
                 ->sum('quantity'),
         ];
@@ -155,7 +160,19 @@ new class extends Component {
     <!-- Movements Table -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="min-w-full border-collapse border-0">
+            <table class="min-w-full border-collapse border-0 table-fixed">
+                <colgroup>
+                    <col class="w-24"> <!-- Date & Time (compact) -->
+                    <col class="w-80"> <!-- Product (wider for long names) -->
+                    <col class="w-32"> <!-- Warehouse -->
+                    <col class="w-28"> <!-- Type -->
+                    <col class="w-24"> <!-- Quantity -->
+                    <col class="w-24"> <!-- Before -->
+                    <col class="w-24"> <!-- After -->
+                    <col class="w-40"> <!-- Reference -->
+                    <col class="w-28"> <!-- Attachment -->
+                    <col class="w-28"> <!-- User -->
+                </colgroup>
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Date & Time</th>
@@ -176,16 +193,18 @@ new class extends Component {
                 <tbody class="bg-white">
                 @forelse($movements as $movement)
                     <tr wire:key="movement-{{ $movement->id }}" class="border-b border-gray-200 hover:bg-gray-50">
-                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
-                            <div class="text-sm">
-                                <div class="font-medium text-gray-900">{{ $movement->created_at->format('M j, Y') }}</div>
-                                <div class="text-gray-500">{{ $movement->created_at->format('g:i A') }}</div>
+                        <td class="py-4 pl-4 pr-2 text-xs sm:pl-6">
+                            <div class="space-y-0.5">
+                                <div class="font-semibold text-gray-900 whitespace-nowrap">{{ $movement->created_at->format('M j, Y') }}</div>
+                                <div class="text-gray-500 whitespace-nowrap">{{ $movement->created_at->format('g:i A') }}</div>
                             </div>
                         </td>
                         <td class="px-3 py-4 text-sm text-gray-900">
-                            <div>
-                                <div class="font-medium text-gray-900">{{ $movement->product->name }}</div>
-                                <div class="text-sm text-gray-500">
+                            <div class="min-w-0">
+                                <div class="font-medium text-gray-900 break-words line-clamp-2" title="{{ $movement->product->name }}">
+                                    {{ $movement->product->name }}
+                                </div>
+                                <div class="text-sm text-gray-500 truncate">
                                     SKU: {{ $movement->product->sku }}
                                     @if($movement->productVariant)
                                         • {{ $movement->productVariant->name }}

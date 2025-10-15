@@ -1,26 +1,37 @@
 <?php
 
-use App\Models\Student;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Order;
-use App\Services\StripeService;
+use App\Models\Student;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public $student_id = '';
+
     public $course_id = '';
+
+    public $enrolled_by = '';
+
     public $status = 'enrolled';
+
     public $enrollment_date = '';
+
     public $start_date = '';
+
     public $end_date = '';
+
     public $enrollment_fee = '';
+
     public $notes = '';
+
     public $payment_method_type = 'automatic';
 
     public function mount(): void
     {
         $this->enrollment_date = today()->format('Y-m-d');
+        $this->enrolled_by = auth()->id(); // Default to current user
     }
 
     public function with(): array
@@ -28,6 +39,9 @@ new class extends Component {
         return [
             'students' => Student::where('status', 'active')->with('user')->get(),
             'courses' => Course::where('status', 'active')->get(),
+            'pics' => \App\Models\User::whereIn('role', ['admin', 'staff'])
+                ->orderBy('name')
+                ->get(),
         ];
     }
 
@@ -36,6 +50,7 @@ new class extends Component {
         $this->validate([
             'student_id' => 'required|exists:students,id',
             'course_id' => 'required|exists:courses,id',
+            'enrolled_by' => 'required|exists:users,id',
             'status' => 'required|in:enrolled,active,pending',
             'enrollment_date' => 'required|date',
             'start_date' => 'nullable|date|after_or_equal:enrollment_date',
@@ -53,6 +68,7 @@ new class extends Component {
 
         if ($existingEnrollment) {
             $this->addError('course_id', 'Student is already enrolled in this course.');
+
             return;
         }
 
@@ -63,7 +79,7 @@ new class extends Component {
         $enrollment = Enrollment::create([
             'student_id' => $this->student_id,
             'course_id' => $this->course_id,
-            'enrolled_by' => auth()->id(),
+            'enrolled_by' => $this->enrolled_by,
             'status' => $this->status,
             'enrollment_date' => $this->enrollment_date,
             'start_date' => $this->start_date ?: null,
@@ -76,10 +92,10 @@ new class extends Component {
 
         // Handle recurring billing based on payment method type
         try {
-            if ($course->feeSettings && 
-                $course->feeSettings->billing_cycle !== 'one_time' && 
+            if ($course->feeSettings &&
+                $course->feeSettings->billing_cycle !== 'one_time' &&
                 $course->feeSettings->stripe_price_id) {
-                
+
                 if ($this->payment_method_type === 'automatic') {
                     session()->flash('info', 'Enrollment created. Student will need to set up payment method for recurring billing.');
                 } else {
@@ -93,22 +109,22 @@ new class extends Component {
             \Log::warning('Failed to setup payment for enrollment', [
                 'enrollment_id' => $enrollment->id,
                 'payment_method_type' => $this->payment_method_type,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
 
-        $successMessage = $this->payment_method_type === 'manual' 
+        $successMessage = $this->payment_method_type === 'manual'
             ? 'Student enrolled successfully! Manual payment is required to activate the enrollment.'
             : 'Student enrolled successfully!';
-        
+
         session()->flash('success', $successMessage);
-        
+
         $this->redirect(route('enrollments.show', $enrollment));
     }
 
     public function getCourseInfo()
     {
-        if (!$this->course_id) {
+        if (! $this->course_id) {
             return null;
         }
 
@@ -134,13 +150,13 @@ new class extends Component {
             'metadata' => [
                 'payment_method_type' => 'manual',
                 'created_by' => auth()->id(),
-                'description' =>"Manual payment for {$course->name} enrollment",
+                'description' => "Manual payment for {$course->name} enrollment",
             ],
         ]);
 
         // Create order item for the course fee
         $order->items()->create([
-            'description' =>"Course Fee - {$course->name}",
+            'description' => "Course Fee - {$course->name}",
             'quantity' => 1,
             'unit_price' => $enrollment->enrollment_fee,
             'total_price' => $enrollment->enrollment_fee,
@@ -201,13 +217,21 @@ new class extends Component {
         <!-- Enrollment Details -->
         <flux:card>
             <flux:heading size="lg">Enrollment Details</flux:heading>
-            
+
             <div class="mt-6 space-y-6">
-                <flux:select wire:model="status" label="Initial Status" required>
-                    <flux:select.option value="enrolled">Enrolled</flux:select.option>
-                    <flux:select.option value="active">Active</flux:select.option>
-                    <flux:select.option value="pending">Pending</flux:select.option>
-                </flux:select>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <flux:select wire:model="status" label="Initial Status" required>
+                        <flux:select.option value="enrolled">Enrolled</flux:select.option>
+                        <flux:select.option value="active">Active</flux:select.option>
+                        <flux:select.option value="pending">Pending</flux:select.option>
+                    </flux:select>
+
+                    <flux:select wire:model="enrolled_by" label="Person in Charge (PIC)" required>
+                        @foreach($pics as $pic)
+                            <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <flux:input type="date" wire:model="enrollment_date" label="Enrollment Date" required />

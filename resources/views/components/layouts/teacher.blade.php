@@ -3,8 +3,8 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white">
-        <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50">
+    <body class="min-h-screen bg-white dark:bg-zinc-900">
+        <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
             <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
             <a href="{{ route('dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
@@ -136,15 +136,6 @@
         @endif
 
         @fluxScripts
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                // Force light mode
-                if (typeof $flux !== 'undefined' && $flux.appearance) {
-                    $flux.appearance = 'light';
-                }
-                document.documentElement.classList.remove('dark');
-            });
-        </script>
         @stack('scripts')
     </body>
 </html>

@@ -179,6 +179,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Reports routes
     Volt::route('reports/subscriptions', 'admin.subscription-reports')->name('admin.reports.subscriptions');
     Volt::route('reports/student-payments', 'admin.student-payment-report')->name('admin.reports.student-payments');
+    Volt::route('reports/packages-orders', 'admin.reports.packages-orders')->name('admin.reports.packages-orders');
+    Volt::route('reports/student-product-orders', 'admin.reports.student-product-orders')->name('admin.reports.student-product-orders');
 
     // Product Management routes
     Volt::route('products', 'admin.products.product-list')->name('products.index');

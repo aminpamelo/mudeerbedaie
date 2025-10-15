@@ -29,12 +29,15 @@ class TikTokOrderProcessor
 
     protected array $productMappings;
 
-    public function __construct(Platform $platform, PlatformAccount $account, array $fieldMapping, array $productMappings)
+    protected array $packageMappings;
+
+    public function __construct(Platform $platform, PlatformAccount $account, array $fieldMapping, array $productMappings, array $packageMappings = [])
     {
         $this->platform = $platform;
         $this->account = $account;
         $this->fieldMapping = $fieldMapping;
         $this->productMappings = $productMappings;
+        $this->packageMappings = $packageMappings;
     }
 
     /**
@@ -74,6 +77,9 @@ class TikTokOrderProcessor
             // Check for package matches
             $packagePurchase = $this->detectAndCreatePackagePurchase($productOrder, $productOrderItems);
 
+            // Deduct stock if order is already shipped/delivered (imported orders)
+            $this->deductStockForShippedOrder($productOrder);
+
             // Update SKU mapping usage statistics
             $this->updateSkuMappingUsage($mappedData);
 
@@ -103,15 +109,45 @@ class TikTokOrderProcessor
         // Parse and clean data
         $mapped = $this->parseOrderData($mapped);
 
-        // Apply product mapping
+        // Apply package or product mapping
         if (isset($mapped['product_name'])) {
             $productName = trim($mapped['product_name']);
-            if (isset($this->productMappings[$productName])) {
+
+            \Log::debug('TikTok: Checking mappings for product', [
+                'product_name' => $productName,
+                'has_package_mappings' => ! empty($this->packageMappings),
+                'package_mapping_keys' => array_keys($this->packageMappings),
+                'has_product_mappings' => ! empty($this->productMappings),
+            ]);
+
+            // Check for package mapping first (higher priority)
+            if (isset($this->packageMappings[$productName])) {
+                $mapping = $this->packageMappings[$productName];
+                $mapped['internal_package_id'] = $mapping['package_id'];
+                $mapped['internal_package_name'] = $mapping['package_name'];
+
+                \Log::info('TikTok: Package mapping FOUND and APPLIED', [
+                    'product_name' => $productName,
+                    'internal_package_id' => $mapped['internal_package_id'],
+                    'internal_package_name' => $mapped['internal_package_name'],
+                ]);
+            }
+            // Then check for product mapping
+            elseif (isset($this->productMappings[$productName])) {
                 $mapping = $this->productMappings[$productName];
                 $mapped['internal_product'] = Product::find($mapping['product_id']);
                 if (isset($mapping['variant_id'])) {
                     $mapped['internal_variant'] = ProductVariant::find($mapping['variant_id']);
                 }
+
+                \Log::debug('TikTok: Product mapping applied', [
+                    'product_name' => $productName,
+                    'product_id' => $mapping['product_id'],
+                ]);
+            } else {
+                \Log::warning('TikTok: NO mapping found for product', [
+                    'product_name' => $productName,
+                ]);
             }
         }
 
@@ -480,13 +516,13 @@ class TikTokOrderProcessor
     }
 
     /**
-     * Create product order items
+     * Create or update product order items (smart update logic)
+     * - Updates existing items that match by platform_sku
+     * - Creates new items that don't exist
+     * - Preserves stock movement references
      */
     protected function createProductOrderItems(ProductOrder $productOrder, array $mappedData): array
     {
-        // Remove existing items for this order
-        $productOrder->items()->delete();
-
         $items = [];
 
         // For TikTok, each CSV row represents one order item
@@ -494,20 +530,22 @@ class TikTokOrderProcessor
         $subtotalAfterDiscount = (float) ($mappedData['sku_subtotal_after_discount'] ?? 0);
         $unitPrice = $quantity > 0 ? $subtotalAfterDiscount / $quantity : 0;
 
+        $platformSku = $mappedData['sku'] ?? $mappedData['product_name'];
+
         $itemData = [
             'order_id' => $productOrder->id,
 
             // Standard product fields
             'product_name' => $mappedData['product_name'],
             'variant_name' => $mappedData['variation'] ?? null,
-            'sku' => $mappedData['sku'] ?? $mappedData['product_name'],
+            'sku' => $platformSku,
             'quantity_ordered' => $quantity,
             'returned_quantity' => (int) ($mappedData['returned_quantity'] ?? 0),
             'unit_price' => $unitPrice,
             'total_price' => $subtotalAfterDiscount,
 
             // Platform-specific fields
-            'platform_sku' => $mappedData['sku'] ?? $mappedData['product_name'],
+            'platform_sku' => $platformSku,
             'platform_product_name' => $mappedData['product_name'],
             'platform_variation_name' => $mappedData['variation'] ?? null,
             'platform_category' => $mappedData['product_category'] ?? null,
@@ -521,6 +559,9 @@ class TikTokOrderProcessor
             'fulfillment_status' => $this->mapFulfillmentStatus($mappedData),
             'item_shipped_at' => $mappedData['shipped_time'] ?? null,
             'item_delivered_at' => $mappedData['delivered_time'] ?? null,
+
+            // Assign default warehouse for stock tracking
+            'warehouse_id' => $this->getDefaultWarehouse()?->id,
 
             // Metadata
             'item_metadata' => $mappedData,
@@ -536,9 +577,272 @@ class TikTokOrderProcessor
             $itemData['product_variant_id'] = $mappedData['internal_variant']->id;
         }
 
-        $items[] = ProductOrderItem::create($itemData);
+        // Link to internal package if mapped
+        if (isset($mappedData['internal_package_id'])) {
+            $itemData['package_id'] = $mappedData['internal_package_id'];
+
+            \Log::info('TikTok: Setting package_id on order item', [
+                'order_id' => $productOrder->id,
+                'package_id' => $itemData['package_id'],
+                'product_name' => $mappedData['product_name'] ?? 'N/A',
+            ]);
+        }
+
+        // Smart update: Find existing item by platform_sku or create new
+        $existingItem = $productOrder->items()
+            ->where('platform_sku', $platformSku)
+            ->first();
+
+        if ($existingItem) {
+            // Update existing item to preserve ID and stock movement references
+            $existingItem->update($itemData);
+            $items[] = $existingItem;
+
+            \Log::info('TikTok: Updated existing order item', [
+                'order_id' => $productOrder->id,
+                'item_id' => $existingItem->id,
+                'platform_sku' => $platformSku,
+            ]);
+        } else {
+            // Create new item
+            $newItem = ProductOrderItem::create($itemData);
+            $items[] = $newItem;
+
+            \Log::info('TikTok: Created new order item', [
+                'order_id' => $productOrder->id,
+                'item_id' => $newItem->id,
+                'platform_sku' => $platformSku,
+            ]);
+        }
 
         return $items;
+    }
+
+    /**
+     * Get the default warehouse for stock management
+     */
+    protected function getDefaultWarehouse(): ?\App\Models\Warehouse
+    {
+        return \App\Models\Warehouse::where('is_default', true)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
+     * Deduct stock for orders that are already shipped/delivered when imported
+     * Validates stock deduction PER ITEM to prevent double deduction on re-imports
+     */
+    protected function deductStockForShippedOrder(\App\Models\ProductOrder $order): void
+    {
+        \Log::info('DEDUCT STOCK METHOD CALLED', [
+            'order_id' => $order->id,
+            'status' => $order->status,
+        ]);
+
+        // Only process orders with shipped or delivered status
+        if (! in_array($order->status, ['shipped', 'delivered'])) {
+            \Log::info('Skipping stock deduction - order not shipped/delivered', [
+                'order_id' => $order->id,
+                'status' => $order->status,
+            ]);
+
+            return;
+        }
+
+        // Refresh the order to load items relationship
+        $order->load('items');
+
+        \Log::info('Starting stock deduction validation for imported order', [
+            'order_id' => $order->id,
+            'items_count' => $order->items->count(),
+        ]);
+
+        // Deduct stock for each item (with per-item validation)
+        foreach ($order->items as $item) {
+            // Skip items without warehouse assignment
+            if (! $item->warehouse_id) {
+                \Log::warning('Cannot deduct stock - no warehouse assigned', [
+                    'order_id' => $order->id,
+                    'item_id' => $item->id,
+                    'product_id' => $item->product_id,
+                ]);
+
+                continue;
+            }
+
+            // Handle package items - deduct stock for all products in the package
+            if (! $item->product_id && $item->package_id) {
+                \Log::info('Item has package_id - expanding to package products', [
+                    'order_id' => $order->id,
+                    'item_id' => $item->id,
+                    'package_id' => $item->package_id,
+                ]);
+
+                $package = \App\Models\Package::with('products')->find($item->package_id);
+
+                if ($package && $package->products->count() > 0) {
+                    foreach ($package->products as $product) {
+                        $this->deductStockForProductWithValidation(
+                            $item, // Pass the item for per-item validation
+                            $product->id, // Product ID from the product itself
+                            $product->pivot->product_variant_id, // Variant ID from pivot
+                            $item->warehouse_id,
+                            $product->pivot->quantity * $item->quantity_ordered, // Quantity from pivot
+                            $order,
+                            "Package item: {$item->product_name} (Product: {$product->name})"
+                        );
+                    }
+                } else {
+                    \Log::warning('Package has no products - cannot deduct stock', [
+                        'order_id' => $order->id,
+                        'package_id' => $item->package_id,
+                    ]);
+                }
+
+                continue;
+            }
+
+            // Skip items without product assignment
+            if (! $item->product_id) {
+                \Log::warning('Item has neither product_id nor package_id - skipping stock deduction', [
+                    'order_id' => $order->id,
+                    'item_id' => $item->id,
+                ]);
+
+                continue;
+            }
+
+            // Deduct stock for regular product item with per-item validation
+            $this->deductStockForProductWithValidation(
+                $item,
+                $item->product_id,
+                $item->product_variant_id,
+                $item->warehouse_id,
+                $item->quantity_ordered,
+                $order,
+                "Order item: {$item->product_name}"
+            );
+        }
+    }
+
+    /**
+     * Deduct stock for a product with per-item validation
+     * Checks if stock was already deducted for THIS SPECIFIC ITEM
+     */
+    protected function deductStockForProductWithValidation(
+        ProductOrderItem $item,
+        int $productId,
+        ?int $variantId,
+        int $warehouseId,
+        float $quantity,
+        \App\Models\ProductOrder $order,
+        string $itemDescription
+    ): void {
+        // Check if stock has already been deducted for THIS SPECIFIC ITEM
+        $existingMovement = \App\Models\StockMovement::where('reference_type', 'App\\Models\\ProductOrderItem')
+            ->where('reference_id', $item->id)
+            ->where('product_id', $productId)
+            ->where('product_variant_id', $variantId)
+            ->where('warehouse_id', $warehouseId)
+            ->where('type', 'out')
+            ->first();
+
+        if ($existingMovement) {
+            // Stock already deducted for this item, skip
+            \Log::info('Skipping stock deduction - already deducted for this item', [
+                'order_id' => $order->id,
+                'item_id' => $item->id,
+                'product_id' => $productId,
+                'movement_id' => $existingMovement->id,
+            ]);
+
+            return;
+        }
+
+        // Deduct stock for this item
+        $this->deductStockForProduct(
+            $item, // Pass item for reference tracking
+            $productId,
+            $variantId,
+            $warehouseId,
+            $quantity,
+            $order,
+            $itemDescription
+        );
+    }
+
+    /**
+     * Deduct stock for a single product
+     * References the specific order ITEM for accurate tracking
+     */
+    protected function deductStockForProduct(
+        ProductOrderItem $item,
+        int $productId,
+        ?int $variantId,
+        int $warehouseId,
+        float $quantity,
+        \App\Models\ProductOrder $order,
+        string $itemDescription
+    ): void {
+        // Find or create stock level record
+        $stockLevel = \App\Models\StockLevel::firstOrCreate([
+            'product_id' => $productId,
+            'product_variant_id' => $variantId,
+            'warehouse_id' => $warehouseId,
+        ], [
+            'quantity' => 0,
+            'reserved_quantity' => 0,
+            'available_quantity' => 0,
+            'average_cost' => 0,
+        ]);
+
+        $quantityBefore = $stockLevel->quantity;
+        $quantityAfter = $quantityBefore - $quantity;
+
+        // Update stock level (allow negative quantities)
+        $stockLevel->update([
+            'quantity' => $quantityAfter,
+            'available_quantity' => $stockLevel->available_quantity - $quantity,
+            'last_movement_at' => now(),
+        ]);
+
+        // Log warning if stock goes negative
+        if ($quantityAfter < 0) {
+            \Log::warning('Stock level is now NEGATIVE after import', [
+                'order_id' => $order->id,
+                'item_id' => $item->id,
+                'product_id' => $productId,
+                'warehouse_id' => $warehouseId,
+                'quantity_before' => $quantityBefore,
+                'quantity_after' => $quantityAfter,
+                'shortage' => abs($quantityAfter),
+            ]);
+        }
+
+        // Create stock movement record - REFERENCE THE ITEM, NOT THE ORDER
+        \App\Models\StockMovement::create([
+            'product_id' => $productId,
+            'product_variant_id' => $variantId,
+            'warehouse_id' => $warehouseId,
+            'type' => 'out',
+            'quantity' => -$quantity,
+            'quantity_before' => $quantityBefore,
+            'quantity_after' => $quantityAfter,
+            'unit_cost' => 0,
+            'reference_type' => 'App\\Models\\ProductOrderItem', // Reference ITEM not Order
+            'reference_id' => $item->id, // Use ITEM ID for accurate tracking
+            'notes' => "Stock deducted: Imported order (Order #{$order->order_number}, Item #{$item->id}) - {$itemDescription}".
+                ($quantityAfter < 0 ? ' [WARNING: Stock is now NEGATIVE by '.abs($quantityAfter).' units]' : ''),
+            'created_by' => auth()->id(),
+        ]);
+
+        \Log::info('Stock movement created for order item', [
+            'order_id' => $order->id,
+            'item_id' => $item->id,
+            'product_id' => $productId,
+            'quantity' => -$quantity,
+            'description' => $itemDescription,
+        ]);
     }
 
     /**

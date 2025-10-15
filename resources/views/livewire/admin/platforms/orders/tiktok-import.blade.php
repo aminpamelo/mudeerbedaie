@@ -7,9 +7,7 @@ use App\Models\Platform;
 use App\Models\PlatformAccount;
 use App\Models\PlatformSkuMapping;
 use App\Models\Product;
-use App\Models\ProductOrder;
 use App\Services\TikTokOrderProcessor;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Volt\Component;
@@ -64,6 +62,15 @@ new class extends Component
     public $product_mappings = [];
 
     public $package_mappings = [];
+
+    // Package mapping modal state
+    public $showPackageMappingModal = false;
+
+    public $mappingProductName = '';
+
+    public $packageSearchQuery = '';
+
+    public $selectedPackageId = null;
 
     public $preview_data = [];
 
@@ -475,14 +482,30 @@ new class extends Component
 
             // Remove from unmapped list
             $this->unmapped_skus = array_diff($this->unmapped_skus, [$productName]);
+
+            // Remove from suggested mappings to update UI
+            unset($this->suggested_mappings[$productName]);
+
+            // Dispatch success notification
+            $this->dispatch('product-mapped', [
+                'message' => "Product '{$productName}' mapped successfully!",
+            ]);
         }
     }
 
     public function unmapProduct($productName)
     {
+        // Get the mapping before removing it
+        $mapping = $this->product_mappings[$productName] ?? null;
+
         unset($this->product_mappings[$productName]);
         if (! in_array($productName, $this->unmapped_skus)) {
             $this->unmapped_skus[] = $productName;
+        }
+
+        // Restore to suggested mappings if it was confirmed
+        if ($mapping && isset($mapping['product_id'])) {
+            $this->suggested_mappings[$productName] = $mapping;
         }
     }
 
@@ -517,15 +540,72 @@ new class extends Component
             // Remove from unmapped list and product mappings
             $this->unmapped_skus = array_diff($this->unmapped_skus, [$productName]);
             unset($this->product_mappings[$productName]);
+
+            // Remove from suggested mappings to update UI
+            unset($this->suggested_package_mappings[$productName]);
+
+            // Dispatch success notification
+            $this->dispatch('package-mapped', [
+                'message' => "Package '{$productName}' mapped successfully!",
+            ]);
         }
     }
 
     public function unmapPackage($productName)
     {
+        // Get the mapping before removing it
+        $mapping = $this->package_mappings[$productName] ?? null;
+
         unset($this->package_mappings[$productName]);
         if (! in_array($productName, $this->unmapped_skus)) {
             $this->unmapped_skus[] = $productName;
         }
+
+        // Restore to suggested mappings if it was confirmed
+        if ($mapping && isset($mapping['package_id'])) {
+            $this->suggested_package_mappings[$productName] = $mapping;
+        }
+    }
+
+    public function openPackageMappingModal($productName)
+    {
+        $this->mappingProductName = $productName;
+        $this->packageSearchQuery = '';
+        $this->selectedPackageId = null;
+        $this->showPackageMappingModal = true;
+    }
+
+    public function closePackageMappingModal()
+    {
+        $this->showPackageMappingModal = false;
+        $this->mappingProductName = '';
+        $this->packageSearchQuery = '';
+        $this->selectedPackageId = null;
+    }
+
+    public function confirmPackageMapping()
+    {
+        if ($this->selectedPackageId && $this->mappingProductName) {
+            $this->mapPackage($this->mappingProductName, $this->selectedPackageId);
+            $this->closePackageMappingModal();
+
+            $this->dispatch('package-mapped', [
+                'message' => 'Package mapped successfully!',
+            ]);
+        }
+    }
+
+    public function getAvailablePackagesProperty()
+    {
+        $query = Package::with(['products', 'courses'])
+            ->where('status', 'active')
+            ->orderBy('name');
+
+        if ($this->packageSearchQuery) {
+            $query->where('name', 'like', "%{$this->packageSearchQuery}%");
+        }
+
+        return $query->limit(20)->get();
     }
 
     public function createProductFromSku($productName)
@@ -790,7 +870,8 @@ new class extends Component
             $this->platform,
             $account,
             $this->field_mapping,
-            $this->product_mappings
+            $this->product_mappings,
+            $this->package_mappings
         );
 
         $result = $processor->processOrderRow($orderData);
@@ -1119,11 +1200,11 @@ new class extends Component
                                 </flux:text>
                             </div>
                             <div class="flex gap-2">
-                                <flux:button size="sm" variant="primary" wire:click="mapProduct('{{ $tikTokProduct }}', {{ $suggestion['product_id'] }})">
+                                <flux:button size="sm" variant="primary" wire:click="mapProduct({{ json_encode($tikTokProduct) }}, {{ $suggestion['product_id'] }})">
                                     <flux:icon name="check" class="w-4 h-4 mr-1" />
                                     Confirm
                                 </flux:button>
-                                <flux:button size="sm" variant="ghost" wire:click="unmapProduct('{{ $tikTokProduct }}')">
+                                <flux:button size="sm" variant="ghost" wire:click="unmapProduct({{ json_encode($tikTokProduct) }})">
                                     <flux:icon name="x-mark" class="w-4 h-4" />
                                 </flux:button>
                             </div>
@@ -1155,11 +1236,11 @@ new class extends Component
                                 </flux:text>
                             </div>
                             <div class="flex gap-2">
-                                <flux:button size="sm" variant="primary" wire:click="mapPackage('{{ $tikTokProduct }}', {{ $suggestion['package_id'] }})">
+                                <flux:button size="sm" variant="primary" wire:click="mapPackage({{ json_encode($tikTokProduct) }}, {{ $suggestion['package_id'] }})">
                                     <flux:icon name="check" class="w-4 h-4 mr-1" />
                                     Confirm
                                 </flux:button>
-                                <flux:button size="sm" variant="ghost" wire:click="unmapPackage('{{ $tikTokProduct }}')">
+                                <flux:button size="sm" variant="ghost" wire:click="unmapPackage({{ json_encode($tikTokProduct) }})">
                                     <flux:icon name="x-mark" class="w-4 h-4" />
                                 </flux:button>
                             </div>
@@ -1187,13 +1268,19 @@ new class extends Component
                                 <flux:text size="xs" class="text-amber-600">No automatic match found</flux:text>
                             </div>
                             <div class="flex gap-2">
-                                <flux:button size="sm" variant="outline" wire:click="createProductFromSku('{{ $sku }}')">
+                                <flux:button size="sm" variant="primary" wire:click="openPackageMappingModal({{ json_encode($sku) }})">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="cube-transparent" class="w-4 h-4 mr-1" />
+                                        Map to Package
+                                    </div>
+                                </flux:button>
+                                <flux:button size="sm" variant="outline" wire:click="createProductFromSku({{ json_encode($sku) }})">
                                     <div class="flex items-center justify-center">
                                         <flux:icon name="plus" class="w-4 h-4 mr-1" />
                                         Create Product
                                     </div>
                                 </flux:button>
-                                <flux:button size="sm" variant="ghost" wire:click="skipProduct('{{ $sku }}')">
+                                <flux:button size="sm" variant="ghost" wire:click="skipProduct({{ json_encode($sku) }})">
                                     <flux:icon name="forward" class="w-4 h-4 mr-1" />
                                     Skip
                                 </flux:button>
@@ -1508,5 +1595,82 @@ new class extends Component
             </div>
         @endif
     </div>
+    @endif
+
+    {{-- Package Mapping Modal --}}
+    @if($showPackageMappingModal)
+        <flux:modal wire:model="showPackageMappingModal" title="Map to Package">
+            <div class="space-y-4">
+                <div>
+                    <flux:text class="font-medium mb-2">TikTok Product:</flux:text>
+                    <flux:text class="text-zinc-600">{{ $mappingProductName }}</flux:text>
+                </div>
+
+                <div>
+                    <flux:input
+                        wire:model.live.debounce.300ms="packageSearchQuery"
+                        placeholder="Search packages..."
+                        label="Search Packages"
+                    />
+                </div>
+
+                <div class="max-h-96 overflow-y-auto space-y-2">
+                    @forelse($this->availablePackages as $package)
+                        <div
+                            wire:click="$set('selectedPackageId', {{ $package->id }})"
+                            class="p-3 rounded-lg border cursor-pointer transition-colors {{ $selectedPackageId === $package->id ? 'bg-purple-50 border-purple-500' : 'bg-white border-zinc-200 hover:bg-zinc-50' }}"
+                        >
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        @if($selectedPackageId === $package->id)
+                                            <flux:icon name="check-circle" class="w-5 h-5 text-purple-600" />
+                                        @endif
+                                        <flux:text class="font-medium">{{ $package->name }}</flux:text>
+                                    </div>
+                                    <flux:text size="sm" class="text-zinc-600">
+                                        {{ $package->getItemCount() }} items
+                                        @if($package->base_price)
+                                            • RM {{ number_format($package->base_price, 2) }}
+                                        @endif
+                                    </flux:text>
+                                    @if($package->description)
+                                        <flux:text size="xs" class="text-zinc-500 mt-1">
+                                            {{ \Str::limit($package->description, 100) }}
+                                        </flux:text>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-8">
+                            <flux:icon name="cube-transparent" class="w-12 h-12 text-zinc-400 mx-auto mb-2" />
+                            <flux:text class="text-zinc-600">
+                                @if($packageSearchQuery)
+                                    No packages found matching "{{ $packageSearchQuery }}"
+                                @else
+                                    No active packages available
+                                @endif
+                            </flux:text>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
+            <x-slot name="footer">
+                <div class="flex justify-end gap-2">
+                    <flux:button wire:click="closePackageMappingModal" variant="ghost">
+                        Cancel
+                    </flux:button>
+                    <flux:button
+                        wire:click="confirmPackageMapping"
+                        variant="primary"
+                        :disabled="!$selectedPackageId"
+                    >
+                        Confirm Mapping
+                    </flux:button>
+                </div>
+            </x-slot>
+        </flux:modal>
     @endif
 </div>

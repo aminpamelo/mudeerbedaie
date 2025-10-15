@@ -1,13 +1,12 @@
 @import 'tailwindcss';
 @import '../../vendor/livewire/flux/dist/flux.css';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
 @source '../../vendor/livewire/flux/stubs/**/*.blade.php';
-
-/* Disable system dark mode preference but keep dark: classes working (they just won't activate) */
-@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
@@ -45,18 +44,6 @@
     ::backdrop,
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
-    }
-
-    /* Force light mode - completely disable system dark mode preferences */
-    @media (prefers-color-scheme: dark) {
-        :root {
-            color-scheme: light !important;
-        }
-    }
-
-    /* Ensure body and html always use light mode colors */
-    html, body {
-        color-scheme: light !important;
     }
 }
 

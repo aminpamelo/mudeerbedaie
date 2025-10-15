@@ -5,12 +5,16 @@ use App\Models\ProductCategory;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public $search = '';
+
     public $categoryFilter = '';
+
     public $statusFilter = '';
+
     public $typeFilter = '';
 
     public function with(): array
@@ -18,10 +22,10 @@ new class extends Component {
         return [
             'products' => Product::query()
                 ->with(['category', 'stockLevels', 'media'])
-                ->when($this->search, fn($query) => $query->search($this->search))
-                ->when($this->categoryFilter, fn($query) => $query->where('category_id', $this->categoryFilter))
-                ->when($this->statusFilter, fn($query) => $query->where('status', $this->statusFilter))
-                ->when($this->typeFilter, fn($query) => $query->where('type', $this->typeFilter))
+                ->when($this->search, fn ($query) => $query->search($this->search))
+                ->when($this->categoryFilter, fn ($query) => $query->where('category_id', $this->categoryFilter))
+                ->when($this->statusFilter, fn ($query) => $query->where('status', $this->statusFilter))
+                ->when($this->typeFilter, fn ($query) => $query->where('type', $this->typeFilter))
                 ->latest()
                 ->paginate(15),
             'categories' => ProductCategory::active()->ordered()->get(),
@@ -37,7 +41,7 @@ new class extends Component {
 
     public function toggleStatus(Product $product): void
     {
-        $newStatus = match($product->status) {
+        $newStatus = match ($product->status) {
             'active' => 'inactive',
             'inactive' => 'active',
             'draft' => 'active',
@@ -101,7 +105,17 @@ new class extends Component {
     <!-- Products Table -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="min-w-full border-collapse border-0">
+            <table class="min-w-full border-collapse border-0 table-fixed">
+                <colgroup>
+                    <col class="w-[35%]"> <!-- Product name -->
+                    <col class="w-[12%]"> <!-- Category -->
+                    <col class="w-[10%]"> <!-- SKU -->
+                    <col class="w-[8%]"> <!-- Price -->
+                    <col class="w-[10%]"> <!-- Stock -->
+                    <col class="w-[8%]"> <!-- Status -->
+                    <col class="w-[8%]"> <!-- Type -->
+                    <col class="w-[9%]"> <!-- Actions -->
+                </colgroup>
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Product</th>
@@ -120,7 +134,7 @@ new class extends Component {
                 <tbody class="bg-white">
                     @forelse($products as $product)
                         <tr wire:key="product-{{ $product->id }}" class="border-b border-gray-200 hover:bg-gray-50">
-                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
+                        <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
                             <div class="flex items-center space-x-3">
                                 @if($product->primaryImage)
                                     <img src="{{ $product->primaryImage->url }}"
@@ -131,9 +145,11 @@ new class extends Component {
                                         <flux:icon name="photo" class="h-5 w-5 text-gray-400" />
                                     </div>
                                 @endif
-                                <div>
-                                    <div class="font-medium text-gray-900">{{ $product->name }}</div>
-                                    <div class="text-sm text-gray-500">{{ $product->short_description }}</div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-medium text-gray-900 break-words">{{ $product->name }}</div>
+                                    @if($product->short_description)
+                                        <div class="text-sm text-gray-500 break-words line-clamp-2">{{ $product->short_description }}</div>
+                                    @endif
                                 </div>
                             </div>
                         </td>
@@ -167,32 +183,29 @@ new class extends Component {
                                 {{ ucfirst($product->type) }}
                             </flux:badge>
                         </td>
-                        <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                            <div class="flex items-center justify-end space-x-2">
+                        <td class="relative py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                            <div class="flex items-center justify-end gap-1">
                                 <flux:button
                                     href="{{ route('products.show', $product) }}"
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
                                     icon="eye"
-                                >
-                                    View
-                                </flux:button>
+                                    square
+                                />
                                 <flux:button
                                     href="{{ route('products.edit', $product) }}"
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
                                     icon="pencil"
-                                >
-                                    Edit
-                                </flux:button>
+                                    square
+                                />
                                 <flux:button
                                     wire:click="toggleStatus({{ $product->id }})"
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
                                     :icon="$product->isActive() ? 'pause' : 'play'"
-                                >
-                                    {{ $product->isActive() ? 'Deactivate' : 'Activate' }}
-                                </flux:button>
+                                    square
+                                />
                             </div>
                         </td>
                     </tr>

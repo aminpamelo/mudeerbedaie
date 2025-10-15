@@ -112,7 +112,12 @@ new class extends Component {
                         <tr wire:key="warehouse-{{ $warehouse->id }}" class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                             <div>
-                                <div class="font-medium text-gray-900">{{ $warehouse->name }}</div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-gray-900">{{ $warehouse->name }}</span>
+                                    @if($warehouse->is_default)
+                                        <flux:badge variant="primary" size="sm" icon="star">Default</flux:badge>
+                                    @endif
+                                </div>
                                 <div class="text-gray-500">{{ $warehouse->code }}</div>
                             </div>
                         </td>

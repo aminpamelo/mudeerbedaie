@@ -27,6 +27,8 @@ new class extends Component
 
     public $status = 'active';
 
+    public $is_default = false;
+
     // Address fields
     public $street = '';
 
@@ -50,6 +52,7 @@ new class extends Component
         $this->manager_email = $warehouse->manager_email;
         $this->manager_phone = $warehouse->manager_phone;
         $this->status = $warehouse->status;
+        $this->is_default = $warehouse->is_default;
 
         // Load address fields
         if ($warehouse->address) {
@@ -79,6 +82,7 @@ new class extends Component
             'manager_email' => 'nullable|email|max:255',
             'manager_phone' => 'nullable|string|max:20',
             'status' => 'required|in:active,inactive',
+            'is_default' => 'boolean',
             'street' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
             'state' => 'nullable|string|max:255',
@@ -130,6 +134,8 @@ new class extends Component
             'manager_email' => $this->manager_email,
             'manager_phone' => $this->manager_phone,
             'status' => $this->status,
+            'is_active' => $this->status === 'active',
+            'is_default' => $this->is_default,
             'address' => $address ?: null,
         ]);
 
@@ -222,6 +228,17 @@ new class extends Component
                         <flux:select.option value="inactive">Inactive</flux:select.option>
                     </flux:select>
                     <flux:error name="status" />
+                </flux:field>
+
+                <flux:field>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <flux:label>Default Warehouse</flux:label>
+                            <flux:description>Set as the primary warehouse for new stock</flux:description>
+                        </div>
+                        <flux:switch wire:model="is_default" />
+                    </div>
+                    <flux:error name="is_default" />
                 </flux:field>
             </div>
 

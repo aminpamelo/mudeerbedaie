@@ -1,25 +1,35 @@
 <?php
 
-use App\Models\Enrollment;
 use App\AcademicStatus;
+use App\Models\Enrollment;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Enrollment $enrollment;
-    
+
     public $academic_status = '';
+
+    public $enrolled_by = '';
+
     public $enrollment_date = '';
+
     public $start_date = '';
+
     public $end_date = '';
+
     public $completion_date = '';
+
     public $enrollment_fee = '';
+
     public $notes = '';
 
     public function mount(): void
     {
         $this->enrollment->load(['student.user', 'course', 'enrolledBy']);
-        
+
         $this->academic_status = $this->enrollment->academic_status->value;
+        $this->enrolled_by = $this->enrollment->enrolled_by;
         $this->enrollment_date = $this->enrollment->enrollment_date->format('Y-m-d');
         $this->start_date = $this->enrollment->start_date?->format('Y-m-d') ?? '';
         $this->end_date = $this->enrollment->end_date?->format('Y-m-d') ?? '';
@@ -28,10 +38,20 @@ new class extends Component {
         $this->notes = $this->enrollment->notes ?? '';
     }
 
+    public function with(): array
+    {
+        return [
+            'pics' => \App\Models\User::whereIn('role', ['admin', 'staff'])
+                ->orderBy('name')
+                ->get(),
+        ];
+    }
+
     public function update(): void
     {
         $this->validate([
             'academic_status' => 'required|in:active,completed,withdrawn,suspended',
+            'enrolled_by' => 'required|exists:users,id',
             'enrollment_date' => 'required|date',
             'start_date' => 'nullable|date|after_or_equal:enrollment_date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
@@ -42,7 +62,7 @@ new class extends Component {
 
         // Auto-set completion date if academic status is changed to completed
         $completionDate = null;
-        if ($this->academic_status === 'completed' && !$this->completion_date) {
+        if ($this->academic_status === 'completed' && ! $this->completion_date) {
             $completionDate = today();
         } elseif ($this->completion_date) {
             $completionDate = $this->completion_date;
@@ -50,6 +70,7 @@ new class extends Component {
 
         $this->enrollment->update([
             'academic_status' => AcademicStatus::from($this->academic_status),
+            'enrolled_by' => $this->enrolled_by,
             'enrollment_date' => $this->enrollment_date,
             'start_date' => $this->start_date ?: null,
             'end_date' => $this->end_date ?: null,
@@ -59,7 +80,7 @@ new class extends Component {
         ]);
 
         session()->flash('success', 'Enrollment updated successfully!');
-        
+
         $this->redirect(route('enrollments.show', $this->enrollment));
     }
 
@@ -127,25 +148,31 @@ new class extends Component {
         <!-- Enrollment Status and Dates -->
         <flux:card>
             <flux:heading size="lg">Enrollment Details</flux:heading>
-            
+
             <div class="mt-6 space-y-6">
-                <div class="flex space-x-4">
-                    <flux:select wire:model.live="academic_status" label="Academic Status" required class="flex-1">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <flux:select wire:model.live="academic_status" label="Academic Status" required>
                         <flux:select.option value="active">Active</flux:select.option>
                         <flux:select.option value="completed">Completed</flux:select.option>
                         <flux:select.option value="withdrawn">Withdrawn</flux:select.option>
                         <flux:select.option value="suspended">Suspended</flux:select.option>
                         <flux:select.option value="pending">Pending</flux:select.option>
                     </flux:select>
-                    
-                    <div class="flex space-x-2 pt-6">
-                        <flux:button size="sm" variant="outline" wire:click="markAsCompleted">
-                            Mark Completed
-                        </flux:button>
-                        <flux:button size="sm" variant="outline" wire:click="markAsDropped">
-                            Mark Dropped
-                        </flux:button>
-                    </div>
+
+                    <flux:select wire:model="enrolled_by" label="Person in Charge (PIC)" required>
+                        @foreach($pics as $pic)
+                            <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                </div>
+
+                <div class="flex space-x-2">
+                    <flux:button size="sm" variant="outline" wire:click="markAsCompleted">
+                        Mark Completed
+                    </flux:button>
+                    <flux:button size="sm" variant="outline" wire:click="markAsDropped">
+                        Mark Dropped
+                    </flux:button>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

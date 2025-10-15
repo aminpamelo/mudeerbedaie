@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ClassModel extends Model
 {
+    use HasFactory;
+
     protected $table = 'classes';
 
     protected $fillable = [
@@ -30,6 +33,13 @@ class ClassModel extends Model
         'commission_value',
         'status',
         'notes',
+        'enable_document_shipment',
+        'shipment_frequency',
+        'shipment_start_date',
+        'shipment_product_id',
+        'shipment_warehouse_id',
+        'shipment_quantity_per_student',
+        'shipment_notes',
     ];
 
     protected function casts(): array
@@ -38,6 +48,8 @@ class ClassModel extends Model
             'date_time' => 'datetime',
             'teacher_rate' => 'decimal:2',
             'commission_value' => 'decimal:2',
+            'enable_document_shipment' => 'boolean',
+            'shipment_start_date' => 'date',
         ];
     }
 
@@ -545,5 +557,68 @@ class ClassModel extends Model
     public function hasAssignedCertificates(): bool
     {
         return $this->certificates()->exists() || $this->course->certificates()->exists();
+    }
+
+    // Document Shipment relationships and methods
+
+    public function documentShipments(): HasMany
+    {
+        return $this->hasMany(ClassDocumentShipment::class, 'class_id');
+    }
+
+    public function shipmentProduct(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'shipment_product_id');
+    }
+
+    public function shipmentWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'shipment_warehouse_id');
+    }
+
+    public function hasDocumentShipment(): bool
+    {
+        return $this->enable_document_shipment === true;
+    }
+
+    public function getNextShipmentDate(): ?\Carbon\Carbon
+    {
+        if (! $this->enable_document_shipment || ! $this->shipment_start_date) {
+            return null;
+        }
+
+        $lastShipment = $this->documentShipments()->orderBy('period_end_date', 'desc')->first();
+
+        if (! $lastShipment) {
+            return $this->shipment_start_date;
+        }
+
+        return match ($this->shipment_frequency) {
+            'monthly' => $lastShipment->period_end_date->copy()->addMonth()->startOfMonth(),
+            'per_session' => null, // Handled per session
+            'one_time' => null, // Already shipped
+            default => null,
+        };
+    }
+
+    public function canGenerateShipment(\Carbon\Carbon $periodStart): bool
+    {
+        if (! $this->hasDocumentShipment()) {
+            return false;
+        }
+
+        // Check if shipment already exists for this period
+        return ! $this->documentShipments()
+            ->where('period_start_date', $periodStart->toDateString())
+            ->exists();
+    }
+
+    public function generateShipmentForPeriod(\Carbon\Carbon $periodStart, \Carbon\Carbon $periodEnd): ?ClassDocumentShipment
+    {
+        if (! $this->canGenerateShipment($periodStart)) {
+            return null;
+        }
+
+        return ClassDocumentShipment::createForClass($this, $periodStart, $periodEnd);
     }
 }

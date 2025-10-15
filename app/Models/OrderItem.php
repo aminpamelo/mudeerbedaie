@@ -53,12 +53,15 @@ class OrderItem extends Model
     // Create order item from Stripe line item
     public static function createFromStripeLineItem(Order $order, array $stripeLineItem): self
     {
+        $quantity = $stripeLineItem['quantity'] ?? 1;
+        $unitPrice = $stripeLineItem['amount'] / 100; // Convert from cents
+
         return self::create([
             'order_id' => $order->id,
             'description' => $stripeLineItem['description'] ?? 'Subscription charge',
-            'quantity' => $stripeLineItem['quantity'] ?? 1,
-            'unit_price' => $stripeLineItem['amount'] / 100, // Convert from cents
-            'total_price' => $stripeLineItem['amount'] / 100, // Same as unit price for subscriptions
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+            'total_price' => $unitPrice * $quantity, // Properly calculate total
             'stripe_line_item_id' => $stripeLineItem['id'] ?? null,
             'metadata' => [
                 'stripe_price_id' => $stripeLineItem['price']['id'] ?? null,

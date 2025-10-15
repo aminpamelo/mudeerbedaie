@@ -488,22 +488,28 @@ class Enrollment extends Model
             return collect([]);
         }
 
-        return WebhookEvent::where(function ($query) {
-            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(data, '$.data.object.id')) = ?", [$this->stripe_subscription_id])
-                ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(data, '$.data.object.subscription')) = ?", [$this->stripe_subscription_id])
-                ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(data, '$.object.subscription')) = ?", [$this->stripe_subscription_id]);
-        })
-            ->whereIn('type', [
-                'customer.subscription.created',
-                'customer.subscription.updated',
-                'customer.subscription.deleted',
-                'invoice.payment_succeeded',
-                'invoice.payment_failed',
-                'invoice.payment_action_required',
-            ])
+        // Get all relevant webhook events and filter in PHP for database compatibility
+        return WebhookEvent::whereIn('type', [
+            'customer.subscription.created',
+            'customer.subscription.updated',
+            'customer.subscription.deleted',
+            'invoice.payment_succeeded',
+            'invoice.payment_failed',
+            'invoice.payment_action_required',
+        ])
             ->orderBy('created_at', 'desc')
-            ->limit(20)
-            ->get();
+            ->limit(100) // Get more to ensure we catch all relevant events
+            ->get()
+            ->filter(function ($event) {
+                $data = is_string($event->data) ? json_decode($event->data, true) : $event->data;
+
+                // Check various paths where subscription ID might exist
+                return ($data['data']['object']['id'] ?? null) === $this->stripe_subscription_id
+                    || ($data['data']['object']['subscription'] ?? null) === $this->stripe_subscription_id
+                    || ($data['object']['subscription'] ?? null) === $this->stripe_subscription_id;
+            })
+            ->take(20)
+            ->values();
     }
 
     // Order-related utility methods

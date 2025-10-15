@@ -100,6 +100,11 @@ new class extends Component
                 default => ucfirst($warehouse->warehouse_type)
             } }}
         </flux:badge>
+        @if($warehouse->is_default)
+            <flux:badge variant="primary" size="lg" icon="star">
+                Default Warehouse
+            </flux:badge>
+        @endif
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">

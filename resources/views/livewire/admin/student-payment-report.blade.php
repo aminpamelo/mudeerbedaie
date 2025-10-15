@@ -216,8 +216,10 @@ new class extends Component {
                 }
 
                 $periodOrders = $studentOrders->filter(function($order) use ($period) {
+                    // Match orders where the billing period START date falls within the calendar month
+                    // This ensures each monthly payment is counted only once in the correct month
                     return $order->period_start >= $period['period_start'] &&
-                           $order->period_end <= $period['period_end'];
+                           $order->period_start <= $period['period_end'];
                 });
 
                 $paidOrders = $periodOrders->where('status', Order::STATUS_PAID);

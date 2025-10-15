@@ -165,6 +165,14 @@ class StockMovement extends Model
                     'url' => $this->reference_id ? route('admin.orders.show', $this->reference_id) : null,
                     'clickable' => true,
                 ],
+                'ClassDocumentShipment' => [
+                    'type' => 'shipment',
+                    'label' => 'ClassDocumentShipment #'.$this->reference_id,
+                    'variant' => 'info',
+                    'icon' => 'truck',
+                    'url' => $this->getClassDocumentShipmentUrl(),
+                    'clickable' => (bool) $this->getClassDocumentShipmentUrl(),
+                ],
                 'Purchase' => [
                     'type' => 'purchase',
                     'label' => 'Purchase #'.$this->reference_id,
@@ -245,5 +253,24 @@ class StockMovement extends Model
     public function scopeRecent($query, $days = 30)
     {
         return $query->where('created_at', '>=', now()->subDays($days));
+    }
+
+    /**
+     * Get the URL for ClassDocumentShipment reference
+     */
+    protected function getClassDocumentShipmentUrl(): ?string
+    {
+        if ($this->reference_type !== 'App\\Models\\ClassDocumentShipment' || ! $this->reference_id) {
+            return null;
+        }
+
+        // Get the shipment to retrieve the class_id
+        $shipment = \App\Models\ClassDocumentShipment::find($this->reference_id);
+
+        if (! $shipment || ! $shipment->class_id) {
+            return null;
+        }
+
+        return route('classes.show', ['class' => $shipment->class_id]).'?tab=shipments';
     }
 }

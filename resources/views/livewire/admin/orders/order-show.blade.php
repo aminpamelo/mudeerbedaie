@@ -122,6 +122,17 @@ new class extends Component
     private function deductStock(string $reason): void
     {
         foreach ($this->order->items as $item) {
+            // Skip items without warehouse assignment
+            if (! $item->warehouse_id) {
+                \Log::warning('Cannot deduct stock - no warehouse assigned', [
+                    'order_id' => $this->order->id,
+                    'item_id' => $item->id,
+                    'product_id' => $item->product_id,
+                ]);
+
+                continue;
+            }
+
             // Find or create stock level record
             $stockLevel = StockLevel::firstOrCreate(
                 [
@@ -138,14 +149,27 @@ new class extends Component
             );
 
             $quantityBefore = $stockLevel->quantity;
-            $quantityAfter = max(0, $quantityBefore - $item->quantity_ordered);
+            // Allow negative stock - don't use max(0, ...)
+            $quantityAfter = $quantityBefore - $item->quantity_ordered;
 
-            // Update stock level
+            // Update stock level (allow negative quantities)
             $stockLevel->update([
                 'quantity' => $quantityAfter,
-                'available_quantity' => max(0, $stockLevel->available_quantity - $item->quantity_ordered),
+                'available_quantity' => $stockLevel->available_quantity - $item->quantity_ordered,
                 'last_movement_at' => now(),
             ]);
+
+            // Log warning if stock goes negative
+            if ($quantityAfter < 0) {
+                \Log::warning('Stock level is now NEGATIVE', [
+                    'order_id' => $this->order->id,
+                    'product_id' => $item->product_id,
+                    'warehouse_id' => $item->warehouse_id,
+                    'quantity_before' => $quantityBefore,
+                    'quantity_after' => $quantityAfter,
+                    'shortage' => abs($quantityAfter),
+                ]);
+            }
 
             // Create stock movement record
             StockMovement::create([
@@ -159,7 +183,8 @@ new class extends Component
                 'unit_cost' => $item->unit_cost,
                 'reference_type' => 'App\\Models\\ProductOrder',
                 'reference_id' => $this->order->id,
-                'notes' => "Stock deducted: {$reason} (Order #{$this->order->order_number})",
+                'notes' => "Stock deducted: {$reason} (Order #{$this->order->order_number})".
+                    ($quantityAfter < 0 ? ' [WARNING: Stock is now NEGATIVE by '.abs($quantityAfter).' units]' : ''),
                 'created_by' => auth()->id(),
             ]);
         }

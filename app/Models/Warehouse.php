@@ -11,6 +11,15 @@ class Warehouse extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::saving(function ($warehouse) {
+            if ($warehouse->is_default) {
+                static::where('id', '!=', $warehouse->id)->update(['is_default' => false]);
+            }
+        });
+    }
+
     protected $fillable = [
         'name',
         'code',
@@ -175,5 +184,10 @@ class Warehouse extends Model
                         ->orWhere('agent_code', 'like', "%{$search}%");
                 });
         });
+    }
+
+    public static function getDefault(): ?self
+    {
+        return static::where('is_default', true)->where('is_active', true)->first();
     }
 }

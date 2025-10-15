@@ -1,43 +1,13 @@
 <?php
 
 use App\AcademicStatus;
-use App\Models\ClassModel;
 use App\Models\ClassStudent;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Student;
-use App\Models\Teacher;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
-
-// Helper function to create a teacher
-function createTeacher(): Teacher
-{
-    $user = User::factory()->create();
-
-    return Teacher::create([
-        'user_id' => $user->id,
-        'teacher_id' => Teacher::generateTeacherId(),
-        'academic_status' => AcademicStatus::ACTIVE,
-        'joined_at' => now(),
-    ]);
-}
-
-// Helper function to create a class
-function createClass(Course $course, Teacher $teacher, string $title = 'Test Class'): ClassModel
-{
-    return ClassModel::create([
-        'course_id' => $course->id,
-        'teacher_id' => $teacher->id,
-        'title' => $title,
-        'date_time' => now()->addDay(),
-        'duration_minutes' => 60,
-        'class_type' => 'group',
-        'academic_status' => AcademicStatus::ACTIVE,
-    ]);
-}
 
 test('enrollment can access available classes in course', function () {
     // Create test data

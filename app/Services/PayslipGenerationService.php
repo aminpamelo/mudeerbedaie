@@ -133,13 +133,16 @@ class PayslipGenerationService
     public function getAvailableMonthsForPayslips(): Collection
     {
         // Get months that have completed and verified sessions
-        $months = ClassSession::whereNotNull('verified_at')
+        $sessions = ClassSession::whereNotNull('verified_at')
             ->where('status', 'completed')
             ->whereNotNull('allowance_amount')
-            ->selectRaw('DATE_FORMAT(session_date, "%Y-%m") as month')
-            ->groupBy('month')
-            ->orderBy('month', 'desc')
-            ->pluck('month')
+            ->orderBy('session_date', 'desc')
+            ->get(['session_date']);
+
+        // Group by month using PHP instead of database-specific functions
+        $months = $sessions
+            ->map(fn ($session) => $session->session_date->format('Y-m'))
+            ->unique()
             ->map(function ($month) {
                 $carbon = Carbon::createFromFormat('Y-m', $month);
 
@@ -149,7 +152,8 @@ class PayslipGenerationService
                     'year' => $carbon->year,
                     'month_number' => $carbon->month,
                 ];
-            });
+            })
+            ->values();
 
         return $months;
     }

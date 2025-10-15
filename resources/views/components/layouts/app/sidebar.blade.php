@@ -3,8 +3,8 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white">
-        <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50">
+    <body class="min-h-screen bg-white dark:bg-zinc-900">
+        <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
             <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
             <a href="{{ route('dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
@@ -31,8 +31,6 @@
                 <flux:navlist.group :heading="__('Subscription Management')" class="grid">
                     <flux:navlist.item icon="clipboard-document-list" :href="route('orders.index')" :current="request()->routeIs('orders.*')" wire:navigate>{{ __('Orders') }}</flux:navlist.item>
                     <flux:navlist.item icon="credit-card" :href="route('admin.payments')" :current="request()->routeIs('admin.payments*')" wire:navigate>{{ __('Payment Dashboard') }}</flux:navlist.item>
-                    <flux:navlist.item icon="chart-bar" :href="route('admin.reports.subscriptions')" :current="request()->routeIs('admin.reports.subscriptions')" wire:navigate>{{ __('Subscription Reports') }}</flux:navlist.item>
-                    <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.student-payments')" :current="request()->routeIs('admin.reports.student-payments')" wire:navigate>{{ __('Student Payment Report') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group :heading="__('Product Management')" class="grid">
@@ -66,6 +64,13 @@
                     <flux:navlist.item icon="arrows-right-left" :href="route('platforms.sku-mappings.index')" :current="request()->routeIs('platforms.sku-mappings.*')" wire:navigate>{{ __('SKU Mappings') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-down-tray" :href="route('platforms.orders.import')" :current="request()->routeIs('platforms.orders.import')" wire:navigate>{{ __('Import Orders') }}</flux:navlist.item>
                     <flux:navlist.item icon="clock" :href="route('platforms.import-history')" :current="request()->routeIs('platforms.import-history')" wire:navigate>{{ __('Import History') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group :heading="__('Reports & Analytics')" class="grid">
+                    <flux:navlist.item icon="chart-bar" :href="route('admin.reports.packages-orders')" :current="request()->routeIs('admin.reports.packages-orders')" wire:navigate>{{ __('Package & Order Product Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="shopping-cart" :href="route('admin.reports.student-product-orders')" :current="request()->routeIs('admin.reports.student-product-orders')" wire:navigate>{{ __('Student Product Order Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chart-bar" :href="route('admin.reports.subscriptions')" :current="request()->routeIs('admin.reports.subscriptions')" wire:navigate>{{ __('Subscription Reports') }}</flux:navlist.item>
+                    <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.student-payments')" :current="request()->routeIs('admin.reports.student-payments')" wire:navigate>{{ __('Student Payment Report') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group 
@@ -242,15 +247,6 @@
         {{ $slot }}
 
         @fluxScripts
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                // Force light mode
-                if (typeof $flux !== 'undefined' && $flux.appearance) {
-                    $flux.appearance = 'light';
-                }
-                document.documentElement.classList.remove('dark');
-            });
-        </script>
         @stack('scripts')
     </body>
 </html>

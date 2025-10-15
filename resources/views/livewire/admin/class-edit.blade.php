@@ -31,6 +31,15 @@ new class extends Component {
     public $recurrence_pattern = 'weekly';
     public $start_date = '';
     public $end_date = '';
+
+    // Document shipment properties
+    public $enable_document_shipment = false;
+    public $shipment_frequency = 'monthly';
+    public $shipment_start_date = '';
+    public $shipment_product_id = null;
+    public $shipment_warehouse_id = null;
+    public $shipment_quantity_per_student = 1;
+    public $shipment_notes = '';
     
     public function mount(ClassModel $class): void
     {
@@ -65,6 +74,15 @@ new class extends Component {
         } else {
             $this->initializeWeeklySchedule();
         }
+
+        // Populate shipment fields
+        $this->enable_document_shipment = $class->enable_document_shipment ?? false;
+        $this->shipment_frequency = $class->shipment_frequency ?? 'monthly';
+        $this->shipment_start_date = $class->shipment_start_date ? $class->shipment_start_date->format('Y-m-d') : '';
+        $this->shipment_product_id = $class->shipment_product_id;
+        $this->shipment_warehouse_id = $class->shipment_warehouse_id;
+        $this->shipment_quantity_per_student = $class->shipment_quantity_per_student ?? 1;
+        $this->shipment_notes = $class->shipment_notes ?? '';
     }
 
     public function with(): array
@@ -72,6 +90,8 @@ new class extends Component {
         return [
             'courses' => Course::where('status', 'active')->orderBy('name')->get(),
             'teachers' => Teacher::where('status', 'active')->with('user')->orderBy('teacher_id')->get(),
+            'products' => \App\Models\Product::where('status', 'active')->orderBy('name')->get(),
+            'warehouses' => \App\Models\Warehouse::where('is_active', true)->orderBy('name')->get(),
         ];
     }
 
@@ -132,6 +152,14 @@ new class extends Component {
             'commission_value' => $validated['commission_value'],
             'notes' => $validated['notes'],
             'status' => $validated['status'],
+            // Shipment fields
+            'enable_document_shipment' => $this->enable_document_shipment,
+            'shipment_frequency' => $this->shipment_frequency,
+            'shipment_start_date' => $this->enable_document_shipment && $this->shipment_start_date ? $this->shipment_start_date : null,
+            'shipment_product_id' => $this->enable_document_shipment ? $this->shipment_product_id : null,
+            'shipment_warehouse_id' => $this->enable_document_shipment ? $this->shipment_warehouse_id : null,
+            'shipment_quantity_per_student' => $this->enable_document_shipment ? $this->shipment_quantity_per_student : 1,
+            'shipment_notes' => $this->enable_document_shipment ? $this->shipment_notes : null,
         ]);
 
         // Handle timetable
@@ -482,6 +510,74 @@ new class extends Component {
                             <span class="font-medium text-blue-900">Estimated Teacher Allowance: RM {{ number_format($this->estimatedAllowance, 2) }}</span>
                         </div>
                     </div>
+                @endif
+            </div>
+
+            <!-- Document Shipment Settings -->
+            <div class="border-t pt-6 space-y-4">
+                <flux:heading size="lg">Document Shipment Settings</flux:heading>
+                <flux:text>Configure monthly document shipments to students</flux:text>
+
+                <flux:checkbox wire:model.live="enable_document_shipment">
+                    Enable document shipments for this class
+                </flux:checkbox>
+
+                @if($enable_document_shipment)
+                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        <flux:field>
+                            <flux:label>Shipment Frequency</flux:label>
+                            <flux:select wire:model="shipment_frequency">
+                                <flux:select.option value="monthly">Monthly</flux:select.option>
+                                <flux:select.option value="per_session">Per Session</flux:select.option>
+                                <flux:select.option value="one_time">One Time</flux:select.option>
+                            </flux:select>
+                            <flux:description>How often to ship documents</flux:description>
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Start Date</flux:label>
+                            <flux:input wire:model="shipment_start_date" type="date" />
+                            <flux:description>When to start shipping</flux:description>
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Document Product</flux:label>
+                            <flux:select wire:model="shipment_product_id">
+                                <flux:select.option value="">Select Product</flux:select.option>
+                                @foreach($products as $product)
+                                    <flux:select.option value="{{ $product->id }}">
+                                        {{ $product->name }} ({{ $product->formatted_price }})
+                                    </flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            <flux:description>Product to ship to students</flux:description>
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Warehouse</flux:label>
+                            <flux:select wire:model="shipment_warehouse_id">
+                                <flux:select.option value="">Select Warehouse</flux:select.option>
+                                @foreach($warehouses as $warehouse)
+                                    <flux:select.option value="{{ $warehouse->id }}">
+                                        {{ $warehouse->name }}
+                                    </flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            <flux:description>Warehouse to ship from</flux:description>
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Quantity Per Student</flux:label>
+                            <flux:input wire:model="shipment_quantity_per_student" type="number" min="1" />
+                            <flux:description>Number of items per student</flux:description>
+                        </flux:field>
+                    </div>
+
+                    <flux:field>
+                        <flux:label>Shipment Notes</flux:label>
+                        <flux:textarea wire:model="shipment_notes" rows="3" />
+                        <flux:description>Special instructions or notes for shipments</flux:description>
+                    </flux:field>
                 @endif
             </div>
 

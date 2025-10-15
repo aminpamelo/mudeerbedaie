@@ -164,7 +164,7 @@ class SubscriptionAnalyticsService
 
         // New subscriptions by month
         $newSubscriptions = $query->select(
-            DB::raw('DATE_FORMAT(created_at, "%Y-%m") as month'),
+            DB::raw($this->getDateFormatSql('created_at').' as month'),
             DB::raw('COUNT(*) as count')
         )
             ->groupBy('month')
@@ -179,7 +179,7 @@ class SubscriptionAnalyticsService
         $this->applyFilters($canceledQuery, $filters);
 
         $canceledSubscriptions = $canceledQuery->select(
-            DB::raw('DATE_FORMAT(subscription_cancel_at, "%Y-%m") as month'),
+            DB::raw($this->getDateFormatSql('subscription_cancel_at').' as month'),
             DB::raw('COUNT(*) as count')
         )
             ->groupBy('month')
@@ -257,7 +257,7 @@ class SubscriptionAnalyticsService
         $currentMonth = now()->format('Y-m');
         $query = Order::query()
             ->where('status', 'paid')
-            ->whereRaw('DATE_FORMAT(paid_at, "%Y-%m") = ?', [$currentMonth]);
+            ->whereRaw($this->getDateFormatSql('paid_at').' = ?', [$currentMonth]);
 
         $this->applyFilters($query, $filters);
 
@@ -375,5 +375,17 @@ class SubscriptionAnalyticsService
             : now();
 
         return [$from, $to];
+    }
+
+    private function getDateFormatSql(string $column): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        return match ($driver) {
+            'mysql' => "DATE_FORMAT({$column}, \"%Y-%m\")",
+            'pgsql' => "TO_CHAR({$column}, 'YYYY-MM')",
+            'sqlite' => "strftime('%Y-%m', {$column})",
+            default => "DATE_FORMAT({$column}, \"%Y-%m\")",
+        };
     }
 }

@@ -23,17 +23,3 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
-
-{{-- Force light mode permanently --}}
-<script>
-    // Override Flux appearance to always use light mode
-    document.addEventListener('DOMContentLoaded', function() {
-        if (window.$flux && window.$flux.appearance) {
-            window.$flux.appearance = 'light';
-        }
-        // Remove dark class if it exists
-        document.documentElement.classList.remove('dark');
-        // Force light color scheme
-        document.documentElement.style.colorScheme = 'light';
-    });
-</script>

@@ -1,21 +1,26 @@
 <?php
 
-use App\Models\Enrollment;
 use App\Models\Course;
-use App\Models\Student;
-use App\AcademicStatus;
+use App\Models\Enrollment;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
-use Illuminate\Support\Str;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public $search = '';
+
     public $statusFilter = '';
+
     public $courseFilter = '';
+
     public $subscriptionStatusFilter = '';
+
     public $hasSubscriptionFilter = '';
+
+    public $picFilter = '';
+
     public $perPage = 10;
 
     public function mount(): void
@@ -26,21 +31,26 @@ new class extends Component {
     public function with(): array
     {
         $query = Enrollment::query()
-            ->with(['student.user', 'course', 'course.feeSettings', 'enrolledBy', 'orders' => function($q) {
+            ->with(['student.user', 'course', 'course.feeSettings', 'enrolledBy', 'orders' => function ($q) {
                 $q->orderBy('created_at', 'desc')->limit(1);
             }])
             ->orderBy('created_at', 'desc');
 
         if ($this->search) {
-            $query->whereHas('student.user', function($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('email', 'like', '%' . $this->search . '%');
-            })
-            ->orWhereHas('student', function($q) {
-                $q->where('student_id', 'like', '%' . $this->search . '%');
-            })
-            ->orWhereHas('course', function($q) {
-                $q->where('name', 'like', '%' . $this->search . '%');
+            $query->where(function ($q) {
+                $q->whereHas('student.user', function ($q) {
+                    $q->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('email', 'like', '%'.$this->search.'%');
+                })
+                    ->orWhereHas('student', function ($q) {
+                        $q->where('student_id', 'like', '%'.$this->search.'%');
+                    })
+                    ->orWhereHas('course', function ($q) {
+                        $q->where('name', 'like', '%'.$this->search.'%');
+                    })
+                    ->orWhereHas('enrolledBy', function ($q) {
+                        $q->where('name', 'like', '%'.$this->search.'%');
+                    });
             });
         }
 
@@ -51,20 +61,27 @@ new class extends Component {
         if ($this->courseFilter) {
             $query->where('course_id', $this->courseFilter);
         }
-        
+
         if ($this->subscriptionStatusFilter) {
             $query->where('subscription_status', $this->subscriptionStatusFilter);
         }
-        
+
         if ($this->hasSubscriptionFilter === 'yes') {
             $query->whereNotNull('stripe_subscription_id');
         } elseif ($this->hasSubscriptionFilter === 'no') {
             $query->whereNull('stripe_subscription_id');
         }
 
+        if ($this->picFilter) {
+            $query->where('enrolled_by', $this->picFilter);
+        }
+
         return [
             'enrollments' => $query->paginate($this->perPage),
             'courses' => Course::where('status', 'active')->get(),
+            'pics' => \App\Models\User::whereIn('role', ['admin', 'staff'])
+                ->orderBy('name')
+                ->get(),
             'totalEnrollments' => Enrollment::count(),
             'activeEnrollments' => Enrollment::active()->count(),
             'completedEnrollments' => Enrollment::completed()->count(),
@@ -85,13 +102,18 @@ new class extends Component {
     {
         $this->resetPage();
     }
-    
+
     public function updatingSubscriptionStatusFilter(): void
     {
         $this->resetPage();
     }
-    
+
     public function updatingHasSubscriptionFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingPicFilter(): void
     {
         $this->resetPage();
     }
@@ -103,6 +125,7 @@ new class extends Component {
         $this->courseFilter = '';
         $this->subscriptionStatusFilter = '';
         $this->hasSubscriptionFilter = '';
+        $this->picFilter = '';
         $this->resetPage();
     }
 }; ?>
@@ -161,55 +184,66 @@ new class extends Component {
         <!-- Search and Filters -->
         <flux:card>
             <div class="p-6 border-b border-gray-200">
-                <div class="flex flex-col sm:flex-row gap-4">
+                <div class="flex flex-col gap-4">
                     <div class="flex-1">
-                        <flux:input 
-                            wire:model.live.debounce.300ms="search" 
-                            placeholder="Search by student name, email, student ID, or course..." 
+                        <flux:input
+                            wire:model.live.debounce.300ms="search"
+                            placeholder="Search by student, course, or PIC name..."
                             icon="magnifying-glass" />
                     </div>
-                    <div class="w-full sm:w-48">
-                        <flux:select wire:model.live="statusFilter" placeholder="Filter by status">
-                            <flux:select.option value="">All Statuses</flux:select.option>
-                            <flux:select.option value="active">Active</flux:select.option>
-                            <flux:select.option value="completed">Completed</flux:select.option>
-                            <flux:select.option value="withdrawn">Withdrawn</flux:select.option>
-                            <flux:select.option value="suspended">Suspended</flux:select.option>
-                            <flux:select.option value="dropped">Dropped</flux:select.option>
-                            <flux:select.option value="suspended">Suspended</flux:select.option>
-                            <flux:select.option value="pending">Pending</flux:select.option>
-                        </flux:select>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                        <div>
+                            <flux:select wire:model.live="statusFilter" placeholder="Filter by status">
+                                <flux:select.option value="">All Statuses</flux:select.option>
+                                <flux:select.option value="active">Active</flux:select.option>
+                                <flux:select.option value="completed">Completed</flux:select.option>
+                                <flux:select.option value="withdrawn">Withdrawn</flux:select.option>
+                                <flux:select.option value="suspended">Suspended</flux:select.option>
+                                <flux:select.option value="dropped">Dropped</flux:select.option>
+                                <flux:select.option value="pending">Pending</flux:select.option>
+                            </flux:select>
+                        </div>
+                        <div>
+                            <flux:select wire:model.live="courseFilter" placeholder="Filter by course">
+                                <flux:select.option value="">All Courses</flux:select.option>
+                                @foreach($courses as $course)
+                                    <flux:select.option value="{{ $course->id }}">{{ $course->name }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                        </div>
+                        <div>
+                            <flux:select wire:model.live="picFilter" placeholder="Filter by PIC">
+                                <flux:select.option value="">All PICs</flux:select.option>
+                                @foreach($pics as $pic)
+                                    <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                        </div>
+                        <div>
+                            <flux:select wire:model.live="subscriptionStatusFilter" placeholder="Subscription">
+                                <flux:select.option value="">All Subscriptions</flux:select.option>
+                                <flux:select.option value="active">Active</flux:select.option>
+                                <flux:select.option value="trialing">Trialing</flux:select.option>
+                                <flux:select.option value="past_due">Past Due</flux:select.option>
+                                <flux:select.option value="canceled">Canceled</flux:select.option>
+                                <flux:select.option value="unpaid">Unpaid</flux:select.option>
+                            </flux:select>
+                        </div>
+                        <div>
+                            <flux:select wire:model.live="hasSubscriptionFilter" placeholder="Has subscription">
+                                <flux:select.option value="">All Enrollments</flux:select.option>
+                                <flux:select.option value="yes">With Subscription</flux:select.option>
+                                <flux:select.option value="no">No Subscription</flux:select.option>
+                            </flux:select>
+                        </div>
+                        @if($search || $statusFilter || $courseFilter || $subscriptionStatusFilter || $hasSubscriptionFilter || $picFilter)
+                            <div>
+                                <flux:button wire:click="clearFilters" variant="ghost" class="w-full">
+                                    Clear Filters
+                                </flux:button>
+                            </div>
+                        @endif
                     </div>
-                    <div class="w-full sm:w-48">
-                        <flux:select wire:model.live="courseFilter" placeholder="Filter by course">
-                            <flux:select.option value="">All Courses</flux:select.option>
-                            @foreach($courses as $course)
-                                <flux:select.option value="{{ $course->id }}">{{ $course->name }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
-                    </div>
-                    <div class="w-full sm:w-48">
-                        <flux:select wire:model.live="subscriptionStatusFilter" placeholder="Subscription status">
-                            <flux:select.option value="">All Subscriptions</flux:select.option>
-                            <flux:select.option value="active">Active</flux:select.option>
-                            <flux:select.option value="trialing">Trialing</flux:select.option>
-                            <flux:select.option value="past_due">Past Due</flux:select.option>
-                            <flux:select.option value="canceled">Canceled</flux:select.option>
-                            <flux:select.option value="unpaid">Unpaid</flux:select.option>
-                        </flux:select>
-                    </div>
-                    <div class="w-full sm:w-48">
-                        <flux:select wire:model.live="hasSubscriptionFilter" placeholder="Has subscription">
-                            <flux:select.option value="">All Enrollments</flux:select.option>
-                            <flux:select.option value="yes">With Subscription</flux:select.option>
-                            <flux:select.option value="no">No Subscription</flux:select.option>
-                        </flux:select>
-                    </div>
-                    @if($search || $statusFilter || $courseFilter || $subscriptionStatusFilter || $hasSubscriptionFilter)
-                        <flux:button wire:click="clearFilters" variant="ghost">
-                            Clear Filters
-                        </flux:button>
-                    @endif
                 </div>
             </div>
 
@@ -222,6 +256,7 @@ new class extends Component {
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subscription</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PIC</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Fee</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Next Payment</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Payment</th>
@@ -267,6 +302,15 @@ new class extends Component {
                                     @else
                                         <flux:badge variant="ghost" size="sm">No Subscription</flux:badge>
                                     @endif
+                                </td>
+                                <!-- PIC (Person in Charge) -->
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <flux:avatar size="xs" class="mr-2">
+                                            {{ $enrollment->enrolledBy->initials() }}
+                                        </flux:avatar>
+                                        <div class="text-sm text-gray-900">{{ $enrollment->enrolledBy->name }}</div>
+                                    </div>
                                 </td>
                                 <!-- Monthly Fee -->
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -317,17 +361,17 @@ new class extends Component {
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-6 py-12 text-center">
+                                <td colspan="9" class="px-6 py-12 text-center">
                                     <flux:icon.clipboard class="mx-auto h-12 w-12 text-gray-400" />
                                     <h3 class="mt-2 text-sm font-medium text-gray-900">No enrollments found</h3>
                                     <p class="mt-1 text-sm text-gray-500">
-                                        @if($search || $statusFilter || $courseFilter || $subscriptionStatusFilter || $hasSubscriptionFilter)
+                                        @if($search || $statusFilter || $courseFilter || $subscriptionStatusFilter || $hasSubscriptionFilter || $picFilter)
                                             Try adjusting your search or filter criteria.
                                         @else
                                             Get started by enrolling your first student.
                                         @endif
                                     </p>
-                                    @if(!$search && !$statusFilter && !$courseFilter && !$subscriptionStatusFilter && !$hasSubscriptionFilter)
+                                    @if(!$search && !$statusFilter && !$courseFilter && !$subscriptionStatusFilter && !$hasSubscriptionFilter && !$picFilter)
                                         <div class="mt-6">
                                             <flux:button variant="primary" href="{{ route('enrollments.create') }}">
                                                 New Enrollment

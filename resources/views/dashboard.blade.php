@@ -58,10 +58,10 @@
                 $query->where('status', 'paid');
             }], 'amount')
             ->withCount(['enrollments', 'activeEnrollments'])
-            ->having('orders_sum_amount', '>', 0)
-            ->orderBy('orders_sum_amount', 'desc')
-            ->limit(5)
-            ->get();
+            ->get()
+            ->filter(fn($course) => $course->orders_sum_amount > 0)
+            ->sortByDesc('orders_sum_amount')
+            ->take(5);
 
         // Monthly Recurring Revenue (MRR) - active subscriptions
         $mrr = \App\Models\Enrollment::whereIn('subscription_status', ['active', 'trialing'])
