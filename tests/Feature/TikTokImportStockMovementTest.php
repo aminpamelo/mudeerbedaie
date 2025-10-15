@@ -132,6 +132,7 @@ test('importing shipped order creates stock movement records', function () {
         $this->account->id,
         $fieldMapping,
         $productMappings,
+        [], // No package mappings
         50
     );
 
@@ -249,6 +250,7 @@ test('importing pending order does NOT create stock movement', function () {
         $this->account->id,
         $fieldMapping,
         $productMappings,
+        [], // No package mappings
         50
     );
 

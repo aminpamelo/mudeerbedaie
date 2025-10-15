@@ -32,6 +32,7 @@ class ProcessTikTokOrderImport implements ShouldQueue
         public int $accountId,
         public array $fieldMapping,
         public array $productMappings,
+        public array $packageMappings = [],
         public int $batchSize = 50
     ) {}
 
@@ -69,7 +70,8 @@ class ProcessTikTokOrderImport implements ShouldQueue
                                 $platform,
                                 $account,
                                 $this->fieldMapping,
-                                $this->productMappings
+                                $this->productMappings,
+                                $this->packageMappings
                             );
 
                             $orderData = $this->extractOrderData($row);

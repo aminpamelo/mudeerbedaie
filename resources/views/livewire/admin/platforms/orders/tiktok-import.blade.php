@@ -8,6 +8,7 @@ use App\Models\PlatformAccount;
 use App\Models\PlatformSkuMapping;
 use App\Models\Product;
 use App\Services\TikTokOrderProcessor;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Volt\Component;
@@ -787,28 +788,61 @@ new class extends Component
     public function executeImport()
     {
         try {
+            Log::info('executeImport() method called', [
+                'import_job_id' => $this->import_job_id,
+                'current_step' => $this->current_step,
+            ]);
+
             $importJob = ImportJob::findOrFail($this->import_job_id);
 
-            // Dispatch queue job for background processing
+            Log::info('Import job found', [
+                'job_id' => $importJob->id,
+                'total_rows' => $importJob->total_rows,
+                'status' => $importJob->status,
+            ]);
+
+            // CRITICAL: Dispatch job BEFORE moving to step 5
+            // This ensures job starts processing immediately
             ProcessTikTokOrderImport::dispatch(
                 $importJob->id,
                 $this->platform->id,
                 $this->selected_account_id,
                 $this->field_mapping,
                 $this->product_mappings,
+                $this->package_mappings,
                 50 // Batch size
             );
 
+            Log::info('Job dispatched to queue');
+
             // Move to step 5 to show progress tracking
+            // Note: Import job remains in 'pending' status until queue worker calls markAsStarted()
             $this->current_step = 5;
             $this->importing = true;
+            $this->import_progress = 0;
+
+            Log::info('Moved to step 5', ['current_step' => $this->current_step]);
+
+            // Flash success message
+            session()->flash('import-started', 'Import started! Processing '.$importJob->total_rows.' orders in background. You can leave this page.');
 
             $this->dispatch('import-queued', [
                 'message' => 'Import job queued successfully. Processing in background...',
                 'import_job_id' => $importJob->id,
             ]);
+
+            Log::info('executeImport() completed successfully');
+
+            // IMPORTANT: Return immediately so browser doesn't timeout
+            // The queue worker will process the job in the background
+            // Progress updates will be shown via wire:poll
         } catch (\Exception $e) {
             $this->addError('import', 'Failed to queue import: '.$e->getMessage());
+            Log::error('Failed to queue TikTok import', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'import_job_id' => $this->import_job_id ?? null,
+            ]);
         }
     }
 
@@ -1533,10 +1567,20 @@ new class extends Component
                     wire:click="executeImport"
                     variant="primary"
                     :disabled="$totalErrors > 0"
+                    wire:loading.attr="disabled"
                 >
                     <div class="flex items-center justify-center">
-                        <flux:icon name="rocket-launch" class="w-4 h-4 mr-1" />
-                        Start Import ({{ $total_rows }} orders)
+                        <span wire:loading.remove wire:target="executeImport">
+                            <flux:icon name="rocket-launch" class="w-4 h-4 mr-1" />
+                            Start Import ({{ $total_rows }} orders)
+                        </span>
+                        <span wire:loading wire:target="executeImport">
+                            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Starting Import...
+                        </span>
                     </div>
                 </flux:button>
             </div>
@@ -1557,14 +1601,74 @@ new class extends Component
 
         @if($importing)
             <div class="space-y-4">
+                {{-- Flash Message --}}
+                @if(session()->has('import-started'))
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-start">
+                            <flux:icon name="information-circle" class="w-5 h-5 text-blue-600 mt-0.5 mr-2" />
+                            <div>
+                                <flux:text class="font-semibold text-blue-900">{{ session('import-started') }}</flux:text>
+                                <flux:text size="sm" class="text-blue-700 mt-1">
+                                    The queue worker is processing your orders. Progress will update every 2 seconds.
+                                </flux:text>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 <div class="flex items-center justify-center mb-4">
                     <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-4">
-                    <div class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: {{ $import_progress }}%"></div>
+
+                {{-- Progress Bar --}}
+                <div>
+                    <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
+                        <div class="bg-blue-600 h-4 rounded-full transition-all duration-500 ease-out"
+                             style="width: {{ $import_progress }}%">
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <flux:text class="font-semibold text-lg">{{ $import_progress }}% Complete</flux:text>
+                        @php
+                            $importJob = \App\Models\ImportJob::find($import_job_id);
+                            $processedRows = $importJob ? $importJob->processed_rows : 0;
+                            $totalRows = $importJob ? $importJob->total_rows : 0;
+                        @endphp
+                        <flux:text size="sm" class="text-gray-600">
+                            {{ number_format($processedRows) }} / {{ number_format($totalRows) }} orders processed
+                        </flux:text>
+                    </div>
                 </div>
-                <flux:text class="text-center font-semibold">{{ $import_progress }}% Complete</flux:text>
-                <flux:text size="sm" class="text-center text-gray-600">Processing in background. This page will auto-update.</flux:text>
+
+                {{-- Status Information --}}
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <flux:text size="sm" class="text-gray-600">Status</flux:text>
+                            @php
+                                $importJob = \App\Models\ImportJob::find($import_job_id);
+                                $status = $importJob ? $importJob->status : 'unknown';
+                            @endphp
+                            <flux:text class="font-semibold capitalize">
+                                @if($status === 'processing')
+                                    🔄 Processing Orders
+                                @elseif($status === 'queued')
+                                    ⏳ Queued (waiting for worker)
+                                @else
+                                    {{ $status }}
+                                @endif
+                            </flux:text>
+                        </div>
+                        <div class="text-right">
+                            <flux:text size="sm" class="text-gray-600">Last Updated</flux:text>
+                            <flux:text class="font-semibold">{{ now()->format('H:i:s') }}</flux:text>
+                        </div>
+                    </div>
+                </div>
+
+                <flux:text size="sm" class="text-center text-gray-600">
+                    💡 You can safely leave this page. The import will continue in the background.
+                </flux:text>
             </div>
         @endif
 

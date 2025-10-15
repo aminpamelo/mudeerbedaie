@@ -50,10 +50,18 @@ class TikTokOrderProcessor
             // Parse and clean the already-mapped data
             $mappedData = $this->parseOrderData($mappedData);
 
-            // Apply product mapping
+            // Apply package or product mapping
             if (isset($mappedData['product_name'])) {
                 $productName = trim($mappedData['product_name']);
-                if (isset($this->productMappings[$productName])) {
+
+                // Check for package mapping first (higher priority)
+                if (isset($this->packageMappings[$productName])) {
+                    $mapping = $this->packageMappings[$productName];
+                    $mappedData['internal_package_id'] = $mapping['package_id'];
+                    $mappedData['internal_package_name'] = $mapping['package_name'];
+                }
+                // Then check for product mapping
+                elseif (isset($this->productMappings[$productName])) {
                     $mapping = $this->productMappings[$productName];
                     $mappedData['internal_product'] = Product::find($mapping['product_id']);
                     if (isset($mapping['variant_id'])) {

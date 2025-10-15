@@ -103,13 +103,7 @@ new class extends Component
                 $query->where('status', $this->statusFilter);
             })
             ->when($this->orderTypeFilter, function ($query) {
-                if ($this->orderTypeFilter === 'package') {
-                    $query->where('order_type', 'package');
-                } elseif ($this->orderTypeFilter === 'regular') {
-                    $query->where(function ($q) {
-                        $q->whereNull('order_type')->orWhere('order_type', '!=', 'package');
-                    });
-                }
+                $query->where('order_type', $this->orderTypeFilter);
             })
             ->when($this->dateFilter, function ($query) {
                 match ($this->dateFilter) {
@@ -205,7 +199,9 @@ new class extends Component
                 <flux:label>Order Type</flux:label>
                 <flux:select wire:model.live="orderTypeFilter" placeholder="All Types">
                     <option value="">All Types</option>
-                    <option value="regular">Regular Orders</option>
+                    <option value="retail">Retail Orders</option>
+                    <option value="wholesale">Wholesale Orders</option>
+                    <option value="b2b">B2B Orders</option>
                     <option value="package">Package Orders</option>
                 </flux:select>
             </div>
