@@ -120,7 +120,12 @@ class StudentImportService
             'phone' => ['required', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:255'],
             'ic_number' => ['nullable', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:500'],
+            'address_line_1' => ['nullable', 'string', 'max:255'],
+            'address_line_2' => ['nullable', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'state' => ['nullable', 'string', 'max:100'],
+            'postcode' => ['nullable', 'string', 'max:20'],
+            'country' => ['nullable', 'string', 'max:100'],
             'date_of_birth' => ['nullable', 'date'],
             'gender' => ['nullable', 'in:male,female,other'],
             'nationality' => ['nullable', 'string', 'max:100'],
@@ -247,7 +252,12 @@ class StudentImportService
             'user_id' => $user->id,
             'ic_number' => $data['ic_number'] ?? null,
             'phone' => $data['phone'],
-            'address' => $data['address'] ?? null,
+            'address_line_1' => $data['address_line_1'] ?? null,
+            'address_line_2' => $data['address_line_2'] ?? null,
+            'city' => $data['city'] ?? null,
+            'state' => $data['state'] ?? null,
+            'postcode' => $data['postcode'] ?? null,
+            'country' => $data['country'] ?? null,
             'date_of_birth' => ! empty($data['date_of_birth']) ? $data['date_of_birth'] : null,
             'gender' => $data['gender'] ?? null,
             'nationality' => $data['nationality'] ?? 'Malaysian',
@@ -275,7 +285,12 @@ class StudentImportService
         $student->update([
             'ic_number' => $data['ic_number'] ?? $student->ic_number,
             'phone' => $data['phone'],
-            'address' => $data['address'] ?? $student->address,
+            'address_line_1' => $data['address_line_1'] ?? $student->address_line_1,
+            'address_line_2' => $data['address_line_2'] ?? $student->address_line_2,
+            'city' => $data['city'] ?? $student->city,
+            'state' => $data['state'] ?? $student->state,
+            'postcode' => $data['postcode'] ?? $student->postcode,
+            'country' => $data['country'] ?? $student->country,
             'date_of_birth' => ! empty($data['date_of_birth']) ? $data['date_of_birth'] : $student->date_of_birth,
             'gender' => $data['gender'] ?? $student->gender,
             'nationality' => $data['nationality'] ?? $student->nationality,
@@ -302,7 +317,12 @@ class StudentImportService
                 $student->student_id,
                 $student->ic_number ?? '',
                 $student->phone ?? '',
-                $student->address ?? '',
+                $student->address_line_1 ?? '',
+                $student->address_line_2 ?? '',
+                $student->city ?? '',
+                $student->state ?? '',
+                $student->postcode ?? '',
+                $student->country ?? '',
                 $student->date_of_birth ? $student->date_of_birth->format('Y-m-d') : '',
                 $student->gender ?? '',
                 $student->nationality ?? '',
@@ -335,7 +355,12 @@ class StudentImportService
             'student_id',
             'ic_number',
             'phone',
-            'address',
+            'address_line_1',
+            'address_line_2',
+            'city',
+            'state',
+            'postcode',
+            'country',
             'date_of_birth',
             'gender',
             'nationality',
@@ -353,7 +378,12 @@ class StudentImportService
                 '', // Student ID - Will be auto-generated
                 '123456789012',
                 '+60123456789', // Required
-                '123 Main Street, Kuala Lumpur',
+                '123 Main Street', // address_line_1
+                'Apt 4B', // address_line_2 (Optional)
+                'Kuala Lumpur', // city
+                'Selangor', // state
+                '50000', // postcode
+                'Malaysia', // country
                 '1995-05-15',
                 'male',
                 'Malaysian',
@@ -365,7 +395,12 @@ class StudentImportService
                 '', // Student ID - Will be auto-generated
                 '987654321098',
                 '+60198765432', // Required
-                '456 Oak Avenue, Penang',
+                '456 Oak Avenue', // address_line_1
+                '', // address_line_2 (Optional)
+                'George Town', // city
+                'Penang', // state
+                '10200', // postcode
+                'Malaysia', // country
                 '1997-08-22',
                 'female',
                 'Malaysian',

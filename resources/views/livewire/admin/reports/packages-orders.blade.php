@@ -1,27 +1,31 @@
 <?php
 
-use Livewire\Volt\Component;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public int $selectedYear;
+
     public array $availableYears = [];
+
     public array $monthlyData = [];
+
     public array $summary = [];
 
     public function mount(): void
     {
         // Get available years from both package_purchases and product_orders
         $packageYears = DB::table('package_purchases')
-            ->selectRaw('DISTINCT YEAR(created_at) as year')
+            ->selectRaw("DISTINCT strftime('%Y', created_at) as year")
             ->whereNotNull('created_at')
             ->orderBy('year', 'desc')
             ->pluck('year')
             ->toArray();
 
         $orderYears = DB::table('product_orders')
-            ->selectRaw('DISTINCT YEAR(order_date) as year')
+            ->selectRaw("DISTINCT strftime('%Y', order_date) as year")
             ->whereNotNull('order_date')
             ->orderBy('year', 'desc')
             ->pluck('year')
@@ -35,7 +39,7 @@ new class extends Component {
             ->toArray();
 
         // Default to current year or latest available year
-        $this->selectedYear = !empty($this->availableYears)
+        $this->selectedYear = ! empty($this->availableYears)
             ? $this->availableYears[0]
             : (int) date('Y');
 
@@ -75,13 +79,13 @@ new class extends Component {
 
         // Get package purchase data grouped by month
         $packageData = DB::table('package_purchases')
-            ->selectRaw('
-                MONTH(created_at) as month,
+            ->selectRaw("
+                CAST(strftime('%m', created_at) AS INTEGER) as month,
                 COUNT(*) as purchase_count,
                 SUM(amount_paid) as total_revenue,
                 SUM((SELECT COUNT(*) FROM package_items WHERE package_items.package_id = package_purchases.package_id)) as total_items
-            ')
-            ->whereYear('created_at', $this->selectedYear)
+            ")
+            ->whereRaw("strftime('%Y', created_at) = ?", [$this->selectedYear])
             ->whereIn('status', ['completed', 'processing'])
             ->groupBy('month')
             ->get();
@@ -97,12 +101,12 @@ new class extends Component {
 
         // Get product order data grouped by month with item counts
         $orderData = DB::table('product_orders')
-            ->selectRaw('
-                MONTH(order_date) as month,
+            ->selectRaw("
+                CAST(strftime('%m', order_date) AS INTEGER) as month,
                 COUNT(DISTINCT product_orders.id) as order_count,
                 SUM(product_orders.total_amount) as total_revenue
-            ')
-            ->whereYear('order_date', $this->selectedYear)
+            ")
+            ->whereRaw("strftime('%Y', order_date) = ?", [$this->selectedYear])
             ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
             ->groupBy('month')
             ->get();
@@ -110,11 +114,11 @@ new class extends Component {
         // Get order items count separately
         $orderItemCounts = DB::table('product_order_items')
             ->join('product_orders', 'product_orders.id', '=', 'product_order_items.order_id')
-            ->selectRaw('
-                MONTH(product_orders.order_date) as month,
+            ->selectRaw("
+                CAST(strftime('%m', product_orders.order_date) AS INTEGER) as month,
                 COUNT(*) as total_items
-            ')
-            ->whereYear('product_orders.order_date', $this->selectedYear)
+            ")
+            ->whereRaw("strftime('%Y', product_orders.order_date) = ?", [$this->selectedYear])
             ->whereNotIn('product_orders.status', ['cancelled', 'refunded', 'draft'])
             ->groupBy('month')
             ->get()
@@ -181,7 +185,7 @@ new class extends Component {
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ];
 
-        $callback = function() {
+        $callback = function () {
             $file = fopen('php://output', 'w');
 
             // CSV Headers
@@ -194,7 +198,7 @@ new class extends Component {
                 'Product Orders Revenue',
                 'Product Order Items',
                 'Total Revenue',
-                'Total Items'
+                'Total Items',
             ]);
 
             // Data rows

@@ -19,6 +19,8 @@ new class extends Component
 
     public string $orderTypeFilter = '';
 
+    public string $productFilter = '';
+
     public string $dateFilter = '';
 
     public string $sortBy = 'created_at';
@@ -41,6 +43,11 @@ new class extends Component
     }
 
     public function updatingOrderTypeFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingProductFilter(): void
     {
         $this->resetPage();
     }
@@ -105,6 +112,20 @@ new class extends Component
             ->when($this->orderTypeFilter, function ($query) {
                 $query->where('order_type', $this->orderTypeFilter);
             })
+            ->when($this->productFilter, function ($query) {
+                if (str_starts_with($this->productFilter, 'package:')) {
+                    // Filter by specific package ID in order items
+                    $packageId = str_replace('package:', '', $this->productFilter);
+                    $query->whereHas('items', function ($itemQuery) use ($packageId) {
+                        $itemQuery->where('package_id', $packageId);
+                    });
+                } else {
+                    // Filter by product ID
+                    $query->whereHas('items', function ($itemQuery) {
+                        $itemQuery->where('product_id', $this->productFilter);
+                    });
+                }
+            })
             ->when($this->dateFilter, function ($query) {
                 match ($this->dateFilter) {
                     'today' => $query->whereDate('created_at', today()),
@@ -148,6 +169,51 @@ new class extends Component
             default => 'gray'
         };
     }
+
+    public function getProductsAndPackages(): array
+    {
+        $items = [];
+
+        // Get only products that have been ordered
+        $productIds = \App\Models\ProductOrderItem::query()
+            ->whereNotNull('product_id')
+            ->distinct()
+            ->pluck('product_id');
+
+        $products = \App\Models\Product::query()
+            ->whereIn('id', $productIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'sku']);
+
+        foreach ($products as $product) {
+            $items[] = [
+                'value' => $product->id,
+                'label' => $product->name.($product->sku ? " ({$product->sku})" : ''),
+                'type' => 'product',
+            ];
+        }
+
+        // Get only packages that have been ordered
+        $packageIds = \App\Models\ProductOrderItem::query()
+            ->whereNotNull('package_id')
+            ->distinct()
+            ->pluck('package_id');
+
+        $packages = \App\Models\Package::query()
+            ->whereIn('id', $packageIds)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        foreach ($packages as $package) {
+            $items[] = [
+                'value' => 'package:'.$package->id,
+                'label' => $package->name.' (Package)',
+                'type' => 'package',
+            ];
+        }
+
+        return $items;
+    }
 }; ?>
 
 <div>
@@ -172,13 +238,13 @@ new class extends Component
 
     <!-- Filters -->
     <div class="mb-6 bg-white rounded-lg border p-4">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
             <!-- Search -->
             <div>
                 <flux:label>Search</flux:label>
                 <flux:input
                     wire:model.live.debounce.300ms="search"
-                    placeholder="Order number, customer name, email, package name..."
+                    placeholder="Order number, customer name, email..."
                     class="w-full"
                 />
             </div>
@@ -203,6 +269,17 @@ new class extends Component
                     <option value="wholesale">Wholesale Orders</option>
                     <option value="b2b">B2B Orders</option>
                     <option value="package">Package Orders</option>
+                </flux:select>
+            </div>
+
+            <!-- Product/Package Filter -->
+            <div>
+                <flux:label>Product/Package</flux:label>
+                <flux:select wire:model.live="productFilter" placeholder="All Products">
+                    <option value="">All Products & Packages</option>
+                    @foreach($this->getProductsAndPackages() as $item)
+                        <option value="{{ $item['value'] }}">{{ $item['label'] }}</option>
+                    @endforeach
                 </flux:select>
             </div>
 
@@ -405,8 +482,8 @@ new class extends Component
                                 <div class="text-gray-500">
                                     <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
                                     <flux:text>No orders found</flux:text>
-                                    @if($search || $statusFilter || $dateFilter)
-                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('statusFilter', ''); $set('dateFilter', '')" class="mt-2">
+                                    @if($search || $statusFilter || $dateFilter || $orderTypeFilter || $productFilter)
+                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('statusFilter', ''); $set('dateFilter', ''); $set('orderTypeFilter', ''); $set('productFilter', '')" class="mt-2">
                                             Clear filters
                                         </flux:button>
                                     @endif

@@ -4,12 +4,16 @@ use App\Models\Enrollment;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public $search = '';
+
     public $teacherFilter = '';
+
     public $statusFilter = '';
+
     public $feeRangeFilter = '';
 
     public function updatingSearch()
@@ -44,53 +48,111 @@ new class extends Component {
     public function with(): array
     {
         $student = auth()->user()->student;
-        
+
+        // If user doesn't have a student record, show all courses as not enrolled
+        if (! $student) {
+            $query = Course::with(['teacher.user', 'feeSettings', 'enrollments', 'activeEnrollments'])
+                ->where('status', 'active')
+                ->when($this->search, function ($query) {
+                    $query->where(function ($q) {
+                        $q->where('name', 'like', '%'.$this->search.'%')
+                            ->orWhere('description', 'like', '%'.$this->search.'%')
+                            ->orWhereHas('teacher.user', function ($teacherQuery) {
+                                $teacherQuery->where('name', 'like', '%'.$this->search.'%');
+                            });
+                    });
+                })
+                ->when($this->teacherFilter, function ($query) {
+                    $query->where('teacher_id', $this->teacherFilter);
+                })
+                ->when($this->feeRangeFilter, function ($query) {
+                    switch ($this->feeRangeFilter) {
+                        case 'free':
+                            $query->whereHas('feeSettings', function ($feeQuery) {
+                                $feeQuery->where('fee_amount', 0);
+                            });
+                            break;
+                        case '1-50':
+                            $query->whereHas('feeSettings', function ($feeQuery) {
+                                $feeQuery->whereBetween('fee_amount', [1, 50]);
+                            });
+                            break;
+                        case '51-100':
+                            $query->whereHas('feeSettings', function ($feeQuery) {
+                                $feeQuery->whereBetween('fee_amount', [51, 100]);
+                            });
+                            break;
+                        case '101+':
+                            $query->whereHas('feeSettings', function ($feeQuery) {
+                                $feeQuery->where('fee_amount', '>', 100);
+                            });
+                            break;
+                    }
+                })
+                ->orderBy('name');
+
+            $teachers = Course::with('teacher.user')
+                ->where('status', 'active')
+                ->get()
+                ->pluck('teacher')
+                ->unique('id')
+                ->values();
+
+            return [
+                'courses' => $query->paginate(12),
+                'studentEnrollments' => collect(),
+                'teachers' => $teachers,
+                'totalActiveCourses' => Course::where('status', 'active')->count(),
+                'totalEnrolledCourses' => 0,
+            ];
+        }
+
         // Get all courses with eager loading
         $query = Course::with(['teacher.user', 'feeSettings', 'enrollments', 'activeEnrollments'])
             ->where('status', 'active')
-            ->when($this->search, function($query) {
-                $query->where(function($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('description', 'like', '%' . $this->search . '%')
-                      ->orWhereHas('teacher.user', function($teacherQuery) {
-                          $teacherQuery->where('name', 'like', '%' . $this->search . '%');
-                      });
+            ->when($this->search, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('description', 'like', '%'.$this->search.'%')
+                        ->orWhereHas('teacher.user', function ($teacherQuery) {
+                            $teacherQuery->where('name', 'like', '%'.$this->search.'%');
+                        });
                 });
             })
-            ->when($this->teacherFilter, function($query) {
+            ->when($this->teacherFilter, function ($query) {
                 $query->where('teacher_id', $this->teacherFilter);
             })
-            ->when($this->statusFilter === 'enrolled', function($query) use ($student) {
-                $query->whereHas('enrollments', function($enrollmentQuery) use ($student) {
+            ->when($this->statusFilter === 'enrolled', function ($query) use ($student) {
+                $query->whereHas('enrollments', function ($enrollmentQuery) use ($student) {
                     $enrollmentQuery->where('student_id', $student->id)
-                                   ->whereIn('status', ['enrolled', 'active']);
+                        ->whereIn('status', ['enrolled', 'active']);
                 });
             })
-            ->when($this->statusFilter === 'not_enrolled', function($query) use ($student) {
-                $query->whereDoesntHave('enrollments', function($enrollmentQuery) use ($student) {
+            ->when($this->statusFilter === 'not_enrolled', function ($query) use ($student) {
+                $query->whereDoesntHave('enrollments', function ($enrollmentQuery) use ($student) {
                     $enrollmentQuery->where('student_id', $student->id)
-                                   ->whereIn('status', ['enrolled', 'active']);
+                        ->whereIn('status', ['enrolled', 'active']);
                 });
             })
-            ->when($this->feeRangeFilter, function($query) {
+            ->when($this->feeRangeFilter, function ($query) {
                 switch ($this->feeRangeFilter) {
                     case 'free':
-                        $query->whereHas('feeSettings', function($feeQuery) {
+                        $query->whereHas('feeSettings', function ($feeQuery) {
                             $feeQuery->where('fee_amount', 0);
                         });
                         break;
                     case '1-50':
-                        $query->whereHas('feeSettings', function($feeQuery) {
+                        $query->whereHas('feeSettings', function ($feeQuery) {
                             $feeQuery->whereBetween('fee_amount', [1, 50]);
                         });
                         break;
                     case '51-100':
-                        $query->whereHas('feeSettings', function($feeQuery) {
+                        $query->whereHas('feeSettings', function ($feeQuery) {
                             $feeQuery->whereBetween('fee_amount', [51, 100]);
                         });
                         break;
                     case '101+':
-                        $query->whereHas('feeSettings', function($feeQuery) {
+                        $query->whereHas('feeSettings', function ($feeQuery) {
                             $feeQuery->where('fee_amount', '>', 100);
                         });
                         break;

@@ -19,7 +19,17 @@ new class extends Component
 
     public $country_code = '+60'; // Default to Malaysia
 
-    public $address = '';
+    public $address_line_1 = '';
+
+    public $address_line_2 = '';
+
+    public $city = '';
+
+    public $state = '';
+
+    public $postcode = '';
+
+    public $country = '';
 
     public $date_of_birth = '';
 
@@ -54,7 +64,12 @@ new class extends Component
             $this->phone = '';
         }
 
-        $this->address = $this->student->address ?? '';
+        $this->address_line_1 = $this->student->address_line_1 ?? '';
+        $this->address_line_2 = $this->student->address_line_2 ?? '';
+        $this->city = $this->student->city ?? '';
+        $this->state = $this->student->state ?? '';
+        $this->postcode = $this->student->postcode ?? '';
+        $this->country = $this->student->country ?? '';
         $this->date_of_birth = $this->student->date_of_birth?->format('Y-m-d') ?? '';
         $this->gender = $this->student->gender ?? '';
         $this->nationality = $this->student->nationality ?? '';
@@ -72,7 +87,12 @@ new class extends Component
             'ic_number' => 'nullable|string|size:12|regex:/^[0-9]{12}$/|unique:students,ic_number,'.$this->student->id,
             'country_code' => 'nullable|string|max:5',
             'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string|max:500',
+            'address_line_1' => 'nullable|string|max:255',
+            'address_line_2' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'postcode' => 'nullable|string|max:20',
+            'country' => 'nullable|string|max:100',
             'date_of_birth' => 'nullable|date|before:today',
             'gender' => 'nullable|in:male,female,other',
             'nationality' => 'nullable|string|max:100',
@@ -95,7 +115,12 @@ new class extends Component
         $this->student->update([
             'ic_number' => $this->ic_number ?: null,
             'phone' => $fullPhone,
-            'address' => $this->address ?: null,
+            'address_line_1' => $this->address_line_1 ?: null,
+            'address_line_2' => $this->address_line_2 ?: null,
+            'city' => $this->city ?: null,
+            'state' => $this->state ?: null,
+            'postcode' => $this->postcode ?: null,
+            'country' => $this->country ?: null,
             'date_of_birth' => $this->date_of_birth ?: null,
             'gender' => $this->gender ?: null,
             'nationality' => $this->nationality ?: null,
@@ -190,7 +215,22 @@ new class extends Component
                     <flux:input wire:model="nationality" label="Nationality" placeholder="Enter nationality" />
                 </div>
 
-                <flux:textarea wire:model="address" label="Address" placeholder="Enter full address" rows="3" />
+                <!-- Address Information -->
+                <div class="space-y-4">
+                    <flux:heading size="sm">Address Information</flux:heading>
+
+                    <flux:input wire:model="address_line_1" label="Address Line 1" placeholder="Street address, P.O. box, company name" />
+
+                    <flux:input wire:model="address_line_2" label="Address Line 2 (Optional)" placeholder="Apartment, suite, unit, building, floor, etc." />
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <flux:input wire:model="city" label="City" placeholder="City" />
+                        <flux:input wire:model="state" label="State/Province" placeholder="State" />
+                        <flux:input wire:model="postcode" label="Postcode" placeholder="Postcode" />
+                    </div>
+
+                    <flux:input wire:model="country" label="Country" placeholder="Country" />
+                </div>
 
                 <flux:select wire:model="status" label="Status" required>
                     <flux:select.option value="active">Active</flux:select.option>

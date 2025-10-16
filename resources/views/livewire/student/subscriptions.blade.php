@@ -3,7 +3,8 @@ use App\Models\Enrollment;
 use App\Services\StripeService;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public function cancelSubscription($enrollmentId)
     {
         try {
@@ -11,18 +12,19 @@ new class extends Component {
                 ->where('student_id', auth()->user()->student->id)
                 ->firstOrFail();
 
-            if (!$enrollment->stripe_subscription_id) {
+            if (! $enrollment->stripe_subscription_id) {
                 session()->flash('error', 'This enrollment does not have an active subscription.');
+
                 return;
             }
 
             $stripeService = app(StripeService::class);
             $stripeService->cancelSubscription($enrollment->stripe_subscription_id, false); // Cancel at period end
-            
+
             session()->flash('success', 'Your subscription will be canceled at the end of the current billing period.');
-            
+
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to cancel subscription: ' . $e->getMessage());
+            session()->flash('error', 'Failed to cancel subscription: '.$e->getMessage());
         }
     }
 
@@ -39,19 +41,21 @@ new class extends Component {
                 ->where('student_id', auth()->user()->student->id)
                 ->firstOrFail();
 
-            if (!$enrollment->stripe_subscription_id) {
+            if (! $enrollment->stripe_subscription_id) {
                 session()->flash('error', 'This enrollment does not have an active subscription.');
+
                 return;
             }
 
-            if (!$enrollment->isCollectionPaused()) {
+            if (! $enrollment->isCollectionPaused()) {
                 session()->flash('error', 'Collection is not currently paused.');
+
                 return;
             }
 
             $stripeService = app(StripeService::class);
             $result = $stripeService->resumeSubscriptionCollection($enrollment->stripe_subscription_id);
-            
+
             if ($result['success']) {
                 // Update local status
                 $enrollment->resumeCollection();
@@ -59,9 +63,9 @@ new class extends Component {
             } else {
                 session()->flash('error', 'Failed to resume collection. Please try again or contact support.');
             }
-            
+
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to resume collection: ' . $e->getMessage());
+            session()->flash('error', 'Failed to resume collection: '.$e->getMessage());
         }
     }
 
@@ -72,19 +76,21 @@ new class extends Component {
                 ->where('student_id', auth()->user()->student->id)
                 ->firstOrFail();
 
-            if (!$enrollment->stripe_subscription_id) {
+            if (! $enrollment->stripe_subscription_id) {
                 session()->flash('error', 'This enrollment does not have an active subscription.');
+
                 return;
             }
 
-            if (!$enrollment->isPendingCancellation()) {
+            if (! $enrollment->isPendingCancellation()) {
                 session()->flash('error', 'This subscription is not scheduled for cancellation.');
+
                 return;
             }
 
             $stripeService = app(StripeService::class);
             $result = $stripeService->undoCancellation($enrollment->stripe_subscription_id);
-            
+
             if ($result['success']) {
                 // Update local status
                 $enrollment->updateSubscriptionCancellation(null);
@@ -92,31 +98,38 @@ new class extends Component {
             } else {
                 session()->flash('error', 'Failed to resume subscription. Please try again or contact support.');
             }
-            
+
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to resume subscription: ' . $e->getMessage());
+            session()->flash('error', 'Failed to resume subscription: '.$e->getMessage());
         }
     }
-
 
     public function with(): array
     {
         $student = auth()->user()->student;
-        
+
+        // If user doesn't have a student record, return empty collections
+        if (! $student) {
+            return [
+                'activeSubscriptions' => collect([]),
+                'canceledSubscriptions' => collect([]),
+            ];
+        }
+
         return [
             'activeSubscriptions' => Enrollment::where('student_id', $student->id)
-                ->with(['course.feeSettings', 'orders' => function($q) {
+                ->with(['course.feeSettings', 'orders' => function ($q) {
                     $q->latest()->limit(1);
                 }])
-                ->where(function($query) {
+                ->where(function ($query) {
                     $query->whereIn('subscription_status', ['active', 'trialing', 'past_due'])
-                          ->orWhere(function($q) {
-                              $q->whereIn('status', ['enrolled', 'active'])
+                        ->orWhere(function ($q) {
+                            $q->whereIn('status', ['enrolled', 'active'])
                                 ->whereNotNull('stripe_subscription_id');
-                          });
+                        });
                 })
                 ->get(),
-                
+
             'canceledSubscriptions' => Enrollment::where('student_id', $student->id)
                 ->with(['course.feeSettings'])
                 ->where('subscription_status', 'canceled')

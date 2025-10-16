@@ -36,6 +36,11 @@ class Course extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function teacher(): BelongsTo
+    {
+        return $this->belongsTo(Teacher::class, 'teacher_id');
+    }
+
     public function feeSettings(): HasOne
     {
         return $this->hasOne(CourseFeeSettings::class);
