@@ -1,32 +1,44 @@
 <?php
 
 use App\Models\Course;
-use App\Models\CourseFeeSettings;
 use App\Models\CourseClassSettings;
+use App\Models\CourseFeeSettings;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public $step = 1;
-    
+
     // Course basic info
     public $name = '';
+
     public $description = '';
-    
+
     // Fee settings
     public $fee_amount = '';
+
     public $billing_cycle = 'monthly';
+
     public $is_recurring = true;
-    
+
     // Class settings
     public $teaching_mode = 'online';
+
     public $billing_type = 'per_month';
+
     public $sessions_per_month = '';
+
     public $session_duration_minutes = 60;
+
     public $price_per_session = '';
+
     public $price_per_month = '';
+
     public $price_per_minute = '';
+
     public $class_description = '';
+
     public $class_instructions = '';
 
     public function nextStep(): void
@@ -39,7 +51,6 @@ new class extends Component {
     {
         $this->step--;
     }
-
 
     public function create(): void
     {
@@ -72,7 +83,7 @@ new class extends Component {
         ]);
 
         session()->flash('success', 'Course created successfully!');
-        
+
         $this->redirect(route('courses.index'));
     }
 
@@ -83,7 +94,7 @@ new class extends Component {
         if ($this->step >= 1) {
             $rules = array_merge($rules, [
                 'name' => 'required|string|min:3|max:255',
-                'description' => 'nullable|string|max:1000',
+                'description' => 'required|string|max:1000',
             ]);
         }
 
@@ -157,7 +168,7 @@ new class extends Component {
                 <div class="space-y-6">
                     <flux:input wire:model="name" label="Course Name" placeholder="Enter course name" />
                     
-                    <flux:textarea wire:model="description" label="Description" placeholder="Course description (optional)" rows="4" />
+                    <flux:textarea wire:model="description" label="Description" placeholder="Course description" rows="4" />
 
 
                     <div class="flex justify-end">

@@ -11,6 +11,7 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.auth')] class extends Component {
     public string $name = '';
     public string $email = '';
+    public string $phone = '';
     public string $password = '';
     public string $password_confirmation = '';
 
@@ -21,11 +22,14 @@ new #[Layout('components.layouts.auth')] class extends Component {
     {
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
+            'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
+            'phone' => ['required', 'string', 'unique:' . User::class, 'regex:/^[0-9]{10,15}$/'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
+        $validated['email'] = $validated['email'] ?: null;
+        $validated['role'] = 'student'; // Default role for registration
 
         event(new Registered(($user = User::create($validated))));
 
@@ -53,14 +57,23 @@ new #[Layout('components.layouts.auth')] class extends Component {
             :placeholder="__('Full name')"
         />
 
+        <!-- Phone Number -->
+        <flux:input
+            wire:model="phone"
+            :label="__('Phone number')"
+            type="tel"
+            required
+            autocomplete="tel"
+            placeholder="60165756060"
+        />
+
         <!-- Email Address -->
         <flux:input
             wire:model="email"
-            :label="__('Email address')"
+            :label="__('Email address (optional)')"
             type="email"
-            required
             autocomplete="email"
-            placeholder="email@example.com"
+            placeholder="email@example.com (optional)"
         />
 
         <!-- Password -->

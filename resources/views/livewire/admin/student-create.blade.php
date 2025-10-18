@@ -53,7 +53,7 @@ new class extends Component
             // Student validation
             'ic_number' => 'nullable|string|size:12|regex:/^[0-9]{12}$/|unique:students',
             'country_code' => 'nullable|string|max:5',
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:15|regex:/^[0-9]+$/',
             'address_line_1' => 'nullable|string|max:255',
             'address_line_2' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:100',
@@ -75,10 +75,11 @@ new class extends Component
         ]);
 
         // Create student profile
-        // Combine country code and phone number
+        // Combine country code and phone number (remove + symbol and spaces)
         $fullPhone = null;
         if ($this->phone) {
-            $fullPhone = $this->country_code.' '.$this->phone;
+            $countryCode = ltrim($this->country_code, '+');
+            $fullPhone = $countryCode.$this->phone;
         }
 
         $student = Student::create([

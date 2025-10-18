@@ -77,9 +77,15 @@ class Teacher extends Model
         return $this->user->name;
     }
 
-    public function getEmailAttribute(): string
+    public function getEmailAttribute(): ?string
     {
-        return $this->user->email;
+        return $this->user->email ?? null;
+    }
+
+    public function getPhoneNumberAttribute(): ?string
+    {
+        // Return phone from teacher profile first, fallback to user phone
+        return $this->phone ?: ($this->user->phone ?? null);
     }
 
     public function getMaskedAccountNumberAttribute(): ?string

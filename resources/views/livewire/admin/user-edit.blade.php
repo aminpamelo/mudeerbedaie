@@ -12,26 +12,29 @@ new class extends Component {
     public User $user;
     public $name = '';
     public $email = '';
+    public $phone = '';
     public $password = '';
     public $password_confirmation = '';
     public $role = '';
     public $status = '';
     public $change_password = false;
-    
+
     public function mount(User $user)
     {
         $this->user = $user;
         $this->name = $user->name;
         $this->email = $user->email;
+        $this->phone = $user->phone;
         $this->role = $user->role;
         $this->status = $user->status;
     }
-    
+
     public function rules()
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', Rule::unique('users')->ignore($this->user->id)],
+            'email' => ['nullable', 'email', Rule::unique('users')->ignore($this->user->id)],
+            'phone' => ['required', 'string', Rule::unique('users')->ignore($this->user->id), 'regex:/^[0-9]{10,15}$/'],
             'password' => $this->change_password ? ['required', 'string', 'min:8', 'confirmed'] : [],
             'role' => ['required', Rule::in(['admin', 'teacher', 'student'])],
             'status' => ['required', Rule::in(['active', 'inactive', 'suspended'])],
@@ -64,7 +67,8 @@ new class extends Component {
         
         $userData = [
             'name' => $this->name,
-            'email' => $this->email,
+            'email' => $this->email ?: null,
+            'phone' => $this->phone,
             'role' => $this->role,
             'status' => $this->status,
         ];
@@ -189,16 +193,34 @@ new class extends Component {
                                 <flux:error name="name" />
                             </flux:field>
                         </div>
-                        
+
+                        <div>
+                            <flux:field>
+                                <flux:label>Phone Number</flux:label>
+                                <flux:input
+                                    type="tel"
+                                    wire:model="phone"
+                                    placeholder="60165756060"
+                                    required
+                                />
+                                <flux:description>
+                                    Phone number is required for login and communication (10-15 digits).
+                                </flux:description>
+                                <flux:error name="phone" />
+                            </flux:field>
+                        </div>
+
                         <div>
                             <flux:field>
                                 <flux:label>Email Address</flux:label>
                                 <flux:input
                                     type="email"
                                     wire:model="email"
-                                    placeholder="Enter email address"
-                                    required
+                                    placeholder="Enter email address (optional)"
                                 />
+                                <flux:description>
+                                    Email is optional but recommended for notifications.
+                                </flux:description>
                                 <flux:error name="email" />
                             </flux:field>
                         </div>

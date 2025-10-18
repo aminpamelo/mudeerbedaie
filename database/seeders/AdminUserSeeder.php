@@ -14,9 +14,10 @@ class AdminUserSeeder extends Seeder
     public function run(): void
     {
         User::firstOrCreate(
-            ['email' => 'admin@example.com'],
+            ['phone' => '60123456789'],
             [
                 'name' => 'Admin User',
+                'email' => 'admin@example.com',
                 'password' => Hash::make('password'),
                 'role' => 'admin',
                 'email_verified_at' => now(),
@@ -24,9 +25,10 @@ class AdminUserSeeder extends Seeder
         );
 
         User::firstOrCreate(
-            ['email' => 'teacher@example.com'],
+            ['phone' => '60123456788'],
             [
                 'name' => 'Teacher User',
+                'email' => 'teacher@example.com',
                 'password' => Hash::make('password'),
                 'role' => 'teacher',
                 'email_verified_at' => now(),
@@ -34,9 +36,10 @@ class AdminUserSeeder extends Seeder
         );
 
         User::firstOrCreate(
-            ['email' => 'student@example.com'],
+            ['phone' => '60165756060'],
             [
                 'name' => 'Student User',
+                'email' => 'student@example.com',
                 'password' => Hash::make('password'),
                 'role' => 'student',
                 'email_verified_at' => now(),

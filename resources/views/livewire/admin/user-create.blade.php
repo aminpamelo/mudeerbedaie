@@ -10,30 +10,33 @@ use Livewire\Volt\Component;
 new class extends Component {
     public $name = '';
     public $email = '';
+    public $phone = '';
     public $password = '';
     public $password_confirmation = '';
     public $role = 'student';
     public $status = 'active';
     public $send_welcome_email = true;
-    
+
     public function rules()
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'unique:users,email'],
+            'email' => ['nullable', 'email', 'unique:users,email'],
+            'phone' => ['required', 'string', 'unique:users,phone', 'regex:/^[0-9]{10,15}$/'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in(['admin', 'teacher', 'student'])],
             'status' => ['required', Rule::in(['active', 'inactive', 'suspended'])],
         ];
     }
-    
+
     public function save()
     {
         $this->validate();
-        
+
         $user = User::create([
             'name' => $this->name,
-            'email' => $this->email,
+            'email' => $this->email ?: null,
+            'phone' => $this->phone,
             'password' => Hash::make($this->password),
             'role' => $this->role,
             'status' => $this->status,
@@ -101,16 +104,34 @@ new class extends Component {
                                 <flux:error name="name" />
                             </flux:field>
                         </div>
-                        
+
+                        <div>
+                            <flux:field>
+                                <flux:label>Phone Number</flux:label>
+                                <flux:input
+                                    type="tel"
+                                    wire:model="phone"
+                                    placeholder="60165756060"
+                                    required
+                                />
+                                <flux:description>
+                                    Phone number is required for login and communication (10-15 digits).
+                                </flux:description>
+                                <flux:error name="phone" />
+                            </flux:field>
+                        </div>
+
                         <div>
                             <flux:field>
                                 <flux:label>Email Address</flux:label>
                                 <flux:input
                                     type="email"
                                     wire:model="email"
-                                    placeholder="Enter email address"
-                                    required
+                                    placeholder="Enter email address (optional)"
                                 />
+                                <flux:description>
+                                    Email is optional but recommended for notifications.
+                                </flux:description>
                                 <flux:error name="email" />
                             </flux:field>
                         </div>

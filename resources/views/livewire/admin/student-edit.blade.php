@@ -53,11 +53,26 @@ new class extends Component
         // Parse existing phone number to extract country code if present
         if ($this->student->phone) {
             $phone = $this->student->phone;
-            // Check if phone starts with a country code
-            if (preg_match('/^(\+\d{1,4})\s*(.+)$/', $phone, $matches)) {
-                $this->country_code = $matches[1];
-                $this->phone = $matches[2];
-            } else {
+            // Try to parse country code - match common patterns
+            // Malaysia: 60 (2 digits) + 9-10 digit number
+            // Singapore: 65 (2 digits) + 8 digit number
+            // Indonesia: 62 (2 digits) + 9-12 digit number
+            // Most countries: 1-4 digit country code + 7-15 digit number
+            $parsed = false;
+
+            // Try common country codes first
+            $commonCodes = ['60', '65', '62', '66', '84', '63', '95', '855', '856', '673', '1', '44', '86', '91', '81', '82'];
+            foreach ($commonCodes as $code) {
+                if (str_starts_with($phone, $code)) {
+                    $this->country_code = '+'.$code;
+                    $this->phone = substr($phone, strlen($code));
+                    $parsed = true;
+                    break;
+                }
+            }
+
+            if (! $parsed) {
+                // Fallback: couldn't parse, just show the full number
                 $this->phone = $phone;
             }
         } else {
@@ -86,7 +101,7 @@ new class extends Component
             // Student validation
             'ic_number' => 'nullable|string|size:12|regex:/^[0-9]{12}$/|unique:students,ic_number,'.$this->student->id,
             'country_code' => 'nullable|string|max:5',
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:15|regex:/^[0-9]+$/',
             'address_line_1' => 'nullable|string|max:255',
             'address_line_2' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:100',
@@ -106,10 +121,11 @@ new class extends Component
         ]);
 
         // Update student
-        // Combine country code and phone number
+        // Combine country code and phone number (remove + symbol and spaces)
         $fullPhone = null;
         if ($this->phone) {
-            $fullPhone = $this->country_code.' '.$this->phone;
+            $countryCode = ltrim($this->country_code, '+');
+            $fullPhone = $countryCode.$this->phone;
         }
 
         $this->student->update([

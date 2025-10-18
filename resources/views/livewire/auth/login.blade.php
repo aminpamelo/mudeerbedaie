@@ -12,28 +12,30 @@ use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.auth')] class extends Component {
-    #[Validate('required|string|email')]
-    public string $email = '';
-
-    #[Validate('required|string')]
+    public string $login = '';
     public string $password = '';
-
     public bool $remember = false;
 
     /**
      * Handle an incoming authentication request.
      */
-    public function login(): void
+    public function authenticate(): void
     {
-        $this->validate();
+        $this->validate([
+            'login' => ['required', 'string'],
+            'password' => ['required', 'string'],
+        ]);
 
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+        // Determine if login is email or phone
+        $loginField = filter_var($this->login, FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
+
+        if (! Auth::attempt([$loginField => $this->login, 'password' => $this->password], $this->remember)) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'email' => __('auth.failed'),
+                'login' => __('auth.failed'),
             ]);
         }
 
@@ -57,7 +59,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => __('auth.throttle', [
+            'login' => __('auth.throttle', [
                 'seconds' => $seconds,
                 'minutes' => ceil($seconds / 60),
             ]),
@@ -69,26 +71,26 @@ new #[Layout('components.layouts.auth')] class extends Component {
      */
     protected function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->email).'|'.request()->ip());
+        return Str::transliterate(Str::lower($this->login).'|'.request()->ip());
     }
 }; ?>
 
 <div class="flex flex-col gap-6">
-    <x-auth-header :title="__('Log in to your account')" :description="__('Enter your email and password below to log in')" />
+    <x-auth-header :title="__('Log in to your account')" :description="__('Enter your phone number or email and password below to log in')" />
 
     <!-- Session Status -->
     <x-auth-session-status class="text-center" :status="session('status')" />
 
-    <form method="POST" wire:submit="login" class="flex flex-col gap-6">
-        <!-- Email Address -->
+    <form method="POST" wire:submit="authenticate" class="flex flex-col gap-6">
+        <!-- Phone or Email Address -->
         <flux:input
-            wire:model="email"
-            :label="__('Email address')"
-            type="email"
+            wire:model="login"
+            :label="__('Phone number or Email')"
+            type="text"
             required
             autofocus
-            autocomplete="email"
-            placeholder="email@example.com"
+            autocomplete="username"
+            placeholder="60165756060 or email@example.com"
         />
 
         <!-- Password -->
