@@ -300,18 +300,18 @@ class StudentImportService
         // Create student profile
         $student = Student::create([
             'user_id' => $user->id,
-            'ic_number' => $data['ic_number'] ?? null,
+            'ic_number' => ! empty($data['ic_number']) ? $data['ic_number'] : null,
             'phone' => $data['phone'],
-            'address_line_1' => $data['address_line_1'] ?? null,
-            'address_line_2' => $data['address_line_2'] ?? null,
-            'city' => $data['city'] ?? null,
-            'state' => $data['state'] ?? null,
-            'postcode' => $data['postcode'] ?? null,
-            'country' => $data['country'] ?? null,
+            'address_line_1' => ! empty($data['address_line_1']) ? $data['address_line_1'] : null,
+            'address_line_2' => ! empty($data['address_line_2']) ? $data['address_line_2'] : null,
+            'city' => ! empty($data['city']) ? $data['city'] : null,
+            'state' => ! empty($data['state']) ? $data['state'] : null,
+            'postcode' => ! empty($data['postcode']) ? $data['postcode'] : null,
+            'country' => ! empty($data['country']) ? $data['country'] : null,
             'date_of_birth' => ! empty($data['date_of_birth']) ? $data['date_of_birth'] : null,
-            'gender' => $data['gender'] ?? null,
-            'nationality' => $data['nationality'] ?? 'Malaysian',
-            'status' => $data['status'] ?? 'active',
+            'gender' => ! empty($data['gender']) ? $data['gender'] : null,
+            'nationality' => ! empty($data['nationality']) ? $data['nationality'] : 'Malaysian',
+            'status' => ! empty($data['status']) ? $data['status'] : 'active',
         ]);
 
         return $student;
@@ -333,18 +333,18 @@ class StudentImportService
 
         // Update student profile
         $student->update([
-            'ic_number' => $data['ic_number'] ?? $student->ic_number,
+            'ic_number' => ! empty($data['ic_number']) ? $data['ic_number'] : $student->ic_number,
             'phone' => $data['phone'],
-            'address_line_1' => $data['address_line_1'] ?? $student->address_line_1,
-            'address_line_2' => $data['address_line_2'] ?? $student->address_line_2,
-            'city' => $data['city'] ?? $student->city,
-            'state' => $data['state'] ?? $student->state,
-            'postcode' => $data['postcode'] ?? $student->postcode,
-            'country' => $data['country'] ?? $student->country,
+            'address_line_1' => ! empty($data['address_line_1']) ? $data['address_line_1'] : $student->address_line_1,
+            'address_line_2' => ! empty($data['address_line_2']) ? $data['address_line_2'] : $student->address_line_2,
+            'city' => ! empty($data['city']) ? $data['city'] : $student->city,
+            'state' => ! empty($data['state']) ? $data['state'] : $student->state,
+            'postcode' => ! empty($data['postcode']) ? $data['postcode'] : $student->postcode,
+            'country' => ! empty($data['country']) ? $data['country'] : $student->country,
             'date_of_birth' => ! empty($data['date_of_birth']) ? $data['date_of_birth'] : $student->date_of_birth,
-            'gender' => $data['gender'] ?? $student->gender,
-            'nationality' => $data['nationality'] ?? $student->nationality,
-            'status' => $data['status'] ?? $student->status,
+            'gender' => ! empty($data['gender']) ? $data['gender'] : $student->gender,
+            'nationality' => ! empty($data['nationality']) ? $data['nationality'] : $student->nationality,
+            'status' => ! empty($data['status']) ? $data['status'] : $student->status,
         ]);
 
         return $student;
