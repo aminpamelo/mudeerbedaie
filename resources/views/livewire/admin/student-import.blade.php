@@ -1,17 +1,21 @@
 <?php
 
 use App\Services\StudentImportService;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
-new class extends Component {
+new class extends Component
+{
     use WithFileUploads;
 
     public $csvFile;
+
     public $step = 1; // 1: Upload, 2: Preview, 3: Results
+
     public $previewData = [];
+
     public $importResults = [];
+
     public $isProcessing = false;
 
     protected $rules = [
@@ -34,23 +38,23 @@ new class extends Component {
 
             $this->isProcessing = true;
 
-            if (!$this->csvFile) {
+            if (! $this->csvFile) {
                 throw new \Exception('No file selected. Please choose a CSV file.');
             }
 
-            if (!$this->csvFile->isValid()) {
+            if (! $this->csvFile->isValid()) {
                 throw new \Exception('Invalid file upload.');
             }
 
             // Get the temporary file path directly from Livewire
             $tempPath = $this->csvFile->getRealPath();
 
-            if (!$tempPath || !file_exists($tempPath)) {
+            if (! $tempPath || ! file_exists($tempPath)) {
                 throw new \Exception('Failed to access uploaded file');
             }
 
             // Parse and validate CSV directly from temporary location
-            $service = new StudentImportService();
+            $service = new StudentImportService;
             $service->parseCsv($tempPath);
             $this->previewData = $service->validateData();
 
@@ -59,7 +63,7 @@ new class extends Component {
             // Let validation errors be handled by Livewire
             throw $e;
         } catch (\Exception $e) {
-            session()->flash('error', 'Error processing CSV: ' . $e->getMessage());
+            session()->flash('error', 'Error processing CSV: '.$e->getMessage());
         } finally {
             $this->isProcessing = false;
         }
@@ -73,18 +77,18 @@ new class extends Component {
             // Get the temporary file path directly from Livewire
             $tempPath = $this->csvFile->getRealPath();
 
-            if (!$tempPath || !file_exists($tempPath)) {
+            if (! $tempPath || ! file_exists($tempPath)) {
                 throw new \Exception('Failed to access uploaded file');
             }
 
-            $service = new StudentImportService();
+            $service = new StudentImportService;
             $service->parseCsv($tempPath);
             $service->validateData();
             $this->importResults = $service->importValidData();
 
             $this->step = 3;
         } catch (\Exception $e) {
-            session()->flash('error', 'Error importing data: ' . $e->getMessage());
+            session()->flash('error', 'Error importing data: '.$e->getMessage());
         } finally {
             $this->isProcessing = false;
         }
@@ -310,7 +314,7 @@ new class extends Component {
                         <flux:button wire:click="resetImport" variant="ghost">
                             Start Over
                         </flux:button>
-                        <flux:button wire:click="importData" variant="primary" :disabled="$isProcessing || $this->getValidRowsCount() === 0">
+                        <flux:button wire:click="importData" variant="primary" :disabled="$isProcessing || ($this->getValidRowsCount() + $this->getWarningRowsCount()) === 0">
                             <span wire:loading.remove wire:target="importData">Import {{ $this->getValidRowsCount() + $this->getWarningRowsCount() }} Records</span>
                             <span wire:loading wire:target="importData">Importing...</span>
                         </flux:button>
@@ -354,12 +358,18 @@ new class extends Component {
 
                     @if(isset($importResults['errors']) && count($importResults['errors']) > 0)
                         <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                            <h4 class="font-medium text-red-800 mb-2">Import Errors:</h4>
-                            <ul class="text-sm text-red-700 list-disc list-inside space-y-1">
+                            <h4 class="font-medium text-red-800 mb-3 flex items-center">
+                                <flux:icon name="exclamation-triangle" class="w-5 h-5 mr-2" />
+                                Import Errors:
+                            </h4>
+                            <div class="space-y-3">
                                 @foreach($importResults['errors'] as $error)
-                                    <li>Row {{ $error['row'] }}: {{ $error['error'] }}</li>
+                                    <div class="bg-white border border-red-300 rounded p-3">
+                                        <p class="text-sm font-medium text-red-900 mb-1">Row {{ $error['row'] }}:</p>
+                                        <p class="text-sm text-red-700 break-words">{{ $error['error'] }}</p>
+                                    </div>
                                 @endforeach
-                            </ul>
+                            </div>
                         </div>
                     @endif
 

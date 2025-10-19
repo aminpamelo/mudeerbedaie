@@ -47,7 +47,7 @@ new class extends Component
         $this->validate([
             // User validation
             'name' => 'required|string|min:3|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => 'nullable|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
 
             // Student validation
@@ -69,7 +69,7 @@ new class extends Component
         // Create user first
         $user = User::create([
             'name' => $this->name,
-            'email' => $this->email,
+            'email' => $this->email ?: null,
             'password' => bcrypt($this->password),
             'role' => 'student',
         ]);
@@ -120,7 +120,7 @@ new class extends Component
             <div class="mt-6 space-y-6">
                 <flux:input wire:model="name" label="Full Name" placeholder="Enter student's full name" required />
 
-                <flux:input type="email" wire:model="email" label="Email Address" placeholder="student@example.com" required />
+                <flux:input type="email" wire:model="email" label="Email Address" placeholder="student@example.com" />
                 
                 <flux:input 
                     wire:model="ic_number" 

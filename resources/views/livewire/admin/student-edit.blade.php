@@ -96,7 +96,7 @@ new class extends Component
         $this->validate([
             // User validation
             'name' => 'required|string|min:3|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,'.$this->student->user->id,
+            'email' => 'nullable|string|email|max:255|unique:users,email,'.$this->student->user->id,
 
             // Student validation
             'ic_number' => 'nullable|string|size:12|regex:/^[0-9]{12}$/|unique:students,ic_number,'.$this->student->id,
@@ -117,7 +117,7 @@ new class extends Component
         // Update user
         $this->student->user->update([
             'name' => $this->name,
-            'email' => $this->email,
+            'email' => $this->email ?: null,
         ]);
 
         // Update student
@@ -165,7 +165,7 @@ new class extends Component
             <div class="mt-6 space-y-6">
                 <flux:input wire:model="name" label="Full Name" placeholder="Enter student's full name" required />
 
-                <flux:input type="email" wire:model="email" label="Email Address" placeholder="student@example.com" required />
+                <flux:input type="email" wire:model="email" label="Email Address" placeholder="student@example.com" />
                 
                 <flux:input 
                     wire:model="ic_number" 

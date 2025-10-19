@@ -92,13 +92,20 @@ class StudentImportService
                 $errors = $validator->errors()->all();
             }
 
-            // Check for potential duplicates
+            // Check for potential duplicates in database
             $duplicateWarnings = $this->checkDuplicates($row);
             if (! empty($duplicateWarnings)) {
                 $warnings = array_merge($warnings, $duplicateWarnings);
                 if ($status === 'valid') {
                     $status = 'warning';
                 }
+            }
+
+            // Check for duplicates within CSV file
+            $csvDuplicates = $this->checkCsvDuplicates($row, $index);
+            if (! empty($csvDuplicates)) {
+                $errors = array_merge($errors, $csvDuplicates);
+                $status = 'invalid';
             }
 
             $this->validatedData[] = [
@@ -157,27 +164,72 @@ class StudentImportService
         return $warnings;
     }
 
+    protected function checkCsvDuplicates(array $row, int $currentIndex): array
+    {
+        $errors = [];
+
+        // Check for duplicates within the CSV file
+        // We check rows that come AFTER the current row, so the LAST occurrence wins
+        foreach ($this->csvData as $index => $csvRow) {
+            // Only check rows that come after current row
+            if ($index <= $currentIndex) {
+                continue;
+            }
+
+            $foundDuplicate = false;
+
+            // Check for duplicate phone numbers (required field - most important)
+            if (! empty($row['phone']) && ! empty($csvRow['phone']) && $row['phone'] === $csvRow['phone']) {
+                $errors[] = "Duplicate phone number '{$row['phone']}' - row {$csvRow['_row_number']} will be used instead";
+                $foundDuplicate = true;
+            }
+
+            // Check for duplicate IC numbers (only if phone didn't match)
+            if (! $foundDuplicate && ! empty($row['ic_number']) && ! empty($csvRow['ic_number']) && $row['ic_number'] === $csvRow['ic_number']) {
+                $errors[] = "Duplicate IC number '{$row['ic_number']}' - row {$csvRow['_row_number']} will be used instead";
+                $foundDuplicate = true;
+            }
+
+            // Check for duplicate email addresses (only if phone and IC didn't match)
+            if (! $foundDuplicate && ! empty($row['email']) && ! empty($csvRow['email']) && $row['email'] === $csvRow['email']) {
+                $errors[] = "Duplicate email '{$row['email']}' - row {$csvRow['_row_number']} will be used instead";
+            }
+        }
+
+        return $errors;
+    }
+
     protected function findExistingStudent(array $data): ?Student
     {
-        // Priority order: phone -> email -> ic_number
+        // Build a query to check for ANY matching unique field to avoid constraint violations
+        $query = Student::query();
+
+        $hasConditions = false;
+
+        // Check phone number
         if (! empty($data['phone'])) {
-            $student = Student::where('phone', $data['phone'])->first();
+            $query->orWhere('phone', $data['phone']);
+            $hasConditions = true;
+        }
+
+        // Check IC number (critical - has unique constraint)
+        if (! empty($data['ic_number'])) {
+            $query->orWhere('ic_number', $data['ic_number']);
+            $hasConditions = true;
+        }
+
+        if ($hasConditions) {
+            $student = $query->first();
             if ($student) {
                 return $student;
             }
         }
 
+        // Finally check email through user relationship
         if (! empty($data['email'])) {
             $user = User::where('email', $data['email'])->first();
             if ($user && $user->student) {
                 return $user->student;
-            }
-        }
-
-        if (! empty($data['ic_number'])) {
-            $student = Student::where('ic_number', $data['ic_number'])->first();
-            if ($student) {
-                return $student;
             }
         }
 
@@ -212,7 +264,7 @@ class StudentImportService
                 $skipped++;
                 $errors[] = [
                     'row' => $item['data']['_row_number'],
-                    'error' => $e->getMessage(),
+                    'error' => $this->formatErrorMessage($e->getMessage(), $item['data']),
                 ];
             }
         }
@@ -242,10 +294,8 @@ class StudentImportService
             'email' => $email,
             'password' => Hash::make('password123'), // Default password
             'email_verified_at' => now(),
+            'role' => 'student',
         ]);
-
-        // Assign student role
-        $user->assignRole('student');
 
         // Create student profile
         $student = Student::create([
@@ -438,5 +488,33 @@ class StudentImportService
     public function getCsvData(): array
     {
         return $this->csvData;
+    }
+
+    protected function formatErrorMessage(string $errorMessage, array $data): string
+    {
+        // Check for unique constraint violations
+        if (str_contains($errorMessage, 'UNIQUE constraint failed') || str_contains($errorMessage, 'Integrity constraint violation')) {
+            // Extract field name from error
+            if (str_contains($errorMessage, 'ic_number')) {
+                return "IC number '{$data['ic_number']}' already exists in the database. This student may have already been imported.";
+            }
+
+            if (str_contains($errorMessage, 'phone')) {
+                return "Phone number '{$data['phone']}' already exists in the database. This student may have already been imported.";
+            }
+
+            if (str_contains($errorMessage, 'email')) {
+                return "Email '{$data['email']}' already exists in the database. This student may have already been imported.";
+            }
+
+            if (str_contains($errorMessage, 'student_id')) {
+                return 'Student ID already exists in the database.';
+            }
+
+            return 'Duplicate data found. This student may have already been imported.';
+        }
+
+        // Return original error message if it's not a constraint violation
+        return $errorMessage;
     }
 }
