@@ -1,19 +1,26 @@
 <?php
+use App\Models\Course;
 use App\Models\Order;
 use App\Models\Student;
-use App\Models\Course;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public $search = '';
+
     public $statusFilter = '';
+
     public $courseFilter = '';
+
     public $studentFilter = '';
+
     public $paymentMethodFilter = '';
+
     public $sortBy = 'created_at';
+
     public $sortDirection = 'desc';
 
     protected $queryString = [
@@ -83,10 +90,10 @@ new class extends Component {
             ->with(['student.user', 'course', 'enrollment'])
             ->when($this->search, function ($query) {
                 $query->whereHas('student.user', function ($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%');
-                })->orWhere('order_number', 'like', '%' . $this->search . '%')
-                  ->orWhere('stripe_invoice_id', 'like', '%' . $this->search . '%');
+                    $q->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('email', 'like', '%'.$this->search.'%');
+                })->orWhere('order_number', 'like', '%'.$this->search.'%')
+                    ->orWhere('stripe_invoice_id', 'like', '%'.$this->search.'%');
             })
             ->when($this->statusFilter, function ($query) {
                 $query->where('status', $this->statusFilter);
@@ -113,7 +120,7 @@ new class extends Component {
             'students' => Student::with('user')->get()->map(function ($student) {
                 return (object) [
                     'id' => $student->id,
-                    'name' => $student->user->name,
+                    'name' => $student->user?->name ?? 'No User Assigned',
                 ];
             }),
             'orderStatuses' => Order::getStatuses(),
@@ -272,8 +279,8 @@ new class extends Component {
                                 @endif
                             </td>
                             <td class="py-3 px-4">
-                                <flux:text>{{ $order->student->user->name }}</flux:text>
-                                <flux:text size="xs" class="text-gray-500 block">{{ $order->student->user->email }}</flux:text>
+                                <flux:text>{{ $order->student->user?->name ?? 'No User' }}</flux:text>
+                                <flux:text size="xs" class="text-gray-500 block">{{ $order->student->user?->email ?? 'N/A' }}</flux:text>
                             </td>
                             <td class="py-3 px-4">
                                 <flux:text>{{ $order->course->name }}</flux:text>
