@@ -28,6 +28,8 @@ new class extends Component
 
     public $payment_method_type = 'automatic';
 
+    public $studentSearch = '';
+
     public function mount(): void
     {
         $this->enrollment_date = today()->format('Y-m-d');
@@ -36,8 +38,22 @@ new class extends Component
 
     public function with(): array
     {
+        $studentsQuery = Student::where('status', 'active')->with('user');
+
+        // Search by name, phone, or student_id
+        if ($this->studentSearch) {
+            $search = $this->studentSearch;
+            $studentsQuery->where(function ($query) use ($search) {
+                $query->where('phone', 'like', "%{$search}%")
+                    ->orWhere('student_id', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
         return [
-            'students' => Student::where('status', 'active')->with('user')->get(),
+            'students' => $studentsQuery->get(),
             'courses' => Course::where('status', 'active')->get(),
             'pics' => \App\Models\User::whereIn('role', ['admin', 'staff'])
                 ->orderBy('name')
@@ -181,13 +197,19 @@ new class extends Component
         <!-- Student and Course Selection -->
         <flux:card>
             <flux:heading size="lg">Student and Course</flux:heading>
-            
+
             <div class="mt-6 space-y-6">
+                <flux:input
+                    wire:model.live.debounce.300ms="studentSearch"
+                    label="Search Student"
+                    placeholder="Search by name or phone number..."
+                />
+
                 <flux:select wire:model.live="student_id" label="Student" placeholder="Select a student" required>
                     @foreach($students as $student)
                         @if($student->user)
                             <flux:select.option value="{{ $student->id }}">
-                                {{ $student->user->name }} ({{ $student->student_id }})
+                                {{ $student->user->name }} ({{ $student->phone ?: $student->user->phone ?? 'No phone' }})
                             </flux:select.option>
                         @endif
                     @endforeach
@@ -318,8 +340,8 @@ new class extends Component
                                 <h4 class="text-sm font-medium text-gray-900">Student</h4>
                                 <div class="mt-2">
                                     <p class="text-sm text-gray-600">{{ $selectedStudent->user?->name ?? 'N/A' }}</p>
-                                    <p class="text-sm text-gray-500">{{ $selectedStudent->user?->email ?? 'N/A' }}</p>
-                                    <p class="text-sm text-gray-500">ID: {{ $selectedStudent->student_id }}</p>
+                                    <p class="text-sm text-gray-500">Phone: {{ $selectedStudent->phone ?: ($selectedStudent->user?->phone ?? 'N/A') }}</p>
+                                    <p class="text-sm text-gray-500">Email: {{ $selectedStudent->user?->email ?? 'N/A' }}</p>
                                 </div>
                             </div>
                             <div>
