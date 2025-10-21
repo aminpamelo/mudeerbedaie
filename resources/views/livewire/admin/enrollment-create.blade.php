@@ -185,9 +185,11 @@ new class extends Component
             <div class="mt-6 space-y-6">
                 <flux:select wire:model.live="student_id" label="Student" placeholder="Select a student" required>
                     @foreach($students as $student)
-                        <flux:select.option value="{{ $student->id }}">
-                            {{ $student->user->name }} ({{ $student->student_id }})
-                        </flux:select.option>
+                        @if($student->user)
+                            <flux:select.option value="{{ $student->id }}">
+                                {{ $student->user->name }} ({{ $student->student_id }})
+                            </flux:select.option>
+                        @endif
                     @endforeach
                 </flux:select>
 
@@ -315,8 +317,8 @@ new class extends Component
                             <div>
                                 <h4 class="text-sm font-medium text-gray-900">Student</h4>
                                 <div class="mt-2">
-                                    <p class="text-sm text-gray-600">{{ $selectedStudent->user->name }}</p>
-                                    <p class="text-sm text-gray-500">{{ $selectedStudent->user->email }}</p>
+                                    <p class="text-sm text-gray-600">{{ $selectedStudent->user?->name ?? 'N/A' }}</p>
+                                    <p class="text-sm text-gray-500">{{ $selectedStudent->user?->email ?? 'N/A' }}</p>
                                     <p class="text-sm text-gray-500">ID: {{ $selectedStudent->student_id }}</p>
                                 </div>
                             </div>
