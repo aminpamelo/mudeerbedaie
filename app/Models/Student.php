@@ -129,6 +129,13 @@ class Student extends Model
         return $this->hasMany(ProductOrder::class);
     }
 
+    public function audiences()
+    {
+        return $this->belongsToMany(Audience::class, 'audience_student')
+            ->withPivot('subscribed_at')
+            ->withTimestamps();
+    }
+
     public function paidOrders(): HasMany
     {
         return $this->hasMany(ProductOrder::class)->whereNotNull('paid_time');

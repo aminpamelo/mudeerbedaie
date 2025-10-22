@@ -75,6 +75,11 @@
 
                 </flux:navlist.group>
 
+                <!-- CRM & Automation -->
+                <flux:navlist.group :heading="__('CRM &amp; Automation')" class="grid">
+                    <flux:navlist.item icon="table-cells" :href="route('crm.all-database')" :current="request()->routeIs('crm.all-database')" wire:navigate>{{ __('All Database') }}</flux:navlist.item>
+                </flux:navlist.group>
+
                 <!-- Commerce & Packages -->
                 <flux:navlist.group :heading="__('Commerce &amp; Packages')" class="grid">
                     <flux:navlist.item icon="shopping-bag" :href="route('admin.orders.index')" :current="request()->routeIs('admin.orders.*')" wire:navigate>{{ __('Orders &amp; Package Sales') }}</flux:navlist.item>

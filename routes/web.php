@@ -152,6 +152,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Enrollment routes
     Route::get('enrollments', [EnrollmentController::class, 'index'])->name('enrollments.index');
     Route::get('enrollments/create', [EnrollmentController::class, 'create'])->name('enrollments.create');
+    Volt::route('enrollments/bulk-create', 'admin.enrollment-bulk-create')->name('enrollments.bulk-create');
     Route::get('enrollments/{enrollment}', [EnrollmentController::class, 'show'])->name('enrollments.show');
     Route::get('enrollments/{enrollment}/edit', [EnrollmentController::class, 'edit'])->name('enrollments.edit');
 
@@ -280,6 +281,21 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
 
         return \Storage::download($certificateIssue->file_path, $certificateIssue->certificate_number.'.pdf');
     })->name('certificates.download');
+
+    // CRM & Automation routes
+    Volt::route('crm/all-database', 'crm.all-database')->name('crm.all-database');
+    Route::get('crm/export', [StudentController::class, 'exportCrm'])->name('crm.export');
+
+    // Audience routes
+    Volt::route('crm/audiences', 'crm.audience-list')->name('crm.audiences.index');
+    Volt::route('crm/audiences/create', 'crm.audience-create')->name('crm.audiences.create');
+    Volt::route('crm/audiences/{audience}/edit', 'crm.audience-edit')->name('crm.audiences.edit');
+
+    // Broadcast routes
+    Volt::route('crm/broadcasts', 'crm.broadcast-list')->name('crm.broadcasts.index');
+    Volt::route('crm/broadcasts/create', 'crm.broadcast-create')->name('crm.broadcasts.create');
+    Volt::route('crm/broadcasts/{broadcast}', 'crm.broadcast-show')->name('crm.broadcasts.show');
+    Volt::route('crm/broadcasts/{broadcast}/edit', 'crm.broadcast-edit')->name('crm.broadcasts.edit');
 
     // Admin Settings routes
     Route::redirect('settings', 'admin/settings/general');

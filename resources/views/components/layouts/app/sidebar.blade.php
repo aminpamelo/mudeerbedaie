@@ -39,6 +39,12 @@
                     <flux:navlist.item icon="tag" :href="route('product-attributes.index')" :current="request()->routeIs('product-attributes.*')" wire:navigate>{{ __('Attributes') }}</flux:navlist.item>
                 </flux:navlist.group>
 
+                <flux:navlist.group :heading="__('CRM & Automation')" class="grid">
+                    <flux:navlist.item icon="table-cells" :href="route('crm.all-database')" :current="request()->routeIs('crm.all-database')" wire:navigate>{{ __('All Database') }}</flux:navlist.item>
+                    <flux:navlist.item icon="user-group" :href="route('crm.audiences.index')" :current="request()->routeIs('crm.audiences.*')" wire:navigate>{{ __('Audiences') }}</flux:navlist.item>
+                    <flux:navlist.item icon="envelope" :href="route('crm.broadcasts.index')" :current="request()->routeIs('crm.broadcasts.*')" wire:navigate>{{ __('Broadcasts') }}</flux:navlist.item>
+                </flux:navlist.group>
+
                 <flux:navlist.group :heading="__('Commerce & Packages')" class="grid">
                     <flux:navlist.item icon="shopping-bag" :href="route('admin.orders.index')" :current="request()->routeIs('admin.orders.*')" wire:navigate>{{ __('Orders & Package Sales') }}</flux:navlist.item>
                     <flux:navlist.item icon="gift" :href="route('packages.index')" :current="request()->routeIs('packages.*')" wire:navigate>{{ __('Packages') }}</flux:navlist.item>

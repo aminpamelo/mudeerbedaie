@@ -136,9 +136,17 @@ new class extends Component
             <flux:heading size="xl">Enrollments</flux:heading>
             <flux:text class="mt-2">Manage student course enrollments</flux:text>
         </div>
-        <flux:button variant="primary" href="{{ route('enrollments.create') }}" icon="user-plus">
-            New Enrollment
-        </flux:button>
+        <div class="flex gap-2">
+            <flux:button variant="ghost" href="{{ route('enrollments.bulk-create') }}">
+                <div class="flex items-center">
+                    <flux:icon name="user-group" class="w-4 h-4 mr-1" />
+                    Bulk Enrollment
+                </div>
+            </flux:button>
+            <flux:button variant="primary" href="{{ route('enrollments.create') }}" icon="user-plus">
+                New Enrollment
+            </flux:button>
+        </div>
     </div>
 
     <div class="mt-6 space-y-6">
