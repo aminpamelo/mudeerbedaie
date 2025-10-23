@@ -1744,6 +1744,17 @@ new class extends Component
 
             // If no linked customer, try to find existing customer by email
             if (! $stripeCustomer) {
+                // Check if user has an email address
+                if (! $user->email) {
+                    return [
+                        'ready' => false,
+                        'has_customer' => false,
+                        'payment_methods' => [],
+                        'status' => 'No email address',
+                        'message' => 'Student needs an email address to set up payment methods',
+                    ];
+                }
+
                 try {
                     $existingCustomer = $stripeService->findCustomerByEmail($user->email);
                     if ($existingCustomer) {
