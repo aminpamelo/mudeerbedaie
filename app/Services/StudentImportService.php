@@ -319,17 +319,39 @@ class StudentImportService
 
     protected function updateStudent(Student $student, array $data): Student
     {
-        // Update user information
-        $userUpdateData = [
-            'name' => $data['name'],
-        ];
+        // Update user information only if user exists
+        if ($student->user) {
+            $userUpdateData = [
+                'name' => $data['name'],
+            ];
 
-        // Only update email if provided
-        if (! empty($data['email'])) {
-            $userUpdateData['email'] = $data['email'];
+            // Only update email if provided
+            if (! empty($data['email'])) {
+                $userUpdateData['email'] = $data['email'];
+            }
+
+            $student->user->update($userUpdateData);
+        } else {
+            // If no user exists, create one for this student
+            $email = $data['email'] ?? null;
+            if (empty($email)) {
+                // Generate email from phone number
+                $phone = preg_replace('/[^0-9]/', '', $data['phone']);
+                $email = 'student'.$phone.'@example.com';
+            }
+
+            $user = User::create([
+                'name' => $data['name'],
+                'email' => $email,
+                'password' => Hash::make('password123'),
+                'email_verified_at' => now(),
+                'role' => 'student',
+            ]);
+
+            // Link the user to the student
+            $student->user_id = $user->id;
+            $student->save();
         }
-
-        $student->user->update($userUpdateData);
 
         // Update student profile
         $student->update([
