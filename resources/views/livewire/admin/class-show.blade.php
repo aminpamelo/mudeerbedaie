@@ -208,6 +208,11 @@ new class extends Component
 
     public $editNotes = '';
 
+    // Eligible students (active enrollment but not in class)
+    public $selectedEligibleStudents = [];
+
+    public $eligibleStudentSearch = '';
+
     public function openCreateSessionModal(): void
     {
         $this->showCreateSessionModal = true;
@@ -397,6 +402,91 @@ new class extends Component
             ]);
         } else {
             session()->flash('error', 'No students were enrolled. They may already be in the class.');
+        }
+    }
+
+    // Eligible Students (active enrollment but not in class)
+    public function getEligibleEnrollmentsProperty()
+    {
+        $enrollments = $this->class->getEligibleEnrollments();
+
+        // Apply search filter
+        if (! empty($this->eligibleStudentSearch)) {
+            $enrollments = $enrollments->filter(function ($enrollment) {
+                $searchTerm = strtolower($this->eligibleStudentSearch);
+                $student = $enrollment->student;
+
+                return str_contains(strtolower($student->fullName ?? ''), $searchTerm) ||
+                    str_contains(strtolower($student->student_id ?? ''), $searchTerm) ||
+                    str_contains(strtolower($student->user->email ?? ''), $searchTerm);
+            });
+        }
+
+        return $enrollments;
+    }
+
+    public function toggleEligibleStudent($enrollmentId): void
+    {
+        if (in_array($enrollmentId, $this->selectedEligibleStudents)) {
+            $this->selectedEligibleStudents = array_values(
+                array_diff($this->selectedEligibleStudents, [$enrollmentId])
+            );
+        } else {
+            $this->selectedEligibleStudents[] = $enrollmentId;
+        }
+    }
+
+    public function enrollSelectedEligibleStudents(): void
+    {
+        if (empty($this->selectedEligibleStudents)) {
+            session()->flash('error', 'Please select at least one student to enroll.');
+
+            return;
+        }
+
+        // Check capacity if class has max capacity
+        if ($this->class->max_capacity) {
+            $currentCount = $this->class->activeStudents()->count();
+            $selectedCount = count($this->selectedEligibleStudents);
+
+            if (($currentCount + $selectedCount) > $this->class->max_capacity) {
+                session()->flash('error', 'Cannot enroll students. Class capacity would be exceeded.');
+
+                return;
+            }
+        }
+
+        $enrolled = 0;
+        $errors = [];
+
+        foreach ($this->selectedEligibleStudents as $enrollmentId) {
+            try {
+                $enrollment = \App\Models\Enrollment::with('student')->find($enrollmentId);
+                if ($enrollment && $enrollment->student) {
+                    $this->class->addStudent($enrollment->student);
+                    $enrolled++;
+                }
+            } catch (\Exception $e) {
+                $errors[] = $e->getMessage();
+
+                continue;
+            }
+        }
+
+        if ($enrolled > 0) {
+            session()->flash('success', "Successfully enrolled {$enrolled} student(s) in the class.");
+            $this->selectedEligibleStudents = [];
+
+            // Refresh the class data to show updated student list
+            $this->class->refresh();
+            $this->class->load([
+                'course',
+                'teacher.user',
+                'sessions.attendances.student.user',
+                'activeStudents.student.user',
+            ]);
+        } else {
+            session()->flash('error', 'No students were enrolled. '.implode(', ', $errors));
         }
     }
 
@@ -2548,6 +2638,136 @@ new class extends Component
                         </flux:button>
                     </div>
                 </flux:card>
+            @endif
+
+            <!-- Eligible Students (Active Enrollment but Not in Class) -->
+            @if($this->eligible_enrollments->count() > 0)
+                <div class="mt-6">
+                    <flux:card>
+                        <div class="overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <flux:heading size="lg">Students with Active Enrollment</flux:heading>
+                                        <flux:text size="sm" class="text-gray-500 mt-2">
+                                            {{ $this->eligible_enrollments->count() }} student(s) have active course enrollment but are not enrolled in this class
+                                        </flux:text>
+                                    </div>
+
+                                    @if(count($selectedEligibleStudents) > 0)
+                                        <flux:button
+                                            variant="primary"
+                                            size="sm"
+                                            wire:click="enrollSelectedEligibleStudents"
+                                            icon="user-plus">
+                                            Enroll Selected ({{ count($selectedEligibleStudents) }})
+                                        </flux:button>
+                                    @endif
+                                </div>
+
+                                <!-- Search Bar -->
+                                <flux:input
+                                    wire:model.live.debounce.300ms="eligibleStudentSearch"
+                                    placeholder="Search students by name, email or ID..."
+                                    icon="magnifying-glass"
+                                    class="w-full"
+                                />
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <input
+                                                    type="checkbox"
+                                                    class="rounded border-gray-300"
+                                                    wire:click="$set('selectedEligibleStudents', {{ $this->eligible_enrollments->count() > 0 && count($selectedEligibleStudents) === $this->eligible_enrollments->count() ? '[]' : json_encode($this->eligible_enrollments->pluck('id')->toArray()) }})"
+                                                    {{ $this->eligible_enrollments->count() > 0 && count($selectedEligibleStudents) === $this->eligible_enrollments->count() ? 'checked' : '' }}
+                                                />
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollment Date</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollment Status</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        @forelse($this->eligible_enrollments as $enrollment)
+                                            @php
+                                                $student = $enrollment->student;
+                                            @endphp
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <input
+                                                        type="checkbox"
+                                                        class="rounded border-gray-300"
+                                                        wire:click="toggleEligibleStudent({{ $enrollment->id }})"
+                                                        {{ in_array($enrollment->id, $selectedEligibleStudents) ? 'checked' : '' }}
+                                                    />
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="flex items-center gap-3">
+                                                        <flux:avatar size="sm" :name="$student->fullName" />
+                                                        <div>
+                                                            <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
+                                                            <div class="text-sm text-gray-500">{{ $student->student_id }}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {{ $enrollment->enrollment_date->format('M d, Y') }}
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    @if($enrollment->status === 'active')
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                            Active
+                                                        </span>
+                                                    @elseif($enrollment->status === 'enrolled')
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                            Enrolled
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                            {{ ucfirst($enrollment->status) }}
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    @if($enrollment->payment_method_type === 'card')
+                                                        <span class="flex items-center gap-1">
+                                                            <flux:icon name="credit-card" class="w-4 h-4" />
+                                                            Card
+                                                        </span>
+                                                    @elseif($enrollment->payment_method_type === 'manual')
+                                                        <span class="flex items-center gap-1">
+                                                            <flux:icon name="banknotes" class="w-4 h-4" />
+                                                            Manual
+                                                        </span>
+                                                    @else
+                                                        <span class="text-gray-400">Not set</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="5" class="px-6 py-12 text-center">
+                                                    <div class="text-gray-500">
+                                                        <flux:icon.magnifying-glass class="mx-auto h-8 w-8 text-gray-400 mb-4" />
+                                                        <p>No students found matching "{{ $eligibleStudentSearch }}"</p>
+                                                        <flux:button variant="ghost" size="sm" class="mt-3" wire:click="$set('eligibleStudentSearch', '')">
+                                                            Clear Search
+                                                        </flux:button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </flux:card>
+                </div>
             @endif
         </div>
         <!-- End Students Tab -->
