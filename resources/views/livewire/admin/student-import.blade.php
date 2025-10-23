@@ -197,7 +197,7 @@ new class extends Component
                             <div>
                                 <flux:field>
                                     <flux:label>Select CSV File</flux:label>
-                                    <flux:input type="file" wire:model.live="csvFile" accept=".csv,.txt" />
+                                    <flux:input type="file" wire:model="csvFile" accept=".csv,.txt" />
                                     <flux:error name="csvFile" />
                                 </flux:field>
                             </div>
@@ -206,8 +206,9 @@ new class extends Component
                                 <flux:button href="{{ route('students.index') }}" variant="ghost">
                                     Cancel
                                 </flux:button>
-                                <flux:button type="submit" variant="primary" :disabled="$isProcessing">
-                                    <span wire:loading.remove wire:target="uploadCsv">Upload & Preview</span>
+                                <flux:button type="submit" variant="primary" :disabled="$isProcessing || !$csvFile">
+                                    <span wire:loading.remove wire:target="uploadCsv,csvFile">Upload & Preview</span>
+                                    <span wire:loading wire:target="csvFile">Uploading file...</span>
                                     <span wire:loading wire:target="uploadCsv">Processing...</span>
                                 </flux:button>
                             </div>
