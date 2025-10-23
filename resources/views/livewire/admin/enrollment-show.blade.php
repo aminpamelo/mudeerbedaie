@@ -2493,6 +2493,73 @@ new class extends Component
                         </div>
                     </div>
 
+                    <!-- Subscription Information for Manual Payments -->
+                    @if($enrollment->stripe_subscription_id)
+                        <div class="mb-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <flux:heading size="sm">Subscription Information</flux:heading>
+                                <div class="flex gap-2">
+                                    <flux:button size="sm" variant="ghost" wire:click="syncFromStripe" icon="arrow-path">
+                                        Sync from Stripe
+                                    </flux:button>
+                                    @if($enrollment->isPendingCancellation())
+                                        <flux:button size="sm" variant="primary" wire:click="undoCancellation" wire:confirm="Are you sure you want to undo the cancellation? The subscription will continue normally and billing will resume." icon="arrow-uturn-left">
+                                            Undo Cancellation
+                                        </flux:button>
+                                    @else
+                                        <flux:button size="sm" variant="danger" wire:click="cancelSubscription" wire:confirm="Are you sure you want to cancel this subscription? It will be canceled at the end of the current billing period.">
+                                            Cancel Subscription
+                                        </flux:button>
+                                    @endif
+                                    <flux:button size="sm" variant="ghost" href="{{ route('orders.index', ['enrollment' => $enrollment->id]) }}">
+                                        View Payment History
+                                    </flux:button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <flux:text class="text-sm text-gray-600">Subscription ID</flux:text>
+                                    <flux:text class="mt-1 font-mono text-xs">{{ $enrollment->stripe_subscription_id }}</flux:text>
+                                </div>
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <flux:text class="text-sm text-gray-600">Status</flux:text>
+                                    <flux:badge class="mt-1" color="{{ $enrollment->isSubscriptionActive() ? 'green' : ($enrollment->isSubscriptionTrialing() ? 'blue' : 'yellow') }}">
+                                        {{ $enrollment->getSubscriptionStatusLabel() }}
+                                    </flux:badge>
+                                </div>
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <flux:text class="text-sm text-gray-600">{{ $enrollment->course->feeSettings->billing_cycle === 'monthly' ? 'Monthly' : 'Yearly' }} Fee</flux:text>
+                                    <flux:text class="mt-1 font-semibold">{{ $enrollment->formatted_enrollment_fee }}</flux:text>
+                                </div>
+                                <div class="p-4 border border-gray-200 rounded-lg">
+                                    <flux:text class="text-sm text-gray-600">Next Payment</flux:text>
+                                    @php
+                                        $nextPayment = $enrollment->getFormattedNextPaymentDate();
+                                    @endphp
+                                    @if($nextPayment)
+                                        <flux:text class="mt-1 font-semibold text-sm">{{ $nextPayment }}</flux:text>
+                                    @else
+                                        <flux:text class="mt-1 text-sm text-gray-500">Not scheduled</flux:text>
+                                    @endif
+                                </div>
+                            </div>
+
+                            @if($enrollment->isPendingCancellation())
+                                <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                                    <div class="flex items-start">
+                                        <flux:icon icon="exclamation-triangle" class="w-5 h-5 text-red-600 mr-3 mt-0.5" />
+                                        <div>
+                                            <flux:text class="text-red-800 font-medium">Subscription Cancellation Scheduled</flux:text>
+                                            <flux:text class="mt-1 text-sm text-red-700">
+                                                This subscription will be canceled on {{ $enrollment->getFormattedCancellationDate() }}. The student can continue using the service until then.
+                                            </flux:text>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
+
                     <!-- Action Buttons -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                         @if(!$enrollment->stripe_subscription_id && $enrollment->course->feeSettings && $enrollment->course->feeSettings->billing_cycle !== 'one_time')
