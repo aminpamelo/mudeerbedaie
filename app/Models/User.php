@@ -91,6 +91,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is live host
+     */
+    public function isLiveHost(): bool
+    {
+        return $this->role === 'live_host';
+    }
+
+    /**
+     * Check if user is admin livehost
+     */
+    public function isAdminLivehost(): bool
+    {
+        return $this->role === 'admin_livehost';
+    }
+
+    /**
      * Check if user has specific role
      */
     public function hasRole(string $role): bool
@@ -245,5 +261,26 @@ class User extends Authenticatable
     public function stripeCustomer(): HasOne
     {
         return $this->hasOne(StripeCustomer::class);
+    }
+
+    /**
+     * Get platform accounts for this user (for live hosts)
+     */
+    public function platformAccounts(): HasMany
+    {
+        return $this->hasMany(PlatformAccount::class);
+    }
+
+    /**
+     * Get live sessions through platform accounts
+     */
+    public function liveSessions()
+    {
+        return $this->hasManyThrough(
+            LiveSession::class,
+            PlatformAccount::class,
+            'user_id',
+            'platform_account_id'
+        );
     }
 }

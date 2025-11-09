@@ -70,6 +70,16 @@ class PlatformAccount extends Model
         return $this->hasMany(PlatformApiCredential::class);
     }
 
+    public function liveSchedules(): HasMany
+    {
+        return $this->hasMany(LiveSchedule::class);
+    }
+
+    public function liveSessions(): HasMany
+    {
+        return $this->hasMany(LiveSession::class);
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

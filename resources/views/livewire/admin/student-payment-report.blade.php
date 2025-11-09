@@ -281,7 +281,13 @@ new class extends Component {
             return 0;
         }
 
-        // Get course fee settings
+        // Use enrollment-specific fee instead of course fee
+        // This allows for different pricing per student (discounts, promotions, etc.)
+        if ($enrollment->enrollment_fee) {
+            return $enrollment->enrollment_fee;
+        }
+
+        // Fallback: Get course fee settings
         if ($selectedCourse && $selectedCourse->feeSettings) {
             return $selectedCourse->feeSettings->fee_amount;
         }

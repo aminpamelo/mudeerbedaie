@@ -104,6 +104,17 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
     Volt::route('enrollments/{enrollment}', 'teacher.enrollments-show')->name('teacher.enrollments.show');
 });
 
+// Live Host routes - accessible by live hosts only
+Route::middleware(['auth', 'role:live_host'])->prefix('live-host')->name('live-host.')->group(function () {
+    Volt::route('dashboard', 'live-host.dashboard')->name('dashboard');
+    Volt::route('schedule', 'live-host.schedule')->name('schedule');
+    Volt::route('sessions', 'live-host.sessions-index')->name('sessions.index');
+    Volt::route('sessions/{session}', 'live-host.sessions-show')->name('sessions.show');
+});
+
+// Public Live Schedule - accessible by everyone
+Volt::route('live/schedule', 'live.schedule-public')->name('live.schedule');
+
 // Admin routes for course management
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Course routes
@@ -303,6 +314,19 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/appearance', 'admin.settings-appearance')->name('admin.settings.appearance');
     Volt::route('settings/payment', 'admin.settings-payment')->name('admin.settings.payment');
     Volt::route('settings/email', 'admin.settings-email')->name('admin.settings.email');
+});
+
+// Live Host Management routes (Admin & Admin Livehost access)
+Route::middleware(['auth', 'role:admin,admin_livehost'])->prefix('admin')->name('admin.')->group(function () {
+    Volt::route('live-hosts', 'admin.live-hosts-list')->name('live-hosts');
+    Volt::route('live-hosts/create', 'admin.live-hosts-create')->name('live-hosts.create');
+    Volt::route('live-hosts/{host}', 'admin.live-hosts-show')->name('live-hosts.show');
+    Volt::route('live-hosts/{host}/edit', 'admin.live-hosts-edit')->name('live-hosts.edit');
+    Volt::route('live-schedules', 'admin.live-schedules-index')->name('live-schedules.index');
+    Volt::route('live-schedules/create', 'admin.live-schedules-create')->name('live-schedules.create');
+    Volt::route('live-schedules/{schedule}/edit', 'admin.live-schedules-edit')->name('live-schedules.edit');
+    Volt::route('live-sessions', 'admin.live-sessions-index')->name('live-sessions.index');
+    Volt::route('live-sessions/{session}', 'admin.live-sessions-show')->name('live-sessions.show');
 });
 
 // Stripe webhook route - no auth middleware needed

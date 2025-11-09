@@ -977,6 +977,13 @@ new class extends Component
             return 0;
         }
 
+        // Use enrollment-specific fee instead of course fee
+        // This allows for different pricing per student (discounts, promotions, etc.)
+        if ($enrollment->enrollment_fee) {
+            return $enrollment->enrollment_fee;
+        }
+
+        // Fallback to course fee if enrollment fee not set
         if ($course->feeSettings) {
             return $course->feeSettings->fee_amount;
         }
