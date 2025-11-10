@@ -799,6 +799,8 @@ new class extends Component
 
     public string $paymentFilter = 'all';
 
+    public string $paymentReportSearch = '';
+
     public int $paymentReportPerPage = 20;
 
     public function mountPaymentReport()
@@ -815,6 +817,18 @@ new class extends Component
     public function updatedPaymentFilter()
     {
         // Reset pagination when payment filter changes
+        $this->resetPage();
+    }
+
+    public function updatedPaymentReportPerPage()
+    {
+        // Reset pagination when per page changes
+        $this->resetPage();
+    }
+
+    public function updatedPaymentReportSearch()
+    {
+        // Reset pagination when search changes
         $this->resetPage();
     }
 
@@ -845,6 +859,17 @@ new class extends Component
                         $subQuery->whereNull('stripe_subscription_id')
                             ->orWhereNotIn('subscription_status', ['active', 'trialing']);
                     });
+            });
+        }
+
+        // Apply search filter
+        if (! empty($this->paymentReportSearch)) {
+            $query->whereHas('student', function ($q) {
+                $q->whereHas('user', function ($userQuery) {
+                    $userQuery->where('name', 'like', '%'.$this->paymentReportSearch.'%');
+                })
+                    ->orWhere('phone', 'like', '%'.$this->paymentReportSearch.'%')
+                    ->orWhere('student_id', 'like', '%'.$this->paymentReportSearch.'%');
             });
         }
 
@@ -3024,7 +3049,27 @@ new class extends Component
                                     @endfor
                                 </flux:select>
                             </div>
+                            <div class="w-40">
+                                <flux:select wire:model.live="paymentReportPerPage" class="w-full">
+                                    <flux:select.option value="20">20 per page</flux:select.option>
+                                    <flux:select.option value="30">30 per page</flux:select.option>
+                                    <flux:select.option value="50">50 per page</flux:select.option>
+                                    <flux:select.option value="100">100 per page</flux:select.option>
+                                    <flux:select.option value="200">200 per page</flux:select.option>
+                                    <flux:select.option value="300">300 per page</flux:select.option>
+                                </flux:select>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Search Filter -->
+                    <div class="mt-4">
+                        <flux:input
+                            wire:model.live.debounce.300ms="paymentReportSearch"
+                            placeholder="Search by student name, phone number, or student ID..."
+                            icon="magnifying-glass"
+                            class="w-full"
+                        />
                     </div>
 
                     @if($class->course && $class->course->feeSettings)
