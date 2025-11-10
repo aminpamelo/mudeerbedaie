@@ -195,7 +195,7 @@ new class extends Component
     public $enrolledStudentSearch = '';
 
     // Enrolled students pagination
-    public int $studentsPerPage = 5;
+    public int $studentsPerPage = 20;
 
     // Individual enrollment
     public $enrollingStudent = null;
