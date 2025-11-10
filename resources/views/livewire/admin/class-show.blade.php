@@ -3123,18 +3123,26 @@ new class extends Component
                                 @foreach($this->class_students_for_payment_report as $classStudent)
                                     @php
                                         $student = $classStudent->student;
+                                        $enrollment = $student->enrollments->first();
                                         $totalPaid = 0;
                                         $totalExpected = 0;
                                         $totalUnpaid = 0;
                                     @endphp
                                     <tr class="border-b border-gray-100 hover:bg-gray-50">
                                         <td class="py-3 px-4 sticky left-0 bg-white z-10 border-r border-gray-100">
-                                            <a href="{{ route('students.show', $student) }}"
-                                               wire:navigate
-                                               class="block hover:opacity-80 transition-opacity">
-                                                <div class="font-medium text-blue-600 hover:text-blue-800">{{ $student->user->name }}</div>
-                                                <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
-                                            </a>
+                                            @if($enrollment)
+                                                <a href="{{ route('enrollments.show', $enrollment) }}"
+                                                   wire:navigate
+                                                   class="block hover:opacity-80 transition-opacity">
+                                                    <div class="font-medium text-blue-600 hover:text-blue-800">{{ $student->user->name }}</div>
+                                                    <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
+                                                </a>
+                                            @else
+                                                <div>
+                                                    <div class="font-medium text-gray-900">{{ $student->user->name }}</div>
+                                                    <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
+                                                </div>
+                                            @endif
                                             @if($student->phone)
                                                 <div class="flex items-center gap-2 mt-2">
                                                     <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $student->phone) }}"
@@ -3152,11 +3160,8 @@ new class extends Component
                                             @endif
                                         </td>
                                         <td class="py-3 px-4 bg-white border-l border-gray-100">
-                                            @php
-                                                $enrollment = $student->enrollments->first();
-                                            @endphp
                                             @if($enrollment && $enrollment->enrolledBy)
-                                                <a href="{{ route('students.show', $student) }}"
+                                                <a href="{{ route('enrollments.show', $enrollment) }}"
                                                    wire:navigate
                                                    class="block hover:opacity-80 transition-opacity">
                                                     <div class="text-sm text-blue-600 hover:text-blue-800">{{ $enrollment->enrolledBy->name }}</div>
