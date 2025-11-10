@@ -3,10 +3,12 @@
 use App\Models\ClassModel;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 new class extends Component
 {
     use WithFileUploads;
+    use WithPagination;
 
     public ClassModel $class;
 
@@ -126,6 +128,10 @@ new class extends Component
 
     public $activeTab = 'overview';
 
+    protected $queryString = [
+        'activeTab' => ['as' => 'tab'],
+    ];
+
     public $showCreateSessionModal = false;
 
     public $showEnrollStudentsModal = false;
@@ -196,6 +202,16 @@ new class extends Component
 
     // Enrolled students pagination
     public int $studentsPerPage = 20;
+
+    public function updatingEnrolledStudentSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingStudentsPerPage(): void
+    {
+        $this->resetPage();
+    }
 
     // Individual enrollment
     public $enrollingStudent = null;
@@ -2512,14 +2528,27 @@ new class extends Component
                             </div>
                         @endif
 
-                        <!-- Search Bar -->
+                        <!-- Search Bar and Per Page Filter -->
                         <div class="px-6 py-4 border-b border-gray-200">
-                            <flux:input
-                                wire:model.live.debounce.300ms="enrolledStudentSearch"
-                                placeholder="Search enrolled students by name, email or ID..."
-                                icon="magnifying-glass"
-                                class="w-full"
-                            />
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <div class="flex-1">
+                                    <flux:input
+                                        wire:model.live.debounce.300ms="enrolledStudentSearch"
+                                        placeholder="Search enrolled students by name, email or ID..."
+                                        icon="magnifying-glass"
+                                    />
+                                </div>
+                                <div class="w-full sm:w-40">
+                                    <flux:select wire:model.live="studentsPerPage">
+                                        <flux:select.option value="20">20 per page</flux:select.option>
+                                        <flux:select.option value="30">30 per page</flux:select.option>
+                                        <flux:select.option value="50">50 per page</flux:select.option>
+                                        <flux:select.option value="100">100 per page</flux:select.option>
+                                        <flux:select.option value="200">200 per page</flux:select.option>
+                                        <flux:select.option value="300">300 per page</flux:select.option>
+                                    </flux:select>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="overflow-x-auto">
