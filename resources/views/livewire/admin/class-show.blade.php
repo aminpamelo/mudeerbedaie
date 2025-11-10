@@ -194,6 +194,9 @@ new class extends Component
     // Enrolled students search
     public $enrolledStudentSearch = '';
 
+    // Enrolled students pagination
+    public int $studentsPerPage = 5;
+
     // Individual enrollment
     public $enrollingStudent = null;
 
@@ -780,6 +783,8 @@ new class extends Component
 
     public string $paymentFilter = 'all';
 
+    public int $paymentReportPerPage = 20;
+
     public function mountPaymentReport()
     {
         $this->paymentYear = now()->year;
@@ -787,12 +792,14 @@ new class extends Component
 
     public function updatedPaymentYear()
     {
-        // Property updated, data will be recomputed
+        // Reset pagination when year filter changes
+        $this->resetPage();
     }
 
     public function updatedPaymentFilter()
     {
-        // Property updated, data will be recomputed
+        // Reset pagination when payment filter changes
+        $this->resetPage();
     }
 
     public function getClassStudentsForPaymentReportProperty()
@@ -825,7 +832,7 @@ new class extends Component
             });
         }
 
-        return $query->get();
+        return $query->paginate($this->paymentReportPerPage);
     }
 
     public function getPaymentPeriodColumnsProperty()
@@ -1039,6 +1046,12 @@ new class extends Component
         return 'unpaid';
     }
 
+    public function updatedEnrolledStudentSearch()
+    {
+        // Reset pagination when search term changes
+        $this->resetPage();
+    }
+
     public function getFilteredEnrolledStudentsProperty()
     {
         $query = $this->class->activeStudents()
@@ -1055,7 +1068,7 @@ new class extends Component
             });
         }
 
-        return $query->get();
+        return $query->paginate($this->studentsPerPage);
     }
 
     public function getRemainingCapacityProperty(): ?int
@@ -2631,6 +2644,13 @@ new class extends Component
                                 </tbody>
                             </table>
                         </div>
+
+                        <!-- Pagination -->
+                        @if($this->filtered_enrolled_students->hasPages())
+                            <div class="px-6 py-4 border-t border-gray-200">
+                                {{ $this->filtered_enrolled_students->links() }}
+                            </div>
+                        @endif
                     </div>
                 </flux:card>
             @elseif($class->isDraft() || $class->isActive())
@@ -3218,6 +3238,13 @@ new class extends Component
                     </div>
                 @endif
             </flux:card>
+
+            <!-- Pagination -->
+            @if($this->class_students_for_payment_report->hasPages())
+                <div class="mt-4">
+                    {{ $this->class_students_for_payment_report->links() }}
+                </div>
+            @endif
 
             <!-- Legend -->
             <flux:card class="mt-6">

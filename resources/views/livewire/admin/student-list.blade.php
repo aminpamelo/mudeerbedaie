@@ -1,16 +1,18 @@
 <?php
 
 use App\Models\Student;
-use App\Services\StudentImportService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public $search = '';
+
     public $statusFilter = '';
-    public $perPage = 10;
+
+    public $perPage = 20;
 
     public function mount(): void
     {
@@ -24,13 +26,13 @@ new class extends Component {
             ->orderBy('created_at', 'desc');
 
         if ($this->search) {
-            $query->whereHas('user', function($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('email', 'like', '%' . $this->search . '%');
+            $query->whereHas('user', function ($q) {
+                $q->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('email', 'like', '%'.$this->search.'%');
             })
-            ->orWhere('student_id', 'like', '%' . $this->search . '%')
-            ->orWhere('ic_number', 'like', '%' . $this->search . '%')
-            ->orWhere('phone', 'like', '%' . $this->search . '%');
+                ->orWhere('student_id', 'like', '%'.$this->search.'%')
+                ->orWhere('ic_number', 'like', '%'.$this->search.'%')
+                ->orWhere('phone', 'like', '%'.$this->search.'%');
         }
 
         if ($this->statusFilter) {
@@ -54,6 +56,11 @@ new class extends Component {
         $this->resetPage();
     }
 
+    public function updatingPerPage(): void
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
         $this->search = '';
@@ -66,7 +73,7 @@ new class extends Component {
         // Store current filters in session for the download route
         session([
             'export_search' => $this->search,
-            'export_status_filter' => $this->statusFilter
+            'export_status_filter' => $this->statusFilter,
         ]);
 
         // Redirect to the download route
@@ -78,7 +85,6 @@ new class extends Component {
         // Redirect to the sample download route
         $this->redirect(route('students.sample-csv'));
     }
-
 }; ?>
 
 <div>
@@ -146,9 +152,9 @@ new class extends Component {
             <div class="p-6 border-b border-gray-200">
                 <div class="flex flex-col sm:flex-row gap-4">
                     <div class="flex-1">
-                        <flux:input 
-                            wire:model.live.debounce.300ms="search" 
-                            placeholder="Search students by name, email, student ID, IC number, or phone..." 
+                        <flux:input
+                            wire:model.live.debounce.300ms="search"
+                            placeholder="Search students by name, email, student ID, IC number, or phone..."
                             icon="magnifying-glass" />
                     </div>
                     <div class="w-full sm:w-48">
@@ -158,6 +164,16 @@ new class extends Component {
                             <flux:select.option value="inactive">Inactive</flux:select.option>
                             <flux:select.option value="graduated">Graduated</flux:select.option>
                             <flux:select.option value="suspended">Suspended</flux:select.option>
+                        </flux:select>
+                    </div>
+                    <div class="w-full sm:w-40">
+                        <flux:select wire:model.live="perPage">
+                            <flux:select.option value="20">20 per page</flux:select.option>
+                            <flux:select.option value="30">30 per page</flux:select.option>
+                            <flux:select.option value="50">50 per page</flux:select.option>
+                            <flux:select.option value="100">100 per page</flux:select.option>
+                            <flux:select.option value="200">200 per page</flux:select.option>
+                            <flux:select.option value="300">300 per page</flux:select.option>
                         </flux:select>
                     </div>
                     @if($search || $statusFilter)
