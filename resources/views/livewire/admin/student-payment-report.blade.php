@@ -1,26 +1,31 @@
 <?php
-use App\Models\Student;
 use App\Models\Course;
-use App\Models\Order;
 use App\Models\Enrollment;
-use Livewire\WithPagination;
-use Livewire\Volt\Component;
+use App\Models\Order;
+use App\Models\Student;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Response;
+use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public string $search = '';
+
     public string $courseFilter = '';
+
     public int $year = 0;
+
     public string $sortBy = 'name';
+
     public string $sortDirection = 'asc';
 
     public function mount()
     {
         // Ensure user is admin
-        if (!auth()->user()->isAdmin()) {
+        if (! auth()->user()->isAdmin()) {
             abort(403, 'Access denied');
         }
 
@@ -77,28 +82,28 @@ new class extends Component {
     private function getStudents()
     {
         $query = Student::with(['user', 'enrollments.course'])
-            ->whereHas('user', function($q) {
+            ->whereHas('user', function ($q) {
                 if ($this->search) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%');
+                    $q->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('email', 'like', '%'.$this->search.'%');
                 }
             });
 
         // Filter by course if selected
         if ($this->courseFilter) {
-            $query->whereHas('enrollments', function($q) {
+            $query->whereHas('enrollments', function ($q) {
                 $q->where('course_id', $this->courseFilter)
-                  ->whereIn('status', ['enrolled', 'active']);
+                    ->whereIn('status', ['enrolled', 'active']);
             });
         }
 
         // Sort by user name or student ID
         if ($this->sortBy === 'name') {
             $query->whereHas('user')->with('user')
-                  ->get()
-                  ->sortBy(function($student) {
-                      return $student->user->name;
-                  }, SORT_REGULAR, $this->sortDirection === 'desc');
+                ->get()
+                ->sortBy(function ($student) {
+                    return $student->user->name;
+                }, SORT_REGULAR, $this->sortDirection === 'desc');
 
             return $query->paginate(20);
         } else {
@@ -110,9 +115,9 @@ new class extends Component {
 
     private function getPeriodColumns($selectedCourse)
     {
-        if (!$selectedCourse || !$selectedCourse->feeSettings) {
+        if (! $selectedCourse || ! $selectedCourse->feeSettings) {
             // Default to monthly
-            return collect(range(1, 12))->map(function($month) {
+            return collect(range(1, 12))->map(function ($month) {
                 return [
                     'label' => Carbon::create()->month($month)->format('M'),
                     'period_start' => Carbon::create($this->year, $month, 1)->startOfMonth(),
@@ -130,7 +135,7 @@ new class extends Component {
                         'label' => $this->year,
                         'period_start' => Carbon::create($this->year, 1, 1)->startOfYear(),
                         'period_end' => Carbon::create($this->year, 12, 31)->endOfYear(),
-                    ]
+                    ],
                 ]);
 
             case 'quarterly':
@@ -158,7 +163,7 @@ new class extends Component {
                 ]);
 
             default: // monthly
-                return collect(range(1, 12))->map(function($month) {
+                return collect(range(1, 12))->map(function ($month) {
                     return [
                         'label' => Carbon::create()->month($month)->format('M'),
                         'period_start' => Carbon::create($this->year, $month, 1)->startOfMonth(),
@@ -192,8 +197,8 @@ new class extends Component {
             $enrollmentsQuery->where('course_id', $this->courseFilter);
         }
 
-        $enrollments = $enrollmentsQuery->get()->keyBy(function($enrollment) {
-            return $enrollment->student_id . '_' . $enrollment->course_id;
+        $enrollments = $enrollmentsQuery->get()->keyBy(function ($enrollment) {
+            return $enrollment->student_id.'_'.$enrollment->course_id;
         });
 
         // Group orders by student and period with enhanced data
@@ -207,15 +212,15 @@ new class extends Component {
                 // Get enrollment for this student and course (if specific course selected)
                 $enrollment = null;
                 if ($this->courseFilter) {
-                    $enrollment = $enrollments->get($student->id . '_' . $this->courseFilter);
+                    $enrollment = $enrollments->get($student->id.'_'.$this->courseFilter);
                 } else {
                     // For "All Courses" view, get the first active enrollment
-                    $enrollment = $enrollments->filter(function($e) use ($student) {
+                    $enrollment = $enrollments->filter(function ($e) use ($student) {
                         return $e->student_id == $student->id;
                     })->first();
                 }
 
-                $periodOrders = $studentOrders->filter(function($order) use ($period) {
+                $periodOrders = $studentOrders->filter(function ($order) use ($period) {
                     // Match orders where the billing period START date falls within the calendar month
                     // This ensures each monthly payment is counted only once in the correct month
                     return $order->period_start >= $period['period_start'] &&
@@ -257,7 +262,7 @@ new class extends Component {
 
     private function calculateExpectedAmount($enrollment, $period, $selectedCourse)
     {
-        if (!$enrollment) {
+        if (! $enrollment) {
             return 0;
         }
 
@@ -281,20 +286,32 @@ new class extends Component {
             return 0;
         }
 
-        // Use enrollment-specific fee instead of course fee
-        // This allows for different pricing per student (discounts, promotions, etc.)
-        if ($enrollment->enrollment_fee) {
-            return $enrollment->enrollment_fee;
-        }
+        // Prioritize course fee settings over enrollment fee
+        // Only use enrollment fee if it's explicitly set and different from course fee (discounts/promotions)
 
-        // Fallback: Get course fee settings
-        if ($selectedCourse && $selectedCourse->feeSettings) {
-            return $selectedCourse->feeSettings->fee_amount;
+        // First, try to get course fee from selected course
+        if ($selectedCourse && $selectedCourse->feeSettings && $selectedCourse->feeSettings->fee_amount > 0) {
+            // Check if enrollment has custom fee (discount/promotion)
+            if ($enrollment->enrollment_fee > 0 && $enrollment->enrollment_fee != $selectedCourse->feeSettings->fee_amount) {
+                return $enrollment->enrollment_fee; // Custom pricing
+            }
+
+            return $selectedCourse->feeSettings->fee_amount; // Standard course fee
         }
 
         // For "All Courses" view, get fee from enrollment's course
-        if ($enrollment->course && $enrollment->course->feeSettings) {
-            return $enrollment->course->feeSettings->fee_amount;
+        if ($enrollment->course && $enrollment->course->feeSettings && $enrollment->course->feeSettings->fee_amount > 0) {
+            // Check if enrollment has custom fee (discount/promotion)
+            if ($enrollment->enrollment_fee > 0 && $enrollment->enrollment_fee != $enrollment->course->feeSettings->fee_amount) {
+                return $enrollment->enrollment_fee; // Custom pricing
+            }
+
+            return $enrollment->course->feeSettings->fee_amount; // Standard course fee
+        }
+
+        // Last resort: use enrollment fee only if it's greater than 0
+        if ($enrollment->enrollment_fee > 0) {
+            return $enrollment->enrollment_fee;
         }
 
         return 0;
@@ -302,7 +319,7 @@ new class extends Component {
 
     private function determinePaymentStatus($enrollment, $period, $paidAmount, $expectedAmount)
     {
-        if (!$enrollment) {
+        if (! $enrollment) {
             return 'no_enrollment';
         }
 
@@ -315,7 +332,18 @@ new class extends Component {
             return 'not_started';
         }
 
-        // Check if subscription was cancelled during or before this period
+        // PRIORITY 1: Check actual payment status FIRST (actual money received takes priority)
+        if ($expectedAmount > 0) {
+            if ($paidAmount >= $expectedAmount) {
+                return 'paid';
+            }
+
+            if ($paidAmount > 0) {
+                return 'partial_payment';
+            }
+        }
+
+        // PRIORITY 2: Check if subscription was cancelled (only if no payment made)
         if ($enrollment->subscription_cancel_at) {
             if ($enrollment->subscription_cancel_at >= $periodStart && $enrollment->subscription_cancel_at <= $periodEnd) {
                 return 'cancelled_this_period';
@@ -324,7 +352,7 @@ new class extends Component {
             }
         }
 
-        // Check academic status
+        // PRIORITY 3: Check academic status
         if ($enrollment->academic_status) {
             switch ($enrollment->academic_status->value) {
                 case 'withdrawn':
@@ -336,19 +364,12 @@ new class extends Component {
             }
         }
 
-        // Check payment status
+        // PRIORITY 4: Check if payment is expected
         if ($expectedAmount <= 0) {
             return 'no_payment_due';
         }
 
-        if ($paidAmount >= $expectedAmount) {
-            return 'paid';
-        }
-
-        if ($paidAmount > 0) {
-            return 'partial_payment';
-        }
-
+        // PRIORITY 5: Default to unpaid if period has started
         return 'unpaid';
     }
 
@@ -368,10 +389,10 @@ new class extends Component {
         // Header row
         $headers = ['Student Name', 'Student Email', 'Student ID'];
         foreach ($periodColumns as $period) {
-            $headers[] = $period['label'] . ' - Status';
-            $headers[] = $period['label'] . ' - Paid';
-            $headers[] = $period['label'] . ' - Expected';
-            $headers[] = $period['label'] . ' - Unpaid';
+            $headers[] = $period['label'].' - Status';
+            $headers[] = $period['label'].' - Paid';
+            $headers[] = $period['label'].' - Expected';
+            $headers[] = $period['label'].' - Unpaid';
         }
         $headers[] = 'Total Paid';
         $headers[] = 'Total Expected';
@@ -394,13 +415,13 @@ new class extends Component {
                 $payment = $paymentData[$student->id][$period['label']] ?? ['status' => 'no_data', 'paid_amount' => 0, 'expected_amount' => 0, 'unpaid_amount' => 0];
 
                 // Status
-                $statusText = match($payment['status']) {
+                $statusText = match ($payment['status']) {
                     'paid' => 'Paid',
                     'unpaid' => 'Unpaid',
                     'partial_payment' => 'Partial',
                     'not_started' => 'Not Started',
-                    'cancelled_this_period' => 'Cancelled',
-                    'cancelled_before' => 'Previously Cancelled',
+                    'cancelled_this_period' => 'Canceled',
+                    'cancelled_before' => 'Previously Canceled',
                     'withdrawn' => 'Withdrawn',
                     'suspended' => 'Suspended',
                     'completed' => 'Completed',
@@ -412,23 +433,23 @@ new class extends Component {
                 $unpaidAmount = $payment['unpaid_amount'] ?? 0;
 
                 $row[] = $statusText;
-                $row[] = 'RM ' . number_format($paidAmount, 2);
-                $row[] = 'RM ' . number_format($expectedAmount, 2);
-                $row[] = 'RM ' . number_format($unpaidAmount, 2);
+                $row[] = 'RM '.number_format($paidAmount, 2);
+                $row[] = 'RM '.number_format($expectedAmount, 2);
+                $row[] = 'RM '.number_format($unpaidAmount, 2);
 
                 $totalPaid += $paidAmount;
                 $totalExpected += $expectedAmount;
                 $totalUnpaid += $unpaidAmount;
             }
 
-            $row[] = 'RM ' . number_format($totalPaid, 2);
-            $row[] = 'RM ' . number_format($totalExpected, 2);
-            $row[] = 'RM ' . number_format($totalUnpaid, 2);
+            $row[] = 'RM '.number_format($totalPaid, 2);
+            $row[] = 'RM '.number_format($totalExpected, 2);
+            $row[] = 'RM '.number_format($totalUnpaid, 2);
             $csvData[] = $row;
         }
 
         $courseLabel = $selectedCourse ? $selectedCourse->name : 'All_Courses';
-        $filename = 'student_payment_report_' . $courseLabel . '_' . $this->year . '_' . now()->format('Y_m_d_His') . '.csv';
+        $filename = 'student_payment_report_'.$courseLabel.'_'.$this->year.'_'.now()->format('Y_m_d_His').'.csv';
 
         $handle = fopen('php://memory', 'r+');
         foreach ($csvData as $row) {
@@ -446,17 +467,17 @@ new class extends Component {
     private function getAllStudentsForExport()
     {
         $query = Student::with(['user', 'enrollments.course'])
-            ->whereHas('user', function($q) {
+            ->whereHas('user', function ($q) {
                 if ($this->search) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%');
+                    $q->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('email', 'like', '%'.$this->search.'%');
                 }
             });
 
         if ($this->courseFilter) {
-            $query->whereHas('enrollments', function($q) {
+            $query->whereHas('enrollments', function ($q) {
                 $q->where('course_id', $this->courseFilter)
-                  ->whereIn('status', ['enrolled', 'active']);
+                    ->whereIn('status', ['enrolled', 'active']);
             });
         }
 
@@ -766,7 +787,7 @@ new class extends Component {
                                                         <flux:icon icon="x-circle" class="w-4 h-4" />
                                                     </div>
                                                     <div class="text-xs text-orange-600">
-                                                        Cancelled this month
+                                                        Canceled this month
                                                     </div>
                                                     @if(isset($payment['enrollment']) && $payment['enrollment'] && $payment['enrollment']->subscription_cancel_at)
                                                         <div class="text-xs text-gray-500">
@@ -940,13 +961,13 @@ new class extends Component {
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-orange-100 text-orange-600 rounded-full">
                             <flux:icon icon="x-circle" class="w-4 h-4" />
                         </div>
-                        <flux:text>Cancelled This Month</flux:text>
+                        <flux:text>Canceled This Month</flux:text>
                     </div>
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 text-gray-500 rounded-full">
                             <flux:icon icon="x-circle" class="w-4 h-4" />
                         </div>
-                        <flux:text>Previously Cancelled</flux:text>
+                        <flux:text>Previously Canceled</flux:text>
                     </div>
                 </div>
             </div>

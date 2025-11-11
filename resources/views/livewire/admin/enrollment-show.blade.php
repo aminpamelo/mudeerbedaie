@@ -30,6 +30,14 @@ new class extends Component
 
     public $receiptFile = null;
 
+    public $selectedPeriod = null;
+
+    public $selectedPeriodLabel = '';
+
+    public $paymentAmount = 0;
+
+    public $paymentNotes = '';
+
     // Schedule management properties
     public $showScheduleModal = false;
 
@@ -71,8 +79,8 @@ new class extends Component
         // Load subscription events
         $this->refreshSubscriptionEvents();
 
-        // Refresh subscription status from Stripe if there's a subscription
-        if ($this->enrollment->stripe_subscription_id) {
+        // Refresh subscription status from Stripe if there's a subscription (but skip internal subscriptions)
+        if ($this->enrollment->stripe_subscription_id && ! $this->enrollment->isInternalSubscription()) {
             $this->refreshSubscriptionStatus();
         }
 
@@ -404,11 +412,112 @@ new class extends Component
         }
     }
 
+    public function getMonthlyPaymentBreakdown()
+    {
+        $currentYear = now()->year;
+        $billingCycle = $this->enrollment->course->feeSettings->billing_cycle ?? 'monthly';
+
+        // Generate month columns based on billing cycle
+        $months = collect(range(1, 12))->map(function ($month) use ($currentYear) {
+            return [
+                'label' => \Carbon\Carbon::create($currentYear, $month)->format('M'),
+                'full_label' => \Carbon\Carbon::create($currentYear, $month)->format('F Y'),
+                'period_start' => \Carbon\Carbon::create($currentYear, $month, 1)->startOfMonth(),
+                'period_end' => \Carbon\Carbon::create($currentYear, $month, 1)->endOfMonth(),
+            ];
+        });
+
+        // Get all orders for this enrollment
+        $orders = $this->enrollment->orders()
+            ->whereNotNull('period_start')
+            ->whereYear('period_start', $currentYear)
+            ->get();
+
+        // Calculate payment status for each month
+        $monthlyData = [];
+
+        foreach ($months as $month) {
+            $monthOrders = $orders->filter(function ($order) use ($month) {
+                return $order->period_start >= $month['period_start'] &&
+                       $order->period_start <= $month['period_end'];
+            });
+
+            $paidOrders = $monthOrders->where('status', 'paid');
+            $pendingOrders = $monthOrders->where('status', 'pending');
+            $failedOrders = $monthOrders->where('status', 'failed');
+
+            // Determine status and amount
+            $status = 'not_started';
+            $amount = 0;
+            $expectedAmount = 0;
+
+            $enrollmentStartDate = $this->enrollment->start_date ?? $this->enrollment->enrollment_date;
+
+            if ($enrollmentStartDate && $enrollmentStartDate <= $month['period_end']) {
+                // Enrollment was active during this period
+                // Prioritize enrollment fee (custom pricing) over course fee
+                if ($this->enrollment->enrollment_fee > 0) {
+                    $expectedAmount = $this->enrollment->enrollment_fee;
+                } else {
+                    $expectedAmount = $this->enrollment->course->feeSettings->fee_amount ?? 0;
+                }
+
+                $paidAmount = $paidOrders->sum('amount');
+                $pendingAmount = $pendingOrders->sum('amount');
+                $totalAmount = $paidAmount + $pendingAmount;
+
+                // Determine status based on payment amounts
+                if ($paidAmount >= $expectedAmount) {
+                    // Fully paid
+                    $status = 'paid';
+                    $amount = $paidAmount;
+                } elseif ($paidAmount > 0 && $paidAmount < $expectedAmount) {
+                    // Partial payment
+                    $status = 'partial';
+                    $amount = $paidAmount;
+                } elseif ($pendingOrders->isNotEmpty()) {
+                    // Has pending orders
+                    $status = 'pending';
+                    $amount = $pendingAmount;
+                } elseif ($failedOrders->isNotEmpty()) {
+                    // Has failed orders
+                    $status = 'failed';
+                } elseif ($month['period_start'] <= now()) {
+                    // Period has passed but no payment
+                    $status = 'unpaid';
+                }
+            }
+
+            $monthlyData[$month['label']] = [
+                'status' => $status,
+                'amount' => $amount,
+                'expected_amount' => $expectedAmount,
+                'orders' => $monthOrders,
+                'paid_orders' => $paidOrders,
+                'pending_orders' => $pendingOrders,
+                'failed_orders' => $failedOrders,
+            ];
+        }
+
+        return [
+            'months' => $months,
+            'data' => $monthlyData,
+            'year' => $currentYear,
+        ];
+    }
+
     public function syncSubscriptionData(): void
     {
         try {
             if (! $this->enrollment->stripe_subscription_id) {
                 session()->flash('error', 'No subscription ID found to sync with Stripe.');
+
+                return;
+            }
+
+            // Check if this is an internal subscription
+            if ($this->enrollment->isInternalSubscription()) {
+                session()->flash('error', 'Cannot sync internal subscriptions from Stripe. This is a manual subscription managed internally.');
 
                 return;
             }
@@ -720,6 +829,29 @@ new class extends Component
                 return;
             }
 
+            // Handle internal subscriptions differently
+            if ($this->enrollment->isInternalSubscription()) {
+                // For internal subscriptions, just update the status locally
+                $this->enrollment->update([
+                    'subscription_status' => 'canceled',
+                    'subscription_cancel_at' => now(),
+                    'next_payment_date' => null,
+                ]);
+
+                \Log::info('Internal subscription canceled', [
+                    'enrollment_id' => $this->enrollment->id,
+                    'internal_subscription_id' => $this->enrollment->stripe_subscription_id,
+                ]);
+
+                $this->enrollment->refresh();
+                $this->refreshSubscriptionEvents();
+
+                session()->flash('success', 'Internal subscription has been canceled successfully.');
+
+                return;
+            }
+
+            // For Stripe subscriptions, use the Stripe service
             $stripeService = app(StripeService::class);
             $result = $stripeService->cancelSubscription($this->enrollment->stripe_subscription_id, false);
 
@@ -763,12 +895,34 @@ new class extends Component
                 return;
             }
 
-            if (! $this->enrollment->isPendingCancellation()) {
+            if (! $this->enrollment->isPendingCancellation() && $this->enrollment->subscription_status !== 'canceled') {
                 session()->flash('info', 'Subscription is not pending cancellation.');
 
                 return;
             }
 
+            // Handle internal subscriptions differently
+            if ($this->enrollment->isInternalSubscription()) {
+                // For internal subscriptions, just update the status locally
+                $this->enrollment->update([
+                    'subscription_status' => 'active',
+                    'subscription_cancel_at' => null,
+                ]);
+
+                \Log::info('Internal subscription cancellation undone', [
+                    'enrollment_id' => $this->enrollment->id,
+                    'internal_subscription_id' => $this->enrollment->stripe_subscription_id,
+                ]);
+
+                $this->enrollment->refresh();
+                $this->refreshSubscriptionEvents();
+
+                session()->flash('success', 'Internal subscription has been reactivated successfully.');
+
+                return;
+            }
+
+            // For Stripe subscriptions, use the Stripe service
             $stripeService = app(StripeService::class);
             $result = $stripeService->undoCancellation($this->enrollment->stripe_subscription_id);
 
@@ -1367,14 +1521,109 @@ new class extends Component
         }
     }
 
-    public function openManualPaymentModal()
+    public function openManualPaymentModal($periodLabel, $periodStart, $periodEnd, $unpaidAmount)
     {
+        $this->selectedPeriod = [
+            'label' => $periodLabel,
+            'start' => $periodStart,
+            'end' => $periodEnd,
+        ];
+        $this->selectedPeriodLabel = $periodLabel;
+        $this->paymentAmount = $unpaidAmount;
+        $this->paymentNotes = '';
+        $this->receiptFile = null;
         $this->showManualPaymentModal = true;
     }
 
     public function closeManualPaymentModal()
     {
         $this->showManualPaymentModal = false;
+        $this->selectedPeriod = null;
+        $this->selectedPeriodLabel = '';
+        $this->paymentAmount = 0;
+        $this->paymentNotes = '';
+        $this->receiptFile = null;
+    }
+
+    public function updatedReceiptFile()
+    {
+        $this->validate([
+            'receiptFile' => 'image|max:10240', // 10MB Max
+        ]);
+    }
+
+    public function createManualPayment()
+    {
+        $this->validate([
+            'paymentAmount' => 'required|numeric|min:0.01',
+            'receiptFile' => 'nullable|image|max:10240',
+        ]);
+
+        try {
+            // Handle receipt file upload
+            $receiptUrl = null;
+            if ($this->receiptFile) {
+                $receiptPath = $this->receiptFile->store('receipts', 'public');
+                $receiptUrl = \Storage::url($receiptPath);
+            }
+
+            // Check if order already exists for this period
+            $existingOrder = \App\Models\Order::where('enrollment_id', $this->enrollment->id)
+                ->where('student_id', $this->enrollment->student_id)
+                ->where('course_id', $this->enrollment->course_id)
+                ->where('period_start', $this->selectedPeriod['start'])
+                ->where('period_end', $this->selectedPeriod['end'])
+                ->first();
+
+            if ($existingOrder) {
+                // Update existing order
+                $existingOrder->update([
+                    'amount' => $this->paymentAmount,
+                    'status' => \App\Models\Order::STATUS_PAID,
+                    'payment_method' => \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                    'paid_at' => now(),
+                    'receipt_url' => $receiptUrl ?? $existingOrder->receipt_url,
+                    'metadata' => array_merge($existingOrder->metadata ?? [], [
+                        'notes' => $this->paymentNotes,
+                        'manual_payment' => true,
+                        'processed_by' => auth()->id(),
+                        'processed_at' => now()->toDateTimeString(),
+                    ]),
+                ]);
+
+                session()->flash('success', 'Payment updated successfully!');
+            } else {
+                // Create new order
+                \App\Models\Order::create([
+                    'enrollment_id' => $this->enrollment->id,
+                    'student_id' => $this->enrollment->student_id,
+                    'course_id' => $this->enrollment->course_id,
+                    'amount' => $this->paymentAmount,
+                    'currency' => 'MYR',
+                    'status' => \App\Models\Order::STATUS_PAID,
+                    'period_start' => $this->selectedPeriod['start'],
+                    'period_end' => $this->selectedPeriod['end'],
+                    'billing_reason' => \App\Models\Order::REASON_MANUAL,
+                    'payment_method' => \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                    'paid_at' => now(),
+                    'receipt_url' => $receiptUrl,
+                    'metadata' => [
+                        'notes' => $this->paymentNotes,
+                        'manual_payment' => true,
+                        'processed_by' => auth()->id(),
+                        'processed_at' => now()->toDateTimeString(),
+                    ],
+                ]);
+
+                session()->flash('success', 'Payment recorded successfully!');
+            }
+
+            // Refresh enrollment data
+            $this->enrollment->refresh();
+            $this->closeManualPaymentModal();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to create payment: '.$e->getMessage());
+        }
     }
 
     public function openCreateManualOrderModal()
@@ -1391,7 +1640,15 @@ new class extends Component
     {
         try {
             $stripeService = app(StripeService::class);
-            $order = $stripeService->generateNextManualPaymentOrder($this->enrollment);
+
+            // Check if this is an internal subscription or Stripe subscription
+            if ($this->enrollment->isInternalSubscription()) {
+                // Use internal subscription order generation
+                $order = $stripeService->generateInternalSubscriptionOrder($this->enrollment);
+            } else {
+                // Use Stripe subscription order generation
+                $order = $stripeService->generateNextManualPaymentOrder($this->enrollment);
+            }
 
             $this->enrollment->refresh();
             $this->closeCreateManualOrderModal();
@@ -2234,7 +2491,14 @@ new class extends Component
                         
                         <div>
                             <p class="text-sm font-medium text-gray-500">Monthly Fee</p>
-                            <p class="text-sm text-gray-900">{{ $enrollment->formatted_enrollment_fee }}</p>
+                            <p class="text-sm text-gray-900">
+                                @php
+                                    $displayFee = $enrollment->enrollment_fee > 0
+                                        ? $enrollment->formatted_enrollment_fee
+                                        : ($enrollment->course->feeSettings?->formatted_fee ?? 'RM 0.00');
+                                @endphp
+                                {{ $displayFee }}
+                            </p>
                         </div>
                         
                         <div>
@@ -2270,9 +2534,11 @@ new class extends Component
                     @if(!$enrollment->isSubscriptionCanceled())
                         <div class="mt-6 pt-6 border-t border-gray-200">
                             <div class="flex flex-wrap gap-3">
-                                <flux:button size="sm" variant="primary" wire:click="syncSubscriptionData" wire:confirm="This will sync all subscription data from Stripe including status, collection status, next payment date, and cancellation information. Continue?" icon="arrow-path">
-                                    Sync from Stripe
-                                </flux:button>
+                                @if(!$enrollment->isInternalSubscription())
+                                    <flux:button size="sm" variant="primary" wire:click="syncSubscriptionData" wire:confirm="This will sync all subscription data from Stripe including status, collection status, next payment date, and cancellation information. Continue?" icon="arrow-path">
+                                        Sync from Stripe
+                                    </flux:button>
+                                @endif
                                 
                                 <flux:button size="sm" variant="outline" wire:click="openScheduleModal" icon="calendar-days">
                                     Manage Schedule
@@ -2333,9 +2599,11 @@ new class extends Component
                         <!-- Actions for canceled/expired subscriptions -->
                         <div class="mt-6 pt-6 border-t border-gray-200">
                             <div class="flex flex-wrap gap-3">
-                                <flux:button size="sm" variant="outline" wire:click="syncSubscriptionData" wire:confirm="This will sync the latest subscription data from Stripe. Continue?" icon="arrow-path">
-                                    Sync from Stripe
-                                </flux:button>
+                                @if(!$enrollment->isInternalSubscription())
+                                    <flux:button size="sm" variant="outline" wire:click="syncSubscriptionData" wire:confirm="This will sync the latest subscription data from Stripe. Continue?" icon="arrow-path">
+                                        Sync from Stripe
+                                    </flux:button>
+                                @endif
                                 
                                 @if($enrollment->course->feeSettings && $enrollment->course->feeSettings->stripe_price_id)
                                     <flux:button size="sm" variant="primary" wire:click="resumeCanceledSubscription" wire:confirm="This will create a new subscription for the student. Are you sure you want to resume the subscription?">
@@ -2510,9 +2778,11 @@ new class extends Component
                             <div class="flex items-center justify-between mb-4">
                                 <flux:heading size="sm">Subscription Information</flux:heading>
                                 <div class="flex gap-2">
-                                    <flux:button size="sm" variant="ghost" wire:click="syncFromStripe" icon="arrow-path">
-                                        Sync from Stripe
-                                    </flux:button>
+                                    @if(!$enrollment->isInternalSubscription())
+                                        <flux:button size="sm" variant="ghost" wire:click="syncSubscriptionData" wire:confirm="This will sync the latest subscription data from Stripe. Continue?" icon="arrow-path">
+                                            Sync from Stripe
+                                        </flux:button>
+                                    @endif
                                     @if($enrollment->isPendingCancellation())
                                         <flux:button size="sm" variant="primary" wire:click="undoCancellation" wire:confirm="Are you sure you want to undo the cancellation? The subscription will continue normally and billing will resume." icon="arrow-uturn-left">
                                             Undo Cancellation
@@ -2568,6 +2838,15 @@ new class extends Component
                                     </div>
                                 </div>
                             @endif
+                        </div>
+                    @endif
+
+                    <!-- Email Warning for Internal Subscriptions -->
+                    @if(!$enrollment->stripe_subscription_id && !$enrollment->hasStudentEmail() && $enrollment->course->feeSettings && $enrollment->course->feeSettings->billing_cycle !== 'one_time')
+                        <div class="mb-4">
+                            <flux:callout variant="warning" icon="exclamation-triangle">
+                                <strong>No Email Address:</strong> Student has no email. An internal subscription will be created (without Stripe). Payment orders will be generated automatically based on the billing cycle.
+                            </flux:callout>
                         </div>
                     @endif
 
@@ -2665,9 +2944,141 @@ new class extends Component
                         @endif
                     </div>
 
+                    <!-- Monthly Payment Breakdown -->
+                    @if($enrollment->stripe_subscription_id && ($enrollment->start_date || $enrollment->enrollment_date))
+                        @php
+                            $breakdown = $this->getMonthlyPaymentBreakdown();
+                        @endphp
+
+                        <div class="mt-8">
+                            <flux:heading size="md" class="mb-4">{{ $breakdown['year'] }} Payment Breakdown</flux:heading>
+
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                                            @foreach($breakdown['months'] as $month)
+                                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    {{ $month['label'] }}
+                                                </th>
+                                            @endforeach
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">Status</td>
+                                            @foreach($breakdown['months'] as $month)
+                                                @php
+                                                    $data = $breakdown['data'][$month['label']];
+                                                @endphp
+                                                <td class="px-3 py-3 whitespace-nowrap text-center">
+                                                    @if($data['status'] === 'paid')
+                                                        <div class="flex flex-col items-center gap-1">
+                                                            <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                                            </svg>
+                                                            <div class="text-xs text-green-600 font-medium">Paid</div>
+                                                            <div class="text-sm font-semibold text-green-600">RM {{ number_format($data['amount'], 2) }}</div>
+                                                        </div>
+                                                    @elseif($data['status'] === 'partial')
+                                                        <button
+                                                            wire:click="openManualPaymentModal('{{ $month['label'] }}', '{{ $month['period_start']->format('Y-m-d') }}', '{{ $month['period_end']->format('Y-m-d') }}', {{ $data['expected_amount'] - $data['amount'] }})"
+                                                            class="flex flex-col items-center gap-1 hover:bg-yellow-50 rounded p-2 transition-colors w-full"
+                                                            title="Record payment for remaining balance">
+                                                            <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                                            </svg>
+                                                            <div class="text-xs text-yellow-600 font-medium">RM {{ number_format($data['amount'], 2) }}</div>
+                                                            <div class="text-xs text-red-600 font-medium">RM {{ number_format($data['expected_amount'] - $data['amount'], 2) }} due</div>
+                                                            <div class="text-xs text-blue-600 font-medium hover:underline">Click to pay</div>
+                                                        </button>
+                                                    @elseif($data['status'] === 'pending')
+                                                        <div class="flex flex-col items-center gap-1">
+                                                            <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                                                            </svg>
+                                                            <div class="text-xs text-yellow-600 font-medium">Pending</div>
+                                                            @if($data['amount'] > 0)
+                                                                <div class="text-sm font-semibold text-yellow-600">RM {{ number_format($data['amount'], 2) }}</div>
+                                                            @endif
+                                                        </div>
+                                                    @elseif($data['status'] === 'unpaid')
+                                                        <button
+                                                            wire:click="openManualPaymentModal('{{ $month['label'] }}', '{{ $month['period_start']->format('Y-m-d') }}', '{{ $month['period_end']->format('Y-m-d') }}', {{ $data['expected_amount'] }})"
+                                                            class="flex flex-col items-center gap-1 hover:bg-red-50 rounded p-2 transition-colors w-full"
+                                                            title="Record payment for this period">
+                                                            <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                                            </svg>
+                                                            <div class="text-xs text-red-600 font-medium">Unpaid</div>
+                                                            @if($data['expected_amount'] > 0)
+                                                                <div class="text-sm font-semibold text-red-600">RM {{ number_format($data['expected_amount'], 2) }}</div>
+                                                            @endif
+                                                            <div class="text-xs text-blue-600 font-medium hover:underline">Click to pay</div>
+                                                        </button>
+                                                    @elseif($data['status'] === 'failed')
+                                                        <button
+                                                            wire:click="openManualPaymentModal('{{ $month['label'] }}', '{{ $month['period_start']->format('Y-m-d') }}', '{{ $month['period_end']->format('Y-m-d') }}', {{ $data['expected_amount'] }})"
+                                                            class="flex flex-col items-center gap-1 hover:bg-red-50 rounded p-2 transition-colors w-full"
+                                                            title="Record payment for this period">
+                                                            <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                                            </svg>
+                                                            <div class="text-xs text-red-600 font-medium">Failed</div>
+                                                            <div class="text-xs text-blue-600 font-medium hover:underline">Click to pay</div>
+                                                        </button>
+                                                    @else
+                                                        <div class="flex flex-col items-center gap-1">
+                                                            <svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                                                            </svg>
+                                                            <div class="text-xs text-blue-500">Not started</div>
+                                                        </div>
+                                                    @endif
+                                                </td>
+                                            @endforeach
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="mt-4 flex items-center justify-between text-sm border-t pt-3">
+                                <div class="flex items-center gap-6 text-xs">
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                                        <span class="text-gray-600">Paid</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <svg class="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span class="text-gray-600">Partial (click to pay)</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
+                                        <span class="text-gray-600">Pending</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                                        <span class="text-gray-600">Unpaid/Failed (click to pay)</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-blue-400"></div>
+                                        <span class="text-gray-600">Not Started</span>
+                                    </div>
+                                </div>
+                                <div class="text-sm">
+                                    <span class="font-medium text-gray-700">Total Paid:</span>
+                                    <span class="font-semibold text-gray-900 ml-1">RM {{ number_format(collect($breakdown['data'])->sum('amount'), 2) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     <!-- Manual Orders List -->
                     @if($enrollment->orders->where('billing_reason', 'manual')->isNotEmpty())
-                        <div class="space-y-4">
+                        <div class="space-y-4 mt-8">
                             <flux:heading size="md">Manual Payment Orders</flux:heading>
                             
                             <div class="space-y-3">
@@ -3324,6 +3735,91 @@ new class extends Component
 
     </div>
 
+    <!-- Record Manual Payment Modal -->
+    <flux:modal name="manual-payment" :show="$showManualPaymentModal" wire:model="showManualPaymentModal">
+        <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+            <flux:heading size="lg">Record Manual Payment</flux:heading>
+            <flux:text class="mt-2">Upload payment receipt and record payment for this period</flux:text>
+        </div>
+
+        @if($selectedPeriod)
+            <div class="space-y-4">
+                <!-- Student Info -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <flux:text class="text-sm font-medium text-gray-600">Student</flux:text>
+                            <flux:text class="text-sm text-gray-900 mt-1">
+                                {{ $enrollment->student->user->name ?? 'N/A' }}
+                            </flux:text>
+                        </div>
+                        <div>
+                            <flux:text class="text-sm font-medium text-gray-600">Period</flux:text>
+                            <flux:text class="text-sm text-gray-900 mt-1">
+                                {{ $selectedPeriodLabel }} ({{ \Carbon\Carbon::parse($selectedPeriod['start'])->format('M j') }} - {{ \Carbon\Carbon::parse($selectedPeriod['end'])->format('M j, Y') }})
+                            </flux:text>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Amount -->
+                <flux:field>
+                    <flux:label>Payment Amount (RM)</flux:label>
+                    <flux:input
+                        wire:model="paymentAmount"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder="0.00"
+                    />
+                    <flux:error name="paymentAmount" />
+                </flux:field>
+
+                <!-- Receipt Upload -->
+                <flux:field>
+                    <flux:label>Payment Receipt (Optional)</flux:label>
+                    <flux:input
+                        wire:model="receiptFile"
+                        type="file"
+                        accept="image/*"
+                    />
+                    <flux:description>Upload an image of the payment receipt (Max: 10MB)</flux:description>
+                    <flux:error name="receiptFile" />
+
+                    @if($receiptFile)
+                        <div class="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                            <flux:text class="text-sm text-green-800">Receipt uploaded: {{ $receiptFile->getClientOriginalName() }}</flux:text>
+                        </div>
+                    @endif
+                </flux:field>
+
+                <!-- Payment Notes -->
+                <flux:field>
+                    <flux:label>Notes (Optional)</flux:label>
+                    <flux:textarea
+                        wire:model="paymentNotes"
+                        rows="3"
+                        placeholder="Add any notes about this payment..."
+                    />
+                    <flux:error name="paymentNotes" />
+                </flux:field>
+
+                <!-- Actions -->
+                <div class="flex justify-end gap-3 pt-4">
+                    <flux:button variant="outline" wire:click="closeManualPaymentModal">
+                        Cancel
+                    </flux:button>
+                    <flux:button variant="primary" wire:click="createManualPayment">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="check" class="w-4 h-4 mr-1" />
+                            Record Payment
+                        </div>
+                    </flux:button>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
+
     <!-- Create Manual Order Modal -->
     <flux:modal wire:model="showCreateManualOrderModal" class="space-y-6">
         <div>
@@ -3704,7 +4200,14 @@ new class extends Component
                         </div>
                         <div>
                             <span class="font-medium">Monthly Fee:</span>
-                            <span class="ml-2">{{ $enrollment->formatted_enrollment_fee }}</span>
+                            <span class="ml-2">
+                                @php
+                                    $displayFee = $enrollment->enrollment_fee > 0
+                                        ? $enrollment->formatted_enrollment_fee
+                                        : ($enrollment->course->feeSettings?->formatted_fee ?? 'RM 0.00');
+                                @endphp
+                                {{ $displayFee }}
+                            </span>
                         </div>
                         <div>
                             <span class="font-medium">Billing Cycle:</span>

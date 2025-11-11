@@ -13,6 +13,7 @@ use App\Models\PaymentMethod;
 use App\Models\StripeCustomer;
 use App\Models\User;
 use App\Models\WebhookEvent;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\ApiErrorException;
@@ -2240,6 +2241,16 @@ class StripeService
      */
     public function createManualSubscription(Enrollment $enrollment): array
     {
+        // Check if student has an email - if not, use internal subscription system
+        if (empty($enrollment->student->email)) {
+            Log::info('Creating internal manual subscription (no email)', [
+                'enrollment_id' => $enrollment->id,
+                'student_id' => $enrollment->student_id,
+            ]);
+
+            return $this->createInternalManualSubscription($enrollment);
+        }
+
         if (! $this->isConfigured()) {
             throw new \Exception('Stripe is not properly configured.');
         }
@@ -2332,6 +2343,212 @@ class StripeService
             ]);
             throw new \Exception('Failed to create manual subscription: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Create internal manual subscription (without Stripe, for students without email)
+     */
+    private function createInternalManualSubscription(Enrollment $enrollment): array
+    {
+        try {
+            // Calculate first billing date
+            $nextPaymentDate = $this->calculateNextBillingDate(
+                $enrollment->course->feeSettings,
+                now()
+            );
+
+            // Generate internal subscription ID
+            $internalSubId = 'INTERNAL-'.$enrollment->id.'-'.time();
+
+            // Update enrollment with internal subscription details
+            $enrollment->update([
+                'stripe_subscription_id' => $internalSubId,
+                'subscription_status' => 'active',
+                'payment_method_type' => 'manual',
+                'collection_status' => 'paused',
+                'collection_paused_at' => now(),
+                'next_payment_date' => $nextPaymentDate,
+                'manual_payment_required' => false, // Will be set to true when order is generated
+            ]);
+
+            Log::info('Internal manual subscription created', [
+                'enrollment_id' => $enrollment->id,
+                'internal_subscription_id' => $internalSubId,
+                'next_payment_date' => $nextPaymentDate,
+            ]);
+
+            // Generate first order immediately
+            $firstOrder = $this->generateInternalSubscriptionOrder($enrollment);
+
+            Log::info('First internal subscription order generated', [
+                'enrollment_id' => $enrollment->id,
+                'order_id' => $firstOrder->id,
+                'order_number' => $firstOrder->order_number,
+                'amount' => $firstOrder->amount,
+            ]);
+
+            return [
+                'subscription' => null, // No Stripe subscription
+                'success' => true,
+                'message' => 'Internal subscription created successfully. Payment order has been generated.',
+                'internal_subscription_id' => $internalSubId,
+                'first_order' => $firstOrder,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create internal manual subscription', [
+                'enrollment_id' => $enrollment->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw new \Exception('Failed to create internal subscription: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Calculate next billing date based on fee settings and current date
+     */
+    private function calculateNextBillingDate(CourseFeeSettings $feeSettings, Carbon $fromDate): Carbon
+    {
+        $nextDate = $fromDate->copy();
+
+        // If a specific billing day is set, use it
+        if ($feeSettings->hasBillingDay()) {
+            $billingDay = $feeSettings->getValidatedBillingDay();
+
+            // Set to the billing day of current month
+            $nextDate->day($billingDay);
+
+            // If we've passed the billing day this month, move to next billing cycle
+            if ($nextDate->lte($fromDate)) {
+                $nextDate = $this->addBillingCycle($nextDate, $feeSettings->billing_cycle);
+                $nextDate->day($billingDay);
+            }
+        } else {
+            // No specific billing day - add one billing cycle from today
+            $nextDate = $this->addBillingCycle($fromDate, $feeSettings->billing_cycle);
+        }
+
+        return $nextDate;
+    }
+
+    /**
+     * Add billing cycle to a date
+     */
+    private function addBillingCycle(Carbon $date, string $billingCycle): Carbon
+    {
+        return match ($billingCycle) {
+            'monthly' => $date->copy()->addMonth(),
+            'quarterly' => $date->copy()->addMonths(3),
+            'yearly' => $date->copy()->addYear(),
+            default => $date->copy()->addMonth(),
+        };
+    }
+
+    /**
+     * Generate order for internal subscription
+     */
+    public function generateInternalSubscriptionOrder(Enrollment $enrollment): Order
+    {
+        // Check if this is an internal subscription
+        if (! $enrollment->stripe_subscription_id || ! str_starts_with($enrollment->stripe_subscription_id, 'INTERNAL-')) {
+            throw new \Exception('This is not an internal subscription');
+        }
+
+        // Calculate period dates
+        $lastOrder = $enrollment->orders()
+            ->where('status', Order::STATUS_PAID)
+            ->orderBy('period_end', 'desc')
+            ->first();
+
+        if ($lastOrder) {
+            // Start from day after last period ended
+            $periodStart = $lastOrder->period_end->copy()->addDay();
+        } else {
+            // First order - start from now
+            $periodStart = now()->startOfDay();
+        }
+
+        // Calculate period end based on billing cycle
+        $periodEnd = $this->addBillingCycle($periodStart, $enrollment->course->feeSettings->billing_cycle)
+            ->subDay(); // End day before next cycle starts
+
+        // Get the fee amount - prioritize course fee settings
+        // Use course fee if available and > 0, otherwise use enrollment fee
+        $feeAmount = 0;
+
+        if ($enrollment->course && $enrollment->course->feeSettings && $enrollment->course->feeSettings->fee_amount > 0) {
+            $feeAmount = $enrollment->course->feeSettings->fee_amount;
+        } elseif ($enrollment->enrollment_fee && $enrollment->enrollment_fee > 0) {
+            $feeAmount = $enrollment->enrollment_fee;
+        } else {
+            // Reload the enrollment with course fee settings to ensure it's loaded
+            $enrollment->load('course.feeSettings');
+            $feeAmount = $enrollment->course->feeSettings->fee_amount ?? 0;
+        }
+
+        if ($feeAmount <= 0) {
+            throw new \Exception('Cannot generate order: No valid fee amount found for enrollment #'.$enrollment->id);
+        }
+
+        // Create the order
+        $order = Order::create([
+            'enrollment_id' => $enrollment->id,
+            'student_id' => $enrollment->student_id,
+            'course_id' => $enrollment->course_id,
+            'amount' => $feeAmount,
+            'currency' => $enrollment->course->feeSettings->currency ?? 'MYR',
+            'status' => Order::STATUS_PENDING,
+            'billing_reason' => Order::REASON_MANUAL,
+            'payment_method' => Order::PAYMENT_METHOD_MANUAL,
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
+            'metadata' => [
+                'payment_method_type' => 'manual',
+                'subscription_type' => 'internal',
+                'internal_subscription_id' => $enrollment->stripe_subscription_id,
+                'generated_at' => now()->toISOString(),
+                'billing_cycle' => $enrollment->course->feeSettings->billing_cycle,
+            ],
+        ]);
+
+        // Create order item for the course fee
+        $order->items()->create([
+            'description' => "Course Fee - {$enrollment->course->name} ({$enrollment->course->feeSettings->billing_cycle_label})",
+            'quantity' => 1,
+            'unit_price' => $feeAmount,
+            'total_price' => $feeAmount,
+            'metadata' => [
+                'course_id' => $enrollment->course->id,
+                'course_name' => $enrollment->course->name,
+                'billing_cycle' => $enrollment->course->feeSettings->billing_cycle,
+                'period_start' => $periodStart->toDateString(),
+                'period_end' => $periodEnd->toDateString(),
+            ],
+        ]);
+
+        // Update enrollment's next payment date
+        $nextPaymentDate = $this->calculateNextBillingDate(
+            $enrollment->course->feeSettings,
+            $periodEnd
+        );
+
+        $enrollment->update([
+            'next_payment_date' => $nextPaymentDate,
+            'manual_payment_required' => true,
+        ]);
+
+        Log::info('Generated internal subscription order', [
+            'enrollment_id' => $enrollment->id,
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'amount' => $order->amount,
+            'period_start' => $periodStart->toDateString(),
+            'period_end' => $periodEnd->toDateString(),
+            'next_payment_date' => $nextPaymentDate->toDateString(),
+        ]);
+
+        return $order;
     }
 
     /**

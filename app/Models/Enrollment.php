@@ -790,4 +790,51 @@ class Enrollment extends Model
 
         return round(($attendedSessions / $totalSessions) * 100, 2);
     }
+
+    // Internal subscription helper methods
+    public function isInternalSubscription(): bool
+    {
+        return ! empty($this->stripe_subscription_id) &&
+               str_starts_with($this->stripe_subscription_id, 'INTERNAL-');
+    }
+
+    public function isStripeSubscription(): bool
+    {
+        return ! empty($this->stripe_subscription_id) &&
+               ! str_starts_with($this->stripe_subscription_id, 'INTERNAL-');
+    }
+
+    public function getSubscriptionTypeLabel(): string
+    {
+        if ($this->isInternalSubscription()) {
+            return 'Internal Manual Subscription';
+        }
+
+        if ($this->isStripeSubscription()) {
+            return 'Stripe Subscription';
+        }
+
+        return 'No Subscription';
+    }
+
+    public function hasStudentEmail(): bool
+    {
+        return ! empty($this->student->email);
+    }
+
+    public function canGenerateInternalOrder(): bool
+    {
+        return $this->isInternalSubscription() &&
+               $this->subscription_status === 'active' &&
+               $this->payment_method_type === 'manual';
+    }
+
+    public function getInternalSubscriptionId(): ?string
+    {
+        if (! $this->isInternalSubscription()) {
+            return null;
+        }
+
+        return $this->stripe_subscription_id;
+    }
 }

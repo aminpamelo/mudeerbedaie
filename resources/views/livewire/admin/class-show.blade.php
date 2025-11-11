@@ -805,6 +805,21 @@ new class extends Component
 
     public string $paymentPicFilter = '';
 
+    // Manual Payment Modal Properties
+    public bool $showManualPaymentModal = false;
+
+    public $selectedStudent = null;
+
+    public $selectedPeriod = null;
+
+    public $selectedPeriodLabel = '';
+
+    public $receiptFile = null;
+
+    public $paymentAmount = 0;
+
+    public $paymentNotes = '';
+
     public function mountPaymentReport()
     {
         $this->paymentYear = now()->year;
@@ -1069,6 +1084,18 @@ new class extends Component
             return 'not_started';
         }
 
+        // PRIORITY 1: Check actual payment status FIRST (actual money received takes priority)
+        if ($expectedAmount > 0) {
+            if ($paidAmount >= $expectedAmount) {
+                return 'paid';
+            }
+
+            if ($paidAmount > 0) {
+                return 'partial_payment';
+            }
+        }
+
+        // PRIORITY 2: Check if subscription was cancelled (only if no payment made)
         if ($enrollment->subscription_cancel_at) {
             if ($enrollment->subscription_cancel_at >= $periodStart && $enrollment->subscription_cancel_at <= $periodEnd) {
                 return 'cancelled_this_period';
@@ -1077,6 +1104,7 @@ new class extends Component
             }
         }
 
+        // PRIORITY 3: Check academic status
         if ($enrollment->academic_status) {
             switch ($enrollment->academic_status->value) {
                 case 'withdrawn':
@@ -1088,18 +1116,12 @@ new class extends Component
             }
         }
 
+        // PRIORITY 4: Check if payment is expected
         if ($expectedAmount <= 0) {
             return 'no_payment_due';
         }
 
-        if ($paidAmount >= $expectedAmount) {
-            return 'paid';
-        }
-
-        if ($paidAmount > 0) {
-            return 'partial_payment';
-        }
-
+        // PRIORITY 5: Default to unpaid if period has started
         return 'unpaid';
     }
 
@@ -1132,6 +1154,123 @@ new class extends Component
         }
 
         return false;
+    }
+
+    public function openManualPaymentModal($studentId, $periodLabel, $periodStart, $periodEnd, $unpaidAmount)
+    {
+        $this->selectedStudent = $studentId;
+        $this->selectedPeriod = [
+            'label' => $periodLabel,
+            'start' => $periodStart,
+            'end' => $periodEnd,
+        ];
+        $this->selectedPeriodLabel = $periodLabel;
+        $this->paymentAmount = $unpaidAmount;
+        $this->paymentNotes = '';
+        $this->receiptFile = null;
+        $this->showManualPaymentModal = true;
+    }
+
+    public function closeManualPaymentModal()
+    {
+        $this->showManualPaymentModal = false;
+        $this->selectedStudent = null;
+        $this->selectedPeriod = null;
+        $this->selectedPeriodLabel = '';
+        $this->paymentAmount = 0;
+        $this->paymentNotes = '';
+        $this->receiptFile = null;
+    }
+
+    public function updatedReceiptFile()
+    {
+        $this->validate([
+            'receiptFile' => 'image|max:10240', // 10MB Max
+        ]);
+    }
+
+    public function createManualPayment()
+    {
+        $this->validate([
+            'paymentAmount' => 'required|numeric|min:0.01',
+            'receiptFile' => 'nullable|image|max:10240',
+        ]);
+
+        try {
+            // Get student and enrollment
+            $student = \App\Models\Student::find($this->selectedStudent);
+            $enrollment = $student->enrollments()
+                ->where('course_id', $this->class->course_id)
+                ->first();
+
+            if (! $enrollment) {
+                $this->addError('general', 'Enrollment not found for this student.');
+
+                return;
+            }
+
+            // Handle receipt file upload
+            $receiptUrl = null;
+            if ($this->receiptFile) {
+                $receiptPath = $this->receiptFile->store('receipts', 'public');
+                $receiptUrl = \Storage::url($receiptPath);
+            }
+
+            // Check if order already exists for this period
+            $existingOrder = \App\Models\Order::where('enrollment_id', $enrollment->id)
+                ->where('student_id', $student->id)
+                ->where('course_id', $this->class->course_id)
+                ->where('period_start', $this->selectedPeriod['start'])
+                ->where('period_end', $this->selectedPeriod['end'])
+                ->first();
+
+            if ($existingOrder) {
+                // Update existing order
+                $existingOrder->update([
+                    'amount' => $this->paymentAmount,
+                    'status' => \App\Models\Order::STATUS_PAID,
+                    'payment_method' => \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                    'paid_at' => now(),
+                    'receipt_url' => $receiptUrl ?? $existingOrder->receipt_url,
+                    'metadata' => array_merge($existingOrder->metadata ?? [], [
+                        'notes' => $this->paymentNotes,
+                        'manual_payment' => true,
+                        'processed_by' => auth()->id(),
+                        'processed_at' => now()->toDateTimeString(),
+                    ]),
+                ]);
+
+                session()->flash('message', 'Payment updated successfully!');
+            } else {
+                // Create new order
+                \App\Models\Order::create([
+                    'enrollment_id' => $enrollment->id,
+                    'student_id' => $student->id,
+                    'course_id' => $this->class->course_id,
+                    'amount' => $this->paymentAmount,
+                    'currency' => 'MYR',
+                    'status' => \App\Models\Order::STATUS_PAID,
+                    'period_start' => $this->selectedPeriod['start'],
+                    'period_end' => $this->selectedPeriod['end'],
+                    'billing_reason' => \App\Models\Order::REASON_MANUAL,
+                    'payment_method' => \App\Models\Order::PAYMENT_METHOD_MANUAL,
+                    'paid_at' => now(),
+                    'receipt_url' => $receiptUrl,
+                    'metadata' => [
+                        'notes' => $this->paymentNotes,
+                        'manual_payment' => true,
+                        'processed_by' => auth()->id(),
+                        'processed_at' => now()->toDateTimeString(),
+                    ],
+                ]);
+
+                session()->flash('message', 'Payment recorded successfully!');
+            }
+
+            $this->closeManualPaymentModal();
+        } catch (\Exception $e) {
+            $this->addError('general', 'Failed to create payment: '.$e->getMessage());
+        }
     }
 
     public function getAvailablePicsProperty()
@@ -3537,18 +3676,21 @@ new class extends Component
                                                         @break
 
                                                     @case('unpaid')
-                                                        <div class="space-y-1">
+                                                        <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
+                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['unpaid_amount'] ?? 0 }})">
                                                             <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-600 rounded-full mb-1">
                                                                 <flux:icon.exclamation-triangle class="w-4 h-4" />
                                                             </div>
                                                             <div class="text-xs font-medium text-red-600">
                                                                 RM {{ number_format($payment['unpaid_amount'] ?? 0, 2) }}
                                                             </div>
+                                                            <div class="text-xs text-gray-500 mt-1">Click to pay</div>
                                                         </div>
                                                         @break
 
                                                     @case('partial_payment')
-                                                        <div class="space-y-1">
+                                                        <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
+                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['unpaid_amount'] ?? 0 }})">
                                                             <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full mb-1">
                                                                 <flux:icon.minus class="w-4 h-4" />
                                                             </div>
@@ -3558,6 +3700,7 @@ new class extends Component
                                                             <div class="text-xs text-red-500">
                                                                 RM {{ number_format($payment['unpaid_amount'] ?? 0, 2) }} due
                                                             </div>
+                                                            <div class="text-xs text-gray-500 mt-1">Click to pay</div>
                                                         </div>
                                                         @break
 
@@ -3578,7 +3721,7 @@ new class extends Component
                                                                 <flux:icon.x-circle class="w-4 h-4" />
                                                             </div>
                                                             <div class="text-xs text-orange-600">
-                                                                Cancelled
+                                                                Canceled
                                                             </div>
                                                         </div>
                                                         @break
@@ -3589,7 +3732,7 @@ new class extends Component
                                                                 <flux:icon.x-circle class="w-4 h-4" />
                                                             </div>
                                                             <div class="text-xs text-gray-500">
-                                                                Cancelled
+                                                                Canceled
                                                             </div>
                                                         </div>
                                                         @break
@@ -3736,6 +3879,98 @@ new class extends Component
                     </div>
                 </div>
             </flux:card>
+
+            <!-- Manual Payment Modal -->
+            <flux:modal name="manual-payment" :show="$showManualPaymentModal" wire:model="showManualPaymentModal">
+                <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+                    <flux:heading size="lg">Record Manual Payment</flux:heading>
+                    <flux:text class="mt-2">Upload payment receipt and record payment for this period</flux:text>
+                </div>
+
+                @if($selectedStudent && $selectedPeriod)
+                    <div class="space-y-4">
+                        <!-- Student Info -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <flux:text class="text-sm font-medium text-gray-600">Student</flux:text>
+                                    <flux:text class="text-sm text-gray-900 mt-1">
+                                        {{ \App\Models\Student::find($selectedStudent)?->user->name ?? 'N/A' }}
+                                    </flux:text>
+                                </div>
+                                <div>
+                                    <flux:text class="text-sm font-medium text-gray-600">Period</flux:text>
+                                    <flux:text class="text-sm text-gray-900 mt-1">
+                                        {{ $selectedPeriodLabel }} ({{ \Carbon\Carbon::parse($selectedPeriod['start'])->format('M j') }} - {{ \Carbon\Carbon::parse($selectedPeriod['end'])->format('M j, Y') }})
+                                    </flux:text>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Error Messages -->
+                        @if($errors->has('general'))
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <flux:text class="text-sm text-red-800">{{ $errors->first('general') }}</flux:text>
+                            </div>
+                        @endif
+
+                        <!-- Payment Amount -->
+                        <flux:field>
+                            <flux:label>Payment Amount (RM)</flux:label>
+                            <flux:input
+                                wire:model="paymentAmount"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="0.00"
+                            />
+                            <flux:error name="paymentAmount" />
+                        </flux:field>
+
+                        <!-- Receipt Upload -->
+                        <flux:field>
+                            <flux:label>Payment Receipt (Optional)</flux:label>
+                            <flux:input
+                                wire:model="receiptFile"
+                                type="file"
+                                accept="image/*"
+                            />
+                            <flux:description>Upload an image of the payment receipt (Max: 10MB)</flux:description>
+                            <flux:error name="receiptFile" />
+
+                            @if($receiptFile)
+                                <div class="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                                    <flux:text class="text-sm text-green-800">Receipt uploaded: {{ $receiptFile->getClientOriginalName() }}</flux:text>
+                                </div>
+                            @endif
+                        </flux:field>
+
+                        <!-- Payment Notes -->
+                        <flux:field>
+                            <flux:label>Notes (Optional)</flux:label>
+                            <flux:textarea
+                                wire:model="paymentNotes"
+                                rows="3"
+                                placeholder="Add any notes about this payment..."
+                            />
+                            <flux:error name="paymentNotes" />
+                        </flux:field>
+
+                        <!-- Actions -->
+                        <div class="flex justify-end gap-3 pt-4">
+                            <flux:button variant="outline" wire:click="closeManualPaymentModal">
+                                Cancel
+                            </flux:button>
+                            <flux:button variant="primary" wire:click="createManualPayment">
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="check" class="w-4 h-4 mr-1" />
+                                    Record Payment
+                                </div>
+                            </flux:button>
+                        </div>
+                    </div>
+                @endif
+            </flux:modal>
             @endif
         </div>
         <!-- End Payment Reports Tab -->
