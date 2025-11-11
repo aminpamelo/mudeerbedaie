@@ -585,8 +585,8 @@ new class extends Component
             $studentName = $this->selectedClassStudent->student->user->name;
 
             $this->selectedClassStudent->update([
-                'status' => 'unenrolled',
-                'unenrolled_at' => now(),
+                'status' => 'quit',
+                'left_at' => now(),
             ]);
 
             session()->flash('success', "{$studentName} has been unenrolled from the class.");
@@ -1101,6 +1101,37 @@ new class extends Component
         }
 
         return 'unpaid';
+    }
+
+    private function hasConsecutiveUnpaidMonths($studentId, $consecutiveCount = 2)
+    {
+        $paymentData = $this->class_payment_data[$studentId] ?? [];
+        $periodColumns = $this->payment_period_columns;
+
+        $consecutiveUnpaid = 0;
+
+        foreach ($periodColumns as $period) {
+            $payment = $paymentData[$period['label']] ?? ['status' => 'no_data'];
+            $status = $payment['status'];
+
+            // Check if the status is unpaid or partial_payment for active students
+            if (in_array($status, ['unpaid', 'partial_payment'])) {
+                $consecutiveUnpaid++;
+
+                // If we reached the threshold, return true
+                if ($consecutiveUnpaid >= $consecutiveCount) {
+                    return true;
+                }
+            } else {
+                // Reset counter if the status is not unpaid/partial
+                // But only if the period has started (not future periods)
+                if (! in_array($status, ['not_started', 'no_enrollment'])) {
+                    $consecutiveUnpaid = 0;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function getAvailablePicsProperty()
@@ -3423,9 +3454,18 @@ new class extends Component
                                         $totalPaid = 0;
                                         $totalExpected = 0;
                                         $totalUnpaid = 0;
+                                        $hasConsecutiveUnpaid = $this->hasConsecutiveUnpaidMonths($student->id);
                                     @endphp
-                                    <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                        <td class="py-3 px-4 sticky left-0 bg-white z-10 border-r border-gray-100">
+                                    <tr class="border-b border-gray-100 hover:bg-gray-50 {{ $hasConsecutiveUnpaid ? 'bg-red-50' : '' }}">
+                                        <td class="py-3 px-4 sticky left-0 {{ $hasConsecutiveUnpaid ? 'bg-red-50' : 'bg-white' }} z-10 border-r border-gray-100">
+                                            @if($hasConsecutiveUnpaid)
+                                                <div class="flex items-start gap-2 mb-2">
+                                                    <div class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-medium">
+                                                        <flux:icon.exclamation-triangle class="w-3 h-3" />
+                                                        <span>2+ Months Unpaid</span>
+                                                    </div>
+                                                </div>
+                                            @endif
                                             @if($enrollment)
                                                 <a href="{{ route('enrollments.show', $enrollment) }}"
                                                    wire:navigate
@@ -3455,7 +3495,7 @@ new class extends Component
                                                 </div>
                                             @endif
                                         </td>
-                                        <td class="py-3 px-4 bg-white border-l border-gray-100">
+                                        <td class="py-3 px-4 {{ $hasConsecutiveUnpaid ? 'bg-red-50' : 'bg-white' }} border-l border-gray-100">
                                             @if($enrollment && $enrollment->enrolledBy)
                                                 <a href="{{ route('enrollments.show', $enrollment) }}"
                                                    wire:navigate
@@ -3625,6 +3665,22 @@ new class extends Component
             <flux:card class="mt-6">
                 <div class="p-4">
                     <flux:heading size="md" class="mb-4">Payment Status Legend</flux:heading>
+
+                    <!-- Consecutive Unpaid Warning -->
+                    <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div class="flex items-start gap-3">
+                            <div class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-medium">
+                                <flux:icon.exclamation-triangle class="w-3 h-3" />
+                                <span>2+ Months Unpaid</span>
+                            </div>
+                            <div class="flex-1">
+                                <flux:text class="text-sm text-red-900 font-medium">Critical Payment Alert</flux:text>
+                                <flux:text class="text-xs text-red-700 mt-1">
+                                    Students with this indicator have 2 or more consecutive months of unpaid or partial payments. The entire row is highlighted in light red for easy identification. Consider immediate follow-up action.
+                                </flux:text>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="space-y-2">
