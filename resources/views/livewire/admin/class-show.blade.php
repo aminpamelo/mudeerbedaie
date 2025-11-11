@@ -803,6 +803,8 @@ new class extends Component
 
     public int $paymentReportPerPage = 20;
 
+    public string $paymentPicFilter = '';
+
     public function mountPaymentReport()
     {
         $this->paymentYear = now()->year;
@@ -829,6 +831,12 @@ new class extends Component
     public function updatedPaymentReportSearch()
     {
         // Reset pagination when search changes
+        $this->resetPage();
+    }
+
+    public function updatedPaymentPicFilter()
+    {
+        // Reset pagination when PIC filter changes
         $this->resetPage();
     }
 
@@ -870,6 +878,14 @@ new class extends Component
                 })
                     ->orWhere('phone', 'like', '%'.$this->paymentReportSearch.'%')
                     ->orWhere('student_id', 'like', '%'.$this->paymentReportSearch.'%');
+            });
+        }
+
+        // Apply PIC filter
+        if (! empty($this->paymentPicFilter)) {
+            $query->whereHas('student.enrollments', function ($q) {
+                $q->where('course_id', $this->class->course_id)
+                    ->where('enrolled_by', $this->paymentPicFilter);
             });
         }
 
@@ -1085,6 +1101,26 @@ new class extends Component
         }
 
         return 'unpaid';
+    }
+
+    public function getAvailablePicsProperty()
+    {
+        // Get all unique PICs from enrollments for this class
+        return $this->class->activeStudents()
+            ->with([
+                'student.enrollments' => function ($q) {
+                    $q->where('course_id', $this->class->course_id)
+                        ->with('enrolledBy');
+                },
+            ])
+            ->get()
+            ->pluck('student.enrollments')
+            ->flatten()
+            ->pluck('enrolledBy')
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->values();
     }
 
     public function updatedEnrolledStudentSearch()
@@ -1677,6 +1713,243 @@ new class extends Component
             }
         }
     }
+
+    // PIC Performance Properties
+    public function getPicPerformanceDataProperty()
+    {
+        $course = $this->class->course;
+
+        if (! $course) {
+            return collect();
+        }
+
+        // Get student IDs in this class
+        $studentIds = \App\Models\ClassStudent::where('class_id', $this->class->id)
+            ->pluck('student_id')
+            ->toArray();
+
+        if (empty($studentIds)) {
+            return collect();
+        }
+
+        // Get all enrollments for students in this class
+        $enrollments = \App\Models\Enrollment::with(['student.user', 'enrolledBy', 'orders'])
+            ->where('course_id', $course->id)
+            ->whereIn('student_id', $studentIds)
+            ->get();
+
+        // Group by PIC
+        $picData = $enrollments->groupBy('enrolled_by')->map(function ($picEnrollments, $picId) {
+            $pic = $picEnrollments->first()->enrolledBy;
+            $studentCount = $picEnrollments->count();
+
+            // Calculate status distribution
+            $statusCounts = $picEnrollments->countBy('status');
+
+            // Calculate payment collection
+            $totalExpected = 0;
+            $totalCollected = 0;
+            $totalPending = 0;
+            $totalOverdue = 0;
+
+            foreach ($picEnrollments as $enrollment) {
+                // Get orders for current year
+                $orders = $enrollment->orders()
+                    ->whereYear('period_start', now()->year)
+                    ->get();
+
+                foreach ($orders as $order) {
+                    $totalExpected += $order->amount;
+
+                    if ($order->status === 'paid') {
+                        $totalCollected += $order->amount;
+                    } elseif ($order->status === 'pending' && $order->period_end < now()) {
+                        $totalOverdue += $order->amount;
+                    } elseif ($order->status === 'pending') {
+                        $totalPending += $order->amount;
+                    }
+                }
+            }
+
+            $collectionRate = $totalExpected > 0 ? round(($totalCollected / $totalExpected) * 100, 1) : 0;
+
+            return [
+                'pic' => $pic,
+                'student_count' => $studentCount,
+                'status_distribution' => [
+                    'enrolled' => $statusCounts->get('enrolled', 0),
+                    'active' => $statusCounts->get('active', 0),
+                    'completed' => $statusCounts->get('completed', 0),
+                    'dropped' => $statusCounts->get('dropped', 0),
+                    'suspended' => $statusCounts->get('suspended', 0),
+                    'pending' => $statusCounts->get('pending', 0),
+                ],
+                'payment_stats' => [
+                    'total_expected' => $totalExpected,
+                    'total_collected' => $totalCollected,
+                    'total_pending' => $totalPending,
+                    'total_overdue' => $totalOverdue,
+                    'collection_rate' => $collectionRate,
+                ],
+                'students' => $picEnrollments->map(function ($enrollment) {
+                    $student = $enrollment->student;
+
+                    // Get payment status for this student
+                    $orders = $enrollment->orders()
+                        ->whereYear('period_start', now()->year)
+                        ->get();
+
+                    $expectedAmount = $orders->sum('amount');
+                    $paidAmount = $orders->where('status', 'paid')->sum('amount');
+                    $pendingAmount = $orders->where('status', 'pending')->sum('amount');
+                    $overdueAmount = $orders->where('status', 'pending')
+                        ->filter(fn ($o) => $o->period_end < now())
+                        ->sum('amount');
+
+                    return [
+                        'id' => $student->id,
+                        'enrollment_id' => $enrollment->id,
+                        'name' => $student->user->name,
+                        'email' => $student->user->email,
+                        'enrollment_status' => $enrollment->status,
+                        'enrollment_date' => $enrollment->enrollment_date,
+                        'payment_summary' => [
+                            'expected' => $expectedAmount,
+                            'paid' => $paidAmount,
+                            'pending' => $pendingAmount,
+                            'overdue' => $overdueAmount,
+                        ],
+                    ];
+                }),
+            ];
+        })
+            ->sortByDesc('student_count')
+            ->values();
+
+        return $picData;
+    }
+
+    public function getPicPerformanceSummaryProperty()
+    {
+        $picData = $this->pic_performance_data;
+
+        return [
+            'total_pics' => $picData->count(),
+            'total_students' => $picData->sum('student_count'),
+            'total_expected' => $picData->sum('payment_stats.total_expected'),
+            'total_collected' => $picData->sum('payment_stats.total_collected'),
+            'total_pending' => $picData->sum('payment_stats.total_pending'),
+            'total_overdue' => $picData->sum('payment_stats.total_overdue'),
+            'overall_collection_rate' => $picData->sum('payment_stats.total_expected') > 0
+                ? round(($picData->sum('payment_stats.total_collected') / $picData->sum('payment_stats.total_expected')) * 100, 1)
+                : 0,
+        ];
+    }
+
+    // PIC Performance Filtering & Pagination Properties
+    public array $picSearchQueries = [];
+
+    public array $picStatusFilters = [];
+
+    public array $picPaymentFilters = [];
+
+    public array $picCurrentPages = [];
+
+    public int $picPerPage = 10;
+
+    public function getPicStudents($picId, $students)
+    {
+        $search = $this->picSearchQueries[$picId] ?? '';
+        $statusFilter = $this->picStatusFilters[$picId] ?? 'all';
+        $paymentFilter = $this->picPaymentFilters[$picId] ?? 'all';
+        $currentPage = $this->picCurrentPages[$picId] ?? 1;
+
+        // Filter students
+        $filtered = $students->filter(function ($student) use ($search, $statusFilter, $paymentFilter) {
+            // Search filter
+            if ($search) {
+                $searchLower = strtolower($search);
+                $nameMatch = str_contains(strtolower($student['name']), $searchLower);
+                $emailMatch = str_contains(strtolower($student['email']), $searchLower);
+
+                if (! $nameMatch && ! $emailMatch) {
+                    return false;
+                }
+            }
+
+            // Status filter
+            if ($statusFilter !== 'all' && $student['enrollment_status'] !== $statusFilter) {
+                return false;
+            }
+
+            // Payment filter
+            if ($paymentFilter !== 'all') {
+                $hasOverdue = $student['payment_summary']['overdue'] > 0;
+                $hasPending = $student['payment_summary']['pending'] > 0;
+                $isPaid = $student['payment_summary']['paid'] > 0 && $student['payment_summary']['expected'] > 0 && $student['payment_summary']['paid'] >= $student['payment_summary']['expected'];
+
+                if ($paymentFilter === 'overdue' && ! $hasOverdue) {
+                    return false;
+                }
+                if ($paymentFilter === 'pending' && ! $hasPending) {
+                    return false;
+                }
+                if ($paymentFilter === 'paid' && ! $isPaid) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        // Paginate
+        $total = $filtered->count();
+        $totalPages = (int) ceil($total / $this->picPerPage);
+        $offset = ($currentPage - 1) * $this->picPerPage;
+
+        return [
+            'students' => $filtered->slice($offset, $this->picPerPage)->values(),
+            'total' => $total,
+            'per_page' => $this->picPerPage,
+            'current_page' => $currentPage,
+            'total_pages' => $totalPages,
+        ];
+    }
+
+    public function setPicPage($picId, $page)
+    {
+        $this->picCurrentPages[$picId] = max(1, (int) $page);
+    }
+
+    public function nextPicPage($picId, $totalPages)
+    {
+        $currentPage = $this->picCurrentPages[$picId] ?? 1;
+        $this->picCurrentPages[$picId] = min($currentPage + 1, $totalPages);
+    }
+
+    public function previousPicPage($picId)
+    {
+        $currentPage = $this->picCurrentPages[$picId] ?? 1;
+        $this->picCurrentPages[$picId] = max(1, $currentPage - 1);
+    }
+
+    public function updatedPicSearchQueries($value, $key)
+    {
+        // Reset to first page when search changes
+        $this->picCurrentPages[$key] = 1;
+    }
+
+    public function updatedPicStatusFilters($value, $key)
+    {
+        // Reset to first page when filter changes
+        $this->picCurrentPages[$key] = 1;
+    }
+
+    public function updatedPicPaymentFilters($value, $key)
+    {
+        // Reset to first page when filter changes
+        $this->picCurrentPages[$key] = 1;
+    }
 };
 
 ?>
@@ -1793,6 +2066,21 @@ new class extends Component
                 <div class="flex items-center gap-2">
                     <flux:icon.chart-bar class="h-4 w-4" />
                     Payment Reports
+                </div>
+            </button>
+
+            <button
+                wire:click="setActiveTab('pic-performance')"
+                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'pic-performance' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon.user-group class="h-4 w-4" />
+                    PIC Performance
+                    @if($this->pic_performance_summary['total_pics'] > 0)
+                        <span class="ml-1 px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">
+                            {{ $this->pic_performance_summary['total_pics'] }}
+                        </span>
+                    @endif
                 </div>
             </button>
 
@@ -3042,6 +3330,14 @@ new class extends Component
                                     <flux:select.option value="not_subscribed">Not Subscribed</flux:select.option>
                                 </flux:select>
                             </div>
+                            <div class="w-48">
+                                <flux:select wire:model.live="paymentPicFilter" class="w-full">
+                                    <flux:select.option value="">All PICs</flux:select.option>
+                                    @foreach($this->available_pics as $pic)
+                                        <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
                             <div class="w-32">
                                 <flux:select wire:model.live="paymentYear" class="w-full">
                                     @for($y = now()->year; $y >= now()->year - 5; $y--)
@@ -3387,6 +3683,363 @@ new class extends Component
             @endif
         </div>
         <!-- End Payment Reports Tab -->
+
+        <!-- PIC Performance Tab -->
+        <div class="{{ $activeTab === 'pic-performance' ? 'block' : 'hidden' }}">
+            @if($activeTab === 'pic-performance')
+                <!-- Summary Statistics -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <!-- Total PICs -->
+                    <flux:card class="hover:shadow-lg transition-shadow">
+                        <div class="p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <flux:text class="text-sm font-medium text-gray-600">Total PICs</flux:text>
+                                    <flux:heading size="xl" class="mt-2">{{ $this->pic_performance_summary['total_pics'] }}</flux:heading>
+                                </div>
+                                <div class="p-3 bg-purple-100 rounded-full">
+                                    <flux:icon.user-group class="h-6 w-6 text-purple-600" />
+                                </div>
+                            </div>
+                        </div>
+                    </flux:card>
+
+                    <!-- Total Students -->
+                    <flux:card class="hover:shadow-lg transition-shadow">
+                        <div class="p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <flux:text class="text-sm font-medium text-gray-600">Total Students</flux:text>
+                                    <flux:heading size="xl" class="mt-2">{{ $this->pic_performance_summary['total_students'] }}</flux:heading>
+                                </div>
+                                <div class="p-3 bg-blue-100 rounded-full">
+                                    <flux:icon.users class="h-6 w-6 text-blue-600" />
+                                </div>
+                            </div>
+                        </div>
+                    </flux:card>
+
+                    <!-- Collection Rate -->
+                    <flux:card class="hover:shadow-lg transition-shadow">
+                        <div class="p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <flux:text class="text-sm font-medium text-gray-600">Collection Rate</flux:text>
+                                    <flux:heading size="xl" class="mt-2">
+                                        {{ $this->pic_performance_summary['overall_collection_rate'] }}%
+                                    </flux:heading>
+                                </div>
+                                <div class="p-3 {{ $this->pic_performance_summary['overall_collection_rate'] >= 80 ? 'bg-green-100' : ($this->pic_performance_summary['overall_collection_rate'] >= 60 ? 'bg-yellow-100' : 'bg-red-100') }} rounded-full">
+                                    <flux:icon.chart-bar class="h-6 w-6 {{ $this->pic_performance_summary['overall_collection_rate'] >= 80 ? 'text-green-600' : ($this->pic_performance_summary['overall_collection_rate'] >= 60 ? 'text-yellow-600' : 'text-red-600') }}" />
+                                </div>
+                            </div>
+                        </div>
+                    </flux:card>
+
+                    <!-- Total Revenue -->
+                    <flux:card class="hover:shadow-lg transition-shadow">
+                        <div class="p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <flux:text class="text-sm font-medium text-gray-600">Total Collected</flux:text>
+                                    <flux:heading size="xl" class="mt-2">RM {{ number_format($this->pic_performance_summary['total_collected'], 2) }}</flux:heading>
+                                    <flux:text class="text-xs text-gray-500 mt-1">of RM {{ number_format($this->pic_performance_summary['total_expected'], 2) }}</flux:text>
+                                </div>
+                                <div class="p-3 bg-emerald-100 rounded-full">
+                                    <flux:icon.banknotes class="h-6 w-6 text-emerald-600" />
+                                </div>
+                            </div>
+                        </div>
+                    </flux:card>
+                </div>
+
+                <!-- PIC Performance Table -->
+                @if($this->pic_performance_data->count() > 0)
+                    <div class="space-y-4">
+                        @foreach($this->pic_performance_data as $index => $picData)
+                            <flux:card class="overflow-hidden">
+                                <!-- PIC Header -->
+                                <div class="bg-gradient-to-r from-purple-50 to-blue-50 px-6 py-4">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-4">
+                                            <flux:avatar size="lg">
+                                                {{ $picData['pic']->initials() }}
+                                            </flux:avatar>
+                                            <div>
+                                                <flux:heading size="lg">{{ $picData['pic']->name }}</flux:heading>
+                                                <flux:text class="text-sm text-gray-600">{{ $picData['pic']->email }}</flux:text>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center space-x-6">
+                                            <div class="text-center">
+                                                <flux:text class="text-xs text-gray-600">Students</flux:text>
+                                                <flux:heading size="lg" class="text-blue-600">{{ $picData['student_count'] }}</flux:heading>
+                                            </div>
+                                            <div class="text-center">
+                                                <flux:text class="text-xs text-gray-600">Collection</flux:text>
+                                                <flux:heading size="lg" class="{{ $picData['payment_stats']['collection_rate'] >= 80 ? 'text-green-600' : ($picData['payment_stats']['collection_rate'] >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
+                                                    {{ $picData['payment_stats']['collection_rate'] }}%
+                                                </flux:heading>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- PIC Statistics -->
+                                <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div>
+                                            <flux:text class="text-xs text-gray-600">Expected</flux:text>
+                                            <flux:text class="font-semibold text-gray-900">RM {{ number_format($picData['payment_stats']['total_expected'], 2) }}</flux:text>
+                                        </div>
+                                        <div>
+                                            <flux:text class="text-xs text-gray-600">Collected</flux:text>
+                                            <flux:text class="font-semibold text-green-600">RM {{ number_format($picData['payment_stats']['total_collected'], 2) }}</flux:text>
+                                        </div>
+                                        <div>
+                                            <flux:text class="text-xs text-gray-600">Pending</flux:text>
+                                            <flux:text class="font-semibold text-yellow-600">RM {{ number_format($picData['payment_stats']['total_pending'], 2) }}</flux:text>
+                                        </div>
+                                        <div>
+                                            <flux:text class="text-xs text-gray-600">Overdue</flux:text>
+                                            <flux:text class="font-semibold text-red-600">RM {{ number_format($picData['payment_stats']['total_overdue'], 2) }}</flux:text>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Student Status Distribution -->
+                                <div class="px-6 py-4 bg-white border-b border-gray-200">
+                                    <flux:text class="text-sm font-medium text-gray-700 mb-3">Student Status Distribution</flux:text>
+                                    <div class="flex flex-wrap gap-2">
+                                        @if($picData['status_distribution']['enrolled'] > 0)
+                                            <flux:badge variant="primary" size="sm">Enrolled: {{ $picData['status_distribution']['enrolled'] }}</flux:badge>
+                                        @endif
+                                        @if($picData['status_distribution']['active'] > 0)
+                                            <flux:badge variant="success" size="sm">Active: {{ $picData['status_distribution']['active'] }}</flux:badge>
+                                        @endif
+                                        @if($picData['status_distribution']['completed'] > 0)
+                                            <flux:badge variant="outline" size="sm">Completed: {{ $picData['status_distribution']['completed'] }}</flux:badge>
+                                        @endif
+                                        @if($picData['status_distribution']['pending'] > 0)
+                                            <flux:badge variant="warning" size="sm">Pending: {{ $picData['status_distribution']['pending'] }}</flux:badge>
+                                        @endif
+                                        @if($picData['status_distribution']['suspended'] > 0)
+                                            <flux:badge variant="danger" size="sm">Suspended: {{ $picData['status_distribution']['suspended'] }}</flux:badge>
+                                        @endif
+                                        @if($picData['status_distribution']['dropped'] > 0)
+                                            <flux:badge size="sm">Dropped: {{ $picData['status_distribution']['dropped'] }}</flux:badge>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <!-- Student Pivot Table -->
+                                <div class="p-6">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <flux:text class="text-sm font-medium text-gray-700">Student Payment Details</flux:text>
+                                        <flux:text class="text-xs text-gray-500">{{ $picData['student_count'] }} student{{ $picData['student_count'] !== 1 ? 's' : '' }} total</flux:text>
+                                    </div>
+
+                                    <!-- Search and Filters -->
+                                    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <flux:input
+                                                wire:model.live.debounce.300ms="picSearchQueries.{{ $picData['pic']->id }}"
+                                                placeholder="Search by name or email..."
+                                                class="w-full"
+                                            >
+                                                <x-slot name="iconTrailing">
+                                                    <flux:icon.magnifying-glass />
+                                                </x-slot>
+                                            </flux:input>
+                                        </div>
+                                        <div>
+                                            <flux:select wire:model.live="picStatusFilters.{{ $picData['pic']->id }}" class="w-full">
+                                                <flux:select.option value="all">All Status</flux:select.option>
+                                                <flux:select.option value="enrolled">Enrolled</flux:select.option>
+                                                <flux:select.option value="active">Active</flux:select.option>
+                                                <flux:select.option value="completed">Completed</flux:select.option>
+                                                <flux:select.option value="pending">Pending</flux:select.option>
+                                                <flux:select.option value="suspended">Suspended</flux:select.option>
+                                                <flux:select.option value="dropped">Dropped</flux:select.option>
+                                            </flux:select>
+                                        </div>
+                                        <div>
+                                            <flux:select wire:model.live="picPaymentFilters.{{ $picData['pic']->id }}" class="w-full">
+                                                <flux:select.option value="all">All Payments</flux:select.option>
+                                                <flux:select.option value="paid">Fully Paid</flux:select.option>
+                                                <flux:select.option value="pending">Has Pending</flux:select.option>
+                                                <flux:select.option value="overdue">Has Overdue</flux:select.option>
+                                            </flux:select>
+                                        </div>
+                                    </div>
+
+                                    @php
+                                        $paginatedData = $this->getPicStudents($picData['pic']->id, $picData['students']);
+                                        $students = $paginatedData['students'];
+                                        $totalFiltered = $paginatedData['total'];
+                                        $currentPage = $paginatedData['current_page'];
+                                        $totalPages = $paginatedData['total_pages'];
+                                    @endphp
+
+                                    @if($students->count() > 0)
+                                        <div class="overflow-x-auto">
+                                            <table class="min-w-full divide-y divide-gray-200">
+                                                <thead class="bg-gray-50">
+                                                    <tr>
+                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled Date</th>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Expected</th>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Overdue</th>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Collection %</th>
+                                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="bg-white divide-y divide-gray-200">
+                                                    @foreach($students as $student)
+                                                        <tr class="hover:bg-gray-50 transition-colors">
+                                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                                <div class="flex items-center">
+                                                                    <div>
+                                                                        <div class="text-sm font-medium text-gray-900">{{ $student['name'] }}</div>
+                                                                        <div class="text-xs text-gray-500">{{ $student['email'] }}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                                @php
+                                                                    $statusColors = [
+                                                                        'enrolled' => 'blue',
+                                                                        'active' => 'green',
+                                                                        'completed' => 'gray',
+                                                                        'pending' => 'yellow',
+                                                                        'suspended' => 'red',
+                                                                        'dropped' => 'gray',
+                                                                    ];
+                                                                    $color = $statusColors[$student['enrollment_status']] ?? 'gray';
+                                                                @endphp
+                                                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-{{ $color }}-100 text-{{ $color }}-800">
+                                                                    {{ ucfirst($student['enrollment_status']) }}
+                                                                </span>
+                                                            </td>
+                                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                                {{ $student['enrollment_date'] ? \Carbon\Carbon::parse($student['enrollment_date'])->format('d M Y') : 'N/A' }}
+                                                            </td>
+                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-900">
+                                                                RM {{ number_format($student['payment_summary']['expected'], 2) }}
+                                                            </td>
+                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-green-600">
+                                                                RM {{ number_format($student['payment_summary']['paid'], 2) }}
+                                                            </td>
+                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm text-yellow-600">
+                                                                RM {{ number_format($student['payment_summary']['pending'], 2) }}
+                                                            </td>
+                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-red-600">
+                                                                RM {{ number_format($student['payment_summary']['overdue'], 2) }}
+                                                            </td>
+                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-semibold">
+                                                                @php
+                                                                    $collectionRate = $student['payment_summary']['expected'] > 0
+                                                                        ? round(($student['payment_summary']['paid'] / $student['payment_summary']['expected']) * 100, 1)
+                                                                        : 0;
+                                                                @endphp
+                                                                <span class="{{ $collectionRate >= 80 ? 'text-green-600' : ($collectionRate >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
+                                                                    {{ $collectionRate }}%
+                                                                </span>
+                                                            </td>
+                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
+                                                                <a href="{{ route('enrollments.show', $student['enrollment_id']) }}" class="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+                                                                    <flux:icon.eye class="w-4 h-4" />
+                                                                    <span class="text-xs">View</span>
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <!-- Pagination -->
+                                        @if($totalPages > 1)
+                                            <div class="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
+                                                <div class="text-sm text-gray-700">
+                                                    Showing <span class="font-medium">{{ (($currentPage - 1) * $picPerPage) + 1 }}</span> to
+                                                    <span class="font-medium">{{ min($currentPage * $picPerPage, $totalFiltered) }}</span> of
+                                                    <span class="font-medium">{{ $totalFiltered }}</span> result{{ $totalFiltered !== 1 ? 's' : '' }}
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    @if($currentPage <= 1)
+                                                        <flux:button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled
+                                                        >
+                                                            <flux:icon.chevron-left class="w-4 h-4" />
+                                                        </flux:button>
+                                                    @else
+                                                        <flux:button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            wire:click="previousPicPage({{ $picData['pic']->id }})"
+                                                        >
+                                                            <flux:icon.chevron-left class="w-4 h-4" />
+                                                        </flux:button>
+                                                    @endif
+
+                                                    <span class="text-sm text-gray-700">
+                                                        Page <span class="font-medium">{{ $currentPage }}</span> of <span class="font-medium">{{ $totalPages }}</span>
+                                                    </span>
+
+                                                    @if($currentPage >= $totalPages)
+                                                        <flux:button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled
+                                                        >
+                                                            <flux:icon.chevron-right class="w-4 h-4" />
+                                                        </flux:button>
+                                                    @else
+                                                        <flux:button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            wire:click="nextPicPage({{ $picData['pic']->id }}, {{ $totalPages }})"
+                                                        >
+                                                            <flux:icon.chevron-right class="w-4 h-4" />
+                                                        </flux:button>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        @endif
+                                    @else
+                                        <div class="text-center py-12 bg-gray-50 rounded-lg">
+                                            <flux:icon.magnifying-glass class="mx-auto h-12 w-12 text-gray-400" />
+                                            <flux:heading size="lg" class="mt-2">No students found</flux:heading>
+                                            <flux:text class="text-gray-600 mt-1">Try adjusting your search or filter criteria</flux:text>
+                                        </div>
+                                    @endif
+                                </div>
+                            </flux:card>
+                        @endforeach
+                    </div>
+                @else
+                    <!-- Empty State -->
+                    <flux:card>
+                        <div class="p-12 text-center">
+                            <div class="inline-flex items-center justify-center w-16 h-16 mb-4 bg-gray-100 rounded-full">
+                                <flux:icon.user-group class="h-8 w-8 text-gray-400" />
+                            </div>
+                            <flux:heading size="lg" class="mb-2">No PIC Performance Data</flux:heading>
+                            <flux:text class="text-gray-600">
+                                There are no enrollments for this class yet, or no students have been enrolled by PICs.
+                            </flux:text>
+                        </div>
+                    </flux:card>
+                @endif
+            @endif
+        </div>
+        <!-- End PIC Performance Tab -->
 
         <!-- Document Shipments Tab -->
         <div class="{{ $activeTab === 'shipments' ? 'block' : 'hidden' }}">
