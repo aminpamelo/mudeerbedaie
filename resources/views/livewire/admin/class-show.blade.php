@@ -1121,7 +1121,12 @@ new class extends Component
             return 'no_payment_due';
         }
 
-        // PRIORITY 5: Default to unpaid if period has started
+        // PRIORITY 5: Check if period hasn't started yet (future months)
+        if ($periodStart > now()) {
+            return 'not_started';
+        }
+
+        // PRIORITY 6: Default to unpaid if period has started
         return 'unpaid';
     }
 
