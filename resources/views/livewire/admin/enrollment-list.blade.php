@@ -25,7 +25,8 @@ new class extends Component
 
     public function mount(): void
     {
-        //
+        // Check if we should restore the page from session storage
+        // This will be handled via JavaScript in the view
     }
 
     public function with(): array
@@ -358,10 +359,18 @@ new class extends Component
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div class="flex space-x-2">
-                                        <flux:button size="sm" variant="ghost" href="{{ route('enrollments.show', $enrollment) }}">
+                                        <flux:button
+                                            size="sm"
+                                            variant="ghost"
+                                            href="{{ route('enrollments.show', $enrollment) }}"
+                                            onclick="saveEnrollmentPage()">
                                             View
                                         </flux:button>
-                                        <flux:button size="sm" variant="ghost" href="{{ route('enrollments.edit', $enrollment) }}">
+                                        <flux:button
+                                            size="sm"
+                                            variant="ghost"
+                                            href="{{ route('enrollments.edit', $enrollment) }}"
+                                            onclick="saveEnrollmentPage()">
                                             Edit
                                         </flux:button>
                                     </div>
@@ -400,4 +409,41 @@ new class extends Component
             @endif
         </flux:card>
     </div>
+
+    <script>
+        // Function to save current page to sessionStorage
+        function saveEnrollmentPage() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPage = urlParams.get('page') || '1';
+            sessionStorage.setItem('enrollmentListPage', currentPage);
+        }
+
+        // Restore page from sessionStorage on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedPage = sessionStorage.getItem('enrollmentListPage');
+
+            if (savedPage && savedPage !== '1') {
+                // Get current page from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const currentPage = urlParams.get('page') || '1';
+
+                // Only navigate if we're not already on the saved page
+                if (currentPage !== savedPage) {
+                    // Clear the saved page before navigating
+                    sessionStorage.removeItem('enrollmentListPage');
+
+                    // Navigate to the saved page using URL parameters
+                    const newUrl = new URL(window.location.href);
+                    newUrl.searchParams.set('page', savedPage);
+                    window.history.replaceState({}, '', newUrl.toString());
+
+                    // Trigger Livewire to reload with the new page
+                    window.location.reload();
+                } else {
+                    // Already on the right page, just clear the storage
+                    sessionStorage.removeItem('enrollmentListPage');
+                }
+            }
+        });
+    </script>
 </div>

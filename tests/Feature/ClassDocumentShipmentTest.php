@@ -13,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('can create document shipment for class', function () {
+test('can create document shipment for class with paid students', function () {
     // Create necessary records
     $course = Course::factory()->create();
     $teacher = Teacher::factory()->create();
@@ -31,7 +31,7 @@ test('can create document shipment for class', function () {
         'shipment_quantity_per_student' => 1,
     ]);
 
-    // Add students
+    // Add student with paid order (no subscription)
     $student = Student::factory()->create();
     ClassStudent::factory()->create([
         'class_id' => $class->id,
@@ -39,10 +39,19 @@ test('can create document shipment for class', function () {
         'status' => 'active',
     ]);
 
-    // Generate shipment
+    // Create paid order for this period
     $periodStart = now()->startOfMonth();
     $periodEnd = now()->endOfMonth();
 
+    \App\Models\Order::factory()->create([
+        'student_id' => $student->id,
+        'course_id' => $course->id,
+        'status' => \App\Models\Order::STATUS_PAID,
+        'period_start' => $periodStart,
+        'period_end' => $periodEnd,
+    ]);
+
+    // Generate shipment
     $shipment = $class->generateShipmentForPeriod($periodStart, $periodEnd);
 
     expect($shipment)->not->toBeNull()
@@ -77,6 +86,15 @@ test('cannot create duplicate shipment for same period', function () {
 
     $periodStart = now()->startOfMonth();
     $periodEnd = now()->endOfMonth();
+
+    // Create paid order for this period
+    \App\Models\Order::factory()->create([
+        'student_id' => $student->id,
+        'course_id' => $course->id,
+        'status' => \App\Models\Order::STATUS_PAID,
+        'period_start' => $periodStart,
+        'period_end' => $periodEnd,
+    ]);
 
     // Create first shipment
     $shipment1 = $class->generateShipmentForPeriod($periodStart, $periodEnd);
@@ -227,6 +245,15 @@ test('artisan command generates shipments for eligible classes', function () {
         'class_id' => $class->id,
         'student_id' => $student->id,
         'status' => 'active',
+    ]);
+
+    // Create paid order for current month
+    \App\Models\Order::factory()->create([
+        'student_id' => $student->id,
+        'course_id' => $course->id,
+        'status' => \App\Models\Order::STATUS_PAID,
+        'period_start' => now()->startOfMonth(),
+        'period_end' => now()->endOfMonth(),
     ]);
 
     // Run command
@@ -406,4 +433,99 @@ test('shipment level processing does not double-deduct after individual items ar
 
     expect($itemMovements->count())->toBe(2)
         ->and($itemMovements->sum('quantity'))->toBe(2); // 2 items deducted at item level
+});
+
+test('shipment includes both subscribed students and paid students without subscription', function () {
+    $course = Course::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $product = Product::factory()->create(['track_quantity' => false]);
+    $warehouse = Warehouse::factory()->create();
+
+    $class = ClassModel::factory()->create([
+        'course_id' => $course->id,
+        'teacher_id' => $teacher->id,
+        'enable_document_shipment' => true,
+        'shipment_product_id' => $product->id,
+        'shipment_warehouse_id' => $warehouse->id,
+        'shipment_frequency' => 'monthly',
+        'shipment_start_date' => now(),
+        'shipment_quantity_per_student' => 1,
+    ]);
+
+    $periodStart = now()->startOfMonth();
+    $periodEnd = now()->endOfMonth();
+
+    // Student 1: Has active subscription (no paid order needed)
+    $student1 = Student::factory()->create();
+    ClassStudent::factory()->create([
+        'class_id' => $class->id,
+        'student_id' => $student1->id,
+        'status' => 'active',
+    ]);
+    \App\Models\Enrollment::factory()->create([
+        'student_id' => $student1->id,
+        'course_id' => $course->id,
+        'stripe_subscription_id' => 'sub_test_'.uniqid(),
+        'subscription_status' => 'active',
+    ]);
+
+    // Student 2: Has paid for this period but NO subscription
+    $student2 = Student::factory()->create();
+    ClassStudent::factory()->create([
+        'class_id' => $class->id,
+        'student_id' => $student2->id,
+        'status' => 'active',
+    ]);
+    \App\Models\Order::factory()->create([
+        'student_id' => $student2->id,
+        'course_id' => $course->id,
+        'status' => \App\Models\Order::STATUS_PAID,
+        'period_start' => $periodStart,
+        'period_end' => $periodEnd,
+    ]);
+
+    // Student 3: Has trialing subscription (should be included)
+    $student3 = Student::factory()->create();
+    ClassStudent::factory()->create([
+        'class_id' => $class->id,
+        'student_id' => $student3->id,
+        'status' => 'active',
+    ]);
+    \App\Models\Enrollment::factory()->create([
+        'student_id' => $student3->id,
+        'course_id' => $course->id,
+        'stripe_subscription_id' => 'sub_test_'.uniqid(),
+        'subscription_status' => 'trialing',
+    ]);
+
+    // Student 4: Has pending order (should NOT be included)
+    $student4 = Student::factory()->create();
+    ClassStudent::factory()->create([
+        'class_id' => $class->id,
+        'student_id' => $student4->id,
+        'status' => 'active',
+    ]);
+    \App\Models\Order::factory()->create([
+        'student_id' => $student4->id,
+        'course_id' => $course->id,
+        'status' => \App\Models\Order::STATUS_PENDING,
+        'period_start' => $periodStart,
+        'period_end' => $periodEnd,
+    ]);
+
+    // Generate shipment
+    $shipment = $class->generateShipmentForPeriod($periodStart, $periodEnd);
+
+    // Should include 3 students: student1 (active subscription), student2 (paid), student3 (trialing subscription)
+    // Should NOT include student4 (pending order only)
+    expect($shipment)->not->toBeNull()
+        ->and($shipment->total_recipients)->toBe(3)
+        ->and($shipment->items()->count())->toBe(3);
+
+    // Verify the correct students are included
+    $includedStudentIds = $shipment->items()->pluck('student_id')->toArray();
+    expect($includedStudentIds)->toContain($student1->id)
+        ->and($includedStudentIds)->toContain($student2->id)
+        ->and($includedStudentIds)->toContain($student3->id)
+        ->and($includedStudentIds)->not->toContain($student4->id);
 });

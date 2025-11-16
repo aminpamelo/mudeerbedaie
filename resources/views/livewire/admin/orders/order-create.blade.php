@@ -1,14 +1,14 @@
 <?php
 
-use App\Models\Product;
+use App\Models\Agent;
 use App\Models\Package;
+use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderItem;
-use App\Models\ProductOrderPayment;
 use App\Models\User;
 use App\Models\Warehouse;
-use Livewire\Volt\Component;
 use Illuminate\Support\Facades\DB;
+use Livewire\Volt\Component;
 
 new class extends Component
 {
@@ -18,8 +18,10 @@ new class extends Component
     }
 
     public array $form = [
+        'buyer_type' => 'customer', // 'customer' or 'agent'
         'customer_type' => 'existing', // 'existing' or 'new'
         'customer_id' => '',
+        'agent_id' => '',
         'customer_email' => '',
         'customer_name' => '',
         'customer_phone' => '',
@@ -56,10 +58,18 @@ new class extends Component
     ];
 
     public array $orderItems = [];
+
     public float $subtotal = 0;
+
     public float $taxRate = 6.0; // GST percentage (editable)
+
     public float $taxAmount = 0;
+
     public float $total = 0;
+
+    public string $customerSearch = '';
+
+    public string $agentSearch = '';
 
     public function mount(): void
     {
@@ -158,6 +168,59 @@ new class extends Component
                 $this->form['billing_address']['last_name'] = explode(' ', $customer->name, 2)[1] ?? '';
             }
         }
+    }
+
+    public function selectCustomer(int $customerId): void
+    {
+        $this->form['customer_id'] = $customerId;
+        $customer = User::find($customerId);
+
+        if ($customer) {
+            $this->customerSearch = $customer->name.' ('.$customer->email.')';
+            $this->form['customer_email'] = $customer->email;
+            $this->form['customer_name'] = $customer->name;
+            $this->form['billing_address']['first_name'] = explode(' ', $customer->name)[0] ?? '';
+            $this->form['billing_address']['last_name'] = explode(' ', $customer->name, 2)[1] ?? '';
+        }
+
+        $this->dispatch('close-dropdown');
+    }
+
+    public function clearCustomerSelection(): void
+    {
+        $this->form['customer_id'] = '';
+        $this->customerSearch = '';
+    }
+
+    public function selectAgent(int $agentId): void
+    {
+        $this->form['agent_id'] = $agentId;
+        $agent = Agent::find($agentId);
+
+        if ($agent) {
+            $this->agentSearch = $agent->name.' ('.$agent->agent_code.')';
+            $this->form['customer_email'] = $agent->email ?? '';
+            $this->form['customer_name'] = $agent->name;
+            $this->form['customer_phone'] = $agent->phone ?? '';
+            $this->form['billing_address']['company'] = $agent->company_name ?? '';
+
+            // Fill address if available
+            if (is_array($agent->address)) {
+                $this->form['billing_address']['address_line_1'] = $agent->address['street'] ?? '';
+                $this->form['billing_address']['city'] = $agent->address['city'] ?? '';
+                $this->form['billing_address']['state'] = $agent->address['state'] ?? '';
+                $this->form['billing_address']['postal_code'] = $agent->address['postal_code'] ?? '';
+                $this->form['billing_address']['country'] = $agent->address['country'] ?? 'Malaysia';
+            }
+        }
+
+        $this->dispatch('close-dropdown');
+    }
+
+    public function clearAgentSelection(): void
+    {
+        $this->form['agent_id'] = '';
+        $this->agentSearch = '';
     }
 
     public function createOrder(): void
@@ -278,8 +341,9 @@ new class extends Component
         // Create the order
         $order = ProductOrder::create([
             'customer_id' => $customer?->id,
+            'agent_id' => $this->form['agent_id'] ?: null,
             'guest_email' => $customer ? null : $this->form['customer_email'],
-            'order_number' => 'ORD-' . strtoupper(uniqid()),
+            'order_number' => 'ORD-'.strtoupper(uniqid()),
             'status' => $this->form['order_status'],
             'currency' => 'MYR',
             'subtotal' => $this->subtotal,
@@ -291,7 +355,7 @@ new class extends Component
 
         // Create order items
         foreach ($this->orderItems as $item) {
-            if ($item['item_type'] === 'package' && !empty($item['package_id'])) {
+            if ($item['item_type'] === 'package' && ! empty($item['package_id'])) {
                 $package = Package::with(['products', 'courses'])->find($item['package_id']);
 
                 $orderItem = ProductOrderItem::create([
@@ -301,7 +365,7 @@ new class extends Component
                     'package_id' => $package->id,
                     'warehouse_id' => $item['warehouse_id'],
                     'product_name' => $package->name,
-                    'sku' => 'PKG-' . $package->id,
+                    'sku' => 'PKG-'.$package->id,
                     'quantity_ordered' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
                     'total_price' => $item['total_price'],
@@ -313,7 +377,7 @@ new class extends Component
                 // Deduct stock for package products
                 $orderItem->deductStock();
 
-            } elseif ($item['item_type'] === 'product' && !empty($item['product_id'])) {
+            } elseif ($item['item_type'] === 'product' && ! empty($item['product_id'])) {
                 $product = Product::find($item['product_id']);
 
                 $orderItem = ProductOrderItem::create([
@@ -392,11 +456,32 @@ new class extends Component
 
     public function with(): array
     {
+        $customersQuery = User::whereIn('role', ['student', 'user']);
+
+        if ($this->customerSearch) {
+            $customersQuery->where(function ($query) {
+                $query->where('name', 'like', '%'.$this->customerSearch.'%')
+                    ->orWhere('email', 'like', '%'.$this->customerSearch.'%');
+            });
+        }
+
+        $agentsQuery = Agent::active();
+
+        if ($this->agentSearch) {
+            $agentsQuery->where(function ($query) {
+                $query->where('name', 'like', '%'.$this->agentSearch.'%')
+                    ->orWhere('agent_code', 'like', '%'.$this->agentSearch.'%')
+                    ->orWhere('company_name', 'like', '%'.$this->agentSearch.'%')
+                    ->orWhere('email', 'like', '%'.$this->agentSearch.'%');
+            });
+        }
+
         return [
             'products' => Product::active()->get(),
             'packages' => Package::active()->with(['products', 'courses'])->get(),
             'warehouses' => Warehouse::all(),
-            'customers' => User::whereIn('role', ['student', 'user'])->get(),
+            'customers' => $customersQuery->orderBy('name')->limit(50)->get(),
+            'agents' => $agentsQuery->orderBy('name')->limit(50)->get(),
         ];
     }
 }; ?>
@@ -421,37 +506,178 @@ new class extends Component
 
                 <!-- Customer Information -->
                 <div class="bg-white rounded-lg shadow-sm border p-6">
-                    <flux:heading size="lg" class="mb-4">Customer Information</flux:heading>
+                    <flux:heading size="lg" class="mb-4">Buyer Information</flux:heading>
 
                     <div class="space-y-4">
-                        <!-- Customer Type -->
+                        <!-- Buyer Type -->
                         <div>
                             <flux:field>
-                                <flux:label>Customer Type</flux:label>
-                                <div class="flex space-x-4">
-                                    <label class="flex items-center">
-                                        <input type="radio" wire:model.live="form.customer_type" value="existing" class="mr-2">
-                                        Existing Customer
+                                <flux:label>Buyer Type</flux:label>
+                                <div class="flex space-x-6">
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="radio" wire:model.live="form.buyer_type" value="customer" class="mr-2 text-indigo-600 focus:ring-indigo-500">
+                                        <span class="font-medium">Customer</span>
+                                        <span class="ml-2 text-sm text-gray-500">(Students/Users)</span>
                                     </label>
-                                    <label class="flex items-center">
-                                        <input type="radio" wire:model.live="form.customer_type" value="new" class="mr-2">
-                                        New Customer
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="radio" wire:model.live="form.buyer_type" value="agent" class="mr-2 text-indigo-600 focus:ring-indigo-500">
+                                        <span class="font-medium">Agent/Company</span>
+                                        <span class="ml-2 text-sm text-gray-500">(Business Partners)</span>
                                     </label>
                                 </div>
                             </flux:field>
                         </div>
 
-                        @if($form['customer_type'] === 'existing')
-                            <!-- Existing Customer Selection -->
-                            <flux:field>
+                        @if($form['buyer_type'] === 'customer')
+                            <!-- Customer Type -->
+                            <div>
+                                <flux:field>
+                                    <flux:label>Customer Type</flux:label>
+                                    <div class="flex space-x-4">
+                                        <label class="flex items-center cursor-pointer">
+                                            <input type="radio" wire:model.live="form.customer_type" value="existing" class="mr-2">
+                                            Existing Customer
+                                        </label>
+                                        <label class="flex items-center cursor-pointer">
+                                            <input type="radio" wire:model.live="form.customer_type" value="new" class="mr-2">
+                                            New Customer
+                                        </label>
+                                    </div>
+                                </flux:field>
+                            </div>
+                        @endif
+
+                        @if($form['buyer_type'] === 'customer' && $form['customer_type'] === 'existing')
+                            <!-- Searchable Customer Selection -->
+                            <div class="space-y-2" x-data="customerSearchComponent()">
                                 <flux:label>Select Customer</flux:label>
-                                <flux:select wire:model.live="form.customer_id" wire:change="fillCustomerData">
-                                    <option value="">Choose a customer...</option>
-                                    @foreach($customers as $customer)
-                                        <option value="{{ $customer->id }}">{{ $customer->name }} ({{ $customer->email }})</option>
-                                    @endforeach
-                                </flux:select>
-                            </flux:field>
+                                <div class="relative">
+                                    <input
+                                        type="text"
+                                        x-model="search"
+                                        @input.debounce.300ms="$wire.set('customerSearch', search)"
+                                        @focus="showDropdown = true"
+                                        placeholder="Search by name or email..."
+                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pr-10"
+                                    />
+                                    <template x-if="!$wire.form.customer_id">
+                                        <flux:icon name="magnifying-glass" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                    </template>
+                                    <template x-if="$wire.form.customer_id">
+                                        <button
+                                            type="button"
+                                            @click="clearSelection()"
+                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+                                        >
+                                            <flux:icon name="x-mark" class="w-4 h-4" />
+                                        </button>
+                                    </template>
+
+                                    <!-- Dropdown Results -->
+                                    <div
+                                        x-show="showDropdown && search.length > 0"
+                                        @click.away="showDropdown = false"
+                                        x-transition
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                        style="display: none;"
+                                    >
+                                        @if($customers->count() > 0)
+                                            <ul class="py-1">
+                                                @foreach($customers as $customer)
+                                                    <li>
+                                                        <button
+                                                            type="button"
+                                                            @click="selectCustomer({{ $customer->id }}, '{{ $customer->name }}', '{{ $customer->email }}')"
+                                                            class="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
+                                                        >
+                                                            <div class="flex flex-col">
+                                                                <span class="font-medium text-gray-900">{{ $customer->name }}</span>
+                                                                <span class="text-sm text-gray-500">{{ $customer->email }}</span>
+                                                            </div>
+                                                        </button>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <div class="px-4 py-3 text-sm text-gray-500">
+                                                No customers found matching "{{ $customerSearch }}"
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($form['buyer_type'] === 'agent')
+                            <!-- Searchable Agent Selection -->
+                            <div class="space-y-2" x-data="agentSearchComponent()">
+                                <flux:label>Select Agent/Company</flux:label>
+                                <div class="relative">
+                                    <input
+                                        type="text"
+                                        x-model="search"
+                                        @input.debounce.300ms="$wire.set('agentSearch', search)"
+                                        @focus="showDropdown = true"
+                                        placeholder="Search by name, code, company, or email..."
+                                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pr-10"
+                                    />
+                                    <template x-if="!$wire.form.agent_id">
+                                        <flux:icon name="magnifying-glass" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                    </template>
+                                    <template x-if="$wire.form.agent_id">
+                                        <button
+                                            type="button"
+                                            @click="clearSelection()"
+                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+                                        >
+                                            <flux:icon name="x-mark" class="w-4 h-4" />
+                                        </button>
+                                    </template>
+
+                                    <!-- Dropdown Results -->
+                                    <div
+                                        x-show="showDropdown && search.length > 0"
+                                        @click.away="showDropdown = false"
+                                        x-transition
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                        style="display: none;"
+                                    >
+                                        @if($agents->count() > 0)
+                                            <ul class="py-1">
+                                                @foreach($agents as $agent)
+                                                    <li>
+                                                        <button
+                                                            type="button"
+                                                            @click="selectAgent({{ $agent->id }}, '{{ $agent->name }}', '{{ $agent->agent_code }}', '{{ $agent->company_name ?? '' }}')"
+                                                            class="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
+                                                        >
+                                                            <div class="flex flex-col">
+                                                                <div class="flex items-center gap-2">
+                                                                    <span class="font-medium text-gray-900">{{ $agent->name }}</span>
+                                                                    <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{{ $agent->agent_code }}</span>
+                                                                    @if($agent->type)
+                                                                        <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">{{ ucfirst($agent->type) }}</span>
+                                                                    @endif
+                                                                </div>
+                                                                @if($agent->company_name)
+                                                                    <span class="text-sm text-gray-600">{{ $agent->company_name }}</span>
+                                                                @endif
+                                                                @if($agent->email)
+                                                                    <span class="text-sm text-gray-500">{{ $agent->email }}</span>
+                                                                @endif
+                                                            </div>
+                                                        </button>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <div class="px-4 py-3 text-sm text-gray-500">
+                                                No agents/companies found matching "{{ $agentSearch }}"
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
                         @endif
 
                         <!-- Customer Details -->
@@ -769,4 +995,41 @@ new class extends Component
             </div>
         </div>
     </form>
+
+    <!-- Alpine.js Component Definitions -->
+    <script>
+        function customerSearchComponent() {
+            return {
+                search: @entangle('customerSearch').live,
+                showDropdown: false,
+                selectCustomer(id, name, email) {
+                    this.$wire.selectCustomer(id);
+                    this.search = name + ' (' + email + ')';
+                    this.showDropdown = false;
+                },
+                clearSelection() {
+                    this.$wire.clearCustomerSelection();
+                    this.search = '';
+                    this.showDropdown = true;
+                }
+            }
+        }
+
+        function agentSearchComponent() {
+            return {
+                search: @entangle('agentSearch').live,
+                showDropdown: false,
+                selectAgent(id, name, code, company) {
+                    this.$wire.selectAgent(id);
+                    this.search = name + ' (' + code + ')' + (company ? ' - ' + company : '');
+                    this.showDropdown = false;
+                },
+                clearSelection() {
+                    this.$wire.clearAgentSelection();
+                    this.search = '';
+                    this.showDropdown = true;
+                }
+            }
+        }
+    </script>
 </div>

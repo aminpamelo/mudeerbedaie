@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ClassSession extends Model
 {
+    use HasFactory;
+
     protected static function boot()
     {
         parent::boot();
@@ -353,6 +356,9 @@ class ClassSession extends Model
     /**
      * Check if the session met the duration KPI (within acceptable variance)
      *
+     * Sessions that run longer than target always meet KPI.
+     * Sessions that run shorter only meet KPI if within tolerance.
+     *
      * @param  int  $toleranceMinutes  Acceptable variance in minutes (default: 10)
      */
     public function meetsKpi(int $toleranceMinutes = 10): ?bool
@@ -363,6 +369,12 @@ class ClassSession extends Model
             return null; // Cannot determine for incomplete sessions
         }
 
+        // If session ran longer or exactly on time, it meets KPI
+        if ($variance >= 0) {
+            return true;
+        }
+
+        // If session ran shorter, check if it's within tolerance
         return abs($variance) <= $toleranceMinutes;
     }
 

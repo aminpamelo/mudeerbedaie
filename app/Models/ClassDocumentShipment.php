@@ -362,14 +362,31 @@ class ClassDocumentShipment extends Model
             return null;
         }
 
-        // Get active students with active subscriptions only
-        $activeStudents = $class->activeStudents()
+        // Get active students with active subscriptions
+        $subscribedStudents = $class->activeStudents()
             ->whereHas('student.enrollments', function ($query) use ($class) {
                 $query->where('course_id', $class->course_id)
                     ->whereNotNull('stripe_subscription_id')
                     ->whereIn('subscription_status', ['active', 'trialing']);
             })
             ->get();
+
+        // Get student IDs who have paid for this specific period
+        $paidStudentIds = Order::where('course_id', $class->course_id)
+            ->where('status', Order::STATUS_PAID)
+            ->where('period_start', '>=', $periodStart->toDateString())
+            ->where('period_start', '<=', $periodEnd->toDateString())
+            ->pluck('student_id')
+            ->unique()
+            ->toArray();
+
+        // Get active students who have paid for this period (even without active subscription)
+        $paidStudents = $class->activeStudents()
+            ->whereIn('student_id', $paidStudentIds)
+            ->get();
+
+        // Merge both collections and get unique students
+        $activeStudents = $subscribedStudents->merge($paidStudents)->unique('id');
 
         if ($activeStudents->isEmpty()) {
             return null;
@@ -415,8 +432,11 @@ class ClassDocumentShipment extends Model
 
     public static function updateShipmentStudents(self $shipment, ClassModel $class): array
     {
+        $periodStart = \Carbon\Carbon::parse($shipment->period_start_date);
+        $periodEnd = \Carbon\Carbon::parse($shipment->period_end_date);
+
         // Get current students with active subscriptions
-        $currentSubscribedStudents = $class->activeStudents()
+        $subscribedStudents = $class->activeStudents()
             ->whereHas('student.enrollments', function ($query) use ($class) {
                 $query->where('course_id', $class->course_id)
                     ->whereNotNull('stripe_subscription_id')
@@ -424,10 +444,27 @@ class ClassDocumentShipment extends Model
             })
             ->get();
 
+        // Get student IDs who have paid for this specific period
+        $paidStudentIds = Order::where('course_id', $class->course_id)
+            ->where('status', Order::STATUS_PAID)
+            ->where('period_start', '>=', $periodStart->toDateString())
+            ->where('period_start', '<=', $periodEnd->toDateString())
+            ->pluck('student_id')
+            ->unique()
+            ->toArray();
+
+        // Get active students who have paid for this period
+        $paidStudents = $class->activeStudents()
+            ->whereIn('student_id', $paidStudentIds)
+            ->get();
+
+        // Merge both collections and get unique students
+        $currentSubscribedStudents = $subscribedStudents->merge($paidStudents)->unique('id');
+
         if ($currentSubscribedStudents->isEmpty()) {
             return [
                 'success' => false,
-                'message' => 'No students with active subscriptions found.',
+                'message' => 'No students with active subscriptions or paid orders found.',
             ];
         }
 
