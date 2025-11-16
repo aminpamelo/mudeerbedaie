@@ -47,7 +47,7 @@ class CertificatesSeeder extends Seeder
                 \App\Models\CertificateIssue::factory()->issued()->create([
                     'certificate_id' => $certificates->random()->id,
                     'student_id' => $enrollment->student_id,
-                    'course_id' => $enrollment->course_id,
+                    'enrollment_id' => $enrollment->id,
                 ]);
                 $issuedCount++;
             }

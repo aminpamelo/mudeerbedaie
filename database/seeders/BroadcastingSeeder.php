@@ -60,13 +60,25 @@ class BroadcastingSeeder extends Seeder
 
         $broadcastCount = 0;
         foreach ($audiences->random(min(3, $audiences->count())) as $audience) {
-            \App\Models\Broadcast::factory()->create([
-                'audience_id' => $audience->id,
+            $status = fake()->randomElement(['draft', 'scheduled', 'sent', 'sent']); // 50% sent
+            $broadcast = \App\Models\Broadcast::factory()->create([
+                'name' => fake()->words(3, true).' Campaign',
+                'type' => 'standard',
+                'status' => $status,
+                'from_name' => 'Admin Team',
+                'from_email' => 'admin@example.com',
                 'subject' => fake()->sentence(),
-                'message' => fake()->paragraph(3),
-                'status' => fake()->randomElement(['draft', 'scheduled', 'sent', 'sent']), // 50% sent
-                'scheduled_at' => fake()->optional()->dateTimeBetween('now', '+7 days'),
+                'content' => fake()->paragraph(3),
+                'scheduled_at' => $status === 'scheduled' ? fake()->dateTimeBetween('now', '+7 days') : null,
+                'sent_at' => $status === 'sent' ? fake()->dateTimeBetween('-30 days', 'now') : null,
             ]);
+
+            // Attach the audience to the broadcast using the pivot table
+            $broadcast->audiences()->attach($audience->id, [
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
             $broadcastCount++;
         }
 

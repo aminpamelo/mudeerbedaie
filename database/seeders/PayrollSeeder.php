@@ -45,6 +45,8 @@ class PayrollSeeder extends Seeder
             for ($i = 0; $i < $numberOfPayslips; $i++) {
                 $periodStart = now()->subMonths($numberOfPayslips - $i);
                 $periodEnd = (clone $periodStart)->endOfMonth();
+                $month = $periodStart->format('Y-m');
+                $year = (int) $periodStart->format('Y');
 
                 // Get sessions in this period
                 $periodSessions = $completedSessions->filter(function ($session) use ($periodStart, $periodEnd) {
@@ -57,29 +59,29 @@ class PayrollSeeder extends Seeder
 
                 $totalAmount = $periodSessions->sum('allowance_amount');
 
-                // 60% chance payslip is paid, 30% approved, 10% draft
+                // 60% chance payslip is paid, 30% finalized, 10% draft
                 $rand = rand(1, 100);
                 if ($rand <= 60) {
                     $payslip = \App\Models\Payslip::factory()->paid()->create([
                         'teacher_id' => $teacher->id,
-                        'period_start' => $periodStart,
-                        'period_end' => $periodEnd,
+                        'month' => $month,
+                        'year' => $year,
                         'total_sessions' => $periodSessions->count(),
                         'total_amount' => $totalAmount,
                     ]);
                 } elseif ($rand <= 90) {
-                    $payslip = \App\Models\Payslip::factory()->approved()->create([
+                    $payslip = \App\Models\Payslip::factory()->finalized()->create([
                         'teacher_id' => $teacher->id,
-                        'period_start' => $periodStart,
-                        'period_end' => $periodEnd,
+                        'month' => $month,
+                        'year' => $year,
                         'total_sessions' => $periodSessions->count(),
                         'total_amount' => $totalAmount,
                     ]);
                 } else {
                     $payslip = \App\Models\Payslip::factory()->draft()->create([
                         'teacher_id' => $teacher->id,
-                        'period_start' => $periodStart,
-                        'period_end' => $periodEnd,
+                        'month' => $month,
+                        'year' => $year,
                         'total_sessions' => $periodSessions->count(),
                         'total_amount' => $totalAmount,
                     ]);

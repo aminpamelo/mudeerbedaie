@@ -4678,7 +4678,7 @@ new class extends Component
                             <flux:icon.x-circle class="h-12 w-12 mx-auto text-gray-400 mb-4" />
                             <flux:heading size="lg" class="mb-2">Document Shipments Not Enabled</flux:heading>
                             <flux:text class="text-gray-500 mb-4">Enable document shipments in class settings to start tracking deliveries</flux:text>
-                            <flux:button href="{{ route('admin.classes.edit', $class) }}" variant="primary">
+                            <flux:button href="{{ route('classes.edit', $class) }}" variant="primary">
                                 Go to Class Settings
                             </flux:button>
                         </div>

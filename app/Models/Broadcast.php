@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -34,11 +35,18 @@ class Broadcast extends Model
         'selected_students',
     ];
     public function audiences(): BelongsToMany
+    {
         return $this->belongsToMany(Audience::class, 'broadcast_audience')
             ->withTimestamps();
+    }
+
     public function logs(): HasMany
+    {
         return $this->hasMany(BroadcastLog::class);
+    }
+
     public function getRecipientsAttribute(): \Illuminate\Support\Collection
+    {
         // Use selected students if available, otherwise use all students from audiences
         if (! empty($this->selected_students)) {
             return Student::whereIn('id', $this->selected_students)->with('user')->get();
@@ -47,5 +55,7 @@ class Broadcast extends Model
         foreach ($this->audiences as $audience) {
             $audienceStudentIds = $audience->students()->pluck('students.id');
             $studentIds = $studentIds->merge($audienceStudentIds);
+        }
         return Student::whereIn('id', $studentIds->unique())->with('user')->get();
+    }
 }

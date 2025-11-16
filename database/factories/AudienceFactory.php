@@ -20,7 +20,6 @@ class AudienceFactory extends Factory
             'name' => fake()->words(3, true),
             'description' => fake()->sentence(),
             'status' => 'active',
-            'created_by' => \App\Models\User::factory(),
         ];
     }
 

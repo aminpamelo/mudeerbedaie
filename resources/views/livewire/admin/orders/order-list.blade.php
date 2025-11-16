@@ -15,7 +15,7 @@ new class extends Component
 
     public string $search = '';
 
-    public string $statusFilter = '';
+    public string $activeTab = 'all';
 
     public string $orderTypeFilter = '';
 
@@ -32,7 +32,7 @@ new class extends Component
         $this->resetPage();
     }
 
-    public function updatingStatusFilter(): void
+    public function updatingActiveTab(): void
     {
         $this->resetPage();
     }
@@ -106,8 +106,8 @@ new class extends Component
                         ->orWhereRaw("JSON_EXTRACT(metadata, '$.package_name') LIKE ?", ['%'.$this->search.'%']);
                 });
             })
-            ->when($this->statusFilter, function ($query) {
-                $query->where('status', $this->statusFilter);
+            ->when($this->activeTab !== 'all', function ($query) {
+                $query->where('status', $this->activeTab);
             })
             ->when($this->orderTypeFilter, function ($query) {
                 $query->where('order_type', $this->orderTypeFilter);
@@ -214,6 +214,27 @@ new class extends Component
 
         return $items;
     }
+
+    public function getStatusCount(string $status): int
+    {
+        if ($status === 'all') {
+            return ProductOrder::count();
+        }
+
+        return ProductOrder::where('status', $status)->count();
+    }
+
+    public function getActionNeededStats(): array
+    {
+        return [
+            'pending_confirmation' => ProductOrder::where('status', 'pending')->count(),
+            'unpaid_orders' => ProductOrder::whereHas('payments', function ($query) {
+                $query->where('status', '!=', 'paid');
+            })->whereNotIn('status', ['cancelled', 'refunded'])->count(),
+            'processing' => ProductOrder::where('status', 'processing')->count(),
+            'ready_to_ship' => ProductOrder::where('status', 'confirmed')->count(),
+        ];
+    }
 }; ?>
 
 <div>
@@ -224,40 +245,149 @@ new class extends Component
             <flux:text class="mt-2">Manage customer orders including product purchases and package sales</flux:text>
         </div>
 
-        <div class="flex space-x-3">
-            <flux:button variant="outline">
-                <flux:icon name="chart-bar" class="w-4 h-4 mr-2" />
-                Reports
-            </flux:button>
+        <div class="flex gap-3">
             <flux:button variant="primary" :href="route('admin.orders.create')" wire:navigate>
-                <flux:icon name="plus" class="w-4 h-4 mr-2" />
-                Create Order
+                <div class="flex items-center justify-center">
+                    <flux:icon name="plus" class="w-4 h-4 mr-2" />
+                    Create Order
+                </div>
             </flux:button>
+        </div>
+    </div>
+
+    <!-- Action Needed Section -->
+    @php
+        $actionStats = $this->getActionNeededStats();
+        $totalActionNeeded = array_sum($actionStats);
+    @endphp
+
+    @if($totalActionNeeded > 0)
+        <div class="mb-6 bg-gradient-to-r from-cyan-50 to-blue-50 border-2 border-cyan-400 rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <flux:icon name="exclamation-triangle" class="w-5 h-5 text-cyan-600" />
+                    <flux:heading size="lg" class="text-cyan-900">Action Needed</flux:heading>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                @if($actionStats['pending_confirmation'] > 0)
+                    <button wire:click="$set('activeTab', 'pending')" class="bg-white rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200">
+                        <flux:text size="sm" class="text-gray-600">Pending Confirmation</flux:text>
+                        <div class="flex items-center justify-between mt-2">
+                            <flux:text class="text-2xl font-bold text-yellow-600">{{ $actionStats['pending_confirmation'] }}</flux:text>
+                            <flux:badge color="yellow" size="sm">Action Required</flux:badge>
+                        </div>
+                    </button>
+                @endif
+
+                @if($actionStats['unpaid_orders'] > 0)
+                    <div class="bg-white rounded-lg p-4 border border-gray-200">
+                        <flux:text size="sm" class="text-gray-600">Unpaid Orders</flux:text>
+                        <div class="flex items-center justify-between mt-2">
+                            <flux:text class="text-2xl font-bold text-red-600">{{ $actionStats['unpaid_orders'] }}</flux:text>
+                            <flux:badge color="red" size="sm">Payment Due</flux:badge>
+                        </div>
+                    </div>
+                @endif
+
+                @if($actionStats['processing'] > 0)
+                    <button wire:click="$set('activeTab', 'processing')" class="bg-white rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200">
+                        <flux:text size="sm" class="text-gray-600">Processing</flux:text>
+                        <div class="flex items-center justify-between mt-2">
+                            <flux:text class="text-2xl font-bold text-purple-600">{{ $actionStats['processing'] }}</flux:text>
+                            <flux:badge color="purple" size="sm">In Progress</flux:badge>
+                        </div>
+                    </button>
+                @endif
+
+                @if($actionStats['ready_to_ship'] > 0)
+                    <button wire:click="$set('activeTab', 'confirmed')" class="bg-white rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200">
+                        <flux:text size="sm" class="text-gray-600">Ready to Ship</flux:text>
+                        <div class="flex items-center justify-between mt-2">
+                            <flux:text class="text-2xl font-bold text-blue-600">{{ $actionStats['ready_to_ship'] }}</flux:text>
+                            <flux:badge color="blue" size="sm">Ready</flux:badge>
+                        </div>
+                    </button>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    <!-- Status Tabs -->
+    <div class="mb-6 bg-white rounded-lg border border-gray-200">
+        <div class="border-b border-gray-200">
+            <nav class="flex gap-4 px-6" aria-label="Tabs">
+                <button
+                    wire:click="$set('activeTab', 'all')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'all' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    All
+                    <flux:badge size="sm" class="ml-2">{{ $this->getStatusCount('all') }}</flux:badge>
+                </button>
+
+                <button
+                    wire:click="$set('activeTab', 'pending')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'pending' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    Pending
+                    <flux:badge size="sm" color="yellow" class="ml-2">{{ $this->getStatusCount('pending') }}</flux:badge>
+                </button>
+
+                <button
+                    wire:click="$set('activeTab', 'confirmed')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'confirmed' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    Confirmed
+                    <flux:badge size="sm" color="blue" class="ml-2">{{ $this->getStatusCount('confirmed') }}</flux:badge>
+                </button>
+
+                <button
+                    wire:click="$set('activeTab', 'processing')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'processing' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    Processing
+                    <flux:badge size="sm" color="purple" class="ml-2">{{ $this->getStatusCount('processing') }}</flux:badge>
+                </button>
+
+                <button
+                    wire:click="$set('activeTab', 'shipped')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'shipped' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    Shipped
+                    <flux:badge size="sm" color="cyan" class="ml-2">{{ $this->getStatusCount('shipped') }}</flux:badge>
+                </button>
+
+                <button
+                    wire:click="$set('activeTab', 'delivered')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'delivered' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    Delivered
+                    <flux:badge size="sm" color="green" class="ml-2">{{ $this->getStatusCount('delivered') }}</flux:badge>
+                </button>
+
+                <button
+                    wire:click="$set('activeTab', 'cancelled')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'cancelled' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    Cancelled
+                    <flux:badge size="sm" color="red" class="ml-2">{{ $this->getStatusCount('cancelled') }}</flux:badge>
+                </button>
+            </nav>
         </div>
     </div>
 
     <!-- Filters -->
     <div class="mb-6 bg-white rounded-lg border p-4">
-        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <!-- Search -->
-            <div>
+            <div class="md:col-span-2">
                 <flux:label>Search</flux:label>
                 <flux:input
                     wire:model.live.debounce.300ms="search"
                     placeholder="Order number, customer name, email..."
                     class="w-full"
                 />
-            </div>
-
-            <!-- Status Filter -->
-            <div>
-                <flux:label>Status</flux:label>
-                <flux:select wire:model.live="statusFilter" placeholder="All Statuses">
-                    <option value="">All Statuses</option>
-                    @foreach($this->getOrderStatuses() as $value => $label)
-                        <option value="{{ $value }}">{{ $label }}</option>
-                    @endforeach
-                </flux:select>
             </div>
 
             <!-- Order Type Filter -->
@@ -294,16 +424,57 @@ new class extends Component
                     <option value="year">This Year</option>
                 </flux:select>
             </div>
+        </div>
 
-            <!-- Actions -->
-            <div class="flex items-end space-x-2">
+        <!-- Filter Actions -->
+        <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+            <div class="flex items-center gap-2">
+                @if($search || $orderTypeFilter || $productFilter || $dateFilter)
+                    <flux:text size="sm" class="text-gray-600">
+                        Active filters:
+                    </flux:text>
+                    @if($search)
+                        <flux:badge color="gray">
+                            Search: {{ Str::limit($search, 20) }}
+                            <button wire:click="$set('search', '')" class="ml-1 hover:text-red-600">×</button>
+                        </flux:badge>
+                    @endif
+                    @if($orderTypeFilter)
+                        <flux:badge color="gray">
+                            Type: {{ ucfirst($orderTypeFilter) }}
+                            <button wire:click="$set('orderTypeFilter', '')" class="ml-1 hover:text-red-600">×</button>
+                        </flux:badge>
+                    @endif
+                    @if($productFilter)
+                        <flux:badge color="gray">
+                            Product/Package
+                            <button wire:click="$set('productFilter', '')" class="ml-1 hover:text-red-600">×</button>
+                        </flux:badge>
+                    @endif
+                    @if($dateFilter)
+                        <flux:badge color="gray">
+                            Period: {{ ucfirst($dateFilter) }}
+                            <button wire:click="$set('dateFilter', '')" class="ml-1 hover:text-red-600">×</button>
+                        </flux:badge>
+                    @endif
+                    <flux:button variant="ghost" size="sm" wire:click="$set('search', ''); $set('orderTypeFilter', ''); $set('productFilter', ''); $set('dateFilter', '')">
+                        Clear all
+                    </flux:button>
+                @endif
+            </div>
+
+            <div class="flex items-center gap-2">
                 <flux:button variant="outline" wire:click="$refresh" size="sm">
-                    <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
-                    Refresh
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
+                        Refresh
+                    </div>
                 </flux:button>
                 <flux:button variant="outline" size="sm">
-                    <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
-                    Export
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
+                        Export
+                    </div>
                 </flux:button>
             </div>
         </div>
@@ -482,8 +653,8 @@ new class extends Component
                                 <div class="text-gray-500">
                                     <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
                                     <flux:text>No orders found</flux:text>
-                                    @if($search || $statusFilter || $dateFilter || $orderTypeFilter || $productFilter)
-                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('statusFilter', ''); $set('dateFilter', ''); $set('orderTypeFilter', ''); $set('productFilter', '')" class="mt-2">
+                                    @if($search || $activeTab !== 'all' || $dateFilter || $orderTypeFilter || $productFilter)
+                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('orderTypeFilter', ''); $set('productFilter', '')" class="mt-2">
                                             Clear filters
                                         </flux:button>
                                     @endif

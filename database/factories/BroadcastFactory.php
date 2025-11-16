@@ -17,13 +17,21 @@ class BroadcastFactory extends Factory
     public function definition(): array
     {
         return [
-            'audience_id' => \App\Models\Audience::factory(),
-            'subject' => fake()->sentence(),
-            'message' => fake()->paragraph(3),
+            'name' => fake()->words(3, true).' Campaign',
+            'type' => fake()->randomElement(['standard', 'ab_test']),
             'status' => 'draft',
-            'created_by' => \App\Models\User::factory(),
+            'from_name' => fake()->name(),
+            'from_email' => fake()->safeEmail(),
+            'reply_to_email' => fake()->optional()->safeEmail(),
+            'subject' => fake()->sentence(),
+            'preview_text' => fake()->optional()->sentence(),
+            'content' => fake()->paragraphs(3, true),
             'scheduled_at' => null,
             'sent_at' => null,
+            'total_recipients' => 0,
+            'total_sent' => 0,
+            'total_failed' => 0,
+            'selected_students' => null,
         ];
     }
 
