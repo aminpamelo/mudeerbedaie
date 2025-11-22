@@ -891,3 +891,11 @@ $pages->assertNoJavascriptErrors()->assertNoConsoleLogs();
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
 - Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test` with a specific filename or filter.
 </laravel-boost-guidelines>
+
+
+## MCP Playwright save configuration to jpeg when calling the screenshot in this tool
+
+- mcp__playwright__browser_take_screenshot({ 
+  filename: "screenshot.jpg",
+  type: "jpeg"
+})

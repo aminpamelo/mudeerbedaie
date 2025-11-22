@@ -1,26 +1,39 @@
 <?php
 
-use Livewire\Volt\Component;
 use App\Models\Platform;
-use App\Models\PlatformAccount;
+use App\Models\User;
+use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Platform $platform;
 
     // Form fields
+    public $selected_hosts = [];
+
     public $account_name = '';
+
     public $seller_id = '';
+
     public $shop_id = '';
+
     public $business_manager_id = '';
+
     public $api_key = '';
+
     public $api_secret = '';
+
     public $access_token = '';
+
     public $refresh_token = '';
+
     public $notes = '';
+
     public $is_active = true;
 
     // Form state
     public $showAdvancedSettings = false;
+
     public $showApiCredentials = false;
 
     public function mount(Platform $platform)
@@ -34,6 +47,8 @@ new class extends Component {
     public function rules()
     {
         $rules = [
+            'selected_hosts' => 'required|array|min:1',
+            'selected_hosts.*' => 'exists:users,id',
             'account_name' => 'required|string|max:255',
             'seller_id' => 'nullable|string|max:255',
             'shop_id' => 'nullable|string|max:255',
@@ -56,6 +71,9 @@ new class extends Component {
     public function messages()
     {
         return [
+            'selected_hosts.required' => 'Please select at least one live host for this account.',
+            'selected_hosts.min' => 'Please select at least one live host for this account.',
+            'selected_hosts.*.exists' => 'One or more selected live hosts are invalid.',
             'account_name.required' => 'Account name is required to identify this connection.',
             'account_name.max' => 'Account name cannot exceed 255 characters.',
             'seller_id.max' => 'Seller ID cannot exceed 255 characters.',
@@ -71,7 +89,7 @@ new class extends Component {
 
         // Create the platform account
         $account = $this->platform->accounts()->create([
-            'user_id' => auth()->id(),
+            'user_id' => $validated['selected_hosts'][0], // Keep first host for backward compatibility
             'name' => $validated['account_name'],
             'account_id' => $validated['seller_id'] ?: null,
             'shop_id' => $validated['shop_id'] ?: null,
@@ -81,6 +99,9 @@ new class extends Component {
             'auto_sync_orders' => false,
             'auto_sync_products' => false,
         ]);
+
+        // Sync selected live hosts with the account
+        $account->liveHosts()->sync($validated['selected_hosts']);
 
         // Store API credentials if provided and platform supports API
         if (($this->platform->settings['api_available'] ?? false) &&
@@ -108,7 +129,14 @@ new class extends Component {
 
     public function toggleAdvancedSettings()
     {
-        $this->showAdvancedSettings = !$this->showAdvancedSettings;
+        $this->showAdvancedSettings = ! $this->showAdvancedSettings;
+    }
+
+    public function getLiveHostsProperty()
+    {
+        return User::where('role', 'live_host')
+            ->orderBy('name')
+            ->get();
     }
 
     public function with()
@@ -185,6 +213,29 @@ new class extends Component {
                     <flux:heading size="lg" class="mb-4">Account Information</flux:heading>
 
                     <div class="space-y-4">
+                        <flux:field>
+                            <flux:label>Live Hosts *</flux:label>
+                            <flux:description>Select one or more live hosts who can manage this platform account</flux:description>
+
+                            @if($this->liveHosts->isNotEmpty())
+                                <div class="mt-2 space-y-2">
+                                    @foreach($this->liveHosts as $host)
+                                        <flux:checkbox
+                                            wire:model="selected_hosts"
+                                            value="{{ $host->id }}"
+                                            label="{{ $host->name }} ({{ $host->email }})"
+                                        />
+                                    @endforeach
+                                </div>
+                            @else
+                                <flux:description class="text-amber-600">
+                                    No live hosts found. Please create a user with the 'live_host' role first.
+                                </flux:description>
+                            @endif
+
+                            <flux:error name="selected_hosts" />
+                        </flux:field>
+
                         <flux:field>
                             <flux:label>Account Name *</flux:label>
                             <flux:input wire:model="account_name" placeholder="e.g., My TikTok Shop Account" />

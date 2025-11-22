@@ -22,6 +22,10 @@ Route::get('dashboard', function () {
         return redirect()->route('teacher.dashboard');
     }
 
+    if ($user->isLiveHost()) {
+        return redirect()->route('live-host.dashboard');
+    }
+
     return view('dashboard');
 })
     ->middleware(['auth', 'verified'])

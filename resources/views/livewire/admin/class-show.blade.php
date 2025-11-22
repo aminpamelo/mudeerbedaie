@@ -145,6 +145,18 @@ new class extends Component
 
     public $shipmentItemsPerPage = 20;
 
+    // Table view properties
+    public array $selectedShipmentIds = [];
+
+    // Student item selection properties
+    public array $selectedShipmentItemIds = [];
+
+    public string $filterMonth = '';
+
+    public string $filterYear = '';
+
+    public string $filterStatus = '';
+
     public $showImportModal = false;
 
     public $importFile;
@@ -805,6 +817,14 @@ new class extends Component
 
     public string $paymentPicFilter = '';
 
+    public string $paymentMethodTypeFilter = '';
+
+    public array $visiblePaymentPeriods = [];
+
+    private bool $skipPaymentPeriodDispatch = false;
+
+    public bool $showPaymentColumnManager = false;
+
     // Manual Payment Modal Properties
     public bool $showManualPaymentModal = false;
 
@@ -820,15 +840,95 @@ new class extends Component
 
     public $paymentNotes = '';
 
+    // Edit Enrollment Modal Properties
+    public bool $showEditEnrollmentModal = false;
+
+    public $editingEnrollment = null;
+
+    public $editEnrollmentDate = '';
+
+    public $editPaymentMethodType = '';
+
+    // Create First Enrollment Modal Properties
+    public bool $showCreateFirstEnrollmentModal = false;
+
+    public $creatingEnrollmentForStudentId = null;
+
+    public $newEnrollmentDate = '';
+
+    public $newEnrollmentFee = '';
+
+    public $newPaymentMethodType = 'automatic';
+
+    // Cancel Subscription Modal Properties
+    public bool $showCancelSubscriptionModal = false;
+
+    public $cancelingEnrollment = null;
+
+    public $cancellationDate = '';
+
     public function mountPaymentReport()
     {
         $this->paymentYear = now()->year;
+        // Don't initialize visible periods here - let Alpine.js handle it from localStorage
+        // If no localStorage exists, it will be initialized by the computed property
+    }
+
+    public function initializeVisiblePaymentPeriods()
+    {
+        // Only initialize if visiblePaymentPeriods is empty (no localStorage loaded)
+        if (empty($this->visiblePaymentPeriods)) {
+            $periodColumns = $this->payment_period_columns;
+            $this->visiblePaymentPeriods = $periodColumns->pluck('label')->toArray();
+        }
+    }
+
+    public function togglePaymentPeriodVisibility($periodLabel)
+    {
+        if (in_array($periodLabel, $this->visiblePaymentPeriods)) {
+            $this->visiblePaymentPeriods = array_values(array_diff($this->visiblePaymentPeriods, [$periodLabel]));
+        } else {
+            $this->visiblePaymentPeriods[] = $periodLabel;
+        }
+
+        // No need to dispatch manually - updatedVisiblePaymentPeriods() will handle it
+    }
+
+    public function toggleAllPaymentPeriods()
+    {
+        $periodColumns = $this->payment_period_columns;
+        $allPeriods = $periodColumns->pluck('label')->toArray();
+
+        if (count($this->visiblePaymentPeriods) === count($allPeriods)) {
+            $this->visiblePaymentPeriods = [];
+        } else {
+            $this->visiblePaymentPeriods = $allPeriods;
+        }
+
+        // No need to dispatch manually - updatedVisiblePaymentPeriods() will handle it
+    }
+
+    public function setVisiblePaymentPeriods($periods)
+    {
+        // Skip dispatch when loading from localStorage
+        $this->skipPaymentPeriodDispatch = true;
+        $this->visiblePaymentPeriods = $periods;
+        $this->skipPaymentPeriodDispatch = false;
+    }
+
+    public function updatedVisiblePaymentPeriods()
+    {
+        // Only dispatch event if not skipping (i.e., user action, not localStorage load)
+        if (! $this->skipPaymentPeriodDispatch) {
+            $this->dispatch('save-payment-column-preferences', visiblePeriods: $this->visiblePaymentPeriods);
+        }
     }
 
     public function updatedPaymentYear()
     {
         // Reset pagination when year filter changes
         $this->resetPage();
+        $this->initializeVisiblePaymentPeriods();
     }
 
     public function updatedPaymentFilter()
@@ -855,6 +955,12 @@ new class extends Component
         $this->resetPage();
     }
 
+    public function updatedPaymentMethodTypeFilter()
+    {
+        // Reset pagination when payment method type filter changes
+        $this->resetPage();
+    }
+
     public function getClassStudentsForPaymentReportProperty()
     {
         $query = $this->class->activeStudents()
@@ -866,22 +972,11 @@ new class extends Component
                 },
             ]);
 
-        // Apply payment filter
-        if ($this->paymentFilter === 'subscribed') {
-            // Only show students with active subscriptions
+        // Apply payment filter - Filter by subscription status
+        if ($this->paymentFilter !== 'all') {
             $query->whereHas('student.enrollments', function ($q) {
                 $q->where('course_id', $this->class->course_id)
-                    ->whereNotNull('stripe_subscription_id')
-                    ->whereIn('subscription_status', ['active', 'trialing']);
-            });
-        } elseif ($this->paymentFilter === 'not_subscribed') {
-            // Only show students without subscriptions or inactive subscriptions
-            $query->whereHas('student.enrollments', function ($q) {
-                $q->where('course_id', $this->class->course_id)
-                    ->where(function ($subQuery) {
-                        $subQuery->whereNull('stripe_subscription_id')
-                            ->orWhereNotIn('subscription_status', ['active', 'trialing']);
-                    });
+                    ->where('subscription_status', $this->paymentFilter);
             });
         }
 
@@ -901,6 +996,14 @@ new class extends Component
             $query->whereHas('student.enrollments', function ($q) {
                 $q->where('course_id', $this->class->course_id)
                     ->where('enrolled_by', $this->paymentPicFilter);
+            });
+        }
+
+        // Apply payment method type filter
+        if (! empty($this->paymentMethodTypeFilter)) {
+            $query->whereHas('student.enrollments', function ($q) {
+                $q->where('course_id', $this->class->course_id)
+                    ->where('payment_method_type', $this->paymentMethodTypeFilter);
             });
         }
 
@@ -969,6 +1072,20 @@ new class extends Component
         }
     }
 
+    public function getAllPaymentPeriodColumnsProperty()
+    {
+        return $this->payment_period_columns;
+    }
+
+    public function getVisiblePaymentPeriodColumnsProperty()
+    {
+        $allPeriods = $this->payment_period_columns;
+
+        return $allPeriods->filter(function ($period) {
+            return in_array($period['label'], $this->visiblePaymentPeriods);
+        });
+    }
+
     public function getClassPaymentDataProperty()
     {
         $classStudents = $this->class_students_for_payment_report;
@@ -982,6 +1099,14 @@ new class extends Component
         $orders = \App\Models\Order::whereIn('student_id', $studentIds)
             ->where('course_id', $course->id)
             ->whereYear('period_start', $this->paymentYear)
+            ->get();
+
+        // Query all document shipments for this class in the selected year
+        $shipments = \App\Models\ClassDocumentShipment::where('class_id', $this->class->id)
+            ->whereYear('period_start_date', $this->paymentYear)
+            ->with(['items' => function ($query) use ($studentIds) {
+                $query->whereIn('student_id', $studentIds);
+            }])
             ->get();
 
         $paymentData = [];
@@ -1015,6 +1140,19 @@ new class extends Component
 
                 $status = $this->determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount);
 
+                // Find document shipment for this period and student
+                $shipmentItem = null;
+                $shipment = $shipments->first(function ($s) use ($period) {
+                    return $s->period_start_date >= $period['period_start']->toDateString() &&
+                           $s->period_start_date <= $period['period_end']->toDateString();
+                });
+
+                if ($shipment) {
+                    $shipmentItem = $shipment->items->first(function ($item) use ($student) {
+                        return $item->student_id === $student->id;
+                    });
+                }
+
                 $paymentData[$student->id][$period['label']] = [
                     'orders' => $periodOrders,
                     'paid_orders' => $paidOrders,
@@ -1027,6 +1165,8 @@ new class extends Component
                     'count' => $periodOrders->count(),
                     'enrollment' => $enrollment,
                     'status' => $status,
+                    'shipment' => $shipment,
+                    'shipment_item' => $shipmentItem,
                 ];
             }
         }
@@ -1123,6 +1263,12 @@ new class extends Component
 
         // PRIORITY 5: Check if period hasn't started yet (future months)
         if ($periodStart > now()) {
+            // If enrollment is active, show as pending payment (will be collected)
+            if ($enrollment->subscription_status === 'active') {
+                return 'pending_payment';
+            }
+
+            // Otherwise, show as not started (won't be collected)
             return 'not_started';
         }
 
@@ -1170,7 +1316,23 @@ new class extends Component
             'end' => $periodEnd,
         ];
         $this->selectedPeriodLabel = $periodLabel;
-        $this->paymentAmount = $unpaidAmount;
+
+        // If unpaid amount is 0, use enrollment fee as default
+        if ($unpaidAmount <= 0) {
+            $student = \App\Models\Student::find($studentId);
+            $enrollment = $student?->enrollments->first();
+
+            // Use enrollment fee if available, otherwise use course fee
+            if ($enrollment && $enrollment->enrollment_fee > 0) {
+                $this->paymentAmount = $enrollment->enrollment_fee;
+            } elseif ($enrollment && $this->class->course->feeSettings) {
+                $this->paymentAmount = $this->class->course->feeSettings->fee_amount;
+            } else {
+                $this->paymentAmount = 0;
+            }
+        } else {
+            $this->paymentAmount = $unpaidAmount;
+        }
         $this->paymentNotes = '';
         $this->receiptFile = null;
         $this->showManualPaymentModal = true;
@@ -1275,6 +1437,166 @@ new class extends Component
             $this->closeManualPaymentModal();
         } catch (\Exception $e) {
             $this->addError('general', 'Failed to create payment: '.$e->getMessage());
+        }
+    }
+
+    // Edit Enrollment Methods
+    public function openEditEnrollmentModal($enrollmentId)
+    {
+        $this->editingEnrollment = \App\Models\Enrollment::find($enrollmentId);
+
+        if ($this->editingEnrollment) {
+            $this->editEnrollmentDate = $this->editingEnrollment->enrollment_date->format('Y-m-d');
+            $this->editPaymentMethodType = $this->editingEnrollment->payment_method_type ?? 'automatic';
+            $this->showEditEnrollmentModal = true;
+        }
+    }
+
+    public function closeEditEnrollmentModal()
+    {
+        $this->showEditEnrollmentModal = false;
+        $this->editingEnrollment = null;
+        $this->editEnrollmentDate = '';
+        $this->editPaymentMethodType = '';
+    }
+
+    public function updateEnrollment()
+    {
+        $this->validate([
+            'editEnrollmentDate' => 'required|date',
+            'editPaymentMethodType' => 'required|in:automatic,manual',
+        ]);
+
+        try {
+            if ($this->editingEnrollment) {
+                $this->editingEnrollment->update([
+                    'enrollment_date' => $this->editEnrollmentDate,
+                    'payment_method_type' => $this->editPaymentMethodType,
+                ]);
+
+                session()->flash('message', 'Enrollment updated successfully!');
+                $this->closeEditEnrollmentModal();
+            }
+        } catch (\Exception $e) {
+            $this->addError('general', 'Failed to update enrollment: '.$e->getMessage());
+        }
+    }
+
+    // Activate Enrollment Method
+    public function activateEnrollment($enrollmentId)
+    {
+        try {
+            $enrollment = \App\Models\Enrollment::find($enrollmentId);
+
+            if ($enrollment) {
+                $enrollment->update([
+                    'subscription_status' => 'active',
+                    'subscription_cancel_at' => null, // Clear cancellation date when reactivating
+                ]);
+
+                session()->flash('message', 'Enrollment activated successfully!');
+            }
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to activate enrollment: '.$e->getMessage());
+        }
+    }
+
+    // Create First Enrollment Methods
+    public function openCreateFirstEnrollmentModal($studentId)
+    {
+        $this->creatingEnrollmentForStudentId = $studentId;
+        $this->newEnrollmentDate = now()->format('Y-m-d');
+        $this->newEnrollmentFee = $this->class->course->feeSettings->monthly_fee ?? '';
+        $this->newPaymentMethodType = 'automatic';
+        $this->showCreateFirstEnrollmentModal = true;
+    }
+
+    public function closeCreateFirstEnrollmentModal()
+    {
+        $this->showCreateFirstEnrollmentModal = false;
+        $this->creatingEnrollmentForStudentId = null;
+        $this->newEnrollmentDate = '';
+        $this->newEnrollmentFee = '';
+        $this->newPaymentMethodType = 'automatic';
+    }
+
+    public function createFirstEnrollment()
+    {
+        $this->validate([
+            'newEnrollmentDate' => 'required|date',
+            'newEnrollmentFee' => 'required|numeric|min:0',
+            'newPaymentMethodType' => 'required|in:automatic,manual',
+        ]);
+
+        try {
+            $student = \App\Models\Student::find($this->creatingEnrollmentForStudentId);
+
+            if (! $student) {
+                throw new \Exception('Student not found');
+            }
+
+            // Create the enrollment
+            $enrollment = \App\Models\Enrollment::create([
+                'student_id' => $student->id,
+                'course_id' => $this->class->course_id,
+                'enrolled_by' => auth()->id(),
+                'status' => 'enrolled',
+                'academic_status' => \App\AcademicStatus::ACTIVE,
+                'enrollment_date' => $this->newEnrollmentDate,
+                'start_date' => $this->newEnrollmentDate,
+                'enrollment_fee' => $this->newEnrollmentFee,
+                'payment_method_type' => $this->newPaymentMethodType,
+                'subscription_status' => 'active',
+                'stripe_subscription_id' => 'INTERNAL-'.\Illuminate\Support\Str::uuid(),
+            ]);
+
+            session()->flash('message', 'First enrollment created successfully for '.$student->user->name.'!');
+            $this->closeCreateFirstEnrollmentModal();
+
+            // Refresh the class to show updated data
+            $this->class->refresh();
+        } catch (\Exception $e) {
+            $this->addError('general', 'Failed to create enrollment: '.$e->getMessage());
+        }
+    }
+
+    // Cancel Subscription Methods
+    public function openCancelSubscriptionModal($enrollmentId)
+    {
+        $this->cancelingEnrollment = \App\Models\Enrollment::find($enrollmentId);
+
+        if ($this->cancelingEnrollment) {
+            // Default to today's date
+            $this->cancellationDate = now()->format('Y-m-d');
+            $this->showCancelSubscriptionModal = true;
+        }
+    }
+
+    public function closeCancelSubscriptionModal()
+    {
+        $this->showCancelSubscriptionModal = false;
+        $this->cancelingEnrollment = null;
+        $this->cancellationDate = '';
+    }
+
+    public function cancelSubscription()
+    {
+        $this->validate([
+            'cancellationDate' => 'required|date',
+        ]);
+
+        try {
+            if ($this->cancelingEnrollment) {
+                $this->cancelingEnrollment->update([
+                    'subscription_cancel_at' => \Carbon\Carbon::parse($this->cancellationDate),
+                    'subscription_status' => 'canceled',
+                ]);
+
+                session()->flash('message', 'Subscription cancelled successfully!');
+                $this->closeCancelSubscriptionModal();
+            }
+        } catch (\Exception $e) {
+            $this->addError('general', 'Failed to cancel subscription: '.$e->getMessage());
         }
     }
 
@@ -1528,6 +1850,189 @@ new class extends Component
         $shipment->markAsDelivered();
         session()->flash('success', 'Shipment marked as delivered.');
         $this->class->refresh();
+    }
+
+    public function toggleSelectAll(): void
+    {
+        $filteredShipments = $this->getFilteredShipmentsProperty();
+
+        if (count($this->selectedShipmentIds) === $filteredShipments->count()) {
+            $this->selectedShipmentIds = [];
+        } else {
+            $this->selectedShipmentIds = $filteredShipments->pluck('id')->toArray();
+        }
+    }
+
+    public function bulkMarkAsProcessing(): void
+    {
+        if (empty($this->selectedShipmentIds)) {
+            session()->flash('error', 'Please select at least one shipment.');
+
+            return;
+        }
+
+        $count = 0;
+        foreach ($this->selectedShipmentIds as $shipmentId) {
+            $shipment = \App\Models\ClassDocumentShipment::find($shipmentId);
+            if ($shipment && $shipment->status === 'pending') {
+                $shipment->markAsProcessing();
+                $count++;
+            }
+        }
+
+        session()->flash('success', "Successfully marked {$count} shipment(s) as processing.");
+        $this->selectedShipmentIds = [];
+        $this->class->refresh();
+    }
+
+    public function bulkMarkAsShipped(): void
+    {
+        if (empty($this->selectedShipmentIds)) {
+            session()->flash('error', 'Please select at least one shipment.');
+
+            return;
+        }
+
+        $count = 0;
+        foreach ($this->selectedShipmentIds as $shipmentId) {
+            $shipment = \App\Models\ClassDocumentShipment::find($shipmentId);
+            if ($shipment && $shipment->status === 'processing') {
+                $shipment->markAsShipped();
+                $count++;
+            }
+        }
+
+        session()->flash('success', "Successfully marked {$count} shipment(s) as shipped.");
+        $this->selectedShipmentIds = [];
+        $this->class->refresh();
+    }
+
+    public function bulkMarkAsDelivered(): void
+    {
+        if (empty($this->selectedShipmentIds)) {
+            session()->flash('error', 'Please select at least one shipment.');
+
+            return;
+        }
+
+        $count = 0;
+        foreach ($this->selectedShipmentIds as $shipmentId) {
+            $shipment = \App\Models\ClassDocumentShipment::find($shipmentId);
+            if ($shipment && $shipment->status === 'shipped') {
+                $shipment->markAsDelivered();
+                $count++;
+            }
+        }
+
+        session()->flash('success', "Successfully marked {$count} shipment(s) as delivered.");
+        $this->selectedShipmentIds = [];
+        $this->class->refresh();
+    }
+
+    public function resetTableFilters(): void
+    {
+        $this->filterMonth = '';
+        $this->filterYear = '';
+        $this->filterStatus = '';
+        $this->selectedShipmentIds = [];
+    }
+
+    // Student item selection methods
+    public function toggleSelectAllItems($shipmentId): void
+    {
+        $filteredItems = $this->getFilteredShipmentItems($shipmentId);
+        $itemIds = $filteredItems->pluck('id')->toArray();
+
+        if (count(array_intersect($this->selectedShipmentItemIds, $itemIds)) === count($itemIds)) {
+            // Deselect all items from this shipment
+            $this->selectedShipmentItemIds = array_diff($this->selectedShipmentItemIds, $itemIds);
+        } else {
+            // Select all items from this shipment
+            $this->selectedShipmentItemIds = array_unique(array_merge($this->selectedShipmentItemIds, $itemIds));
+        }
+    }
+
+    public function bulkMarkItemsAsShipped(): void
+    {
+        if (empty($this->selectedShipmentItemIds)) {
+            session()->flash('error', 'Please select at least one student.');
+
+            return;
+        }
+
+        $count = 0;
+        $failed = 0;
+        foreach ($this->selectedShipmentItemIds as $itemId) {
+            $item = \App\Models\ClassDocumentShipmentItem::find($itemId);
+            if ($item && $item->status === 'pending') {
+                // Use markAsShipped() to ensure stock is deducted
+                $item->markAsShipped();
+                $count++;
+            } else {
+                $failed++;
+            }
+        }
+
+        if ($count > 0) {
+            session()->flash('success', "Successfully marked {$count} student(s) as shipped.".($failed > 0 ? " ({$failed} skipped)" : ''));
+        } else {
+            session()->flash('error', 'No eligible items to ship. Items must have "pending" status.');
+        }
+
+        $this->selectedShipmentItemIds = [];
+        $this->class->refresh();
+    }
+
+    public function bulkMarkItemsAsDelivered(): void
+    {
+        if (empty($this->selectedShipmentItemIds)) {
+            session()->flash('error', 'Please select at least one student.');
+
+            return;
+        }
+
+        $count = 0;
+        $failed = 0;
+        foreach ($this->selectedShipmentItemIds as $itemId) {
+            $item = \App\Models\ClassDocumentShipmentItem::find($itemId);
+            if ($item && $item->status === 'shipped') {
+                // Use markAsDelivered() to maintain consistency
+                $item->markAsDelivered();
+                $count++;
+            } else {
+                $failed++;
+            }
+        }
+
+        if ($count > 0) {
+            session()->flash('success', "Successfully marked {$count} student(s) as delivered.".($failed > 0 ? " ({$failed} skipped)" : ''));
+        } else {
+            session()->flash('error', 'No eligible items to deliver. Items must have "shipped" status.');
+        }
+
+        $this->selectedShipmentItemIds = [];
+        $this->class->refresh();
+    }
+
+    public function getFilteredShipmentsProperty()
+    {
+        $query = $this->class->documentShipments()
+            ->with(['product', 'warehouse', 'items.student'])
+            ->orderBy('period_start_date', 'desc');
+
+        // Apply status filter
+        if ($this->filterStatus) {
+            $query->where('status', $this->filterStatus);
+        }
+
+        // Apply month/year filter
+        if ($this->filterMonth && $this->filterYear) {
+            $query->forPeriod($this->filterYear, $this->filterMonth);
+        } elseif ($this->filterYear) {
+            $query->forPeriod($this->filterYear);
+        }
+
+        return $query->get();
     }
 
     public function viewShipmentDetails($shipmentId): void
@@ -3487,7 +3992,53 @@ new class extends Component
         <!-- End Certificates Tab -->
 
         <!-- Payment Reports Tab -->
-        <div class="{{ $activeTab === 'payment-reports' ? 'block' : 'hidden' }}">
+        <div class="{{ $activeTab === 'payment-reports' ? 'block' : 'hidden' }}"
+             x-data="{
+                 storageKey: 'paymentColumnPreferences_{{ $class->id }}_{{ $paymentYear }}',
+                 init() {
+                     console.log('[Payment Columns] Init called');
+                     console.log('[Payment Columns] Storage key:', this.storageKey);
+
+                     // Load saved column preferences from localStorage
+                     const savedPreferences = localStorage.getItem(this.storageKey);
+                     console.log('[Payment Columns] Loaded from localStorage:', savedPreferences);
+
+                     if (savedPreferences) {
+                         try {
+                             const preferences = JSON.parse(savedPreferences);
+                             console.log('[Payment Columns] Parsed preferences:', preferences);
+                             // Set the periods from localStorage
+                             $wire.setVisiblePaymentPeriods(preferences);
+                             console.log('[Payment Columns] Set visible periods from localStorage');
+                         } catch (e) {
+                             console.error('[Payment Columns] Error loading payment column preferences:', e);
+                             // If error, initialize with all periods
+                             $wire.initializeVisiblePaymentPeriods();
+                         }
+                     } else {
+                         console.log('[Payment Columns] No saved preferences, initializing with all periods');
+                         // No saved preferences, initialize with all periods
+                         $wire.initializeVisiblePaymentPeriods();
+                     }
+                 },
+                 savePreferences(data) {
+                     console.log('[Payment Columns] savePreferences called with:', data);
+                     console.log('[Payment Columns] Visible periods:', data.visiblePeriods);
+                     console.log('[Payment Columns] Storage key:', this.storageKey);
+
+                     try {
+                         localStorage.setItem(this.storageKey, JSON.stringify(data.visiblePeriods));
+                         console.log('[Payment Columns] Saved to localStorage successfully');
+
+                         // Verify save
+                         const verified = localStorage.getItem(this.storageKey);
+                         console.log('[Payment Columns] Verified localStorage value:', verified);
+                     } catch (e) {
+                         console.error('[Payment Columns] Error saving payment column preferences:', e);
+                     }
+                 }
+             }"
+             @save-payment-column-preferences.window="savePreferences($event.detail)">
             @if($activeTab === 'payment-reports')
             <!-- Year and Payment Filter -->
             <flux:card class="mb-6">
@@ -3498,11 +4049,70 @@ new class extends Component
                             <flux:text class="mt-1">Track student payment history for this class</flux:text>
                         </div>
                         <div class="flex items-center gap-3">
+                            <!-- Column Visibility Manager -->
+                            <div class="relative" x-data="{ open: @entangle('showPaymentColumnManager') }">
+                                <flux:button variant="outline" @click="open = !open">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon icon="view-columns" class="w-4 h-4 mr-1" />
+                                        Columns
+                                        <span class="ml-1 text-xs text-gray-500">({{ count($visiblePaymentPeriods) }}/{{ $this->all_payment_period_columns->count() }})</span>
+                                    </div>
+                                </flux:button>
+
+                                <div x-show="open" @click.away="open = false" x-cloak
+                                     class="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                                     x-transition:enter="transition ease-out duration-100"
+                                     x-transition:enter-start="transform opacity-0 scale-95"
+                                     x-transition:enter-end="transform opacity-100 scale-100"
+                                     x-transition:leave="transition ease-in duration-75"
+                                     x-transition:leave-start="transform opacity-100 scale-100"
+                                     x-transition:leave-end="transform opacity-0 scale-95">
+
+                                    <div class="p-4">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <flux:heading size="sm">Column Visibility</flux:heading>
+                                            <flux:button variant="ghost" size="sm" wire:click="toggleAllPaymentPeriods">
+                                                <div class="text-xs">
+                                                    {{ count($visiblePaymentPeriods) === $this->all_payment_period_columns->count() ? 'Hide All' : 'Show All' }}
+                                                </div>
+                                            </flux:button>
+                                        </div>
+
+                                        <div class="space-y-2 max-h-96 overflow-y-auto">
+                                            @foreach($this->all_payment_period_columns as $period)
+                                                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                                    <flux:checkbox
+                                                        wire:model.live="visiblePaymentPeriods"
+                                                        value="{{ $period['label'] }}"
+                                                    />
+                                                    <div class="flex-1">
+                                                        <div class="text-sm font-medium text-gray-700">{{ $period['label'] }}</div>
+                                                        @if($class->course->feeSettings && $class->course->feeSettings->billing_cycle !== 'yearly')
+                                                            <div class="text-xs text-gray-500">
+                                                                {{ $period['period_start']->format('M j') }} - {{ $period['period_end']->format('M j') }}
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </label>
+                                            @endforeach
+                                        </div>
+
+                                        @if(count($visiblePaymentPeriods) === 0)
+                                            <div class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+                                                ⚠️ At least one column must be visible
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="w-48">
                                 <flux:select wire:model.live="paymentFilter" class="w-full">
                                     <flux:select.option value="all">All Students</flux:select.option>
-                                    <flux:select.option value="subscribed">Subscribed Only</flux:select.option>
-                                    <flux:select.option value="not_subscribed">Not Subscribed</flux:select.option>
+                                    <flux:select.option value="active">Active</flux:select.option>
+                                    <flux:select.option value="canceled">Canceled</flux:select.option>
+                                    <flux:select.option value="trialing">Trialing</flux:select.option>
+                                    <flux:select.option value="past_due">Past Due</flux:select.option>
                                 </flux:select>
                             </div>
                             <div class="w-48">
@@ -3511,6 +4121,13 @@ new class extends Component
                                     @foreach($this->available_pics as $pic)
                                         <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
                                     @endforeach
+                                </flux:select>
+                            </div>
+                            <div class="w-48">
+                                <flux:select wire:model.live="paymentMethodTypeFilter" class="w-full">
+                                    <flux:select.option value="">All Types</flux:select.option>
+                                    <flux:select.option value="automatic">Automatic</flux:select.option>
+                                    <flux:select.option value="manual">Manual</flux:select.option>
                                 </flux:select>
                             </div>
                             <div class="w-32">
@@ -3568,13 +4185,13 @@ new class extends Component
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="border-b border-gray-200">
-                                    <th class="text-left py-3 px-4 sticky left-0 bg-white z-10 min-w-[200px]">
+                                    <th class="text-left py-3 px-4 sticky left-0 bg-white z-10 min-w-[250px]">
                                         Student Name
                                     </th>
                                     <th class="text-left py-3 px-4 bg-white min-w-[150px] border-l border-gray-100">
                                         PIC
                                     </th>
-                                    @foreach($this->payment_period_columns as $period)
+                                    @foreach($this->visible_payment_period_columns as $period)
                                         <th class="text-center py-3 px-3 min-w-[100px] border-l border-gray-100">
                                             <div class="font-medium">{{ $period['label'] }}</div>
                                             @if($class->course->feeSettings && $class->course->feeSettings->billing_cycle !== 'yearly')
@@ -3610,34 +4227,133 @@ new class extends Component
                                                     </div>
                                                 </div>
                                             @endif
-                                            @if($enrollment)
-                                                <a href="{{ route('enrollments.show', $enrollment) }}"
-                                                   wire:navigate
-                                                   class="block hover:opacity-80 transition-opacity">
-                                                    <div class="font-medium text-blue-600 hover:text-blue-800">{{ $student->user->name }}</div>
-                                                    <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
-                                                </a>
-                                            @else
-                                                <div>
-                                                    <div class="font-medium text-gray-900">{{ $student->user->name }}</div>
-                                                    <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
+
+                                            <div class="flex items-start justify-between gap-2">
+                                                <div class="flex-1 min-w-0">
+                                                    @if($enrollment)
+                                                        <a href="{{ route('enrollments.show', $enrollment) }}"
+                                                           wire:navigate
+                                                           class="block hover:opacity-80 transition-opacity">
+                                                            <div class="font-medium text-blue-600 hover:text-blue-800">{{ $student->user->name }}</div>
+                                                            <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
+                                                        </a>
+                                                    @else
+                                                        <div>
+                                                            <div class="font-medium text-gray-900">{{ $student->user->name }}</div>
+                                                            <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
+                                                        </div>
+                                                    @endif
+
+                                                    <div class="flex items-center gap-2 mt-2">
+                                                        @if($enrollment)
+                                                            {{-- Subscription Status Badge --}}
+                                                            @if($enrollment->subscription_status === 'active')
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-md text-xs font-medium">
+                                                                    <flux:icon name="check-circle" class="w-3 h-3" />
+                                                                    <span>Active</span>
+                                                                </div>
+                                                            @elseif($enrollment->subscription_status === 'canceled')
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-md text-xs font-medium">
+                                                                    <flux:icon name="x-circle" class="w-3 h-3" />
+                                                                    <span>Canceled</span>
+                                                                </div>
+                                                            @elseif($enrollment->subscription_status === 'trialing')
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md text-xs font-medium">
+                                                                    <flux:icon name="clock" class="w-3 h-3" />
+                                                                    <span>Trial</span>
+                                                                </div>
+                                                            @elseif($enrollment->subscription_status === 'past_due')
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-md text-xs font-medium">
+                                                                    <flux:icon name="exclamation-triangle" class="w-3 h-3" />
+                                                                    <span>Past Due</span>
+                                                                </div>
+                                                            @else
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
+                                                                    <flux:icon name="minus-circle" class="w-3 h-3" />
+                                                                    <span>{{ ucfirst($enrollment->subscription_status ?? 'Inactive') }}</span>
+                                                                </div>
+                                                            @endif
+
+                                                            {{-- Payment Method Type Badge --}}
+                                                            @if($enrollment->payment_method_type === 'automatic')
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
+                                                                    <flux:icon name="credit-card" class="w-3 h-3" />
+                                                                    <span>Auto</span>
+                                                                </div>
+                                                            @else
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-md text-xs font-medium">
+                                                                    <flux:icon name="banknotes" class="w-3 h-3" />
+                                                                    <span>Manual</span>
+                                                                </div>
+                                                            @endif
+                                                        @endif
+
+                                                        @if($student->phone)
+                                                            <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $student->phone) }}"
+                                                               target="_blank"
+                                                               class="inline-flex items-center gap-1 text-green-600 hover:text-green-800 transition-colors"
+                                                               title="WhatsApp">
+                                                                <flux:icon name="chat-bubble-left-right" class="w-4 h-4" />
+                                                            </a>
+                                                            <a href="tel:{{ $student->phone }}"
+                                                               class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
+                                                               title="Call">
+                                                                <flux:icon name="phone" class="w-4 h-4" />
+                                                            </a>
+                                                        @endif
+                                                    </div>
                                                 </div>
-                                            @endif
-                                            @if($student->phone)
-                                                <div class="flex items-center gap-2 mt-2">
-                                                    <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $student->phone) }}"
-                                                       target="_blank"
-                                                       class="inline-flex items-center gap-1 text-green-600 hover:text-green-800 transition-colors"
-                                                       title="WhatsApp">
-                                                        <flux:icon name="chat-bubble-left-right" class="w-4 h-4" />
-                                                    </a>
-                                                    <a href="tel:{{ $student->phone }}"
-                                                       class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
-                                                       title="Call">
-                                                        <flux:icon name="phone" class="w-4 h-4" />
-                                                    </a>
-                                                </div>
-                                            @endif
+
+                                                @if($enrollment)
+                                                    <div class="flex items-center gap-1 flex-shrink-0">
+                                                        @if($enrollment->subscription_status !== 'active')
+                                                            <flux:button
+                                                                wire:click="activateEnrollment({{ $enrollment->id }})"
+                                                                variant="primary"
+                                                                size="sm"
+                                                                title="Activate Enrollment">
+                                                                <div class="flex items-center justify-center gap-1">
+                                                                    <flux:icon name="play" class="w-3 h-3" />
+                                                                    <span class="text-xs">Activate</span>
+                                                                </div>
+                                                            </flux:button>
+                                                        @endif
+                                                        <flux:button
+                                                            wire:click="openEditEnrollmentModal({{ $enrollment->id }})"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            title="Edit Enrollment">
+                                                            <div class="flex items-center justify-center">
+                                                                <flux:icon name="pencil" class="w-4 h-4" />
+                                                            </div>
+                                                        </flux:button>
+                                                        @if($enrollment->stripe_subscription_id && !in_array($enrollment->subscription_status, ['canceled', 'incomplete_expired']))
+                                                            <flux:button
+                                                                wire:click="openCancelSubscriptionModal({{ $enrollment->id }})"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                title="Cancel Subscription">
+                                                                <div class="flex items-center justify-center">
+                                                                    <flux:icon name="x-circle" class="w-4 h-4 text-red-600" />
+                                                                </div>
+                                                            </flux:button>
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <div class="flex items-center gap-1 flex-shrink-0">
+                                                        <flux:button
+                                                            wire:click="openCreateFirstEnrollmentModal({{ $student->id }})"
+                                                            variant="primary"
+                                                            size="sm"
+                                                            title="Create First Enrollment">
+                                                            <div class="flex items-center justify-center gap-1">
+                                                                <flux:icon name="plus-circle" class="w-3 h-3" />
+                                                                <span class="text-xs">Create Enrollment</span>
+                                                            </div>
+                                                        </flux:button>
+                                                    </div>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td class="py-3 px-4 {{ $hasConsecutiveUnpaid ? 'bg-red-50' : 'bg-white' }} border-l border-gray-100">
                                             @if($enrollment && $enrollment->enrolledBy)
@@ -3650,7 +4366,7 @@ new class extends Component
                                                 <div class="text-xs text-gray-400">N/A</div>
                                             @endif
                                         </td>
-                                        @foreach($this->payment_period_columns as $period)
+                                        @foreach($this->visible_payment_period_columns as $period)
                                             @php
                                                 $payment = $this->class_payment_data[$student->id][$period['label']] ?? ['status' => 'no_data', 'paid_amount' => 0, 'expected_amount' => 0];
                                                 $totalPaid += $payment['paid_amount'] ?? 0;
@@ -3662,7 +4378,7 @@ new class extends Component
                                                     @case('paid')
                                                         <div class="space-y-1">
                                                             @if(isset($payment['paid_orders']) && $payment['paid_orders']->count() > 0)
-                                                                <a href="{{ route('admin.orders.show', $payment['paid_orders']->first()) }}"
+                                                                <a href="{{ route('orders.show', $payment['paid_orders']->first()) }}"
                                                                    class="block hover:opacity-80 cursor-pointer"
                                                                    wire:navigate>
                                                                     <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full mb-1">
@@ -3709,14 +4425,37 @@ new class extends Component
                                                         </div>
                                                         @break
 
+                                                    @case('pending_payment')
+                                                        <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
+                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['expected_amount'] ?? 0 }})">
+                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full mb-1">
+                                                                <flux:icon.clock class="w-4 h-4" />
+                                                            </div>
+                                                            <div class="text-xs font-medium text-purple-600">
+                                                                Pending
+                                                            </div>
+                                                            @if($payment['expected_amount'] > 0)
+                                                                <div class="text-xs text-gray-500">
+                                                                    RM {{ number_format($payment['expected_amount'], 2) }}
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                        @break
+
                                                     @case('not_started')
-                                                        <div class="space-y-1">
+                                                        <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
+                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['expected_amount'] ?? 0 }})">
                                                             <div class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full mb-1">
                                                                 <flux:icon.clock class="w-4 h-4" />
                                                             </div>
                                                             <div class="text-xs text-blue-600">
                                                                 Not started
                                                             </div>
+                                                            @if($payment['expected_amount'] > 0)
+                                                                <div class="text-xs text-gray-500">
+                                                                    RM {{ number_format($payment['expected_amount'], 2) }}
+                                                                </div>
+                                                            @endif
                                                         </div>
                                                         @break
 
@@ -3769,6 +4508,76 @@ new class extends Component
                                                             <flux:icon.x-mark class="w-4 h-4" />
                                                         </div>
                                                 @endswitch
+
+                                                <!-- Document Shipment Tracking -->
+                                                @if(isset($payment['shipment_item']))
+                                                    <div class="mt-2 pt-2 border-t border-gray-200">
+                                                        @if($payment['shipment_item']->tracking_number)
+                                                            <div class="flex items-center justify-center gap-1 text-xs">
+                                                                <flux:icon name="truck" class="w-3 h-3 text-blue-600" />
+                                                                <span class="text-gray-600 font-medium">Tracking:</span>
+                                                            </div>
+                                                            <div class="mt-1 px-2 py-1 bg-blue-50 rounded text-xs font-mono text-blue-700 hover:bg-blue-100 cursor-pointer transition-colors"
+                                                                 title="Click to copy tracking number"
+                                                                 onclick="navigator.clipboard.writeText('{{ $payment['shipment_item']->tracking_number }}'); alert('Tracking number copied!');">
+                                                                {{ $payment['shipment_item']->tracking_number }}
+                                                            </div>
+                                                            <div class="mt-1 text-xs flex items-center justify-center gap-1.5">
+                                                                @if($payment['shipment_item']->status === 'delivered')
+                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
+                                                                        <flux:icon name="check-circle" class="w-3 h-3" />
+                                                                        Delivered
+                                                                    </span>
+                                                                @elseif($payment['shipment_item']->status === 'shipped')
+                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
+                                                                        <flux:icon name="truck" class="w-3 h-3" />
+                                                                        Shipped
+                                                                    </span>
+                                                                @elseif($payment['shipment_item']->status === 'pending')
+                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded">
+                                                                        <flux:icon name="clock" class="w-3 h-3" />
+                                                                        Pending
+                                                                    </span>
+                                                                @elseif($payment['shipment_item']->status === 'failed')
+                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-100 text-red-700 rounded">
+                                                                        <flux:icon name="exclamation-triangle" class="w-3 h-3" />
+                                                                        Failed
+                                                                    </span>
+                                                                @endif
+
+                                                                @if($payment['shipment_item']->product_order_id)
+                                                                    <a href="{{ route('admin.orders.show', $payment['shipment_item']->product_order_id) }}"
+                                                                       wire:navigate
+                                                                       title="View Product Order"
+                                                                       class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition-colors">
+                                                                        <flux:icon name="eye" class="w-3 h-3" />
+                                                                    </a>
+                                                                @endif
+                                                            </div>
+                                                        @else
+                                                            <div class="flex items-center justify-center gap-1.5 text-xs text-gray-500">
+                                                                <flux:icon name="truck" class="w-3 h-3" />
+                                                                <span class="text-xs">{{ ucfirst($payment['shipment_item']->status) }}</span>
+
+                                                                @if($payment['shipment_item']->product_order_id)
+                                                                    <a href="{{ route('admin.orders.show', $payment['shipment_item']->product_order_id) }}"
+                                                                       wire:navigate
+                                                                       title="View Product Order"
+                                                                       class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition-colors">
+                                                                        <flux:icon name="eye" class="w-3 h-3" />
+                                                                    </a>
+                                                                @endif
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @elseif(isset($payment['shipment']))
+                                                    <div class="mt-2 pt-2 border-t border-gray-200">
+                                                        <div class="text-xs text-gray-500">
+                                                            <flux:icon name="information-circle" class="w-3 h-3 inline" />
+                                                            Not in shipment
+                                                        </div>
+                                                    </div>
+                                                @endif
                                             </td>
                                         @endforeach
                                         <td class="py-3 px-4 text-center font-medium border-l-2 border-gray-300">
@@ -3853,6 +4662,12 @@ new class extends Component
                         </div>
 
                         <div class="space-y-2">
+                            <div class="flex items-center space-x-2">
+                                <div class="inline-flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full">
+                                    <flux:icon.clock class="w-4 h-4" />
+                                </div>
+                                <flux:text class="text-sm">Pending Payment</flux:text>
+                            </div>
                             <div class="flex items-center space-x-2">
                                 <div class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full">
                                     <flux:icon.clock class="w-4 h-4" />
@@ -3970,6 +4785,224 @@ new class extends Component
                                 <div class="flex items-center justify-center">
                                     <flux:icon name="check" class="w-4 h-4 mr-1" />
                                     Record Payment
+                                </div>
+                            </flux:button>
+                        </div>
+                    </div>
+                @endif
+            </flux:modal>
+
+            <!-- Edit Enrollment Modal -->
+            <flux:modal name="edit-enrollment" :show="$showEditEnrollmentModal" wire:model="showEditEnrollmentModal">
+                <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+                    <flux:heading size="lg">Edit Enrollment</flux:heading>
+                    <flux:text class="mt-2">Update enrollment date and subscription type</flux:text>
+                </div>
+
+                @if($editingEnrollment)
+                    <div class="space-y-4">
+                        <!-- Student Info -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <flux:text class="text-sm font-medium text-gray-600">Student</flux:text>
+                            <flux:text class="text-sm text-gray-900 mt-1">
+                                {{ $editingEnrollment->student->user->name }}
+                            </flux:text>
+                        </div>
+
+                        <!-- Error Messages -->
+                        @if($errors->has('general'))
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <flux:text class="text-sm text-red-800">{{ $errors->first('general') }}</flux:text>
+                            </div>
+                        @endif
+
+                        <!-- Enrollment Date -->
+                        <flux:field>
+                            <flux:label>Enrollment Date</flux:label>
+                            <flux:input
+                                wire:model="editEnrollmentDate"
+                                type="date"
+                            />
+                            <flux:error name="editEnrollmentDate" />
+                        </flux:field>
+
+                        <!-- Payment Method Type -->
+                        <flux:field>
+                            <flux:label>Subscription Type</flux:label>
+                            <flux:select wire:model="editPaymentMethodType" class="w-full">
+                                <flux:select.option value="automatic">Automatic (Card Payment)</flux:select.option>
+                                <flux:select.option value="manual">Manual Payment</flux:select.option>
+                            </flux:select>
+                            <flux:description>Choose how the student will make payments</flux:description>
+                            <flux:error name="editPaymentMethodType" />
+                        </flux:field>
+
+                        <!-- Actions -->
+                        <div class="flex justify-end gap-3 pt-4">
+                            <flux:button variant="outline" wire:click="closeEditEnrollmentModal">
+                                Cancel
+                            </flux:button>
+                            <flux:button variant="primary" wire:click="updateEnrollment">
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="check" class="w-4 h-4 mr-1" />
+                                    Update Enrollment
+                                </div>
+                            </flux:button>
+                        </div>
+                    </div>
+                @endif
+            </flux:modal>
+
+            <!-- Create First Enrollment Modal -->
+            <flux:modal name="create-first-enrollment" :show="$showCreateFirstEnrollmentModal" wire:model="showCreateFirstEnrollmentModal">
+                <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+                    <flux:heading size="lg">Create First Enrollment</flux:heading>
+                    <flux:text class="mt-2">Set up the initial enrollment for this student</flux:text>
+                </div>
+
+                @if($creatingEnrollmentForStudentId)
+                    @php
+                        $student = \App\Models\Student::find($creatingEnrollmentForStudentId);
+                    @endphp
+
+                    @if($student)
+                        <div class="space-y-4">
+                            <!-- Student Info -->
+                            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                <div class="flex items-start gap-3">
+                                    <flux:icon.information-circle class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <flux:text class="text-sm font-medium text-blue-800">Creating enrollment for:</flux:text>
+                                        <flux:text class="text-sm text-blue-900 mt-1 font-semibold">
+                                            {{ $student->user->name }}
+                                        </flux:text>
+                                        <flux:text class="text-xs text-blue-700 mt-1">
+                                            Course: {{ $class->course->title }}
+                                        </flux:text>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Error Messages -->
+                            @if($errors->has('general'))
+                                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                    <flux:text class="text-sm text-red-800">{{ $errors->first('general') }}</flux:text>
+                                </div>
+                            @endif
+
+                            <!-- Enrollment Date -->
+                            <flux:field>
+                                <flux:label>Enrollment Date</flux:label>
+                                <flux:input
+                                    wire:model="newEnrollmentDate"
+                                    type="date"
+                                />
+                                <flux:description>The date when the student enrolled in this course</flux:description>
+                                <flux:error name="newEnrollmentDate" />
+                            </flux:field>
+
+                            <!-- Enrollment Fee -->
+                            <flux:field>
+                                <flux:label>Enrollment Fee (RM)</flux:label>
+                                <flux:input
+                                    wire:model="newEnrollmentFee"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0.00"
+                                />
+                                <flux:description>Monthly fee amount for this enrollment</flux:description>
+                                <flux:error name="newEnrollmentFee" />
+                            </flux:field>
+
+                            <!-- Payment Method Type -->
+                            <flux:field>
+                                <flux:label>Payment Method</flux:label>
+                                <flux:select wire:model="newPaymentMethodType" class="w-full">
+                                    <flux:select.option value="automatic">Automatic (Card Payment)</flux:select.option>
+                                    <flux:select.option value="manual">Manual Payment</flux:select.option>
+                                </flux:select>
+                                <flux:description>
+                                    <span class="font-medium">Automatic:</span> Student will be charged automatically via Stripe.<br>
+                                    <span class="font-medium">Manual:</span> Student will make manual payments.
+                                </flux:description>
+                                <flux:error name="newPaymentMethodType" />
+                            </flux:field>
+
+                            <!-- Actions -->
+                            <div class="flex justify-end gap-3 pt-4">
+                                <flux:button variant="outline" wire:click="closeCreateFirstEnrollmentModal">
+                                    Cancel
+                                </flux:button>
+                                <flux:button variant="primary" wire:click="createFirstEnrollment">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="plus-circle" class="w-4 h-4 mr-1" />
+                                        Create Enrollment
+                                    </div>
+                                </flux:button>
+                            </div>
+                        </div>
+                    @endif
+                @endif
+            </flux:modal>
+
+            <!-- Cancel Subscription Modal -->
+            <flux:modal name="cancel-subscription" :show="$showCancelSubscriptionModal" wire:model="showCancelSubscriptionModal">
+                <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+                    <flux:heading size="lg">Cancel Subscription</flux:heading>
+                    <flux:text class="mt-2">Set the cancellation date for this subscription</flux:text>
+                </div>
+
+                @if($cancelingEnrollment)
+                    <div class="space-y-4">
+                        <!-- Student Info -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <flux:text class="text-sm font-medium text-gray-600">Student</flux:text>
+                            <flux:text class="text-sm text-gray-900 mt-1">
+                                {{ $cancelingEnrollment->student->user->name }}
+                            </flux:text>
+                        </div>
+
+                        <!-- Warning Message -->
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <div class="flex items-start gap-2">
+                                <flux:icon.exclamation-triangle class="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <flux:text class="text-sm text-yellow-800 font-medium">Warning</flux:text>
+                                    <flux:text class="text-xs text-yellow-700 mt-1">
+                                        Canceling the subscription will stop future automatic payments. The student will lose access to the course on the cancellation date.
+                                    </flux:text>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Error Messages -->
+                        @if($errors->has('general'))
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <flux:text class="text-sm text-red-800">{{ $errors->first('general') }}</flux:text>
+                            </div>
+                        @endif
+
+                        <!-- Cancellation Date -->
+                        <flux:field>
+                            <flux:label>Cancellation Date</flux:label>
+                            <flux:input
+                                wire:model="cancellationDate"
+                                type="date"
+                            />
+                            <flux:description>Choose when the subscription should be cancelled</flux:description>
+                            <flux:error name="cancellationDate" />
+                        </flux:field>
+
+                        <!-- Actions -->
+                        <div class="flex justify-end gap-3 pt-4">
+                            <flux:button variant="outline" wire:click="closeCancelSubscriptionModal">
+                                Cancel
+                            </flux:button>
+                            <flux:button variant="danger" wire:click="cancelSubscription">
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="x-circle" class="w-4 h-4 mr-1" />
+                                    Cancel Subscription
                                 </div>
                             </flux:button>
                         </div>
@@ -4409,15 +5442,20 @@ new class extends Component
                             </div>
                         </flux:card>
 
-                        <!-- Shipments List -->
+                        <!-- Shipments Table -->
                         @php
-                            $shipments = $class->documentShipments()
-                                ->with(['product', 'warehouse', 'items.student'])
-                                ->orderBy('period_start_date', 'desc')
-                                ->get();
+                            $shipments = $this->filteredShipments;
+                            // Get available years from shipments (database-agnostic)
+                            $availableYears = $class->documentShipments()
+                                ->get()
+                                ->pluck('period_start_date')
+                                ->map(fn($date) => $date->year)
+                                ->unique()
+                                ->sortDesc()
+                                ->values();
                         @endphp
 
-                        @if($shipments->isEmpty())
+                        @if($class->documentShipments()->count() === 0)
                             <flux:card>
                                 <div class="p-12 text-center">
                                     <flux:icon.truck class="h-12 w-12 mx-auto text-gray-400 mb-4" />
@@ -4429,95 +5467,176 @@ new class extends Component
                                 </div>
                             </flux:card>
                         @else
-                            @foreach($shipments as $shipment)
-                                <flux:card>
-                                    <div class="p-6">
-                                        <div class="flex items-start justify-between">
-                                            <div class="flex-1">
-                                                <div class="flex items-center gap-3 mb-2">
-                                                    <flux:heading size="lg">{{ $shipment->period_label }}</flux:heading>
-                                                    <flux:badge variant="{{ $shipment->status_color }}">
-                                                        {{ $shipment->status_label }}
-                                                    </flux:badge>
-                                                </div>
-
-                                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-4">
-                                                    <div>
-                                                        <span class="text-gray-500">Shipment #:</span>
-                                                        <span class="ml-2 font-medium">{{ $shipment->shipment_number }}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span class="text-gray-500">Recipients:</span>
-                                                        <span class="ml-2 font-medium">{{ $shipment->total_recipients }} students</span>
-                                                    </div>
-                                                    <div>
-                                                        <span class="text-gray-500">Total Qty:</span>
-                                                        <span class="ml-2 font-medium">{{ $shipment->total_quantity }} items</span>
-                                                    </div>
-                                                    <div>
-                                                        <span class="text-gray-500">Total Cost:</span>
-                                                        <span class="ml-2 font-medium">{{ $shipment->formatted_total_cost }}</span>
-                                                    </div>
-                                                </div>
-
-                                                @if($shipment->scheduled_at)
-                                                <div class="mt-3 text-sm text-gray-500">
-                                                    Scheduled: {{ $shipment->scheduled_at->format('M d, Y') }}
-                                                    @if($shipment->shipped_at)
-                                                        • Shipped: {{ $shipment->shipped_at->format('M d, Y') }}
-                                                    @endif
-                                                    @if($shipment->delivered_at)
-                                                        • Delivered: {{ $shipment->delivered_at->format('M d, Y') }}
-                                                    @endif
-                                                </div>
-                                                @endif
-
-                                                <!-- Item Status Breakdown -->
-                                                <div class="mt-4 flex items-center gap-4 text-sm">
-                                                    <div class="flex items-center gap-2">
-                                                        <div class="h-2 w-2 rounded-full bg-yellow-500"></div>
-                                                        <span class="text-gray-600">Pending: {{ $shipment->getPendingItemsCount() }}</span>
-                                                    </div>
-                                                    <div class="flex items-center gap-2">
-                                                        <div class="h-2 w-2 rounded-full bg-purple-500"></div>
-                                                        <span class="text-gray-600">Shipped: {{ $shipment->getShippedItemsCount() }}</span>
-                                                    </div>
-                                                    <div class="flex items-center gap-2">
-                                                        <div class="h-2 w-2 rounded-full bg-green-500"></div>
-                                                        <span class="text-gray-600">Delivered: {{ $shipment->getDeliveredItemsCount() }}</span>
-                                                    </div>
-                                                    <div class="ml-auto">
-                                                        <span class="text-gray-500">Delivery Rate:</span>
-                                                        <span class="ml-2 font-medium">{{ $shipment->getDeliveryRate() }}%</span>
-                                                    </div>
-                                                </div>
+                            <!-- Filters and Bulk Actions -->
+                            <flux:card>
+                                <div class="p-6">
+                                    <div class="flex flex-col lg:flex-row gap-4 mb-6">
+                                        <!-- Filters -->
+                                        <div class="flex-1 flex flex-wrap gap-4">
+                                            <!-- Year Filter -->
+                                            <div class="w-40">
+                                                <flux:select wire:model.live="filterYear" placeholder="All Years">
+                                                    <option value="">All Years</option>
+                                                    @foreach($availableYears as $year)
+                                                        <option value="{{ $year }}">{{ $year }}</option>
+                                                    @endforeach
+                                                </flux:select>
                                             </div>
 
-                                            <div class="ml-4 flex flex-col gap-2">
-                                                @if($shipment->status === 'pending')
-                                                    <flux:button wire:click="markShipmentAsProcessing({{ $shipment->id }})" size="sm" variant="outline">
-                                                        Start Processing
-                                                    </flux:button>
-                                                @endif
-                                                @if($shipment->status === 'processing')
-                                                    <flux:button wire:click="markShipmentAsShipped({{ $shipment->id }})" size="sm" variant="primary">
-                                                        Mark as Shipped
-                                                    </flux:button>
-                                                @endif
-                                                @if($shipment->status === 'shipped')
-                                                    <flux:button wire:click="markShipmentAsDelivered({{ $shipment->id }})" size="sm" variant="primary">
-                                                        Mark as Delivered
-                                                    </flux:button>
-                                                @endif
-                                                <flux:button wire:click="viewShipmentDetails({{ $shipment->id }})" size="sm" variant="ghost">
-                                                    View Details
+                                            <!-- Month Filter -->
+                                            <div class="w-40">
+                                                <flux:select wire:model.live="filterMonth" placeholder="All Months" :disabled="!$filterYear">
+                                                    <option value="">All Months</option>
+                                                    @for($i = 1; $i <= 12; $i++)
+                                                        <option value="{{ $i }}">{{ \Carbon\Carbon::create()->month($i)->format('F') }}</option>
+                                                    @endfor
+                                                </flux:select>
+                                            </div>
+
+                                            <!-- Status Filter -->
+                                            <div class="w-44">
+                                                <flux:select wire:model.live="filterStatus" placeholder="All Statuses">
+                                                    <option value="">All Statuses</option>
+                                                    <option value="pending">Pending</option>
+                                                    <option value="processing">Processing</option>
+                                                    <option value="shipped">Shipped</option>
+                                                    <option value="delivered">Delivered</option>
+                                                    <option value="cancelled">Cancelled</option>
+                                                </flux:select>
+                                            </div>
+
+                                            <!-- Reset Filters -->
+                                            @if($filterYear || $filterMonth || $filterStatus)
+                                                <flux:button wire:click="resetTableFilters" variant="ghost" size="sm">
+                                                    <flux:icon.x-mark class="h-4 w-4 mr-1" />
+                                                    Reset
                                                 </flux:button>
-                                            </div>
+                                            @endif
                                         </div>
 
-                                        @if($selectedShipmentId === $shipment->id)
+                                    </div>
+
+                                    <!-- Table -->
+                                    @if($shipments->isEmpty())
+                                        <div class="text-center py-12 bg-gray-50 rounded-lg">
+                                            <flux:icon.truck class="mx-auto h-12 w-12 text-gray-400" />
+                                            <flux:heading size="lg" class="mt-2">No shipments found</flux:heading>
+                                            <flux:text class="text-gray-600 mt-1">Try adjusting your filters</flux:text>
+                                        </div>
+                                    @else
+                                        <div class="overflow-x-auto">
+                                            <table class="min-w-full divide-y divide-gray-200">
+                                                <thead class="bg-gray-50">
+                                                    <tr>
+                                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Period
+                                                        </th>
+                                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Shipment #
+                                                        </th>
+                                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Status
+                                                        </th>
+                                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Recipients
+                                                        </th>
+                                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Quantity
+                                                        </th>
+                                                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Total Cost
+                                                        </th>
+                                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Delivery Rate
+                                                        </th>
+                                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Scheduled
+                                                        </th>
+                                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Actions
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach($shipments as $shipment)
+                                                        <tr class="hover:bg-gray-50">
+                                                            <!-- Period -->
+                                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                                <div class="text-sm font-medium text-gray-900">{{ $shipment->period_label }}</div>
+                                                                <div class="text-xs text-gray-500">{{ $shipment->period_start_date->format('M d') }} - {{ $shipment->period_end_date->format('M d, Y') }}</div>
+                                                            </td>
+
+                                                            <!-- Shipment # -->
+                                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                                <div class="text-sm text-gray-900">{{ $shipment->shipment_number }}</div>
+                                                            </td>
+
+                                                            <!-- Status -->
+                                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                                <flux:badge variant="{{ $shipment->status_color }}" size="sm">
+                                                                    {{ $shipment->status_label }}
+                                                                </flux:badge>
+                                                            </td>
+
+                                                            <!-- Recipients -->
+                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
+                                                                <div class="text-sm text-gray-900">{{ $shipment->total_recipients }}</div>
+                                                                <div class="text-xs text-gray-500">students</div>
+                                                            </td>
+
+                                                            <!-- Quantity -->
+                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
+                                                                <div class="text-sm text-gray-900">{{ $shipment->total_quantity }}</div>
+                                                                <div class="text-xs text-gray-500">items</div>
+                                                            </td>
+
+                                                            <!-- Total Cost -->
+                                                            <td class="px-4 py-3 whitespace-nowrap text-right">
+                                                                <div class="text-sm font-medium text-gray-900">{{ $shipment->formatted_total_cost }}</div>
+                                                            </td>
+
+                                                            <!-- Delivery Rate -->
+                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
+                                                                @php
+                                                                    $deliveryRate = $shipment->getDeliveryRate();
+                                                                    $rateColor = $deliveryRate >= 80 ? 'text-green-600' : ($deliveryRate >= 50 ? 'text-yellow-600' : 'text-red-600');
+                                                                @endphp
+                                                                <div class="text-sm font-medium {{ $rateColor }}">{{ $deliveryRate }}%</div>
+                                                                <div class="text-xs text-gray-500">
+                                                                    {{ $shipment->getDeliveredItemsCount() }}/{{ $shipment->items()->count() }}
+                                                                </div>
+                                                            </td>
+
+                                                            <!-- Scheduled -->
+                                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                                @if($shipment->scheduled_at)
+                                                                    <div class="text-sm text-gray-900">{{ $shipment->scheduled_at->format('M d, Y') }}</div>
+                                                                    @if($shipment->shipped_at)
+                                                                        <div class="text-xs text-gray-500">Shipped: {{ $shipment->shipped_at->format('M d') }}</div>
+                                                                    @elseif($shipment->delivered_at)
+                                                                        <div class="text-xs text-green-600">Delivered: {{ $shipment->delivered_at->format('M d') }}</div>
+                                                                    @endif
+                                                                @else
+                                                                    <span class="text-sm text-gray-400">Not scheduled</span>
+                                                                @endif
+                                                            </td>
+
+                                                            <!-- Actions -->
+                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
+                                                                <div class="flex items-center justify-center gap-1">
+                                                                    <flux:button wire:click="viewShipmentDetails({{ $shipment->id }})" size="sm" variant="ghost">
+                                                                        <flux:icon.eye class="h-4 w-4" />
+                                                                    </flux:button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+
+                                                        <!-- Expandable Details Row -->
+                                                        @if($selectedShipmentId === $shipment->id)
+                                                            <tr>
+                                                                <td colspan="9" class="px-4 py-6 bg-gray-50">
                                             <!-- Student-Level Details -->
-                                            <div class="mt-6 border-t pt-6">
+                                            <div>
                                                 <div class="mb-6 flex items-center justify-between flex-wrap gap-4">
                                                     <flux:heading size="md">Student Shipment Details</flux:heading>
                                                     <div class="flex gap-2">
@@ -4552,6 +5671,31 @@ new class extends Component
                                                                         updated {{ $importProgress['updated'] ?? 0 }} tracking numbers
                                                                     </p>
                                                                 @endif
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                @endif
+
+                                                <!-- Bulk Actions for Student Items -->
+                                                @if(count($selectedShipmentItemIds) > 0)
+                                                    <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                                        <div class="flex flex-wrap gap-3 items-center">
+                                                            <span class="text-sm font-medium text-blue-900">
+                                                                {{ count($selectedShipmentItemIds) }} student(s) selected
+                                                            </span>
+                                                            <div class="flex gap-2">
+                                                                <flux:button wire:click="bulkMarkItemsAsShipped" variant="outline" size="sm">
+                                                                    <div class="flex items-center justify-center">
+                                                                        <flux:icon name="truck" class="w-4 h-4 mr-1" />
+                                                                        Mark as Shipped
+                                                                    </div>
+                                                                </flux:button>
+                                                                <flux:button wire:click="bulkMarkItemsAsDelivered" variant="outline" size="sm">
+                                                                    <div class="flex items-center justify-center">
+                                                                        <flux:icon name="check-circle" class="w-4 h-4 mr-1" />
+                                                                        Mark as Delivered
+                                                                    </div>
+                                                                </flux:button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -4609,6 +5753,18 @@ new class extends Component
                                                         <table class="min-w-full divide-y divide-gray-200">
                                                             <thead class="bg-gray-50">
                                                                 <tr>
+                                                                    <th class="px-4 py-3 text-left">
+                                                                        @php
+                                                                            $filteredItemIds = $filteredItems->pluck('id')->toArray();
+                                                                            $allSelected = count(array_intersect($this->selectedShipmentItemIds, $filteredItemIds)) === count($filteredItemIds) && count($filteredItemIds) > 0;
+                                                                        @endphp
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            wire:click="toggleSelectAllItems({{ $shipment->id }})"
+                                                                            @checked($allSelected)
+                                                                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                        />
+                                                                    </th>
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -4618,7 +5774,15 @@ new class extends Component
                                                             </thead>
                                                             <tbody class="bg-white divide-y divide-gray-200">
                                                                 @foreach($filteredItems as $item)
-                                                                    <tr>
+                                                                    <tr class="{{ in_array($item->id, $selectedShipmentItemIds) ? 'bg-blue-50' : '' }}">
+                                                                        <td class="px-4 py-3 whitespace-nowrap">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                wire:model.live="selectedShipmentItemIds"
+                                                                                value="{{ $item->id }}"
+                                                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                            />
+                                                                        </td>
                                                                         <td class="px-4 py-3 text-sm">
                                                                             {{ $item->student->name }}
                                                                         </td>
@@ -4666,10 +5830,16 @@ new class extends Component
                                                     @endif
                                                 @endif
                                             </div>
-                                        @endif
-                                    </div>
-                                </flux:card>
+                                                                </td>
+                                                            </tr>
+                                                        @endif
                             @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    @endif
+                                </div>
+                            </flux:card>
                         @endif
                     </div>
                 @else

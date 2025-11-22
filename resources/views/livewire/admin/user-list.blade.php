@@ -130,6 +130,16 @@ new class extends Component {
     {
         return User::where('role', 'student')->count();
     }
+
+    public function getLiveHostsCountProperty()
+    {
+        return User::where('role', 'live_host')->count();
+    }
+
+    public function getAdminLivehostsCountProperty()
+    {
+        return User::where('role', 'admin_livehost')->count();
+    }
 };
 
 ?>
@@ -169,7 +179,7 @@ new class extends Component {
 
     <div class="mt-6 space-y-6">
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
             <flux:card class="p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-blue-50 p-3">
@@ -229,6 +239,30 @@ new class extends Component {
                     </div>
                 </div>
             </flux:card>
+
+            <flux:card class="p-6">
+                <div class="flex items-center">
+                    <div class="rounded-md bg-pink-50 p-3">
+                        <flux:icon.video-camera class="h-6 w-6 text-pink-600" />
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-2xl font-semibold text-gray-900">{{ $this->liveHostsCount }}</p>
+                        <p class="text-sm text-gray-500">Live Hosts</p>
+                    </div>
+                </div>
+            </flux:card>
+
+            <flux:card class="p-6">
+                <div class="flex items-center">
+                    <div class="rounded-md bg-teal-50 p-3">
+                        <flux:icon.shield-check class="h-6 w-6 text-teal-600" />
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-2xl font-semibold text-gray-900">{{ $this->adminLivehostsCount }}</p>
+                        <p class="text-sm text-gray-500">Admin Livehosts</p>
+                    </div>
+                </div>
+            </flux:card>
         </div>
 
         <!-- Filters -->
@@ -249,6 +283,8 @@ new class extends Component {
                             <option value="admin">Admin</option>
                             <option value="teacher">Teacher</option>
                             <option value="student">Student</option>
+                            <option value="live_host">Live Host</option>
+                            <option value="admin_livehost">Admin Livehost</option>
                         </flux:select>
                     </div>
                     
@@ -349,7 +385,16 @@ new class extends Component {
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <flux:badge variant="filled" :color="$user->role === 'admin' ? 'purple' : ($user->role === 'teacher' ? 'orange' : 'blue')">
+                                    @php
+                                        $roleColor = match($user->role) {
+                                            'admin' => 'purple',
+                                            'teacher' => 'orange',
+                                            'live_host' => 'pink',
+                                            'admin_livehost' => 'teal',
+                                            default => 'blue'
+                                        };
+                                    @endphp
+                                    <flux:badge variant="filled" :color="$roleColor">
                                         {{ $user->role_name }}
                                     </flux:badge>
                                 </td>

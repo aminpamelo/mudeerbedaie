@@ -242,7 +242,7 @@ class ClassDocumentShipment extends Model
                 'product_id' => $this->product_id,
                 'warehouse_id' => $this->warehouse_id,
                 'type' => 'out', // Stock going out for class shipment
-                'quantity' => $quantityToDeduct,
+                'quantity' => -$quantityToDeduct,
                 'quantity_before' => $quantityBefore,
                 'quantity_after' => $stockLevel->quantity,
                 'reference_type' => self::class,

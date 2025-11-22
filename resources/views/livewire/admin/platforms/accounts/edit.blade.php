@@ -1,25 +1,42 @@
 <?php
 
-use Livewire\Volt\Component;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
+use App\Models\User;
+use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Platform $platform;
+
     public PlatformAccount $account;
 
+    public $selected_hosts = [];
+
     public $account_name = '';
+
     public $seller_id = '';
+
     public $shop_id = '';
+
     public $business_manager_id = '';
+
     public $email = '';
+
     public $phone = '';
+
     public $country_code = '';
+
     public $currency = '';
+
     public $notes = '';
+
     public $is_active = true;
+
     public $auto_sync_orders = false;
+
     public $auto_sync_products = false;
+
     public $showAdvancedSettings = false;
 
     public function mount(Platform $platform, PlatformAccount $account)
@@ -33,6 +50,7 @@ new class extends Component {
         }
 
         // Populate form fields
+        $this->selected_hosts = $account->liveHosts->pluck('id')->toArray();
         $this->account_name = $account->name;
         $this->seller_id = $account->account_id ?? '';
         $this->shop_id = $account->shop_id ?? '';
@@ -50,6 +68,8 @@ new class extends Component {
     public function rules()
     {
         return [
+            'selected_hosts' => 'required|array|min:1',
+            'selected_hosts.*' => 'exists:users,id',
             'account_name' => 'required|string|max:255',
             'seller_id' => 'nullable|string|max:255',
             'shop_id' => 'nullable|string|max:255',
@@ -71,6 +91,7 @@ new class extends Component {
 
         // Update the platform account
         $this->account->update([
+            'user_id' => $validated['selected_hosts'][0], // Keep first host for backward compatibility
             'name' => $validated['account_name'],
             'account_id' => $validated['seller_id'] ?: null,
             'shop_id' => $validated['shop_id'] ?: null,
@@ -85,13 +106,23 @@ new class extends Component {
             'auto_sync_products' => $validated['auto_sync_products'],
         ]);
 
+        // Sync selected live hosts with the account
+        $this->account->liveHosts()->sync($validated['selected_hosts']);
+
         return redirect()->route('platforms.accounts.show', [$this->platform, $this->account])
             ->with('success', "Account '{$this->account->name}' has been updated successfully");
     }
 
     public function toggleAdvancedSettings()
     {
-        $this->showAdvancedSettings = !$this->showAdvancedSettings;
+        $this->showAdvancedSettings = ! $this->showAdvancedSettings;
+    }
+
+    public function getLiveHostsProperty()
+    {
+        return User::where('role', 'live_host')
+            ->orderBy('name')
+            ->get();
     }
 }; ?>
 
@@ -173,6 +204,32 @@ new class extends Component {
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {{-- Live Hosts --}}
+                        <div class="md:col-span-2">
+                            <flux:field>
+                                <flux:label>Live Hosts *</flux:label>
+                                <flux:description>Select one or more live hosts who can manage this platform account</flux:description>
+
+                                @if($this->liveHosts->isNotEmpty())
+                                    <div class="mt-2 space-y-2">
+                                        @foreach($this->liveHosts as $host)
+                                            <flux:checkbox
+                                                wire:model="selected_hosts"
+                                                value="{{ $host->id }}"
+                                                label="{{ $host->name }} ({{ $host->email }})"
+                                            />
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <flux:description class="text-amber-600">
+                                        No live hosts found. Please create a user with the 'live_host' role first.
+                                    </flux:description>
+                                @endif
+
+                                <flux:error name="selected_hosts" />
+                            </flux:field>
+                        </div>
+
                         {{-- Account Name --}}
                         <div class="md:col-span-2">
                             <flux:field>

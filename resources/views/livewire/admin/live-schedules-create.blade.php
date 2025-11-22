@@ -32,8 +32,8 @@ new class extends Component {
 
     public function getPlatformAccountsProperty()
     {
-        return PlatformAccount::with(['platform', 'user'])
-            ->whereHas('user', fn ($q) => $q->where('role', 'live_host'))
+        return PlatformAccount::with(['platform', 'liveHosts'])
+            ->whereHas('liveHosts')
             ->get();
     }
 }
@@ -54,7 +54,7 @@ new class extends Component {
                 <option value="">Select a platform account</option>
                 @foreach($this->platformAccounts as $account)
                     <option value="{{ $account->id }}">
-                        {{ $account->platform->display_name }} - {{ $account->name }} ({{ $account->user->name }})
+                        {{ $account->platform->display_name }} - {{ $account->name }} ({{ $account->liveHosts->pluck('name')->join(', ') }})
                     </option>
                 @endforeach
             </flux:select>

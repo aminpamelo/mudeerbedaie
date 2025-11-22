@@ -1,17 +1,22 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\WithPagination;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
+use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public Platform $platform;
+
     public $search = '';
+
     public $statusFilter = '';
+
     public $sortBy = 'created_at';
+
     public $sortDirection = 'desc';
 
     public function mount(Platform $platform)
@@ -44,10 +49,10 @@ new class extends Component {
     public function toggleStatus($accountId)
     {
         $account = PlatformAccount::findOrFail($accountId);
-        $account->update(['is_active' => !$account->is_active]);
+        $account->update(['is_active' => ! $account->is_active]);
 
         $this->dispatch('account-updated', [
-            'message' => "Account '{$account->name}' has been " . ($account->is_active ? 'activated' : 'deactivated')
+            'message' => "Account '{$account->name}' has been ".($account->is_active ? 'activated' : 'deactivated'),
         ]);
     }
 
@@ -58,20 +63,20 @@ new class extends Component {
         $account->delete();
 
         $this->dispatch('account-deleted', [
-            'message' => "Account '{$accountName}' has been deleted successfully"
+            'message' => "Account '{$accountName}' has been deleted successfully",
         ]);
     }
 
     public function with()
     {
-        $query = $this->platform->accounts();
+        $query = $this->platform->accounts()->with('liveHosts');
 
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where('name', 'like', "%{$this->search}%")
-                  ->orWhere('account_id', 'like', "%{$this->search}%")
-                  ->orWhere('shop_id', 'like', "%{$this->search}%")
-                  ->orWhere('business_manager_id', 'like', "%{$this->search}%");
+                    ->orWhere('account_id', 'like', "%{$this->search}%")
+                    ->orWhere('shop_id', 'like', "%{$this->search}%")
+                    ->orWhere('business_manager_id', 'like', "%{$this->search}%");
             });
         }
 
@@ -82,7 +87,7 @@ new class extends Component {
         }
 
         $accounts = $query->orderBy($this->sortBy, $this->sortDirection)
-                         ->paginate(12);
+            ->paginate(12);
 
         return [
             'accounts' => $accounts,
@@ -260,6 +265,18 @@ new class extends Component {
 
                 {{-- Account Details --}}
                 <div class="p-4">
+                    {{-- Live Hosts --}}
+                    @if($account->liveHosts->isNotEmpty())
+                        <div class="mb-4 pb-4 border-b">
+                            <flux:text size="xs" class="text-zinc-600 mb-2">Live Hosts:</flux:text>
+                            <div class="flex flex-wrap gap-1">
+                                @foreach($account->liveHosts as $host)
+                                    <flux:badge size="sm" color="blue">{{ $host->name }}</flux:badge>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
                     {{-- Account IDs --}}
                     <div class="space-y-2 mb-4">
                         @if($account->account_id)

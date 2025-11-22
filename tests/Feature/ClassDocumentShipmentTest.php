@@ -333,7 +333,7 @@ test('individual shipment item deducts stock when shipped', function () {
         ->first();
 
     expect($stockMovement)->not->toBeNull()
-        ->and($stockMovement->quantity)->toBe(1)
+        ->and($stockMovement->quantity)->toBe(-1)
         ->and($stockMovement->type)->toBe('out')
         ->and($stockMovement->quantity_before)->toBe(100)
         ->and($stockMovement->quantity_after)->toBe(99);
@@ -425,14 +425,14 @@ test('shipment level processing does not double-deduct after individual items ar
         ->get();
 
     expect($shipmentMovements->count())->toBe(1)
-        ->and($shipmentMovements->first()->quantity)->toBe(3); // Only 3 items deducted at shipment level
+        ->and($shipmentMovements->first()->quantity)->toBe(-3); // Only 3 items deducted at shipment level
 
     $itemMovements = \App\Models\StockMovement::where('reference_type', \App\Models\ClassDocumentShipmentItem::class)
         ->whereIn('reference_id', [$item1->id, $item2->id])
         ->get();
 
     expect($itemMovements->count())->toBe(2)
-        ->and($itemMovements->sum('quantity'))->toBe(2); // 2 items deducted at item level
+        ->and($itemMovements->sum('quantity'))->toBe(-2); // 2 items deducted at item level
 });
 
 test('shipment includes both subscribed students and paid students without subscription', function () {

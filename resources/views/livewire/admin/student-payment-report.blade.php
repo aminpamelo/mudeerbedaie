@@ -3,6 +3,7 @@ use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Order;
 use App\Models\Student;
+use App\Services\StripeService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Response;
 use Livewire\Volt\Component;
@@ -22,6 +23,10 @@ new class extends Component
 
     public string $sortDirection = 'asc';
 
+    public array $visiblePeriods = [];
+
+    public bool $showColumnManager = false;
+
     public function mount()
     {
         // Ensure user is admin
@@ -31,6 +36,144 @@ new class extends Component
 
         // Default to current year
         $this->year = now()->year;
+
+        // Initialize all periods as visible
+        $this->initializeVisiblePeriods();
+    }
+
+    public function initializeVisiblePeriods()
+    {
+        $selectedCourse = null;
+        if ($this->courseFilter) {
+            $selectedCourse = Course::with('feeSettings')->find($this->courseFilter);
+        }
+
+        $periodColumns = $this->getPeriodColumns($selectedCourse);
+        $this->visiblePeriods = $periodColumns->pluck('label')->toArray();
+    }
+
+    public function togglePeriodVisibility($periodLabel)
+    {
+        if (in_array($periodLabel, $this->visiblePeriods)) {
+            $this->visiblePeriods = array_values(array_diff($this->visiblePeriods, [$periodLabel]));
+        } else {
+            $this->visiblePeriods[] = $periodLabel;
+        }
+    }
+
+    public function toggleAllPeriods()
+    {
+        $selectedCourse = null;
+        if ($this->courseFilter) {
+            $selectedCourse = Course::with('feeSettings')->find($this->courseFilter);
+        }
+
+        $periodColumns = $this->getPeriodColumns($selectedCourse);
+        $allPeriods = $periodColumns->pluck('label')->toArray();
+
+        if (count($this->visiblePeriods) === count($allPeriods)) {
+            $this->visiblePeriods = [];
+        } else {
+            $this->visiblePeriods = $allPeriods;
+        }
+    }
+
+    public function toggleColumnManager()
+    {
+        $this->showColumnManager = ! $this->showColumnManager;
+    }
+
+    public function startAutomaticSubscription($enrollmentId)
+    {
+        try {
+            $enrollment = Enrollment::with(['student.user', 'course.feeSettings'])->findOrFail($enrollmentId);
+
+            // Check if student has payment methods
+            if (! $enrollment->studentHasPaymentMethods()) {
+                $this->dispatch('notification',
+                    type: 'error',
+                    message: 'Student does not have any payment methods. Please add a payment method first.'
+                );
+
+                return;
+            }
+
+            // Get the default payment method
+            $paymentMethod = $enrollment->student->user->paymentMethods()
+                ->where('is_default', true)
+                ->where('is_active', true)
+                ->first();
+
+            if (! $paymentMethod) {
+                $this->dispatch('notification',
+                    type: 'error',
+                    message: 'Student does not have a default payment method.'
+                );
+
+                return;
+            }
+
+            // Create subscription using StripeService
+            $stripeService = app(StripeService::class);
+            $result = $stripeService->createSubscription($enrollment, $paymentMethod);
+
+            // Update payment method type to automatic
+            $enrollment->update(['payment_method_type' => 'automatic']);
+
+            $this->dispatch('notification',
+                type: 'success',
+                message: 'Automatic subscription started successfully!'
+            );
+
+        } catch (\Exception $e) {
+            $this->dispatch('notification',
+                type: 'error',
+                message: 'Failed to start subscription: '.$e->getMessage()
+            );
+        }
+    }
+
+    public function cancelSubscription($enrollmentId, $immediately = false)
+    {
+        try {
+            $enrollment = Enrollment::findOrFail($enrollmentId);
+
+            if (! $enrollment->stripe_subscription_id) {
+                $this->dispatch('notification',
+                    type: 'error',
+                    message: 'No active subscription found for this enrollment.'
+                );
+
+                return;
+            }
+
+            // Cancel subscription using StripeService
+            $stripeService = app(StripeService::class);
+            $result = $stripeService->cancelSubscription($enrollment->stripe_subscription_id, $immediately);
+
+            // Update enrollment status
+            if ($result['immediately']) {
+                $enrollment->update([
+                    'subscription_status' => 'canceled',
+                    'subscription_cancel_at' => now(),
+                ]);
+            } else {
+                $enrollment->update([
+                    'subscription_cancel_at' => Carbon::createFromTimestamp($result['cancel_at']),
+                ]);
+            }
+
+            $this->dispatch('notification',
+                type: 'success',
+                message: $result['message']
+            );
+
+        } catch (\Exception $e) {
+            $this->dispatch('notification',
+                type: 'error',
+                message: 'Failed to cancel subscription: '.$e->getMessage()
+            );
+        }
     }
 
     public function updatedSearch()
@@ -41,11 +184,13 @@ new class extends Component
     public function updatedCourseFilter()
     {
         $this->resetPage();
+        $this->initializeVisiblePeriods();
     }
 
     public function updatedYear()
     {
         $this->resetPage();
+        $this->initializeVisiblePeriods();
     }
 
     public function sortBy($field)
@@ -69,19 +214,26 @@ new class extends Component
         $students = $this->getStudents();
         $courses = Course::orderBy('name')->get();
         $paymentData = $this->getPaymentData($students, $selectedCourse);
+        $allPeriodColumns = $this->getPeriodColumns($selectedCourse);
+
+        // Filter visible period columns
+        $visiblePeriodColumns = $allPeriodColumns->filter(function ($period) {
+            return in_array($period['label'], $this->visiblePeriods);
+        });
 
         return [
             'students' => $students,
             'courses' => $courses,
             'selectedCourse' => $selectedCourse,
             'paymentData' => $paymentData,
-            'periodColumns' => $this->getPeriodColumns($selectedCourse),
+            'periodColumns' => $visiblePeriodColumns,
+            'allPeriodColumns' => $allPeriodColumns,
         ];
     }
 
     private function getStudents()
     {
-        $query = Student::with(['user', 'enrollments.course'])
+        $query = Student::with(['user', 'enrollments.course', 'enrollments'])
             ->whereHas('user', function ($q) {
                 if ($this->search) {
                     $q->where('name', 'like', '%'.$this->search.'%')
@@ -494,12 +646,72 @@ new class extends Component
                 <flux:text class="mt-2">Track student payment history across different billing periods</flux:text>
             </div>
         </div>
-        <flux:button variant="outline" wire:click="exportReport">
-            <div class="flex items-center justify-center">
-                <flux:icon icon="arrow-down-tray" class="w-4 h-4 mr-1" />
-                Export CSV
+        <div class="flex items-center gap-3">
+            <!-- Column Visibility Manager -->
+            <div class="relative" x-data="{ open: @entangle('showColumnManager') }">
+                <flux:button variant="outline" @click="open = !open">
+                    <div class="flex items-center justify-center">
+                        <flux:icon icon="view-columns" class="w-4 h-4 mr-1" />
+                        Columns
+                        <span class="ml-1 text-xs text-gray-500">({{ count($visiblePeriods) }}/{{ $allPeriodColumns->count() }})</span>
+                    </div>
+                </flux:button>
+
+                <div x-show="open" @click.away="open = false" x-cloak
+                     class="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                     x-transition:enter="transition ease-out duration-100"
+                     x-transition:enter-start="transform opacity-0 scale-95"
+                     x-transition:enter-end="transform opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-75"
+                     x-transition:leave-start="transform opacity-100 scale-100"
+                     x-transition:leave-end="transform opacity-0 scale-95">
+
+                    <div class="p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <flux:heading size="sm">Column Visibility</flux:heading>
+                            <flux:button variant="ghost" size="sm" wire:click="toggleAllPeriods">
+                                <div class="text-xs">
+                                    {{ count($visiblePeriods) === $allPeriodColumns->count() ? 'Hide All' : 'Show All' }}
+                                </div>
+                            </flux:button>
+                        </div>
+
+                        <div class="space-y-2 max-h-96 overflow-y-auto">
+                            @foreach($allPeriodColumns as $period)
+                                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                    <flux:checkbox
+                                        wire:model.live="visiblePeriods"
+                                        value="{{ $period['label'] }}"
+                                    />
+                                    <div class="flex-1">
+                                        <div class="text-sm font-medium text-gray-700">{{ $period['label'] }}</div>
+                                        @if($selectedCourse && $selectedCourse->feeSettings && $selectedCourse->feeSettings->billing_cycle !== 'yearly')
+                                            <div class="text-xs text-gray-500">
+                                                {{ $period['period_start']->format('M j') }} - {{ $period['period_end']->format('M j') }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                </label>
+                            @endforeach
+                        </div>
+
+                        @if(count($visiblePeriods) === 0)
+                            <div class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+                                ⚠️ At least one column must be visible
+                            </div>
+                        @endif
+                    </div>
+                </div>
             </div>
-        </flux:button>
+
+            <!-- Export CSV Button -->
+            <flux:button variant="outline" wire:click="exportReport">
+                <div class="flex items-center justify-center">
+                    <flux:icon icon="arrow-down-tray" class="w-4 h-4 mr-1" />
+                    Export CSV
+                </div>
+            </flux:button>
+        </div>
     </div>
 
     <!-- Filters -->
@@ -679,6 +891,10 @@ new class extends Component
                                     @endif
                                 </button>
                             </th>
+                            <th class="text-center py-3 px-3 min-w-[120px] border-l border-gray-100">
+                                <div class="font-medium">Payment Type</div>
+                                <div class="text-xs text-gray-500 mt-1">Auto / Manual</div>
+                            </th>
                             @foreach($periodColumns as $period)
                                 <th class="text-center py-3 px-3 min-w-[100px] border-l border-gray-100">
                                     <div class="font-medium">{{ $period['label'] }}</div>
@@ -693,6 +909,10 @@ new class extends Component
                                 <div class="font-medium">Payment Summary</div>
                                 <div class="text-xs text-gray-500 mt-1">Paid / Expected / Unpaid</div>
                             </th>
+                            <th class="text-center py-3 px-4 min-w-[180px] border-l border-gray-200">
+                                <div class="font-medium">Actions</div>
+                                <div class="text-xs text-gray-500 mt-1">Subscription Management</div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -704,10 +924,34 @@ new class extends Component
                                     <div class="text-xs text-gray-500">{{ $student->user->email }}</div>
                                 </td>
                                 @php
+                                    // Get enrollment for payment type indicator
+                                    $studentEnrollment = null;
+                                    if ($courseFilter) {
+                                        $studentEnrollment = $student->enrollments->where('course_id', $courseFilter)->first();
+                                    } else {
+                                        $studentEnrollment = $student->enrollments->first();
+                                    }
                                     $totalPaidForStudent = 0;
                                     $totalExpectedForStudent = 0;
                                     $totalUnpaidForStudent = 0;
                                 @endphp
+                                <td class="py-3 px-3 text-center border-l border-gray-100">
+                                    @if($studentEnrollment)
+                                        @if($studentEnrollment->payment_method_type === 'automatic' || $studentEnrollment->stripe_subscription_id)
+                                            <div class="inline-flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-700 rounded-md text-xs font-medium">
+                                                <flux:icon name="bolt" class="w-3 h-3" />
+                                                <span>Automatic</span>
+                                            </div>
+                                        @else
+                                            <div class="inline-flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
+                                                <flux:icon name="hand-raised" class="w-3 h-3" />
+                                                <span>Manual</span>
+                                            </div>
+                                        @endif
+                                    @else
+                                        <div class="text-xs text-gray-400">N/A</div>
+                                    @endif
+                                </td>
                                 @foreach($periodColumns as $period)
                                     @php
                                         $payment = $paymentData[$student->id][$period['label']] ?? ['orders' => collect(), 'total_amount' => 0, 'count' => 0, 'status' => 'no_data'];
@@ -862,6 +1106,46 @@ new class extends Component
                                             </div>
                                         @endif
                                     </div>
+                                </td>
+                                <td class="py-3 px-4 text-center border-l border-gray-200">
+                                    @if($studentEnrollment)
+                                        <div class="flex flex-col gap-2">
+                                            @if($studentEnrollment->payment_method_type === 'manual' && !$studentEnrollment->stripe_subscription_id)
+                                                <flux:button
+                                                    wire:click="startAutomaticSubscription({{ $studentEnrollment->id }})"
+                                                    variant="primary"
+                                                    size="sm"
+                                                    class="w-full"
+                                                >
+                                                    <div class="flex items-center justify-center">
+                                                        <flux:icon name="bolt" class="w-3 h-3 mr-1" />
+                                                        Start Auto
+                                                    </div>
+                                                </flux:button>
+                                            @endif
+
+                                            @if($studentEnrollment->stripe_subscription_id && in_array($studentEnrollment->subscription_status, ['active', 'trialing']))
+                                                <flux:button
+                                                    wire:click="cancelSubscription({{ $studentEnrollment->id }}, false)"
+                                                    variant="danger"
+                                                    size="sm"
+                                                    class="w-full"
+                                                    wire:confirm="Are you sure you want to cancel this subscription? It will remain active until the end of the billing period."
+                                                >
+                                                    <div class="flex items-center justify-center">
+                                                        <flux:icon name="x-circle" class="w-3 h-3 mr-1" />
+                                                        Cancel
+                                                    </div>
+                                                </flux:button>
+                                            @endif
+
+                                            @if(!$studentEnrollment->stripe_subscription_id && $studentEnrollment->payment_method_type !== 'manual')
+                                                <div class="text-xs text-gray-500">No actions</div>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <div class="text-xs text-gray-400">N/A</div>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach

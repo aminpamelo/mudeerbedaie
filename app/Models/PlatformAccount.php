@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PlatformAccount extends Model
@@ -58,6 +59,13 @@ class PlatformAccount extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function liveHosts(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'live_host_platform_account')
+            ->where('role', 'live_host')
+            ->withTimestamps();
     }
 
     public function orders(): HasMany

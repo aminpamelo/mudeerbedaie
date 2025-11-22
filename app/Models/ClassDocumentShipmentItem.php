@@ -205,7 +205,7 @@ class ClassDocumentShipmentItem extends Model
                 'product_id' => $shipment->product_id,
                 'warehouse_id' => $shipment->warehouse_id,
                 'type' => 'out',
-                'quantity' => $this->quantity,
+                'quantity' => -$this->quantity,
                 'quantity_before' => $quantityBefore,
                 'quantity_after' => $stockLevel->quantity,
                 'reference_type' => self::class,

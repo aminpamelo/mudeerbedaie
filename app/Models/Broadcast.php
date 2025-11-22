@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+
 class Broadcast extends Model
 {
     use HasFactory;
+
     protected function casts(): array
     {
         return [
@@ -17,6 +19,7 @@ class Broadcast extends Model
             'selected_students' => 'array',
         ];
     }
+
     protected $fillable = [
         'name',
         'type',
@@ -34,6 +37,7 @@ class Broadcast extends Model
         'total_failed',
         'selected_students',
     ];
+
     public function audiences(): BelongsToMany
     {
         return $this->belongsToMany(Audience::class, 'broadcast_audience')
@@ -56,6 +60,7 @@ class Broadcast extends Model
             $audienceStudentIds = $audience->students()->pluck('students.id');
             $studentIds = $studentIds->merge($audienceStudentIds);
         }
+
         return Student::whereIn('id', $studentIds->unique())->with('user')->get();
     }
 }
