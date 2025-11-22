@@ -555,13 +555,13 @@ class ClassDocumentShipment extends Model
     public function scopeForPeriod($query, $year, $month = null)
     {
         if ($month) {
-            $start = now()->setYear($year)->setMonth($month)->startOfMonth();
+            $start = now()->setYear((int) $year)->setMonth((int) $month)->startOfMonth();
             $end = $start->copy()->endOfMonth();
 
             return $query->where('period_start_date', '>=', $start)
                 ->where('period_start_date', '<=', $end);
         }
 
-        return $query->whereYear('period_start_date', $year);
+        return $query->whereYear('period_start_date', (int) $year);
     }
 }

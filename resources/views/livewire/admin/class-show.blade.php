@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ClassModel;
+use App\Services\StripeService;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -1587,13 +1588,48 @@ new class extends Component
 
         try {
             if ($this->cancelingEnrollment) {
-                $this->cancelingEnrollment->update([
-                    'subscription_cancel_at' => \Carbon\Carbon::parse($this->cancellationDate),
-                    'subscription_status' => 'canceled',
-                ]);
+                $cancellationDate = \Carbon\Carbon::parse($this->cancellationDate);
 
-                session()->flash('message', 'Subscription cancelled successfully!');
+                // Check if it's a Stripe subscription or Internal/Manual subscription
+                if ($this->cancelingEnrollment->isStripeSubscription()) {
+                    // For Stripe subscriptions, use StripeService to properly cancel
+                    $stripeService = app(StripeService::class);
+
+                    // Determine if we should cancel immediately or at period end
+                    $cancelImmediately = $cancellationDate->isToday() || $cancellationDate->isPast();
+
+                    $result = $stripeService->cancelSubscription(
+                        $this->cancelingEnrollment->stripe_subscription_id,
+                        $cancelImmediately
+                    );
+
+                    // Update enrollment based on Stripe response
+                    if ($result['immediately']) {
+                        $this->cancelingEnrollment->update([
+                            'subscription_status' => 'canceled',
+                            'subscription_cancel_at' => now(),
+                        ]);
+                    } else {
+                        $this->cancelingEnrollment->update([
+                            'subscription_cancel_at' => $cancellationDate,
+                        ]);
+                    }
+
+                    session()->flash('message', 'Stripe subscription cancelled successfully! '.$result['message']);
+                } else {
+                    // For Internal/Manual subscriptions, just update the database
+                    $this->cancelingEnrollment->update([
+                        'subscription_cancel_at' => $cancellationDate,
+                        'subscription_status' => 'canceled',
+                    ]);
+
+                    session()->flash('message', 'Manual subscription cancelled successfully!');
+                }
+
                 $this->closeCancelSubscriptionModal();
+
+                // Refresh the class data
+                $this->class->refresh();
             }
         } catch (\Exception $e) {
             $this->addError('general', 'Failed to cancel subscription: '.$e->getMessage());
@@ -1615,7 +1651,7 @@ new class extends Component
             ->flatten()
             ->pluck('enrolledBy')
             ->filter(fn ($user) => $user !== null)
-            ->filter(fn ($user) => !is_null($user->name))
+            ->filter(fn ($user) => ! is_null($user->name))
             ->unique('id')
             ->sortBy('name')
             ->values();
@@ -2034,6 +2070,58 @@ new class extends Component
         }
 
         return $query->get();
+    }
+
+    public function getFilteredPendingCountProperty(): int
+    {
+        $query = $this->class->documentShipments()->pending();
+
+        if ($this->filterMonth && $this->filterYear) {
+            $query->forPeriod($this->filterYear, $this->filterMonth);
+        } elseif ($this->filterYear) {
+            $query->forPeriod($this->filterYear);
+        }
+
+        return $query->count();
+    }
+
+    public function getFilteredProcessingCountProperty(): int
+    {
+        $query = $this->class->documentShipments()->processing();
+
+        if ($this->filterMonth && $this->filterYear) {
+            $query->forPeriod($this->filterYear, $this->filterMonth);
+        } elseif ($this->filterYear) {
+            $query->forPeriod($this->filterYear);
+        }
+
+        return $query->count();
+    }
+
+    public function getFilteredShippedCountProperty(): int
+    {
+        $query = $this->class->documentShipments()->shipped();
+
+        if ($this->filterMonth && $this->filterYear) {
+            $query->forPeriod($this->filterYear, $this->filterMonth);
+        } elseif ($this->filterYear) {
+            $query->forPeriod($this->filterYear);
+        }
+
+        return $query->count();
+    }
+
+    public function getFilteredDeliveredCountProperty(): int
+    {
+        $query = $this->class->documentShipments()->delivered();
+
+        if ($this->filterMonth && $this->filterYear) {
+            $query->forPeriod($this->filterYear, $this->filterMonth);
+        } elseif ($this->filterYear) {
+            $query->forPeriod($this->filterYear);
+        }
+
+        return $query->count();
     }
 
     public function viewShipmentDetails($shipmentId): void
@@ -4962,10 +5050,30 @@ new class extends Component
                     <div class="space-y-4">
                         <!-- Student Info -->
                         <div class="bg-gray-50 rounded-lg p-4">
-                            <flux:text class="text-sm font-medium text-gray-600">Student</flux:text>
-                            <flux:text class="text-sm text-gray-900 mt-1">
-                                {{ $cancelingEnrollment->student->user?->name ?? 'N/A' }}
-                            </flux:text>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <flux:text class="text-sm font-medium text-gray-600">Student</flux:text>
+                                    <flux:text class="text-sm text-gray-900 mt-1">
+                                        {{ $cancelingEnrollment->student->user?->name ?? 'N/A' }}
+                                    </flux:text>
+                                </div>
+                                <div>
+                                    <flux:text class="text-sm font-medium text-gray-600">Subscription Type</flux:text>
+                                    <div class="mt-1">
+                                        @if($cancelingEnrollment->isStripeSubscription())
+                                            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
+                                                <flux:icon name="credit-card" class="w-3 h-3" />
+                                                <span>Stripe Subscription</span>
+                                            </div>
+                                        @else
+                                            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-md text-xs font-medium">
+                                                <flux:icon name="banknotes" class="w-3 h-3" />
+                                                <span>Manual Subscription</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Warning Message -->
@@ -4975,7 +5083,11 @@ new class extends Component
                                 <div>
                                     <flux:text class="text-sm text-yellow-800 font-medium">Warning</flux:text>
                                     <flux:text class="text-xs text-yellow-700 mt-1">
-                                        Canceling the subscription will stop future automatic payments. The student will lose access to the course on the cancellation date.
+                                        @if($cancelingEnrollment->isStripeSubscription())
+                                            Canceling the Stripe subscription will stop future automatic payments and notify Stripe to cancel the subscription. The student will lose access to the course on the cancellation date.
+                                        @else
+                                            Canceling the manual subscription will mark it as canceled in the system. No payments are automatically processed for manual subscriptions.
+                                        @endif
                                     </flux:text>
                                 </div>
                             </div>
@@ -5394,34 +5506,6 @@ new class extends Component
                                     </flux:button>
                                 </div>
 
-                                <!-- Quick Stats -->
-                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                                    <div class="bg-yellow-50 p-4 rounded-lg">
-                                        <div class="text-sm text-yellow-600">Pending</div>
-                                        <div class="text-2xl font-bold text-yellow-900">
-                                            {{ $class->documentShipments()->pending()->count() }}
-                                        </div>
-                                    </div>
-                                    <div class="bg-blue-50 p-4 rounded-lg">
-                                        <div class="text-sm text-blue-600">Processing</div>
-                                        <div class="text-2xl font-bold text-blue-900">
-                                            {{ $class->documentShipments()->processing()->count() }}
-                                        </div>
-                                    </div>
-                                    <div class="bg-purple-50 p-4 rounded-lg">
-                                        <div class="text-sm text-purple-600">Shipped</div>
-                                        <div class="text-2xl font-bold text-purple-900">
-                                            {{ $class->documentShipments()->shipped()->count() }}
-                                        </div>
-                                    </div>
-                                    <div class="bg-green-50 p-4 rounded-lg">
-                                        <div class="text-sm text-green-600">Delivered</div>
-                                        <div class="text-2xl font-bold text-green-900">
-                                            {{ $class->documentShipments()->delivered()->count() }}
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <!-- Shipment Configuration Info -->
                                 <div class="bg-gray-50 p-4 rounded-lg space-y-2">
                                     <div class="text-sm font-medium text-gray-700">Configuration</div>
@@ -5657,6 +5741,34 @@ new class extends Component
                                                                 Export CSV
                                                             </div>
                                                         </flux:button>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Minimalist Status Cards -->
+                                                <div class="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                                        <div class="text-xs font-medium text-yellow-600 mb-1">Pending</div>
+                                                        <div class="text-lg font-bold text-yellow-900">
+                                                            {{ $shipment->items->where('status', 'pending')->count() }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                                        <div class="text-xs font-medium text-blue-600 mb-1">Processing</div>
+                                                        <div class="text-lg font-bold text-blue-900">
+                                                            {{ $shipment->items->where('status', 'processing')->count() }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                                                        <div class="text-xs font-medium text-purple-600 mb-1">Shipped</div>
+                                                        <div class="text-lg font-bold text-purple-900">
+                                                            {{ $shipment->items->where('status', 'shipped')->count() }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                                                        <div class="text-xs font-medium text-green-600 mb-1">Delivered</div>
+                                                        <div class="text-lg font-bold text-green-900">
+                                                            {{ $shipment->items->where('status', 'delivered')->count() }}
+                                                        </div>
                                                     </div>
                                                 </div>
 
