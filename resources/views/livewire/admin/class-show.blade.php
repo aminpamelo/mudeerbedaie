@@ -2491,8 +2491,8 @@ new class extends Component
                         return [
                             'id' => $student->id,
                             'enrollment_id' => $enrollment->id,
-                            'name' => $student->user->name,
-                            'email' => $student->user->email,
+                            'name' => $student->user?->name ?? 'N/A',
+                            'email' => $student->user?->email ?? 'N/A',
                             'enrollment_status' => $enrollment->status,
                             'enrollment_date' => $enrollment->enrollment_date,
                             'payment_summary' => [
