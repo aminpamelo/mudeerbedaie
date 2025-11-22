@@ -1614,7 +1614,8 @@ new class extends Component
             ->pluck('student.enrollments')
             ->flatten()
             ->pluck('enrolledBy')
-            ->filter(fn ($user) => $user !== null && isset($user->name))
+            ->filter(fn ($user) => $user !== null)
+            ->filter(fn ($user) => !is_null($user->name))
             ->unique('id')
             ->sortBy('name')
             ->values();
@@ -4121,7 +4122,9 @@ new class extends Component
                                 <flux:select wire:model.live="paymentPicFilter" class="w-full">
                                     <flux:select.option value="">All PICs</flux:select.option>
                                     @foreach($this->available_pics as $pic)
-                                        <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
+                                        @if($pic)
+                                            <flux:select.option value="{{ $pic->id }}">{{ $pic->name ?? 'N/A' }}</flux:select.option>
+                                        @endif
                                     @endforeach
                                 </flux:select>
                             </div>
@@ -4362,7 +4365,7 @@ new class extends Component
                                                 <a href="{{ route('enrollments.show', $enrollment) }}"
                                                    wire:navigate
                                                    class="block hover:opacity-80 transition-opacity">
-                                                    <div class="text-sm text-blue-600 hover:text-blue-800">{{ $enrollment->enrolledBy->name }}</div>
+                                                    <div class="text-sm text-blue-600 hover:text-blue-800">{{ $enrollment->enrolledBy?->name ?? 'N/A' }}</div>
                                                 </a>
                                             @else
                                                 <div class="text-xs text-gray-400">N/A</div>
@@ -5094,11 +5097,11 @@ new class extends Component
                                     <div class="flex items-center justify-between">
                                         <div class="flex items-center space-x-4">
                                             <flux:avatar size="lg">
-                                                {{ $picData['pic']->initials() }}
+                                                {{ $picData['pic']?->initials() ?? 'N/A' }}
                                             </flux:avatar>
                                             <div>
-                                                <flux:heading size="lg">{{ $picData['pic']->name }}</flux:heading>
-                                                <flux:text class="text-sm text-gray-600">{{ $picData['pic']->email }}</flux:text>
+                                                <flux:heading size="lg">{{ $picData['pic']?->name ?? 'N/A' }}</flux:heading>
+                                                <flux:text class="text-sm text-gray-600">{{ $picData['pic']?->email ?? 'N/A' }}</flux:text>
                                             </div>
                                         </div>
                                         <div class="flex items-center space-x-6">
