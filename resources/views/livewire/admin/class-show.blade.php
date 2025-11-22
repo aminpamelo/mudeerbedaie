@@ -1614,7 +1614,7 @@ new class extends Component
             ->pluck('student.enrollments')
             ->flatten()
             ->pluck('enrolledBy')
-            ->filter()
+            ->filter(fn ($user) => $user !== null && isset($user->name))
             ->unique('id')
             ->sortBy('name')
             ->values();
