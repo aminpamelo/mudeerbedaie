@@ -2418,91 +2418,93 @@ new class extends Component
             ->whereIn('student_id', $studentIds)
             ->get();
 
-        // Group by PIC
-        $picData = $enrollments->groupBy('enrolled_by')->map(function ($picEnrollments, $picId) {
-            $pic = $picEnrollments->first()->enrolledBy;
-            $studentCount = $picEnrollments->count();
+        // Group by PIC (filter out null enrolled_by first)
+        $picData = $enrollments
+            ->filter(fn ($enrollment) => $enrollment->enrolled_by !== null && $enrollment->enrolledBy !== null)
+            ->groupBy('enrolled_by')->map(function ($picEnrollments, $picId) {
+                $pic = $picEnrollments->first()->enrolledBy;
+                $studentCount = $picEnrollments->count();
 
-            // Calculate status distribution
-            $statusCounts = $picEnrollments->countBy('status');
+                // Calculate status distribution
+                $statusCounts = $picEnrollments->countBy('status');
 
-            // Calculate payment collection
-            $totalExpected = 0;
-            $totalCollected = 0;
-            $totalPending = 0;
-            $totalOverdue = 0;
+                // Calculate payment collection
+                $totalExpected = 0;
+                $totalCollected = 0;
+                $totalPending = 0;
+                $totalOverdue = 0;
 
-            foreach ($picEnrollments as $enrollment) {
-                // Get orders for current year
-                $orders = $enrollment->orders()
-                    ->whereYear('period_start', now()->year)
-                    ->get();
-
-                foreach ($orders as $order) {
-                    $totalExpected += $order->amount;
-
-                    if ($order->status === 'paid') {
-                        $totalCollected += $order->amount;
-                    } elseif ($order->status === 'pending' && $order->period_end < now()) {
-                        $totalOverdue += $order->amount;
-                    } elseif ($order->status === 'pending') {
-                        $totalPending += $order->amount;
-                    }
-                }
-            }
-
-            $collectionRate = $totalExpected > 0 ? round(($totalCollected / $totalExpected) * 100, 1) : 0;
-
-            return [
-                'pic' => $pic,
-                'student_count' => $studentCount,
-                'status_distribution' => [
-                    'enrolled' => $statusCounts->get('enrolled', 0),
-                    'active' => $statusCounts->get('active', 0),
-                    'completed' => $statusCounts->get('completed', 0),
-                    'dropped' => $statusCounts->get('dropped', 0),
-                    'suspended' => $statusCounts->get('suspended', 0),
-                    'pending' => $statusCounts->get('pending', 0),
-                ],
-                'payment_stats' => [
-                    'total_expected' => $totalExpected,
-                    'total_collected' => $totalCollected,
-                    'total_pending' => $totalPending,
-                    'total_overdue' => $totalOverdue,
-                    'collection_rate' => $collectionRate,
-                ],
-                'students' => $picEnrollments->map(function ($enrollment) {
-                    $student = $enrollment->student;
-
-                    // Get payment status for this student
+                foreach ($picEnrollments as $enrollment) {
+                    // Get orders for current year
                     $orders = $enrollment->orders()
                         ->whereYear('period_start', now()->year)
                         ->get();
 
-                    $expectedAmount = $orders->sum('amount');
-                    $paidAmount = $orders->where('status', 'paid')->sum('amount');
-                    $pendingAmount = $orders->where('status', 'pending')->sum('amount');
-                    $overdueAmount = $orders->where('status', 'pending')
-                        ->filter(fn ($o) => $o->period_end < now())
-                        ->sum('amount');
+                    foreach ($orders as $order) {
+                        $totalExpected += $order->amount;
 
-                    return [
-                        'id' => $student->id,
-                        'enrollment_id' => $enrollment->id,
-                        'name' => $student->user->name,
-                        'email' => $student->user->email,
-                        'enrollment_status' => $enrollment->status,
-                        'enrollment_date' => $enrollment->enrollment_date,
-                        'payment_summary' => [
-                            'expected' => $expectedAmount,
-                            'paid' => $paidAmount,
-                            'pending' => $pendingAmount,
-                            'overdue' => $overdueAmount,
-                        ],
-                    ];
-                }),
-            ];
-        })
+                        if ($order->status === 'paid') {
+                            $totalCollected += $order->amount;
+                        } elseif ($order->status === 'pending' && $order->period_end < now()) {
+                            $totalOverdue += $order->amount;
+                        } elseif ($order->status === 'pending') {
+                            $totalPending += $order->amount;
+                        }
+                    }
+                }
+
+                $collectionRate = $totalExpected > 0 ? round(($totalCollected / $totalExpected) * 100, 1) : 0;
+
+                return [
+                    'pic' => $pic,
+                    'student_count' => $studentCount,
+                    'status_distribution' => [
+                        'enrolled' => $statusCounts->get('enrolled', 0),
+                        'active' => $statusCounts->get('active', 0),
+                        'completed' => $statusCounts->get('completed', 0),
+                        'dropped' => $statusCounts->get('dropped', 0),
+                        'suspended' => $statusCounts->get('suspended', 0),
+                        'pending' => $statusCounts->get('pending', 0),
+                    ],
+                    'payment_stats' => [
+                        'total_expected' => $totalExpected,
+                        'total_collected' => $totalCollected,
+                        'total_pending' => $totalPending,
+                        'total_overdue' => $totalOverdue,
+                        'collection_rate' => $collectionRate,
+                    ],
+                    'students' => $picEnrollments->map(function ($enrollment) {
+                        $student = $enrollment->student;
+
+                        // Get payment status for this student
+                        $orders = $enrollment->orders()
+                            ->whereYear('period_start', now()->year)
+                            ->get();
+
+                        $expectedAmount = $orders->sum('amount');
+                        $paidAmount = $orders->where('status', 'paid')->sum('amount');
+                        $pendingAmount = $orders->where('status', 'pending')->sum('amount');
+                        $overdueAmount = $orders->where('status', 'pending')
+                            ->filter(fn ($o) => $o->period_end < now())
+                            ->sum('amount');
+
+                        return [
+                            'id' => $student->id,
+                            'enrollment_id' => $enrollment->id,
+                            'name' => $student->user->name,
+                            'email' => $student->user->email,
+                            'enrollment_status' => $enrollment->status,
+                            'enrollment_date' => $enrollment->enrollment_date,
+                            'payment_summary' => [
+                                'expected' => $expectedAmount,
+                                'paid' => $paidAmount,
+                                'pending' => $pendingAmount,
+                                'overdue' => $overdueAmount,
+                            ],
+                        ];
+                    }),
+                ];
+            })
             ->sortByDesc('student_count')
             ->values();
 
