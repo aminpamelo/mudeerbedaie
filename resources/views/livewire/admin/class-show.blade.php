@@ -1590,8 +1590,16 @@ new class extends Component
             if ($this->cancelingEnrollment) {
                 $cancellationDate = \Carbon\Carbon::parse($this->cancellationDate);
 
-                // Check if it's a Stripe subscription or Internal/Manual subscription
-                if ($this->cancelingEnrollment->isStripeSubscription()) {
+                // Check if enrollment has a subscription
+                if (empty($this->cancelingEnrollment->stripe_subscription_id)) {
+                    // For active enrollments without subscriptions (generating orders but no subscription yet)
+                    $this->cancelingEnrollment->update([
+                        'subscription_cancel_at' => $cancellationDate,
+                        'subscription_status' => 'canceled',
+                    ]);
+
+                    session()->flash('message', 'Enrollment cancelled successfully!');
+                } elseif ($this->cancelingEnrollment->isStripeSubscription()) {
                     // For Stripe subscriptions, use StripeService to properly cancel
                     $stripeService = app(StripeService::class);
 
@@ -4420,7 +4428,7 @@ new class extends Component
                                                                 <flux:icon name="pencil" class="w-4 h-4" />
                                                             </div>
                                                         </flux:button>
-                                                        @if($enrollment->stripe_subscription_id && !in_array($enrollment->subscription_status, ['canceled', 'incomplete_expired']))
+                                                        @if($enrollment->subscription_status === 'active')
                                                             <flux:button
                                                                 wire:click="openCancelSubscriptionModal({{ $enrollment->id }})"
                                                                 variant="ghost"
@@ -5060,7 +5068,12 @@ new class extends Component
                                 <div>
                                     <flux:text class="text-sm font-medium text-gray-600">Subscription Type</flux:text>
                                     <div class="mt-1">
-                                        @if($cancelingEnrollment->isStripeSubscription())
+                                        @if(empty($cancelingEnrollment->stripe_subscription_id))
+                                            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
+                                                <flux:icon name="document-text" class="w-3 h-3" />
+                                                <span>Active Enrollment (No Subscription)</span>
+                                            </div>
+                                        @elseif($cancelingEnrollment->isStripeSubscription())
                                             <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
                                                 <flux:icon name="credit-card" class="w-3 h-3" />
                                                 <span>Stripe Subscription</span>
@@ -5083,7 +5096,9 @@ new class extends Component
                                 <div>
                                     <flux:text class="text-sm text-yellow-800 font-medium">Warning</flux:text>
                                     <flux:text class="text-xs text-yellow-700 mt-1">
-                                        @if($cancelingEnrollment->isStripeSubscription())
+                                        @if(empty($cancelingEnrollment->stripe_subscription_id))
+                                            Canceling this enrollment will stop all future orders and mark the enrollment as canceled. The student will lose access to the course on the cancellation date.
+                                        @elseif($cancelingEnrollment->isStripeSubscription())
                                             Canceling the Stripe subscription will stop future automatic payments and notify Stripe to cancel the subscription. The student will lose access to the course on the cancellation date.
                                         @else
                                             Canceling the manual subscription will mark it as canceled in the system. No payments are automatically processed for manual subscriptions.

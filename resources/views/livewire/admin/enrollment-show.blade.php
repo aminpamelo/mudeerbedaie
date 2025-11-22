@@ -328,7 +328,7 @@ new class extends Component
             ->get();
 
         // Get subscription interval from course fee settings
-        $billingCycle = $this->enrollment->course->feeSettings->billing_cycle ?? 'monthly';
+        $billingCycle = $this->enrollment->course->feeSettings?->billing_cycle ?? 'monthly';
         $interval = str_contains($billingCycle, 'month') ? 'month' : (str_contains($billingCycle, 'year') ? 'year' : 'month');
         $intervalCount = 1; // Default to 1 for standard monthly/yearly cycles
 
@@ -415,7 +415,7 @@ new class extends Component
     public function getMonthlyPaymentBreakdown()
     {
         $currentYear = now()->year;
-        $billingCycle = $this->enrollment->course->feeSettings->billing_cycle ?? 'monthly';
+        $billingCycle = $this->enrollment->course->feeSettings?->billing_cycle ?? 'monthly';
 
         // Generate month columns based on billing cycle
         $months = collect(range(1, 12))->map(function ($month) use ($currentYear) {
@@ -2809,7 +2809,7 @@ new class extends Component
                                     </flux:badge>
                                 </div>
                                 <div class="p-4 border border-gray-200 rounded-lg">
-                                    <flux:text class="text-sm text-gray-600">{{ $enrollment->course->feeSettings->billing_cycle === 'monthly' ? 'Monthly' : 'Yearly' }} Fee</flux:text>
+                                    <flux:text class="text-sm text-gray-600">{{ ($enrollment->course->feeSettings?->billing_cycle === 'monthly') ? 'Monthly' : 'Yearly' }} Fee</flux:text>
                                     <flux:text class="mt-1 font-semibold">{{ $enrollment->formatted_enrollment_fee }}</flux:text>
                                 </div>
                                 <div class="p-4 border border-gray-200 rounded-lg">
@@ -4211,7 +4211,7 @@ new class extends Component
                         </div>
                         <div>
                             <span class="font-medium">Billing Cycle:</span>
-                            <span class="ml-2">{{ $enrollment->course->feeSettings->billing_cycle_label }}</span>
+                            <span class="ml-2">{{ $enrollment->course->feeSettings?->billing_cycle_label ?? 'N/A' }}</span>
                         </div>
                         <div>
                             <span class="font-medium">Student:</span>
