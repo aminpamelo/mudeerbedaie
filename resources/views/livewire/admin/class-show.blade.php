@@ -4239,12 +4239,12 @@ new class extends Component
                                                         <a href="{{ route('enrollments.show', $enrollment) }}"
                                                            wire:navigate
                                                            class="block hover:opacity-80 transition-opacity">
-                                                            <div class="font-medium text-blue-600 hover:text-blue-800">{{ $student->user->name }}</div>
+                                                            <div class="font-medium text-blue-600 hover:text-blue-800">{{ $student->user?->name ?? 'N/A' }}</div>
                                                             <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
                                                         </a>
                                                     @else
                                                         <div>
-                                                            <div class="font-medium text-gray-900">{{ $student->user->name }}</div>
+                                                            <div class="font-medium text-gray-900">{{ $student->user?->name ?? 'N/A' }}</div>
                                                             <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
                                                         </div>
                                                     @endif
@@ -4810,7 +4810,7 @@ new class extends Component
                         <div class="bg-gray-50 rounded-lg p-4">
                             <flux:text class="text-sm font-medium text-gray-600">Student</flux:text>
                             <flux:text class="text-sm text-gray-900 mt-1">
-                                {{ $editingEnrollment->student->user->name }}
+                                {{ $editingEnrollment->student->user?->name ?? 'N/A' }}
                             </flux:text>
                         </div>
 
@@ -4879,7 +4879,7 @@ new class extends Component
                                     <div>
                                         <flux:text class="text-sm font-medium text-blue-800">Creating enrollment for:</flux:text>
                                         <flux:text class="text-sm text-blue-900 mt-1 font-semibold">
-                                            {{ $student->user->name }}
+                                            {{ $student->user?->name ?? 'N/A' }}
                                         </flux:text>
                                         <flux:text class="text-xs text-blue-700 mt-1">
                                             Course: {{ $class->course->title }}
@@ -4964,7 +4964,7 @@ new class extends Component
                         <div class="bg-gray-50 rounded-lg p-4">
                             <flux:text class="text-sm font-medium text-gray-600">Student</flux:text>
                             <flux:text class="text-sm text-gray-900 mt-1">
-                                {{ $cancelingEnrollment->student->user->name }}
+                                {{ $cancelingEnrollment->student->user?->name ?? 'N/A' }}
                             </flux:text>
                         </div>
 
@@ -6535,19 +6535,19 @@ new class extends Component
                                 class="flex-shrink-0"
                             />
 
-                            <flux:avatar size="sm" :name="$student->user->name" class="flex-shrink-0" />
+                            <flux:avatar size="sm" :name="$student->user?->name ?? 'N/A'" class="flex-shrink-0" />
 
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
                                     <flux:text class="font-medium text-gray-900">
-                                        {{ $student->user->name }}
+                                        {{ $student->user?->name ?? 'N/A' }}
                                     </flux:text>
                                     <flux:badge size="sm" variant="outline">
                                         {{ $student->student_id }}
                                     </flux:badge>
                                 </div>
                                 <flux:text class="text-sm text-gray-600">
-                                    {{ $student->user->email }}
+                                    {{ $student->user?->email ?? 'N/A' }}
                                 </flux:text>
                             </div>
 
@@ -6577,8 +6577,8 @@ new class extends Component
                         <div class="flex flex-wrap gap-2">
                             @foreach($this->available_students->whereIn('id', $selectedStudents) as $student)
                                 <div class="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-green-200">
-                                    <flux:avatar size="xs" :name="$student->user->name" />
-                                    <span class="text-sm text-gray-700">{{ $student->user->name }}</span>
+                                    <flux:avatar size="xs" :name="$student->user?->name ?? 'N/A'" />
+                                    <span class="text-sm text-gray-700">{{ $student->user?->name ?? 'N/A' }}</span>
                                 </div>
                             @endforeach
                         </div>
@@ -6865,10 +6865,10 @@ new class extends Component
             <!-- Student Info -->
             <div class="mb-6">
                 <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                    <flux:avatar size="lg" :name="$selectedClassStudent->student->user->name" />
+                    <flux:avatar size="lg" :name="$selectedClassStudent->student->user?->name ?? 'N/A'" />
                     <div class="flex-1">
-                        <div class="font-semibold text-lg text-gray-900">{{ $selectedClassStudent->student->user->name }}</div>
-                        <div class="text-sm text-gray-600">{{ $selectedClassStudent->student->user->email }}</div>
+                        <div class="font-semibold text-lg text-gray-900">{{ $selectedClassStudent->student->user?->name ?? 'N/A' }}</div>
+                        <div class="text-sm text-gray-600">{{ $selectedClassStudent->student->user?->email ?? 'N/A' }}</div>
                         <div class="flex gap-3 mt-2">
                             <flux:badge size="sm" variant="outline">{{ $selectedClassStudent->student->student_id }}</flux:badge>
                             <flux:badge size="sm" class="badge-green">{{ ucfirst($selectedClassStudent->status) }}</flux:badge>
@@ -6979,16 +6979,16 @@ new class extends Component
             <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
                 <flux:heading size="lg">Edit Student Enrollment</flux:heading>
                 <flux:text class="text-sm text-gray-600 mt-1">
-                    Update enrollment settings for {{ $selectedClassStudent->student->user->name }}
+                    Update enrollment settings for {{ $selectedClassStudent->student->user?->name ?? 'N/A' }}
                 </flux:text>
             </div>
 
             <!-- Student Info Summary -->
             <div class="mb-6 p-3 bg-gray-50 rounded-lg">
                 <div class="flex items-center gap-3">
-                    <flux:avatar size="sm" :name="$selectedClassStudent->student->user->name" />
+                    <flux:avatar size="sm" :name="$selectedClassStudent->student->user?->name ?? 'N/A'" />
                     <div>
-                        <div class="font-medium text-gray-900">{{ $selectedClassStudent->student->user->name }}</div>
+                        <div class="font-medium text-gray-900">{{ $selectedClassStudent->student->user?->name ?? 'N/A' }}</div>
                         <div class="text-sm text-gray-600">{{ $selectedClassStudent->student->student_id }}</div>
                     </div>
                 </div>
