@@ -204,11 +204,11 @@ new class extends Component
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         <flux:avatar size="sm" class="mr-3">
-                                            {{ $student->user->initials() }}
+                                            {{ $student->user?->initials() ?? '?' }}
                                         </flux:avatar>
                                         <div>
-                                            <div class="text-sm font-medium text-gray-900">{{ $student->user->name }}</div>
-                                            <div class="text-sm text-gray-500">{{ $student->user->email }}</div>
+                                            <div class="text-sm font-medium text-gray-900">{{ $student->user?->name ?? 'No User' }}</div>
+                                            <div class="text-sm text-gray-500">{{ $student->user?->email ?? 'N/A' }}</div>
                                         </div>
                                     </div>
                                 </td>
