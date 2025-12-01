@@ -17,6 +17,10 @@ Route::middleware('guest')->group(function () {
     Volt::route('reset-password/{token}', 'auth.reset-password')
         ->name('password.reset');
 
+    // Fallback POST routes - redirect to GET when JavaScript fails
+    Route::post('login', fn () => redirect()->route('login'))->name('login.post');
+    Route::post('register', fn () => redirect()->route('register'))->name('register.post');
+    Route::post('forgot-password', fn () => redirect()->route('password.request'))->name('password.request.post');
 });
 
 Route::middleware('auth')->group(function () {
