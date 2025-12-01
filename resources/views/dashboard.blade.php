@@ -316,11 +316,11 @@
                                 <div class="flex items-center justify-between p-4 bg-gray-50  rounded-lg">
                                     <div class="flex items-center space-x-3">
                                         <div class="w-8 h-8 bg-green-100  rounded-full flex items-center justify-center">
-                                            <span class="text-xs font-medium text-green-700">{{ $order->student->user->initials() }}</span>
+                                            <span class="text-xs font-medium text-green-700">{{ $order->student?->user?->initials() ?? '?' }}</span>
                                         </div>
                                         <div>
-                                            <flux:text class="font-medium">{{ $order->student->user->name }}</flux:text>
-                                            <flux:text size="sm" class="text-gray-600">{{ $order->course->name }}</flux:text>
+                                            <flux:text class="font-medium">{{ $order->student?->user?->name ?? 'Unknown Student' }}</flux:text>
+                                            <flux:text size="sm" class="text-gray-600">{{ $order->course?->name ?? 'Unknown Course' }}</flux:text>
                                         </div>
                                     </div>
                                     <div class="text-right">
@@ -349,11 +349,11 @@
                             <div class="flex items-center justify-between p-4 border rounded-lg">
                                 <div class="flex items-center space-x-4">
                                     <div class="w-10 h-10 bg-gray-200  rounded-full flex items-center justify-center">
-                                        <span class="text-sm font-medium">{{ $enrollment->student->user->initials() }}</span>
+                                        <span class="text-sm font-medium">{{ $enrollment->student?->user?->initials() ?? '?' }}</span>
                                     </div>
                                     <div>
-                                        <flux:text class="font-medium">{{ $enrollment->student->user->name }}</flux:text>
-                                        <flux:text size="sm" class="text-gray-600">{{ $enrollment->course->name }}</flux:text>
+                                        <flux:text class="font-medium">{{ $enrollment->student?->user?->name ?? 'Unknown Student' }}</flux:text>
+                                        <flux:text size="sm" class="text-gray-600">{{ $enrollment->course?->name ?? 'Unknown Course' }}</flux:text>
                                     </div>
                                 </div>
                                 <div class="text-right">
