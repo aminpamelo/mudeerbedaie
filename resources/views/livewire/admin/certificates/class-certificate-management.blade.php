@@ -36,7 +36,7 @@ new class extends Component {
         $defaultCertificate = $this->class->getDefaultCertificate();
 
         $assignedCertificates = collect($this->class->certificates)
-            ->merge($this->class->course->certificates)
+            ->merge($this->class->course?->certificates ?? [])
             ->unique('id');
 
         $stats = $this->class->getCertificateIssuanceStats($defaultCertificate);
@@ -289,15 +289,19 @@ new class extends Component {
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         <div class="flex items-center">
                                             <div>
-                                                <a href="{{ route('students.show', $issue->student) }}" class="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">
-                                                    {{ $issue->student->user->name }}
-                                                </a>
-                                                <flux:text class="text-xs text-gray-500">{{ $issue->student->student_id }}</flux:text>
+                                                @if($issue->student)
+                                                    <a href="{{ route('students.show', $issue->student) }}" class="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">
+                                                        {{ $issue->student->user?->name ?? 'Unknown Student' }}
+                                                    </a>
+                                                    <flux:text class="text-xs text-gray-500">{{ $issue->student->student_id ?? '-' }}</flux:text>
+                                                @else
+                                                    <span class="text-gray-400">Unknown Student</span>
+                                                @endif
                                             </div>
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap">
-                                        <flux:text class="text-sm">{{ $issue->certificate->name }}</flux:text>
+                                        <flux:text class="text-sm">{{ $issue->certificate?->name ?? 'Unknown Certificate' }}</flux:text>
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         <flux:text class="text-sm font-mono">{{ $issue->certificate_number }}</flux:text>
@@ -375,18 +379,20 @@ new class extends Component {
                 </div>
                 <div class="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
                     @foreach($eligibleStudents as $student)
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                            <input
-                                type="checkbox"
-                                wire:model="selectedStudentIds"
-                                value="{{ $student->id }}"
-                                class="mr-3"
-                            >
-                            <div class="flex-1">
-                                <flux:text class="font-medium">{{ $student->user->name }}</flux:text>
-                                <flux:text class="text-xs text-gray-500">{{ $student->student_id }}</flux:text>
-                            </div>
-                        </label>
+                        @if($student && $student->user)
+                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
+                                <input
+                                    type="checkbox"
+                                    wire:model="selectedStudentIds"
+                                    value="{{ $student->id }}"
+                                    class="mr-3"
+                                >
+                                <div class="flex-1">
+                                    <flux:text class="font-medium">{{ $student->user->name }}</flux:text>
+                                    <flux:text class="text-xs text-gray-500">{{ $student->student_id }}</flux:text>
+                                </div>
+                            </label>
+                        @endif
                     @endforeach
                 </div>
                 <flux:error name="selectedStudentIds" />
