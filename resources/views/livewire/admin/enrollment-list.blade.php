@@ -278,17 +278,17 @@ new class extends Component
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         <flux:avatar size="sm" class="mr-3">
-                                            {{ $enrollment->student->user->initials() }}
+                                            {{ $enrollment->student?->user?->initials() ?? '?' }}
                                         </flux:avatar>
                                         <div>
-                                            <div class="text-sm font-medium text-gray-900">{{ $enrollment->student->user->name }}</div>
-                                            <div class="text-sm text-gray-500">{{ $enrollment->student->student_id }}</div>
+                                            <div class="text-sm font-medium text-gray-900">{{ $enrollment->student?->user?->name ?? 'Unknown Student' }}</div>
+                                            <div class="text-sm text-gray-500">{{ $enrollment->student?->student_id ?? '-' }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">{{ $enrollment->course->name }}</div>
-                                    <div class="text-sm text-gray-500">{{ Str::limit($enrollment->course->description, 50) }}</div>
+                                    <div class="text-sm font-medium text-gray-900">{{ $enrollment->course?->name ?? 'Unknown Course' }}</div>
+                                    <div class="text-sm text-gray-500">{{ Str::limit($enrollment->course?->description ?? '', 50) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <flux:badge :class="$enrollment->academic_status->badgeClass()">
@@ -314,16 +314,20 @@ new class extends Component
                                 </td>
                                 <!-- PIC (Person in Charge) -->
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center">
-                                        <flux:avatar size="xs" class="mr-2">
-                                            {{ $enrollment->enrolledBy->initials() }}
-                                        </flux:avatar>
-                                        <div class="text-sm text-gray-900">{{ $enrollment->enrolledBy->name }}</div>
-                                    </div>
+                                    @if($enrollment->enrolledBy)
+                                        <div class="flex items-center">
+                                            <flux:avatar size="xs" class="mr-2">
+                                                {{ $enrollment->enrolledBy->initials() }}
+                                            </flux:avatar>
+                                            <div class="text-sm text-gray-900">{{ $enrollment->enrolledBy->name }}</div>
+                                        </div>
+                                    @else
+                                        <span class="text-sm text-gray-400">-</span>
+                                    @endif
                                 </td>
                                 <!-- Monthly Fee -->
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    @if($enrollment->course->feeSettings)
+                                    @if($enrollment->course?->feeSettings)
                                         {{ $enrollment->course->feeSettings->formatted_fee }}
                                     @else
                                         <span class="text-gray-400">-</span>
