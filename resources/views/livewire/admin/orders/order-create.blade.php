@@ -61,9 +61,9 @@ new class extends Component
 
     public float $subtotal = 0;
 
-    public string|float $shippingCost = 0;
+    public ?float $shippingCost = 0;
 
-    public string|float $taxRate = 6.0; // GST percentage (editable)
+    public ?float $taxRate = 6.0; // GST percentage (editable)
 
     public float $taxAmount = 0;
 
@@ -158,19 +158,27 @@ new class extends Component
     public function calculateTotals(): void
     {
         $this->subtotal = array_sum(array_column($this->orderItems, 'total_price'));
-        $taxRate = is_numeric($this->taxRate) ? (float) $this->taxRate : 0;
-        $shippingCost = is_numeric($this->shippingCost) ? (float) $this->shippingCost : 0;
+        $taxRate = $this->taxRate ?? 0;
+        $shippingCost = $this->shippingCost ?? 0;
         $this->taxAmount = $this->subtotal * ($taxRate / 100);
         $this->total = $this->subtotal + $shippingCost + $this->taxAmount;
     }
 
-    public function updatedTaxRate(): void
+    public function updatedTaxRate($value): void
     {
+        // Convert empty string to null, Livewire will handle null for ?float
+        if ($value === '' || $value === null) {
+            $this->taxRate = null;
+        }
         $this->calculateTotals();
     }
 
-    public function updatedShippingCost(): void
+    public function updatedShippingCost($value): void
     {
+        // Convert empty string to null, Livewire will handle null for ?float
+        if ($value === '' || $value === null) {
+            $this->shippingCost = null;
+        }
         $this->calculateTotals();
     }
 
@@ -362,7 +370,7 @@ new class extends Component
     private function createOrderWithData($customer): void
     {
         // Create the order
-        $shippingCost = is_numeric($this->shippingCost) ? (float) $this->shippingCost : 0;
+        $shippingCost = $this->shippingCost ?? 0;
         $order = ProductOrder::create([
             'customer_id' => $customer?->id,
             'agent_id' => $this->form['agent_id'] ?: null,
@@ -1012,15 +1020,15 @@ new class extends Component
                             <flux:text>MYR {{ number_format($subtotal, 2) }}</flux:text>
                         </div>
 
-                        @if(is_numeric($shippingCost) && (float)$shippingCost > 0)
+                        @if(($shippingCost ?? 0) > 0)
                             <div class="flex justify-between">
                                 <flux:text>Delivery / Shipping</flux:text>
-                                <flux:text>MYR {{ number_format((float)$shippingCost, 2) }}</flux:text>
+                                <flux:text>MYR {{ number_format($shippingCost ?? 0, 2) }}</flux:text>
                             </div>
                         @endif
 
                         <div class="flex justify-between">
-                            <flux:text>Tax (GST {{ number_format(is_numeric($taxRate) ? (float)$taxRate : 0, 1) }}%)</flux:text>
+                            <flux:text>Tax (GST {{ number_format($taxRate ?? 0, 1) }}%)</flux:text>
                             <flux:text>MYR {{ number_format($taxAmount, 2) }}</flux:text>
                         </div>
 
