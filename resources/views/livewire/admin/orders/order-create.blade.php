@@ -609,7 +609,7 @@ new class extends Component
                                                     <li>
                                                         <button
                                                             type="button"
-                                                            @click="selectCustomer({{ $customer->id }}, '{{ $customer->name }}', '{{ $customer->email }}')"
+                                                            @click="selectCustomer({{ $customer->id }}, {{ json_encode($customer->name) }}, {{ json_encode($customer->email) }})"
                                                             class="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
                                                         >
                                                             <div class="flex flex-col">
@@ -670,7 +670,7 @@ new class extends Component
                                                     <li>
                                                         <button
                                                             type="button"
-                                                            @click="selectAgent({{ $agent->id }}, '{{ $agent->name }}', '{{ $agent->agent_code }}', '{{ $agent->company_name ?? '' }}')"
+                                                            @click="selectAgent({{ $agent->id }}, {{ json_encode($agent->name) }}, {{ json_encode($agent->agent_code) }}, {{ json_encode($agent->company_name ?? '') }})"
                                                             class="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
                                                         >
                                                             <div class="flex flex-col">
