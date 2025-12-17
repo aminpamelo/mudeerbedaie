@@ -335,6 +335,17 @@ new class extends Component
             'newStudentPhone.regex' => 'Phone number must contain only numbers.',
         ]);
 
+        // Check for duplicate phone number (combining country code + phone)
+        $countryCode = ltrim($this->newStudentCountryCode, '+');
+        $fullPhone = $countryCode.$this->newStudentPhone;
+
+        $existingStudent = \App\Models\Student::where('phone', $fullPhone)->first();
+        if ($existingStudent) {
+            $this->addError('newStudentPhone', 'This phone number is already registered to another student.');
+
+            return;
+        }
+
         try {
             // Create user first
             $user = \App\Models\User::create([
@@ -344,11 +355,7 @@ new class extends Component
                 'role' => 'student',
             ]);
 
-            // Combine country code and phone number
-            $countryCode = ltrim($this->newStudentCountryCode, '+');
-            $fullPhone = $countryCode.$this->newStudentPhone;
-
-            // Create student profile
+            // Create student profile (using $fullPhone from validation check above)
             $student = \App\Models\Student::create([
                 'user_id' => $user->id,
                 'ic_number' => $this->newStudentIcNumber ?: null,
@@ -387,8 +394,23 @@ new class extends Component
                 'sessions.attendances.student.user',
                 'activeStudents.student.user',
             ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Handle database errors (like unique constraint violations)
+            if (str_contains($e->getMessage(), 'UNIQUE constraint failed') || str_contains($e->getMessage(), 'Duplicate entry')) {
+                if (str_contains($e->getMessage(), 'phone')) {
+                    $this->addError('newStudentPhone', 'This phone number is already registered.');
+                } elseif (str_contains($e->getMessage(), 'email')) {
+                    $this->addError('newStudentEmail', 'This email is already registered.');
+                } elseif (str_contains($e->getMessage(), 'ic_number')) {
+                    $this->addError('newStudentIcNumber', 'This IC number is already registered.');
+                } else {
+                    $this->addError('newStudentName', 'A student with these details already exists.');
+                }
+            } else {
+                $this->addError('newStudentName', 'Database error: '.$e->getMessage());
+            }
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to create student: '.$e->getMessage());
+            $this->addError('newStudentName', 'Failed to create student: '.$e->getMessage());
         }
     }
 
@@ -7965,57 +7987,101 @@ new class extends Component
             <flux:text class="mt-2">Create a new student and optionally enroll them in this class</flux:text>
         </div>
 
+        {{-- Error Summary --}}
+        @if ($errors->any())
+            <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-start gap-3">
+                    <flux:icon name="exclamation-circle" class="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-red-800">Please fix the following errors:</p>
+                        <ul class="mt-2 text-sm text-red-700 list-disc list-inside space-y-1">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div class="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
             <!-- Account Information -->
             <div class="space-y-4">
                 <flux:heading size="sm">Account Information</flux:heading>
 
-                <flux:input
-                    wire:model="newStudentName"
-                    label="Full Name"
-                    placeholder="Enter student's full name"
-                    required
-                />
+                <flux:field>
+                    <flux:label>Full Name <span class="text-red-500">*</span></flux:label>
+                    <flux:input
+                        wire:model="newStudentName"
+                        placeholder="Enter student's full name"
+                        :invalid="$errors->has('newStudentName')"
+                    />
+                    @error('newStudentName')
+                        <flux:error>{{ $message }}</flux:error>
+                    @enderror
+                </flux:field>
 
-                <flux:input
-                    type="email"
-                    wire:model="newStudentEmail"
-                    label="Email Address (Optional)"
-                    placeholder="student@example.com"
-                />
+                <flux:field>
+                    <flux:label>Email Address (Optional)</flux:label>
+                    <flux:input
+                        type="email"
+                        wire:model="newStudentEmail"
+                        placeholder="student@example.com"
+                        :invalid="$errors->has('newStudentEmail')"
+                    />
+                    @error('newStudentEmail')
+                        <flux:error>{{ $message }}</flux:error>
+                    @enderror
+                </flux:field>
 
-                <flux:input
-                    wire:model="newStudentIcNumber"
-                    label="IC Number (Optional)"
-                    placeholder="e.g., 961208035935"
-                />
+                <flux:field>
+                    <flux:label>IC Number (Optional)</flux:label>
+                    <flux:input
+                        wire:model="newStudentIcNumber"
+                        placeholder="e.g., 961208035935"
+                        :invalid="$errors->has('newStudentIcNumber')"
+                    />
+                    <flux:description>Must be exactly 12 digits without dashes</flux:description>
+                    @error('newStudentIcNumber')
+                        <flux:error>{{ $message }}</flux:error>
+                    @enderror
+                </flux:field>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <flux:input
-                        type="password"
-                        wire:model="newStudentPassword"
-                        label="Password"
-                        placeholder="Enter password"
-                        required
-                    />
-                    <flux:input
-                        type="password"
-                        wire:model="newStudentPasswordConfirmation"
-                        label="Confirm Password"
-                        placeholder="Confirm password"
-                        required
-                    />
+                    <flux:field>
+                        <flux:label>Password <span class="text-red-500">*</span></flux:label>
+                        <flux:input
+                            type="password"
+                            wire:model="newStudentPassword"
+                            placeholder="Enter password"
+                            :invalid="$errors->has('newStudentPassword')"
+                        />
+                        <flux:description>Minimum 8 characters</flux:description>
+                        @error('newStudentPassword')
+                            <flux:error>{{ $message }}</flux:error>
+                        @enderror
+                    </flux:field>
+                    <flux:field>
+                        <flux:label>Confirm Password <span class="text-red-500">*</span></flux:label>
+                        <flux:input
+                            type="password"
+                            wire:model="newStudentPasswordConfirmation"
+                            placeholder="Confirm password"
+                            :invalid="$errors->has('newStudentPasswordConfirmation')"
+                        />
+                        @error('newStudentPasswordConfirmation')
+                            <flux:error>{{ $message }}</flux:error>
+                        @enderror
+                    </flux:field>
                 </div>
             </div>
 
             <!-- Phone Number -->
-            <div class="space-y-2">
-                <label class="text-sm font-medium text-zinc-700">
-                    Phone Number <span class="text-red-500">*</span>
-                </label>
+            <flux:field>
+                <flux:label>Phone Number <span class="text-red-500">*</span></flux:label>
                 <div class="flex gap-2">
                     <div class="w-28 shrink-0">
-                        <flux:select wire:model="newStudentCountryCode">
+                        <flux:select wire:model="newStudentCountryCode" :invalid="$errors->has('newStudentCountryCode')">
                             <flux:select.option value="+60">+60</flux:select.option>
                             <flux:select.option value="+65">+65</flux:select.option>
                             <flux:select.option value="+62">+62</flux:select.option>
@@ -8025,10 +8091,21 @@ new class extends Component
                         </flux:select>
                     </div>
                     <div class="flex-1">
-                        <flux:input wire:model="newStudentPhone" placeholder="123456789" />
+                        <flux:input
+                            wire:model="newStudentPhone"
+                            placeholder="123456789"
+                            :invalid="$errors->has('newStudentPhone')"
+                        />
                     </div>
                 </div>
-            </div>
+                <flux:description>Numbers only, without country code prefix</flux:description>
+                @error('newStudentPhone')
+                    <flux:error>{{ $message }}</flux:error>
+                @enderror
+                @error('newStudentCountryCode')
+                    <flux:error>{{ $message }}</flux:error>
+                @enderror
+            </flux:field>
 
             <!-- Enrollment Option -->
             <div class="bg-gray-50 rounded-lg p-4 space-y-4">
@@ -8049,6 +8126,17 @@ new class extends Component
                             Associate this enrollment with a specific order
                         </flux:description>
                     </flux:field>
+
+                    {{-- Capacity Warning --}}
+                    @if($class->max_capacity && $class->activeStudents()->count() >= $class->max_capacity)
+                        <div class="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <flux:icon name="exclamation-triangle" class="w-5 h-5 text-amber-500 shrink-0" />
+                            <p class="text-sm text-amber-700">
+                                <strong>Warning:</strong> This class is at maximum capacity ({{ $class->max_capacity }} students).
+                                The student will be created but not enrolled.
+                            </p>
+                        </div>
+                    @endif
                 @endif
             </div>
         </div>
