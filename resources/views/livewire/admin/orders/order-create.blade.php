@@ -178,6 +178,9 @@ new class extends Component
         // Convert empty string to null, Livewire will handle null for ?float
         if ($value === '' || $value === null) {
             $this->shippingCost = null;
+        } else {
+            // Round to 2 decimal places
+            $this->shippingCost = round((float) $value, 2);
         }
         $this->calculateTotals();
     }
@@ -994,6 +997,7 @@ new class extends Component
                                 min="0"
                                 wire:model.live="shippingCost"
                                 placeholder="0.00"
+                                x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(2)"
                             />
                         </flux:field>
                     </div>
