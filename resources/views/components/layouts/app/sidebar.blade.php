@@ -10,7 +10,7 @@
                 currentRoute: '{{ request()->route()->getName() }}',
                 sectionRoutes: {
                     'platform': ['dashboard'],
-                    'administration': ['courses.*', 'users.*', 'students.*', 'teachers.*', 'classes.*', 'admin.sessions.*', 'admin.payslips.*', 'enrollments.*'],
+                    'administration': ['courses.*', 'users.*', 'students.*', 'teachers.*', 'classes.*', 'class-categories.*', 'admin.sessions.*', 'admin.payslips.*', 'enrollments.*'],
                     'subscription': ['orders.*', 'admin.payments*'],
                     'products': ['products.*', 'product-categories.*', 'product-attributes.*'],
                     'crm': ['crm.*'],
@@ -97,6 +97,7 @@
                     <flux:navlist.item icon="users" :href="route('students.index')" :current="request()->routeIs('students.*')" wire:navigate>{{ __('Students') }}</flux:navlist.item>
                     <flux:navlist.item icon="user-group" :href="route('teachers.index')" :current="request()->routeIs('teachers.*')" wire:navigate>{{ __('Teachers') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar-days" :href="route('classes.index')" :current="request()->routeIs('classes.*')" wire:navigate>{{ __('Classes') }}</flux:navlist.item>
+                    <flux:navlist.item icon="folder" :href="route('class-categories.index')" :current="request()->routeIs('class-categories.*')" wire:navigate>{{ __('Class Categories') }}</flux:navlist.item>
                     <flux:navlist.item icon="presentation-chart-bar" :href="route('admin.sessions.index')" :current="request()->routeIs('admin.sessions.*')" wire:navigate>{{ __('Sessions') }}</flux:navlist.item>
                     <flux:navlist.item icon="banknotes" :href="route('admin.payslips.index')" :current="request()->routeIs('admin.payslips.*')" wire:navigate>{{ __('Payslips') }}</flux:navlist.item>
                     <flux:navlist.item icon="clipboard" :href="route('enrollments.index')" :current="request()->routeIs('enrollments.*')" wire:navigate>{{ __('Enrollments') }}</flux:navlist.item>
@@ -204,6 +205,7 @@
                 >
                     <flux:navlist.item icon="chart-bar" :href="route('admin.reports.packages-orders')" :current="request()->routeIs('admin.reports.packages-orders')" wire:navigate>{{ __('Package & Order Product Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="shopping-cart" :href="route('admin.reports.student-product-orders')" :current="request()->routeIs('admin.reports.student-product-orders')" wire:navigate>{{ __('Student Product Order Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="academic-cap" :href="route('admin.reports.student-class-enrollments')" :current="request()->routeIs('admin.reports.student-class-enrollments')" wire:navigate>{{ __('Student Class Enrollment Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="chart-bar" :href="route('admin.reports.subscriptions')" :current="request()->routeIs('admin.reports.subscriptions')" wire:navigate>{{ __('Subscription Reports') }}</flux:navlist.item>
                     <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.student-payments')" :current="request()->routeIs('admin.reports.student-payments')" wire:navigate>{{ __('Student Payment Report') }}</flux:navlist.item>
                 </flux:navlist.group>

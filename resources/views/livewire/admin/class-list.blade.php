@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ClassModel;
+use App\Models\ClassCategory;
 use App\Models\Course;
 use App\Models\Teacher;
 use Livewire\Volt\Component;
@@ -8,46 +9,71 @@ use Livewire\WithPagination;
 
 new class extends Component {
     use WithPagination;
-    
+
     public $search = '';
     public $courseFilter = '';
     public $statusFilter = '';
     public $classTypeFilter = '';
+    public $categoryFilter = '';
+    public $viewMode = 'grouped'; // 'list' or 'grouped'
     public $perPage = 10;
-    
+
+    // Category assignment modal
+    public $showCategoryModal = false;
+    public $editingClassId = null;
+    public $selectedCategoryIds = [];
+
+    // Category management modal
+    public $showCategoryManageModal = false;
+    public $editingCategoryId = null;
+    public $categoryName = '';
+    public $categoryColor = '#6366f1';
+    public $categoryDescription = '';
+
     public function updatingSearch()
     {
         $this->resetPage();
     }
-    
+
     public function updatingCourseFilter()
     {
         $this->resetPage();
     }
-    
+
     public function updatingStatusFilter()
     {
         $this->resetPage();
     }
-    
+
     public function updatingClassTypeFilter()
     {
         $this->resetPage();
     }
-    
+
+    public function updatingCategoryFilter()
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters()
     {
         $this->search = '';
         $this->courseFilter = '';
         $this->statusFilter = '';
         $this->classTypeFilter = '';
+        $this->categoryFilter = '';
         $this->resetPage();
     }
-    
+
+    public function setViewMode($mode)
+    {
+        $this->viewMode = $mode;
+    }
+
     public function getClassesProperty()
     {
         return ClassModel::query()
-            ->with(['course', 'teacher.user', 'sessions', 'activeStudents'])
+            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories'])
             ->when($this->search, function ($query) {
                 $query->where('title', 'like', '%' . $this->search . '%')
                     ->orWhereHas('course', function ($courseQuery) {
@@ -66,28 +92,215 @@ new class extends Component {
             ->when($this->classTypeFilter, function ($query) {
                 $query->where('class_type', $this->classTypeFilter);
             })
+            ->when($this->categoryFilter, function ($query) {
+                $query->whereHas('categories', function ($catQuery) {
+                    $catQuery->where('class_categories.id', $this->categoryFilter);
+                });
+            })
             ->orderBy('date_time', 'desc')
             ->paginate($this->perPage);
     }
-    
+
+    public function getGroupedClassesProperty()
+    {
+        $query = ClassModel::query()
+            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories'])
+            ->when($this->search, function ($query) {
+                $query->where('title', 'like', '%' . $this->search . '%')
+                    ->orWhereHas('course', function ($courseQuery) {
+                        $courseQuery->where('name', 'like', '%' . $this->search . '%');
+                    })
+                    ->orWhereHas('teacher.user', function ($teacherQuery) {
+                        $teacherQuery->where('name', 'like', '%' . $this->search . '%');
+                    });
+            })
+            ->when($this->courseFilter, function ($query) {
+                $query->where('course_id', $this->courseFilter);
+            })
+            ->when($this->statusFilter, function ($query) {
+                $query->where('status', $this->statusFilter);
+            })
+            ->when($this->classTypeFilter, function ($query) {
+                $query->where('class_type', $this->classTypeFilter);
+            })
+            ->when($this->categoryFilter, function ($query) {
+                $query->whereHas('categories', function ($catQuery) {
+                    $catQuery->where('class_categories.id', $this->categoryFilter);
+                });
+            })
+            ->orderBy('date_time', 'desc')
+            ->get();
+
+        // Get all active categories with their classes
+        $categories = ClassCategory::active()->ordered()->get();
+
+        $grouped = [];
+
+        // Group by categories
+        foreach ($categories as $category) {
+            $categoryClasses = $query->filter(function ($class) use ($category) {
+                return $class->categories->contains($category->id);
+            });
+
+            if ($categoryClasses->count() > 0) {
+                $grouped[] = [
+                    'category' => $category,
+                    'classes' => $categoryClasses,
+                ];
+            }
+        }
+
+        // Get uncategorized classes
+        $uncategorizedClasses = $query->filter(function ($class) {
+            return $class->categories->count() === 0;
+        });
+
+        if ($uncategorizedClasses->count() > 0) {
+            $grouped[] = [
+                'category' => null,
+                'classes' => $uncategorizedClasses,
+            ];
+        }
+
+        return $grouped;
+    }
+
     public function getTotalClassesProperty()
     {
         return ClassModel::count();
     }
-    
+
     public function getActiveClassesProperty()
     {
         return ClassModel::where('status', 'active')->count();
     }
-    
+
     public function getUpcomingClassesProperty()
     {
         return ClassModel::upcoming()->count();
     }
-    
+
     public function getCoursesProperty()
     {
         return Course::where('status', 'active')->orderBy('name')->get();
+    }
+
+    public function getCategoriesProperty()
+    {
+        return ClassCategory::active()->ordered()->get();
+    }
+
+    public function getAllCategoriesProperty()
+    {
+        return ClassCategory::ordered()->get();
+    }
+
+    // Category assignment methods
+    public function openCategoryModal($classId): void
+    {
+        $this->editingClassId = $classId;
+        $class = ClassModel::find($classId);
+        $this->selectedCategoryIds = $class->categories->pluck('id')->toArray();
+        $this->showCategoryModal = true;
+    }
+
+    public function closeCategoryModal(): void
+    {
+        $this->showCategoryModal = false;
+        $this->editingClassId = null;
+        $this->selectedCategoryIds = [];
+    }
+
+    public function saveCategoryAssignments(): void
+    {
+        $class = ClassModel::find($this->editingClassId);
+        if ($class) {
+            $class->categories()->sync($this->selectedCategoryIds);
+        }
+        $this->closeCategoryModal();
+    }
+
+    // Category management methods
+    public function openCategoryManageModal($categoryId = null): void
+    {
+        $this->editingCategoryId = $categoryId;
+
+        if ($categoryId) {
+            $category = ClassCategory::find($categoryId);
+            $this->categoryName = $category->name;
+            $this->categoryColor = $category->color;
+            $this->categoryDescription = $category->description ?? '';
+        } else {
+            $this->categoryName = '';
+            $this->categoryColor = '#6366f1';
+            $this->categoryDescription = '';
+        }
+
+        $this->showCategoryManageModal = true;
+    }
+
+    public function closeCategoryManageModal(): void
+    {
+        $this->showCategoryManageModal = false;
+        $this->editingCategoryId = null;
+        $this->categoryName = '';
+        $this->categoryColor = '#6366f1';
+        $this->categoryDescription = '';
+    }
+
+    public function saveCategory(): void
+    {
+        $this->validate([
+            'categoryName' => 'required|string|max:255',
+            'categoryColor' => 'required|string|max:7',
+            'categoryDescription' => 'nullable|string|max:500',
+        ]);
+
+        if ($this->editingCategoryId) {
+            $category = ClassCategory::find($this->editingCategoryId);
+            $category->update([
+                'name' => $this->categoryName,
+                'slug' => \Str::slug($this->categoryName),
+                'color' => $this->categoryColor,
+                'description' => $this->categoryDescription,
+            ]);
+        } else {
+            ClassCategory::create([
+                'name' => $this->categoryName,
+                'slug' => \Str::slug($this->categoryName),
+                'color' => $this->categoryColor,
+                'description' => $this->categoryDescription,
+                'is_active' => true,
+                'sort_order' => (ClassCategory::max('sort_order') ?? 0) + 1,
+            ]);
+        }
+
+        $this->closeCategoryManageModal();
+        $this->dispatch('$refresh');
+    }
+
+    public function deleteCategory($categoryId): void
+    {
+        $category = ClassCategory::find($categoryId);
+        if ($category) {
+            $category->delete();
+        }
+        $this->dispatch('$refresh');
+    }
+
+    public function toggleCategoryStatus($categoryId): void
+    {
+        $category = ClassCategory::find($categoryId);
+        if ($category) {
+            $category->update(['is_active' => !$category->is_active]);
+        }
+        $this->dispatch('$refresh');
+    }
+
+    public function switchToManageModal(): void
+    {
+        $this->closeCategoryModal();
+        $this->openCategoryManageModal();
     }
 };
 
@@ -99,9 +312,14 @@ new class extends Component {
             <flux:heading size="xl">Classes</flux:heading>
             <flux:text class="mt-2">Manage classes and schedules</flux:text>
         </div>
-        <flux:button variant="primary" href="{{ route('classes.create') }}" icon="plus">
-            Schedule New Class
-        </flux:button>
+        <div class="flex items-center gap-2">
+            <flux:button variant="ghost" wire:click="openCategoryManageModal" icon="folder">
+                Manage Categories
+            </flux:button>
+            <flux:button variant="primary" href="{{ route('classes.create') }}" icon="plus">
+                Schedule New Class
+            </flux:button>
+        </div>
     </div>
 
     <div class="mt-6 space-y-6">
@@ -147,15 +365,15 @@ new class extends Component {
         <!-- Filters -->
         <flux:card>
             <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                     <div class="md:col-span-2">
-                        <flux:input 
-                            wire:model.live="search" 
+                        <flux:input
+                            wire:model.live="search"
                             placeholder="Search classes..."
                             icon="magnifying-glass"
                         />
                     </div>
-                    
+
                     <div>
                         <flux:select wire:model.live="courseFilter">
                             <flux:select.option value="">All Courses</flux:select.option>
@@ -164,7 +382,16 @@ new class extends Component {
                             @endforeach
                         </flux:select>
                     </div>
-                    
+
+                    <div>
+                        <flux:select wire:model.live="categoryFilter">
+                            <flux:select.option value="">All Categories</flux:select.option>
+                            @foreach($this->categories as $category)
+                                <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    </div>
+
                     <div>
                         <flux:select wire:model.live="statusFilter">
                             <flux:select.option value="">All Status</flux:select.option>
@@ -175,7 +402,7 @@ new class extends Component {
                             <flux:select.option value="cancelled">Cancelled</flux:select.option>
                         </flux:select>
                     </div>
-                    
+
                     <div>
                         <flux:select wire:model.live="classTypeFilter">
                             <flux:select.option value="">All Types</flux:select.option>
@@ -184,11 +411,29 @@ new class extends Component {
                         </flux:select>
                     </div>
                 </div>
-                
-                <div class="mt-4 flex justify-end">
-                    <flux:button 
-                        wire:click="clearFilters" 
-                        variant="ghost" 
+
+                <div class="mt-4 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <flux:button
+                            wire:click="setViewMode('list')"
+                            variant="{{ $viewMode === 'list' ? 'primary' : 'ghost' }}"
+                            size="sm"
+                            icon="list-bullet"
+                        >
+                            List View
+                        </flux:button>
+                        <flux:button
+                            wire:click="setViewMode('grouped')"
+                            variant="{{ $viewMode === 'grouped' ? 'primary' : 'ghost' }}"
+                            size="sm"
+                            icon="squares-2x2"
+                        >
+                            Group by Category
+                        </flux:button>
+                    </div>
+                    <flux:button
+                        wire:click="clearFilters"
+                        variant="ghost"
                         icon="x-mark"
                     >
                         Clear Filters
@@ -197,52 +442,76 @@ new class extends Component {
             </div>
         </flux:card>
 
-        <!-- Classes List -->
+        @if($viewMode === 'list')
+        <!-- Classes List View -->
         <flux:card>
             <div class="overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200">
                     <flux:heading size="lg">Classes List</flux:heading>
                 </div>
-                
+
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Class</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Course</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Teacher</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Schedule</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Type</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500  uppercase tracking-wider">Students & Sessions</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white  divide-y divide-gray-200">
+                        <tbody class="bg-white divide-y divide-gray-200">
                             @forelse ($this->classes as $class)
-                                <tr class="hover:bg-gray-50 :bg-gray-800 transition-colors duration-150">
+                                <tr class="hover:bg-gray-50 transition-colors duration-150">
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div>
                                             <div class="font-medium text-gray-900">{{ $class->title }}</div>
                                             @if($class->description)
-                                                <div class="text-sm text-gray-500  truncate max-w-xs">
+                                                <div class="text-sm text-gray-500 truncate max-w-xs">
                                                     {{ Str::limit($class->description, 50) }}
                                                 </div>
                                             @endif
                                         </div>
                                     </td>
-                                    
+
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <button
+                                            wire:click="openCategoryModal({{ $class->id }})"
+                                            class="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors group"
+                                            title="Click to edit categories"
+                                        >
+                                            @forelse($class->categories as $category)
+                                                <span
+                                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                                                    style="background-color: {{ $category->color }}20; color: {{ $category->color }}"
+                                                >
+                                                    <span class="w-2 h-2 rounded-full" style="background-color: {{ $category->color }}"></span>
+                                                    {{ $category->name }}
+                                                </span>
+                                            @empty
+                                                <span class="text-xs text-gray-400 group-hover:text-gray-600 flex items-center gap-1">
+                                                    <flux:icon.plus class="w-3 h-3" />
+                                                    Add category
+                                                </span>
+                                            @endforelse
+                                        </button>
+                                    </td>
+
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-900">{{ $class->course->name }}</div>
                                     </td>
-                                    
+
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-2">
                                             <flux:avatar size="sm" :name="$class->teacher->fullName" />
                                             <div class="text-sm text-gray-900">{{ $class->teacher->fullName }}</div>
                                         </div>
                                     </td>
-                                    
+
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div>
                                             <div class="text-sm text-gray-900">{{ $class->date_time->format('M d, Y') }}</div>
@@ -251,28 +520,13 @@ new class extends Component {
                                             </div>
                                         </div>
                                     </td>
-                                    
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center gap-2">
-                                            @if($class->isIndividual())
-                                                <flux:icon.user class="h-4 w-4 text-blue-500" />
-                                                <span class="text-sm text-gray-900">Individual</span>
-                                            @else
-                                                <flux:icon.users class="h-4 w-4 text-green-500" />
-                                                <span class="text-sm text-gray-900">Group</span>
-                                                @if($class->max_capacity)
-                                                    <span class="text-xs text-gray-500">(Max: {{ $class->max_capacity }})</span>
-                                                @endif
-                                            @endif
-                                        </div>
-                                    </td>
-                                    
+
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <flux:badge size="sm" :class="$class->status_badge_class">
                                             {{ ucfirst($class->status) }}
                                         </flux:badge>
                                     </td>
-                                    
+
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-900">
                                             {{ $class->active_student_count }} student(s)
@@ -280,24 +534,26 @@ new class extends Component {
                                         <div class="text-xs text-gray-500">
                                             {{ $class->completed_sessions }}/{{ $class->total_sessions }} sessions
                                         </div>
-                                        @if($class->completed_sessions > 0)
-                                            <div class="text-xs text-gray-500">
-                                                RM {{ number_format($class->calculateTotalTeacherAllowance(), 2) }}
-                                            </div>
-                                        @endif
                                     </td>
-                                    
+
                                     <td class="px-6 py-4 whitespace-nowrap text-right">
                                         <div class="flex items-center justify-end gap-2">
-                                            <flux:button 
-                                                size="sm" 
-                                                variant="ghost" 
+                                            <flux:button
+                                                size="sm"
+                                                variant="ghost"
+                                                icon="folder"
+                                                wire:click="openCategoryModal({{ $class->id }})"
+                                                title="Edit categories"
+                                            />
+                                            <flux:button
+                                                size="sm"
+                                                variant="ghost"
                                                 icon="eye"
                                                 href="{{ route('classes.show', $class) }}"
                                             />
-                                            <flux:button 
-                                                size="sm" 
-                                                variant="ghost" 
+                                            <flux:button
+                                                size="sm"
+                                                variant="ghost"
                                                 icon="pencil"
                                                 href="{{ route('classes.edit', $class) }}"
                                             />
@@ -310,11 +566,11 @@ new class extends Component {
                                         <div class="text-gray-500">
                                             <flux:icon.calendar-days class="h-12 w-12 mx-auto mb-4 text-gray-300" />
                                             <p class="text-gray-600">No classes found</p>
-                                            @if($search || $courseFilter || $statusFilter || $classTypeFilter)
-                                                <flux:button 
-                                                    wire:click="clearFilters" 
-                                                    variant="ghost" 
-                                                    size="sm" 
+                                            @if($search || $courseFilter || $statusFilter || $classTypeFilter || $categoryFilter)
+                                                <flux:button
+                                                    wire:click="clearFilters"
+                                                    variant="ghost"
+                                                    size="sm"
                                                     class="mt-2"
                                                 >
                                                     Clear filters
@@ -327,7 +583,7 @@ new class extends Component {
                         </tbody>
                     </table>
                 </div>
-                
+
                 <!-- Pagination -->
                 @if($this->classes->hasPages())
                     <div class="px-6 py-4 border-t border-gray-200">
@@ -336,5 +592,317 @@ new class extends Component {
                 @endif
             </div>
         </flux:card>
+        @else
+        <!-- Grouped by Category View -->
+        <div class="space-y-6">
+            @forelse($this->groupedClasses as $group)
+                <flux:card>
+                    <div class="overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <div class="flex items-center gap-3">
+                                @if($group['category'])
+                                    <div
+                                        class="w-4 h-4 rounded-full flex-shrink-0"
+                                        style="background-color: {{ $group['category']->color }}"
+                                    ></div>
+                                    <flux:heading size="lg">{{ $group['category']->name }}</flux:heading>
+                                    <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
+                                @else
+                                    <div class="w-4 h-4 rounded-full flex-shrink-0 bg-gray-300"></div>
+                                    <flux:heading size="lg">Uncategorized</flux:heading>
+                                    <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
+                                @endif
+                            </div>
+                            @if($group['category'] && $group['category']->description)
+                                <flux:text class="mt-1">{{ $group['category']->description }}</flux:text>
+                            @endif
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    @foreach($group['classes'] as $class)
+                                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div>
+                                                    <div class="font-medium text-gray-900">{{ $class->title }}</div>
+                                                    @if($class->description)
+                                                        <div class="text-sm text-gray-500 truncate max-w-xs">
+                                                            {{ Str::limit($class->description, 50) }}
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900">{{ $class->course->name }}</div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center gap-2">
+                                                    <flux:avatar size="sm" :name="$class->teacher->fullName" />
+                                                    <div class="text-sm text-gray-900">{{ $class->teacher->fullName }}</div>
+                                                </div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div>
+                                                    <div class="text-sm text-gray-900">{{ $class->date_time->format('M d, Y') }}</div>
+                                                    <div class="text-sm text-gray-500">
+                                                        {{ $class->date_time->format('g:i A') }} ({{ $class->formatted_duration }})
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <flux:badge size="sm" :class="$class->status_badge_class">
+                                                    {{ ucfirst($class->status) }}
+                                                </flux:badge>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900">
+                                                    {{ $class->active_student_count }} student(s)
+                                                </div>
+                                                <div class="text-xs text-gray-500">
+                                                    {{ $class->completed_sessions }}/{{ $class->total_sessions }} sessions
+                                                </div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon="folder"
+                                                        wire:click="openCategoryModal({{ $class->id }})"
+                                                        title="Edit categories"
+                                                    />
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon="eye"
+                                                        href="{{ route('classes.show', $class) }}"
+                                                    />
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon="pencil"
+                                                        href="{{ route('classes.edit', $class) }}"
+                                                    />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </flux:card>
+            @empty
+                <flux:card>
+                    <div class="px-6 py-12 text-center">
+                        <div class="text-gray-500">
+                            <flux:icon.calendar-days class="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                            <p class="text-gray-600">No classes found</p>
+                            @if($search || $courseFilter || $statusFilter || $classTypeFilter || $categoryFilter)
+                                <flux:button
+                                    wire:click="clearFilters"
+                                    variant="ghost"
+                                    size="sm"
+                                    class="mt-2"
+                                >
+                                    Clear filters
+                                </flux:button>
+                            @endif
+                        </div>
+                    </div>
+                </flux:card>
+            @endforelse
+        </div>
+        @endif
     </div>
+
+    <!-- Category Assignment Modal -->
+    <flux:modal wire:model="showCategoryModal" class="md:w-96">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Assign Categories</flux:heading>
+                <flux:text class="mt-2">Select categories for this class</flux:text>
+            </div>
+
+            <div class="space-y-3 max-h-64 overflow-y-auto">
+                @forelse($this->allCategories as $category)
+                    <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors {{ in_array($category->id, $selectedCategoryIds) ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200' }}">
+                        <input
+                            type="checkbox"
+                            wire:model="selectedCategoryIds"
+                            value="{{ $category->id }}"
+                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <div class="flex items-center gap-2 flex-1">
+                            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{ $category->color }}"></span>
+                            <span class="text-sm font-medium text-gray-700">{{ $category->name }}</span>
+                        </div>
+                        @if(!$category->is_active)
+                            <flux:badge size="sm" color="zinc">Inactive</flux:badge>
+                        @endif
+                    </label>
+                @empty
+                    <div class="p-4 border border-dashed border-gray-300 rounded-lg text-center">
+                        <flux:icon.folder class="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                        <p class="text-sm text-gray-500">No categories yet</p>
+                        <flux:button
+                            wire:click="switchToManageModal"
+                            variant="ghost"
+                            size="sm"
+                            class="mt-2"
+                        >
+                            Create Category
+                        </flux:button>
+                    </div>
+                @endforelse
+            </div>
+
+            <div class="flex justify-between items-center pt-2 border-t">
+                <flux:button
+                    wire:click="switchToManageModal"
+                    variant="ghost"
+                    size="sm"
+                    icon="cog-6-tooth"
+                >
+                    Manage Categories
+                </flux:button>
+                <div class="flex gap-2">
+                    <flux:button wire:click="closeCategoryModal" variant="ghost">Cancel</flux:button>
+                    <flux:button wire:click="saveCategoryAssignments" variant="primary">Save</flux:button>
+                </div>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Category Management Modal -->
+    <flux:modal wire:model="showCategoryManageModal" class="md:w-xl">
+        <div class="space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <flux:heading size="lg">{{ $editingCategoryId ? 'Edit Category' : 'Manage Categories' }}</flux:heading>
+                    <flux:text class="mt-1">{{ $editingCategoryId ? 'Update category details' : 'Create and manage class categories' }}</flux:text>
+                </div>
+            </div>
+
+            @if($editingCategoryId || !$this->allCategories->count())
+            <!-- Create/Edit Form -->
+            <div class="space-y-4 p-4 bg-gray-50 rounded-lg">
+                <flux:field>
+                    <flux:label>Category Name</flux:label>
+                    <flux:input wire:model="categoryName" placeholder="e.g., Quran, Islamic Studies" />
+                    <flux:error name="categoryName" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>Color</flux:label>
+                    <div class="flex items-center gap-3">
+                        <input
+                            type="color"
+                            wire:model="categoryColor"
+                            class="h-10 w-14 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <flux:input wire:model="categoryColor" class="flex-1" placeholder="#6366f1" />
+                    </div>
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>Description (Optional)</flux:label>
+                    <flux:textarea wire:model="categoryDescription" rows="2" placeholder="Brief description of this category" />
+                </flux:field>
+
+                <!-- Preview -->
+                <div class="flex items-center gap-2 p-3 bg-white rounded-lg border">
+                    <span class="w-4 h-4 rounded-full" style="background-color: {{ $categoryColor }}"></span>
+                    <span class="text-sm font-medium">{{ $categoryName ?: 'Category Preview' }}</span>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    @if($editingCategoryId)
+                        <flux:button wire:click="$set('editingCategoryId', null)" variant="ghost">Back to List</flux:button>
+                    @endif
+                    <flux:button wire:click="saveCategory" variant="primary">
+                        {{ $editingCategoryId ? 'Update Category' : 'Create Category' }}
+                    </flux:button>
+                </div>
+            </div>
+            @else
+            <!-- Categories List -->
+            <div class="space-y-2 max-h-80 overflow-y-auto">
+                @foreach($this->allCategories as $category)
+                    <div class="flex items-center justify-between p-3 border rounded-lg {{ $category->is_active ? 'bg-white' : 'bg-gray-50' }}">
+                        <div class="flex items-center gap-3">
+                            <span class="w-4 h-4 rounded-full flex-shrink-0" style="background-color: {{ $category->color }}"></span>
+                            <div>
+                                <span class="text-sm font-medium {{ $category->is_active ? 'text-gray-900' : 'text-gray-500' }}">{{ $category->name }}</span>
+                                @if($category->description)
+                                    <p class="text-xs text-gray-500">{{ Str::limit($category->description, 40) }}</p>
+                                @endif
+                            </div>
+                            @if(!$category->is_active)
+                                <flux:badge size="sm" color="zinc">Inactive</flux:badge>
+                            @endif
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <flux:button
+                                wire:click="toggleCategoryStatus({{ $category->id }})"
+                                variant="ghost"
+                                size="sm"
+                                :icon="$category->is_active ? 'eye-slash' : 'eye'"
+                                title="{{ $category->is_active ? 'Deactivate' : 'Activate' }}"
+                            />
+                            <flux:button
+                                wire:click="openCategoryManageModal({{ $category->id }})"
+                                variant="ghost"
+                                size="sm"
+                                icon="pencil"
+                            />
+                            <flux:button
+                                wire:click="deleteCategory({{ $category->id }})"
+                                wire:confirm="Are you sure you want to delete this category? Classes with this category will be updated."
+                                variant="ghost"
+                                size="sm"
+                                icon="trash"
+                                class="text-red-600 hover:text-red-700"
+                            />
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <!-- Add New Category Button -->
+            <div class="pt-4 border-t">
+                <flux:button
+                    wire:click="$set('editingCategoryId', 0)"
+                    variant="ghost"
+                    icon="plus"
+                    class="w-full justify-center"
+                >
+                    Add New Category
+                </flux:button>
+            </div>
+            @endif
+
+            <div class="flex justify-end pt-2 border-t">
+                <flux:button wire:click="closeCategoryManageModal" variant="ghost">Close</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

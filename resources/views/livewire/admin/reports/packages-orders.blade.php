@@ -18,14 +18,14 @@ new class extends Component
     {
         // Get available years from both package_purchases and product_orders
         $packageYears = DB::table('package_purchases')
-            ->selectRaw("DISTINCT strftime('%Y', created_at) as year")
+            ->selectRaw("DISTINCT YEAR(created_at) as year")
             ->whereNotNull('created_at')
             ->orderBy('year', 'desc')
             ->pluck('year')
             ->toArray();
 
         $orderYears = DB::table('product_orders')
-            ->selectRaw("DISTINCT strftime('%Y', order_date) as year")
+            ->selectRaw("DISTINCT YEAR(order_date) as year")
             ->whereNotNull('order_date')
             ->orderBy('year', 'desc')
             ->pluck('year')
@@ -80,12 +80,12 @@ new class extends Component
         // Get package purchase data grouped by month
         $packageData = DB::table('package_purchases')
             ->selectRaw("
-                CAST(strftime('%m', created_at) AS INTEGER) as month,
+                MONTH(created_at) as month,
                 COUNT(*) as purchase_count,
                 SUM(amount_paid) as total_revenue,
                 SUM((SELECT COUNT(*) FROM package_items WHERE package_items.package_id = package_purchases.package_id)) as total_items
             ")
-            ->whereRaw("strftime('%Y', created_at) = ?", [$this->selectedYear])
+            ->whereRaw("YEAR(created_at) = ?", [$this->selectedYear])
             ->whereIn('status', ['completed', 'processing'])
             ->groupBy('month')
             ->get();
@@ -102,11 +102,11 @@ new class extends Component
         // Get product order data grouped by month with item counts
         $orderData = DB::table('product_orders')
             ->selectRaw("
-                CAST(strftime('%m', order_date) AS INTEGER) as month,
+                MONTH(order_date) as month,
                 COUNT(DISTINCT product_orders.id) as order_count,
                 SUM(product_orders.total_amount) as total_revenue
             ")
-            ->whereRaw("strftime('%Y', order_date) = ?", [$this->selectedYear])
+            ->whereRaw("YEAR(order_date) = ?", [$this->selectedYear])
             ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
             ->groupBy('month')
             ->get();
@@ -115,10 +115,10 @@ new class extends Component
         $orderItemCounts = DB::table('product_order_items')
             ->join('product_orders', 'product_orders.id', '=', 'product_order_items.order_id')
             ->selectRaw("
-                CAST(strftime('%m', product_orders.order_date) AS INTEGER) as month,
+                MONTH(product_orders.order_date) as month,
                 COUNT(*) as total_items
             ")
-            ->whereRaw("strftime('%Y', product_orders.order_date) = ?", [$this->selectedYear])
+            ->whereRaw("YEAR(product_orders.order_date) = ?", [$this->selectedYear])
             ->whereNotIn('product_orders.status', ['cancelled', 'refunded', 'draft'])
             ->groupBy('month')
             ->get()

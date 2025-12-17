@@ -865,12 +865,13 @@ new class extends Component
 
                 <!-- Quick Actions -->
                 <div class="mt-6 space-y-2">
-                    @if($order->status !== 'delivered' && $order->status !== 'cancelled')
-                        <flux:button variant="outline" class="w-full">
-                            <flux:icon name="printer" class="w-4 h-4 mr-2" />
-                            Print Invoice
-                        </flux:button>
-                    @endif
+                    <!-- Receipt/Invoice Actions -->
+                    <flux:button variant="outline" class="w-full" :href="route('admin.orders.receipt', $order)" wire:navigate>
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="document-text" class="w-4 h-4 mr-2" />
+                            View Receipt
+                        </div>
+                    </flux:button>
 
                     @if($order->status === 'pending')
                         <flux:button variant="primary" class="w-full" wire:click="updateStatus('processing')">

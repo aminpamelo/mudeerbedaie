@@ -18,6 +18,7 @@ class ClassStudent extends Model
         'left_at',
         'status',
         'reason',
+        'order_id',
     ];
 
     protected function casts(): array

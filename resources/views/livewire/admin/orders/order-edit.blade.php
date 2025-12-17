@@ -20,6 +20,7 @@ new class extends Component
     public array $form = [];
     public array $orderItems = [];
     public float $subtotal = 0;
+    public float $shippingCost = 0;
     public float $taxRate = 6.0; // GST percentage (editable)
     public float $taxAmount = 0;
     public float $total = 0;
@@ -85,6 +86,9 @@ new class extends Component
                 'total_price' => $item->total_price,
             ];
         }
+
+        // Initialize shipping cost from existing order
+        $this->shippingCost = (float) ($this->order->shipping_cost ?? 0);
 
         // Initialize tax rate from existing order (calculate percentage from amount)
         if ($this->order->subtotal > 0 && $this->order->tax_amount > 0) {
@@ -206,10 +210,15 @@ new class extends Component
     {
         $this->subtotal = collect($this->orderItems)->sum('total_price');
         $this->taxAmount = $this->subtotal * ($this->taxRate / 100);
-        $this->total = $this->subtotal + $this->taxAmount;
+        $this->total = $this->subtotal + $this->shippingCost + $this->taxAmount;
     }
 
     public function updatedTaxRate(): void
+    {
+        $this->calculateTotals();
+    }
+
+    public function updatedShippingCost(): void
     {
         $this->calculateTotals();
     }
@@ -278,6 +287,7 @@ new class extends Component
                 'guest_email' => $this->form['customer_type'] === 'new' ? $this->form['customer_email'] : null,
                 'status' => $this->form['order_status'],
                 'subtotal' => $this->subtotal,
+                'shipping_cost' => $this->shippingCost,
                 'tax_amount' => $this->taxAmount,
                 'total_amount' => $this->total,
                 'customer_notes' => $this->form['notes'],
@@ -762,6 +772,20 @@ new class extends Component
                     </div>
                 </div>
 
+                <!-- Delivery Fees -->
+                <div class="mb-4">
+                    <flux:field>
+                        <flux:label>Delivery / Shipping Fees (MYR)</flux:label>
+                        <flux:input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            wire:model.live="shippingCost"
+                            placeholder="0.00"
+                        />
+                    </flux:field>
+                </div>
+
                 <!-- GST Configuration -->
                 <div class="mb-6">
                     <flux:field>
@@ -784,6 +808,13 @@ new class extends Component
                         <flux:text>MYR {{ number_format($subtotal, 2) }}</flux:text>
                     </div>
 
+                    @if($shippingCost > 0)
+                        <div class="flex justify-between">
+                            <flux:text>Delivery / Shipping</flux:text>
+                            <flux:text>MYR {{ number_format($shippingCost, 2) }}</flux:text>
+                        </div>
+                    @endif
+
                     <div class="flex justify-between">
                         <flux:text>Tax (GST {{ number_format($taxRate, 1) }}%)</flux:text>
                         <flux:text>MYR {{ number_format($taxAmount, 2) }}</flux:text>
@@ -792,7 +823,7 @@ new class extends Component
                     <div class="border-t pt-3">
                         <div class="flex justify-between">
                             <flux:text class="font-semibold text-lg">Total</flux:text>
-                            <flux:text class="font-semibold text-lg">MYR {{ number_format($total, 2) }}</flux:text>
+                            <flux:text class="font-semibold text-lg text-blue-600">MYR {{ number_format($total, 2) }}</flux:text>
                         </div>
                     </div>
                 </div>

@@ -172,6 +172,23 @@ new class extends Component
 
     public $importResult = [];
 
+    // Import students to class modal
+    public $showImportStudentModal = false;
+
+    public $importStudentFile;
+
+    public $importStudentProcessing = false;
+
+    public $importStudentResult = [];
+
+    public $showImportStudentResultModal = false;
+
+    public $createMissingStudents = false;
+
+    public $autoEnrollImported = true;
+
+    public $importStudentPassword = 'password123';
+
     // Student shipment details modal
     public $showStudentShipmentModal = false;
 
@@ -210,6 +227,8 @@ new class extends Component
 
     public $selectedStudents = [];
 
+    public $enrollOrderIds = [];
+
     // Enrolled students search
     public $enrolledStudentSearch = '';
 
@@ -244,6 +263,134 @@ new class extends Component
     public $selectedEligibleStudents = [];
 
     public $eligibleStudentSearch = '';
+
+    // Create student modal properties
+    public $showCreateStudentModal = false;
+
+    public $newStudentName = '';
+
+    public $newStudentEmail = '';
+
+    public $newStudentPassword = '';
+
+    public $newStudentPasswordConfirmation = '';
+
+    public $newStudentIcNumber = '';
+
+    public $newStudentCountryCode = '+60';
+
+    public $newStudentPhone = '';
+
+    public $enrollAfterCreate = true;
+
+    public $newStudentOrderId = '';
+
+    public function openCreateStudentModal(): void
+    {
+        $this->showCreateStudentModal = true;
+        $this->resetCreateStudentForm();
+    }
+
+    public function closeCreateStudentModal(): void
+    {
+        $this->showCreateStudentModal = false;
+        $this->resetCreateStudentForm();
+    }
+
+    public function resetCreateStudentForm(): void
+    {
+        $this->newStudentName = '';
+        $this->newStudentEmail = '';
+        $this->newStudentPassword = '';
+        $this->newStudentPasswordConfirmation = '';
+        $this->newStudentIcNumber = '';
+        $this->newStudentCountryCode = '+60';
+        $this->newStudentPhone = '';
+        $this->enrollAfterCreate = true;
+        $this->newStudentOrderId = '';
+    }
+
+    public function createStudent(): void
+    {
+        $this->validate([
+            'newStudentName' => 'required|string|min:3|max:255',
+            'newStudentEmail' => 'nullable|string|email|max:255|unique:users,email',
+            'newStudentPassword' => 'required|string|min:8|same:newStudentPasswordConfirmation',
+            'newStudentIcNumber' => 'nullable|string|size:12|regex:/^[0-9]{12}$/|unique:students,ic_number',
+            'newStudentCountryCode' => 'required|string|max:5',
+            'newStudentPhone' => 'required|string|max:15|regex:/^[0-9]+$/',
+        ], [
+            'newStudentName.required' => 'Full name is required.',
+            'newStudentName.min' => 'Full name must be at least 3 characters.',
+            'newStudentEmail.email' => 'Please enter a valid email address.',
+            'newStudentEmail.unique' => 'This email is already registered.',
+            'newStudentPassword.required' => 'Password is required.',
+            'newStudentPassword.min' => 'Password must be at least 8 characters.',
+            'newStudentPassword.same' => 'Password confirmation does not match.',
+            'newStudentIcNumber.size' => 'IC number must be exactly 12 digits.',
+            'newStudentIcNumber.regex' => 'IC number must contain only numbers.',
+            'newStudentIcNumber.unique' => 'This IC number is already registered.',
+            'newStudentCountryCode.required' => 'Country code is required.',
+            'newStudentPhone.required' => 'Phone number is required.',
+            'newStudentPhone.regex' => 'Phone number must contain only numbers.',
+        ]);
+
+        try {
+            // Create user first
+            $user = \App\Models\User::create([
+                'name' => $this->newStudentName,
+                'email' => $this->newStudentEmail ?: null,
+                'password' => bcrypt($this->newStudentPassword),
+                'role' => 'student',
+            ]);
+
+            // Combine country code and phone number
+            $countryCode = ltrim($this->newStudentCountryCode, '+');
+            $fullPhone = $countryCode.$this->newStudentPhone;
+
+            // Create student profile
+            $student = \App\Models\Student::create([
+                'user_id' => $user->id,
+                'ic_number' => $this->newStudentIcNumber ?: null,
+                'phone' => $fullPhone,
+                'status' => 'active',
+            ]);
+
+            $message = "Student {$this->newStudentName} created successfully!";
+
+            // Enroll in class if option is selected
+            if ($this->enrollAfterCreate) {
+                $orderId = $this->newStudentOrderId ?: null;
+                // Check capacity if class has max capacity
+                if ($this->class->max_capacity) {
+                    $currentCount = $this->class->activeStudents()->count();
+                    if ($currentCount < $this->class->max_capacity) {
+                        $this->class->addStudent($student, $orderId);
+                        $message .= ' and enrolled in the class.';
+                    } else {
+                        $message .= ' Class is at maximum capacity, student was not enrolled.';
+                    }
+                } else {
+                    $this->class->addStudent($student, $orderId);
+                    $message .= ' and enrolled in the class.';
+                }
+            }
+
+            session()->flash('success', $message);
+            $this->closeCreateStudentModal();
+
+            // Refresh the class data
+            $this->class->refresh();
+            $this->class->load([
+                'course',
+                'teacher.user',
+                'sessions.attendances.student.user',
+                'activeStudents.student.user',
+            ]);
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to create student: '.$e->getMessage());
+        }
+    }
 
     public function openCreateSessionModal(): void
     {
@@ -310,6 +457,7 @@ new class extends Component
         $this->showEnrollStudentsModal = true;
         $this->studentSearch = '';
         $this->selectedStudents = [];
+        $this->enrollOrderIds = [];
     }
 
     public function closeEnrollStudentsModal(): void
@@ -317,6 +465,7 @@ new class extends Component
         $this->showEnrollStudentsModal = false;
         $this->studentSearch = '';
         $this->selectedStudents = [];
+        $this->enrollOrderIds = [];
     }
 
     public function getAvailableStudentsProperty()
@@ -369,7 +518,8 @@ new class extends Component
         try {
             $student = \App\Models\Student::find($studentId);
             if ($student) {
-                $this->class->addStudent($student);
+                $orderId = $this->enrollOrderIds[$studentId] ?? null;
+                $this->class->addStudent($student, $orderId ?: null);
                 session()->flash('success', "Successfully enrolled {$student->user->name} in the class.");
 
                 // Refresh the class data
@@ -411,7 +561,8 @@ new class extends Component
             try {
                 $student = \App\Models\Student::find($studentId);
                 if ($student) {
-                    $this->class->addStudent($student);
+                    $orderId = $this->enrollOrderIds[$studentId] ?? null;
+                    $this->class->addStudent($student, $orderId ?: null);
                     $enrolled++;
                 }
             } catch (\Exception $e) {
@@ -558,6 +709,26 @@ new class extends Component
 
             session()->flash('success', 'Student enrollment updated successfully.');
             $this->closeEditStudentModal();
+
+            // Refresh the class data
+            $this->class->refresh();
+            $this->class->load([
+                'course',
+                'teacher.user',
+                'sessions.attendances.student.user',
+                'activeStudents.student.user',
+            ]);
+        }
+    }
+
+    public function updateStudentOrderId($classStudentId, $orderId): void
+    {
+        $classStudent = \App\Models\ClassStudent::find($classStudentId);
+
+        if ($classStudent) {
+            $classStudent->update([
+                'order_id' => $orderId ?: null,
+            ]);
 
             // Refresh the class data
             $this->class->refresh();
@@ -841,12 +1012,18 @@ new class extends Component
 
     public $paymentNotes = '';
 
+    public $paidAmountForPeriod = 0;
+
+    public $expectedAmount = 0;
+
     // Edit Enrollment Modal Properties
     public bool $showEditEnrollmentModal = false;
 
     public $editingEnrollment = null;
 
     public $editEnrollmentDate = '';
+
+    public $editEnrollmentFee = '';
 
     public $editPaymentMethodType = '';
 
@@ -1308,7 +1485,7 @@ new class extends Component
         return false;
     }
 
-    public function openManualPaymentModal($studentId, $periodLabel, $periodStart, $periodEnd, $unpaidAmount)
+    public function openManualPaymentModal($studentId, $periodLabel, $periodStart, $periodEnd, $unpaidAmount, $paidAmount = 0, $expectedAmount = 0)
     {
         $this->selectedStudent = $studentId;
         $this->selectedPeriod = [
@@ -1317,6 +1494,8 @@ new class extends Component
             'end' => $periodEnd,
         ];
         $this->selectedPeriodLabel = $periodLabel;
+        $this->paidAmountForPeriod = $paidAmount;
+        $this->expectedAmount = $expectedAmount;
 
         // If unpaid amount is 0, use enrollment fee as default
         if ($unpaidAmount <= 0) {
@@ -1326,8 +1505,10 @@ new class extends Component
             // Use enrollment fee if available, otherwise use course fee
             if ($enrollment && $enrollment->enrollment_fee > 0) {
                 $this->paymentAmount = $enrollment->enrollment_fee;
+                $this->expectedAmount = $enrollment->enrollment_fee;
             } elseif ($enrollment && $this->class->course->feeSettings) {
                 $this->paymentAmount = $this->class->course->feeSettings->fee_amount;
+                $this->expectedAmount = $this->class->course->feeSettings->fee_amount;
             } else {
                 $this->paymentAmount = 0;
             }
@@ -1348,6 +1529,8 @@ new class extends Component
         $this->paymentAmount = 0;
         $this->paymentNotes = '';
         $this->receiptFile = null;
+        $this->paidAmountForPeriod = 0;
+        $this->expectedAmount = 0;
     }
 
     public function updatedReceiptFile()
@@ -1448,6 +1631,7 @@ new class extends Component
 
         if ($this->editingEnrollment) {
             $this->editEnrollmentDate = $this->editingEnrollment->enrollment_date->format('Y-m-d');
+            $this->editEnrollmentFee = $this->editingEnrollment->enrollment_fee ?? '';
             $this->editPaymentMethodType = $this->editingEnrollment->payment_method_type ?? 'automatic';
             $this->showEditEnrollmentModal = true;
         }
@@ -1458,6 +1642,7 @@ new class extends Component
         $this->showEditEnrollmentModal = false;
         $this->editingEnrollment = null;
         $this->editEnrollmentDate = '';
+        $this->editEnrollmentFee = '';
         $this->editPaymentMethodType = '';
     }
 
@@ -1465,6 +1650,7 @@ new class extends Component
     {
         $this->validate([
             'editEnrollmentDate' => 'required|date',
+            'editEnrollmentFee' => 'required|numeric|min:0',
             'editPaymentMethodType' => 'required|in:automatic,manual',
         ]);
 
@@ -1472,6 +1658,7 @@ new class extends Component
             if ($this->editingEnrollment) {
                 $this->editingEnrollment->update([
                     'enrollment_date' => $this->editEnrollmentDate,
+                    'enrollment_fee' => $this->editEnrollmentFee,
                     'payment_method_type' => $this->editPaymentMethodType,
                 ]);
 
@@ -2267,6 +2454,243 @@ new class extends Component
     {
         $this->showImportResultModal = false;
         $this->importResult = [];
+    }
+
+    // Import Students to Class Methods
+    public function openImportStudentModal(): void
+    {
+        $this->showImportStudentModal = true;
+        $this->importStudentFile = null;
+        $this->createMissingStudents = false;
+        $this->autoEnrollImported = true;
+        $this->importStudentPassword = 'password123';
+        $this->importStudentResult = [];
+    }
+
+    public function closeImportStudentModal(): void
+    {
+        $this->showImportStudentModal = false;
+        $this->importStudentFile = null;
+        $this->createMissingStudents = false;
+        $this->autoEnrollImported = true;
+        $this->importStudentPassword = 'password123';
+    }
+
+    public function closeImportStudentResultModal(): void
+    {
+        $this->showImportStudentResultModal = false;
+        $this->importStudentResult = [];
+    }
+
+    public function downloadImportStudentSample(): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $csvContent = "phone,name,email,order_id\n";
+        $csvContent .= "60123456789,Ahmad Ali,ahmad@example.com,ORD-2024-001\n";
+        $csvContent .= "60198765432,Siti Aminah,siti@example.com,ORD-2024-002\n";
+        $csvContent .= "60112233445,Muhammad Hafiz,hafiz@example.com,\n";
+
+        return response()->streamDownload(function () use ($csvContent) {
+            echo $csvContent;
+        }, 'import-students-sample.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    public function importStudentsToClass(): void
+    {
+        $this->validate([
+            'importStudentFile' => 'required|file|mimes:csv,txt|max:10240',
+            'importStudentPassword' => $this->createMissingStudents ? 'required|string|min:8' : 'nullable',
+        ], [
+            'importStudentFile.required' => 'Please select a CSV file to import.',
+            'importStudentFile.mimes' => 'Only CSV files are accepted.',
+            'importStudentFile.max' => 'File size cannot exceed 10MB.',
+            'importStudentPassword.required' => 'Password is required when creating new students.',
+            'importStudentPassword.min' => 'Password must be at least 8 characters.',
+        ]);
+
+        $this->importStudentProcessing = true;
+
+        try {
+            $fileContents = file_get_contents($this->importStudentFile->getRealPath());
+
+            if ($fileContents === false) {
+                throw new \Exception('Failed to read uploaded file');
+            }
+
+            // Parse CSV
+            $lines = preg_split('/\r\n|\r|\n/', $fileContents);
+            $header = str_getcsv(array_shift($lines));
+
+            // Normalize headers (lowercase and trim)
+            $header = array_map(fn ($h) => strtolower(trim($h)), $header);
+
+            // Find required columns
+            $phoneIndex = array_search('phone', $header);
+            $nameIndex = array_search('name', $header);
+            $emailIndex = array_search('email', $header);
+            $orderIdIndex = array_search('order_id', $header);
+
+            if ($phoneIndex === false) {
+                throw new \Exception('CSV must contain a "phone" column.');
+            }
+
+            $result = [
+                'matched' => [],
+                'created' => [],
+                'skipped' => [],
+                'enrolled' => [],
+                'already_enrolled' => [],
+                'errors' => [],
+            ];
+
+            // Get existing students in this class
+            $classStudentIds = $this->class->activeStudents()
+                ->pluck('student_id')
+                ->toArray();
+
+            foreach ($lines as $lineNumber => $line) {
+                if (empty(trim($line))) {
+                    continue;
+                }
+
+                $row = str_getcsv($line);
+                $phone = isset($row[$phoneIndex]) ? trim($row[$phoneIndex]) : null;
+                $name = $nameIndex !== false && isset($row[$nameIndex]) ? trim($row[$nameIndex]) : null;
+                $email = $emailIndex !== false && isset($row[$emailIndex]) ? trim($row[$emailIndex]) : null;
+                $orderId = $orderIdIndex !== false && isset($row[$orderIdIndex]) ? trim($row[$orderIdIndex]) : null;
+
+                if (empty($phone)) {
+                    $result['errors'][] = "Row " . ($lineNumber + 2) . ": Phone number is required.";
+                    continue;
+                }
+
+                // Normalize phone number (remove spaces, dashes, and leading zeros after country code)
+                $normalizedPhone = preg_replace('/[^0-9+]/', '', $phone);
+                // Remove leading + if present for comparison
+                $phoneVariants = [
+                    $normalizedPhone,
+                    ltrim($normalizedPhone, '+'),
+                    '60' . ltrim(ltrim($normalizedPhone, '+'), '0'),
+                    ltrim(ltrim($normalizedPhone, '+'), '60'),
+                ];
+
+                // Try to find student by phone
+                $student = \App\Models\Student::where(function ($query) use ($phoneVariants) {
+                    foreach ($phoneVariants as $variant) {
+                        $query->orWhere('phone', 'like', '%' . $variant)
+                              ->orWhere('phone', $variant);
+                    }
+                })->first();
+
+                if ($student) {
+                    $result['matched'][] = [
+                        'phone' => $phone,
+                        'name' => $student->user->name,
+                        'student_id' => $student->student_id,
+                    ];
+
+                    // Check if already enrolled
+                    if (in_array($student->id, $classStudentIds)) {
+                        $result['already_enrolled'][] = [
+                            'phone' => $phone,
+                            'name' => $student->user->name,
+                        ];
+                        continue;
+                    }
+
+                    // Enroll if auto-enroll is enabled
+                    if ($this->autoEnrollImported) {
+                        // Check capacity
+                        if ($this->class->max_capacity) {
+                            $currentCount = count($classStudentIds) + count($result['enrolled']);
+                            if ($currentCount >= $this->class->max_capacity) {
+                                $result['errors'][] = "Skipped {$student->user->name}: Class is at maximum capacity.";
+                                continue;
+                            }
+                        }
+
+                        $this->class->addStudent($student, $orderId);
+                        $result['enrolled'][] = [
+                            'phone' => $phone,
+                            'name' => $student->user->name,
+                            'order_id' => $orderId,
+                        ];
+                    }
+                } else {
+                    // Student not found
+                    if ($this->createMissingStudents && $name) {
+                        try {
+                            // Create user first
+                            $user = \App\Models\User::create([
+                                'name' => $name,
+                                'email' => $email ?: null,
+                                'password' => bcrypt($this->importStudentPassword),
+                                'role' => 'student',
+                            ]);
+
+                            // Create student profile
+                            $newStudent = \App\Models\Student::create([
+                                'user_id' => $user->id,
+                                'phone' => $normalizedPhone,
+                                'status' => 'active',
+                            ]);
+
+                            $result['created'][] = [
+                                'phone' => $phone,
+                                'name' => $name,
+                                'student_id' => $newStudent->student_id,
+                            ];
+
+                            // Enroll if auto-enroll is enabled
+                            if ($this->autoEnrollImported) {
+                                // Check capacity
+                                if ($this->class->max_capacity) {
+                                    $currentCount = count($classStudentIds) + count($result['enrolled']);
+                                    if ($currentCount >= $this->class->max_capacity) {
+                                        $result['errors'][] = "Skipped enrolling {$name}: Class is at maximum capacity.";
+                                        continue;
+                                    }
+                                }
+
+                                $this->class->addStudent($newStudent, $orderId);
+                                $result['enrolled'][] = [
+                                    'phone' => $phone,
+                                    'name' => $name,
+                                    'order_id' => $orderId,
+                                ];
+                            }
+                        } catch (\Exception $e) {
+                            $result['errors'][] = "Row " . ($lineNumber + 2) . ": Failed to create student - " . $e->getMessage();
+                        }
+                    } else {
+                        $result['skipped'][] = [
+                            'phone' => $phone,
+                            'name' => $name ?? 'Unknown',
+                            'reason' => $this->createMissingStudents ? 'Name is required to create student' : 'Student not found',
+                        ];
+                    }
+                }
+            }
+
+            $this->importStudentResult = $result;
+            $this->showImportStudentResultModal = true;
+            $this->closeImportStudentModal();
+
+            // Refresh the class data
+            $this->class->refresh();
+            $this->class->load([
+                'course',
+                'teacher.user',
+                'sessions.attendances.student.user',
+                'activeStudents.student.user',
+            ]);
+
+        } catch (\Exception $e) {
+            session()->flash('error', 'Import failed: ' . $e->getMessage());
+        } finally {
+            $this->importStudentProcessing = false;
+        }
     }
 
     public function viewStudentShipmentDetails($itemId): void
@@ -3596,11 +4020,25 @@ new class extends Component
                                 </flux:text>
                             </div>
 
-                            @if($class->class_type === 'group' && (!$class->max_capacity || $class->activeStudents->count() < $class->max_capacity))
-                                <flux:button variant="primary" size="sm" icon="user-plus" wire:click="openEnrollStudentsModal">
-                                    Add Students
+                            <div class="flex items-center gap-2">
+                                <flux:button variant="outline" size="sm" wire:click="openImportStudentModal">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="arrow-up-tray" class="w-4 h-4 mr-1" />
+                                        Import
+                                    </div>
                                 </flux:button>
-                            @endif
+                                <flux:button variant="outline" size="sm" wire:click="openCreateStudentModal">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                                        Create Student
+                                    </div>
+                                </flux:button>
+                                @if($class->class_type === 'group' && (!$class->max_capacity || $class->activeStudents->count() < $class->max_capacity))
+                                    <flux:button variant="primary" size="sm" icon="user-plus" wire:click="openEnrollStudentsModal">
+                                        Add Students
+                                    </flux:button>
+                                @endif
+                            </div>
                         </div>
 
                         <!-- Flash Messages -->
@@ -3649,6 +4087,7 @@ new class extends Component
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sessions Attended</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Rate</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -3687,6 +4126,17 @@ new class extends Component
 
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ $classStudent->enrolled_at->format('M d, Y') }}
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <input
+                                                    type="text"
+                                                    value="{{ $classStudent->order_id }}"
+                                                    placeholder="-"
+                                                    class="w-28 px-2 py-1 text-xs font-mono border border-gray-200 rounded bg-white hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                                    wire:blur="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
+                                                    wire:keydown.enter="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
+                                                />
                                             </td>
 
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -4499,7 +4949,7 @@ new class extends Component
 
                                                     @case('unpaid')
                                                         <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
-                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['unpaid_amount'] ?? 0 }})">
+                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['unpaid_amount'] ?? 0 }}, {{ $payment['paid_amount'] ?? 0 }}, {{ $payment['expected_amount'] ?? 0 }})">
                                                             <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-600 rounded-full mb-1">
                                                                 <flux:icon.exclamation-triangle class="w-4 h-4" />
                                                             </div>
@@ -4512,7 +4962,7 @@ new class extends Component
 
                                                     @case('partial_payment')
                                                         <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
-                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['unpaid_amount'] ?? 0 }})">
+                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['unpaid_amount'] ?? 0 }}, {{ $payment['paid_amount'] ?? 0 }}, {{ $payment['expected_amount'] ?? 0 }})">
                                                             <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full mb-1">
                                                                 <flux:icon.minus class="w-4 h-4" />
                                                             </div>
@@ -4528,7 +4978,7 @@ new class extends Component
 
                                                     @case('pending_payment')
                                                         <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
-                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['expected_amount'] ?? 0 }})">
+                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['expected_amount'] ?? 0 }}, {{ $payment['paid_amount'] ?? 0 }}, {{ $payment['expected_amount'] ?? 0 }})">
                                                             <div class="inline-flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full mb-1">
                                                                 <flux:icon.clock class="w-4 h-4" />
                                                             </div>
@@ -4545,7 +4995,7 @@ new class extends Component
 
                                                     @case('not_started')
                                                         <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
-                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['expected_amount'] ?? 0 }})">
+                                                             wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['expected_amount'] ?? 0 }}, {{ $payment['paid_amount'] ?? 0 }}, {{ $payment['expected_amount'] ?? 0 }})">
                                                             <div class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full mb-1">
                                                                 <flux:icon.clock class="w-4 h-4" />
                                                             </div>
@@ -4623,7 +5073,7 @@ new class extends Component
                                                                  onclick="navigator.clipboard.writeText('{{ $payment['shipment_item']->tracking_number }}'); alert('Tracking number copied!');">
                                                                 {{ $payment['shipment_item']->tracking_number }}
                                                             </div>
-                                                            <div class="mt-1 text-xs flex items-center justify-center gap-1.5">
+                                                            <div class="mt-1 text-xs flex items-center justify-center gap-1.5 flex-wrap">
                                                                 @if($payment['shipment_item']->status === 'delivered')
                                                                     <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
                                                                         <flux:icon name="check-circle" class="w-3 h-3" />
@@ -4645,12 +5095,19 @@ new class extends Component
                                                                         Failed
                                                                     </span>
                                                                 @endif
-
+                                                            </div>
+                                                            <!-- Action Buttons -->
+                                                            <div class="mt-2 flex items-center justify-center gap-1">
+                                                                <button wire:click="editShipmentItem({{ $payment['shipment_item']->id }})"
+                                                                        title="Edit Tracking & Status"
+                                                                        class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">
+                                                                    <flux:icon name="pencil" class="w-3 h-3" />
+                                                                </button>
                                                                 @if($payment['shipment_item']->product_order_id)
                                                                     <a href="{{ route('admin.orders.show', $payment['shipment_item']->product_order_id) }}"
                                                                        wire:navigate
                                                                        title="View Product Order"
-                                                                       class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition-colors">
+                                                                       class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition-colors">
                                                                         <flux:icon name="eye" class="w-3 h-3" />
                                                                     </a>
                                                                 @endif
@@ -4659,12 +5116,20 @@ new class extends Component
                                                             <div class="flex items-center justify-center gap-1.5 text-xs text-gray-500">
                                                                 <flux:icon name="truck" class="w-3 h-3" />
                                                                 <span class="text-xs">{{ ucfirst($payment['shipment_item']->status) }}</span>
-
+                                                            </div>
+                                                            <!-- Action Buttons for items without tracking -->
+                                                            <div class="mt-2 flex items-center justify-center gap-1">
+                                                                <button wire:click="editShipmentItem({{ $payment['shipment_item']->id }})"
+                                                                        title="Add Tracking & Update Status"
+                                                                        class="inline-flex items-center justify-center gap-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors">
+                                                                    <flux:icon name="pencil" class="w-3 h-3" />
+                                                                    <span>Edit</span>
+                                                                </button>
                                                                 @if($payment['shipment_item']->product_order_id)
                                                                     <a href="{{ route('admin.orders.show', $payment['shipment_item']->product_order_id) }}"
                                                                        wire:navigate
                                                                        title="View Product Order"
-                                                                       class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition-colors">
+                                                                       class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition-colors">
                                                                         <flux:icon name="eye" class="w-3 h-3" />
                                                                     </a>
                                                                 @endif
@@ -4828,6 +5293,33 @@ new class extends Component
                             </div>
                         </div>
 
+                        <!-- Payment Summary -->
+                        @if($expectedAmount > 0 || $paidAmountForPeriod > 0)
+                            <div class="bg-blue-50 rounded-lg p-4">
+                                <flux:text class="text-sm font-medium text-blue-800 mb-2">Payment Summary</flux:text>
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <flux:text class="text-xs text-blue-600">Expected</flux:text>
+                                        <flux:text class="text-sm font-semibold text-blue-900">
+                                            RM {{ number_format($expectedAmount, 2) }}
+                                        </flux:text>
+                                    </div>
+                                    <div>
+                                        <flux:text class="text-xs text-green-600">Paid</flux:text>
+                                        <flux:text class="text-sm font-semibold text-green-700">
+                                            RM {{ number_format($paidAmountForPeriod, 2) }}
+                                        </flux:text>
+                                    </div>
+                                    <div>
+                                        <flux:text class="text-xs text-red-600">Remaining</flux:text>
+                                        <flux:text class="text-sm font-semibold text-red-700">
+                                            RM {{ number_format(max(0, $expectedAmount - $paidAmountForPeriod), 2) }}
+                                        </flux:text>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
                         <!-- Error Messages -->
                         @if($errors->has('general'))
                             <div class="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -4897,7 +5389,7 @@ new class extends Component
             <flux:modal name="edit-enrollment" :show="$showEditEnrollmentModal" wire:model="showEditEnrollmentModal">
                 <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
                     <flux:heading size="lg">Edit Enrollment</flux:heading>
-                    <flux:text class="mt-2">Update enrollment date and subscription type</flux:text>
+                    <flux:text class="mt-2">Update enrollment date, amount, and subscription type</flux:text>
                 </div>
 
                 @if($editingEnrollment)
@@ -4925,6 +5417,20 @@ new class extends Component
                                 type="date"
                             />
                             <flux:error name="editEnrollmentDate" />
+                        </flux:field>
+
+                        <!-- Enrollment Amount -->
+                        <flux:field>
+                            <flux:label>Enrollment Amount (RM)</flux:label>
+                            <flux:input
+                                wire:model="editEnrollmentFee"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="0.00"
+                            />
+                            <flux:description>Monthly fee for this enrollment</flux:description>
+                            <flux:error name="editEnrollmentFee" />
                         </flux:field>
 
                         <!-- Payment Method Type -->
@@ -5899,6 +6405,8 @@ new class extends Component
                                                                     </th>
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
+                                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tracking</th>
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -5920,6 +6428,39 @@ new class extends Component
                                                                         </td>
                                                                         <td class="px-4 py-3 text-sm">
                                                                             {{ $item->quantity }}
+                                                                        </td>
+                                                                        <td class="px-4 py-3 text-sm">
+                                                                            @php
+                                                                                $enrollment = $item->student->enrollments()
+                                                                                    ->where('course_id', $this->class->course_id)
+                                                                                    ->first();
+                                                                                $paidAmount = 0;
+                                                                                if ($enrollment) {
+                                                                                    $paidAmount = \App\Models\Order::where('enrollment_id', $enrollment->id)
+                                                                                        ->where('student_id', $item->student_id)
+                                                                                        ->where('period_start', '>=', $shipment->period_start_date)
+                                                                                        ->where('period_end', '<=', $shipment->period_end_date)
+                                                                                        ->where('status', 'paid')
+                                                                                        ->sum('amount');
+                                                                                }
+                                                                            @endphp
+                                                                            @if($paidAmount > 0)
+                                                                                <span class="text-green-600 font-medium">RM {{ number_format($paidAmount, 2) }}</span>
+                                                                            @else
+                                                                                <span class="text-red-500">Unpaid</span>
+                                                                            @endif
+                                                                        </td>
+                                                                        <td class="px-4 py-3 text-sm max-w-xs">
+                                                                            @php
+                                                                                $enrollmentNotes = $enrollment?->notes;
+                                                                            @endphp
+                                                                            @if($enrollmentNotes)
+                                                                                <span class="text-gray-600 truncate block" title="{{ $enrollmentNotes }}">
+                                                                                    {{ \Str::limit($enrollmentNotes, 30) }}
+                                                                                </span>
+                                                                            @else
+                                                                                <span class="text-gray-400">-</span>
+                                                                            @endif
                                                                         </td>
                                                                         <td class="px-4 py-3 text-sm">
                                                                             <flux:badge variant="{{ $item->status_color }}" size="sm">
@@ -6603,16 +7144,14 @@ new class extends Component
         </div>
 
         <div class="space-y-4 mb-6">
-            <div>
-                <flux:field>
-                    <flux:label>Search Students</flux:label>
-                    <flux:input
-                        wire:model.live.debounce.300ms="studentSearch"
-                        placeholder="Type student name, email or ID..."
-                        icon="magnifying-glass"
-                    />
-                </flux:field>
-            </div>
+            <flux:field>
+                <flux:label>Search Students</flux:label>
+                <flux:input
+                    wire:model.live.debounce.300ms="studentSearch"
+                    placeholder="Type student name, email or ID..."
+                    icon="magnifying-glass"
+                />
+            </flux:field>
 
             @if(count($this->available_students) > 0)
                 <!-- Bulk Actions -->
@@ -6677,6 +7216,13 @@ new class extends Component
                                     {{ $student->user?->email ?? 'N/A' }}
                                 </flux:text>
                             </div>
+
+                            <input
+                                type="text"
+                                wire:model="enrollOrderIds.{{ $student->id }}"
+                                placeholder="Order ID"
+                                class="w-28 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded bg-white hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors flex-shrink-0"
+                            />
 
                             <flux:button
                                 variant="outline"
@@ -7203,6 +7749,320 @@ new class extends Component
                 </flux:button>
             </div>
         @endif
+    </flux:modal>
+
+    <!-- Import Students Modal -->
+    <flux:modal name="import-students" :show="$showImportStudentModal" wire:model="showImportStudentModal">
+        <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+            <flux:heading size="lg">Import Students to Class</flux:heading>
+            <flux:text class="mt-2">Upload a CSV file to import students into this class</flux:text>
+        </div>
+
+        <div class="space-y-4">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex items-start space-x-2">
+                        <flux:icon.information-circle class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                            <flux:text class="font-medium text-blue-800">CSV Format Requirements</flux:text>
+                            <flux:text class="text-sm text-blue-700 mt-1">
+                                Your CSV must include a <strong>phone</strong> column (required). Optional columns: <strong>name</strong>, <strong>email</strong>, <strong>order_id</strong>
+                            </flux:text>
+                        </div>
+                    </div>
+                    <flux:button variant="outline" size="sm" wire:click="downloadImportStudentSample" class="flex-shrink-0">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
+                            Sample
+                        </div>
+                    </flux:button>
+                </div>
+            </div>
+
+            <flux:field>
+                <flux:label>Select CSV File</flux:label>
+                <flux:input type="file" wire:model.live="importStudentFile" accept=".csv,.txt" />
+                <flux:error name="importStudentFile" />
+                <flux:text class="mt-1 text-xs">
+                    Accepted formats: CSV (.csv, .txt). Maximum file size: 10MB
+                </flux:text>
+            </flux:field>
+
+            <div wire:loading wire:target="importStudentFile" class="text-sm text-gray-600 mt-2">
+                <div class="flex items-center">
+                    <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading file...
+                </div>
+            </div>
+
+            @if($importStudentFile)
+                <div class="text-sm text-green-600 mt-2 flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    File ready: {{ $importStudentFile->getClientOriginalName() }}
+                </div>
+            @endif
+
+            <div class="border-t border-gray-200 pt-4 space-y-4">
+                <flux:heading size="sm">Import Options</flux:heading>
+
+                <flux:field>
+                    <flux:checkbox wire:model.live="autoEnrollImported" label="Auto-enroll imported students" description="Automatically add matched/created students to this class" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:checkbox wire:model.live="createMissingStudents" label="Create missing students" description="Create new student accounts for phone numbers not found in the system" />
+                </flux:field>
+
+                @if($createMissingStudents)
+                    <flux:field>
+                        <flux:label>Default Password for New Students</flux:label>
+                        <flux:input type="text" wire:model="importStudentPassword" placeholder="Enter default password" />
+                        <flux:error name="importStudentPassword" />
+                        <flux:text class="text-xs text-gray-500 mt-1">
+                            This password will be used for all newly created student accounts
+                        </flux:text>
+                    </flux:field>
+                @endif
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-6">
+            <flux:button variant="ghost" wire:click="closeImportStudentModal">Cancel</flux:button>
+            <flux:button variant="primary" wire:click="importStudentsToClass" wire:loading.attr="disabled" :disabled="!$importStudentFile">
+                <div wire:loading.remove wire:target="importStudentsToClass">
+                    <flux:icon.arrow-up-tray class="h-4 w-4 mr-1" />
+                    Import Students
+                </div>
+                <div wire:loading wire:target="importStudentsToClass" class="flex items-center">
+                    <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Importing...
+                </div>
+            </flux:button>
+        </div>
+    </flux:modal>
+
+    <!-- Import Students Result Modal -->
+    <flux:modal name="import-students-result" :show="$showImportStudentResultModal" wire:model="showImportStudentResultModal">
+        <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+            <flux:heading size="lg">Import Results</flux:heading>
+            <flux:text class="mt-2">Summary of the student import process</flux:text>
+        </div>
+
+        <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            @if(!empty($importStudentResult))
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-green-50 rounded-lg p-3 text-center">
+                        <div class="text-2xl font-bold text-green-600">{{ count($importStudentResult['enrolled'] ?? []) }}</div>
+                        <div class="text-xs text-green-700">Enrolled</div>
+                    </div>
+                    <div class="bg-blue-50 rounded-lg p-3 text-center">
+                        <div class="text-2xl font-bold text-blue-600">{{ count($importStudentResult['created'] ?? []) }}</div>
+                        <div class="text-xs text-blue-700">Created</div>
+                    </div>
+                    <div class="bg-yellow-50 rounded-lg p-3 text-center">
+                        <div class="text-2xl font-bold text-yellow-600">{{ count($importStudentResult['skipped'] ?? []) }}</div>
+                        <div class="text-xs text-yellow-700">Skipped</div>
+                    </div>
+                </div>
+
+                <!-- Enrolled Students -->
+                @if(!empty($importStudentResult['enrolled']))
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <flux:heading size="sm" class="text-green-800 mb-2">Students Enrolled ({{ count($importStudentResult['enrolled']) }})</flux:heading>
+                        <div class="space-y-1">
+                            @foreach($importStudentResult['enrolled'] as $student)
+                                <div class="text-sm text-green-700 flex items-center">
+                                    <flux:icon.check-circle class="w-4 h-4 mr-2" />
+                                    {{ $student['name'] }} ({{ $student['phone'] }})@if(!empty($student['order_id'])) - Order: {{ $student['order_id'] }}@endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Created Students -->
+                @if(!empty($importStudentResult['created']))
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <flux:heading size="sm" class="text-blue-800 mb-2">New Students Created ({{ count($importStudentResult['created']) }})</flux:heading>
+                        <div class="space-y-1">
+                            @foreach($importStudentResult['created'] as $student)
+                                <div class="text-sm text-blue-700 flex items-center">
+                                    <flux:icon.user-plus class="w-4 h-4 mr-2" />
+                                    {{ $student['name'] }} ({{ $student['phone'] }}) - ID: {{ $student['student_id'] }}
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Already Enrolled -->
+                @if(!empty($importStudentResult['already_enrolled']))
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <flux:heading size="sm" class="text-gray-800 mb-2">Already Enrolled ({{ count($importStudentResult['already_enrolled']) }})</flux:heading>
+                        <div class="space-y-1">
+                            @foreach($importStudentResult['already_enrolled'] as $student)
+                                <div class="text-sm text-gray-600 flex items-center">
+                                    <flux:icon.minus-circle class="w-4 h-4 mr-2" />
+                                    {{ $student['name'] }} ({{ $student['phone'] }})
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Skipped -->
+                @if(!empty($importStudentResult['skipped']))
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <flux:heading size="sm" class="text-yellow-800 mb-2">Skipped ({{ count($importStudentResult['skipped']) }})</flux:heading>
+                        <div class="space-y-1">
+                            @foreach($importStudentResult['skipped'] as $student)
+                                <div class="text-sm text-yellow-700 flex items-center">
+                                    <flux:icon.exclamation-triangle class="w-4 h-4 mr-2" />
+                                    {{ $student['name'] }} ({{ $student['phone'] }}) - {{ $student['reason'] }}
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Errors -->
+                @if(!empty($importStudentResult['errors']))
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <flux:heading size="sm" class="text-red-800 mb-2">Errors ({{ count($importStudentResult['errors']) }})</flux:heading>
+                        <div class="space-y-1">
+                            @foreach($importStudentResult['errors'] as $error)
+                                <div class="text-sm text-red-700 flex items-center">
+                                    <flux:icon.x-circle class="w-4 h-4 mr-2" />
+                                    {{ $error }}
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            @endif
+        </div>
+
+        <div class="flex justify-end gap-2 mt-6">
+            <flux:button variant="primary" wire:click="closeImportStudentResultModal">Close</flux:button>
+        </div>
+    </flux:modal>
+
+    <!-- Create Student Modal -->
+    <flux:modal name="create-student" :show="$showCreateStudentModal" wire:model="showCreateStudentModal">
+        <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+            <flux:heading size="lg">Create New Student</flux:heading>
+            <flux:text class="mt-2">Create a new student and optionally enroll them in this class</flux:text>
+        </div>
+
+        <div class="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+            <!-- Account Information -->
+            <div class="space-y-4">
+                <flux:heading size="sm">Account Information</flux:heading>
+
+                <flux:input
+                    wire:model="newStudentName"
+                    label="Full Name"
+                    placeholder="Enter student's full name"
+                    required
+                />
+
+                <flux:input
+                    type="email"
+                    wire:model="newStudentEmail"
+                    label="Email Address (Optional)"
+                    placeholder="student@example.com"
+                />
+
+                <flux:input
+                    wire:model="newStudentIcNumber"
+                    label="IC Number (Optional)"
+                    placeholder="e.g., 961208035935"
+                />
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <flux:input
+                        type="password"
+                        wire:model="newStudentPassword"
+                        label="Password"
+                        placeholder="Enter password"
+                        required
+                    />
+                    <flux:input
+                        type="password"
+                        wire:model="newStudentPasswordConfirmation"
+                        label="Confirm Password"
+                        placeholder="Confirm password"
+                        required
+                    />
+                </div>
+            </div>
+
+            <!-- Phone Number -->
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-zinc-700">
+                    Phone Number <span class="text-red-500">*</span>
+                </label>
+                <div class="flex gap-2">
+                    <div class="w-28 shrink-0">
+                        <flux:select wire:model="newStudentCountryCode">
+                            <flux:select.option value="+60">+60</flux:select.option>
+                            <flux:select.option value="+65">+65</flux:select.option>
+                            <flux:select.option value="+62">+62</flux:select.option>
+                            <flux:select.option value="+66">+66</flux:select.option>
+                            <flux:select.option value="+1">+1</flux:select.option>
+                            <flux:select.option value="+44">+44</flux:select.option>
+                        </flux:select>
+                    </div>
+                    <div class="flex-1">
+                        <flux:input wire:model="newStudentPhone" placeholder="123456789" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enrollment Option -->
+            <div class="bg-gray-50 rounded-lg p-4 space-y-4">
+                <flux:checkbox
+                    wire:model.live="enrollAfterCreate"
+                    label="Enroll in this class after creation"
+                    description="The student will be automatically added to {{ $class->title }}"
+                />
+
+                @if($enrollAfterCreate)
+                    <flux:field>
+                        <flux:label>Order ID (Optional)</flux:label>
+                        <flux:input
+                            wire:model="newStudentOrderId"
+                            placeholder="e.g., ORD-2024-001"
+                        />
+                        <flux:description>
+                            Associate this enrollment with a specific order
+                        </flux:description>
+                    </flux:field>
+                @endif
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200">
+            <flux:button variant="outline" wire:click="closeCreateStudentModal">
+                Cancel
+            </flux:button>
+            <flux:button variant="primary" wire:click="createStudent">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                    Create Student
+                </div>
+            </flux:button>
+        </div>
     </flux:modal>
 </div>
 

@@ -61,6 +61,8 @@ new class extends Component
 
     public float $subtotal = 0;
 
+    public float $shippingCost = 0;
+
     public float $taxRate = 6.0; // GST percentage (editable)
 
     public float $taxAmount = 0;
@@ -145,14 +147,27 @@ new class extends Component
         $this->calculateTotals();
     }
 
+    public function unitPriceUpdated(int $index): void
+    {
+        $quantity = $this->orderItems[$index]['quantity'];
+        $unitPrice = (float) $this->orderItems[$index]['unit_price'];
+        $this->orderItems[$index]['total_price'] = $quantity * $unitPrice;
+        $this->calculateTotals();
+    }
+
     public function calculateTotals(): void
     {
         $this->subtotal = array_sum(array_column($this->orderItems, 'total_price'));
         $this->taxAmount = $this->subtotal * ($this->taxRate / 100);
-        $this->total = $this->subtotal + $this->taxAmount;
+        $this->total = $this->subtotal + $this->shippingCost + $this->taxAmount;
     }
 
     public function updatedTaxRate(): void
+    {
+        $this->calculateTotals();
+    }
+
+    public function updatedShippingCost(): void
     {
         $this->calculateTotals();
     }
@@ -347,6 +362,7 @@ new class extends Component
             'status' => $this->form['order_status'],
             'currency' => 'MYR',
             'subtotal' => $this->subtotal,
+            'shipping_cost' => $this->shippingCost,
             'tax_amount' => $this->taxAmount,
             'total_amount' => $this->total,
             'customer_notes' => $this->form['notes'],
@@ -792,7 +808,8 @@ new class extends Component
                                     <flux:field>
                                         <flux:label>Unit Price</flux:label>
                                         <flux:input wire:model.live="orderItems.{{ $index }}.unit_price"
-                                                   type="number" step="0.01" readonly />
+                                                   wire:change="unitPriceUpdated({{ $index }})"
+                                                   type="number" step="0.01" min="0" />
                                     </flux:field>
 
                                     <!-- Remove Button -->
@@ -950,6 +967,20 @@ new class extends Component
                         </flux:field>
                     </div>
 
+                    <!-- Delivery Fees -->
+                    <div class="border-t pt-4">
+                        <flux:field>
+                            <flux:label>Delivery / Shipping Fees (MYR)</flux:label>
+                            <flux:input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                wire:model.live="shippingCost"
+                                placeholder="0.00"
+                            />
+                        </flux:field>
+                    </div>
+
                     <!-- GST Configuration -->
                     <div class="border-t pt-4">
                         <flux:field>
@@ -972,6 +1003,13 @@ new class extends Component
                             <flux:text>MYR {{ number_format($subtotal, 2) }}</flux:text>
                         </div>
 
+                        @if($shippingCost > 0)
+                            <div class="flex justify-between">
+                                <flux:text>Delivery / Shipping</flux:text>
+                                <flux:text>MYR {{ number_format($shippingCost, 2) }}</flux:text>
+                            </div>
+                        @endif
+
                         <div class="flex justify-between">
                             <flux:text>Tax (GST {{ number_format($taxRate, 1) }}%)</flux:text>
                             <flux:text>MYR {{ number_format($taxAmount, 2) }}</flux:text>
@@ -980,7 +1018,7 @@ new class extends Component
                         <div class="border-t pt-3">
                             <div class="flex justify-between">
                                 <flux:text class="font-semibold text-lg">Total</flux:text>
-                                <flux:text class="font-semibold text-lg">MYR {{ number_format($total, 2) }}</flux:text>
+                                <flux:text class="font-semibold text-lg text-blue-600">MYR {{ number_format($total, 2) }}</flux:text>
                             </div>
                         </div>
                     </div>

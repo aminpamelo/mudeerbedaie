@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ClassModel;
+use App\Models\ClassCategory;
 use App\Models\Course;
 use App\Models\Teacher;
 use Livewire\Volt\Component;
@@ -24,7 +25,15 @@ new class extends Component {
     public $commission_value;
     public $notes;
     public $status;
-    
+
+    // Category selection
+    public $category_ids = [];
+
+    // Category creation modal
+    public $showCategoryModal = false;
+    public $newCategoryName = '';
+    public $newCategoryColor = '#6366f1';
+
     // Timetable properties
     public $enable_timetable = false;
     public $weekly_schedule = [];
@@ -40,11 +49,11 @@ new class extends Component {
     public $shipment_warehouse_id = null;
     public $shipment_quantity_per_student = 1;
     public $shipment_notes = '';
-    
+
     public function mount(ClassModel $class): void
     {
-        $this->class = $class->load(['course', 'teacher', 'timetable']);
-        
+        $this->class = $class->load(['course', 'teacher', 'timetable', 'categories']);
+
         // Populate form fields
         $this->course_id = $class->course_id;
         $this->teacher_id = $class->teacher_id;
@@ -63,7 +72,10 @@ new class extends Component {
         $this->commission_value = $class->commission_value;
         $this->notes = $class->notes;
         $this->status = $class->status;
-        
+
+        // Populate category ids
+        $this->category_ids = $class->categories->pluck('id')->toArray();
+
         // Populate timetable fields
         if ($class->timetable) {
             $this->enable_timetable = true;
@@ -92,6 +104,7 @@ new class extends Component {
             'teachers' => Teacher::where('status', 'active')->with('user')->orderBy('teacher_id')->get(),
             'products' => \App\Models\Product::where('status', 'active')->orderBy('name')->get(),
             'warehouses' => \App\Models\Warehouse::where('is_active', true)->orderBy('name')->get(),
+            'categories' => ClassCategory::active()->ordered()->get(),
         ];
     }
 
@@ -188,6 +201,9 @@ new class extends Component {
             }
             session()->flash('success', 'Class updated successfully.');
         }
+
+        // Sync categories
+        $this->class->categories()->sync($this->category_ids);
 
         $this->redirect(route('classes.show', $this->class));
     }
@@ -289,6 +305,44 @@ new class extends Component {
         }
     }
 
+    public function openCategoryModal(): void
+    {
+        $this->showCategoryModal = true;
+        $this->newCategoryName = '';
+        $this->newCategoryColor = '#6366f1';
+    }
+
+    public function closeCategoryModal(): void
+    {
+        $this->showCategoryModal = false;
+        $this->newCategoryName = '';
+        $this->newCategoryColor = '#6366f1';
+    }
+
+    public function createCategory(): void
+    {
+        $this->validate([
+            'newCategoryName' => 'required|string|max:255|unique:class_categories,name',
+            'newCategoryColor' => 'required|string|max:7',
+        ]);
+
+        $category = ClassCategory::create([
+            'name' => $this->newCategoryName,
+            'slug' => \Str::slug($this->newCategoryName),
+            'color' => $this->newCategoryColor,
+            'is_active' => true,
+            'sort_order' => (ClassCategory::max('sort_order') ?? 0) + 1,
+        ]);
+
+        // Auto-select the newly created category
+        $this->category_ids[] = $category->id;
+
+        $this->closeCategoryModal();
+
+        // Force re-render to show the new category
+        $this->dispatch('$refresh');
+    }
+
 };
 
 ?>
@@ -357,6 +411,47 @@ new class extends Component {
                         </flux:select>
                         <flux:error name="teacher_id" />
                     </flux:field>
+
+                    <div class="sm:col-span-2">
+                        <flux:field>
+                            <div class="flex items-center justify-between">
+                                <flux:label>Categories</flux:label>
+                                <flux:button
+                                    wire:click="openCategoryModal"
+                                    variant="ghost"
+                                    size="sm"
+                                    icon="plus"
+                                >
+                                    Add Category
+                                </flux:button>
+                            </div>
+                            @if($categories->count() > 0)
+                                <div class="mt-2 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    @foreach($categories as $category)
+                                        <label class="flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors {{ in_array($category->id, $category_ids) ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200' }}">
+                                            <input
+                                                type="checkbox"
+                                                wire:model="category_ids"
+                                                value="{{ $category->id }}"
+                                                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{ $category->color }}"></span>
+                                                <span class="text-sm text-gray-700">{{ $category->name }}</span>
+                                            </div>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="mt-2 p-4 border border-dashed border-gray-300 rounded-lg text-center">
+                                    <flux:icon.folder class="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                                    <p class="text-sm text-gray-500">No categories yet</p>
+                                    <p class="text-xs text-gray-400 mt-1">Click "Add Category" to create one</p>
+                                </div>
+                            @endif
+                            <flux:description>Select categories to organize this class</flux:description>
+                        </flux:field>
+                    </div>
 
                     <div class="sm:col-span-2">
                         <flux:field>
@@ -682,4 +777,46 @@ new class extends Component {
             </div>
         </form>
     </div>
+
+    <!-- Create Category Modal -->
+    <flux:modal wire:model="showCategoryModal" class="md:w-96">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Create Category</flux:heading>
+                <flux:text class="mt-2">Add a new category to organize your classes</flux:text>
+            </div>
+
+            <div class="space-y-4">
+                <flux:field>
+                    <flux:label>Category Name</flux:label>
+                    <flux:input wire:model="newCategoryName" placeholder="e.g., Quran, Islamic Studies" />
+                    <flux:error name="newCategoryName" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>Color</flux:label>
+                    <div class="flex items-center gap-3">
+                        <input
+                            type="color"
+                            wire:model="newCategoryColor"
+                            class="h-10 w-14 rounded border border-gray-300 cursor-pointer"
+                        />
+                        <flux:input wire:model="newCategoryColor" class="flex-1" placeholder="#6366f1" />
+                    </div>
+                    <flux:description>Choose a color to identify this category</flux:description>
+                </flux:field>
+
+                <!-- Color Preview -->
+                <div class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                    <span class="w-4 h-4 rounded-full" style="background-color: {{ $newCategoryColor }}"></span>
+                    <span class="text-sm font-medium">{{ $newCategoryName ?: 'Category Preview' }}</span>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <flux:button wire:click="closeCategoryModal" variant="ghost">Cancel</flux:button>
+                <flux:button wire:click="createCategory" variant="primary">Create Category</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

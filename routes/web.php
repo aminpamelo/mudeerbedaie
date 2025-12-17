@@ -157,6 +157,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('classes/{class}', 'admin.class-show')->name('classes.show');
     Volt::route('classes/{class}/edit', 'admin.class-edit')->name('classes.edit');
 
+    // Class Category routes
+    Volt::route('class-categories', 'admin.class-category-list')->name('class-categories.index');
+
     // Session routes
     Volt::route('sessions', 'admin.sessions-index')->name('admin.sessions.index');
     Volt::route('sessions/{session}', 'admin.sessions-show')->name('admin.sessions.show');
@@ -197,6 +200,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('reports/student-payments', 'admin.student-payment-report')->name('admin.reports.student-payments');
     Volt::route('reports/packages-orders', 'admin.reports.packages-orders')->name('admin.reports.packages-orders');
     Volt::route('reports/student-product-orders', 'admin.reports.student-product-orders')->name('admin.reports.student-product-orders');
+    Volt::route('reports/student-class-enrollments', 'admin.reports.student-class-enrollments')->name('admin.reports.student-class-enrollments');
 
     // Product Management routes
     Volt::route('products', 'admin.products.product-list')->name('products.index');
@@ -240,6 +244,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('product-orders/create', 'admin.orders.order-create')->name('admin.orders.create');
     Volt::route('product-orders/{order}', 'admin.orders.order-show')->name('admin.orders.show');
     Volt::route('product-orders/{order}/edit', 'admin.orders.order-edit')->name('admin.orders.edit');
+    Volt::route('product-orders/{order}/receipt', 'admin.orders.order-receipt')->name('admin.orders.receipt');
 
     // Package Management routes
     Volt::route('packages', 'admin.packages.index')->name('packages.index');

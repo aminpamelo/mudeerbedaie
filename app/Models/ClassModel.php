@@ -109,6 +109,12 @@ class ClassModel extends Model
             ->withTimestamps();
     }
 
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(ClassCategory::class, 'class_category_class', 'class_id', 'class_category_id')
+            ->withTimestamps();
+    }
+
     public function certificateIssues(): HasMany
     {
         return $this->hasMany(CertificateIssue::class, 'class_id');
@@ -272,12 +278,13 @@ class ClassModel extends Model
         return $total;
     }
 
-    public function addStudent(Student $student): ClassStudent
+    public function addStudent(Student $student, ?string $orderId = null): ClassStudent
     {
         return $this->classStudents()->create([
             'student_id' => $student->id,
             'enrolled_at' => now(),
             'status' => 'active',
+            'order_id' => $orderId,
         ]);
     }
 
