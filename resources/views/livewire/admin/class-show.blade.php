@@ -6436,10 +6436,12 @@ new class extends Component
                                                                                     ->first();
                                                                                 $paidAmount = 0;
                                                                                 if ($enrollment) {
+                                                                                    // Match orders where the billing period START date falls within the shipment period
+                                                                                    // This aligns with Payment Reports logic
                                                                                     $paidAmount = \App\Models\Order::where('enrollment_id', $enrollment->id)
                                                                                         ->where('student_id', $item->student_id)
                                                                                         ->where('period_start', '>=', $shipment->period_start_date)
-                                                                                        ->where('period_end', '<=', $shipment->period_end_date)
+                                                                                        ->where('period_start', '<=', $shipment->period_end_date)
                                                                                         ->where('status', 'paid')
                                                                                         ->sum('amount');
                                                                                 }
