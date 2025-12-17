@@ -992,12 +992,11 @@ new class extends Component
                         <flux:field>
                             <flux:label>Delivery / Shipping Fees (MYR)</flux:label>
                             <flux:input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                wire:model.live="shippingCost"
+                                type="text"
+                                inputmode="decimal"
+                                wire:model.live.debounce.500ms="shippingCost"
                                 placeholder="0.00"
-                                x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(2)"
+                                x-on:blur="$el.value = $el.value ? parseFloat($el.value).toFixed(2) : ''"
                             />
                         </flux:field>
                     </div>
