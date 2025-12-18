@@ -22,6 +22,7 @@ new class extends Component
             'customer',
             'addresses',
             'payments',
+            'agent',
         ]);
     }
 
@@ -46,12 +47,70 @@ new class extends Component
             'Content-Type' => 'application/pdf',
         ]);
     }
+
+    public function getInvoiceNumber(): string
+    {
+        $date = $this->order->order_date ?? $this->order->created_at;
+        $yearMonth = $date->format('y/m');
+        $sequence = str_pad($this->order->id, 3, '0', STR_PAD_LEFT);
+        return "INV{$yearMonth}-{$sequence}";
+    }
+
+    public function numberToWords(float $number): string
+    {
+        $ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+        $tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+
+        $integer = floor($number);
+        $decimal = round(($number - $integer) * 100);
+
+        $words = '';
+
+        if ($integer >= 1000) {
+            $thousands = floor($integer / 1000);
+            $words .= $this->convertHundreds($thousands, $ones, $tens) . ' THOUSAND ';
+            $integer %= 1000;
+        }
+
+        if ($integer >= 100) {
+            $words .= $this->convertHundreds($integer, $ones, $tens);
+        } elseif ($integer > 0) {
+            $words .= $this->convertTens($integer, $ones, $tens);
+        }
+
+        $words = trim($words);
+
+        if ($decimal > 0) {
+            $words .= ' AND CENTS ' . $this->convertTens($decimal, $ones, $tens);
+        }
+
+        return 'RINGGIT MALAYSIA : ' . $words . ' ONLY';
+    }
+
+    private function convertHundreds(int $number, array $ones, array $tens): string
+    {
+        $result = '';
+        if ($number >= 100) {
+            $result .= $ones[floor($number / 100)] . ' HUNDRED ';
+            $number %= 100;
+        }
+        $result .= $this->convertTens($number, $ones, $tens);
+        return trim($result);
+    }
+
+    private function convertTens(int $number, array $ones, array $tens): string
+    {
+        if ($number < 20) {
+            return $ones[$number];
+        }
+        return $tens[floor($number / 10)] . ' ' . $ones[$number % 10];
+    }
 }; ?>
 
 <div class="min-h-screen bg-white print-receipt-page">
-    <div class="max-w-4xl mx-auto p-8 print-receipt-content">
+    <div class="max-w-4xl mx-auto p-4 print-receipt-content">
         <!-- Header with Action Buttons -->
-        <div class="mb-8 flex items-center justify-between no-print">
+        <div class="mb-4 flex items-center justify-between no-print">
             <div>
                 <flux:heading size="xl">Order Receipt</flux:heading>
                 <flux:text class="mt-1 text-gray-600">Order {{ $order->order_number }}</flux:text>
@@ -79,358 +138,231 @@ new class extends Component
         </div>
 
         <!-- Receipt Content -->
-        <div class="bg-white border border-gray-200 rounded-lg p-8 print:border-0 print:shadow-none">
+        <div class="bg-white border border-gray-200 rounded-lg print:border-0 print:shadow-none overflow-hidden">
             <!-- Company Header -->
-            <div class="text-center mb-8">
-                <flux:heading size="2xl" class="text-gray-800">{{ config('app.name') }}</flux:heading>
-                <flux:text class="text-gray-600 mt-2">Order Receipt / Invoice</flux:text>
+            <div class="border-b-4 border-purple-800 px-6 py-4">
+                <div class="text-center">
+                    <h1 class="text-xl font-bold tracking-wide text-gray-900">{{ config('app.company.name') }}</h1>
+                    <p class="text-gray-500 text-xs">({{ config('app.company.registration') }})</p>
+                    <p class="text-gray-600 text-xs mt-1">
+                        {{ config('app.company.address_line_1') }}, {{ config('app.company.address_line_2') }}
+                    </p>
+                    <p class="text-gray-600 text-xs">
+                        Phone: {{ config('app.company.phone') }} &nbsp;&nbsp; email: {{ config('app.company.email') }}
+                    </p>
+                </div>
             </div>
 
-            <!-- Receipt Details -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <!-- Left Column - Order Info -->
-                <div>
-                    <flux:heading size="lg" class="mb-4 text-gray-800">Order Details</flux:heading>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <flux:text class="text-gray-600">Order Number:</flux:text>
-                            <flux:text class="font-semibold">{{ $order->order_number }}</flux:text>
-                        </div>
-                        <div class="flex justify-between">
-                            <flux:text class="text-gray-600">Order Date:</flux:text>
-                            <flux:text class="font-semibold">{{ $order->order_date?->format('M j, Y') ?? $order->created_at->format('M j, Y') }}</flux:text>
-                        </div>
-                        <div class="flex justify-between">
-                            <flux:text class="text-gray-600">Order Status:</flux:text>
-                            <flux:badge :color="match($order->status) {
-                                'pending' => 'orange',
-                                'processing' => 'blue',
-                                'shipped' => 'purple',
-                                'delivered' => 'green',
-                                'cancelled' => 'red',
-                                default => 'gray'
-                            }">{{ ucfirst($order->status) }}</flux:badge>
-                        </div>
+            <div class="p-5">
+                <!-- Invoice Title and Document Info -->
+                <div class="flex justify-between items-start mb-4">
+                    <!-- Billing Address -->
+                    @php
+                        $billingAddress = $order->billingAddress();
+                    @endphp
+                    <div class="max-w-xs">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Billing Address</p>
+                        <p class="font-bold text-gray-900 text-sm">
+                            {{ $billingAddress?->first_name ?? $order->getCustomerName() }}
+                            {{ $billingAddress?->last_name ?? '' }}
+                        </p>
+                        @if($billingAddress?->company)
+                            <p class="text-gray-700 text-xs">{{ $billingAddress->company }}</p>
+                        @endif
+                        @if($billingAddress)
+                            <p class="text-gray-700 text-xs">{{ $billingAddress->address_line_1 }}</p>
+                            @if($billingAddress->address_line_2)
+                                <p class="text-gray-700 text-xs">{{ $billingAddress->address_line_2 }}</p>
+                            @endif
+                            <p class="text-gray-700 text-xs">{{ $billingAddress->city }}, {{ $billingAddress->postal_code }} {{ $billingAddress->state }}</p>
+                        @endif
                         @php
-                            $latestPayment = $order->payments()->latest()->first();
-                        @endphp
-                        <div class="flex justify-between">
-                            <flux:text class="text-gray-600">Payment Status:</flux:text>
-                            <flux:badge :color="match($latestPayment?->status) {
-                                'pending' => 'orange',
-                                'completed' => 'green',
-                                'failed' => 'red',
-                                default => 'gray'
-                            }">{{ ucfirst($latestPayment?->status ?? 'Pending') }}</flux:badge>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Column - Customer Info -->
-                <div>
-                    <flux:heading size="lg" class="mb-4 text-gray-800">Customer Information</flux:heading>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <flux:text class="text-gray-600">Name:</flux:text>
-                            <flux:text class="font-semibold">{{ $order->getCustomerName() }}</flux:text>
-                        </div>
-                        <div class="flex justify-between">
-                            <flux:text class="text-gray-600">Email:</flux:text>
-                            <flux:text class="font-semibold">{{ $order->getCustomerEmail() }}</flux:text>
-                        </div>
-                        @php
-                            $phone = $order->customer_phone ?? $order->billingAddress()?->phone ?? null;
+                            $phone = $order->customer_phone ?? $billingAddress?->phone ?? null;
                         @endphp
                         @if($phone)
-                            <div class="flex justify-between">
-                                <flux:text class="text-gray-600">Phone:</flux:text>
-                                <flux:text class="font-semibold">{{ $phone }}</flux:text>
-                            </div>
+                            <p class="text-gray-700 text-xs mt-1">Tel: {{ $phone }}</p>
                         @endif
                     </div>
+
+                    <!-- Invoice Label & Details -->
+                    <div class="text-right">
+                        <h2 class="text-3xl font-bold text-purple-800 mb-2">INVOICE</h2>
+                        <table class="text-xs ml-auto">
+                            <tr>
+                                <td class="text-gray-600 pr-3 py-0.5">Doc No. :</td>
+                                <td class="font-semibold text-gray-900 py-0.5">{{ $this->getInvoiceNumber() }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-gray-600 pr-3 py-0.5">Date :</td>
+                                <td class="font-semibold text-gray-900 py-0.5">{{ ($order->order_date ?? $order->created_at)->format('d/m/Y') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-gray-600 pr-3 py-0.5">Payment Terms :</td>
+                                <td class="font-semibold text-gray-900 py-0.5">Immediate</td>
+                            </tr>
+                            @if($order->agent)
+                                <tr>
+                                    <td class="text-gray-600 pr-3 py-0.5">Sales Executive :</td>
+                                    <td class="font-semibold text-gray-900 py-0.5 uppercase">{{ $order->agent->name }}</td>
+                                </tr>
+                            @endif
+                            <tr>
+                                <td class="text-gray-600 pr-3 py-0.5">Order Ref :</td>
+                                <td class="font-semibold text-gray-900 py-0.5">{{ $order->order_number }}</td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Addresses -->
-            @php
-                $billingAddress = $order->billingAddress();
-                $shippingAddress = $order->shippingAddress();
-            @endphp
-            @if($billingAddress || $shippingAddress)
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                    @if($billingAddress)
-                        <div>
-                            <flux:heading size="lg" class="mb-4 text-gray-800">Billing Address</flux:heading>
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <p>{{ $billingAddress->first_name }} {{ $billingAddress->last_name }}</p>
-                                @if($billingAddress->company)
-                                    <p>{{ $billingAddress->company }}</p>
-                                @endif
-                                <p>{{ $billingAddress->address_line_1 }}</p>
-                                @if($billingAddress->address_line_2)
-                                    <p>{{ $billingAddress->address_line_2 }}</p>
-                                @endif
-                                <p>{{ $billingAddress->city }}, {{ $billingAddress->state }} {{ $billingAddress->postal_code }}</p>
-                                <p>{{ $billingAddress->country }}</p>
-                            </div>
-                        </div>
-                    @endif
-
-                    @if($shippingAddress)
-                        <div>
-                            <flux:heading size="lg" class="mb-4 text-gray-800">Shipping Address</flux:heading>
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <p>{{ $shippingAddress->first_name }} {{ $shippingAddress->last_name }}</p>
-                                @if($shippingAddress->company)
-                                    <p>{{ $shippingAddress->company }}</p>
-                                @endif
-                                <p>{{ $shippingAddress->address_line_1 }}</p>
-                                @if($shippingAddress->address_line_2)
-                                    <p>{{ $shippingAddress->address_line_2 }}</p>
-                                @endif
-                                <p>{{ $shippingAddress->city }}, {{ $shippingAddress->state }} {{ $shippingAddress->postal_code }}</p>
-                                <p>{{ $shippingAddress->country }}</p>
-                            </div>
-                        </div>
-                    @endif
-                </div>
-            @endif
-
-            <!-- Order Items -->
-            <div class="mb-8">
-                <flux:heading size="lg" class="mb-4 text-gray-800">Order Items</flux:heading>
-                <div class="overflow-x-auto">
-                    <table class="w-full">
+                <!-- Items Table -->
+                <div class="mb-4">
+                    <table class="w-full border-collapse text-xs">
                         <thead>
-                            <tr class="border-b-2 border-gray-300">
-                                <th class="text-left py-3 font-semibold text-gray-800">Product</th>
-                                <th class="text-left py-3 font-semibold text-gray-800">SKU</th>
-                                <th class="text-center py-3 font-semibold text-gray-800">Qty</th>
-                                <th class="text-right py-3 font-semibold text-gray-800">Unit Price</th>
-                                <th class="text-right py-3 font-semibold text-gray-800">Total</th>
+                            <tr class="bg-purple-800 text-white">
+                                <th class="py-2 px-2 text-left font-semibold w-8">No</th>
+                                <th class="py-2 px-2 text-left font-semibold w-20">Item Code</th>
+                                <th class="py-2 px-2 text-left font-semibold">Description</th>
+                                <th class="py-2 px-2 text-center font-semibold w-16">Qty</th>
+                                <th class="py-2 px-2 text-right font-semibold w-20">Price/Unit</th>
+                                <th class="py-2 px-2 text-center font-semibold w-12">Disc</th>
+                                <th class="py-2 px-2 text-right font-semibold w-24">Sub Total ({{ $order->currency }})</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($order->items as $item)
+                            @foreach($order->items as $index => $item)
                                 <tr class="border-b border-gray-200">
-                                    <td class="py-4">
-                                        <flux:text class="font-medium">{{ $item->product?->name ?? $item->product_name ?? 'Unknown Product' }}</flux:text>
+                                    <td class="py-2 px-2">{{ $index + 1 }}</td>
+                                    <td class="py-2 px-2 font-medium">{{ strtoupper(substr($item->sku ?? $item->product?->sku ?? 'ITEM', 0, 10)) }}</td>
+                                    <td class="py-2 px-2">
+                                        {{ strtoupper($item->product?->name ?? $item->product_name ?? 'Product') }}
                                         @if($item->warehouse)
-                                            <flux:text size="xs" class="text-gray-500 block">Warehouse: {{ $item->warehouse->name }}</flux:text>
+                                            <span class="text-[10px] text-gray-500 block">From: {{ $item->warehouse->name }}</span>
                                         @endif
                                     </td>
-                                    <td class="py-4">
-                                        <flux:text class="text-gray-600">{{ $item->sku ?? $item->product?->sku ?? '-' }}</flux:text>
+                                    <td class="py-2 px-2 text-center">{{ number_format($item->quantity_ordered, 2) }}</td>
+                                    <td class="py-2 px-2 text-right">{{ number_format($item->unit_price, 2) }}</td>
+                                    <td class="py-2 px-2 text-center">
+                                        @if($item->discount_amount > 0)
+                                            {{ number_format($item->discount_amount, 2) }}
+                                        @endif
                                     </td>
-                                    <td class="py-4 text-center">{{ $item->quantity_ordered }}</td>
-                                    <td class="py-4 text-right">{{ $order->currency }} {{ number_format($item->unit_price, 2) }}</td>
-                                    <td class="py-4 text-right font-semibold">{{ $order->currency }} {{ number_format($item->total_price, 2) }}</td>
+                                    <td class="py-2 px-2 text-right font-semibold">{{ number_format($item->total_price, 2) }}</td>
                                 </tr>
                             @endforeach
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colspan="4" class="py-3 text-right text-gray-600">Subtotal:</td>
-                                <td class="py-3 text-right font-semibold">{{ $order->currency }} {{ number_format($order->subtotal, 2) }}</td>
-                            </tr>
                             @if($order->shipping_cost > 0)
-                                <tr>
-                                    <td colspan="4" class="py-2 text-right text-gray-600">Shipping:</td>
-                                    <td class="py-2 text-right">{{ $order->currency }} {{ number_format($order->shipping_cost, 2) }}</td>
+                                <tr class="border-b border-gray-200">
+                                    <td class="py-2 px-2">{{ $order->items->count() + 1 }}</td>
+                                    <td class="py-2 px-2 font-medium">SHIPPING</td>
+                                    <td class="py-2 px-2">SHIPPING / DELIVERY CHARGE</td>
+                                    <td class="py-2 px-2 text-center">1.00</td>
+                                    <td class="py-2 px-2 text-right">{{ number_format($order->shipping_cost, 2) }}</td>
+                                    <td class="py-2 px-2 text-center"></td>
+                                    <td class="py-2 px-2 text-right font-semibold">{{ number_format($order->shipping_cost, 2) }}</td>
                                 </tr>
                             @endif
-                            @if($order->tax_amount > 0)
-                                <tr>
-                                    <td colspan="4" class="py-2 text-right text-gray-600">Tax (GST):</td>
-                                    <td class="py-2 text-right">{{ $order->currency }} {{ number_format($order->tax_amount, 2) }}</td>
-                                </tr>
-                            @endif
-                            @if($order->discount_amount > 0)
-                                <tr>
-                                    <td colspan="4" class="py-2 text-right text-green-600">Discount:</td>
-                                    <td class="py-2 text-right text-green-600">-{{ $order->currency }} {{ number_format($order->discount_amount, 2) }}</td>
-                                </tr>
-                            @endif
-                            <tr class="border-t-2 border-gray-300">
-                                <td colspan="4" class="py-4 text-right font-bold text-lg text-gray-800">Total Amount:</td>
-                                <td class="py-4 text-right font-bold text-xl text-blue-600">{{ $order->currency }} {{ number_format($order->total_amount, 2) }}</td>
-                            </tr>
-                        </tfoot>
+                        </tbody>
                     </table>
                 </div>
-            </div>
 
-            <!-- Payment Information -->
-            @if($latestPayment)
-                <div class="mb-8">
-                    <flux:heading size="lg" class="mb-4 text-gray-800">Payment Information</flux:heading>
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <flux:text class="text-gray-600">Payment Method:</flux:text>
-                                <flux:text class="font-semibold capitalize">{{ str_replace('_', ' ', $latestPayment->payment_method) }}</flux:text>
-                            </div>
-                            <div>
-                                <flux:text class="text-gray-600">Currency:</flux:text>
-                                <flux:text class="font-semibold">{{ strtoupper($order->currency) }}</flux:text>
-                            </div>
-                            @if($latestPayment->paid_at)
-                                <div>
-                                    <flux:text class="text-gray-600">Paid At:</flux:text>
-                                    <flux:text class="font-semibold">{{ $latestPayment->paid_at->format('M j, Y g:i A') }}</flux:text>
-                                </div>
-                            @endif
-                            @if($latestPayment->transaction_id)
-                                <div>
-                                    <flux:text class="text-gray-600">Transaction ID:</flux:text>
-                                    <flux:text class="font-mono text-sm">{{ $latestPayment->transaction_id }}</flux:text>
-                                </div>
-                            @endif
+                <!-- Amount in Words and Total -->
+                <div class="border-t-2 border-gray-300 pt-3">
+                    <div class="flex justify-between items-center">
+                        <p class="text-[10px] text-gray-600 uppercase tracking-wide flex-1 pr-4">
+                            {{ $this->numberToWords($order->total_amount) }}
+                        </p>
+                        <div class="text-right flex items-center gap-4">
+                            <span class="text-gray-600 font-semibold text-sm">Total :</span>
+                            <span class="text-xl font-bold text-gray-900">{{ number_format($order->total_amount, 2) }}</span>
                         </div>
                     </div>
                 </div>
-            @endif
 
-            <!-- Footer -->
-            <div class="text-center pt-8 border-t border-gray-200">
-                <flux:text class="text-gray-600">
-                    Thank you for your order!
-                </flux:text>
-                <flux:text size="sm" class="text-gray-500 mt-2 block">
-                    For any questions regarding this order, please contact our support team.
-                </flux:text>
-                <flux:text size="xs" class="text-gray-400 mt-4 block">
-                    Generated on {{ now()->format('M j, Y g:i A') }}
-                </flux:text>
+                <!-- Notes Section -->
+                <div class="mt-4 grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="font-semibold text-gray-800 text-xs mb-1">Note :</p>
+                        <ol class="text-[10px] text-gray-600 space-y-0.5 list-decimal list-inside">
+                            <li>All cheques should be crossed and made payable to <span class="font-semibold">{{ config('app.company.name') }}</span></li>
+                            <li>Good sold are neither returnable nor refundable.</li>
+                        </ol>
+                        <div class="mt-2">
+                            <p class="text-[10px] text-gray-600">Bank account No:</p>
+                            <p class="text-[10px] font-semibold text-gray-800">{{ config('app.company.bank_name') }} {{ config('app.company.bank_account') }}</p>
+                        </div>
+                    </div>
+                    <div class="text-right flex items-end justify-end">
+                        <p class="text-[10px] italic text-gray-500">Computer generated, no signature required</p>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="mt-4 pt-3 border-t border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <div class="bg-purple-800 text-white px-3 py-1.5 rounded-r-full">
+                            <p class="text-[10px] font-semibold">{{ config('app.company.name') }} ({{ config('app.company.registration') }} ({{ config('app.company.tax_id') }}))</p>
+                        </div>
+                        <p class="text-xs text-gray-500">1 of 1</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <style>
         @media print {
-            /* Hide ALL navigation, sidebar, and header elements */
             .no-print,
-            nav,
-            aside,
-            header,
-            /* Flux UI specific selectors */
-            [data-flux-sidebar],
-            [data-flux-header],
-            [data-flux-navbar],
-            [data-flux-sidebar-toggle],
-            /* Class-based selectors for Flux */
-            .border-e,
-            .lg\:hidden,
-            /* Any element with sidebar in x-data */
-            [x-data*="sidebar"],
-            [x-data*="stashable"],
-            /* Common sidebar classes */
-            .sidebar,
-            .navigation,
-            .nav-menu,
-            .app-sidebar,
-            .main-nav,
-            /* Hide the first direct child of body that contains sidebar */
+            nav, aside, header,
+            [data-flux-sidebar], [data-flux-header], [data-flux-navbar], [data-flux-sidebar-toggle],
+            .border-e, .lg\:hidden, [x-data*="sidebar"], [x-data*="stashable"],
+            .sidebar, .navigation, .nav-menu, .app-sidebar, .main-nav,
             body > div:first-child > div:first-child,
-            /* Flux dropdown menus */
-            [data-flux-dropdown],
-            [data-flux-menu] {
+            [data-flux-dropdown], [data-flux-menu] {
                 display: none !important;
                 visibility: hidden !important;
                 width: 0 !important;
                 height: 0 !important;
-                overflow: hidden !important;
                 position: absolute !important;
                 left: -9999px !important;
             }
 
-            /* Reset body and html */
             html, body {
                 margin: 0 !important;
                 padding: 0 !important;
                 background: white !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
-                overflow: visible !important;
             }
 
-            /* Override any grid or flex layouts that include sidebar */
-            body > div,
-            body > div > div {
+            body > div, body > div > div {
                 display: block !important;
                 width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
             }
 
-            /* Reset main content area */
-            main,
-            .main-content,
-            [role="main"] {
+            main, .main-content, [role="main"] {
                 margin: 0 !important;
                 padding: 0 !important;
                 width: 100% !important;
                 max-width: 100% !important;
-                margin-left: 0 !important;
             }
 
-            /* Make the receipt container full width */
             .min-h-screen {
                 min-height: auto !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                width: 100% !important;
             }
 
             .max-w-4xl {
                 max-width: 100% !important;
-                margin: 0 auto !important;
-                padding: 10px !important;
+                margin: 0 !important;
+                padding: 5mm !important;
             }
 
-            /* Clean up the receipt card */
-            .print\:border-0,
-            .bg-white.border,
-            .rounded-lg.border {
+            .print\:border-0 {
                 border: none !important;
-                box-shadow: none !important;
             }
 
-            .print\:shadow-none {
-                box-shadow: none !important;
-            }
-
-            /* Hide any fixed/sticky elements */
-            [class*="fixed"],
-            [class*="sticky"] {
-                position: static !important;
-            }
-
-            /* Remove any left margin/padding that might be for sidebar */
-            [class*="lg:ms-"],
-            [class*="lg:ml-"],
-            [class*="lg:ps-"],
-            [class*="lg:pl-"] {
-                margin-left: 0 !important;
-                padding-left: 0 !important;
-            }
-
-            /* Ensure tables print properly */
-            table {
-                page-break-inside: auto;
-            }
-
-            tr {
-                page-break-inside: avoid;
-                page-break-after: auto;
-            }
-
-            /* Make sure receipt content is visible */
-            .p-8 {
-                padding: 15px !important;
-            }
-
-            /* Target our specific receipt classes */
             .print-receipt-page {
                 position: absolute !important;
                 top: 0 !important;
@@ -440,27 +372,19 @@ new class extends Component
                 background: white !important;
             }
 
-            .print-receipt-content {
-                max-width: 100% !important;
-                width: 100% !important;
-                padding: 0 !important;
-                margin: 0 !important;
+            .bg-purple-800 {
+                background-color: #6b21a8 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
 
-            /* Hide everything except the receipt */
-            body > *:not(:has(.print-receipt-page)) {
-                display: none !important;
-            }
-
-            /* Ensure Flux sidebar is hidden */
             [class*="border-e"][class*="border-zinc"] {
                 display: none !important;
             }
         }
 
-        /* Print-specific page setup */
         @page {
-            margin: 10mm;
+            margin: 5mm;
             size: A4;
         }
     </style>

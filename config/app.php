@@ -17,6 +17,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Company Information
+    |--------------------------------------------------------------------------
+    |
+    | Company details for invoices, receipts and official documents.
+    |
+    */
+
+    'company' => [
+        'name' => env('COMPANY_NAME', 'DAKWAH DIGITAL NETWORK SDN BHD'),
+        'registration' => env('COMPANY_REGISTRATION', '202101031641'),
+        'tax_id' => env('COMPANY_TAX_ID', '1431941W'),
+        'address_line_1' => env('COMPANY_ADDRESS_LINE_1', 'Lot 2853, Tingkat 2, Kg Peringat'),
+        'address_line_2' => env('COMPANY_ADDRESS_LINE_2', 'Jalan Pasir Puteh'),
+        'city' => env('COMPANY_CITY', 'Pasir Puteh'),
+        'state' => env('COMPANY_STATE', 'Kelantan'),
+        'postal_code' => env('COMPANY_POSTAL_CODE', '16800'),
+        'country' => env('COMPANY_COUNTRY', 'Malaysia'),
+        'phone' => env('COMPANY_PHONE', '011-1058 4015'),
+        'email' => env('COMPANY_EMAIL', 'bedaieofficial@gmail.com'),
+        'bank_name' => env('COMPANY_BANK_NAME', 'Bank Islam'),
+        'bank_account' => env('COMPANY_BANK_ACCOUNT', '03018010194754'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

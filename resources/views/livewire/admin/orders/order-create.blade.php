@@ -232,11 +232,8 @@ new class extends Component
             $this->form['customer_phone'] = $agent->phone ?? '';
             $this->form['billing_address']['company'] = $agent->company_name ?? '';
 
-            // Fill first name and last name from contact person or agent name
-            $nameSource = $agent->contact_person ?: $agent->name;
-            $nameParts = explode(' ', $nameSource, 2);
-            $this->form['billing_address']['first_name'] = $nameParts[0] ?? '';
-            $this->form['billing_address']['last_name'] = $nameParts[1] ?? '';
+            // Fill first name from contact person or agent name
+            $this->form['billing_address']['first_name'] = $agent->contact_person ?: $agent->name;
 
             // Fill address if available
             if (is_array($agent->address)) {

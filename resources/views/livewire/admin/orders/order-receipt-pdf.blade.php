@@ -2,364 +2,351 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Receipt - {{ $order->order_number }}</title>
+    <title>Invoice - {{ $order->order_number }}</title>
     <style>
+        @php
+            function numberToWordsHelper($number) {
+                $ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+                $tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+
+                $integer = floor($number);
+                $decimal = round(($number - $integer) * 100);
+
+                $words = '';
+
+                if ($integer >= 1000) {
+                    $thousands = floor($integer / 1000);
+                    $words .= convertHundredsHelper($thousands, $ones, $tens) . ' THOUSAND ';
+                    $integer %= 1000;
+                }
+
+                if ($integer >= 100) {
+                    $words .= convertHundredsHelper($integer, $ones, $tens);
+                } elseif ($integer > 0) {
+                    $words .= convertTensHelper($integer, $ones, $tens);
+                }
+
+                $words = trim($words);
+
+                if ($decimal > 0) {
+                    $words .= ' AND CENTS ' . convertTensHelper($decimal, $ones, $tens);
+                }
+
+                return 'RINGGIT MALAYSIA : ' . $words . ' ONLY';
+            }
+
+            function convertHundredsHelper($number, $ones, $tens) {
+                $result = '';
+                if ($number >= 100) {
+                    $result .= $ones[floor($number / 100)] . ' HUNDRED ';
+                    $number %= 100;
+                }
+                $result .= convertTensHelper($number, $ones, $tens);
+                return trim($result);
+            }
+
+            function convertTensHelper($number, $ones, $tens) {
+                if ($number < 20) {
+                    return $ones[$number];
+                }
+                return $tens[floor($number / 10)] . ' ' . $ones[$number % 10];
+            }
+
+            $date = $order->order_date ?? $order->created_at;
+            $yearMonth = $date->format('y/m');
+            $sequence = str_pad($order->id, 3, '0', STR_PAD_LEFT);
+            $invoiceNumber = "INV{$yearMonth}-{$sequence}";
+        @endphp
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
             font-family: 'DejaVu Sans', Arial, sans-serif;
-            font-size: 12px;
-            line-height: 1.4;
+            font-size: 10px;
+            line-height: 1.3;
             color: #333;
-            margin: 0;
-            padding: 20px;
+            background: white;
         }
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
+        .container { width: 100%; padding: 0; }
 
-        .header {
+        .company-header {
+            background: white;
+            padding: 15px 20px;
             text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #000;
-            padding-bottom: 20px;
+            border-bottom: 3px solid #6b21a8;
         }
 
         .company-name {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .receipt-title {
             font-size: 16px;
-            color: #666;
-        }
-
-        .section {
-            margin-bottom: 25px;
-        }
-
-        .section-title {
-            font-size: 14px;
             font-weight: bold;
-            margin-bottom: 15px;
-            color: #333;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 5px;
+            color: #1f2937;
+            margin-bottom: 2px;
         }
 
-        .two-column {
-            display: table;
-            width: 100%;
-            table-layout: fixed;
+        .company-registration { font-size: 9px; color: #6b7280; }
+        .company-address { font-size: 9px; color: #4b5563; margin-top: 4px; }
+
+        .main-content { padding: 15px 20px; }
+
+        .header-section { width: 100%; margin-bottom: 12px; }
+        .header-section table { width: 100%; }
+
+        .billing-column { width: 50%; vertical-align: top; }
+        .invoice-column { width: 50%; vertical-align: top; text-align: right; }
+
+        .section-label {
+            font-size: 8px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 3px;
         }
 
-        .column {
-            display: table-cell;
-            width: 50%;
-            vertical-align: top;
-            padding-right: 20px;
+        .billing-name {
+            font-weight: bold;
+            font-size: 11px;
+            color: #1f2937;
+            margin-bottom: 2px;
         }
 
-        .column:last-child {
-            padding-right: 0;
-            padding-left: 20px;
-        }
+        .billing-detail { font-size: 9px; color: #4b5563; line-height: 1.4; }
 
-        .info-row {
+        .invoice-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #6b21a8;
             margin-bottom: 8px;
         }
 
-        .label {
-            font-weight: bold;
-            display: inline-block;
+        .invoice-details table { margin-left: auto; }
+        .invoice-details td { padding: 2px 0; font-size: 9px; }
+        .invoice-details .label { color: #666; padding-right: 8px; }
+        .invoice-details .value { font-weight: 600; color: #1f2937; }
+
+        .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+
+        .items-table th {
+            background-color: #6b21a8;
+            color: white;
+            padding: 6px 5px;
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        .items-table th.text-left { text-align: left; }
+        .items-table th.text-center { text-align: center; }
+        .items-table th.text-right { text-align: right; }
+
+        .items-table td {
+            padding: 6px 5px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 9px;
+        }
+
+        .items-table td.text-center { text-align: center; }
+        .items-table td.text-right { text-align: right; }
+
+        .items-table .item-code { font-weight: 600; }
+        .items-table .warehouse-info { font-size: 8px; color: #6b7280; }
+
+        .total-section {
+            border-top: 2px solid #d1d5db;
+            padding-top: 10px;
+            margin-top: 8px;
+        }
+
+        .total-section table { width: 100%; }
+
+        .amount-words {
+            font-size: 8px;
+            color: #4b5563;
+            text-transform: uppercase;
+            vertical-align: middle;
+            width: 60%;
+        }
+
+        .total-amount {
+            text-align: right;
+            vertical-align: middle;
             width: 40%;
         }
 
-        .value {
+        .total-label { font-size: 10px; color: #4b5563; font-weight: 600; }
+        .total-value { font-size: 18px; font-weight: bold; color: #1f2937; }
+
+        .notes-section { margin-top: 15px; }
+        .notes-section table { width: 100%; }
+
+        .notes-column { width: 60%; vertical-align: top; }
+        .signature-column { width: 40%; vertical-align: bottom; text-align: right; }
+
+        .notes-title { font-weight: 600; font-size: 9px; color: #1f2937; margin-bottom: 4px; }
+        .notes-list { font-size: 8px; color: #4b5563; line-height: 1.5; }
+        .notes-list ol { padding-left: 12px; }
+
+        .bank-info { margin-top: 8px; font-size: 8px; }
+        .bank-info .label { color: #4b5563; }
+        .bank-info .value { font-weight: 600; color: #1f2937; }
+
+        .signature-text { font-size: 8px; font-style: italic; color: #6b7280; }
+
+        .footer { margin-top: 15px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
+        .footer table { width: 100%; }
+
+        .footer-badge {
+            background: #6b21a8;
+            color: white;
+            padding: 5px 15px;
+            font-size: 8px;
+            font-weight: 600;
+            border-radius: 0 15px 15px 0;
             display: inline-block;
         }
 
-        .address-box {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border: 1px solid #ddd;
-            margin-bottom: 20px;
-        }
-
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        .items-table th,
-        .items-table td {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-            text-align: left;
-        }
-
-        .items-table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-            border-bottom: 2px solid #333;
-        }
-
-        .items-table .text-center {
-            text-align: center;
-        }
-
-        .items-table .text-right {
-            text-align: right;
-        }
-
-        .total-row {
-            border-top: 2px solid #333;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .payment-info {
-            background-color: #e8f5e8;
-            border: 1px solid #4caf50;
-            padding: 15px;
-            margin-top: 20px;
-        }
-
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #ccc;
-            font-size: 11px;
-            color: #666;
-        }
-
-        .status-badge {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-
-        .status-pending { background-color: #fff3cd; color: #856404; }
-        .status-processing { background-color: #cce5ff; color: #004085; }
-        .status-shipped { background-color: #e2d4f0; color: #6f42c1; }
-        .status-delivered { background-color: #d4edda; color: #155724; }
-        .status-completed { background-color: #d4edda; color: #155724; }
-        .status-cancelled { background-color: #f8d7da; color: #721c24; }
+        .footer-page { text-align: right; font-size: 9px; color: #6b7280; vertical-align: bottom; }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="company-name">{{ config('app.name') }}</div>
-            <div class="receipt-title">Order Receipt / Invoice</div>
-        </div>
-
-        <!-- Order & Customer Details -->
-        <div class="section">
-            <div class="two-column">
-                <div class="column">
-                    <div class="section-title">Order Details</div>
-                    <div class="info-row">
-                        <span class="label">Order Number:</span>
-                        <span class="value">{{ $order->order_number }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Order Date:</span>
-                        <span class="value">{{ $order->order_date?->format('M j, Y') ?? $order->created_at->format('M j, Y') }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Order Status:</span>
-                        <span class="value">
-                            <span class="status-badge status-{{ $order->status }}">{{ ucfirst($order->status) }}</span>
-                        </span>
-                    </div>
-                    @php
-                        $latestPayment = $order->payments()->latest()->first();
-                    @endphp
-                    <div class="info-row">
-                        <span class="label">Payment Status:</span>
-                        <span class="value">
-                            <span class="status-badge status-{{ $latestPayment?->status ?? 'pending' }}">{{ ucfirst($latestPayment?->status ?? 'Pending') }}</span>
-                        </span>
-                    </div>
-                </div>
-                <div class="column">
-                    <div class="section-title">Customer Information</div>
-                    <div class="info-row">
-                        <span class="label">Name:</span>
-                        <span class="value">{{ $order->getCustomerName() }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Email:</span>
-                        <span class="value">{{ $order->getCustomerEmail() }}</span>
-                    </div>
-                    @php
-                        $phone = $order->customer_phone ?? $order->billingAddress()?->phone ?? null;
-                    @endphp
-                    @if($phone)
-                        <div class="info-row">
-                            <span class="label">Phone:</span>
-                            <span class="value">{{ $phone }}</span>
-                        </div>
-                    @endif
-                </div>
+        <div class="company-header">
+            <div class="company-name">{{ config('app.company.name') }}</div>
+            <div class="company-registration">({{ config('app.company.registration') }})</div>
+            <div class="company-address">
+                {{ config('app.company.address_line_1') }}, {{ config('app.company.address_line_2') }}<br>
+                Phone: {{ config('app.company.phone') }} &nbsp;&nbsp; email: {{ config('app.company.email') }}
             </div>
         </div>
 
-        <!-- Addresses -->
-        @php
-            $billingAddress = $order->billingAddress();
-            $shippingAddress = $order->shippingAddress();
-        @endphp
-        @if($billingAddress || $shippingAddress)
-            <div class="section">
-                <div class="two-column">
-                    @if($billingAddress)
-                        <div class="column">
-                            <div class="section-title">Billing Address</div>
-                            <div class="address-box">
-                                <div>{{ $billingAddress->first_name }} {{ $billingAddress->last_name }}</div>
-                                @if($billingAddress->company)
-                                    <div>{{ $billingAddress->company }}</div>
-                                @endif
-                                <div>{{ $billingAddress->address_line_1 }}</div>
+        <div class="main-content">
+            <div class="header-section">
+                <table>
+                    <tr>
+                        <td class="billing-column">
+                            @php $billingAddress = $order->billingAddress(); @endphp
+                            <div class="section-label">Billing Address</div>
+                            <div class="billing-name">
+                                {{ $billingAddress?->first_name ?? $order->getCustomerName() }}
+                                {{ $billingAddress?->last_name ?? '' }}
+                            </div>
+                            @if($billingAddress?->company)
+                                <div class="billing-detail">{{ $billingAddress->company }}</div>
+                            @endif
+                            @if($billingAddress)
+                                <div class="billing-detail">{{ $billingAddress->address_line_1 }}</div>
                                 @if($billingAddress->address_line_2)
-                                    <div>{{ $billingAddress->address_line_2 }}</div>
+                                    <div class="billing-detail">{{ $billingAddress->address_line_2 }}</div>
                                 @endif
-                                <div>{{ $billingAddress->city }}, {{ $billingAddress->state }} {{ $billingAddress->postal_code }}</div>
-                                <div>{{ $billingAddress->country }}</div>
+                                <div class="billing-detail">{{ $billingAddress->city }}, {{ $billingAddress->postal_code }} {{ $billingAddress->state }}</div>
+                            @endif
+                            @php $phone = $order->customer_phone ?? $billingAddress?->phone ?? null; @endphp
+                            @if($phone)
+                                <div class="billing-detail" style="margin-top: 4px;">Tel: {{ $phone }}</div>
+                            @endif
+                        </td>
+                        <td class="invoice-column">
+                            <div class="invoice-title">INVOICE</div>
+                            <div class="invoice-details">
+                                <table>
+                                    <tr><td class="label">Doc No. :</td><td class="value">{{ $invoiceNumber }}</td></tr>
+                                    <tr><td class="label">Date :</td><td class="value">{{ ($order->order_date ?? $order->created_at)->format('d/m/Y') }}</td></tr>
+                                    <tr><td class="label">Payment Terms :</td><td class="value">Immediate</td></tr>
+                                    @if($order->agent)
+                                        <tr><td class="label">Sales Executive :</td><td class="value" style="text-transform: uppercase;">{{ $order->agent->name }}</td></tr>
+                                    @endif
+                                    <tr><td class="label">Order Ref :</td><td class="value">{{ $order->order_number }}</td></tr>
+                                </table>
                             </div>
-                        </div>
-                    @endif
-
-                    @if($shippingAddress)
-                        <div class="column">
-                            <div class="section-title">Shipping Address</div>
-                            <div class="address-box">
-                                <div>{{ $shippingAddress->first_name }} {{ $shippingAddress->last_name }}</div>
-                                @if($shippingAddress->company)
-                                    <div>{{ $shippingAddress->company }}</div>
-                                @endif
-                                <div>{{ $shippingAddress->address_line_1 }}</div>
-                                @if($shippingAddress->address_line_2)
-                                    <div>{{ $shippingAddress->address_line_2 }}</div>
-                                @endif
-                                <div>{{ $shippingAddress->city }}, {{ $shippingAddress->state }} {{ $shippingAddress->postal_code }}</div>
-                                <div>{{ $shippingAddress->country }}</div>
-                            </div>
-                        </div>
-                    @endif
-                </div>
+                        </td>
+                    </tr>
+                </table>
             </div>
-        @endif
 
-        <!-- Order Items -->
-        <div class="section">
-            <div class="section-title">Order Items</div>
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th>Product</th>
-                        <th>SKU</th>
-                        <th class="text-center">Qty</th>
-                        <th class="text-right">Unit Price</th>
-                        <th class="text-right">Total</th>
+                        <th class="text-left" style="width: 25px;">No</th>
+                        <th class="text-left" style="width: 65px;">Item Code</th>
+                        <th class="text-left">Description</th>
+                        <th class="text-center" style="width: 50px;">Qty</th>
+                        <th class="text-right" style="width: 65px;">Price/Unit</th>
+                        <th class="text-center" style="width: 40px;">Disc</th>
+                        <th class="text-right" style="width: 80px;">Sub Total ({{ $order->currency }})</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($order->items as $item)
+                    @foreach($order->items as $index => $item)
                         <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td class="item-code">{{ strtoupper(substr($item->sku ?? $item->product?->sku ?? 'ITEM', 0, 10)) }}</td>
                             <td>
-                                <strong>{{ $item->product?->name ?? $item->product_name ?? 'Unknown Product' }}</strong>
+                                {{ strtoupper($item->product?->name ?? $item->product_name ?? 'Product') }}
                                 @if($item->warehouse)
-                                    <br><small>Warehouse: {{ $item->warehouse->name }}</small>
+                                    <div class="warehouse-info">From: {{ $item->warehouse->name }}</div>
                                 @endif
                             </td>
-                            <td>{{ $item->sku ?? $item->product?->sku ?? '-' }}</td>
-                            <td class="text-center">{{ $item->quantity_ordered }}</td>
-                            <td class="text-right">{{ $order->currency }} {{ number_format($item->unit_price, 2) }}</td>
-                            <td class="text-right"><strong>{{ $order->currency }} {{ number_format($item->total_price, 2) }}</strong></td>
+                            <td class="text-center">{{ number_format($item->quantity_ordered, 2) }}</td>
+                            <td class="text-right">{{ number_format($item->unit_price, 2) }}</td>
+                            <td class="text-center">@if($item->discount_amount > 0){{ number_format($item->discount_amount, 2) }}@endif</td>
+                            <td class="text-right" style="font-weight: 600;">{{ number_format($item->total_price, 2) }}</td>
                         </tr>
                     @endforeach
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="4" class="text-right">Subtotal:</td>
-                        <td class="text-right">{{ $order->currency }} {{ number_format($order->subtotal, 2) }}</td>
-                    </tr>
                     @if($order->shipping_cost > 0)
                         <tr>
-                            <td colspan="4" class="text-right">Shipping:</td>
-                            <td class="text-right">{{ $order->currency }} {{ number_format($order->shipping_cost, 2) }}</td>
+                            <td>{{ $order->items->count() + 1 }}</td>
+                            <td class="item-code">SHIPPING</td>
+                            <td>SHIPPING / DELIVERY CHARGE</td>
+                            <td class="text-center">1.00</td>
+                            <td class="text-right">{{ number_format($order->shipping_cost, 2) }}</td>
+                            <td class="text-center"></td>
+                            <td class="text-right" style="font-weight: 600;">{{ number_format($order->shipping_cost, 2) }}</td>
                         </tr>
                     @endif
-                    @if($order->tax_amount > 0)
-                        <tr>
-                            <td colspan="4" class="text-right">Tax (GST):</td>
-                            <td class="text-right">{{ $order->currency }} {{ number_format($order->tax_amount, 2) }}</td>
-                        </tr>
-                    @endif
-                    @if($order->discount_amount > 0)
-                        <tr>
-                            <td colspan="4" class="text-right" style="color: green;">Discount:</td>
-                            <td class="text-right" style="color: green;">-{{ $order->currency }} {{ number_format($order->discount_amount, 2) }}</td>
-                        </tr>
-                    @endif
-                    <tr class="total-row">
-                        <td colspan="4" class="text-right">Total Amount:</td>
-                        <td class="text-right">{{ $order->currency }} {{ number_format($order->total_amount, 2) }}</td>
-                    </tr>
-                </tfoot>
+                </tbody>
             </table>
-        </div>
 
-        <!-- Payment Information -->
-        @if($latestPayment)
-            <div class="section">
-                <div class="section-title">Payment Information</div>
-                <div class="payment-info">
-                    <div class="two-column">
-                        <div class="column">
-                            <div class="info-row">
-                                <span class="label">Payment Method:</span>
-                                <span class="value" style="text-transform: capitalize;">{{ str_replace('_', ' ', $latestPayment->payment_method) }}</span>
-                            </div>
-                            @if($latestPayment->paid_at)
-                                <div class="info-row">
-                                    <span class="label">Paid At:</span>
-                                    <span class="value">{{ $latestPayment->paid_at->format('M j, Y g:i A') }}</span>
-                                </div>
-                            @endif
-                        </div>
-                        <div class="column">
-                            <div class="info-row">
-                                <span class="label">Currency:</span>
-                                <span class="value">{{ strtoupper($order->currency) }}</span>
-                            </div>
-                            @if($latestPayment->transaction_id)
-                                <div class="info-row">
-                                    <span class="label">Transaction ID:</span>
-                                    <span class="value" style="font-family: 'Courier New', monospace; font-size: 10px;">{{ $latestPayment->transaction_id }}</span>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
+            <div class="total-section">
+                <table>
+                    <tr>
+                        <td class="amount-words">{{ numberToWordsHelper($order->total_amount) }}</td>
+                        <td class="total-amount">
+                            <span class="total-label">Total :</span>
+                            <span class="total-value">{{ number_format($order->total_amount, 2) }}</span>
+                        </td>
+                    </tr>
+                </table>
             </div>
-        @endif
 
-        <!-- Footer -->
-        <div class="footer">
-            <p><strong>Thank you for your order!</strong></p>
-            <p>For any questions regarding this order, please contact our support team.</p>
-            <p style="margin-top: 20px;">Generated on {{ now()->format('M j, Y g:i A') }}</p>
+            <div class="notes-section">
+                <table>
+                    <tr>
+                        <td class="notes-column">
+                            <div class="notes-title">Note :</div>
+                            <div class="notes-list">
+                                <ol>
+                                    <li>All cheques should be crossed and made payable to <strong>{{ config('app.company.name') }}</strong></li>
+                                    <li>Good sold are neither returnable nor refundable.</li>
+                                </ol>
+                            </div>
+                            <div class="bank-info">
+                                <span class="label">Bank account No:</span><br>
+                                <span class="value">{{ config('app.company.bank_name') }} {{ config('app.company.bank_account') }}</span>
+                            </div>
+                        </td>
+                        <td class="signature-column">
+                            <div class="signature-text">Computer generated, no signature required</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="footer">
+                <table>
+                    <tr>
+                        <td><span class="footer-badge">{{ config('app.company.name') }} ({{ config('app.company.registration') }} ({{ config('app.company.tax_id') }}))</span></td>
+                        <td class="footer-page">1 of 1</td>
+                    </tr>
+                </table>
+            </div>
         </div>
     </div>
 </body>
