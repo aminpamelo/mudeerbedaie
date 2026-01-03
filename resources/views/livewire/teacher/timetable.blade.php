@@ -1,33 +1,47 @@
 <?php
 
-use Livewire\Volt\Component;
-use Livewire\Attributes\Layout;
-use App\Models\ClassSession;
 use App\Models\ClassModel;
+use App\Models\ClassSession;
 use Carbon\Carbon;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.teacher')] class extends Component {
+new #[Layout('components.layouts.teacher')] class extends Component
+{
     public string $currentView = 'week';
+
     public string $previousView = '';
+
     public Carbon $currentDate;
+
     public string $classFilter = 'all';
+
     public string $statusFilter = 'all';
+
     public bool $showModal = false;
+
     public ?ClassSession $selectedSession = null;
+
     public string $completionNotes = '';
+
     public bool $showNotesField = false;
+
     public bool $showStartConfirmation = false;
+
     public ?int $sessionToStartId = null;
+
     public ?int $classToStartId = null;
+
     public ?string $dateToStart = null;
+
     public ?string $timeToStart = null;
-    
+
     public function mount()
     {
         $this->currentDate = Carbon::now();
         $this->previousView = $this->currentView;
     }
-    
+
     public function updatedCurrentView($value)
     {
         // Only reset to current date when actually switching views
@@ -37,7 +51,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             $this->previousView = $value;
         }
     }
-    
+
     public function previousPeriod()
     {
         switch ($this->currentView) {
@@ -52,7 +66,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 break;
         }
     }
-    
+
     public function nextPeriod()
     {
         switch ($this->currentView) {
@@ -67,12 +81,12 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 break;
         }
     }
-    
+
     public function goToToday()
     {
         $this->currentDate = Carbon::now();
     }
-    
+
     public function selectSession(ClassSession $session)
     {
         $this->selectedSession = $session;
@@ -80,7 +94,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
         $this->showNotesField = false;
         $this->showModal = true;
     }
-    
+
     public function closeModal()
     {
         $this->showModal = false;
@@ -135,20 +149,21 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             session()->flash('success', 'Session started successfully!');
         }
     }
-    
+
     public function showCompleteSessionForm()
     {
         $this->showNotesField = true;
     }
-    
+
     public function completeSession()
     {
         // Validate that notes are provided
         if (empty(trim($this->completionNotes))) {
             session()->flash('error', 'Please add notes before completing the session.');
+
             return;
         }
-        
+
         if ($this->selectedSession && $this->selectedSession->isOngoing()) {
             $this->selectedSession->markCompleted($this->completionNotes);
             $this->selectedSession = $this->selectedSession->fresh(); // Refresh the selected session
@@ -157,27 +172,28 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             session()->flash('success', 'Session completed successfully!');
         }
     }
-    
+
     public function startSessionFromTimetable($classId, $date, $time)
     {
         $class = ClassModel::findOrFail($classId);
         $teacher = auth()->user()->teacher;
-        
+
         // Verify teacher owns this class
         if ($class->teacher_id !== $teacher->id) {
             session()->flash('error', 'You are not authorized to manage this class.');
+
             return;
         }
-        
+
         $dateObj = Carbon::parse($date);
         $timeObj = Carbon::parse($time);
-        
+
         // Check if session already exists for this date/time/class
         $existingSession = $class->sessions()
             ->whereDate('session_date', $dateObj->toDateString())
             ->whereTime('session_time', $timeObj->format('H:i:s'))
             ->first();
-        
+
         if ($existingSession) {
             // If session exists and is scheduled, start it
             if ($existingSession->isScheduled()) {
@@ -188,7 +204,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 // Select the ongoing session
                 $this->selectSession($existingSession);
             } else {
-                session()->flash('warning', 'Session cannot be started (status: ' . $existingSession->status . ')');
+                session()->flash('warning', 'Session cannot be started (status: '.$existingSession->status.')');
             }
         } else {
             // Create new session and start it
@@ -199,23 +215,23 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 'status' => 'ongoing',
                 'started_at' => now(),
             ]);
-            
+
             $this->selectSession($newSession);
             session()->flash('success', 'New session created and started!');
         }
     }
-    
+
     public function with()
     {
         $teacher = auth()->user()->teacher;
 
-        if (!$teacher) {
+        if (! $teacher) {
             return [
                 'sessions' => collect(),
                 'classes' => collect(),
                 'statistics' => $this->getEmptyStatistics(),
                 'currentPeriodLabel' => $this->getCurrentPeriodLabel(),
-                'calendarData' => []
+                'calendarData' => [],
             ];
         }
 
@@ -227,29 +243,29 @@ new #[Layout('components.layouts.teacher')] class extends Component {
             'classes' => $classes,
             'statistics' => $this->getStatistics($teacher, $sessions),
             'currentPeriodLabel' => $this->getCurrentPeriodLabel(),
-            'calendarData' => $this->getCalendarData($sessions)
+            'calendarData' => $this->getCalendarData($sessions),
         ];
     }
-    
+
     private function getSessionsForCurrentView($teacher)
     {
-        $query = ClassSession::with(['class.course', 'attendances.student.user'])
-            ->whereHas('class', function($q) use ($teacher) {
+        $query = ClassSession::with(['class.course', 'attendances.student.user', 'starter'])
+            ->whereHas('class', function ($q) use ($teacher) {
                 $q->where('teacher_id', $teacher->id);
             });
-        
+
         // Apply class filter
         if ($this->classFilter !== 'all') {
-            $query->whereHas('class', function($q) {
+            $query->whereHas('class', function ($q) {
                 $q->where('id', $this->classFilter);
             });
         }
-        
+
         // Apply status filter
         if ($this->statusFilter !== 'all') {
             $query->where('status', $this->statusFilter);
         }
-        
+
         // Apply date range based on view
         switch ($this->currentView) {
             case 'week':
@@ -267,69 +283,70 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 break;
             case 'list':
                 $query->where('session_date', '>=', now()->startOfDay())
-                     ->orderBy('session_date')
-                     ->orderBy('session_time');
+                    ->orderBy('session_date')
+                    ->orderBy('session_time');
                 break;
         }
-        
+
         return $query->orderBy('session_date')->orderBy('session_time')->get();
     }
-    
+
     private function getStatistics($teacher, $sessions)
     {
         $now = Carbon::now();
-        
+
         // Sessions this week
         $weekStart = $now->copy()->startOfWeek();
         $weekEnd = $now->copy()->endOfWeek();
-        $sessionsThisWeek = ClassSession::whereHas('class', function($q) use ($teacher) {
+        $sessionsThisWeek = ClassSession::whereHas('class', function ($q) use ($teacher) {
             $q->where('teacher_id', $teacher->id);
         })->whereBetween('session_date', [$weekStart, $weekEnd])->count();
-        
+
         // Sessions this month
         $monthStart = $now->copy()->startOfMonth();
         $monthEnd = $now->copy()->endOfMonth();
-        $sessionsThisMonth = ClassSession::whereHas('class', function($q) use ($teacher) {
+        $sessionsThisMonth = ClassSession::whereHas('class', function ($q) use ($teacher) {
             $q->where('teacher_id', $teacher->id);
         })->whereBetween('session_date', [$monthStart, $monthEnd])->count();
-        
+
         // Upcoming sessions
-        $upcomingSessions = ClassSession::whereHas('class', function($q) use ($teacher) {
+        $upcomingSessions = ClassSession::whereHas('class', function ($q) use ($teacher) {
             $q->where('teacher_id', $teacher->id);
         })->where('session_date', '>=', $now->startOfDay())
-          ->where('status', 'scheduled')->count();
-        
+            ->where('status', 'scheduled')->count();
+
         // Completed sessions this month
-        $completedThisMonth = ClassSession::whereHas('class', function($q) use ($teacher) {
+        $completedThisMonth = ClassSession::whereHas('class', function ($q) use ($teacher) {
             $q->where('teacher_id', $teacher->id);
         })->whereBetween('session_date', [$monthStart, $monthEnd])
-          ->where('status', 'completed')->count();
-        
+            ->where('status', 'completed')->count();
+
         return [
             'sessions_this_week' => $sessionsThisWeek,
             'sessions_this_month' => $sessionsThisMonth,
             'upcoming_sessions' => $upcomingSessions,
-            'completed_this_month' => $completedThisMonth
+            'completed_this_month' => $completedThisMonth,
         ];
     }
-    
+
     private function getEmptyStatistics()
     {
         return [
             'sessions_this_week' => 0,
             'sessions_this_month' => 0,
             'upcoming_sessions' => 0,
-            'completed_this_month' => 0
+            'completed_this_month' => 0,
         ];
     }
-    
+
     private function getCurrentPeriodLabel()
     {
         switch ($this->currentView) {
             case 'week':
                 $start = $this->currentDate->copy()->startOfWeek();
                 $end = $this->currentDate->copy()->endOfWeek();
-                return $start->format('M d') . ' - ' . $end->format('M d, Y');
+
+                return $start->format('M d').' - '.$end->format('M d, Y');
             case 'month':
                 return $this->currentDate->format('F Y');
             case 'day':
@@ -340,7 +357,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 return '';
         }
     }
-    
+
     private function getCalendarData($sessions)
     {
         switch ($this->currentView) {
@@ -354,105 +371,144 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                 return [];
         }
     }
-    
+
     private function getWeekData($sessions)
     {
         $weekStart = $this->currentDate->copy()->startOfWeek();
         $teacher = auth()->user()->teacher;
         $days = [];
-        
+
         for ($i = 0; $i < 7; $i++) {
             $date = $weekStart->copy()->addDays($i);
             $dayName = strtolower($date->format('l'));
-            $daySessions = $sessions->filter(function($session) use ($date) {
+            $daySessions = $sessions->filter(function ($session) use ($date) {
                 return $session->session_date->isSameDay($date);
             })->sortBy('session_time')->values();
-            
+
             // Get all scheduled times for this day across all classes
             $scheduledSlots = [];
             if ($teacher) {
                 foreach ($teacher->classes as $class) {
                     $timetable = $class->timetable;
-                    if ($timetable && $timetable->weekly_schedule && isset($timetable->weekly_schedule[$dayName])) {
-                        foreach ($timetable->weekly_schedule[$dayName] as $time) {
+                    if ($timetable && $timetable->weekly_schedule && $timetable->is_active) {
+                        // Check if the date is within the timetable's valid date range
+                        if (! $timetable->isDateWithinRange($date)) {
+                            continue;
+                        }
+
+                        // Get times for this day based on recurrence pattern
+                        $timesForDay = [];
+
+                        if ($timetable->recurrence_pattern === 'monthly') {
+                            // For monthly pattern, get week of month and check that week's schedule
+                            $dayOfMonth = $date->day;
+                            if ($dayOfMonth <= 7) {
+                                $weekKey = 'week_1';
+                            } elseif ($dayOfMonth <= 14) {
+                                $weekKey = 'week_2';
+                            } elseif ($dayOfMonth <= 21) {
+                                $weekKey = 'week_3';
+                            } else {
+                                $weekKey = 'week_4';
+                            }
+
+                            if (isset($timetable->weekly_schedule[$weekKey][$dayName]) && ! empty($timetable->weekly_schedule[$weekKey][$dayName])) {
+                                $timesForDay = $timetable->weekly_schedule[$weekKey][$dayName];
+                            }
+                        } else {
+                            // For weekly/bi-weekly pattern
+                            if (isset($timetable->weekly_schedule[$dayName]) && ! empty($timetable->weekly_schedule[$dayName])) {
+                                $timesForDay = $timetable->weekly_schedule[$dayName];
+                            }
+                        }
+
+                        foreach ($timesForDay as $time) {
+                            // Determine if this is the first or last scheduled date
+                            $isFirstClass = $timetable->start_date && $date->isSameDay($timetable->start_date);
+                            $isLastClass = $timetable->end_date && $date->isSameDay($timetable->end_date);
+
                             $scheduledSlots[] = [
                                 'time' => $time,
                                 'class' => $class,
-                                'session' => $daySessions->first(function($session) use ($time, $class) {
-                                    return $session->session_time->format('H:i') === $time 
+                                'session' => $daySessions->first(function ($session) use ($time, $class) {
+                                    return $session->session_time->format('H:i') === $time
                                         && $session->class_id === $class->id;
-                                })
+                                }),
+                                'isFirstClass' => $isFirstClass,
+                                'isLastClass' => $isLastClass,
+                                'startDate' => $timetable->start_date,
+                                'endDate' => $timetable->end_date,
                             ];
                         }
                     }
                 }
             }
-            
+
             $days[] = [
                 'date' => $date,
                 'sessions' => $daySessions,
                 'scheduledSlots' => collect($scheduledSlots),
                 'isToday' => $date->isToday(),
                 'dayName' => $date->format('D'),
-                'dayNumber' => $date->format('j')
+                'dayNumber' => $date->format('j'),
             ];
         }
-        
+
         return $days;
     }
-    
+
     private function getMonthData($sessions)
     {
         $monthStart = $this->currentDate->copy()->startOfMonth();
         $monthEnd = $this->currentDate->copy()->endOfMonth();
         $calendarStart = $monthStart->copy()->startOfWeek();
         $calendarEnd = $monthEnd->copy()->endOfWeek();
-        
+
         $weeks = [];
         $currentWeekStart = $calendarStart->copy();
-        
+
         while ($currentWeekStart <= $calendarEnd) {
             $week = [];
             for ($i = 0; $i < 7; $i++) {
                 $date = $currentWeekStart->copy()->addDays($i);
-                $daySessions = $sessions->filter(function($session) use ($date) {
+                $daySessions = $sessions->filter(function ($session) use ($date) {
                     return $session->session_date->isSameDay($date);
                 })->count();
-                
+
                 $week[] = [
                     'date' => $date,
                     'sessionCount' => $daySessions,
                     'isCurrentMonth' => $date->month === $this->currentDate->month,
                     'isToday' => $date->isToday(),
-                    'dayNumber' => $date->format('j')
+                    'dayNumber' => $date->format('j'),
                 ];
             }
             $weeks[] = $week;
             $currentWeekStart->addWeek();
         }
-        
+
         return $weeks;
     }
-    
+
     private function getDayData($sessions)
     {
         $timeSlots = [];
         $startHour = 6; // 6 AM
         $endHour = 22; // 10 PM
-        
+
         for ($hour = $startHour; $hour <= $endHour; $hour++) {
             $time = sprintf('%02d:00', $hour);
-            $slotSessions = $sessions->filter(function($session) use ($hour) {
+            $slotSessions = $sessions->filter(function ($session) use ($hour) {
                 return $session->session_time->format('H') == $hour;
             });
-            
+
             $timeSlots[] = [
                 'time' => $time,
                 'displayTime' => Carbon::createFromFormat('H:i', $time)->format('g A'),
-                'sessions' => $slotSessions
+                'sessions' => $slotSessions,
             ];
         }
-        
+
         return $timeSlots;
     }
 }; ?>
@@ -745,8 +801,16 @@ x-effect="
                                 {{ $selectedSession->class->course->title }}
                             </flux:text>
                         </div>
+                        @if($selectedSession->started_by)
+                            <div>
+                                <flux:text class="font-medium">Started By</flux:text>
+                                <flux:text class="text-gray-600">
+                                    {{ $selectedSession->starter->name ?? 'Unknown' }}
+                                </flux:text>
+                            </div>
+                        @endif
                     </div>
-                    
+
                     @if($selectedSession->isOngoing())
                         <div class="bg-green-50 /20 border border-green-200  rounded-lg p-4">
                             <div class="flex items-center justify-between">

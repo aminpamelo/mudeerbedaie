@@ -95,6 +95,10 @@ class PayslipGenerationService
                         'amount' => $session->getTeacherAllowanceAmount(),
                         'present_count' => $session->present_count,
                         'verified_at' => $session->verified_at?->format('M d, Y g:i A'),
+                        'started_by' => $session->starter?->name,
+                        'assigned_teacher' => $session->assignedTeacher?->user?->name,
+                        'class_teacher' => $session->class->teacher?->user?->name,
+                        'is_substitute' => $session->isPayableDifferentFromClassTeacher(),
                     ];
                 }),
             ]);
@@ -108,15 +112,21 @@ class PayslipGenerationService
         $startOfMonth = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $endOfMonth = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
-        return ClassSession::with(['class.course', 'class.teacher.user', 'attendances'])
-            ->whereHas('class', function ($query) use ($teacher) {
-                $query->where('teacher_id', $teacher->teacher->id);
-            })
+        // Get all eligible sessions for the month
+        $allSessions = ClassSession::with(['class.course', 'class.teacher.user', 'attendances', 'starter.teacher', 'assignedTeacher.user'])
             ->whereBetween('session_date', [$startOfMonth, $endOfMonth])
             ->eligibleForPayslip()
             ->orderBy('session_date')
             ->orderBy('session_time')
             ->get();
+
+        // Filter sessions where the payable teacher matches the given teacher
+        // Uses hybrid logic: starter with teacher profile, or fall back to class teacher
+        return $allSessions->filter(function ($session) use ($teacher) {
+            $payableTeacher = $session->getPayableTeacher();
+
+            return $payableTeacher && $payableTeacher->id === $teacher->teacher->id;
+        })->values();
     }
 
     public function getTeachersWithEligibleSessionsForMonth(string $month): Collection
@@ -124,10 +134,20 @@ class PayslipGenerationService
         $startOfMonth = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $endOfMonth = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
-        return User::whereHas('teacher.classes.sessions', function ($query) use ($startOfMonth, $endOfMonth) {
-            $query->whereBetween('session_date', [$startOfMonth, $endOfMonth])
-                ->eligibleForPayslip();
-        })->get();
+        // Get all eligible sessions for the month
+        $allSessions = ClassSession::with(['class.teacher.user', 'starter.teacher', 'assignedTeacher'])
+            ->whereBetween('session_date', [$startOfMonth, $endOfMonth])
+            ->eligibleForPayslip()
+            ->get();
+
+        // Collect unique payable teachers (using hybrid logic)
+        $payableTeacherIds = $allSessions->map(function ($session) {
+            $payableTeacher = $session->getPayableTeacher();
+
+            return $payableTeacher?->user_id;
+        })->filter()->unique()->values();
+
+        return User::whereIn('id', $payableTeacherIds)->get();
     }
 
     public function getAvailableMonthsForPayslips(): Collection

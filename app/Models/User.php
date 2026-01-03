@@ -282,6 +282,23 @@ class User extends Authenticatable
     }
 
     /**
+     * Get classes where this user is assigned as PIC (Person In Charge)
+     */
+    public function picClasses(): BelongsToMany
+    {
+        return $this->belongsToMany(ClassModel::class, 'class_pics', 'user_id', 'class_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Check if user is PIC of a specific class
+     */
+    public function isPicOf(ClassModel $class): bool
+    {
+        return $this->picClasses()->where('class_id', $class->id)->exists();
+    }
+
+    /**
      * Get live sessions through platform accounts
      */
     public function liveSessions()

@@ -154,8 +154,9 @@ new class extends Component
                     <div class="flex-1">
                         <flux:input
                             wire:model.live.debounce.300ms="search"
-                            placeholder="Search students by name, email, student ID, IC number, or phone..."
-                            icon="magnifying-glass" />
+                            placeholder="Search by name, email, student ID, IC number, or phone..."
+                            icon="magnifying-glass"
+                            autocomplete="off" />
                     </div>
                     <div class="w-full sm:w-48">
                         <flux:select wire:model.live="statusFilter" placeholder="Filter by status">
@@ -176,12 +177,52 @@ new class extends Component
                             <flux:select.option value="300">300 per page</flux:select.option>
                         </flux:select>
                     </div>
-                    @if($search || $statusFilter)
-                        <flux:button wire:click="clearFilters" variant="ghost">
-                            Clear Filters
-                        </flux:button>
-                    @endif
                 </div>
+
+                <!-- Active Filters Display -->
+                @if($search || $statusFilter)
+                    <div class="mt-4 flex flex-wrap items-center gap-2">
+                        <span class="text-sm text-gray-500">Active filters:</span>
+
+                        @if($search)
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
+                                <flux:icon name="magnifying-glass" class="w-3 h-3" />
+                                Search: "{{ $search }}"
+                                <button wire:click="$set('search', '')" class="ml-1 hover:text-blue-600">
+                                    <flux:icon name="x-mark" class="w-3 h-3" />
+                                </button>
+                            </span>
+                        @endif
+
+                        @if($statusFilter)
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800">
+                                <flux:icon name="funnel" class="w-3 h-3" />
+                                Status: {{ ucfirst($statusFilter) }}
+                                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-purple-600">
+                                    <flux:icon name="x-mark" class="w-3 h-3" />
+                                </button>
+                            </span>
+                        @endif
+
+                        <button wire:click="clearFilters" class="text-sm text-gray-500 hover:text-gray-700 underline">
+                            Clear all
+                        </button>
+                    </div>
+                @endif
+            </div>
+
+            <!-- Results Count -->
+            <div class="px-6 py-3 bg-gray-50 border-b border-gray-200">
+                <p class="text-sm text-gray-600">
+                    @if($search || $statusFilter)
+                        Showing <span class="font-medium">{{ $students->total() }}</span> results
+                        @if($students->total() !== $totalStudents)
+                            out of <span class="font-medium">{{ $totalStudents }}</span> students
+                        @endif
+                    @else
+                        Showing <span class="font-medium">{{ $students->total() }}</span> students
+                    @endif
+                </p>
             </div>
 
             <!-- Students Table -->

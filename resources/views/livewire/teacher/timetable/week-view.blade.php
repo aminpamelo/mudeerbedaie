@@ -154,6 +154,10 @@
                                         'displayTime' => \Carbon\Carbon::parse($slot['time'])->format('g:i A'),
                                         'session' => null,
                                         'class' => $slot['class'],
+                                        'isFirstClass' => $slot['isFirstClass'] ?? false,
+                                        'isLastClass' => $slot['isLastClass'] ?? false,
+                                        'startDate' => $slot['startDate'] ?? null,
+                                        'endDate' => $slot['endDate'] ?? null,
                                     ]);
                                 }
                             }
@@ -269,7 +273,25 @@
                                     <div class="flex items-center justify-between mb-2">
                                         <flux:badge size="sm" color="indigo">Scheduled</flux:badge>
                                     </div>
-                                    
+
+                                    {{-- First/Last Class Indicators --}}
+                                    @if($item['isFirstClass'] || $item['isLastClass'])
+                                        <div class="flex flex-wrap gap-1 mb-2">
+                                            @if($item['isFirstClass'])
+                                                <div class="flex items-center gap-1 text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">
+                                                    <flux:icon name="flag" variant="micro" class="w-3 h-3" />
+                                                    <span>First Class</span>
+                                                </div>
+                                            @endif
+                                            @if($item['isLastClass'])
+                                                <div class="flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                                                    <flux:icon name="flag" variant="micro" class="w-3 h-3" />
+                                                    <span>Last Class</span>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endif
+
                                     <flux:button
                                         variant="primary"
                                         size="xs"
@@ -340,6 +362,10 @@
                                     'displayTime' => \Carbon\Carbon::parse($slot['time'])->format('g:i A'),
                                     'session' => null,
                                     'class' => $slot['class'],
+                                    'isFirstClass' => $slot['isFirstClass'] ?? false,
+                                    'isLastClass' => $slot['isLastClass'] ?? false,
+                                    'startDate' => $slot['startDate'] ?? null,
+                                    'endDate' => $slot['endDate'] ?? null,
                                 ]);
                             }
                         }
@@ -465,6 +491,24 @@
                                 <div class="flex items-center justify-between mt-1">
                                     <flux:badge size="sm" color="indigo">Scheduled</flux:badge>
                                 </div>
+
+                                {{-- First/Last Class Indicators --}}
+                                @if($item['isFirstClass'] || $item['isLastClass'])
+                                    <div class="flex flex-wrap gap-1 mt-1">
+                                        @if($item['isFirstClass'])
+                                            <div class="flex items-center gap-1 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                                                <flux:icon name="flag" variant="micro" class="w-3 h-3" />
+                                                <span>First Class</span>
+                                            </div>
+                                        @endif
+                                        @if($item['isLastClass'])
+                                            <div class="flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                                                <flux:icon name="flag" variant="micro" class="w-3 h-3" />
+                                                <span>Last Class</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
 
                                 {{-- Start Session Button --}}
                                 <div class="mt-2">

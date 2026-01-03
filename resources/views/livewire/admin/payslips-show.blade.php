@@ -8,7 +8,7 @@ new class extends Component {
     
     public function mount(Payslip $payslip)
     {
-        $this->payslip = $payslip->load(['teacher', 'generatedBy', 'sessions.class.course', 'sessions.attendances']);
+        $this->payslip = $payslip->load(['teacher', 'generatedBy', 'sessions.class.course', 'sessions.class.teacher.user', 'sessions.attendances', 'sessions.starter', 'sessions.assignedTeacher.user']);
     }
     
     public function finalize()
@@ -197,6 +197,7 @@ new class extends Component {
                         <tr class="border-b border-gray-200">
                             <th class="text-left py-3 px-4">Date & Time</th>
                             <th class="text-left py-3 px-4">Course & Class</th>
+                            <th class="text-left py-3 px-4">Started By</th>
                             <th class="text-left py-3 px-4">Students</th>
                             <th class="text-left py-3 px-4">Present</th>
                             <th class="text-right py-3 px-4">Amount</th>
@@ -204,7 +205,7 @@ new class extends Component {
                     </thead>
                     <tbody>
                         @foreach($payslip->sessions as $session)
-                            <tr class="border-b border-gray-100">
+                            <tr class="border-b border-gray-100 {{ $session->isPayableDifferentFromClassTeacher() ? 'bg-amber-50' : '' }}">
                                 <td class="py-3 px-4">
                                     <flux:text>{{ $session->session_date->format('M d, Y') }}</flux:text>
                                     <flux:text variant="muted" size="sm" class="block">{{ $session->session_time->format('g:i A') }}</flux:text>
@@ -212,6 +213,17 @@ new class extends Component {
                                 <td class="py-3 px-4">
                                     <flux:text>{{ $session->class->course->name }}</flux:text>
                                     <flux:text variant="muted" size="sm" class="block">{{ $session->class->title }}</flux:text>
+                                    @if($session->isPayableDifferentFromClassTeacher())
+                                        <flux:text variant="muted" size="xs" class="block text-amber-600">
+                                            Class Teacher: {{ $session->class->teacher?->user?->name ?? 'N/A' }}
+                                        </flux:text>
+                                    @endif
+                                </td>
+                                <td class="py-3 px-4">
+                                    <flux:text>{{ $session->starter?->name ?? 'N/A' }}</flux:text>
+                                    @if($session->isPayableDifferentFromClassTeacher())
+                                        <flux:badge color="amber" size="xs" class="mt-1">Substitute</flux:badge>
+                                    @endif
                                 </td>
                                 <td class="py-3 px-4">
                                     <flux:text>{{ $session->attendances->count() }}</flux:text>
@@ -225,8 +237,8 @@ new class extends Component {
                             </tr>
                         @endforeach
                         
-                        <tr class="bg-gray-50  font-semibold">
-                            <td colspan="4" class="py-3 px-4 text-right">
+                        <tr class="bg-gray-50 font-semibold">
+                            <td colspan="5" class="py-3 px-4 text-right">
                                 <flux:text>Total Amount:</flux:text>
                             </td>
                             <td class="py-3 px-4 text-right">

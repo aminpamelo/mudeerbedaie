@@ -40,6 +40,8 @@ class ClassSession extends Model
         'teacher_notes',
         'completed_at',
         'started_at',
+        'started_by',
+        'assigned_to',
         'allowance_amount',
         'verified_at',
         'verified_by',
@@ -78,6 +80,89 @@ class ClassSession extends Model
         return $this->belongsTo(User::class, 'verified_by');
     }
 
+    public function starter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'started_by');
+    }
+
+    public function assignedTeacher(): BelongsTo
+    {
+        return $this->belongsTo(Teacher::class, 'assigned_to');
+    }
+
+    /**
+     * Get the teacher who should be paid for this session.
+     * Priority: 1) Started by (if teacher), 2) Assigned teacher, 3) Class teacher
+     */
+    public function getPayableTeacher(): ?Teacher
+    {
+        // 1) If session was started by someone with a teacher profile, pay them
+        if ($this->started_by && $this->starter && $this->starter->teacher) {
+            return $this->starter->teacher;
+        }
+
+        // 2) If a teacher was assigned to this session, pay them
+        if ($this->assigned_to && $this->assignedTeacher) {
+            return $this->assignedTeacher;
+        }
+
+        // 3) Fall back to class teacher
+        return $this->class->teacher ?? null;
+    }
+
+    /**
+     * Check if session has an assigned substitute teacher.
+     */
+    public function hasAssignedTeacher(): bool
+    {
+        return $this->assigned_to !== null;
+    }
+
+    /**
+     * Assign a teacher to this session (for substitute teaching).
+     */
+    public function assignTeacher(?Teacher $teacher): void
+    {
+        $this->update(['assigned_to' => $teacher?->id]);
+    }
+
+    /**
+     * Get the expected teacher (assigned or class teacher).
+     */
+    public function getExpectedTeacher(): ?Teacher
+    {
+        if ($this->assigned_to && $this->assignedTeacher) {
+            return $this->assignedTeacher;
+        }
+
+        return $this->class->teacher ?? null;
+    }
+
+    /**
+     * Get the user who should be paid for this session.
+     */
+    public function getPayableUser(): ?User
+    {
+        $teacher = $this->getPayableTeacher();
+
+        return $teacher?->user;
+    }
+
+    /**
+     * Check if the payable teacher is different from the class teacher.
+     */
+    public function isPayableDifferentFromClassTeacher(): bool
+    {
+        $payableTeacher = $this->getPayableTeacher();
+        $classTeacher = $this->class->teacher;
+
+        if (! $payableTeacher || ! $classTeacher) {
+            return false;
+        }
+
+        return $payableTeacher->id !== $classTeacher->id;
+    }
+
     public function isScheduled(): bool
     {
         return $this->status === 'scheduled';
@@ -106,6 +191,11 @@ class ClassSession extends Model
     public function isRescheduled(): bool
     {
         return $this->status === 'rescheduled';
+    }
+
+    public function isPaused(): bool
+    {
+        return $this->status === 'paused';
     }
 
     public function isVerified(): bool
@@ -156,11 +246,12 @@ class ClassSession extends Model
         ]);
     }
 
-    public function markAsOngoing(): void
+    public function markAsOngoing(?User $user = null): void
     {
         $this->update([
             'status' => 'ongoing',
             'started_at' => now(),
+            'started_by' => $user?->id ?? auth()->id(),
         ]);
 
         // Auto-create attendance records for all enrolled students with "present" status
@@ -188,6 +279,24 @@ class ClassSession extends Model
     public function cancel(): void
     {
         $this->update(['status' => 'cancelled']);
+    }
+
+    public function pause(): void
+    {
+        if (! $this->isOngoing()) {
+            throw new \Exception('Session must be ongoing to pause.');
+        }
+
+        $this->update(['status' => 'paused']);
+    }
+
+    public function resume(): void
+    {
+        if (! $this->isPaused()) {
+            throw new \Exception('Session must be paused to resume.');
+        }
+
+        $this->update(['status' => 'ongoing']);
     }
 
     public function createAttendanceRecords(): void
@@ -495,6 +604,11 @@ class ClassSession extends Model
         return $query->where('status', 'cancelled');
     }
 
+    public function scopePaused($query)
+    {
+        return $query->where('status', 'paused');
+    }
+
     public function scopeUpcoming($query)
     {
         return $query->where('session_date', '>', now()->toDateString())
@@ -581,6 +695,7 @@ class ClassSession extends Model
             'cancelled' => 'badge-red',
             'no_show' => 'badge-yellow',
             'rescheduled' => 'badge-orange',
+            'paused' => 'badge-purple',
             default => 'badge-gray',
         };
     }
@@ -594,6 +709,7 @@ class ClassSession extends Model
             'cancelled' => 'Cancelled',
             'no_show' => 'No Show',
             'rescheduled' => 'Rescheduled',
+            'paused' => 'Paused',
             default => ucfirst($this->status),
         };
     }

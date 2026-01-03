@@ -115,6 +115,13 @@ class ClassModel extends Model
             ->withTimestamps();
     }
 
+    public function pics(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'class_pics', 'class_id', 'user_id')
+            ->withPivot('assigned_by')
+            ->withTimestamps();
+    }
+
     public function certificateIssues(): HasMany
     {
         return $this->hasMany(CertificateIssue::class, 'class_id');

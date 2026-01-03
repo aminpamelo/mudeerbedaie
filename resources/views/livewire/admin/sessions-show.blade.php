@@ -2,15 +2,19 @@
 
 use Livewire\Volt\Component;
 use App\Models\ClassSession;
+use App\Models\Teacher;
 
 new class extends Component {
     public ClassSession $session;
-    
+    public bool $showAssignModal = false;
+    public ?int $selectedTeacherId = null;
+
     public function mount(ClassSession $session)
     {
-        $this->session = $session->load(['class.course', 'class.teacher.user', 'attendances.student.user', 'verifier']);
+        $this->session = $session->load(['class.course', 'class.teacher.user', 'attendances.student.user', 'verifier', 'starter', 'assignedTeacher.user']);
+        $this->selectedTeacherId = $session->assigned_to;
     }
-    
+
     public function verifySession()
     {
         try {
@@ -21,7 +25,7 @@ new class extends Component {
             session()->flash('error', 'Failed to verify session: ' . $e->getMessage());
         }
     }
-    
+
     public function unverifySession()
     {
         try {
@@ -32,7 +36,31 @@ new class extends Component {
             session()->flash('error', 'Failed to unverify session: ' . $e->getMessage());
         }
     }
-    
+
+    public function openAssignModal()
+    {
+        $this->selectedTeacherId = $this->session->assigned_to;
+        $this->showAssignModal = true;
+    }
+
+    public function assignTeacher()
+    {
+        $teacher = $this->selectedTeacherId ? Teacher::find($this->selectedTeacherId) : null;
+        $this->session->assignTeacher($teacher);
+        $this->session->refresh()->load(['assignedTeacher.user']);
+        $this->showAssignModal = false;
+        session()->flash('success', $teacher ? 'Teacher assigned successfully.' : 'Teacher assignment removed.');
+    }
+
+    public function removeAssignment()
+    {
+        $this->session->assignTeacher(null);
+        $this->session->refresh();
+        $this->selectedTeacherId = null;
+        $this->showAssignModal = false;
+        session()->flash('success', 'Teacher assignment removed.');
+    }
+
     public function getStatusBadgeColor()
     {
         return match ($this->session->status) {
@@ -44,6 +72,13 @@ new class extends Component {
             'rescheduled' => 'purple',
             default => 'gray'
         };
+    }
+
+    public function with(): array
+    {
+        return [
+            'teachers' => Teacher::with('user')->get(),
+        ];
     }
 }; ?>
 
@@ -106,7 +141,36 @@ new class extends Component {
                         <flux:text class="text-sm text-gray-500  mb-1">Date & Time</flux:text>
                         <flux:text size="lg">{{ $session->formatted_date_time }}</flux:text>
                     </div>
-                    
+
+                    <div>
+                        <flux:text class="text-sm text-gray-500 mb-1">Assigned Teacher</flux:text>
+                        <div class="flex items-center gap-2">
+                            @if($session->assignedTeacher)
+                                <flux:text size="lg">{{ $session->assignedTeacher->user->name }}</flux:text>
+                                <flux:badge color="amber" size="sm">Substitute</flux:badge>
+                            @else
+                                <flux:text size="lg" class="text-gray-400">Same as class teacher</flux:text>
+                            @endif
+                            @if($session->isScheduled())
+                                <flux:button size="xs" variant="ghost" wire:click="openAssignModal">
+                                    <flux:icon name="pencil" class="w-3 h-3" />
+                                </flux:button>
+                            @endif
+                        </div>
+                    </div>
+
+                    @if($session->started_by)
+                        <div>
+                            <flux:text class="text-sm text-gray-500 mb-1">Started By</flux:text>
+                            <div class="flex items-center gap-2">
+                                <flux:text size="lg">{{ $session->starter->name ?? 'Unknown' }}</flux:text>
+                                @if($session->class->teacher && $session->started_by !== $session->class->teacher->user_id)
+                                    <flux:badge color="amber" size="sm">Not Class Teacher</flux:badge>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
+
                     <!-- Enhanced Duration Tracking -->
                     <div class="md:col-span-2">
                         <flux:text class="text-sm text-gray-500  mb-1">Duration Tracking</flux:text>
@@ -361,6 +425,9 @@ new class extends Component {
                             <div>
                                 <flux:text size="sm" class="font-medium">Session Started</flux:text>
                                 <flux:text size="xs" class="text-gray-500">{{ $session->started_at->format('M d, Y g:i A') }}</flux:text>
+                                @if($session->starter)
+                                    <flux:text size="xs" class="text-gray-500">by {{ $session->starter->name }}</flux:text>
+                                @endif
                             </div>
                         </div>
                     @endif
@@ -432,6 +499,52 @@ new class extends Component {
             </flux:card>
         </div>
     </div>
+
+    <!-- Assign Teacher Modal -->
+    <flux:modal wire:model="showAssignModal" class="max-w-md">
+        <div class="p-6">
+            <flux:heading size="lg" class="mb-4">Assign Teacher to Session</flux:heading>
+            <flux:text class="mb-4 text-gray-600">
+                Select a teacher to conduct this session. Leave empty to use the class teacher.
+            </flux:text>
+
+            <flux:field class="mb-6">
+                <flux:label>Select Teacher</flux:label>
+                <flux:select wire:model="selectedTeacherId">
+                    <option value="">-- Use Class Teacher ({{ $session->class->teacher?->user?->name ?? 'None' }}) --</option>
+                    @foreach($teachers as $teacher)
+                        <option value="{{ $teacher->id }}">{{ $teacher->user->name }}</option>
+                    @endforeach
+                </flux:select>
+            </flux:field>
+
+            @if($session->assigned_to)
+                <div class="mb-4 p-3 bg-amber-50 rounded-lg">
+                    <flux:text size="sm" class="text-amber-800">
+                        Currently assigned to: <strong>{{ $session->assignedTeacher?->user?->name }}</strong>
+                    </flux:text>
+                </div>
+            @endif
+
+            <div class="flex justify-end gap-3">
+                @if($session->assigned_to)
+                    <flux:button variant="danger" wire:click="removeAssignment">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="x-mark" class="w-4 h-4 mr-1" />
+                            Remove Assignment
+                        </div>
+                    </flux:button>
+                @endif
+                <flux:button variant="ghost" wire:click="$set('showAssignModal', false)">Cancel</flux:button>
+                <flux:button variant="primary" wire:click="assignTeacher">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="check" class="w-4 h-4 mr-1" />
+                        Save Assignment
+                    </div>
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>
 
 <script>

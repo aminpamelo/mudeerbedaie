@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\ClassModel;
+use App\Models\User;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +22,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Gate::define('manage-class', function (User $user, ClassModel $class) {
+            // Admin can manage any class
+            if ($user->isAdmin()) {
+                return true;
+            }
+
+            // Teacher can manage their own classes
+            if ($user->isTeacher() && $class->teacher_id === $user->teacher?->id) {
+                return true;
+            }
+
+            // PIC can manage assigned classes
+            return $user->isPicOf($class);
+        });
     }
 }

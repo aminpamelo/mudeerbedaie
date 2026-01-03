@@ -21,6 +21,7 @@ new class extends Component
             'sessions.attendances.student.user',
             'activeStudents.student.user',
             'timetable',
+            'pics',
         ]);
 
         // Initialize payment year
@@ -1558,7 +1559,7 @@ new class extends Component
     public function updatedReceiptFile()
     {
         $this->validate([
-            'receiptFile' => 'image|max:10240', // 10MB Max
+            'receiptFile' => 'file|mimes:jpeg,jpg,png,gif,webp,pdf|max:10240', // 10MB Max - Images and PDF
         ]);
     }
 
@@ -1566,7 +1567,7 @@ new class extends Component
     {
         $this->validate([
             'paymentAmount' => 'required|numeric|min:0.01',
-            'receiptFile' => 'nullable|image|max:10240',
+            'receiptFile' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp,pdf|max:10240',
         ]);
 
         try {
@@ -3348,7 +3349,25 @@ new class extends Component
                             <dt class="text-sm font-medium text-gray-500">Teacher</dt>
                             <dd class="mt-1 text-sm text-gray-900">{{ $class->teacher->fullName }}</dd>
                         </div>
-                        
+
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Person In Charge (PIC)</dt>
+                            <dd class="mt-1">
+                                @if($class->pics->count() > 0)
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach($class->pics as $pic)
+                                            <div class="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-lg">
+                                                <flux:avatar size="xs" :name="$pic->name" />
+                                                <span class="text-sm text-gray-900">{{ $pic->name }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <span class="text-sm text-gray-500">No PIC assigned</span>
+                                @endif
+                            </dd>
+                        </div>
+
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Date & Time</dt>
                             <dd class="mt-1 text-sm text-gray-900">{{ $class->formatted_date_time }}</dd>
@@ -4400,7 +4419,15 @@ new class extends Component
                         <div class="mb-6 flex items-center justify-between">
                             <div>
                                 <flux:heading size="lg">Class Timetable</flux:heading>
-                                <flux:text class="mt-2">Weekly recurring schedule for this class</flux:text>
+                                <flux:text class="mt-2">
+                                    @if($class->timetable->recurrence_pattern === 'monthly')
+                                        Monthly recurring schedule with different days per week
+                                    @elseif($class->timetable->recurrence_pattern === 'bi_weekly')
+                                        Bi-weekly recurring schedule for this class
+                                    @else
+                                        Weekly recurring schedule for this class
+                                    @endif
+                                </flux:text>
                             </div>
                         </div>
 
@@ -4499,10 +4526,40 @@ new class extends Component
                                                         <!-- Check if this day has scheduled classes from timetable -->
                                                         @php
                                                             $dayName = strtolower($day['date']->format('l'));
-                                                            $hasScheduledClass = $class->timetable && isset($class->timetable->weekly_schedule[$dayName]) && !empty($class->timetable->weekly_schedule[$dayName]);
+                                                            $scheduledTimes = [];
+
+                                                            if ($class->timetable && $class->timetable->is_active) {
+                                                                // Check if date is within timetable range
+                                                                $isWithinRange = $class->timetable->isDateWithinRange($day['date']);
+
+                                                                if ($isWithinRange) {
+                                                                    if ($class->timetable->recurrence_pattern === 'monthly') {
+                                                                        // For monthly pattern, get week of month and check that week's schedule
+                                                                        $dayOfMonth = $day['date']->day;
+                                                                        if ($dayOfMonth <= 7) {
+                                                                            $weekKey = 'week_1';
+                                                                        } elseif ($dayOfMonth <= 14) {
+                                                                            $weekKey = 'week_2';
+                                                                        } elseif ($dayOfMonth <= 21) {
+                                                                            $weekKey = 'week_3';
+                                                                        } else {
+                                                                            $weekKey = 'week_4';
+                                                                        }
+
+                                                                        if (isset($class->timetable->weekly_schedule[$weekKey][$dayName]) && !empty($class->timetable->weekly_schedule[$weekKey][$dayName])) {
+                                                                            $scheduledTimes = $class->timetable->weekly_schedule[$weekKey][$dayName];
+                                                                        }
+                                                                    } else {
+                                                                        // For weekly/bi-weekly pattern
+                                                                        if (isset($class->timetable->weekly_schedule[$dayName]) && !empty($class->timetable->weekly_schedule[$dayName])) {
+                                                                            $scheduledTimes = $class->timetable->weekly_schedule[$dayName];
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
                                                         @endphp
-                                                        @if($hasScheduledClass)
-                                                            @foreach($class->timetable->weekly_schedule[$dayName] as $time)
+                                                        @if(!empty($scheduledTimes))
+                                                            @foreach($scheduledTimes as $time)
                                                                 <div class="mb-1 px-1 py-0.5 text-xs rounded bg-gray-100 text-gray-600   opacity-60">
                                                                     {{ date('g:iA', strtotime($time)) }}
                                                                 </div>
@@ -5368,9 +5425,9 @@ new class extends Component
                             <flux:input
                                 wire:model="receiptFile"
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,.pdf,application/pdf"
                             />
-                            <flux:description>Upload an image of the payment receipt (Max: 10MB)</flux:description>
+                            <flux:description>Upload an image or PDF of the payment receipt (Max: 10MB)</flux:description>
                             <flux:error name="receiptFile" />
 
                             @if($receiptFile)

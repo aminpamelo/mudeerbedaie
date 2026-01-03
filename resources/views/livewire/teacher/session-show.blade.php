@@ -15,7 +15,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
     
     public function mount(ClassSession $session)
     {
-        $this->session = $session->load(['class.course', 'class.teacher', 'attendances.student.user']);
+        $this->session = $session->load(['class.course', 'class.teacher.user', 'attendances.student.user', 'starter']);
         $this->sessionNotes = $this->session->teacher_notes ?? '';
     }
     
@@ -165,7 +165,14 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                         <flux:text class="text-sm text-gray-500  mb-1">Duration</flux:text>
                         <flux:text size="lg">{{ $session->formatted_duration }}</flux:text>
                     </div>
-                    
+
+                    @if($session->started_by)
+                        <div>
+                            <flux:text class="text-sm text-gray-500  mb-1">Started By</flux:text>
+                            <flux:text size="lg">{{ $session->starter->name ?? 'Unknown' }}</flux:text>
+                        </div>
+                    @endif
+
                     @if($session->isOngoing())
                         <div>
                             <flux:text class="text-sm text-gray-500  mb-1">Elapsed Time</flux:text>
@@ -322,10 +329,13 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                             <div>
                                 <flux:text size="sm" class="font-medium">Session Started</flux:text>
                                 <flux:text size="xs" class="text-gray-500">{{ $session->started_at->format('M d, Y g:i A') }}</flux:text>
+                                @if($session->starter)
+                                    <flux:text size="xs" class="text-gray-500">by {{ $session->starter->name }}</flux:text>
+                                @endif
                             </div>
                         </div>
                     @endif
-                    
+
                     @if($session->completed_at)
                         <div class="flex items-start space-x-3">
                             <div class="w-2 h-2 bg-green-500 rounded-full mt-2"></div>

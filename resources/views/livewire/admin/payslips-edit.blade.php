@@ -18,19 +18,17 @@ new class extends Component {
             return redirect()->route('admin.payslips.show', $payslip);
         }
         
-        $this->payslip = $payslip->load(['teacher', 'sessions.class.course', 'sessions.attendances']);
+        $this->payslip = $payslip->load(['teacher', 'sessions.class.course', 'sessions.class.teacher.user', 'sessions.attendances', 'sessions.starter']);
         $this->notes = $payslip->notes ?? '';
         $this->sessionIds = $payslip->sessions->pluck('id')->toArray();
-        
+
         // Get all available sessions for this teacher and month
         // Include both eligible sessions and sessions already in this payslip
+        // Uses hybrid logic: pay starter if they have teacher profile, else class teacher
         $startOfMonth = \Carbon\Carbon::createFromFormat('Y-m', $payslip->month)->startOfMonth();
         $endOfMonth = \Carbon\Carbon::createFromFormat('Y-m', $payslip->month)->endOfMonth();
-        
-        $this->availableSessions = \App\Models\ClassSession::with(['class.course', 'class.teacher.user', 'attendances'])
-            ->whereHas('class', function ($query) use ($payslip) {
-                $query->where('teacher_id', $payslip->teacher->teacher->id);
-            })
+
+        $allSessions = \App\Models\ClassSession::with(['class.course', 'class.teacher.user', 'attendances', 'starter.teacher', 'assignedTeacher.user'])
             ->whereBetween('session_date', [$startOfMonth, $endOfMonth])
             ->where('status', 'completed')
             ->whereNotNull('verified_at')
@@ -47,6 +45,12 @@ new class extends Component {
             ->orderBy('session_date')
             ->orderBy('session_time')
             ->get();
+
+        // Filter sessions where the payable teacher matches this payslip's teacher
+        $this->availableSessions = $allSessions->filter(function ($session) use ($payslip) {
+            $payableTeacher = $session->getPayableTeacher();
+            return $payableTeacher && $payableTeacher->id === $payslip->teacher->teacher->id;
+        })->values();
     }
     
     public function save()
@@ -191,14 +195,19 @@ new class extends Component {
                                         <div>
                                             <flux:text class="font-medium">{{ $session->class->course->name }}</flux:text>
                                             <flux:text variant="muted" size="sm" class="block">{{ $session->class->title }}</flux:text>
+                                            @if($session->isPayableDifferentFromClassTeacher())
+                                                <flux:text variant="muted" size="xs" class="block text-amber-600">
+                                                    Class Teacher: {{ $session->class->teacher?->user?->name ?? 'N/A' }}
+                                                </flux:text>
+                                            @endif
                                         </div>
-                                        
+
                                         <div class="text-right">
                                             <flux:text class="font-medium">RM{{ number_format($session->getTeacherAllowanceAmount(), 2) }}</flux:text>
                                         </div>
                                     </div>
-                                    
-                                    <div class="mt-2 flex items-center space-x-6 text-sm text-gray-600">
+
+                                    <div class="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-gray-600">
                                         <div class="flex items-center">
                                             <flux:icon name="calendar" class="w-4 h-4 mr-1" />
                                             {{ $session->session_date->format('M d, Y') }}
@@ -206,6 +215,13 @@ new class extends Component {
                                         <div class="flex items-center">
                                             <flux:icon name="clock" class="w-4 h-4 mr-1" />
                                             {{ $session->session_time->format('g:i A') }}
+                                        </div>
+                                        <div class="flex items-center">
+                                            <flux:icon name="user" class="w-4 h-4 mr-1" />
+                                            Started by: {{ $session->starter?->name ?? 'N/A' }}
+                                            @if($session->isPayableDifferentFromClassTeacher())
+                                                <flux:badge color="amber" size="xs" class="ml-1">Substitute</flux:badge>
+                                            @endif
                                         </div>
                                         <div class="flex items-center">
                                             <flux:icon name="users" class="w-4 h-4 mr-1" />

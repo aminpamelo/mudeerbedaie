@@ -188,7 +188,7 @@ class Student extends Model
 
     public function getFullNameAttribute(): string
     {
-        return $this->user->name;
+        return $this->user->name ?? '';
     }
 
     public function getAgeAttribute(): ?int

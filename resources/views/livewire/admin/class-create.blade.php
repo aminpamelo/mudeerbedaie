@@ -37,6 +37,7 @@ new class extends Component {
     // Timetable properties
     public $enable_timetable = false;
     public $weekly_schedule = [];
+    public $monthly_schedule = [];
     public $recurrence_pattern = 'weekly';
     public $start_date = '';
     public $end_date = '';
@@ -54,6 +55,22 @@ new class extends Component {
             'saturday' => [],
             'sunday' => [],
         ];
+        $this->initializeMonthlySchedule();
+    }
+
+    public function initializeMonthlySchedule(): void
+    {
+        $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+        for ($week = 1; $week <= 4; $week++) {
+            $weekKey = 'week_' . $week;
+            if (!isset($this->monthly_schedule[$weekKey])) {
+                $this->monthly_schedule[$weekKey] = [];
+                foreach ($days as $day) {
+                    $this->monthly_schedule[$weekKey][$day] = [];
+                }
+            }
+        }
     }
 
     public function with(): array
@@ -91,8 +108,12 @@ new class extends Component {
         } else {
             $rules['start_date'] = 'required|date|after_or_equal:today';
             $rules['end_date'] = 'nullable|date|after:start_date';
-            $rules['recurrence_pattern'] = 'required|in:weekly,bi_weekly';
-            $rules['weekly_schedule'] = 'required|array';
+            $rules['recurrence_pattern'] = 'required|in:weekly,bi_weekly,monthly';
+            if ($this->recurrence_pattern === 'monthly') {
+                $rules['monthly_schedule'] = 'required|array';
+            } else {
+                $rules['weekly_schedule'] = 'required|array';
+            }
         }
 
         return $rules;
@@ -111,16 +132,37 @@ new class extends Component {
         // Validate timetable schedule if enabled
         if ($this->enable_timetable) {
             $hasSchedule = false;
-            foreach ($this->weekly_schedule as $times) {
-                if (!empty($times)) {
-                    $hasSchedule = true;
-                    break;
+
+            if ($this->recurrence_pattern === 'monthly') {
+                // Check monthly schedule
+                foreach ($this->monthly_schedule as $weekKey => $weekSchedule) {
+                    if (is_array($weekSchedule)) {
+                        foreach ($weekSchedule as $times) {
+                            if (!empty($times)) {
+                                $hasSchedule = true;
+                                break 2;
+                            }
+                        }
+                    }
                 }
-            }
-            
-            if (!$hasSchedule) {
-                $this->addError('weekly_schedule', 'Please select at least one day and time for the timetable.');
-                return;
+
+                if (!$hasSchedule) {
+                    $this->addError('monthly_schedule', 'Please select at least one day and time for the monthly timetable.');
+                    return;
+                }
+            } else {
+                // Check weekly schedule
+                foreach ($this->weekly_schedule as $times) {
+                    if (!empty($times)) {
+                        $hasSchedule = true;
+                        break;
+                    }
+                }
+
+                if (!$hasSchedule) {
+                    $this->addError('weekly_schedule', 'Please select at least one day and time for the timetable.');
+                    return;
+                }
             }
         }
 
@@ -146,8 +188,15 @@ new class extends Component {
 
         // Create timetable and sessions if enabled
         if ($this->enable_timetable) {
+            // Use the appropriate schedule based on recurrence pattern
+            if ($this->recurrence_pattern === 'monthly') {
+                $scheduleData = $this->filterMonthlySchedule($this->monthly_schedule);
+            } else {
+                $scheduleData = array_filter($this->weekly_schedule, fn($times) => !empty($times));
+            }
+
             $timetable = $class->timetable()->create([
-                'weekly_schedule' => array_filter($this->weekly_schedule, fn($times) => !empty($times)),
+                'weekly_schedule' => $scheduleData,
                 'recurrence_pattern' => $this->recurrence_pattern,
                 'start_date' => $this->start_date,
                 'end_date' => !empty($this->end_date) ? $this->end_date : null,
@@ -258,7 +307,7 @@ new class extends Component {
         if (!isset($this->weekly_schedule[$day])) {
             $this->weekly_schedule[$day] = [];
         }
-        
+
         $this->weekly_schedule[$day][] = '09:00';
     }
 
@@ -270,6 +319,48 @@ new class extends Component {
         }
     }
 
+    public function addMonthlyTimeSlot(int $week, string $day): void
+    {
+        $weekKey = 'week_' . $week;
+        if (!isset($this->monthly_schedule[$weekKey][$day])) {
+            $this->monthly_schedule[$weekKey][$day] = [];
+        }
+        $this->monthly_schedule[$weekKey][$day][] = '09:00';
+    }
+
+    public function removeMonthlyTimeSlot(int $week, string $day, int $index): void
+    {
+        $weekKey = 'week_' . $week;
+        if (isset($this->monthly_schedule[$weekKey][$day][$index])) {
+            array_splice($this->monthly_schedule[$weekKey][$day], $index, 1);
+        }
+    }
+
+    public function filterMonthlySchedule(array $schedule): array
+    {
+        $filtered = [];
+
+        for ($week = 1; $week <= 4; $week++) {
+            $weekKey = 'week_' . $week;
+            if (isset($schedule[$weekKey])) {
+                $weekData = array_filter($schedule[$weekKey], fn($times) => !empty($times));
+                if (!empty($weekData)) {
+                    $filtered[$weekKey] = $weekData;
+                }
+            }
+        }
+
+        return $filtered;
+    }
+
+    public function updatedRecurrencePattern(): void
+    {
+        // Initialize the appropriate schedule when pattern changes
+        if ($this->recurrence_pattern === 'monthly' && empty($this->monthly_schedule)) {
+            $this->initializeMonthlySchedule();
+        }
+    }
+
     public function getPreviewSessionsProperty(): int
     {
         if (!$this->enable_timetable || empty($this->start_date)) {
@@ -278,25 +369,48 @@ new class extends Component {
 
         $startDate = \Carbon\Carbon::parse($this->start_date);
         $endDate = $this->end_date ? \Carbon\Carbon::parse($this->end_date) : $startDate->copy()->addMonths(3);
-        
+
         $totalSlots = 0;
-        foreach ($this->weekly_schedule as $day => $times) {
-            if (!empty($times)) {
-                $totalSlots += count($times);
+
+        if ($this->recurrence_pattern === 'monthly') {
+            // For monthly, count slots across all weeks
+            foreach ($this->monthly_schedule as $weekKey => $weekSchedule) {
+                if (is_array($weekSchedule)) {
+                    foreach ($weekSchedule as $times) {
+                        if (!empty($times)) {
+                            $totalSlots += count($times);
+                        }
+                    }
+                }
             }
-        }
 
-        if ($totalSlots === 0) {
-            return 0;
-        }
+            if ($totalSlots === 0) {
+                return 0;
+            }
 
-        $weeks = $startDate->diffInWeeks($endDate) + 1;
-        
-        if ($this->recurrence_pattern === 'bi_weekly') {
-            $weeks = ceil($weeks / 2);
-        }
+            // Calculate months in the range
+            $months = $startDate->diffInMonths($endDate) + 1;
+            return $totalSlots * $months;
+        } else {
+            // For weekly/bi-weekly
+            foreach ($this->weekly_schedule as $day => $times) {
+                if (!empty($times)) {
+                    $totalSlots += count($times);
+                }
+            }
 
-        return $totalSlots * $weeks;
+            if ($totalSlots === 0) {
+                return 0;
+            }
+
+            $weeks = $startDate->diffInWeeks($endDate) + 1;
+
+            if ($this->recurrence_pattern === 'bi_weekly') {
+                $weeks = ceil($weeks / 2);
+            }
+
+            return $totalSlots * $weeks;
+        }
     }
 
     public function openCategoryModal(): void
@@ -513,7 +627,7 @@ new class extends Component {
                 @if($enable_timetable)
                     <div class="bg-gray-50 p-4 rounded-lg space-y-4">
                         <flux:heading size="md">Timetable Configuration</flux:heading>
-                        
+
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <flux:field>
                                 <flux:label>Start Date</flux:label>
@@ -531,59 +645,138 @@ new class extends Component {
 
                         <flux:field>
                             <flux:label>Recurrence Pattern</flux:label>
-                            <flux:select wire:model="recurrence_pattern">
+                            <flux:select wire:model.live="recurrence_pattern">
                                 <flux:select.option value="weekly">Weekly</flux:select.option>
                                 <flux:select.option value="bi_weekly">Bi-Weekly</flux:select.option>
+                                <flux:select.option value="monthly">Monthly (Different days per week)</flux:select.option>
                             </flux:select>
+                            <flux:description>
+                                @if($recurrence_pattern === 'monthly')
+                                    Set different schedules for each week of the month
+                                @elseif($recurrence_pattern === 'bi_weekly')
+                                    Sessions repeat every two weeks
+                                @else
+                                    Sessions repeat every week
+                                @endif
+                            </flux:description>
                             <flux:error name="recurrence_pattern" />
                         </flux:field>
 
-                        <!-- Weekly Schedule -->
-                        <div>
-                            <flux:label class="block text-sm font-medium text-gray-900 mb-3">Weekly Schedule</flux:label>
-                            <div class="space-y-3">
-                                @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $day)
-                                    <div class="flex items-center space-x-2">
-                                        <div class="w-24 text-sm font-medium text-gray-700">{{ ucfirst($day) }}</div>
-                                        <div class="flex-1 space-y-2">
-                                            @if(isset($weekly_schedule[$day]))
-                                                @foreach($weekly_schedule[$day] as $index => $time)
-                                                    <div class="flex items-center space-x-2">
-                                                        <flux:input 
-                                                            wire:model="weekly_schedule.{{ $day }}.{{ $index }}" 
-                                                            type="time" 
-                                                            class="w-32"
-                                                        />
-                                                        <flux:button 
-                                                            type="button" 
-                                                            variant="danger" 
-                                                            size="sm"
-                                                            wire:click="removeTimeSlot('{{ $day }}', {{ $index }})"
-                                                        >
-                                                            Remove
-                                                        </flux:button>
+                        @if($recurrence_pattern === 'monthly')
+                            <!-- Monthly Schedule -->
+                            <div class="space-y-6">
+                                <flux:label class="block text-sm font-medium text-gray-900">Monthly Schedule</flux:label>
+                                <flux:text class="text-gray-600 text-sm -mt-4">Configure different days for each week of the month</flux:text>
+
+                                @for($week = 1; $week <= 4; $week++)
+                                    @php $weekKey = 'week_' . $week; @endphp
+                                    <div class="border border-gray-200 rounded-lg p-4 bg-white">
+                                        <div class="flex items-center gap-2 mb-4">
+                                            <flux:badge color="blue" size="sm">Week {{ $week }}</flux:badge>
+                                            <flux:text class="text-sm text-gray-500">
+                                                @if($week === 1) Days 1-7
+                                                @elseif($week === 2) Days 8-14
+                                                @elseif($week === 3) Days 15-21
+                                                @else Days 22-31
+                                                @endif
+                                            </flux:text>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+                                            @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $day)
+                                                <div class="border border-gray-100 rounded-lg p-2 bg-gray-50/50">
+                                                    <div class="text-xs font-medium text-gray-600 mb-2 text-center">
+                                                        {{ ucfirst(substr($day, 0, 3)) }}
                                                     </div>
-                                                @endforeach
-                                            @endif
-                                            <flux:button 
-                                                type="button" 
-                                                variant="outline" 
-                                                size="sm"
-                                                wire:click="addTimeSlot('{{ $day }}')"
-                                            >
-                                                + Add Time
-                                            </flux:button>
+
+                                                    @if(isset($monthly_schedule[$weekKey][$day]) && is_array($monthly_schedule[$weekKey][$day]))
+                                                        @foreach($monthly_schedule[$weekKey][$day] as $index => $time)
+                                                            <div class="flex items-center gap-1 mb-2">
+                                                                <flux:input
+                                                                    wire:model="monthly_schedule.{{ $weekKey }}.{{ $day }}.{{ $index }}"
+                                                                    type="time"
+                                                                    class="text-xs !py-1"
+                                                                />
+                                                                <flux:button
+                                                                    type="button"
+                                                                    wire:click="removeMonthlyTimeSlot({{ $week }}, '{{ $day }}', {{ $index }})"
+                                                                    variant="ghost"
+                                                                    size="xs"
+                                                                    icon="x-mark"
+                                                                    class="text-red-500 hover:text-red-700 !p-0.5"
+                                                                />
+                                                            </div>
+                                                        @endforeach
+                                                    @endif
+
+                                                    <flux:button
+                                                        type="button"
+                                                        wire:click="addMonthlyTimeSlot({{ $week }}, '{{ $day }}')"
+                                                        variant="ghost"
+                                                        size="xs"
+                                                        class="w-full text-xs !py-1"
+                                                        icon="plus"
+                                                    >
+                                                    </flux:button>
+                                                </div>
+                                            @endforeach
                                         </div>
                                     </div>
-                                @endforeach
+                                @endfor
+                                <flux:error name="monthly_schedule" />
                             </div>
-                            <flux:error name="weekly_schedule" />
-                        </div>
+                        @else
+                            <!-- Weekly Schedule -->
+                            <div>
+                                <flux:label class="block text-sm font-medium text-gray-900 mb-3">Weekly Schedule</flux:label>
+                                <div class="space-y-3">
+                                    @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $day)
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-24 text-sm font-medium text-gray-700">{{ ucfirst($day) }}</div>
+                                            <div class="flex-1 space-y-2">
+                                                @if(isset($weekly_schedule[$day]))
+                                                    @foreach($weekly_schedule[$day] as $index => $time)
+                                                        <div class="flex items-center space-x-2">
+                                                            <flux:input
+                                                                wire:model="weekly_schedule.{{ $day }}.{{ $index }}"
+                                                                type="time"
+                                                                class="w-32"
+                                                            />
+                                                            <flux:button
+                                                                type="button"
+                                                                variant="danger"
+                                                                size="sm"
+                                                                wire:click="removeTimeSlot('{{ $day }}', {{ $index }})"
+                                                            >
+                                                                Remove
+                                                            </flux:button>
+                                                        </div>
+                                                    @endforeach
+                                                @endif
+                                                <flux:button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    wire:click="addTimeSlot('{{ $day }}')"
+                                                >
+                                                    + Add Time
+                                                </flux:button>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <flux:error name="weekly_schedule" />
+                            </div>
+                        @endif
 
                         @if($this->preview_sessions > 0)
                             <div class="bg-blue-50 p-3 rounded border border-blue-200">
                                 <flux:text class="text-sm text-blue-700">
-                                    📅 Preview: Approximately {{ $this->preview_sessions }} sessions will be generated
+                                    @if($recurrence_pattern === 'monthly')
+                                        📅 Preview: Approximately {{ $this->preview_sessions }} sessions will be generated (based on monthly pattern)
+                                    @else
+                                        📅 Preview: Approximately {{ $this->preview_sessions }} sessions will be generated
+                                    @endif
                                 </flux:text>
                             </div>
                         @endif

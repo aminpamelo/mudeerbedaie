@@ -4,6 +4,7 @@ use App\Models\ClassModel;
 use App\Models\ClassCategory;
 use App\Models\Course;
 use App\Models\Teacher;
+use App\Models\User;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -15,7 +16,7 @@ new class extends Component {
     public $statusFilter = '';
     public $classTypeFilter = '';
     public $categoryFilter = '';
-    public $viewMode = 'grouped'; // 'list' or 'grouped'
+    public $viewMode = 'grouped'; // 'list', 'grouped', or 'pic'
     public $perPage = 10;
 
     // Category assignment modal
@@ -29,6 +30,12 @@ new class extends Component {
     public $categoryName = '';
     public $categoryColor = '#6366f1';
     public $categoryDescription = '';
+
+    // PIC assignment modal
+    public $showPicModal = false;
+    public $editingPicClassId = null;
+    public $selectedPicIds = [];
+    public $picSearch = '';
 
     public function updatingSearch()
     {
@@ -73,7 +80,7 @@ new class extends Component {
     public function getClassesProperty()
     {
         return ClassModel::query()
-            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories'])
+            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories', 'pics'])
             ->when($this->search, function ($query) {
                 $query->where('title', 'like', '%' . $this->search . '%')
                     ->orWhereHas('course', function ($courseQuery) {
@@ -104,7 +111,7 @@ new class extends Component {
     public function getGroupedClassesProperty()
     {
         $query = ClassModel::query()
-            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories'])
+            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories', 'pics'])
             ->when($this->search, function ($query) {
                 $query->where('title', 'like', '%' . $this->search . '%')
                     ->orWhereHas('course', function ($courseQuery) {
@@ -159,6 +166,70 @@ new class extends Component {
             $grouped[] = [
                 'category' => null,
                 'classes' => $uncategorizedClasses,
+            ];
+        }
+
+        return $grouped;
+    }
+
+    public function getGroupedByPicClassesProperty()
+    {
+        $query = ClassModel::query()
+            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories', 'pics'])
+            ->when($this->search, function ($query) {
+                $query->where('title', 'like', '%' . $this->search . '%')
+                    ->orWhereHas('course', function ($courseQuery) {
+                        $courseQuery->where('name', 'like', '%' . $this->search . '%');
+                    })
+                    ->orWhereHas('teacher.user', function ($teacherQuery) {
+                        $teacherQuery->where('name', 'like', '%' . $this->search . '%');
+                    });
+            })
+            ->when($this->courseFilter, function ($query) {
+                $query->where('course_id', $this->courseFilter);
+            })
+            ->when($this->statusFilter, function ($query) {
+                $query->where('status', $this->statusFilter);
+            })
+            ->when($this->classTypeFilter, function ($query) {
+                $query->where('class_type', $this->classTypeFilter);
+            })
+            ->when($this->categoryFilter, function ($query) {
+                $query->whereHas('categories', function ($catQuery) {
+                    $catQuery->where('class_categories.id', $this->categoryFilter);
+                });
+            })
+            ->orderBy('date_time', 'desc')
+            ->get();
+
+        // Get all users who are PICs
+        $picUsers = User::whereHas('picClasses')->where('role', '!=', 'student')->orderBy('name')->get();
+
+        $grouped = [];
+
+        // Group by PICs
+        foreach ($picUsers as $pic) {
+            $picClasses = $query->filter(function ($class) use ($pic) {
+                return $class->pics->contains($pic->id);
+            });
+
+            if ($picClasses->count() > 0) {
+                $grouped[] = [
+                    'pic' => $pic,
+                    'classes' => $picClasses,
+                ];
+            }
+        }
+
+        // Get classes without PICs
+        $noPicClasses = $query->filter(function ($class) {
+            return $class->pics->count() === 0;
+        });
+
+        if ($noPicClasses->count() > 0) {
+            $grouped[] = [
+                'pic' => null,
+                'classes' => $noPicClasses,
             ];
         }
 
@@ -302,6 +373,63 @@ new class extends Component {
         $this->closeCategoryModal();
         $this->openCategoryManageModal();
     }
+
+    // PIC assignment methods
+    public function getUsersProperty()
+    {
+        return User::query()
+            ->where('status', 'active')
+            ->where('role', '!=', 'student')
+            ->when($this->picSearch, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->picSearch . '%')
+                      ->orWhere('email', 'like', '%' . $this->picSearch . '%');
+                });
+            })
+            ->orderBy('name')
+            ->limit(50)
+            ->get();
+    }
+
+    public function openPicModal($classId): void
+    {
+        $this->editingPicClassId = $classId;
+        $class = ClassModel::find($classId);
+        $this->selectedPicIds = $class->pics->pluck('id')->toArray();
+        $this->picSearch = '';
+        $this->showPicModal = true;
+    }
+
+    public function closePicModal(): void
+    {
+        $this->showPicModal = false;
+        $this->editingPicClassId = null;
+        $this->selectedPicIds = [];
+        $this->picSearch = '';
+    }
+
+    public function savePicAssignments(): void
+    {
+        $class = ClassModel::find($this->editingPicClassId);
+        if ($class) {
+            // Sync with assigned_by tracking
+            $syncData = [];
+            foreach ($this->selectedPicIds as $userId) {
+                $syncData[$userId] = ['assigned_by' => auth()->id()];
+            }
+            $class->pics()->sync($syncData);
+        }
+        $this->closePicModal();
+    }
+
+    public function togglePicSelection($userId): void
+    {
+        if (in_array($userId, $this->selectedPicIds)) {
+            $this->selectedPicIds = array_diff($this->selectedPicIds, [$userId]);
+        } else {
+            $this->selectedPicIds[] = $userId;
+        }
+    }
 };
 
 ?>
@@ -430,6 +558,14 @@ new class extends Component {
                         >
                             Group by Category
                         </flux:button>
+                        <flux:button
+                            wire:click="setViewMode('pic')"
+                            variant="{{ $viewMode === 'pic' ? 'primary' : 'ghost' }}"
+                            size="sm"
+                            icon="user-circle"
+                        >
+                            Group by PIC
+                        </flux:button>
                     </div>
                     <flux:button
                         wire:click="clearFilters"
@@ -443,7 +579,7 @@ new class extends Component {
         </flux:card>
 
         @if($viewMode === 'list')
-        <!-- Classes List View -->
+        <!-- Classes List View (List) -->
         <flux:card>
             <div class="overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200">
@@ -458,6 +594,7 @@ new class extends Component {
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PICs</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
@@ -513,6 +650,30 @@ new class extends Component {
                                     </td>
 
                                     <td class="px-6 py-4 whitespace-nowrap">
+                                        <button
+                                            wire:click="openPicModal({{ $class->id }})"
+                                            class="flex items-center gap-1 cursor-pointer hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors group"
+                                            title="Click to assign PICs"
+                                        >
+                                            @if($class->pics->count() > 0)
+                                                <div class="flex -space-x-2">
+                                                    @foreach($class->pics->take(3) as $pic)
+                                                        <flux:avatar size="xs" :name="$pic->name" class="ring-2 ring-white" />
+                                                    @endforeach
+                                                </div>
+                                                @if($class->pics->count() > 3)
+                                                    <span class="text-xs text-gray-500 ml-1">+{{ $class->pics->count() - 3 }}</span>
+                                                @endif
+                                            @else
+                                                <span class="text-xs text-gray-400 group-hover:text-gray-600 flex items-center gap-1">
+                                                    <flux:icon.plus class="w-3 h-3" />
+                                                    Add PIC
+                                                </span>
+                                            @endif
+                                        </button>
+                                    </td>
+
+                                    <td class="px-6 py-4 whitespace-nowrap">
                                         <div>
                                             <div class="text-sm text-gray-900">{{ $class->date_time->format('M d, Y') }}</div>
                                             <div class="text-sm text-gray-500">
@@ -548,6 +709,13 @@ new class extends Component {
                                             <flux:button
                                                 size="sm"
                                                 variant="ghost"
+                                                icon="user-group"
+                                                wire:click="openPicModal({{ $class->id }})"
+                                                title="Assign PICs"
+                                            />
+                                            <flux:button
+                                                size="sm"
+                                                variant="ghost"
                                                 icon="eye"
                                                 href="{{ route('classes.show', $class) }}"
                                             />
@@ -562,7 +730,7 @@ new class extends Component {
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-6 py-12 text-center">
+                                    <td colspan="9" class="px-6 py-12 text-center">
                                         <div class="text-gray-500">
                                             <flux:icon.calendar-days class="h-12 w-12 mx-auto mb-4 text-gray-300" />
                                             <p class="text-gray-600">No classes found</p>
@@ -592,37 +760,229 @@ new class extends Component {
                 @endif
             </div>
         </flux:card>
-        @else
+        @elseif($viewMode === 'grouped')
         <!-- Grouped by Category View -->
-        <div class="space-y-6">
-            @forelse($this->groupedClasses as $group)
-                <flux:card>
+        <div class="space-y-4">
+            @forelse($this->groupedClasses as $index => $group)
+                <flux:card x-data="{ expanded: true }">
                     <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200">
-                            <div class="flex items-center gap-3">
-                                @if($group['category'])
-                                    <div
-                                        class="w-4 h-4 rounded-full flex-shrink-0"
-                                        style="background-color: {{ $group['category']->color }}"
-                                    ></div>
-                                    <flux:heading size="lg">{{ $group['category']->name }}</flux:heading>
-                                    <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
-                                @else
-                                    <div class="w-4 h-4 rounded-full flex-shrink-0 bg-gray-300"></div>
-                                    <flux:heading size="lg">Uncategorized</flux:heading>
-                                    <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
-                                @endif
+                        <button
+                            @click="expanded = !expanded"
+                            class="w-full px-6 py-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+                        >
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    @if($group['category'])
+                                        <div
+                                            class="w-4 h-4 rounded-full flex-shrink-0"
+                                            style="background-color: {{ $group['category']->color }}"
+                                        ></div>
+                                        <flux:heading size="lg">{{ $group['category']->name }}</flux:heading>
+                                        <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
+                                    @else
+                                        <div class="w-4 h-4 rounded-full flex-shrink-0 bg-gray-300"></div>
+                                        <flux:heading size="lg">Uncategorized</flux:heading>
+                                        <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
+                                    @endif
+                                </div>
+                                <flux:icon
+                                    name="chevron-down"
+                                    class="w-5 h-5 text-gray-400 transition-transform duration-200"
+                                    ::class="expanded ? 'rotate-180' : ''"
+                                />
                             </div>
                             @if($group['category'] && $group['category']->description)
-                                <flux:text class="mt-1">{{ $group['category']->description }}</flux:text>
+                                <flux:text class="mt-1 text-left">{{ $group['category']->description }}</flux:text>
                             @endif
-                        </div>
+                        </button>
 
-                        <div class="overflow-x-auto">
+                        <div x-show="expanded" x-collapse class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PICs</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    @foreach($group['classes'] as $class)
+                                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div>
+                                                    <div class="font-medium text-gray-900">{{ $class->title }}</div>
+                                                    @if($class->description)
+                                                        <div class="text-sm text-gray-500 truncate max-w-xs">
+                                                            {{ Str::limit($class->description, 50) }}
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900">{{ $class->course->name }}</div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center gap-2">
+                                                    <flux:avatar size="sm" :name="$class->teacher->fullName" />
+                                                    <div class="text-sm text-gray-900">{{ $class->teacher->fullName }}</div>
+                                                </div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <button
+                                                    wire:click="openPicModal({{ $class->id }})"
+                                                    class="flex items-center gap-1 cursor-pointer hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors group"
+                                                    title="Click to assign PICs"
+                                                >
+                                                    @if($class->pics->count() > 0)
+                                                        <div class="flex -space-x-2">
+                                                            @foreach($class->pics->take(3) as $pic)
+                                                                <flux:avatar size="xs" :name="$pic->name" class="ring-2 ring-white" />
+                                                            @endforeach
+                                                        </div>
+                                                        @if($class->pics->count() > 3)
+                                                            <span class="text-xs text-gray-500 ml-1">+{{ $class->pics->count() - 3 }}</span>
+                                                        @endif
+                                                    @else
+                                                        <span class="text-xs text-gray-400 group-hover:text-gray-600 flex items-center gap-1">
+                                                            <flux:icon.plus class="w-3 h-3" />
+                                                            Add PIC
+                                                        </span>
+                                                    @endif
+                                                </button>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div>
+                                                    <div class="text-sm text-gray-900">{{ $class->date_time->format('M d, Y') }}</div>
+                                                    <div class="text-sm text-gray-500">
+                                                        {{ $class->date_time->format('g:i A') }} ({{ $class->formatted_duration }})
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <flux:badge size="sm" :class="$class->status_badge_class">
+                                                    {{ ucfirst($class->status) }}
+                                                </flux:badge>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900">
+                                                    {{ $class->active_student_count }} student(s)
+                                                </div>
+                                                <div class="text-xs text-gray-500">
+                                                    {{ $class->completed_sessions }}/{{ $class->total_sessions }} sessions
+                                                </div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon="folder"
+                                                        wire:click="openCategoryModal({{ $class->id }})"
+                                                        title="Edit categories"
+                                                    />
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon="user-group"
+                                                        wire:click="openPicModal({{ $class->id }})"
+                                                        title="Assign PICs"
+                                                    />
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon="eye"
+                                                        href="{{ route('classes.show', $class) }}"
+                                                    />
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon="pencil"
+                                                        href="{{ route('classes.edit', $class) }}"
+                                                    />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </flux:card>
+            @empty
+                <flux:card>
+                    <div class="px-6 py-12 text-center">
+                        <div class="text-gray-500">
+                            <flux:icon.calendar-days class="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                            <p class="text-gray-600">No classes found</p>
+                            @if($search || $courseFilter || $statusFilter || $classTypeFilter || $categoryFilter)
+                                <flux:button
+                                    wire:click="clearFilters"
+                                    variant="ghost"
+                                    size="sm"
+                                    class="mt-2"
+                                >
+                                    Clear filters
+                                </flux:button>
+                            @endif
+                        </div>
+                    </div>
+                </flux:card>
+            @endforelse
+        </div>
+        @elseif($viewMode === 'pic')
+        <!-- Grouped by PIC View -->
+        <div class="space-y-4">
+            @forelse($this->groupedByPicClasses as $index => $group)
+                <flux:card x-data="{ expanded: true }">
+                    <div class="overflow-hidden">
+                        <button
+                            @click="expanded = !expanded"
+                            class="w-full px-6 py-4 border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+                        >
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    @if($group['pic'])
+                                        <flux:avatar size="sm" :name="$group['pic']->name" />
+                                        <div class="text-left">
+                                            <flux:heading size="lg">{{ $group['pic']->name }}</flux:heading>
+                                            <flux:text class="text-sm text-gray-500">{{ $group['pic']->email }}</flux:text>
+                                        </div>
+                                        <flux:badge size="sm" color="zinc">{{ $group['pic']->role_name }}</flux:badge>
+                                        <flux:badge size="sm" color="blue">{{ $group['classes']->count() }} classes</flux:badge>
+                                    @else
+                                        <div class="w-8 h-8 rounded-full flex-shrink-0 bg-gray-300 flex items-center justify-center">
+                                            <flux:icon.user class="w-4 h-4 text-gray-500" />
+                                        </div>
+                                        <flux:heading size="lg">No PIC Assigned</flux:heading>
+                                        <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
+                                    @endif
+                                </div>
+                                <flux:icon
+                                    name="chevron-down"
+                                    class="w-5 h-5 text-gray-400 transition-transform duration-200"
+                                    ::class="expanded ? 'rotate-180' : ''"
+                                />
+                            </div>
+                        </button>
+
+                        <div x-show="expanded" x-collapse class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
@@ -643,6 +1003,29 @@ new class extends Component {
                                                         </div>
                                                     @endif
                                                 </div>
+                                            </td>
+
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <button
+                                                    wire:click="openCategoryModal({{ $class->id }})"
+                                                    class="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors group"
+                                                    title="Click to edit categories"
+                                                >
+                                                    @forelse($class->categories as $category)
+                                                        <span
+                                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                                                            style="background-color: {{ $category->color }}20; color: {{ $category->color }}"
+                                                        >
+                                                            <span class="w-2 h-2 rounded-full" style="background-color: {{ $category->color }}"></span>
+                                                            {{ $category->name }}
+                                                        </span>
+                                                    @empty
+                                                        <span class="text-xs text-gray-400 group-hover:text-gray-600 flex items-center gap-1">
+                                                            <flux:icon.plus class="w-3 h-3" />
+                                                            Add
+                                                        </span>
+                                                    @endforelse
+                                                </button>
                                             </td>
 
                                             <td class="px-6 py-4 whitespace-nowrap">
@@ -688,6 +1071,13 @@ new class extends Component {
                                                         icon="folder"
                                                         wire:click="openCategoryModal({{ $class->id }})"
                                                         title="Edit categories"
+                                                    />
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon="user-group"
+                                                        wire:click="openPicModal({{ $class->id }})"
+                                                        title="Assign PICs"
                                                     />
                                                     <flux:button
                                                         size="sm"
@@ -902,6 +1292,65 @@ new class extends Component {
 
             <div class="flex justify-end pt-2 border-t">
                 <flux:button wire:click="closeCategoryManageModal" variant="ghost">Close</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- PIC Assignment Modal -->
+    <flux:modal wire:model="showPicModal" class="md:w-lg">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Assign Person In Charge (PIC)</flux:heading>
+                <flux:text class="mt-2">Select users to be responsible for this class</flux:text>
+            </div>
+
+            <flux:input
+                wire:model.live.debounce.300ms="picSearch"
+                placeholder="Search users by name or email..."
+                icon="magnifying-glass"
+            />
+
+            <div class="space-y-2 max-h-72 overflow-y-auto">
+                @forelse($this->users as $user)
+                    <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors {{ in_array($user->id, $selectedPicIds) ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200' }}">
+                        <input
+                            type="checkbox"
+                            wire:model="selectedPicIds"
+                            value="{{ $user->id }}"
+                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <flux:avatar size="sm" :name="$user->name" />
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">{{ $user->name }}</p>
+                            <p class="text-xs text-gray-500 truncate">{{ $user->email }}</p>
+                        </div>
+                        <flux:badge size="sm" color="zinc">{{ $user->role_name }}</flux:badge>
+                    </label>
+                @empty
+                    <div class="p-4 border border-dashed border-gray-300 rounded-lg text-center">
+                        <flux:icon.users class="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                        <p class="text-sm text-gray-500">
+                            @if($picSearch)
+                                No users found matching "{{ $picSearch }}"
+                            @else
+                                No active users available
+                            @endif
+                        </p>
+                    </div>
+                @endforelse
+            </div>
+
+            @if(count($selectedPicIds) > 0)
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-600">
+                        <span class="font-medium">{{ count($selectedPicIds) }}</span> PIC(s) selected
+                    </p>
+                </div>
+            @endif
+
+            <div class="flex justify-end gap-2 pt-2 border-t">
+                <flux:button wire:click="closePicModal" variant="ghost">Cancel</flux:button>
+                <flux:button wire:click="savePicAssignments" variant="primary">Save</flux:button>
             </div>
         </div>
     </flux:modal>

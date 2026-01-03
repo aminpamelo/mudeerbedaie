@@ -24,6 +24,14 @@ new class extends Component {
     // Bulk action properties
     public array $selectedSessions = [];
     public bool $selectAll = false;
+
+    // Stop/Resume/Complete session modal properties
+    public bool $showStopModal = false;
+    public bool $showResumeModal = false;
+    public bool $showCompleteModal = false;
+    public ?int $sessionToStop = null;
+    public ?int $sessionToResume = null;
+    public ?int $sessionToComplete = null;
     
     protected $queryString = [
         'search' => ['except' => ''],
@@ -41,7 +49,7 @@ new class extends Component {
         $teachers = Teacher::with('user')->get();
         
         // Build sessions query
-        $query = ClassSession::with(['class.course', 'class.teacher.user', 'attendances.student.user', 'payslips']);
+        $query = ClassSession::with(['class.course', 'class.teacher.user', 'class.pics', 'attendances.student.user', 'payslips', 'starter', 'assignedTeacher.user']);
         
         // Apply date filter
         $today = now()->startOfDay();
@@ -241,7 +249,7 @@ new class extends Component {
     private function getCurrentPageSessions()
     {
         // Build same query as in with() method to get current page sessions
-        $query = ClassSession::with(['class.course', 'class.teacher.user', 'attendances.student.user', 'payslips']);
+        $query = ClassSession::with(['class.course', 'class.teacher.user', 'class.pics', 'attendances.student.user', 'payslips', 'starter', 'assignedTeacher.user']);
 
         // Apply same filters as in with() method
         $today = now()->startOfDay();
@@ -384,11 +392,107 @@ new class extends Component {
         $this->dateFilter = 'all';
         $this->resetPage();
     }
-    
+
+    // Stop/Pause session methods
+    public function confirmStopSession($sessionId)
+    {
+        $this->sessionToStop = $sessionId;
+        $this->showStopModal = true;
+    }
+
+    public function stopSession()
+    {
+        if (!$this->sessionToStop) {
+            return;
+        }
+
+        try {
+            $session = ClassSession::findOrFail($this->sessionToStop);
+            $session->pause();
+
+            session()->flash('success', 'Session has been stopped/paused successfully.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to stop session: ' . $e->getMessage());
+        }
+
+        $this->showStopModal = false;
+        $this->sessionToStop = null;
+    }
+
+    public function cancelStopSession()
+    {
+        $this->showStopModal = false;
+        $this->sessionToStop = null;
+    }
+
+    // Resume session methods
+    public function confirmResumeSession($sessionId)
+    {
+        $this->sessionToResume = $sessionId;
+        $this->showResumeModal = true;
+    }
+
+    public function resumeSession()
+    {
+        if (!$this->sessionToResume) {
+            return;
+        }
+
+        try {
+            $session = ClassSession::findOrFail($this->sessionToResume);
+            $session->resume();
+
+            session()->flash('success', 'Session has been resumed successfully.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to resume session: ' . $e->getMessage());
+        }
+
+        $this->showResumeModal = false;
+        $this->sessionToResume = null;
+    }
+
+    public function cancelResumeSession()
+    {
+        $this->showResumeModal = false;
+        $this->sessionToResume = null;
+    }
+
+    // Complete session methods
+    public function confirmCompleteSession($sessionId)
+    {
+        $this->sessionToComplete = $sessionId;
+        $this->showCompleteModal = true;
+    }
+
+    public function completeSession()
+    {
+        if (!$this->sessionToComplete) {
+            return;
+        }
+
+        try {
+            $session = ClassSession::findOrFail($this->sessionToComplete);
+            $session->markCompleted();
+
+            session()->flash('success', 'Session has been marked as completed successfully.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to complete session: ' . $e->getMessage());
+        }
+
+        $this->showCompleteModal = false;
+        $this->sessionToComplete = null;
+    }
+
+    public function cancelCompleteSession()
+    {
+        $this->showCompleteModal = false;
+        $this->sessionToComplete = null;
+    }
+
     public function exportSessions()
     {
         // Build the same query as the main sessions query
-        $query = ClassSession::with(['class.course', 'class.teacher.user', 'attendances.student.user', 'payslips']);
+        $query = ClassSession::with(['class.course', 'class.teacher.user', 'class.pics', 'attendances.student.user', 'payslips', 'starter', 'assignedTeacher.user']);
         
         // Apply the same filters
         $today = now()->startOfDay();
@@ -458,21 +562,27 @@ new class extends Component {
                          ->get();
         
         // Create CSV content
-        $csvContent ="Date,Time,Class,Course,Teacher,Duration,Status,Students,Present,Allowance,Notes\n";
-        
+        $csvContent = "Date,Time,Class,Course,Teacher,Assigned Teacher,Started By,PIC,Duration,Status,Students,Present,Allowance,Notes\n";
+
         foreach ($sessions as $session) {
             $attendanceCount = $session->attendances->count();
             $presentCount = $session->attendances->whereIn('status', ['present', 'late'])->count();
             $allowance = $session->allowance_amount ? 'RM' . number_format($session->allowance_amount, 2) : '';
             $teacherName = $session->class->teacher ? $session->class->teacher->user->name : 'N/A';
-            
+            $assignedTeacherName = $session->assignedTeacher ? $session->assignedTeacher->user->name : 'Same as class';
+            $starterName = $session->starter ? $session->starter->name : 'N/A';
+            $picNames = $session->class->pics->pluck('name')->join(', ') ?: 'N/A';
+
             $csvContent .= sprintf(
-"%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s\n",
+                "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s\n",
                 $session->session_date->format('Y-m-d'),
                 $session->session_time->format('H:i'),
                 '"' . str_replace('"', '""', $session->class->title) . '"',
                 '"' . str_replace('"', '""', $session->class->course->name) . '"',
                 '"' . str_replace('"', '""', $teacherName) . '"',
+                '"' . str_replace('"', '""', $assignedTeacherName) . '"',
+                '"' . str_replace('"', '""', $starterName) . '"',
+                '"' . str_replace('"', '""', $picNames) . '"',
                 $session->duration_minutes . 'min',
                 $session->status,
                 $attendanceCount,
@@ -616,6 +726,7 @@ new class extends Component {
                         <option value="all">All Status</option>
                         <option value="scheduled">Scheduled</option>
                         <option value="ongoing">Ongoing</option>
+                        <option value="paused">Paused</option>
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                         <option value="no_show">No Show</option>
@@ -725,9 +836,42 @@ new class extends Component {
                                                 {{ $session->class->course->name }}
                                             </flux:text>
                                             @if($session->class->teacher)
-                                                <flux:text size="xs" class="text-gray-500  mb-2">
+                                                <flux:text size="xs" class="text-gray-500 mb-1">
                                                     Teacher: {{ $session->class->teacher->user->name }}
                                                 </flux:text>
+                                            @endif
+                                            @if($session->assignedTeacher)
+                                                <div class="flex items-center gap-1 mb-1">
+                                                    <flux:text size="xs" class="text-gray-500">
+                                                        Assigned: {{ $session->assignedTeacher->user->name }}
+                                                    </flux:text>
+                                                    <flux:badge color="amber" size="xs">Substitute</flux:badge>
+                                                </div>
+                                            @endif
+                                            @if($session->starter)
+                                                <div class="flex items-center gap-1 mb-1">
+                                                    <flux:text size="xs" class="text-gray-500">
+                                                        Started by: {{ $session->starter->name }}
+                                                    </flux:text>
+                                                    @if($session->class->teacher && $session->started_by !== $session->class->teacher->user_id)
+                                                        <flux:badge color="amber" size="xs">Not Teacher</flux:badge>
+                                                    @endif
+                                                </div>
+                                            @endif
+                                            @if($session->class->pics->count() > 0)
+                                                <div class="flex items-center gap-1 mb-2">
+                                                    <flux:text size="xs" class="text-gray-500">PIC:</flux:text>
+                                                    <div class="flex -space-x-1">
+                                                        @foreach($session->class->pics->take(3) as $pic)
+                                                            <flux:avatar size="xs" :name="$pic->name" class="ring-1 ring-white" title="{{ $pic->name }}" />
+                                                        @endforeach
+                                                    </div>
+                                                    @if($session->class->pics->count() > 3)
+                                                        <span class="text-xs text-gray-500">+{{ $session->class->pics->count() - 3 }}</span>
+                                                    @elseif($session->class->pics->count() <= 2)
+                                                        <span class="text-xs text-gray-500">{{ $session->class->pics->pluck('name')->join(', ') }}</span>
+                                                    @endif
+                                                </div>
                                             @endif
                                             @if($session->topic)
                                                 <flux:text size="sm" class="text-gray-600">
@@ -742,6 +886,8 @@ new class extends Component {
                                                 <flux:badge color="blue" size="sm">Scheduled</flux:badge>
                                             @elseif($session->status === 'ongoing')
                                                 <flux:badge color="yellow" size="sm">Ongoing</flux:badge>
+                                            @elseif($session->status === 'paused')
+                                                <flux:badge color="purple" size="sm">Paused</flux:badge>
                                             @elseif($session->status === 'completed')
                                                 <flux:badge color="green" size="sm">Completed</flux:badge>
                                             @elseif($session->status === 'cancelled')
@@ -908,6 +1054,37 @@ new class extends Component {
                                 </div>
                             @endif
                             
+                            <!-- Session Control Actions -->
+                            <div class="flex items-center gap-2">
+                                @if($session->status === 'ongoing')
+                                    <flux:button size="sm" variant="outline" wire:click="confirmStopSession({{ $session->id }})" class="whitespace-nowrap text-red-700 border-red-300 hover:bg-red-50 hover:border-red-400">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="pause-circle" class="w-4 h-4 mr-1" />
+                                            Stop
+                                        </div>
+                                    </flux:button>
+                                    <flux:button size="sm" variant="primary" wire:click="confirmCompleteSession({{ $session->id }})" class="whitespace-nowrap bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700 shadow-sm">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="check-circle" class="w-4 h-4 mr-1" />
+                                            Complete
+                                        </div>
+                                    </flux:button>
+                                @elseif($session->status === 'paused')
+                                    <flux:button size="sm" variant="primary" wire:click="confirmResumeSession({{ $session->id }})" class="whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white border-blue-600 hover:border-blue-700 shadow-sm">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="play-circle" class="w-4 h-4 mr-1" />
+                                            Resume
+                                        </div>
+                                    </flux:button>
+                                    <flux:button size="sm" variant="primary" wire:click="confirmCompleteSession({{ $session->id }})" class="whitespace-nowrap bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700 shadow-sm">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="check-circle" class="w-4 h-4 mr-1" />
+                                            Complete
+                                        </div>
+                                    </flux:button>
+                                @endif
+                            </div>
+
                             <!-- Verification Actions - Prominent buttons outside dropdown -->
                             <div class="flex items-center gap-2">
                                 @if($session->status === 'completed' && $session->allowance_amount && !$session->verified_at)
@@ -925,7 +1102,7 @@ new class extends Component {
                                         </div>
                                     </flux:button>
                                 @endif
-                                
+
                                 <!-- Navigation Actions Dropdown -->
                                 <flux:dropdown position="bottom" align="end">
                                     <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" class="hover:bg-gray-100 :bg-gray-800" />
@@ -980,6 +1157,78 @@ new class extends Component {
             @endif
         </flux:card>
     @endif
+
+    <!-- Stop Session Confirmation Modal -->
+    <flux:modal wire:model="showStopModal" class="max-w-md">
+        <div class="p-6">
+            <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+                <flux:icon name="pause-circle" class="w-6 h-6 text-red-600" />
+            </div>
+            <flux:heading size="lg" class="text-center mb-2">Stop Session?</flux:heading>
+            <flux:text class="text-center text-gray-600 mb-6">
+                Are you sure you want to stop this session? The session will be paused and can be resumed later.
+            </flux:text>
+            <div class="flex justify-end gap-3">
+                <flux:button variant="ghost" wire:click="cancelStopSession">
+                    Cancel
+                </flux:button>
+                <flux:button variant="danger" wire:click="stopSession">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="pause-circle" class="w-4 h-4 mr-1" />
+                        Stop Session
+                    </div>
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Resume Session Confirmation Modal -->
+    <flux:modal wire:model="showResumeModal" class="max-w-md">
+        <div class="p-6">
+            <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-blue-100 rounded-full">
+                <flux:icon name="play-circle" class="w-6 h-6 text-blue-600" />
+            </div>
+            <flux:heading size="lg" class="text-center mb-2">Resume Session?</flux:heading>
+            <flux:text class="text-center text-gray-600 mb-6">
+                Are you sure you want to resume this session? The session will continue from where it was paused.
+            </flux:text>
+            <div class="flex justify-end gap-3">
+                <flux:button variant="ghost" wire:click="cancelResumeSession">
+                    Cancel
+                </flux:button>
+                <flux:button variant="primary" wire:click="resumeSession">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="play-circle" class="w-4 h-4 mr-1" />
+                        Resume Session
+                    </div>
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Complete Session Confirmation Modal -->
+    <flux:modal wire:model="showCompleteModal" class="max-w-md">
+        <div class="p-6">
+            <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full">
+                <flux:icon name="check-circle" class="w-6 h-6 text-green-600" />
+            </div>
+            <flux:heading size="lg" class="text-center mb-2">Complete Session?</flux:heading>
+            <flux:text class="text-center text-gray-600 mb-6">
+                Are you sure you want to mark this session as completed? This will calculate the teacher's allowance based on attendance.
+            </flux:text>
+            <div class="flex justify-end gap-3">
+                <flux:button variant="ghost" wire:click="cancelCompleteSession">
+                    Cancel
+                </flux:button>
+                <flux:button variant="primary" wire:click="completeSession" class="bg-green-600 hover:bg-green-700 border-green-600 hover:border-green-700">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="check-circle" class="w-4 h-4 mr-1" />
+                        Complete Session
+                    </div>
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>
 
 <script>
