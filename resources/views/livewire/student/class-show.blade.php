@@ -2,17 +2,21 @@
 use App\Models\ClassModel;
 use App\Models\ClassSession;
 use App\Models\ClassStudent;
+use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Carbon\Carbon;
 
 new class extends Component {
     public ClassModel $class;
+
+    #[Url(as: 'tab')]
     public string $activeTab = 'overview';
+
     public string $currentView = 'week';
     public Carbon $currentDate;
     public bool $showModal = false;
     public ?ClassSession $selectedSession = null;
-    
+
     public function mount(ClassModel $class)
     {
         $this->class = $class;
@@ -280,31 +284,31 @@ new class extends Component {
     <!-- Header -->
     <div class="mb-6">
         <div class="flex items-center gap-4 mb-4">
-            <flux:button 
-                href="{{ route('student.classes.index') }}" 
-                variant="ghost" 
+            <flux:button
+                href="{{ route('student.classes.index') }}"
+                variant="ghost"
                 size="sm"
             >
                 <div class="flex items-center justify-center">
                     <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
-                    Back to Classes
+                    {{ __('student.classes.back_to_classes') }}
                 </div>
             </flux:button>
         </div>
-        
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-                <flux:heading size="xl">{{ $class->title }}</flux:heading>
-                <flux:text class="mt-2 text-gray-600">{{ $class->course->name }}</flux:text>
+
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div class="flex-1 min-w-0">
+                <flux:heading size="xl" class="text-gray-900 dark:text-white">{{ $class->title }}</flux:heading>
+                <flux:text class="mt-1 text-gray-600 dark:text-gray-400">{{ $class->course->name }}</flux:text>
             </div>
-            
-            <div class="flex items-center gap-2">
+
+            <div class="flex items-center gap-2 flex-shrink-0">
                 @if($classStudent->status === 'active')
-                    <flux:badge variant="success">{{ ucfirst($classStudent->status) }}</flux:badge>
+                    <flux:badge color="green">{{ ucfirst($classStudent->status) }}</flux:badge>
                 @elseif($classStudent->status === 'completed')
-                    <flux:badge variant="gray">{{ ucfirst($classStudent->status) }}</flux:badge>
+                    <flux:badge color="zinc">{{ ucfirst($classStudent->status) }}</flux:badge>
                 @else
-                    <flux:badge variant="warning">{{ ucfirst($classStudent->status) }}</flux:badge>
+                    <flux:badge color="amber">{{ ucfirst($classStudent->status) }}</flux:badge>
                 @endif
             </div>
         </div>
@@ -312,30 +316,36 @@ new class extends Component {
 
     <!-- Tabs Navigation -->
     <div class="mb-6">
-        <div class="border-b border-gray-200">
-            <nav class="-mb-px flex space-x-8">
-                <button 
+        <div class="border-b border-gray-200 dark:border-zinc-700">
+            <nav class="-mb-px flex space-x-1 sm:space-x-6 overflow-x-auto scrollbar-hide">
+                <button
                     wire:click="setActiveTab('overview')"
-                    class="py-2 px-1 border-b-2 font-medium text-sm 
-                        {{ $activeTab === 'overview' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
+                        {{ $activeTab === 'overview'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
-                    Overview
+                    {{ __('student.classes.overview') }}
                 </button>
-                
-                <button 
+
+                <button
                     wire:click="setActiveTab('timetable')"
-                    class="py-2 px-1 border-b-2 font-medium text-sm 
-                        {{ $activeTab === 'timetable' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
+                        {{ $activeTab === 'timetable'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
-                    Timetable
+                    {{ __('student.classes.timetable') }}
                 </button>
-                
-                <button 
+
+                <button
                     wire:click="setActiveTab('sessions')"
-                    class="py-2 px-1 border-b-2 font-medium text-sm 
-                        {{ $activeTab === 'sessions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-3 px-3 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors
+                        {{ $activeTab === 'sessions'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
-                    Sessions
+                    {{ __('student.classes.sessions_tab') }}
                 </button>
             </nav>
         </div>
@@ -367,79 +377,59 @@ new class extends Component {
     </div>
 
     <!-- Session Details Modal -->
-    <flux:modal wire:model="showModal" class="max-w-2xl">
+    <flux:modal wire:model="showModal" class="max-w-lg">
         @if($selectedSession)
-            <div class="p-6 border-b border-gray-200">
-                <flux:heading size="lg">{{ $class->title }}</flux:heading>
-                <flux:text class="text-gray-600">Session Details</flux:text>
-            </div>
-            
-            <div class="p-6">
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <flux:text class="font-medium">Date & Time</flux:text>
-                            <flux:text class="text-gray-600">
-                                {{ $selectedSession->formatted_date_time }}
-                            </flux:text>
-                        </div>
-                        <div>
-                            <flux:text class="font-medium">Duration</flux:text>
-                            <flux:text class="text-gray-600">
-                                {{ $selectedSession->formatted_duration }}
-                            </flux:text>
-                        </div>
-                        <div>
-                            <flux:text class="font-medium">Status</flux:text>
-                            <flux:badge class="{{ $selectedSession->status_badge_class }}">
-                                {{ $selectedSession->status_label }}
-                            </flux:badge>
-                        </div>
-                        <div>
-                            <flux:text class="font-medium">Teacher</flux:text>
-                            <flux:text class="text-gray-600">
-                                {{ $class->teacher->user->name }}
-                            </flux:text>
-                        </div>
+            <div class="space-y-4">
+                <div>
+                    <flux:heading size="lg">{{ $class->title }}</flux:heading>
+                    <flux:text class="text-gray-500 dark:text-gray-400">{{ __('student.timetable.session_details') }}</flux:text>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <flux:text size="sm" class="text-gray-500 dark:text-gray-400">{{ __('student.timetable.date') }}</flux:text>
+                        <flux:text class="font-medium text-gray-900 dark:text-white">
+                            {{ $selectedSession->session_date->format('M j, Y') }}
+                        </flux:text>
                     </div>
-                    
-                    @if($selectedSession->attendances->count() > 0)
-                        <div>
-                            <flux:text class="font-medium mb-2">Your Attendance</flux:text>
-                            @foreach($selectedSession->attendances as $attendance)
-                                <div class="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
-                                    <flux:text class="text-sm">{{ auth()->user()->name }}</flux:text>
-                                    <flux:badge class="{{ $attendance->status_badge_class }}" size="sm">
-                                        {{ $attendance->status_label }}
-                                    </flux:badge>
-                                </div>
-                                @if($attendance->teacher_remarks)
-                                    <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                                        <flux:text class="text-sm font-medium text-blue-800">Teacher Notes:</flux:text>
-                                        <flux:text class="text-sm text-blue-700">{{ $attendance->teacher_remarks }}</flux:text>
-                                    </div>
-                                @endif
-                            @endforeach
-                        </div>
-                    @endif
-                    
-                    @if($selectedSession->teacher_notes)
-                        <div>
-                            <flux:text class="font-medium">Session Notes</flux:text>
-                            <flux:text class="text-gray-600  text-sm">
-                                {{ $selectedSession->teacher_notes }}
-                            </flux:text>
-                        </div>
-                    @endif
+                    <div>
+                        <flux:text size="sm" class="text-gray-500 dark:text-gray-400">{{ __('student.timetable.time') }}</flux:text>
+                        <flux:text class="font-medium text-gray-900 dark:text-white">
+                            {{ $selectedSession->session_time->format('g:i A') }}
+                        </flux:text>
+                    </div>
+                    <div>
+                        <flux:text size="sm" class="text-gray-500 dark:text-gray-400">{{ __('student.timetable.duration') }}</flux:text>
+                        <flux:text class="font-medium text-gray-900 dark:text-white">
+                            {{ $selectedSession->formatted_duration }}
+                        </flux:text>
+                    </div>
+                    <div>
+                        <flux:text size="sm" class="text-gray-500 dark:text-gray-400">{{ __('student.classes.status') }}</flux:text>
+                        <flux:badge class="{{ $selectedSession->student_status_badge_class }}">
+                            {{ $selectedSession->student_status_label }}
+                        </flux:badge>
+                    </div>
+                    <div class="col-span-2">
+                        <flux:text size="sm" class="text-gray-500 dark:text-gray-400">{{ __('student.timetable.teacher') }}</flux:text>
+                        <flux:text class="font-medium text-gray-900 dark:text-white">
+                            {{ $class->teacher->user->name }}
+                        </flux:text>
+                    </div>
                 </div>
+
+                @if($selectedSession->teacher_notes)
+                    <div class="pt-4 border-t border-gray-200 dark:border-zinc-700">
+                        <flux:text size="sm" class="text-gray-500 dark:text-gray-400 mb-1">{{ __('student.timetable.session_notes') }}</flux:text>
+                        <flux:text class="text-gray-700 dark:text-gray-300">
+                            {{ $selectedSession->teacher_notes }}
+                        </flux:text>
+                    </div>
+                @endif
             </div>
-            
-            <div class="p-6 border-t border-gray-200">
-                <div class="flex justify-end">
-                    <flux:button wire:click="closeModal" variant="ghost">
-                        Close
-                    </flux:button>
-                </div>
+
+            <div class="mt-6 flex justify-end">
+                <flux:button wire:click="closeModal" variant="ghost">{{ __('student.timetable.close') }}</flux:button>
             </div>
         @endif
     </flux:modal>

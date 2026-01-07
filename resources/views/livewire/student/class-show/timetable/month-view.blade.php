@@ -70,11 +70,12 @@
                                         @endif
                                     </div>
                                     
+                                    {{-- Attendance hidden for now - can be re-enabled later
                                     @if($session->attendances->count() > 0)
                                         @foreach($session->attendances as $attendance)
                                             <div class="text-xs mt-1">
-                                                <flux:badge 
-                                                    size="xs" 
+                                                <flux:badge
+                                                    size="xs"
                                                     class="{{ $attendance->status_badge_class }}"
                                                 >
                                                     {{ $attendance->status_label }}
@@ -82,6 +83,7 @@
                                             </div>
                                         @endforeach
                                     @endif
+                                    --}}
                                 </div>
                             @endforeach
                             

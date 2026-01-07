@@ -714,6 +714,40 @@ class ClassSession extends Model
         };
     }
 
+    /**
+     * Get student-friendly status label (hides attendance-related statuses)
+     */
+    public function getStudentStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+            'scheduled' => 'Scheduled',
+            'ongoing' => 'Ongoing',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+            'no_show' => 'Completed', // Hide "no show" from students - show as completed
+            'rescheduled' => 'Rescheduled',
+            'paused' => 'Paused',
+            default => ucfirst($this->status),
+        };
+    }
+
+    /**
+     * Get student-friendly status badge class
+     */
+    public function getStudentStatusBadgeClassAttribute(): string
+    {
+        return match ($this->status) {
+            'scheduled' => 'badge-blue',
+            'ongoing' => 'badge-green',
+            'completed' => 'badge-gray',
+            'cancelled' => 'badge-red',
+            'no_show' => 'badge-gray', // Same as completed for students
+            'rescheduled' => 'badge-orange',
+            'paused' => 'badge-purple',
+            default => 'badge-gray',
+        };
+    }
+
     // Payslip relationships
     public function payslipSessions(): HasMany
     {
@@ -798,5 +832,22 @@ class ClassSession extends Model
     public function scopePaidOut($query)
     {
         return $query->where('payout_status', 'paid');
+    }
+
+    // Notification relationships
+
+    public function scheduledNotifications(): HasMany
+    {
+        return $this->hasMany(ScheduledNotification::class, 'session_id');
+    }
+
+    public function pendingNotifications(): HasMany
+    {
+        return $this->hasMany(ScheduledNotification::class, 'session_id')->pending();
+    }
+
+    public function getSessionDateTime(): \Carbon\Carbon
+    {
+        return $this->session_date->copy()->setTimeFromTimeString($this->session_time->format('H:i:s'));
     }
 }

@@ -29,6 +29,7 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'locale',
     ];
 
     /**
@@ -309,5 +310,23 @@ class User extends Authenticatable
             'user_id',
             'platform_account_id'
         );
+    }
+
+    /**
+     * Get the user's preferred locale
+     */
+    public function getPreferredLocale(): string
+    {
+        return $this->locale ?? config('app.locale');
+    }
+
+    /**
+     * Update user's preferred locale
+     */
+    public function setLocale(string $locale): void
+    {
+        if (in_array($locale, ['en', 'ms'])) {
+            $this->update(['locale' => $locale]);
+        }
     }
 }

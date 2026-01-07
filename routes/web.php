@@ -18,6 +18,10 @@ Route::get('/', function () {
 Route::get('dashboard', function () {
     $user = auth()->user();
 
+    if ($user->isStudent()) {
+        return redirect()->route('student.dashboard');
+    }
+
     if ($user->isTeacher()) {
         return redirect()->route('teacher.dashboard');
     }
@@ -45,6 +49,12 @@ Volt::route('checkout', 'cart.checkout')->name('checkout');
 
 // Student routes - accessible by students only
 Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
+    // Student dashboard (home)
+    Volt::route('/', 'student.dashboard')->name('student.dashboard');
+
+    // Account hub for students
+    Volt::route('account', 'student.account')->name('student.account');
+
     // Courses listing for students
     Volt::route('courses', 'student.courses')->name('student.courses');
 
@@ -323,6 +333,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/appearance', 'admin.settings-appearance')->name('admin.settings.appearance');
     Volt::route('settings/payment', 'admin.settings-payment')->name('admin.settings.payment');
     Volt::route('settings/email', 'admin.settings-email')->name('admin.settings.email');
+    Volt::route('settings/notifications', 'admin.settings-notifications')->name('admin.settings.notifications');
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)

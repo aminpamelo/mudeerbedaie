@@ -51,11 +51,11 @@ new class extends Component {
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">My Orders</flux:heading>
-            <flux:text class="mt-2">View your payment history and receipts</flux:text>
+            <flux:heading size="xl">{{ __('student.orders.my_orders') }}</flux:heading>
+            <flux:text class="mt-2">{{ __('student.orders.view_history') }}</flux:text>
         </div>
         <flux:button href="{{ route('student.subscriptions') }}" variant="outline">
-            Manage Subscriptions
+            {{ __('student.orders.manage_subscriptions') }}
         </flux:button>
     </div>
 
@@ -64,7 +64,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text class="text-gray-600">Total Paid</flux:text>
+                    <flux:text class="text-gray-600">{{ __('student.orders.total_paid') }}</flux:text>
                     <flux:heading size="lg" class="text-green-600">RM {{ number_format($totalPaid, 2) }}</flux:heading>
                 </div>
                 <flux:icon name="banknotes" class="w-8 h-8 text-green-500" />
@@ -74,7 +74,7 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text class="text-gray-600">Total Orders</flux:text>
+                    <flux:text class="text-gray-600">{{ __('student.orders.total_orders') }}</flux:text>
                     <flux:heading size="lg">{{ number_format($totalOrders) }}</flux:heading>
                 </div>
                 <flux:icon name="clipboard-document-list" class="w-8 h-8 text-blue-500" />
@@ -87,24 +87,24 @@ new class extends Component {
         <flux:card class="mb-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <flux:select wire:model.live="statusFilter">
-                    <flux:select.option value="">All Statuses</flux:select.option>
+                    <flux:select.option value="">{{ __('student.orders.all_statuses') }}</flux:select.option>
                     @foreach($orderStatuses as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
                 <flux:select wire:model.live="courseFilter">
-                    <flux:select.option value="">All Courses</flux:select.option>
+                    <flux:select.option value="">{{ __('student.courses.all_courses') }}</flux:select.option>
                     @foreach($courses as $course)
                         <flux:select.option value="{{ $course->id }}">{{ $course->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
-                <flux:button 
-                    wire:click="$set('statusFilter', ''); $set('courseFilter', '')" 
+                <flux:button
+                    wire:click="$set('statusFilter', ''); $set('courseFilter', '')"
                     variant="outline"
                 >
-                    Clear Filters
+                    {{ __('student.courses.clear_filters') }}
                 </flux:button>
             </div>
         </flux:card>
@@ -138,23 +138,23 @@ new class extends Component {
                                     
                                     <div class="mt-3 flex items-center gap-6">
                                         <div>
-                                            <flux:text class="text-gray-600">Amount</flux:text>
+                                            <flux:text class="text-gray-600">{{ __('student.orders.amount') }}</flux:text>
                                             <flux:text class="font-semibold mt-1">{{ $order->formatted_amount }}</flux:text>
                                         </div>
-                                        
+
                                         <div>
-                                            <flux:text class="text-gray-600">Billing Period</flux:text>
+                                            <flux:text class="text-gray-600">{{ __('student.orders.billing_period') }}</flux:text>
                                             <flux:text class="mt-1">{{ $order->getPeriodDescription() }}</flux:text>
                                         </div>
-                                        
+
                                         <div>
-                                            <flux:text class="text-gray-600">Date</flux:text>
+                                            <flux:text class="text-gray-600">{{ __('student.orders.date') }}</flux:text>
                                             <flux:text class="mt-1">{{ $order->created_at->format('M j, Y') }}</flux:text>
                                         </div>
 
                                         @if($order->paid_at)
                                             <div>
-                                                <flux:text class="text-gray-600">Paid Date</flux:text>
+                                                <flux:text class="text-gray-600">{{ __('student.orders.paid_date') }}</flux:text>
                                                 <flux:text class="mt-1">{{ $order->paid_at->format('M j, Y') }}</flux:text>
                                             </div>
                                         @endif
@@ -162,7 +162,7 @@ new class extends Component {
 
                                     @if($order->isFailed() && $order->failure_reason)
                                         <div class="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                            <flux:text class="text-red-800 font-medium">Payment Failed</flux:text>
+                                            <flux:text class="text-red-800 font-medium">{{ __('student.orders.payment_failed') }}</flux:text>
                                             <flux:text class="text-red-700 mt-1">
                                                 {{ $order->failure_reason['failure_message'] ?? 'Payment was declined' }}
                                             </flux:text>
@@ -173,31 +173,31 @@ new class extends Component {
                         </div>
 
                         <div class="flex flex-col gap-2 ml-4">
-                            <flux:button 
-                                href="{{ route('student.orders.show', $order) }}" 
-                                variant="outline" 
+                            <flux:button
+                                href="{{ route('student.orders.show', $order) }}"
+                                variant="outline"
                                 size="sm"
                             >
-                                View Details
+                                {{ __('student.orders.view_details') }}
                             </flux:button>
-                            
+
                             @if($order->isPaid())
-                                <flux:button 
-                                    href="{{ route('student.orders.receipt', $order) }}" 
-                                    variant="outline" 
+                                <flux:button
+                                    href="{{ route('student.orders.receipt', $order) }}"
+                                    variant="outline"
                                     size="sm"
                                 >
-                                    View Receipt
+                                    {{ __('student.orders.view_receipt') }}
                                 </flux:button>
                             @endif
 
                             @if($order->isFailed() && $order->enrollment->hasActiveSubscription())
-                                <flux:button 
-                                    href="{{ route('student.payment-methods') }}" 
-                                    variant="primary" 
+                                <flux:button
+                                    href="{{ route('student.payment-methods') }}"
+                                    variant="primary"
                                     size="sm"
                                 >
-                                    Update Payment
+                                    {{ __('student.orders.update_payment') }}
                                 </flux:button>
                             @endif
                         </div>
@@ -215,9 +215,9 @@ new class extends Component {
         <flux:card>
             <div class="text-center py-8">
                 <flux:icon name="clipboard-document-list" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <flux:text class="text-gray-600">You don't have any orders yet.</flux:text>
+                <flux:text class="text-gray-600">{{ __('student.orders.no_orders') }}</flux:text>
                 <flux:text size="sm" class="text-gray-500 mt-1">
-                    Orders will appear here once you're enrolled in courses with subscription billing.
+                    {{ __('student.orders.orders_appear') }}
                 </flux:text>
             </div>
         </flux:card>

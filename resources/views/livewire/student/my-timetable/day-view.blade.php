@@ -68,7 +68,7 @@
                                                     ({{ $session->formatted_duration }})
                                                 </div>
                                                 
-                                                {{-- Student's Attendance Status --}}
+                                                {{-- Student's Attendance Status - hidden for now, can be re-enabled later
                                                 @php
                                                     $myAttendance = $session->attendances->first(function($attendance) {
                                                         return $attendance->student_id === auth()->user()->student->id;
@@ -77,14 +77,15 @@
                                                 @if($myAttendance)
                                                     <div class="text-sm text-gray-600">
                                                         <flux:icon name="check-circle" class="w-4 h-4 inline mr-1" />
-                                                        <flux:badge 
-                                                            size="xs" 
+                                                        <flux:badge
+                                                            size="xs"
                                                             class="{{ $myAttendance->status_badge_class }}"
                                                         >
                                                             {{ $myAttendance->status_label }}
                                                         </flux:badge>
                                                     </div>
                                                 @endif
+                                                --}}
                                             </div>
                                         </div>
                                         
@@ -190,7 +191,7 @@
                                 <span>{{ $session->formatted_duration }}</span>
                             </div>
 
-                            {{-- Student's Attendance Status --}}
+                            {{-- Student's Attendance Status - hidden for now, can be re-enabled later
                             @php
                                 $myAttendance = $session->attendances->first(function($attendance) {
                                     return $attendance->student_id === auth()->user()->student->id;
@@ -198,16 +199,17 @@
                             @endphp
                             @if($myAttendance)
                                 <div class="mb-2">
-                                    <flux:badge 
-                                        size="sm" 
+                                    <flux:badge
+                                        size="sm"
                                         class="{{ $myAttendance->status_badge_class }}"
                                     >
                                         {{ $myAttendance->status_label }}
                                     </flux:badge>
                                 </div>
                             @endif
+                            --}}
                         </div>
-                        
+
                         <div class="ml-4 flex flex-col items-end gap-2">
                             <flux:badge class="{{ $session->status_badge_class }}" size="sm">
                                 {{ ucfirst($session->status) }}

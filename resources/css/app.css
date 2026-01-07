@@ -79,3 +79,34 @@ select:focus[data-flux-control] {
         backface-visibility: hidden !important;
     }
 }
+
+/* Force correct grid layout for student pages */
+body:has(> [data-flux-sidebar]):has(> [data-flux-main]) {
+    display: grid !important;
+    grid-template-rows: auto 1fr auto !important;
+    grid-template-columns: min-content 1fr !important;
+    grid-template-areas:
+        "sidebar main"
+        "sidebar main" !important;
+    min-height: 100vh;
+}
+
+/* Ensure sidebar takes sidebar area */
+body > [data-flux-sidebar] {
+    grid-area: sidebar !important;
+}
+
+/* Ensure main content takes main area and full width */
+body > [data-flux-main] {
+    grid-area: main !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+}
+
+/* Ensure children of main content take full width */
+[data-flux-main] > * {
+    width: 100%;
+    max-width: 100%;
+}

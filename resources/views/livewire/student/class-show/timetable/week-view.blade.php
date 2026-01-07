@@ -90,11 +90,11 @@
                                 
                                 {{-- Status and Attendance --}}
                                 <div class="flex items-center justify-between mt-1">
-                                    <flux:badge 
-                                        size="sm" 
-                                        class="{{ $session->status_badge_class }}"
+                                    <flux:badge
+                                        size="sm"
+                                        class="{{ $session->student_status_badge_class }}"
                                     >
-                                        {{ ucfirst($session->status) }}
+                                        {{ $session->student_status_label }}
                                     </flux:badge>
                                     
                                     @if($session->status === 'ongoing')
@@ -105,12 +105,12 @@
                                     @endif
                                 </div>
                                 
-                                {{-- Attendance Status --}}
+                                {{-- Attendance Status - hidden for now, can be re-enabled later
                                 @if($session->attendances->count() > 0)
                                     <div class="mt-1">
                                         @foreach($session->attendances as $attendance)
-                                            <flux:badge 
-                                                size="sm" 
+                                            <flux:badge
+                                                size="sm"
                                                 class="{{ $attendance->status_badge_class }}"
                                             >
                                                 {{ $attendance->status_label }}
@@ -118,7 +118,8 @@
                                         @endforeach
                                     </div>
                                 @endif
-                                
+                                --}}
+
                                 {{-- Timer Display for Ongoing Sessions --}}
                                 @if($session->status === 'ongoing')
                                     <div class="mt-2 text-center" x-data="{ 
@@ -385,13 +386,13 @@
                                     </div>
                                     
                                     <div class="flex items-center justify-between">
-                                        <flux:badge 
-                                            size="sm" 
-                                            class="{{ $session->status_badge_class }}"
+                                        <flux:badge
+                                            size="sm"
+                                            class="{{ $session->student_status_badge_class }}"
                                         >
-                                            {{ ucfirst($session->status) }}
+                                            {{ $session->student_status_label }}
                                         </flux:badge>
-                                        
+
                                         @if($session->status === 'ongoing')
                                             <div class="flex items-center gap-1">
                                                 <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -400,11 +401,12 @@
                                         @endif
                                     </div>
                                     
+                                    {{-- Attendance hidden for now - can be re-enabled later
                                     @if($session->attendances->count() > 0)
                                         <div class="mt-2 flex flex-wrap gap-1">
                                             @foreach($session->attendances as $attendance)
-                                                <flux:badge 
-                                                    size="sm" 
+                                                <flux:badge
+                                                    size="sm"
                                                     class="{{ $attendance->status_badge_class }}"
                                                 >
                                                     {{ $attendance->status_label }}
@@ -412,7 +414,8 @@
                                             @endforeach
                                         </div>
                                     @endif
-                                    
+                                    --}}
+
                                     @if($session->status === 'completed')
                                         <div class="text-center mt-2">
                                             <flux:text size="xs" class="text-gray-500">Tap to view details</flux:text>

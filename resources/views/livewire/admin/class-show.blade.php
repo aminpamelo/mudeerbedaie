@@ -3324,6 +3324,19 @@ new class extends Component
                 </div>
             </button>
             @endif
+
+            <button
+                wire:click="setActiveTab('notifications')"
+                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'notifications' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon.bell class="h-4 w-4" />
+                    Notifikasi
+                    @if($class->scheduledNotifications()->pending()->count() > 0)
+                        <flux:badge variant="primary" size="sm">{{ $class->scheduledNotifications()->pending()->count() }}</flux:badge>
+                    @endif
+                </div>
+            </button>
         </nav>
     </div>
 
@@ -6611,6 +6624,14 @@ new class extends Component
             @endif
         </div>
         <!-- End Document Shipments Tab -->
+
+        <!-- Notifications Tab -->
+        <div class="{{ $activeTab === 'notifications' ? 'block' : 'hidden' }}">
+            @if($activeTab === 'notifications')
+                <livewire:admin.class-notification-settings :class="$class" />
+            @endif
+        </div>
+        <!-- End Notifications Tab -->
     </div>
 
     <!-- Generate Shipment Modal -->

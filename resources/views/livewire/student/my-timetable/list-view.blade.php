@@ -87,7 +87,7 @@
                                 @endif
                             </div>
                             
-                            {{-- Student's Attendance Status --}}
+                            {{-- Student's Attendance Status - hidden for now, can be re-enabled later
                             @php
                                 $myAttendance = $session->attendances->first(function($attendance) {
                                     return $attendance->student_id === auth()->user()->student->id;
@@ -97,8 +97,8 @@
                                 <div class="mt-2">
                                     <div class="flex items-center gap-2">
                                         <div class="text-xs text-gray-400  uppercase tracking-wide">My Attendance</div>
-                                        <flux:badge 
-                                            size="sm" 
+                                        <flux:badge
+                                            size="sm"
                                             class="{{ $myAttendance->status_badge_class }}"
                                         >
                                             {{ $myAttendance->status_label }}
@@ -111,7 +111,8 @@
                                     @endif
                                 </div>
                             @endif
-                            
+                            --}}
+
                             {{-- Teacher Notes Preview --}}
                             @if($session->teacher_notes)
                                 <div class="mt-2">
@@ -122,7 +123,7 @@
                                 </div>
                             @endif
                             
-                            {{-- Other Students in Class (if group class) --}}
+                            {{-- Other Students in Class (if group class) - hidden for now, can be re-enabled later
                             @if($session->attendances->count() > 1)
                                 <div class="mt-3">
                                     <div class="flex items-center gap-2">
@@ -132,11 +133,11 @@
                                         <div class="flex -space-x-2">
                                             @foreach($session->attendances->where('student_id', '!=', auth()->user()->student->id)->take(3) as $attendance)
                                                 <div class="relative">
-                                                    <div class="w-6 h-6 rounded-full bg-gray-300  flex items-center justify-center text-xs font-medium text-gray-700  ring-2 ring-white" 
+                                                    <div class="w-6 h-6 rounded-full bg-gray-300  flex items-center justify-center text-xs font-medium text-gray-700  ring-2 ring-white"
                                                          title="{{ $attendance->student->user->name }}">
                                                         {{ substr($attendance->student->user->name, 0, 1) }}
                                                     </div>
-                                                    <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white  
+                                                    <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white
                                                                {{ $attendance->isPresent() ? 'bg-green-500' : ($attendance->isAbsent() ? 'bg-red-500' : 'bg-gray-400') }}">
                                                     </div>
                                                 </div>
@@ -150,6 +151,7 @@
                                     </div>
                                 </div>
                             @endif
+                            --}}
                         </div>
                     </div>
                 </div>

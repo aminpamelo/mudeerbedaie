@@ -62,13 +62,22 @@
                         {{ __('Payment') }}
                     </flux:navlist.item>
                     
-                    <flux:navlist.item 
-                        icon="envelope" 
-                        :href="route('admin.settings.email')" 
-                        :current="request()->routeIs('admin.settings.email')" 
+                    <flux:navlist.item
+                        icon="envelope"
+                        :href="route('admin.settings.email')"
+                        :current="request()->routeIs('admin.settings.email')"
                         wire:navigate
                     >
                         {{ __('Email') }}
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="bell"
+                        :href="route('admin.settings.notifications')"
+                        :current="request()->routeIs('admin.settings.notifications')"
+                        wire:navigate
+                    >
+                        {{ __('Notifications') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
                 @endif
@@ -217,13 +226,22 @@
                         Payment
                     </flux:navbar.item>
                     
-                    <flux:navbar.item 
-                        :href="route('admin.settings.email')" 
+                    <flux:navbar.item
+                        :href="route('admin.settings.email')"
                         wire:navigate
                         :current="$activeTab === 'email'"
                         icon="envelope"
                     >
                         Email
+                    </flux:navbar.item>
+
+                    <flux:navbar.item
+                        :href="route('admin.settings.notifications')"
+                        wire:navigate
+                        :current="$activeTab === 'notifications'"
+                        icon="bell"
+                    >
+                        Notifications
                     </flux:navbar.item>
                 </flux:navbar>
 

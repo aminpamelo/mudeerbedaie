@@ -635,4 +635,52 @@ class ClassModel extends Model
 
         return ClassDocumentShipment::createForClass($this, $periodStart, $periodEnd);
     }
+
+    // Notification relationships and methods
+
+    public function notificationSettings(): HasMany
+    {
+        return $this->hasMany(ClassNotificationSetting::class, 'class_id');
+    }
+
+    public function enabledNotificationSettings(): HasMany
+    {
+        return $this->hasMany(ClassNotificationSetting::class, 'class_id')->enabled();
+    }
+
+    public function scheduledNotifications(): HasMany
+    {
+        return $this->hasMany(ScheduledNotification::class, 'class_id');
+    }
+
+    public function pendingNotifications(): HasMany
+    {
+        return $this->hasMany(ScheduledNotification::class, 'class_id')->pending();
+    }
+
+    public function initializeDefaultNotificationSettings(): void
+    {
+        $defaultTypes = [
+            'session_reminder_24h',
+            'session_reminder_1h',
+            'session_followup_immediate',
+        ];
+
+        foreach ($defaultTypes as $type) {
+            // Find matching template
+            $template = NotificationTemplate::active()
+                ->where('type', str_starts_with($type, 'session_reminder') ? 'session_reminder' : 'session_followup')
+                ->first();
+
+            $this->notificationSettings()->updateOrCreate(
+                ['notification_type' => $type],
+                [
+                    'is_enabled' => false, // Start disabled by default
+                    'template_id' => $template?->id,
+                    'send_to_students' => true,
+                    'send_to_teacher' => true,
+                ]
+            );
+        }
+    }
 }

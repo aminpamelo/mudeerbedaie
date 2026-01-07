@@ -893,13 +893,5 @@ $pages->assertNoJavascriptErrors()->assertNoConsoleLogs();
 </laravel-boost-guidelines>
 
 
-## MCP Playwright save configuration to jpeg when calling the screenshot in this tool
 
-- mcp__playwright__browser_take_screenshot({ 
-  filename: "screenshot.jpg",
-  type: "jpeg"
-})
-
-
-
-## Dont Use PESTEST
+## Dont Use PESTEST use php artisan tinker

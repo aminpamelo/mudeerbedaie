@@ -54,12 +54,12 @@
                                             </div>
                                         </div>
                                         
-                                        {{-- Attendance Status --}}
+                                        {{-- Attendance Status - hidden for now, can be re-enabled later
                                         @if($session->attendances->count() > 0)
                                             <div class="mt-2 flex flex-wrap gap-2">
                                                 @foreach($session->attendances as $attendance)
-                                                    <flux:badge 
-                                                        size="sm" 
+                                                    <flux:badge
+                                                        size="sm"
                                                         class="{{ $attendance->status_badge_class }}"
                                                     >
                                                         {{ $attendance->status_label }}
@@ -67,7 +67,8 @@
                                                 @endforeach
                                             </div>
                                         @endif
-                                        
+                                        --}}
+
                                         {{-- Session Notes Preview --}}
                                         @if($session->teacher_notes && $session->status === 'completed')
                                             <div class="mt-2 text-xs text-gray-500">
@@ -78,11 +79,11 @@
                                     
                                     <div class="flex flex-col items-end gap-2 ml-4">
                                         {{-- Session Status --}}
-                                        <flux:badge 
-                                            class="{{ $session->status_badge_class }}"
+                                        <flux:badge
+                                            class="{{ $session->student_status_badge_class }}"
                                             size="sm"
                                         >
-                                            {{ ucfirst($session->status) }}
+                                            {{ $session->student_status_label }}
                                         </flux:badge>
                                         
                                         {{-- Live Indicator for Ongoing Sessions --}}
@@ -205,19 +206,20 @@
                                         </div>
                                     </div>
                                     
-                                    <flux:badge 
-                                        class="{{ $session->status_badge_class }}"
+                                    <flux:badge
+                                        class="{{ $session->student_status_badge_class }}"
                                         size="sm"
                                     >
-                                        {{ ucfirst($session->status) }}
+                                        {{ $session->student_status_label }}
                                     </flux:badge>
                                 </div>
-                                
+
+                                {{-- Attendance hidden for now - can be re-enabled later
                                 @if($session->attendances->count() > 0)
                                     <div class="flex flex-wrap gap-1">
                                         @foreach($session->attendances as $attendance)
-                                            <flux:badge 
-                                                size="sm" 
+                                            <flux:badge
+                                                size="sm"
                                                 class="{{ $attendance->status_badge_class }}"
                                             >
                                                 {{ $attendance->status_label }}
@@ -225,7 +227,8 @@
                                         @endforeach
                                     </div>
                                 @endif
-                                
+                                --}}
+
                                 @if($session->status === 'completed')
                                     <div class="text-center mt-2">
                                         <flux:text size="xs" class="text-gray-500">Tap to view details</flux:text>

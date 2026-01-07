@@ -23,9 +23,10 @@
                     'settings': ['admin.settings.*'],
                     'teaching': ['teacher.courses.*', 'teacher.classes.*', 'teacher.sessions.*', 'teacher.payslips.*', 'teacher.students.*', 'teacher.timetable'],
                     'liveStreaming': ['live-host.*'],
-                    'studentCourses': ['student.courses*'],
-                    'studentLearning': ['student.learning*'],
-                    'studentAccount': ['student.account*']
+                    'studentDashboard': ['student.dashboard'],
+                    'studentCourses': ['student.courses*', 'student.subscriptions*'],
+                    'studentLearning': ['student.classes.*', 'student.timetable'],
+                    'studentAccount': ['student.orders*', 'student.payment-methods*', 'student.payments*', 'student.invoices*']
                 },
                 init() {
                     // Load saved state from localStorage
@@ -75,6 +76,18 @@
             </a>
 
             <flux:navlist variant="outline">
+                @if(auth()->user()->isStudent())
+                {{-- Student Home --}}
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Home')"
+                    data-section="studentDashboard"
+                    x-init="if (!isExpanded('studentDashboard')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('studentDashboard', $event)"
+                >
+                    <flux:navlist.item icon="home" :href="route('student.dashboard')" :current="request()->routeIs('student.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @else
                 <flux:navlist.group
                     expandable
                     :heading="__('Platform')"
@@ -84,7 +97,8 @@
                 >
                     <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                 </flux:navlist.group>
-                
+                @endif
+
                 @if(auth()->user()->isAdmin())
                 <flux:navlist.group
                     expandable
@@ -243,13 +257,22 @@
                         {{ __('Payment') }}
                     </flux:navlist.item>
                     
-                    <flux:navlist.item 
-                        icon="envelope" 
-                        :href="route('admin.settings.email')" 
-                        :current="request()->routeIs('admin.settings.email')" 
+                    <flux:navlist.item
+                        icon="envelope"
+                        :href="route('admin.settings.email')"
+                        :current="request()->routeIs('admin.settings.email')"
                         wire:navigate
                     >
                         {{ __('Email') }}
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="bell"
+                        :href="route('admin.settings.notifications')"
+                        :current="request()->routeIs('admin.settings.notifications')"
+                        wire:navigate
+                    >
+                        {{ __('Notifications') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
                 @endif
@@ -365,7 +388,8 @@
             </flux:dropdown>
         </flux:sidebar>
 
-        <!-- Mobile User Menu -->
+        <!-- Mobile User Menu (Non-Student) -->
+        @if(!auth()->user()->isStudent())
         <flux:header class="lg:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
@@ -414,8 +438,23 @@
                 </flux:menu>
             </flux:dropdown>
         </flux:header>
+        @endif
 
-        {{ $slot }}
+        {{-- Main content with conditional padding for student mobile bottom nav --}}
+        @php
+            $isStudent = auth()->check() && auth()->user()->isStudent();
+        @endphp
+
+        @if($isStudent)
+            <flux:main class="lg:pb-0 pb-20">
+                {{ $slot }}
+            </flux:main>
+
+            {{-- Student mobile bottom navigation --}}
+            <x-student.bottom-nav />
+        @else
+            {{ $slot }}
+        @endif
 
         @fluxScripts
         @stack('scripts')

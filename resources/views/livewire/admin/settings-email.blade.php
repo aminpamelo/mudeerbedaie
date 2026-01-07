@@ -1,33 +1,38 @@
 <?php
 use App\Services\SettingsService;
-use Livewire\Volt\Component;
 use Illuminate\Support\Facades\Mail;
+use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public $mail_from_address = '';
-    public $mail_from_name = '';
-    public $smtp_host = '';
-    public $smtp_port = 587;
-    public $smtp_username = '';
-    public $smtp_password = '';
-    public $smtp_encryption = 'tls';
-    
-    public $test_email = '';
 
-    private SettingsService $settingsService;
+    public $mail_from_name = '';
+
+    public $smtp_host = '';
+
+    public $smtp_port = 587;
+
+    public $smtp_username = '';
+
+    public $smtp_password = '';
+
+    public $smtp_encryption = 'tls';
+
+    public $test_email = '';
 
     public function mount(): void
     {
-        $this->settingsService = app(SettingsService::class);
-        
+        $settingsService = app(SettingsService::class);
+
         // Load current settings values
-        $this->mail_from_address = $this->settingsService->get('mail_from_address', 'noreply@example.com');
-        $this->mail_from_name = $this->settingsService->get('mail_from_name', 'Mudeer Bedaie');
-        $this->smtp_host = $this->settingsService->get('smtp_host', '');
-        $this->smtp_port = $this->settingsService->get('smtp_port', 587);
-        $this->smtp_username = $this->settingsService->get('smtp_username', '');
-        $this->smtp_password = $this->settingsService->get('smtp_password', '');
-        $this->smtp_encryption = $this->settingsService->get('smtp_encryption', 'tls');
+        $this->mail_from_address = $settingsService->get('mail_from_address', 'noreply@example.com');
+        $this->mail_from_name = $settingsService->get('mail_from_name', 'Mudeer Bedaie');
+        $this->smtp_host = $settingsService->get('smtp_host', '');
+        $this->smtp_port = $settingsService->get('smtp_port', 587);
+        $this->smtp_username = $settingsService->get('smtp_username', '');
+        $this->smtp_password = $settingsService->get('smtp_password', '');
+        $this->smtp_encryption = $settingsService->get('smtp_encryption', 'tls');
     }
 
     public function save(): void
@@ -43,13 +48,14 @@ new class extends Component {
         ]);
 
         // Save email settings
-        $this->settingsService->set('mail_from_address', $this->mail_from_address, 'string', 'email');
-        $this->settingsService->set('mail_from_name', $this->mail_from_name, 'string', 'email');
-        $this->settingsService->set('smtp_host', $this->smtp_host, 'string', 'email');
-        $this->settingsService->set('smtp_port', $this->smtp_port, 'number', 'email');
-        $this->settingsService->set('smtp_username', $this->smtp_username, 'encrypted', 'email');
-        $this->settingsService->set('smtp_password', $this->smtp_password, 'encrypted', 'email');
-        $this->settingsService->set('smtp_encryption', $this->smtp_encryption, 'string', 'email');
+        $settingsService = app(SettingsService::class);
+        $settingsService->set('mail_from_address', $this->mail_from_address, 'string', 'email');
+        $settingsService->set('mail_from_name', $this->mail_from_name, 'string', 'email');
+        $settingsService->set('smtp_host', $this->smtp_host, 'string', 'email');
+        $settingsService->set('smtp_port', $this->smtp_port, 'number', 'email');
+        $settingsService->set('smtp_username', $this->smtp_username, 'encrypted', 'email');
+        $settingsService->set('smtp_password', $this->smtp_password, 'encrypted', 'email');
+        $settingsService->set('smtp_encryption', $this->smtp_encryption, 'string', 'email');
 
         $this->dispatch('settings-saved');
     }
@@ -64,8 +70,8 @@ new class extends Component {
             // Create a simple test email
             Mail::raw('This is a test email from your email settings configuration.', function ($message) {
                 $message->to($this->test_email)
-                        ->subject('Test Email from ' . ($this->mail_from_name ?: 'Mudeer Bedaie'))
-                        ->from($this->mail_from_address, $this->mail_from_name);
+                    ->subject('Test Email from '.($this->mail_from_name ?: 'Mudeer Bedaie'))
+                    ->from($this->mail_from_address, $this->mail_from_name);
             });
 
             $this->dispatch('email-test-success');
@@ -103,7 +109,7 @@ new class extends Component {
     {
         return [
             'title' => 'Email Settings',
-            'activeTab' => 'email'
+            'activeTab' => 'email',
         ];
     }
 }
