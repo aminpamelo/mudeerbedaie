@@ -158,11 +158,11 @@ new class extends Component {
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">Payment History</flux:heading>
-            <flux:text class="mt-2">View all your payment transactions and receipts</flux:text>
+            <flux:heading size="xl">{{ __('student.payment_history.title') }}</flux:heading>
+            <flux:text class="mt-2">{{ __('student.payment_history.view_all') }}</flux:text>
         </div>
         <flux:button variant="outline" icon="document" href="{{ route('student.invoices') }}" wire:navigate>
-            My Invoices
+            {{ __('student.payment_history.my_invoices') }}
         </flux:button>
     </div>
 
@@ -171,9 +171,9 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600">Total Paid</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">{{ __('student.payment_history.total_paid') }}</flux:heading>
                     <flux:heading size="xl" class="text-emerald-600">RM {{ number_format($totalAmountPaid, 2) }}</flux:heading>
-                    <flux:text size="sm" class="text-gray-600">{{ $successfulPayments }} successful</flux:text>
+                    <flux:text size="sm" class="text-gray-600">{{ $successfulPayments }} {{ __('student.payment_history.successful') }}</flux:text>
                 </div>
                 <flux:icon icon="currency-dollar" class="w-8 h-8 text-emerald-500" />
             </div>
@@ -182,9 +182,9 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600">Total Payments</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">{{ __('student.payment_history.total_payments') }}</flux:heading>
                     <flux:heading size="xl" class="text-blue-600">{{ $totalPayments }}</flux:heading>
-                    <flux:text size="sm" class="text-gray-600">All transactions</flux:text>
+                    <flux:text size="sm" class="text-gray-600">{{ __('student.payment_history.all_transactions') }}</flux:text>
                 </div>
                 <flux:icon icon="credit-card" class="w-8 h-8 text-blue-500" />
             </div>
@@ -193,9 +193,9 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600">Pending</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">{{ __('student.payment_history.pending') }}</flux:heading>
                     <flux:heading size="xl" class="text-amber-600">{{ $pendingPayments }}</flux:heading>
-                    <flux:text size="sm" class="text-gray-600">Awaiting processing</flux:text>
+                    <flux:text size="sm" class="text-gray-600">{{ __('student.payment_history.awaiting') }}</flux:text>
                 </div>
                 <flux:icon icon="clock" class="w-8 h-8 text-amber-500" />
             </div>
@@ -204,9 +204,9 @@ new class extends Component {
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600">Failed</flux:heading>
+                    <flux:heading size="sm" class="text-gray-600">{{ __('student.payment_history.failed') }}</flux:heading>
                     <flux:heading size="xl" class="text-red-600">{{ $failedPayments }}</flux:heading>
-                    <flux:text size="sm" class="text-gray-600">Unsuccessful attempts</flux:text>
+                    <flux:text size="sm" class="text-gray-600">{{ __('student.payment_history.unsuccessful') }}</flux:text>
                 </div>
                 <flux:icon icon="exclamation-triangle" class="w-8 h-8 text-red-500" />
             </div>
@@ -216,27 +216,27 @@ new class extends Component {
     <!-- Payments Table -->
     <flux:card>
         <flux:header>
-            <flux:heading size="lg">Payment Transactions</flux:heading>
-            
+            <flux:heading size="lg">{{ __('student.payment_history.transactions') }}</flux:heading>
+
             <div class="flex items-center space-x-3">
                 <!-- Search -->
-                <flux:input 
-                    wire:model.live="search" 
-                    placeholder="Search payments..."
+                <flux:input
+                    wire:model.live="search"
+                    placeholder="{{ __('student.payment_history.search') }}"
                     class="w-64"
                 />
-                
+
                 <!-- Status Filter -->
-                <flux:select wire:model.live="statusFilter" placeholder="All Statuses" class="w-40">
-                    <flux:select.option value="">All Statuses</flux:select.option>
+                <flux:select wire:model.live="statusFilter" placeholder="{{ __('student.payment_history.all_statuses') }}" class="w-40">
+                    <flux:select.option value="">{{ __('student.payment_history.all_statuses') }}</flux:select.option>
                     @foreach(Payment::getStatuses() as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
                 <!-- Type Filter -->
-                <flux:select wire:model.live="typeFilter" placeholder="All Types" class="w-40">
-                    <flux:select.option value="">All Types</flux:select.option>
+                <flux:select wire:model.live="typeFilter" placeholder="{{ __('student.payment_history.all_types') }}" class="w-40">
+                    <flux:select.option value="">{{ __('student.payment_history.all_types') }}</flux:select.option>
                     @foreach(Payment::getTypes() as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                     @endforeach
@@ -260,18 +260,18 @@ new class extends Component {
                                     @endif
                                 </button>
                             </th>
-                            <th class="text-left py-3 px-4">Invoice</th>
+                            <th class="text-left py-3 px-4">{{ __('student.payment_history.invoice') }}</th>
                             <th class="text-right py-3 px-4">
                                 <button wire:click="sortBy('amount')" class="flex items-center space-x-1 hover:text-blue-600 ml-auto">
-                                    <span>Amount</span>
+                                    <span>{{ __('student.orders.amount') }}</span>
                                     @if($sortBy === 'amount')
                                         <flux:icon icon="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                     @endif
                                 </button>
                             </th>
-                            <th class="text-center py-3 px-4">Type</th>
-                            <th class="text-center py-3 px-4">Status</th>
-                            <th class="text-right py-3 px-4">Actions</th>
+                            <th class="text-center py-3 px-4">{{ __('student.payment_history.type') }}</th>
+                            <th class="text-center py-3 px-4">{{ __('student.subscriptions.status') }}</th>
+                            <th class="text-right py-3 px-4">{{ __('student.payment_history.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -290,7 +290,7 @@ new class extends Component {
                                 <td class="py-3 px-4 text-right">
                                     <div class="font-medium">{{ $payment->formatted_amount }}</div>
                                     @if($payment->stripe_fee > 0)
-                                        <div class="text-sm text-gray-600">Fee: RM {{ number_format($payment->stripe_fee, 2) }}</div>
+                                        <div class="text-sm text-gray-600">{{ __('student.payment_history.fee') }} RM {{ number_format($payment->stripe_fee, 2) }}</div>
                                     @endif
                                 </td>
                                 <td class="py-3 px-4 text-center">
@@ -325,14 +325,14 @@ new class extends Component {
         @else
             <div class="text-center py-12">
                 <flux:icon icon="credit-card" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <flux:heading size="md" class="text-gray-600  mb-2">No payment history</flux:heading>
+                <flux:heading size="md" class="text-gray-600  mb-2">{{ __('student.payment_history.no_history') }}</flux:heading>
                 <flux:text class="text-gray-600">
                     @if($search || $statusFilter || $typeFilter)
-                        No payments match your current filters.
-                        <button wire:click="$set('search', '')" wire:click="$set('statusFilter', '')" wire:click="$set('typeFilter', '')" class="text-blue-600 hover:underline ml-1">Clear filters</button>
+                        {{ __('student.payment_history.no_match') }}
+                        <button wire:click="$set('search', '')" wire:click="$set('statusFilter', '')" wire:click="$set('typeFilter', '')" class="text-blue-600 hover:underline ml-1">{{ __('student.payment_history.clear_filters') }}</button>
                     @else
-                        You haven't made any payments yet.
-                        <flux:link :href="route('student.invoices')" class="text-blue-600 hover:underline ml-1">View your invoices</flux:link>
+                        {{ __('student.payment_history.no_payments') }}
+                        <flux:link :href="route('student.invoices')" class="text-blue-600 hover:underline ml-1">{{ __('student.payment_history.view_invoices') }}</flux:link>
                     @endif
                 </flux:text>
             </div>

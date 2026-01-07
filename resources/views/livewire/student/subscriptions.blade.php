@@ -141,17 +141,17 @@ new class extends Component
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">My Subscriptions</flux:heading>
-            <flux:text class="mt-2">Manage your course subscriptions and billing</flux:text>
+            <flux:heading size="xl">{{ __('student.subscriptions.my_subscriptions') }}</flux:heading>
+            <flux:text class="mt-2">{{ __('student.subscriptions.manage_billing') }}</flux:text>
         </div>
         <flux:button href="{{ route('student.payment-methods') }}" variant="outline">
-            Manage Payment Methods
+            {{ __('student.subscriptions.manage_payment_methods') }}
         </flux:button>
     </div>
 
     <!-- Active Subscriptions -->
     <div class="mb-8">
-        <flux:heading size="lg" class="mb-4">Active Subscriptions</flux:heading>
+        <flux:heading size="lg" class="mb-4">{{ __('student.subscriptions.active_subscriptions') }}</flux:heading>
         
         @if($activeSubscriptions->count() > 0)
             <div class="space-y-4">
@@ -170,7 +170,7 @@ new class extends Component
                                         
                                         <div class="mt-3 flex items-center gap-6">
                                             <div>
-                                                <flux:text class="text-gray-600">Status</flux:text>
+                                                <flux:text class="text-gray-600">{{ __('student.subscriptions.status') }}</flux:text>
                                                 <div class="flex items-center gap-2 mt-1">
                                                     @if($enrollment->isPendingCancellation())
                                                         <flux:badge variant="warning">{{ $enrollment->getSubscriptionStatusLabel() }}</flux:badge>
@@ -191,18 +191,18 @@ new class extends Component
                                                 @if($enrollment->isPendingCancellation() && $enrollment->subscription_cancel_at)
                                                     <flux:text size="sm" class="text-orange-600 mt-1">
                                                         <flux:icon name="exclamation-triangle" class="w-4 h-4 inline mr-1" />
-                                                        Cancels: {{ $enrollment->getFormattedCancellationDate() }}
+                                                        {{ __('student.subscriptions.cancels') }} {{ $enrollment->getFormattedCancellationDate() }}
                                                     </flux:text>
                                                 @elseif($enrollment->isCollectionPaused() && $enrollment->collection_paused_at)
                                                     <flux:text size="sm" class="text-gray-500 mt-1">
-                                                        Paused: {{ $enrollment->getFormattedCollectionPausedDate() }}
+                                                        {{ __('student.subscriptions.paused') }} {{ $enrollment->getFormattedCollectionPausedDate() }}
                                                     </flux:text>
                                                 @endif
                                             </div>
-                                            
+
                                             @if($enrollment->course->feeSettings)
                                                 <div>
-                                                    <flux:text class="text-gray-600">Amount</flux:text>
+                                                    <flux:text class="text-gray-600">{{ __('student.subscriptions.amount') }}</flux:text>
                                                     <flux:text class="font-semibold mt-1">
                                                         {{ $enrollment->course->feeSettings->formatted_fee }}
                                                         <flux:text size="sm" class="text-gray-500">
@@ -214,7 +214,7 @@ new class extends Component
                                             
                                             @if($enrollment->enrollment_date)
                                                 <div>
-                                                    <flux:text class="text-gray-600">Started</flux:text>
+                                                    <flux:text class="text-gray-600">{{ __('student.subscriptions.started') }}</flux:text>
                                                     <flux:text class="mt-1">{{ $enrollment->enrollment_date->format('M j, Y') }}</flux:text>
                                                 </div>
                                             @endif
@@ -222,14 +222,14 @@ new class extends Component
 
                                         @if($enrollment->orders->count() > 0)
                                             <div class="mt-3">
-                                                <flux:text class="text-gray-600">Last Payment</flux:text>
+                                                <flux:text class="text-gray-600">{{ __('student.subscriptions.last_payment') }}</flux:text>
                                                 <flux:text class="mt-1">
-                                                    {{ $enrollment->orders->first()->created_at->format('M j, Y') }} - 
+                                                    {{ $enrollment->orders->first()->created_at->format('M j, Y') }} -
                                                     {{ $enrollment->orders->first()->formatted_amount }}
                                                     @if($enrollment->orders->first()->isPaid())
-                                                        <flux:badge variant="success" size="sm">Paid</flux:badge>
+                                                        <flux:badge variant="success" size="sm">{{ __('student.subscriptions.paid') }}</flux:badge>
                                                     @elseif($enrollment->orders->first()->isFailed())
-                                                        <flux:badge variant="danger" size="sm">Failed</flux:badge>
+                                                        <flux:badge variant="danger" size="sm">{{ __('student.subscriptions.failed') }}</flux:badge>
                                                     @endif
                                                 </flux:text>
                                             </div>
@@ -240,50 +240,50 @@ new class extends Component
 
                             <div class="flex flex-col gap-2 ml-4">
                                 @if(!$enrollment->isPendingCancellation())
-                                    <flux:button 
-                                        wire:click="updatePaymentMethod({{ $enrollment->id }})" 
-                                        variant="outline" 
+                                    <flux:button
+                                        wire:click="updatePaymentMethod({{ $enrollment->id }})"
+                                        variant="outline"
                                         size="sm"
                                     >
-                                        Update Payment
+                                        {{ __('student.subscriptions.update_payment') }}
                                     </flux:button>
                                 @endif
 
                                 @if($enrollment->isCollectionPaused() && $enrollment->isSubscriptionActive() && !$enrollment->isPendingCancellation())
-                                    <flux:button 
+                                    <flux:button
                                         wire:click="resumeCollection({{ $enrollment->id }})"
                                         wire:confirm="Are you sure you want to resume collection? Future payments will be processed normally."
-                                        variant="primary" 
+                                        variant="primary"
                                         size="sm"
                                     >
                                         <div class="flex items-center justify-center">
                                             <flux:icon name="play" class="w-4 h-4 mr-1" />
-                                            Resume Collection
+                                            {{ __('student.subscriptions.resume_collection') }}
                                         </div>
                                     </flux:button>
                                 @endif
 
                                 @if($enrollment->isPendingCancellation())
-                                    <flux:button 
+                                    <flux:button
                                         wire:click="resumeSubscription({{ $enrollment->id }})"
                                         wire:confirm="Are you sure you want to undo the cancellation? Your subscription will continue normally."
-                                        variant="primary" 
+                                        variant="primary"
                                         size="sm"
                                     >
                                         <div class="flex items-center justify-center">
                                             <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
-                                            Resume Subscription
+                                            {{ __('student.subscriptions.resume_subscription') }}
                                         </div>
                                     </flux:button>
                                 @else
-                                    <flux:button 
+                                    <flux:button
                                         wire:click="cancelSubscription({{ $enrollment->id }})"
                                         wire:confirm="Are you sure you want to cancel this subscription? It will remain active until the end of the current billing period."
-                                        variant="outline" 
+                                        variant="outline"
                                         size="sm"
                                         class="text-red-600 border-red-300 hover:bg-red-50"
                                     >
-                                        Cancel
+                                        {{ __('student.subscriptions.cancel') }}
                                     </flux:button>
                                 @endif
                             </div>
@@ -295,9 +295,9 @@ new class extends Component
             <flux:card>
                 <div class="text-center py-8">
                     <flux:icon name="credit-card" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <flux:text class="text-gray-600">You don't have any active subscriptions.</flux:text>
+                    <flux:text class="text-gray-600">{{ __('student.subscriptions.no_active_subscriptions') }}</flux:text>
                     <flux:text size="sm" class="text-gray-500 mt-1">
-                        Contact your administrator to enroll in courses.
+                        {{ __('student.subscriptions.contact_admin') }}
                     </flux:text>
                 </div>
             </flux:card>
@@ -307,7 +307,7 @@ new class extends Component
     <!-- Canceled Subscriptions -->
     @if($canceledSubscriptions->count() > 0)
         <div>
-            <flux:heading size="lg" class="mb-4">Canceled Subscriptions</flux:heading>
+            <flux:heading size="lg" class="mb-4">{{ __('student.subscriptions.canceled_subscriptions') }}</flux:heading>
             
             <div class="space-y-4">
                 @foreach($canceledSubscriptions as $enrollment)
@@ -318,13 +318,13 @@ new class extends Component
                                 
                                 <div class="mt-3 flex items-center gap-6">
                                     <div>
-                                        <flux:text class="text-gray-600">Status</flux:text>
-                                        <flux:badge variant="gray" class="mt-1">Canceled</flux:badge>
+                                        <flux:text class="text-gray-600">{{ __('student.subscriptions.status') }}</flux:text>
+                                        <flux:badge variant="gray" class="mt-1">{{ __('student.status.cancelled') }}</flux:badge>
                                     </div>
-                                    
+
                                     @if($enrollment->enrollment_date)
                                         <div>
-                                            <flux:text class="text-gray-600">Was Active</flux:text>
+                                            <flux:text class="text-gray-600">{{ __('student.subscriptions.was_active') }}</flux:text>
                                             <flux:text class="mt-1">{{ $enrollment->enrollment_date->format('M j, Y') }}</flux:text>
                                         </div>
                                     @endif

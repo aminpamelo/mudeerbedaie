@@ -155,12 +155,12 @@ new class extends Component {
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">Payment Methods</flux:heading>
-            <flux:text class="mt-2">Manage your saved payment methods for faster checkout</flux:text>
+            <flux:heading size="xl">{{ __('student.payment_methods.title') }}</flux:heading>
+            <flux:text class="mt-2">{{ __('student.payment_methods.manage_desc') }}</flux:text>
         </div>
         @if($canAddPaymentMethods)
             <flux:button variant="filled" icon="plus" wire:click="openAddCardModal">
-                Add Payment Method
+                {{ __('student.payment_methods.add_method') }}
             </flux:button>
         @endif
     </div>
@@ -197,7 +197,7 @@ new class extends Component {
     @if($hasPaymentMethods)
         <flux:card>
             <flux:header>
-                <flux:heading size="lg">Saved Payment Methods</flux:heading>
+                <flux:heading size="lg">{{ __('student.payment_methods.saved_methods') }}</flux:heading>
             </flux:header>
 
             <div class="space-y-4">
@@ -218,17 +218,17 @@ new class extends Component {
                                         {{ ucfirst($method->card_details['brand'] ?? 'Card') }} ending in {{ $method->card_details['last4'] ?? '****' }}
                                     </flux:text>
                                     @if($method->is_default)
-                                        <flux:badge color="blue" size="sm">Default</flux:badge>
+                                        <flux:badge color="blue" size="sm">{{ __('student.payment_methods.default') }}</flux:badge>
                                     @endif
                                     @if($method->is_expired)
-                                        <flux:badge color="red" size="sm">Expired</flux:badge>
+                                        <flux:badge color="red" size="sm">{{ __('student.payment_methods.expired') }}</flux:badge>
                                     @endif
                                 </div>
                                 <flux:text size="sm" class="text-gray-600">
-                                    Expires {{ $method->card_details['exp_month'] ?? '**' }}/{{ $method->card_details['exp_year'] ?? '**' }}
+                                    {{ __('student.payment_methods.expires') }} {{ $method->card_details['exp_month'] ?? '**' }}/{{ $method->card_details['exp_year'] ?? '**' }}
                                 </flux:text>
                                 <flux:text size="sm" class="text-gray-500">
-                                    Added {{ $method->created_at->format('M d, Y') }}
+                                    {{ __('student.payment_methods.added') }} {{ $method->created_at->format('M d, Y') }}
                                 </flux:text>
                             </div>
                         </div>
@@ -236,13 +236,13 @@ new class extends Component {
                         <!-- Actions -->
                         <div class="flex items-center space-x-2">
                             @if(!$method->is_default)
-                                <flux:button 
-                                    variant="ghost" 
-                                    size="sm" 
+                                <flux:button
+                                    variant="ghost"
+                                    size="sm"
                                     wire:click="setAsDefault({{ $method->id }})"
-                                    wire:confirm="Set this as your default payment method?"
+                                    wire:confirm="{{ __('student.payment_methods.set_default_confirm') }}"
                                 >
-                                    Set as Default
+                                    {{ __('student.payment_methods.set_as_default') }}
                                 </flux:button>
                             @endif
                             
@@ -264,17 +264,17 @@ new class extends Component {
         <flux:card>
             <div class="text-center py-12">
                 <flux:icon icon="credit-card" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <flux:heading size="md" class="text-gray-600  mb-2">No Payment Methods</flux:heading>
+                <flux:heading size="md" class="text-gray-600  mb-2">{{ __('student.payment_methods.no_methods') }}</flux:heading>
                 <flux:text class="text-gray-600  mb-6">
-                    You haven't added any payment methods yet. Add a card to make payments faster and easier.
+                    {{ __('student.payment_methods.no_methods_desc') }}
                 </flux:text>
                 @if($canAddPaymentMethods)
                     <flux:button variant="filled" icon="plus" wire:click="openAddCardModal">
-                        Add Your First Payment Method
+                        {{ __('student.payment_methods.add_first') }}
                     </flux:button>
                 @else
                     <flux:text class="text-gray-500">
-                        Payment method management is currently unavailable.
+                        {{ __('student.payment_methods.unavailable') }}
                     </flux:text>
                 @endif
             </div>
@@ -284,7 +284,7 @@ new class extends Component {
     <!-- Benefits Card -->
     <flux:card class="mt-6">
         <flux:header>
-            <flux:heading size="lg">Benefits of Saving Payment Methods</flux:heading>
+            <flux:heading size="lg">{{ __('student.payment_methods.benefits_title') }}</flux:heading>
         </flux:header>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -292,24 +292,24 @@ new class extends Component {
                 <div class="w-12 h-12 bg-blue-100 /30 rounded-lg flex items-center justify-center mx-auto mb-3">
                     <flux:icon icon="bolt" class="w-6 h-6 text-blue-600" />
                 </div>
-                <flux:text class="font-medium">Faster Payments</flux:text>
-                <flux:text size="sm" class="text-gray-600 mt-1">Pay invoices with just one click</flux:text>
+                <flux:text class="font-medium">{{ __('student.payment_methods.faster_payments') }}</flux:text>
+                <flux:text size="sm" class="text-gray-600 mt-1">{{ __('student.payment_methods.faster_payments_desc') }}</flux:text>
             </div>
 
             <div class="text-center">
                 <div class="w-12 h-12 bg-emerald-100 /30 rounded-lg flex items-center justify-center mx-auto mb-3">
                     <flux:icon icon="shield-check" class="w-6 h-6 text-emerald-600" />
                 </div>
-                <flux:text class="font-medium">Secure Storage</flux:text>
-                <flux:text size="sm" class="text-gray-600 mt-1">Encrypted and PCI compliant</flux:text>
+                <flux:text class="font-medium">{{ __('student.payment_methods.secure_storage') }}</flux:text>
+                <flux:text size="sm" class="text-gray-600 mt-1">{{ __('student.payment_methods.secure_storage_desc') }}</flux:text>
             </div>
 
             <div class="text-center">
                 <div class="w-12 h-12 bg-purple-100 /30 rounded-lg flex items-center justify-center mx-auto mb-3">
                     <flux:icon icon="sparkles" class="w-6 h-6 text-purple-600" />
                 </div>
-                <flux:text class="font-medium">Auto-Pay Ready</flux:text>
-                <flux:text size="sm" class="text-gray-600 mt-1">Set up automatic payments (coming soon)</flux:text>
+                <flux:text class="font-medium">{{ __('student.payment_methods.auto_pay') }}</flux:text>
+                <flux:text size="sm" class="text-gray-600 mt-1">{{ __('student.payment_methods.auto_pay_desc') }}</flux:text>
             </div>
         </div>
     </flux:card>
@@ -318,7 +318,7 @@ new class extends Component {
     <flux:modal wire:model="showAddCardModal" class="max-w-lg">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
-                <flux:heading size="lg">Add Payment Method</flux:heading>
+                <flux:heading size="lg">{{ __('student.payment_methods.add_method') }}</flux:heading>
                 <flux:button variant="ghost" size="sm" wire:click="closeAddCardModal">
                     <flux:icon icon="x-mark" class="w-5 h-5" />
                 </flux:button>
@@ -327,7 +327,7 @@ new class extends Component {
             <div class="space-y-6">
                 <!-- Stripe Elements Card Input -->
                 <div>
-                    <flux:text class="font-medium mb-3">Card Information</flux:text>
+                    <flux:text class="font-medium mb-3">{{ __('student.payment_methods.card_info') }}</flux:text>
                     <div id="stripe-card-element" class="p-4 border rounded-lg bg-white">
                         <!-- Stripe Elements will be mounted here -->
                         <div class="text-center text-gray-500 py-8">
@@ -343,7 +343,7 @@ new class extends Component {
                 <div>
                     <label class="flex items-center">
                         <input type="checkbox" id="set-as-default" class="rounded">
-                        <span class="ml-2 text-sm">Set as default payment method</span>
+                        <span class="ml-2 text-sm">{{ __('student.payment_methods.set_default_option') }}</span>
                     </label>
                 </div>
 
@@ -351,25 +351,25 @@ new class extends Component {
                 <div class="bg-gray-50  p-4 rounded-lg">
                     <div class="flex items-center text-sm">
                         <flux:icon icon="shield-check" class="w-4 h-4 mr-2 text-green-500" />
-                        <span>Your card information is securely processed by Stripe and never stored on our servers.</span>
+                        <span>{{ __('student.payment_methods.secure_note') }}</span>
                     </div>
                 </div>
 
                 <!-- Action Buttons -->
                 <div class="flex justify-end space-x-3">
                     <flux:button variant="outline" wire:click="closeAddCardModal" :disabled="$isProcessing">
-                        Cancel
+                        {{ __('student.payment_methods.cancel') }}
                     </flux:button>
-                    <flux:button 
+                    <flux:button
                         id="submit-payment-method"
-                        variant="filled" 
+                        variant="filled"
                         :disabled="$isProcessing"
                     >
                         @if($isProcessing)
                             <flux:icon icon="arrow-path" class="w-4 h-4 animate-spin" />
-                            Adding...
+                            {{ __('student.payment_methods.adding') }}
                         @else
-                            Add Payment Method
+                            {{ __('student.payment_methods.add_method') }}
                         @endif
                     </flux:button>
                 </div>
