@@ -73,27 +73,42 @@ new class extends Component
 }; ?>
 
 <div>
-    <!-- Header -->
-    <div class="mb-6">
-        <div class="flex items-center gap-2 mb-4">
-            <flux:button variant="ghost" size="sm" :href="route('admin.customer-service.tickets.index')" wire:navigate>
-                <div class="flex items-center">
-                    <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
-                    Back to Tickets
-                </div>
-            </flux:button>
-        </div>
+    @php
+        $statusStyles = [
+            'open' => 'bg-yellow-100 text-yellow-800',
+            'in_progress' => 'bg-blue-100 text-blue-800',
+            'pending' => 'bg-orange-100 text-orange-800',
+            'resolved' => 'bg-green-100 text-green-800',
+            'closed' => 'bg-gray-100 text-gray-700',
+        ];
+        $priorityStyles = [
+            'low' => 'bg-gray-100 text-gray-700',
+            'medium' => 'bg-blue-100 text-blue-800',
+            'high' => 'bg-orange-100 text-orange-800',
+            'urgent' => 'bg-red-100 text-red-800',
+        ];
+    @endphp
 
-        <div class="flex items-center justify-between">
-            <div>
-                <div class="flex items-center gap-3">
-                    <flux:heading size="xl">{{ $ticket->ticket_number }}</flux:heading>
-                    <flux:badge size="lg" color="{{ $ticket->getStatusColor() }}">{{ $ticket->getStatusLabel() }}</flux:badge>
-                    <flux:badge size="lg" color="{{ $ticket->getPriorityColor() }}">{{ ucfirst($ticket->priority) }}</flux:badge>
-                </div>
-                <flux:text class="mt-2">{{ $ticket->subject }}</flux:text>
+    <!-- Header -->
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-3 mb-2">
+                <flux:heading size="xl">{{ $ticket->ticket_number }}</flux:heading>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $statusStyles[$ticket->status] ?? 'bg-gray-100 text-gray-700' }}">
+                    {{ $ticket->getStatusLabel() }}
+                </span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $priorityStyles[$ticket->priority] ?? 'bg-gray-100 text-gray-700' }}">
+                    {{ ucfirst($ticket->priority) }} Priority
+                </span>
             </div>
+            <flux:text class="text-gray-600">{{ $ticket->subject }}</flux:text>
         </div>
+        <flux:button variant="ghost" :href="route('admin.customer-service.tickets.index')" wire:navigate>
+            <div class="flex items-center">
+                <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
+                Back to Tickets
+            </div>
+        </flux:button>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

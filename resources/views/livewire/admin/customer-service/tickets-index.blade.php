@@ -174,37 +174,58 @@ new class extends Component
                     <tr class="hover:bg-gray-50" wire:key="ticket-{{ $ticket->id }}">
                         <td class="px-6 py-4">
                             <div>
-                                <flux:text class="font-semibold">{{ $ticket->ticket_number }}</flux:text>
-                                <flux:text size="sm" class="text-gray-500 truncate max-w-xs">{{ Str::limit($ticket->subject, 40) }}</flux:text>
+                                <span class="font-semibold text-gray-900">{{ $ticket->ticket_number }}</span>
+                                <p class="text-sm text-gray-500 truncate max-w-xs">{{ Str::limit($ticket->subject, 40) }}</p>
                             </div>
                         </td>
                         <td class="px-6 py-4">
                             @if($ticket->order)
-                                <a href="{{ route('admin.orders.show', $ticket->order) }}" class="text-cyan-600 hover:underline" wire:navigate>
+                                <a href="{{ route('admin.orders.show', $ticket->order) }}" class="text-cyan-600 hover:underline font-medium" wire:navigate>
                                     {{ $ticket->order->order_number }}
                                 </a>
                             @else
-                                <flux:text class="text-gray-400">-</flux:text>
+                                <span class="text-gray-400">-</span>
                             @endif
                         </td>
                         <td class="px-6 py-4">
-                            <flux:text>{{ $ticket->getCustomerName() }}</flux:text>
+                            <span class="text-gray-900">{{ $ticket->getCustomerName() }}</span>
                         </td>
                         <td class="px-6 py-4">
-                            <flux:text size="sm">{{ $ticket->getCategoryLabel() }}</flux:text>
+                            <span class="text-sm text-gray-700">{{ $ticket->getCategoryLabel() }}</span>
                         </td>
                         <td class="px-6 py-4">
-                            <flux:badge size="sm" color="{{ $ticket->getPriorityColor() }}">{{ ucfirst($ticket->priority) }}</flux:badge>
+                            @php
+                                $priorityStyles = [
+                                    'low' => 'bg-gray-100 text-gray-700',
+                                    'medium' => 'bg-blue-100 text-blue-800',
+                                    'high' => 'bg-orange-100 text-orange-800',
+                                    'urgent' => 'bg-red-100 text-red-800',
+                                ];
+                            @endphp
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $priorityStyles[$ticket->priority] ?? 'bg-gray-100 text-gray-700' }}">
+                                {{ ucfirst($ticket->priority) }}
+                            </span>
                         </td>
                         <td class="px-6 py-4">
-                            <flux:badge size="sm" color="{{ $ticket->getStatusColor() }}">{{ $ticket->getStatusLabel() }}</flux:badge>
+                            @php
+                                $statusStyles = [
+                                    'open' => 'bg-yellow-100 text-yellow-800',
+                                    'in_progress' => 'bg-blue-100 text-blue-800',
+                                    'pending' => 'bg-orange-100 text-orange-800',
+                                    'resolved' => 'bg-green-100 text-green-800',
+                                    'closed' => 'bg-gray-100 text-gray-700',
+                                ];
+                            @endphp
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $statusStyles[$ticket->status] ?? 'bg-gray-100 text-gray-700' }}">
+                                {{ $ticket->getStatusLabel() }}
+                            </span>
                         </td>
                         <td class="px-6 py-4">
-                            <flux:text size="sm">{{ $ticket->assignedTo?->name ?? 'Unassigned' }}</flux:text>
+                            <span class="text-sm text-gray-700">{{ $ticket->assignedTo?->name ?? 'Unassigned' }}</span>
                         </td>
                         <td class="px-6 py-4">
-                            <flux:text size="sm">{{ $ticket->created_at->format('M j, Y') }}</flux:text>
-                            <flux:text size="xs" class="text-gray-500">{{ $ticket->created_at->diffForHumans() }}</flux:text>
+                            <span class="text-sm text-gray-900">{{ $ticket->created_at->format('M j, Y') }}</span>
+                            <p class="text-xs text-gray-500">{{ $ticket->created_at->diffForHumans() }}</p>
                         </td>
                         <td class="px-6 py-4 text-right">
                             <flux:button variant="ghost" size="sm" href="{{ route('admin.customer-service.tickets.show', $ticket) }}" wire:navigate>
