@@ -323,6 +323,12 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/appearance', 'admin.settings-appearance')->name('admin.settings.appearance');
     Volt::route('settings/payment', 'admin.settings-payment')->name('admin.settings.payment');
     Volt::route('settings/email', 'admin.settings-email')->name('admin.settings.email');
+
+    // Customer Service routes
+    Volt::route('customer-service', 'admin.customer-service.dashboard')->name('admin.customer-service.dashboard');
+    Volt::route('customer-service/return-refunds', 'admin.customer-service.return-refunds-index')->name('admin.customer-service.return-refunds.index');
+    Volt::route('customer-service/return-refunds/create', 'admin.customer-service.return-refunds-create')->name('admin.customer-service.return-refunds.create');
+    Volt::route('customer-service/return-refunds/{refund}', 'admin.customer-service.return-refunds-show')->name('admin.customer-service.return-refunds.show');
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)
