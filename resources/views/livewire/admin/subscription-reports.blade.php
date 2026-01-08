@@ -461,13 +461,15 @@ new class extends Component {
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     @foreach($statusDistribution as $status => $count)
                         <div class="text-center p-4 bg-gray-50 rounded-lg">
-                            <flux:heading size="lg" class="
-                                @if($status === 'active') text-emerald-600
-                                @elseif($status === 'canceled') text-red-600
-                                @elseif($status === 'past_due') text-amber-600
-                                @else text-blue-600
-                                @endif
-                            ">{{ number_format($count) }}</flux:heading>
+                            @php
+                                $statusColor = match($status) {
+                                    'active' => 'text-emerald-600',
+                                    'canceled' => 'text-red-600',
+                                    'past_due' => 'text-amber-600',
+                                    default => 'text-blue-600',
+                                };
+                            @endphp
+                            <flux:heading size="lg" :class="$statusColor">{{ number_format($count) }}</flux:heading>
                             <flux:text size="sm" class="text-gray-600 capitalize">{{ str_replace('_', ' ', $status) }}</flux:text>
                         </div>
                     @endforeach
@@ -710,9 +712,12 @@ new class extends Component {
 
                         <div class="space-y-3">
                             @foreach($growth['growth_rates'] as $month => $rate)
+                                @php
+                                    $rateColor = $rate > 0 ? 'text-emerald-600' : ($rate < 0 ? 'text-red-600' : 'text-gray-600');
+                                @endphp
                                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                                     <flux:text class="font-medium">{{ $month }}</flux:text>
-                                    <flux:text class="font-medium @if($rate > 0) text-emerald-600 @elseif($rate < 0) text-red-600 @else text-gray-600 @endif">
+                                    <flux:text :class="'font-medium ' . $rateColor">
                                         {{ $rate > 0 ? '+' : '' }}{{ $rate }}%
                                     </flux:text>
                                 </div>
