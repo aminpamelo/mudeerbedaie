@@ -440,7 +440,7 @@
         </flux:header>
         @endif
 
-        {{-- Main content with conditional padding for student mobile bottom nav --}}
+        {{-- Main content with conditional padding for mobile bottom nav --}}
         @php
             $isStudent = auth()->check() && auth()->user()->isStudent();
         @endphp
@@ -453,7 +453,9 @@
             {{-- Student mobile bottom navigation --}}
             <x-student.bottom-nav />
         @else
-            {{ $slot }}
+            <flux:main>
+                {{ $slot }}
+            </flux:main>
         @endif
 
         @fluxScripts

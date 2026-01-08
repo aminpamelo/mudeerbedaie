@@ -127,9 +127,7 @@
 
         <!-- Main content with padding for mobile bottom navigation -->
         <flux:main class="lg:pb-0 pb-20">
-            <div style="padding-left: 1rem; padding-right: 1rem;" class="sm:!px-6 lg:!px-8">
-                {{ $slot }}
-            </div>
+            {{ $slot }}
         </flux:main>
 
         <!-- Include the teacher bottom navigation for mobile -->

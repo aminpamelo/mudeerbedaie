@@ -80,33 +80,37 @@ select:focus[data-flux-control] {
     }
 }
 
-/* Force correct grid layout for student pages */
-body:has(> [data-flux-sidebar]):has(> [data-flux-main]) {
-    display: grid !important;
-    grid-template-rows: auto 1fr auto !important;
-    grid-template-columns: min-content 1fr !important;
-    grid-template-areas:
-        "sidebar main"
-        "sidebar main" !important;
-    min-height: 100vh;
-}
+/* Mobile layout fix - Force main content to full viewport width */
+@media (max-width: 1023px) {
+    /* Force main to take full viewport width on mobile */
+    [data-flux-main] {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
 
-/* Ensure sidebar takes sidebar area */
-body > [data-flux-sidebar] {
-    grid-area: sidebar !important;
-}
+    /* Ensure inner content wrapper takes full width */
+    [data-flux-main] > div {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
 
-/* Ensure main content takes main area and full width */
-body > [data-flux-main] {
-    grid-area: main !important;
-    width: 100% !important;
-    max-width: none !important;
-    min-width: 0 !important;
-    margin: 0 !important;
-}
+    /* Force all grids and their children to full width */
+    [data-flux-main] .grid {
+        width: 100% !important;
+    }
 
-/* Ensure children of main content take full width */
-[data-flux-main] > * {
-    width: 100%;
-    max-width: 100%;
+    [data-flux-main] .grid > * {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    /* Force space-y containers to full width */
+    [data-flux-main] .space-y-6,
+    [data-flux-main] .space-y-4 {
+        width: 100% !important;
+    }
 }

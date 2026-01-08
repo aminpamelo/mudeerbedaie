@@ -48,6 +48,36 @@ new class extends Component
         ]);
     }
 
+    public function downloadDeliveryNote()
+    {
+        $order = $this->order;
+
+        $pdf = Pdf::loadView('livewire.admin.orders.order-delivery-note-pdf', compact('order'))
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isHtml5ParserEnabled' => true,
+                'isPhpEnabled' => false,
+                'isRemoteEnabled' => false,
+            ]);
+
+        $filename = 'delivery-note-'.$order->order_number.'.pdf';
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->stream();
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    public function getDeliveryNoteNumber(): string
+    {
+        $date = $this->order->order_date ?? $this->order->created_at;
+        $yearMonth = $date->format('d/m/Y');
+        $sequence = str_pad($this->order->id, 5, '0', STR_PAD_LEFT);
+        return "DO-{$sequence}";
+    }
+
     public function getInvoiceNumber(): string
     {
         $date = $this->order->order_date ?? $this->order->created_at;
@@ -126,6 +156,12 @@ new class extends Component
                     <div class="flex items-center justify-center">
                         <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
                         Download PDF
+                    </div>
+                </flux:button>
+                <flux:button wire:click="downloadDeliveryNote" variant="outline">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="truck" class="w-4 h-4 mr-1" />
+                        Delivery Note
                     </div>
                 </flux:button>
                 <flux:button onclick="window.print()" variant="primary">
