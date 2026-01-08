@@ -97,143 +97,138 @@ new class extends Component
 }; ?>
 
 <div>
-    <div class="mb-6">
-        <div class="flex items-center gap-2 mb-4">
-            <flux:button variant="ghost" size="sm" :href="route('admin.customer-service.tickets.index')" wire:navigate>
-                <div class="flex items-center">
-                    <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
-                    Back to Tickets
-                </div>
-            </flux:button>
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <flux:heading size="xl">Create New Ticket</flux:heading>
+            <flux:text class="mt-2">Create a support ticket for customer service</flux:text>
         </div>
-        <flux:heading size="xl">Create New Ticket</flux:heading>
-        <flux:text class="mt-2">Create a support ticket for customer service</flux:text>
+        <flux:button variant="ghost" :href="route('admin.customer-service.tickets.index')" wire:navigate>
+            <div class="flex items-center">
+                <flux:icon name="chevron-left" class="w-4 h-4 mr-1" />
+                Back to Tickets
+            </div>
+        </flux:button>
     </div>
 
     <form wire:submit="create">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Main Form -->
-            <div class="lg:col-span-2 space-y-6">
-                <!-- Order Selection -->
-                <div class="bg-white rounded-lg border">
-                    <div class="px-6 py-4 border-b">
-                        <flux:heading size="lg">Link to Order</flux:heading>
-                        <flux:text size="sm" class="text-gray-500">Associate this ticket with an order</flux:text>
+        <div class="bg-white rounded-lg border">
+            <!-- Order Selection Section -->
+            <div class="px-6 py-5 border-b">
+                <div class="flex items-center gap-2 mb-1">
+                    <flux:icon name="shopping-bag" class="w-5 h-5 text-gray-400" />
+                    <h3 class="text-base font-semibold text-gray-900">Link to Order</h3>
+                    <span class="text-xs text-gray-500">(Optional)</span>
+                </div>
+                <p class="text-sm text-gray-500 ml-7">Associate this ticket with an existing order</p>
+            </div>
+            <div class="px-6 py-5 border-b bg-gray-50">
+                @if($selectedOrder = $this->getSelectedOrder())
+                    <div class="bg-white rounded-lg border p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-cyan-100 rounded-full flex items-center justify-center">
+                                <flux:icon name="document-text" class="w-5 h-5 text-cyan-600" />
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-900">{{ $selectedOrder->order_number }}</p>
+                                <p class="text-sm text-gray-500">
+                                    {{ $selectedOrder->getCustomerName() }} &bull; RM {{ number_format($selectedOrder->total_amount, 2) }}
+                                </p>
+                            </div>
+                        </div>
+                        <flux:button variant="ghost" size="sm" wire:click="clearOrder">
+                            <flux:icon name="x-mark" class="w-4 h-4" />
+                        </flux:button>
                     </div>
-                    <div class="p-6">
-                        @if($selectedOrder = $this->getSelectedOrder())
-                            <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
-                                <div>
-                                    <flux:text class="font-semibold">{{ $selectedOrder->order_number }}</flux:text>
-                                    <flux:text size="sm" class="text-gray-500">
-                                        {{ $selectedOrder->getCustomerName() }} - RM {{ number_format($selectedOrder->total_amount, 2) }}
-                                    </flux:text>
-                                </div>
-                                <flux:button variant="ghost" size="sm" wire:click="clearOrder">
-                                    <flux:icon name="x-mark" class="w-4 h-4" />
-                                </flux:button>
-                            </div>
-                        @else
-                            <div class="mb-4">
-                                <flux:input wire:model.live.debounce.300ms="orderSearch" placeholder="Search by order number or customer..." />
-                            </div>
-                            <div class="max-h-60 overflow-y-auto border rounded-lg">
-                                @forelse($this->getOrders() as $order)
-                                    <button type="button" wire:click="selectOrder({{ $order->id }})"
-                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0">
-                                        <div class="flex items-center justify-between">
-                                            <div>
-                                                <flux:text class="font-medium">{{ $order->order_number }}</flux:text>
-                                                <flux:text size="sm" class="text-gray-500">{{ $order->getCustomerName() }}</flux:text>
-                                            </div>
-                                            <div class="text-right">
-                                                <flux:text class="font-semibold">RM {{ number_format($order->total_amount, 2) }}</flux:text>
-                                                <flux:text size="sm" class="text-gray-500">{{ $order->created_at->format('M j, Y') }}</flux:text>
-                                            </div>
+                @else
+                    <div class="space-y-3">
+                        <flux:input wire:model.live.debounce.300ms="orderSearch" placeholder="Search by order number or customer name..." icon="magnifying-glass" />
+                        <div class="max-h-48 overflow-y-auto bg-white border rounded-lg divide-y">
+                            @forelse($this->getOrders() as $order)
+                                <button type="button" wire:click="selectOrder({{ $order->id }})"
+                                    class="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="font-medium text-gray-900">{{ $order->order_number }}</p>
+                                            <p class="text-sm text-gray-500">{{ $order->getCustomerName() }}</p>
                                         </div>
-                                    </button>
-                                @empty
-                                    <div class="px-4 py-8 text-center text-gray-500">No orders found</div>
-                                @endforelse
-                            </div>
-                        @endif
+                                        <div class="text-right">
+                                            <p class="font-semibold text-gray-900">RM {{ number_format($order->total_amount, 2) }}</p>
+                                            <p class="text-xs text-gray-500">{{ $order->created_at->format('M j, Y') }}</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            @empty
+                                <div class="px-4 py-6 text-center text-gray-500">
+                                    <flux:icon name="inbox" class="w-8 h-8 mx-auto text-gray-300 mb-2" />
+                                    <p class="text-sm">No orders found</p>
+                                </div>
+                            @endforelse
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            <!-- Ticket Details Section -->
+            <div class="px-6 py-5 border-b">
+                <div class="flex items-center gap-2 mb-1">
+                    <flux:icon name="document-text" class="w-5 h-5 text-gray-400" />
+                    <h3 class="text-base font-semibold text-gray-900">Ticket Details</h3>
+                </div>
+                <p class="text-sm text-gray-500 ml-7">Describe the issue or request</p>
+            </div>
+            <div class="px-6 py-5 border-b space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div>
+                        <flux:label for="category" class="mb-1.5">Category *</flux:label>
+                        <flux:select wire:model="category" id="category">
+                            <option value="inquiry">Inquiry</option>
+                            <option value="refund">Refund Request</option>
+                            <option value="return">Return Request</option>
+                            <option value="complaint">Complaint</option>
+                            <option value="other">Other</option>
+                        </flux:select>
+                    </div>
+                    <div>
+                        <flux:label for="priority" class="mb-1.5">Priority *</flux:label>
+                        <flux:select wire:model="priority" id="priority">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </flux:select>
+                    </div>
+                    <div>
+                        <flux:label for="assignTo" class="mb-1.5">Assign To</flux:label>
+                        <flux:select wire:model="assignTo" id="assignTo">
+                            <option value="">Unassigned</option>
+                            @foreach($this->getStaffMembers() as $staff)
+                                <option value="{{ $staff->id }}">{{ $staff->name }}</option>
+                            @endforeach
+                        </flux:select>
                     </div>
                 </div>
 
-                <!-- Ticket Details -->
-                <div class="bg-white rounded-lg border">
-                    <div class="px-6 py-4 border-b">
-                        <flux:heading size="lg">Ticket Details</flux:heading>
-                    </div>
-                    <div class="p-6 space-y-4">
-                        <div>
-                            <flux:label for="subject">Subject *</flux:label>
-                            <flux:input wire:model="subject" id="subject" placeholder="Brief description of the issue" />
-                            @error('subject') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                        </div>
+                <div>
+                    <flux:label for="subject" class="mb-1.5">Subject *</flux:label>
+                    <flux:input wire:model="subject" id="subject" placeholder="Brief description of the issue" />
+                    @error('subject') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                </div>
 
-                        <div>
-                            <flux:label for="description">Description *</flux:label>
-                            <flux:textarea wire:model="description" id="description" rows="6" placeholder="Provide detailed information about the issue..." />
-                            @error('description') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
+                <div>
+                    <flux:label for="description" class="mb-1.5">Description *</flux:label>
+                    <flux:textarea wire:model="description" id="description" rows="5" placeholder="Provide detailed information about the issue..." />
+                    @error('description') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
 
-            <!-- Sidebar -->
-            <div class="space-y-6">
-                <!-- Category & Priority -->
-                <div class="bg-white rounded-lg border">
-                    <div class="px-6 py-4 border-b">
-                        <flux:heading size="lg">Classification</flux:heading>
-                    </div>
-                    <div class="p-6 space-y-4">
-                        <div>
-                            <flux:label for="category">Category *</flux:label>
-                            <flux:select wire:model="category" id="category">
-                                <option value="refund">Refund Request</option>
-                                <option value="return">Return Request</option>
-                                <option value="complaint">Complaint</option>
-                                <option value="inquiry">Inquiry</option>
-                                <option value="other">Other</option>
-                            </flux:select>
-                        </div>
-
-                        <div>
-                            <flux:label for="priority">Priority *</flux:label>
-                            <flux:select wire:model="priority" id="priority">
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                                <option value="urgent">Urgent</option>
-                            </flux:select>
-                        </div>
-
-                        <div>
-                            <flux:label for="assignTo">Assign To</flux:label>
-                            <flux:select wire:model="assignTo" id="assignTo">
-                                <option value="">Unassigned</option>
-                                @foreach($this->getStaffMembers() as $staff)
-                                    <option value="{{ $staff->id }}">{{ $staff->name }}</option>
-                                @endforeach
-                            </flux:select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="bg-white rounded-lg border p-6">
-                    <flux:button type="submit" variant="primary" class="w-full mb-3">
-                        <div class="flex items-center justify-center">
-                            <flux:icon name="plus" class="w-4 h-4 mr-2" />
-                            Create Ticket
-                        </div>
-                    </flux:button>
-                    <flux:button variant="ghost" class="w-full" :href="route('admin.customer-service.tickets.index')" wire:navigate>
-                        Cancel
-                    </flux:button>
-                </div>
+            <!-- Actions -->
+            <div class="px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
+                <flux:button variant="danger" :href="route('admin.customer-service.tickets.index')" wire:navigate>
+                    Cancel
+                </flux:button>
+                <flux:button variant="primary" type="submit">
+                    Create Ticket
+                </flux:button>
             </div>
         </div>
     </form>
