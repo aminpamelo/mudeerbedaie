@@ -329,6 +329,11 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('customer-service/return-refunds', 'admin.customer-service.return-refunds-index')->name('admin.customer-service.return-refunds.index');
     Volt::route('customer-service/return-refunds/create', 'admin.customer-service.return-refunds-create')->name('admin.customer-service.return-refunds.create');
     Volt::route('customer-service/return-refunds/{refund}', 'admin.customer-service.return-refunds-show')->name('admin.customer-service.return-refunds.show');
+
+    // Customer Service - Tickets
+    Volt::route('customer-service/tickets', 'admin.customer-service.tickets-index')->name('admin.customer-service.tickets.index');
+    Volt::route('customer-service/tickets/create', 'admin.customer-service.tickets-create')->name('admin.customer-service.tickets.create');
+    Volt::route('customer-service/tickets/{ticket}', 'admin.customer-service.tickets-show')->name('admin.customer-service.tickets.show');
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)
