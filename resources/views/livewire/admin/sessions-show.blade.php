@@ -77,7 +77,7 @@ new class extends Component {
     public function with(): array
     {
         return [
-            'teachers' => Teacher::with('user')->get(),
+            'teachers' => Teacher::with('user')->whereHas('user')->get(),
         ];
     }
 }; ?>
@@ -123,13 +123,13 @@ new class extends Component {
                     
                     <div>
                         <flux:text class="text-sm text-gray-500  mb-1">Course</flux:text>
-                        <flux:text size="lg">{{ $session->class->course->name }}</flux:text>
+                        <flux:text size="lg">{{ $session->class->course?->name ?? 'N/A' }}</flux:text>
                     </div>
                     
                     <div>
                         <flux:text class="text-sm text-gray-500  mb-1">Teacher</flux:text>
                         <flux:text size="lg">
-                            @if($session->class->teacher)
+                            @if($session->class->teacher?->user)
                                 {{ $session->class->teacher->user->name }}
                             @else
                                 <span class="text-gray-400">No teacher assigned</span>
@@ -145,7 +145,7 @@ new class extends Component {
                     <div>
                         <flux:text class="text-sm text-gray-500 mb-1">Assigned Teacher</flux:text>
                         <div class="flex items-center gap-2">
-                            @if($session->assignedTeacher)
+                            @if($session->assignedTeacher?->user)
                                 <flux:text size="lg">{{ $session->assignedTeacher->user->name }}</flux:text>
                                 <flux:badge color="amber" size="sm">Substitute</flux:badge>
                             @else
@@ -163,8 +163,8 @@ new class extends Component {
                         <div>
                             <flux:text class="text-sm text-gray-500 mb-1">Started By</flux:text>
                             <div class="flex items-center gap-2">
-                                <flux:text size="lg">{{ $session->starter->name ?? 'Unknown' }}</flux:text>
-                                @if($session->class->teacher && $session->started_by !== $session->class->teacher->user_id)
+                                <flux:text size="lg">{{ $session->starter?->name ?? 'Unknown' }}</flux:text>
+                                @if($session->class->teacher?->user_id && $session->started_by !== $session->class->teacher->user_id)
                                     <flux:badge color="amber" size="sm">Not Class Teacher</flux:badge>
                                 @endif
                             </div>
@@ -298,8 +298,8 @@ new class extends Component {
                                         <flux:icon name="user" class="w-5 h-5 text-gray-600" />
                                     </div>
                                     <div>
-                                        <flux:text size="sm" class="font-medium">{{ $attendance->student->user->name }}</flux:text>
-                                        <flux:text size="xs" class="text-gray-500">{{ $attendance->student->user->email }}</flux:text>
+                                        <flux:text size="sm" class="font-medium">{{ $attendance->student?->user?->name ?? 'Unknown Student' }}</flux:text>
+                                        <flux:text size="xs" class="text-gray-500">{{ $attendance->student?->user?->email ?? '' }}</flux:text>
                                     </div>
                                 </div>
                                 
@@ -388,7 +388,7 @@ new class extends Component {
                         </div>
                     </flux:button>
                     
-                    @if($session->class->teacher)
+                    @if($session->class->teacher?->user)
                         <flux:button href="{{ route('teachers.show', $session->class->teacher) }}" variant="ghost" class="w-full">
                             <div class="flex items-center justify-center">
                                 <flux:icon name="user" class="w-4 h-4 mr-2" />
@@ -479,7 +479,7 @@ new class extends Component {
                     
                     <div>
                         <flux:text class="text-sm text-gray-500">Course</flux:text>
-                        <flux:text size="sm" class="font-medium">{{ $session->class->course->name }}</flux:text>
+                        <flux:text size="sm" class="font-medium">{{ $session->class->course?->name ?? 'N/A' }}</flux:text>
                     </div>
                     
                     @if($session->class->description)
@@ -513,7 +513,9 @@ new class extends Component {
                 <flux:select wire:model="selectedTeacherId">
                     <option value="">-- Use Class Teacher ({{ $session->class->teacher?->user?->name ?? 'None' }}) --</option>
                     @foreach($teachers as $teacher)
-                        <option value="{{ $teacher->id }}">{{ $teacher->user->name }}</option>
+                        @if($teacher->user)
+                            <option value="{{ $teacher->id }}">{{ $teacher->user->name }}</option>
+                        @endif
                     @endforeach
                 </flux:select>
             </flux:field>
