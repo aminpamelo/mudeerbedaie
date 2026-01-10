@@ -32,7 +32,8 @@ class ScheduledNotification extends Model
             'scheduled_at' => 'datetime',
             'sent_at' => 'datetime',
             'scheduled_session_date' => 'date',
-            'scheduled_session_time' => 'datetime:H:i',
+            // Note: scheduled_session_time is stored as string (e.g., '09:00:00')
+            // Do NOT cast as datetime to avoid double-date parsing issues
         ];
     }
 

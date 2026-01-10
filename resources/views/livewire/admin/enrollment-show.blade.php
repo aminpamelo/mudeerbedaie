@@ -2372,6 +2372,28 @@ new class extends Component
                                 </flux:button>
                             @endif
                         </div>
+
+                        {{-- Magic Link Details --}}
+                        @if($magicLink)
+                            <div class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="text-sm text-gray-600">Current Active Link (expires {{ $magicLinkExpiresAt }})</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <code class="flex-1 text-xs bg-white px-3 py-2 rounded border border-gray-200 text-gray-700 overflow-x-auto">{{ $magicLink }}</code>
+                                    <flux:button
+                                        size="sm"
+                                        variant="outline"
+                                        x-data="{ copied: false }"
+                                        x-on:click="navigator.clipboard.writeText('{{ $magicLink }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                        icon="clipboard"
+                                    >
+                                        <span x-show="!copied">Copy</span>
+                                        <span x-show="copied" x-cloak>Copied!</span>
+                                    </flux:button>
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </flux:card>
