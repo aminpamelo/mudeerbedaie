@@ -232,8 +232,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                         <flux:icon name="user" class="w-5 h-5 text-gray-600" />
                                     </div>
                                     <div>
-                                        <flux:text size="sm" class="font-medium">{{ $attendance->student->user->name }}</flux:text>
-                                        <flux:text size="xs" class="text-gray-500">{{ $attendance->student->user->email }}</flux:text>
+                                        <flux:text size="sm" class="font-medium">{{ $attendance->student?->user?->name ?? 'Unknown Student' }}</flux:text>
+                                        <flux:text size="xs" class="text-gray-500">{{ $attendance->student?->user?->email ?? '' }}</flux:text>
                                     </div>
                                 </div>
                                 

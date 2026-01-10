@@ -280,8 +280,8 @@ new #[Layout('components.layouts.teacher')] class extends Component {
 "%s,%s,%s,%s,%s,%s,%d,%d,%s,%s\n",
                 $session->session_date->format('Y-m-d'),
                 $session->session_time->format('H:i'),
-                '"' . str_replace('"', '""', $session->class->title) . '"',
-                '"' . str_replace('"', '""', $session->class->course->name) . '"',
+                '"' . str_replace('"', '""', $session->class?->title ?? 'N/A') . '"',
+                '"' . str_replace('"', '""', $session->class->course?->name ?? 'N/A') . '"',
                 $session->duration_minutes . 'min',
                 $session->status,
                 $attendanceCount,
@@ -445,7 +445,7 @@ new #[Layout('components.layouts.teacher')] class extends Component {
                                 <div>
                                     <flux:heading size="sm" class="mb-2">{{ $session->class->title }}</flux:heading>
                                     <flux:text size="xs" class="text-gray-500  mb-2">
-                                        {{ $session->class->course->name }}
+                                        {{ $session->class->course?->name ?? 'N/A' }}
                                     </flux:text>
                                     @if($session->topic)
                                         <flux:text size="sm" class="text-gray-600  mb-2">

@@ -92,13 +92,13 @@
 
                 {{-- Course Name --}}
                 <p class="text-xs text-gray-600 dark:text-gray-400 truncate mb-1">
-                    {{ $session->class->course->name }}
+                    {{ $session->class->course?->name ?? 'N/A' }}
                 </p>
 
                 {{-- Teacher --}}
                 <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mb-2">
                     <flux:icon name="user-circle" class="w-3.5 h-3.5" />
-                    <span class="truncate">{{ $session->class->teacher->user->name }}</span>
+                    <span class="truncate">{{ $session->class->teacher?->user?->name ?? 'N/A' }}</span>
                 </div>
 
                 {{-- Footer: Duration & Status --}}
@@ -170,13 +170,13 @@
 
                 {{-- Course Name --}}
                 <p class="text-xs text-indigo-600 dark:text-indigo-400 truncate mb-1">
-                    {{ $class->course->name }}
+                    {{ $class->course?->name ?? 'N/A' }}
                 </p>
 
                 {{-- Teacher --}}
                 <div class="flex items-center gap-1.5 text-xs text-indigo-500 dark:text-indigo-400">
                     <flux:icon name="user-circle" class="w-3.5 h-3.5" />
-                    <span class="truncate">{{ $class->teacher->user->name }}</span>
+                    <span class="truncate">{{ $class->teacher?->user?->name ?? 'N/A' }}</span>
                 </div>
             </div>
         @endif

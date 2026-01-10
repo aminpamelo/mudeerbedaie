@@ -253,7 +253,7 @@ new class extends Component {
                                     <div class="flex items-center gap-4 mt-2">
                                         <div class="flex items-center gap-1.5 text-gray-500">
                                             <flux:icon name="user-circle" class="w-4 h-4" />
-                                            <flux:text size="xs">{{ $classStudent->class->teacher->user->name }}</flux:text>
+                                            <flux:text size="xs">{{ $classStudent->class->teacher?->user?->name ?? 'N/A' }}</flux:text>
                                         </div>
                                         <div class="flex items-center gap-1.5 text-gray-500">
                                             <flux:icon name="calendar-days" class="w-4 h-4" />

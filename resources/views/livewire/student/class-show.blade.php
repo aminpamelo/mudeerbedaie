@@ -413,7 +413,7 @@ new class extends Component {
                     <div class="col-span-2">
                         <flux:text size="sm" class="text-gray-500 dark:text-gray-400">{{ __('student.timetable.teacher') }}</flux:text>
                         <flux:text class="font-medium text-gray-900 dark:text-white">
-                            {{ $class->teacher->user->name }}
+                            {{ $class->teacher?->user?->name ?? 'N/A' }}
                         </flux:text>
                     </div>
                 </div>

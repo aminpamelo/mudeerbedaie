@@ -41,10 +41,10 @@
                                         {{ $session->class->title }}
                                     </h3>
                                     <p class="text-sm text-gray-600  truncate">
-                                        {{ $session->class->course->name }}
+                                        {{ $session->class->course?->name ?? 'N/A' }}
                                     </p>
                                     <p class="text-sm text-gray-500  truncate">
-                                        {{ $session->class->teacher->user->name }}
+                                        {{ $session->class->teacher?->user?->name ?? 'N/A' }}
                                     </p>
                                 </div>
                                 
@@ -134,8 +134,8 @@
                                             @foreach($session->attendances->where('student_id', '!=', auth()->user()->student->id)->take(3) as $attendance)
                                                 <div class="relative">
                                                     <div class="w-6 h-6 rounded-full bg-gray-300  flex items-center justify-center text-xs font-medium text-gray-700  ring-2 ring-white"
-                                                         title="{{ $attendance->student->user->name }}">
-                                                        {{ substr($attendance->student->user->name, 0, 1) }}
+                                                         title="{{ $attendance->student?->user?->name ?? 'Unknown' }}">
+                                                        {{ substr($attendance->student?->user?->name ?? '?', 0, 1) }}
                                                     </div>
                                                     <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white
                                                                {{ $attendance->isPresent() ? 'bg-green-500' : ($attendance->isAbsent() ? 'bg-red-500' : 'bg-gray-400') }}">

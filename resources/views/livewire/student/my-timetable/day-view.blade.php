@@ -54,12 +54,12 @@
                                             <div class="space-y-1">
                                                 <div class="text-sm text-gray-600">
                                                     <flux:icon name="book-open" class="w-4 h-4 inline mr-1" />
-                                                    {{ $session->class->course->name }}
+                                                    {{ $session->class->course?->name ?? 'N/A' }}
                                                 </div>
-                                                
+
                                                 <div class="text-sm text-gray-600">
                                                     <flux:icon name="user" class="w-4 h-4 inline mr-1" />
-                                                    {{ $session->class->teacher->user->name }}
+                                                    {{ $session->class->teacher?->user?->name ?? 'N/A' }}
                                                 </div>
                                                 
                                                 <div class="text-sm text-gray-600">
@@ -178,12 +178,12 @@
                             
                             {{-- Session Course --}}
                             <div class="text-sm text-gray-600  mb-1">
-                                {{ $session->class->course->name }}
+                                {{ $session->class->course?->name ?? 'N/A' }}
                             </div>
-                            
+
                             {{-- Teacher --}}
                             <div class="text-sm text-gray-600  mb-2">
-                                {{ $session->class->teacher->user->name }}
+                                {{ $session->class->teacher?->user?->name ?? 'N/A' }}
                             </div>
                             
                             {{-- Session Meta --}}

@@ -72,20 +72,20 @@ class Teacher extends Model
         return $this->status === 'active';
     }
 
-    public function getFullNameAttribute(): string
+    public function getFullNameAttribute(): ?string
     {
-        return $this->user->name;
+        return $this->user?->name;
     }
 
     public function getEmailAttribute(): ?string
     {
-        return $this->user->email ?? null;
+        return $this->user?->email;
     }
 
     public function getPhoneNumberAttribute(): ?string
     {
         // Return phone from teacher profile first, fallback to user phone
-        return $this->phone ?: ($this->user->phone ?? null);
+        return $this->phone ?: $this->user?->phone;
     }
 
     public function getMaskedAccountNumberAttribute(): ?string
