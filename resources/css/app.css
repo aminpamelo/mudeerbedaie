@@ -45,6 +45,11 @@
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
     }
+
+    /* Hide x-cloak elements until Alpine.js initializes */
+    [x-cloak] {
+        display: none !important;
+    }
 }
 
 [data-flux-field]:not(ui-radio, ui-checkbox) {

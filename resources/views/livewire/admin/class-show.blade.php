@@ -1054,6 +1054,14 @@ new class extends Component
 
     public $editOriginalPaymentMethodType = '';
 
+    public $editOriginalEnrollmentFee = '';
+
+    // Stripe billing info for automatic subscriptions
+    public $editStripeBillingInfo = null;
+
+    // Next billing date for editing automatic subscriptions
+    public $editNextBillingDate = '';
+
     // Create First Enrollment Modal Properties
     public bool $showCreateFirstEnrollmentModal = false;
 
@@ -1671,11 +1679,66 @@ new class extends Component
         if ($this->editingEnrollment) {
             $this->editEnrollmentDate = $this->editingEnrollment->enrollment_date->format('Y-m-d');
             $this->editEnrollmentFee = $this->editingEnrollment->enrollment_fee ?? '';
+            $this->editOriginalEnrollmentFee = $this->editEnrollmentFee;
             $this->editPaymentMethodType = $this->editingEnrollment->payment_method_type ?? 'automatic';
             $this->editOriginalPaymentMethodType = $this->editPaymentMethodType;
             // Set default next payment date to tomorrow
             $this->editNextPaymentDate = now()->addDay()->format('Y-m-d');
+
+            // Fetch Stripe billing info for automatic subscriptions
+            $this->editStripeBillingInfo = null;
+            $this->editNextBillingDate = '';
+            if ($this->editingEnrollment->stripe_subscription_id && $this->editingEnrollment->payment_method_type === 'automatic') {
+                $this->fetchStripeBillingInfo();
+
+                // Initialize next billing date from Stripe data
+                if ($this->editStripeBillingInfo) {
+                    // Use trial_end if in trial, otherwise use current_period_end
+                    $nextBillingDate = $this->editStripeBillingInfo['trial_end'] ?? $this->editStripeBillingInfo['current_period_end'];
+                    $this->editNextBillingDate = $nextBillingDate?->format('Y-m-d') ?? '';
+                }
+            }
+
             $this->showEditEnrollmentModal = true;
+        }
+    }
+
+    protected function fetchStripeBillingInfo()
+    {
+        try {
+            $stripeService = app(\App\Services\StripeService::class);
+            $subscription = $stripeService->getStripe()->subscriptions->retrieve(
+                $this->editingEnrollment->stripe_subscription_id,
+                ['expand' => ['latest_invoice']]
+            );
+
+            $trialEnd = $subscription->trial_end ? \Carbon\Carbon::createFromTimestamp($subscription->trial_end) : null;
+            $currentPeriodEnd = $subscription->current_period_end ? \Carbon\Carbon::createFromTimestamp($subscription->current_period_end) : null;
+
+            $this->editStripeBillingInfo = [
+                'status' => $subscription->status,
+                'current_period_start' => $subscription->current_period_start ? \Carbon\Carbon::createFromTimestamp($subscription->current_period_start) : null,
+                'current_period_end' => $currentPeriodEnd,
+                'trial_end' => $trialEnd,
+                'cancel_at' => $subscription->cancel_at ? \Carbon\Carbon::createFromTimestamp($subscription->cancel_at) : null,
+                'canceled_at' => $subscription->canceled_at ? \Carbon\Carbon::createFromTimestamp($subscription->canceled_at) : null,
+            ];
+
+            // Sync the next payment date to the enrollment for display in tables
+            $nextPaymentDate = $trialEnd ?? $currentPeriodEnd;
+            if ($nextPaymentDate && $this->editingEnrollment->next_payment_date?->format('Y-m-d') !== $nextPaymentDate->format('Y-m-d')) {
+                $this->editingEnrollment->update([
+                    'next_payment_date' => $nextPaymentDate,
+                    'trial_end_at' => $trialEnd,
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Failed to fetch Stripe billing info', [
+                'enrollment_id' => $this->editingEnrollment->id,
+                'subscription_id' => $this->editingEnrollment->stripe_subscription_id,
+                'error' => $e->getMessage(),
+            ]);
+            $this->editStripeBillingInfo = null;
         }
     }
 
@@ -1685,9 +1748,12 @@ new class extends Component
         $this->editingEnrollment = null;
         $this->editEnrollmentDate = '';
         $this->editEnrollmentFee = '';
+        $this->editOriginalEnrollmentFee = '';
         $this->editPaymentMethodType = '';
         $this->editNextPaymentDate = '';
         $this->editOriginalPaymentMethodType = '';
+        $this->editStripeBillingInfo = null;
+        $this->editNextBillingDate = '';
     }
 
     public function updateEnrollment()
@@ -1706,10 +1772,24 @@ new class extends Component
             $rules['editNextPaymentDate'] = 'required|date|after:today';
         }
 
+        // If editing next billing date for automatic subscription
+        $isEditingBillingDate = $this->editPaymentMethodType === 'automatic'
+            && !empty($this->editNextBillingDate)
+            && $this->editStripeBillingInfo
+            && !$isSwitchingToAutomatic;
+
+        if ($isEditingBillingDate) {
+            $rules['editNextBillingDate'] = 'required|date|after:today';
+        }
+
         $this->validate($rules);
 
         try {
             if ($this->editingEnrollment) {
+                // Check if enrollment fee changed for Stripe update
+                $feeChanged = abs((float) $this->editEnrollmentFee - (float) $this->editOriginalEnrollmentFee) >= 0.01;
+                $hasStripeSubscription = !empty($this->editingEnrollment->stripe_subscription_id);
+
                 // Update basic enrollment info
                 $this->editingEnrollment->update([
                     'enrollment_date' => $this->editEnrollmentDate,
@@ -1717,12 +1797,70 @@ new class extends Component
                     'payment_method_type' => $this->editPaymentMethodType,
                 ]);
 
+                // If fee changed and has Stripe subscription, update the subscription price
+                $stripeService = app(\App\Services\StripeService::class);
+
+                if ($feeChanged && $hasStripeSubscription) {
+                    $stripeService->updateSubscriptionFee($this->editingEnrollment, (float) $this->editEnrollmentFee);
+
+                    \Log::info('Updated Stripe subscription price due to enrollment fee change', [
+                        'enrollment_id' => $this->editingEnrollment->id,
+                        'old_fee' => $this->editOriginalEnrollmentFee,
+                        'new_fee' => $this->editEnrollmentFee,
+                    ]);
+                }
+
                 // If switching to automatic, create subscription with next payment date
                 if ($isSwitchingToAutomatic) {
                     $this->createAutomaticSubscription();
                 }
 
-                session()->flash('message', 'Enrollment updated successfully!');
+                // If editing next billing date, update Stripe subscription schedule
+                $billingDateChanged = false;
+                if ($isEditingBillingDate && $hasStripeSubscription) {
+                    // Get original next billing date from Stripe info
+                    $originalNextBillingDate = $this->editStripeBillingInfo['trial_end'] ?? $this->editStripeBillingInfo['current_period_end'];
+                    $originalDateString = $originalNextBillingDate?->format('Y-m-d') ?? '';
+
+                    // Check if the billing date actually changed
+                    if ($this->editNextBillingDate !== $originalDateString) {
+                        $billingDateChanged = true;
+
+                        // Parse the new billing date with time (use 7:23 AM Malaysia time for consistency)
+                        $timezone = 'Asia/Kuala_Lumpur';
+                        $newBillingDateTime = \Carbon\Carbon::parse($this->editNextBillingDate . ' 07:23:00', $timezone);
+
+                        // Update subscription schedule in Stripe
+                        $stripeService->updateSubscriptionSchedule(
+                            $this->editingEnrollment->stripe_subscription_id,
+                            ['next_payment_date' => $newBillingDateTime->timestamp]
+                        );
+
+                        // Update the next payment date in enrollment
+                        $this->editingEnrollment->update([
+                            'next_payment_date' => $newBillingDateTime,
+                        ]);
+
+                        \Log::info('Updated next billing date via admin edit', [
+                            'enrollment_id' => $this->editingEnrollment->id,
+                            'subscription_id' => $this->editingEnrollment->stripe_subscription_id,
+                            'old_billing_date' => $originalDateString,
+                            'new_billing_date' => $this->editNextBillingDate,
+                        ]);
+                    }
+                }
+
+                // Build success message
+                $message = 'Enrollment updated successfully!';
+                if ($feeChanged && $hasStripeSubscription && $billingDateChanged) {
+                    $message = 'Enrollment, subscription price, and next billing date updated successfully!';
+                } elseif ($feeChanged && $hasStripeSubscription) {
+                    $message = 'Enrollment and Stripe subscription price updated successfully!';
+                } elseif ($billingDateChanged) {
+                    $message = 'Enrollment and next billing date updated successfully!';
+                }
+
+                session()->flash('message', $message);
                 $this->closeEditEnrollmentModal();
             }
         } catch (\Exception $e) {
@@ -5015,6 +5153,23 @@ new class extends Component
                                                         Joined: {{ $classStudent->enrolled_at->format('M d, Y') }}
                                                     </div>
 
+                                                    {{-- Next Billing Date - Only for automatic payments --}}
+                                                    @if($enrollment && $enrollment->payment_method_type === 'automatic' && in_array($enrollment->subscription_status, ['active', 'trialing']))
+                                                        @php
+                                                            // Try to get next billing date from stored data or trial end
+                                                            $nextBillingDate = $enrollment->getNextPaymentDate() ?? $enrollment->trial_end_at ?? $enrollment->next_payment_date;
+                                                        @endphp
+                                                        @if($nextBillingDate)
+                                                            <div class="text-xs mt-0.5 {{ $enrollment->subscription_status === 'trialing' ? 'text-purple-600' : 'text-blue-600' }}">
+                                                                <flux:icon name="arrow-path" class="w-3 h-3 inline-block mr-1" />
+                                                                Bills: {{ $nextBillingDate->format('d M Y') }}
+                                                                @if($enrollment->subscription_status === 'trialing')
+                                                                    <span class="text-purple-500">(trial ends)</span>
+                                                                @endif
+                                                            </div>
+                                                        @endif
+                                                    @endif
+
                                                     <div class="flex items-center gap-2 mt-2">
                                                         @if($enrollment)
                                                             {{-- Subscription Status Badge --}}
@@ -5116,12 +5271,44 @@ new class extends Component
                                                                 <flux:icon name="credit-card" class="w-4 h-4" />
                                                             </span>
                                                         @endif
+
+                                                        {{-- Stripe Dashboard Link --}}
+                                                        @if($enrollment?->stripe_subscription_id)
+                                                            <a
+                                                                href="https://dashboard.stripe.com/subscriptions/{{ $enrollment->stripe_subscription_id }}"
+                                                                target="_blank"
+                                                                class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 transition-colors"
+                                                                title="View Subscription in Stripe">
+                                                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                                                    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+                                                                </svg>
+                                                            </a>
+                                                        @elseif($student->user?->stripe_id)
+                                                            <a
+                                                                href="https://dashboard.stripe.com/customers/{{ $student->user->stripe_id }}"
+                                                                target="_blank"
+                                                                class="inline-flex items-center gap-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                                                                title="View Customer in Stripe (No subscription)">
+                                                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                                                    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+                                                                </svg>
+                                                            </a>
+                                                        @else
+                                                            <span
+                                                                class="inline-flex items-center gap-1 text-gray-300"
+                                                                title="Not connected to Stripe">
+                                                                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                                                    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+                                                                </svg>
+                                                            </span>
+                                                        @endif
                                                     </div>
                                                 </div>
 
                                                 @if($enrollment)
                                                     <div class="flex items-center gap-1 flex-shrink-0">
-                                                        @if($enrollment->subscription_status !== 'active')
+                                                        {{-- Only show Activate button for manual subscriptions --}}
+                                                        @if($enrollment->subscription_status !== 'active' && $enrollment->manual_payment_required)
                                                             <flux:button
                                                                 wire:click="activateEnrollment({{ $enrollment->id }})"
                                                                 variant="primary"
@@ -5665,6 +5852,96 @@ new class extends Component
                                 {{ $editingEnrollment->student->user?->name ?? 'N/A' }}
                             </flux:text>
                         </div>
+
+                        <!-- Stripe Billing Info - Only for automatic subscriptions -->
+                        @if($editStripeBillingInfo && $editingEnrollment->payment_method_type === 'automatic')
+                            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <svg class="w-5 h-5 text-indigo-600" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+                                    </svg>
+                                    <flux:text class="text-sm font-semibold text-indigo-800">Stripe Billing Information</flux:text>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <flux:text class="text-xs font-medium text-indigo-600">Status</flux:text>
+                                        <div class="mt-1">
+                                            @if($editStripeBillingInfo['status'] === 'active')
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Active</span>
+                                            @elseif($editStripeBillingInfo['status'] === 'trialing')
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Trial</span>
+                                            @elseif($editStripeBillingInfo['status'] === 'past_due')
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Past Due</span>
+                                            @elseif($editStripeBillingInfo['status'] === 'canceled')
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">Canceled</span>
+                                            @else
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{{ ucfirst($editStripeBillingInfo['status']) }}</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <flux:text class="text-xs font-medium text-indigo-600">Next Billing Date</flux:text>
+                                        <flux:text class="text-sm text-indigo-900 mt-1 font-semibold">
+                                            @if($editStripeBillingInfo['trial_end'])
+                                                {{ $editStripeBillingInfo['trial_end']->format('d M Y') }}
+                                                <span class="text-xs font-normal text-indigo-600">(Trial ends)</span>
+                                            @elseif($editStripeBillingInfo['current_period_end'])
+                                                {{ $editStripeBillingInfo['current_period_end']->format('d M Y') }}
+                                            @else
+                                                <span class="text-gray-500">Not available</span>
+                                            @endif
+                                        </flux:text>
+                                    </div>
+                                    @if($editStripeBillingInfo['current_period_start'] && $editStripeBillingInfo['current_period_end'])
+                                        <div>
+                                            <flux:text class="text-xs font-medium text-indigo-600">Current Period</flux:text>
+                                            <flux:text class="text-sm text-indigo-900 mt-1">
+                                                {{ $editStripeBillingInfo['current_period_start']->format('d M') }} - {{ $editStripeBillingInfo['current_period_end']->format('d M Y') }}
+                                            </flux:text>
+                                        </div>
+                                    @endif
+                                    @if($editStripeBillingInfo['cancel_at'])
+                                        <div>
+                                            <flux:text class="text-xs font-medium text-red-600">Cancels On</flux:text>
+                                            <flux:text class="text-sm text-red-700 mt-1">
+                                                {{ $editStripeBillingInfo['cancel_at']->format('d M Y') }}
+                                            </flux:text>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Editable Next Billing Date -->
+                            @if(!$editStripeBillingInfo['cancel_at'] && in_array($editStripeBillingInfo['status'], ['active', 'trialing']))
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <div class="flex items-start gap-3">
+                                        <flux:icon.calendar class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                        <div class="flex-1">
+                                            <flux:text class="text-sm font-medium text-blue-800">Change Next Billing Date</flux:text>
+                                            <flux:text class="text-xs text-blue-700 mt-1">
+                                                Update when the next automatic charge will occur. This will adjust the billing cycle in Stripe.
+                                            </flux:text>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <flux:field>
+                                    <flux:label>Next Billing Date</flux:label>
+                                    <flux:input
+                                        wire:model="editNextBillingDate"
+                                        type="date"
+                                        min="{{ now()->addDay()->format('Y-m-d') }}"
+                                    />
+                                    <flux:description>
+                                        The next automatic charge will happen on this date.
+                                        @if($editStripeBillingInfo['trial_end'])
+                                            Currently in trial until {{ $editStripeBillingInfo['trial_end']->format('d M Y') }}.
+                                        @endif
+                                    </flux:description>
+                                    <flux:error name="editNextBillingDate" />
+                                </flux:field>
+                            @endif
+                        @endif
 
                         <!-- Error Messages -->
                         @if($errors->has('general'))

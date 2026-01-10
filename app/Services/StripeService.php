@@ -300,6 +300,111 @@ class StripeService
         }
     }
 
+    /**
+     * Get or create a Stripe price for an enrollment.
+     * If the enrollment has a custom fee that differs from course settings,
+     * a new price will be created specifically for this enrollment.
+     */
+    public function getOrCreateEnrollmentPrice(Enrollment $enrollment): string
+    {
+        // If enrollment already has its own stripe_price_id, use it
+        if ($enrollment->stripe_price_id) {
+            Log::info('Using existing enrollment-specific price', [
+                'enrollment_id' => $enrollment->id,
+                'stripe_price_id' => $enrollment->stripe_price_id,
+            ]);
+
+            return $enrollment->stripe_price_id;
+        }
+
+        $feeSettings = $enrollment->course->feeSettings;
+
+        if (! $feeSettings) {
+            throw new \Exception('Course must have fee settings configured');
+        }
+
+        if (! $feeSettings->stripe_price_id) {
+            throw new \Exception('Course must have a Stripe price ID before creating subscription');
+        }
+
+        // Check if enrollment fee differs from course fee settings
+        $enrollmentFee = $enrollment->enrollment_fee;
+        $courseFee = $feeSettings->fee_amount;
+
+        // If fees are the same or enrollment fee is not set, use course price
+        if (! $enrollmentFee || abs($enrollmentFee - $courseFee) < 0.01) {
+            Log::info('Using course fee settings price (enrollment fee matches)', [
+                'enrollment_id' => $enrollment->id,
+                'enrollment_fee' => $enrollmentFee,
+                'course_fee' => $courseFee,
+                'stripe_price_id' => $feeSettings->stripe_price_id,
+            ]);
+
+            return $feeSettings->stripe_price_id;
+        }
+
+        // Enrollment has a custom fee - create a new price
+        Log::info('Creating enrollment-specific price (custom fee)', [
+            'enrollment_id' => $enrollment->id,
+            'enrollment_fee' => $enrollmentFee,
+            'course_fee' => $courseFee,
+        ]);
+
+        if (! $enrollment->course->stripe_product_id) {
+            throw new \Exception('Course must have a Stripe product ID before creating prices');
+        }
+
+        if (! $this->isConfigured()) {
+            throw new \Exception('Stripe is not properly configured.');
+        }
+
+        try {
+            $currency = $feeSettings->currency ?? $this->getCurrency();
+            $unitAmount = $this->convertToStripeAmount($enrollmentFee);
+
+            $priceData = [
+                'product' => $enrollment->course->stripe_product_id,
+                'unit_amount' => $unitAmount,
+                'currency' => strtolower($currency),
+                'recurring' => [
+                    'interval' => $feeSettings->getStripeInterval(),
+                    'interval_count' => $feeSettings->getStripeIntervalCount(),
+                ],
+                'metadata' => [
+                    'enrollment_id' => $enrollment->id,
+                    'student_id' => $enrollment->student_id,
+                    'course_id' => $enrollment->course_id,
+                    'custom_enrollment_fee' => true,
+                    'original_course_fee' => $courseFee,
+                    'system' => 'mudeer_bedaie',
+                    'created_at' => now()->toISOString(),
+                ],
+            ];
+
+            $price = $this->stripe->prices->create($priceData);
+
+            // Store the price ID on the enrollment
+            $enrollment->update(['stripe_price_id' => $price->id]);
+
+            Log::info('Enrollment-specific Stripe price created successfully', [
+                'enrollment_id' => $enrollment->id,
+                'stripe_price_id' => $price->id,
+                'unit_amount' => $unitAmount,
+                'enrollment_fee' => $enrollmentFee,
+            ]);
+
+            return $price->id;
+
+        } catch (ApiErrorException $e) {
+            Log::error('Failed to create enrollment-specific Stripe price', [
+                'enrollment_id' => $enrollment->id,
+                'enrollment_fee' => $enrollmentFee,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Failed to create enrollment price: '.$e->getMessage());
+        }
+    }
+
     // Subscription Management
     public function createSubscription(Enrollment $enrollment, PaymentMethod $paymentMethod): array
     {
@@ -307,9 +412,8 @@ class StripeService
             throw new \Exception('Stripe is not properly configured.');
         }
 
-        if (! $enrollment->course->feeSettings->stripe_price_id) {
-            throw new \Exception('Course must have a Stripe price ID before creating subscription');
-        }
+        // Get or create enrollment-specific price (uses enrollment_fee if different from course fee)
+        $stripePriceId = $this->getOrCreateEnrollmentPrice($enrollment);
 
         // Validate payment method before creating subscription
         $validation = $this->validatePaymentMethod($paymentMethod);
@@ -329,7 +433,7 @@ class StripeService
                 'customer' => $stripeCustomer->stripe_customer_id,
                 'items' => [
                     [
-                        'price' => $enrollment->course->feeSettings->stripe_price_id,
+                        'price' => $stripePriceId,
                     ],
                 ],
                 'payment_behavior' => 'allow_incomplete',
@@ -411,9 +515,8 @@ class StripeService
             throw new \Exception('Stripe is not properly configured.');
         }
 
-        if (! $enrollment->course->feeSettings->stripe_price_id) {
-            throw new \Exception('Course must have a Stripe price ID before creating subscription');
-        }
+        // Get or create enrollment-specific price (uses enrollment_fee if different from course fee)
+        $stripePriceId = $this->getOrCreateEnrollmentPrice($enrollment);
 
         // Validate payment method before creating subscription
         $validation = $this->validatePaymentMethod($paymentMethod);
@@ -434,7 +537,7 @@ class StripeService
                 'customer' => $stripeCustomer->stripe_customer_id,
                 'items' => [
                     [
-                        'price' => $enrollment->course->feeSettings->stripe_price_id,
+                        'price' => $stripePriceId,
                     ],
                 ],
                 'payment_behavior' => 'allow_incomplete',
@@ -2208,8 +2311,11 @@ class StripeService
             // Update the subscription to use the new price
             $result = $this->updateSubscriptionPrice($enrollment->stripe_subscription_id, $newPriceId);
 
-            // Update the enrollment fee in our database
-            $enrollment->update(['enrollment_fee' => $newFeeAmount]);
+            // Update the enrollment fee and stripe_price_id in our database
+            $enrollment->update([
+                'enrollment_fee' => $newFeeAmount,
+                'stripe_price_id' => $newPriceId,
+            ]);
 
             Log::info('Subscription fee updated for enrollment', [
                 'enrollment_id' => $enrollment->id,
@@ -2255,9 +2361,8 @@ class StripeService
             throw new \Exception('Stripe is not properly configured.');
         }
 
-        if (! $enrollment->course->feeSettings->stripe_price_id) {
-            throw new \Exception('Course must have a Stripe price ID before creating manual subscription');
-        }
+        // Get or create enrollment-specific price (uses enrollment_fee if different from course fee)
+        $stripePriceId = $this->getOrCreateEnrollmentPrice($enrollment);
 
         $stripeCustomer = $this->createOrGetCustomer($enrollment->student->user);
 
@@ -2271,7 +2376,7 @@ class StripeService
                 'customer' => $stripeCustomer->stripe_customer_id,
                 'items' => [
                     [
-                        'price' => $enrollment->course->feeSettings->stripe_price_id,
+                        'price' => $stripePriceId,
                     ],
                 ],
                 'collection_method' => 'send_invoice', // Use invoice-based collection for manual payments

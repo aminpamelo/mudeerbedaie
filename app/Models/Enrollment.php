@@ -24,6 +24,7 @@ class Enrollment extends Model
         'end_date',
         'completion_date',
         'enrollment_fee',
+        'stripe_price_id',
         'notes',
         'progress_data',
         'stripe_subscription_id',
