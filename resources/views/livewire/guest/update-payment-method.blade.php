@@ -106,16 +106,16 @@ new #[Layout('components.layouts.guest')] class extends Component {
 
             $stripeService = app(StripeService::class);
 
-            // Create/get Stripe customer for the student's user
-            $stripeCustomer = $stripeService->createOrGetCustomer($this->student->user);
-
-            // Create payment method from token
+            // Create payment method from token (method handles customer creation internally)
             $paymentMethod = $stripeService->createPaymentMethodFromToken(
-                $stripeCustomer,
                 $this->student->user,
-                $paymentMethodData['payment_method_id'],
-                $paymentMethodData['set_as_default'] ?? true
+                $paymentMethodData['payment_method_id']
             );
+
+            // Set as default if requested
+            if ($paymentMethod && ($paymentMethodData['set_as_default'] ?? true)) {
+                $paymentMethod->setAsDefault();
+            }
 
             if ($paymentMethod) {
                 // Log the action
