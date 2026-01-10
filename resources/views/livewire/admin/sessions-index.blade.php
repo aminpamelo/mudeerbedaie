@@ -46,7 +46,7 @@ new class extends Component {
     {
         // Get all classes and teachers for filters
         $classes = ClassModel::with('course')->get();
-        $teachers = Teacher::with('user')->get();
+        $teachers = Teacher::with('user')->whereHas('user')->get();
         
         // Build sessions query
         $query = ClassSession::with(['class.course', 'class.teacher.user', 'class.pics', 'attendances.student.user', 'payslips', 'starter', 'assignedTeacher.user']);
@@ -568,17 +568,19 @@ new class extends Component {
             $attendanceCount = $session->attendances->count();
             $presentCount = $session->attendances->whereIn('status', ['present', 'late'])->count();
             $allowance = $session->allowance_amount ? 'RM' . number_format($session->allowance_amount, 2) : '';
-            $teacherName = $session->class->teacher ? $session->class->teacher->user->name : 'N/A';
-            $assignedTeacherName = $session->assignedTeacher ? $session->assignedTeacher->user->name : 'Same as class';
-            $starterName = $session->starter ? $session->starter->name : 'N/A';
+            $teacherName = $session->class->teacher?->user?->name ?? 'N/A';
+            $assignedTeacherName = $session->assignedTeacher?->user?->name ?? 'Same as class';
+            $starterName = $session->starter?->name ?? 'N/A';
             $picNames = $session->class->pics->pluck('name')->join(', ') ?: 'N/A';
+            $courseName = $session->class->course?->name ?? 'N/A';
+            $classTitle = $session->class?->title ?? 'N/A';
 
             $csvContent .= sprintf(
                 "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s\n",
                 $session->session_date->format('Y-m-d'),
                 $session->session_time->format('H:i'),
-                '"' . str_replace('"', '""', $session->class->title) . '"',
-                '"' . str_replace('"', '""', $session->class->course->name) . '"',
+                '"' . str_replace('"', '""', $classTitle) . '"',
+                '"' . str_replace('"', '""', $courseName) . '"',
                 '"' . str_replace('"', '""', $teacherName) . '"',
                 '"' . str_replace('"', '""', $assignedTeacherName) . '"',
                 '"' . str_replace('"', '""', $starterName) . '"',
@@ -718,7 +720,9 @@ new class extends Component {
                     <flux:select wire:model.live="teacherFilter" placeholder="All Teachers" class="min-w-40">
                         <option value="all">All Teachers</option>
                         @foreach($teachers as $teacher)
-                            <option value="{{ $teacher->id }}">{{ $teacher->user->name }}</option>
+                            @if($teacher->user)
+                                <option value="{{ $teacher->id }}">{{ $teacher->user->name }}</option>
+                            @endif
                         @endforeach
                     </flux:select>
                     
@@ -832,15 +836,17 @@ new class extends Component {
                                     <div class="flex items-start justify-between">
                                         <div>
                                             <flux:heading size="sm" class="mb-2">{{ $session->class->title }}</flux:heading>
-                                            <flux:text size="xs" class="text-gray-500  mb-1">
-                                                {{ $session->class->course->name }}
-                                            </flux:text>
-                                            @if($session->class->teacher)
+                                            @if($session->class->course)
+                                                <flux:text size="xs" class="text-gray-500  mb-1">
+                                                    {{ $session->class->course->name }}
+                                                </flux:text>
+                                            @endif
+                                            @if($session->class->teacher?->user)
                                                 <flux:text size="xs" class="text-gray-500 mb-1">
                                                     Teacher: {{ $session->class->teacher->user->name }}
                                                 </flux:text>
                                             @endif
-                                            @if($session->assignedTeacher)
+                                            @if($session->assignedTeacher?->user)
                                                 <div class="flex items-center gap-1 mb-1">
                                                     <flux:text size="xs" class="text-gray-500">
                                                         Assigned: {{ $session->assignedTeacher->user->name }}
@@ -853,7 +859,7 @@ new class extends Component {
                                                     <flux:text size="xs" class="text-gray-500">
                                                         Started by: {{ $session->starter->name }}
                                                     </flux:text>
-                                                    @if($session->class->teacher && $session->started_by !== $session->class->teacher->user_id)
+                                                    @if($session->class->teacher?->user_id && $session->started_by !== $session->class->teacher->user_id)
                                                         <flux:badge color="amber" size="xs">Not Teacher</flux:badge>
                                                     @endif
                                                 </div>
@@ -1116,7 +1122,7 @@ new class extends Component {
                                             View Class
                                         </flux:menu.item>
                                         
-                                        @if($session->class->teacher)
+                                        @if($session->class->teacher?->user)
                                             <flux:menu.item icon="user" href="{{ route('teachers.show', $session->class->teacher) }}" wire:navigate>
                                                 View Teacher
                                             </flux:menu.item>

@@ -1334,12 +1334,15 @@ new class extends Component
                     ->whereIn('status', ['enrolled', 'active'])
                     ->first();
 
-                $expectedAmount = $this->calculateExpectedAmountForStudent($enrollment, $period, $course);
+                // Use class_students.enrolled_at as the billing start date
+                $classEnrolledAt = $classStudent->enrolled_at;
+
+                $expectedAmount = $this->calculateExpectedAmountForStudent($enrollment, $period, $course, $classEnrolledAt);
                 $paidAmount = $paidOrders->sum('amount');
                 $pendingAmount = $pendingOrders->sum('amount');
                 $unpaidAmount = max(0, $expectedAmount - $paidAmount);
 
-                $status = $this->determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount);
+                $status = $this->determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $classEnrolledAt);
 
                 // Find document shipment for this period and student
                 $shipmentItem = null;
@@ -1375,13 +1378,15 @@ new class extends Component
         return $paymentData;
     }
 
-    private function calculateExpectedAmountForStudent($enrollment, $period, $course)
+    private function calculateExpectedAmountForStudent($enrollment, $period, $course, $classEnrolledAt = null)
     {
         if (! $enrollment) {
             return 0;
         }
 
-        $enrollmentStart = $enrollment->start_date ?: $enrollment->enrollment_date;
+        // Use class enrolled_at date as the primary billing start date
+        // Fall back to enrollment dates if class enrolled_at is not available
+        $enrollmentStart = $classEnrolledAt ?: ($enrollment->start_date ?: $enrollment->enrollment_date);
         $periodStart = $period['period_start'];
         $periodEnd = $period['period_end'];
 
@@ -1411,13 +1416,15 @@ new class extends Component
         return 0;
     }
 
-    private function determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount)
+    private function determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $classEnrolledAt = null)
     {
         if (! $enrollment) {
             return 'no_enrollment';
         }
 
-        $enrollmentStart = $enrollment->start_date ?: $enrollment->enrollment_date;
+        // Use class enrolled_at date as the primary billing start date
+        // Fall back to enrollment dates if class enrolled_at is not available
+        $enrollmentStart = $classEnrolledAt ?: ($enrollment->start_date ?: $enrollment->enrollment_date);
         $periodStart = $period['period_start'];
         $periodEnd = $period['period_end'];
 
@@ -4886,6 +4893,12 @@ new class extends Component
                                                             <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
                                                         </div>
                                                     @endif
+
+                                                    {{-- Class Enrollment Date --}}
+                                                    <div class="text-xs text-gray-500 mt-1">
+                                                        <flux:icon name="calendar" class="w-3 h-3 inline-block mr-1" />
+                                                        Joined: {{ $classStudent->enrolled_at->format('M d, Y') }}
+                                                    </div>
 
                                                     <div class="flex items-center gap-2 mt-2">
                                                         @if($enrollment)

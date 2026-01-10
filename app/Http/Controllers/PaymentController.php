@@ -403,4 +403,49 @@ class PaymentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Generate a magic link for student to update payment method (admin only)
+     */
+    public function generateMagicLink(\App\Models\Student $student): JsonResponse
+    {
+        try {
+            // Verify admin permissions
+            if (! Auth::user()->isAdmin()) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            // Generate the magic link token
+            $token = \App\Models\PaymentMethodToken::generateForStudent($student);
+
+            // Log admin action
+            Log::info('Admin generated payment method magic link for student', [
+                'admin_id' => Auth::id(),
+                'admin_name' => Auth::user()->name,
+                'student_id' => $student->id,
+                'student_name' => $student->user->name,
+                'token_id' => $token->id,
+                'expires_at' => $token->expires_at->toIso8601String(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'magic_link' => $token->getMagicLinkUrl(),
+                'expires_at' => $token->expires_at->toIso8601String(),
+                'expires_in' => $token->expires_in,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Admin failed to generate magic link for student', [
+                'admin_id' => Auth::id(),
+                'student_id' => $student->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate magic link: '.$e->getMessage(),
+            ], 500);
+        }
+    }
 }

@@ -2,6 +2,7 @@
 
 use App\Models\Student;
 use App\Models\PaymentMethod;
+use App\Models\PaymentMethodToken;
 use App\Services\StripeService;
 use Livewire\Volt\Component;
 
@@ -12,14 +13,19 @@ new class extends Component {
     public $stripePublishableKey = '';
     public bool $isProcessing = false;
     public bool $isSubmitting = false;
+    public ?string $magicLink = null;
+    public ?string $magicLinkExpiresAt = null;
+    public bool $showMagicLinkModal = false;
+    public bool $isGeneratingLink = false;
 
     public function mount()
     {
         // Load student with user relationship
         $this->student->load(['user']);
-        
+
         $this->loadPaymentMethods();
-        
+        $this->loadExistingMagicLink();
+
         // Get Stripe configuration
         try {
             $stripeService = app(StripeService::class);
@@ -29,6 +35,53 @@ new class extends Component {
         } catch (\Exception $e) {
             session()->flash('warning', 'Payment method management is not available. Stripe is not configured.');
         }
+    }
+
+    public function loadExistingMagicLink()
+    {
+        $existingToken = PaymentMethodToken::where('student_id', $this->student->id)
+            ->valid()
+            ->latest()
+            ->first();
+
+        if ($existingToken) {
+            $this->magicLink = $existingToken->getMagicLinkUrl();
+            $this->magicLinkExpiresAt = $existingToken->expires_at->format('M d, Y \a\t h:i A');
+        }
+    }
+
+    public function generateMagicLink()
+    {
+        try {
+            $this->isGeneratingLink = true;
+
+            $token = PaymentMethodToken::generateForStudent($this->student);
+
+            $this->magicLink = $token->getMagicLinkUrl();
+            $this->magicLinkExpiresAt = $token->expires_at->format('M d, Y \a\t h:i A');
+            $this->showMagicLinkModal = true;
+
+            session()->flash('success', 'Magic link generated successfully! Copy and send it to the student.');
+
+            // Log admin action
+            \Log::info('Admin generated magic link for student', [
+                'admin_id' => auth()->user()->id,
+                'admin_name' => auth()->user()->name,
+                'student_id' => $this->student->id,
+                'student_name' => $this->student->user->name,
+                'token_id' => $token->id,
+                'expires_at' => $token->expires_at->toIso8601String(),
+            ]);
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to generate magic link: ' . $e->getMessage());
+        } finally {
+            $this->isGeneratingLink = false;
+        }
+    }
+
+    public function closeMagicLinkModal()
+    {
+        $this->showMagicLinkModal = false;
     }
 
     public function loadPaymentMethods()
@@ -223,7 +276,18 @@ new class extends Component {
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">Payment Methods for {{ $student->user->name }}</flux:heading>
+            <div class="flex items-center gap-3">
+                <flux:heading size="xl">Payment Methods for {{ $student->user->name }}</flux:heading>
+                @if($hasPaymentMethods)
+                    <flux:badge color="green" size="sm" icon="check-circle">
+                        {{ $paymentMethods->count() }} Saved
+                    </flux:badge>
+                @else
+                    <flux:badge color="amber" size="sm" icon="exclamation-circle">
+                        No Payment Method
+                    </flux:badge>
+                @endif
+            </div>
             <flux:text class="mt-2">Student ID: {{ $student->student_id }} • Email: {{ $student->user->email }}</flux:text>
         </div>
         <div class="flex space-x-3">
@@ -237,6 +301,71 @@ new class extends Component {
             @endif
         </div>
     </div>
+
+    <!-- Magic Link Section -->
+    <flux:card class="mb-6">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                    <flux:icon icon="link" class="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                    <flux:heading size="md">Magic Link for Payment Update</flux:heading>
+                    <flux:text size="sm" class="text-gray-600">
+                        Generate a secure link to send to the student so they can update their payment method without logging in.
+                    </flux:text>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                @if($magicLink)
+                    <flux:button
+                        variant="outline"
+                        size="sm"
+                        wire:click="$set('showMagicLinkModal', true)"
+                        icon="eye"
+                    >
+                        View Link
+                    </flux:button>
+                @endif
+                <flux:button
+                    variant="primary"
+                    size="sm"
+                    wire:click="generateMagicLink"
+                    wire:loading.attr="disabled"
+                    :disabled="$isGeneratingLink"
+                    icon="sparkles"
+                >
+                    @if($isGeneratingLink)
+                        <flux:icon icon="arrow-path" class="w-4 h-4 animate-spin mr-1" />
+                        Generating...
+                    @else
+                        {{ $magicLink ? 'Generate New Link' : 'Generate Magic Link' }}
+                    @endif
+                </flux:button>
+            </div>
+        </div>
+
+        @if($magicLink)
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <div class="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                    <div class="flex-1 min-w-0">
+                        <flux:text size="xs" class="text-gray-500 mb-1">Current Active Link (expires {{ $magicLinkExpiresAt }})</flux:text>
+                        <code class="text-xs text-gray-700 break-all">{{ $magicLink }}</code>
+                    </div>
+                    <flux:button
+                        variant="ghost"
+                        size="sm"
+                        x-data
+                        x-on:click="navigator.clipboard.writeText('{{ $magicLink }}'); $dispatch('notify', {message: 'Link copied to clipboard!', type: 'success'})"
+                        icon="clipboard-document"
+                        class="ml-3 flex-shrink-0"
+                    >
+                        Copy
+                    </flux:button>
+                </div>
+            </div>
+        @endif
+    </flux:card>
 
     <!-- Flash Messages -->
     @if (session('success'))
@@ -455,6 +584,98 @@ new class extends Component {
                         @else
                             Add Payment Method
                         @endif
+                    </flux:button>
+                </div>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Magic Link Modal -->
+    <flux:modal wire:model="showMagicLinkModal" class="max-w-lg">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                        <flux:icon icon="link" class="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                        <flux:heading size="lg">Magic Link Generated</flux:heading>
+                        <flux:text class="text-gray-600">For: {{ $student->user->name }}</flux:text>
+                    </div>
+                </div>
+                <flux:button variant="ghost" size="sm" wire:click="closeMagicLinkModal">
+                    <flux:icon icon="x-mark" class="w-5 h-5" />
+                </flux:button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Link Display -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <flux:text size="sm" class="text-gray-500 mb-2">Copy this link and send it to the student:</flux:text>
+                    <div class="flex items-center space-x-2">
+                        <input
+                            type="text"
+                            readonly
+                            value="{{ $magicLink }}"
+                            class="flex-1 text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            id="magic-link-input"
+                            x-ref="linkInput"
+                        />
+                        <flux:button
+                            variant="primary"
+                            size="sm"
+                            x-data="{ copied: false }"
+                            x-on:click="navigator.clipboard.writeText('{{ $magicLink }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                        >
+                            <span x-show="!copied">Copy</span>
+                            <span x-show="copied" x-cloak>Copied!</span>
+                        </flux:button>
+                    </div>
+                </div>
+
+                <!-- Link Info -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Expires:</span>
+                        <span class="font-medium text-gray-700">{{ $magicLinkExpiresAt }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Valid for:</span>
+                        <span class="font-medium text-gray-700">7 days</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-500">Uses allowed:</span>
+                        <span class="font-medium text-gray-700">Multiple (until expiry)</span>
+                    </div>
+                </div>
+
+                <!-- Instructions -->
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <div class="flex items-start space-x-2">
+                        <flux:icon icon="information-circle" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div class="text-sm text-blue-700">
+                            <p class="font-medium mb-1">How to use this link:</p>
+                            <ol class="list-decimal list-inside space-y-1">
+                                <li>Copy the link above</li>
+                                <li>Send it to the student via email, WhatsApp, or any messaging platform</li>
+                                <li>The student can click the link to update their payment method without logging in</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <flux:button variant="outline" wire:click="closeMagicLinkModal">
+                        Close
+                    </flux:button>
+                    <flux:button
+                        variant="primary"
+                        x-data
+                        x-on:click="navigator.clipboard.writeText('{{ $magicLink }}'); $wire.closeMagicLinkModal()"
+                        icon="clipboard-document"
+                    >
+                        Copy & Close
                     </flux:button>
                 </div>
             </div>

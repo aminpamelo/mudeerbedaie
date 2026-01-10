@@ -47,6 +47,9 @@ Route::middleware(['auth'])->group(function () {
 Volt::route('cart', 'cart.shopping-cart')->name('cart');
 Volt::route('checkout', 'cart.checkout')->name('checkout');
 
+// Guest payment method update (magic link)
+Volt::route('update-payment-method/{token}', 'guest.update-payment-method')->name('payment-method.update-guest');
+
 // Student routes - accessible by students only
 Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
     // Student dashboard (home)
@@ -368,6 +371,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('admin/students/{student}/payment-methods', [App\Http\Controllers\PaymentController::class, 'adminStorePaymentMethod'])->name('admin.students.payment-methods.store');
         Route::delete('admin/students/{student}/payment-methods/{paymentMethod}', [App\Http\Controllers\PaymentController::class, 'adminDeletePaymentMethod'])->name('admin.students.payment-methods.delete');
         Route::patch('admin/students/{student}/payment-methods/{paymentMethod}/default', [App\Http\Controllers\PaymentController::class, 'adminSetDefaultPaymentMethod'])->name('admin.students.payment-methods.default');
+        Route::post('admin/students/{student}/payment-methods/generate-magic-link', [App\Http\Controllers\PaymentController::class, 'generateMagicLink'])->name('admin.students.payment-methods.generate-magic-link');
     });
 });
 
