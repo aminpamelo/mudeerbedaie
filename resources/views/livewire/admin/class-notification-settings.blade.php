@@ -360,6 +360,9 @@ new class extends Component {
             }
         }
 
+        // Clear cached computed property to force refresh on re-render
+        unset($this->scheduledSlots);
+
         if ($totalScheduled > 0) {
             $this->dispatch('notify',
                 type: 'success',
@@ -401,6 +404,9 @@ new class extends Component {
 
         // Schedule notifications based on timetable for the next 7 days
         $scheduled = $service->scheduleNotificationsFromTimetable($this->class, 7);
+
+        // Clear cached computed property to force refresh on re-render
+        unset($this->scheduledSlots);
 
         if (count($scheduled) > 0) {
             $this->dispatch('notify',

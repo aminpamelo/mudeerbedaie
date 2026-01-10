@@ -1050,6 +1050,10 @@ new class extends Component
 
     public $editPaymentMethodType = '';
 
+    public $editNextPaymentDate = '';
+
+    public $editOriginalPaymentMethodType = '';
+
     // Create First Enrollment Modal Properties
     public bool $showCreateFirstEnrollmentModal = false;
 
@@ -1166,7 +1170,12 @@ new class extends Component
     {
         $query = $this->class->activeStudents()
             ->with([
-                'student.user',
+                'student.user.paymentMethods' => function ($q) {
+                    $q->where('is_active', true);
+                },
+                'student.magicLinks' => function ($q) {
+                    $q->valid()->latest()->limit(1);
+                },
                 'student.enrollments' => function ($q) {
                     $q->where('course_id', $this->class->course_id)
                         ->with('enrolledBy');
@@ -1663,6 +1672,9 @@ new class extends Component
             $this->editEnrollmentDate = $this->editingEnrollment->enrollment_date->format('Y-m-d');
             $this->editEnrollmentFee = $this->editingEnrollment->enrollment_fee ?? '';
             $this->editPaymentMethodType = $this->editingEnrollment->payment_method_type ?? 'automatic';
+            $this->editOriginalPaymentMethodType = $this->editPaymentMethodType;
+            // Set default next payment date to tomorrow
+            $this->editNextPaymentDate = now()->addDay()->format('Y-m-d');
             $this->showEditEnrollmentModal = true;
         }
     }
@@ -1674,23 +1686,41 @@ new class extends Component
         $this->editEnrollmentDate = '';
         $this->editEnrollmentFee = '';
         $this->editPaymentMethodType = '';
+        $this->editNextPaymentDate = '';
+        $this->editOriginalPaymentMethodType = '';
     }
 
     public function updateEnrollment()
     {
-        $this->validate([
+        $rules = [
             'editEnrollmentDate' => 'required|date',
             'editEnrollmentFee' => 'required|numeric|min:0',
             'editPaymentMethodType' => 'required|in:automatic,manual',
-        ]);
+        ];
+
+        // If switching from manual to automatic, require next payment date
+        $isSwitchingToAutomatic = $this->editOriginalPaymentMethodType === 'manual'
+            && $this->editPaymentMethodType === 'automatic';
+
+        if ($isSwitchingToAutomatic) {
+            $rules['editNextPaymentDate'] = 'required|date|after:today';
+        }
+
+        $this->validate($rules);
 
         try {
             if ($this->editingEnrollment) {
+                // Update basic enrollment info
                 $this->editingEnrollment->update([
                     'enrollment_date' => $this->editEnrollmentDate,
                     'enrollment_fee' => $this->editEnrollmentFee,
                     'payment_method_type' => $this->editPaymentMethodType,
                 ]);
+
+                // If switching to automatic, create subscription with next payment date
+                if ($isSwitchingToAutomatic) {
+                    $this->createAutomaticSubscription();
+                }
 
                 session()->flash('message', 'Enrollment updated successfully!');
                 $this->closeEditEnrollmentModal();
@@ -1698,6 +1728,48 @@ new class extends Component
         } catch (\Exception $e) {
             $this->addError('general', 'Failed to update enrollment: '.$e->getMessage());
         }
+    }
+
+    protected function createAutomaticSubscription()
+    {
+        $enrollment = $this->editingEnrollment;
+        $student = $enrollment->student;
+        $user = $student->user;
+
+        // Check if student has a payment method
+        $paymentMethod = $user->paymentMethods()->active()->default()->first()
+            ?? $user->paymentMethods()->active()->first();
+
+        if (! $paymentMethod) {
+            throw new \Exception('Student must have an active payment method before switching to automatic payments.');
+        }
+
+        // Check if course has Stripe price ID
+        if (! $enrollment->course->feeSettings?->stripe_price_id) {
+            throw new \Exception('Course must be synced with Stripe first. Go to Course Edit page and click "Sync to Stripe".');
+        }
+
+        $stripeService = app(\App\Services\StripeService::class);
+
+        // Create subscription with the specified next payment date
+        $result = $stripeService->createSubscriptionWithOptions($enrollment, $paymentMethod, [
+            'start_date' => $this->editNextPaymentDate,
+            'start_time' => '07:23',
+            'timezone' => 'Asia/Kuala_Lumpur',
+        ]);
+
+        // Update enrollment with subscription details
+        $enrollment->update([
+            'stripe_subscription_id' => $result['subscription']->id,
+            'subscription_status' => 'active',
+            'manual_payment_required' => false,
+        ]);
+
+        \Log::info('Switched enrollment to automatic payment with scheduled start date', [
+            'enrollment_id' => $enrollment->id,
+            'subscription_id' => $result['subscription']->id,
+            'next_payment_date' => $this->editNextPaymentDate,
+        ]);
     }
 
     // Activate Enrollment Method
@@ -1717,6 +1789,49 @@ new class extends Component
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to activate enrollment: '.$e->getMessage());
         }
+    }
+
+    // Generate Magic Link for Student
+    public function generateMagicLinkForStudent($studentId)
+    {
+        try {
+            $student = \App\Models\Student::find($studentId);
+
+            if (! $student) {
+                session()->flash('error', 'Student not found.');
+
+                return;
+            }
+
+            $token = \App\Models\PaymentMethodToken::generateForStudent($student);
+
+            \Log::info('Admin generated magic link for student from payment reports', [
+                'admin_id' => auth()->user()->id,
+                'admin_name' => auth()->user()->name,
+                'student_id' => $student->id,
+                'student_name' => $student->user->name,
+                'token_id' => $token->id,
+                'expires_at' => $token->expires_at->toIso8601String(),
+            ]);
+
+            session()->flash('message', 'Magic link generated! Click the copy button to copy the link.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to generate magic link: '.$e->getMessage());
+        }
+    }
+
+    // Get Magic Link URL for Student
+    public function getMagicLinkUrl($studentId): ?string
+    {
+        $student = \App\Models\Student::find($studentId);
+
+        if (! $student) {
+            return null;
+        }
+
+        $token = $student->magicLinks()->valid()->latest()->first();
+
+        return $token?->getMagicLinkUrl();
     }
 
     // Create First Enrollment Methods
@@ -4957,6 +5072,50 @@ new class extends Component
                                                                 <flux:icon name="phone" class="w-4 h-4" />
                                                             </a>
                                                         @endif
+
+                                                        {{-- Magic Link Indicator --}}
+                                                        @php
+                                                            $magicLink = $student->magicLinks->first();
+                                                            $hasMagicLink = $magicLink && $magicLink->isValid();
+                                                        @endphp
+                                                        @if($hasMagicLink)
+                                                            <button
+                                                                x-data="{ copied: false }"
+                                                                x-on:click="navigator.clipboard.writeText('{{ $magicLink->getMagicLinkUrl() }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                                                class="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 transition-colors cursor-pointer"
+                                                                title="Copy Magic Link (expires {{ $magicLink->expires_at->format('M d, Y') }})">
+                                                                <flux:icon x-show="!copied" name="clipboard-document" class="w-4 h-4" />
+                                                                <flux:icon x-show="copied" x-cloak name="clipboard-document-check" class="w-4 h-4 text-green-600" />
+                                                            </button>
+                                                        @else
+                                                            <button
+                                                                wire:click="generateMagicLinkForStudent({{ $student->id }})"
+                                                                wire:loading.attr="disabled"
+                                                                class="inline-flex items-center gap-1 text-gray-400 hover:text-purple-600 transition-colors cursor-pointer"
+                                                                title="Generate Magic Link">
+                                                                <flux:icon name="link" class="w-4 h-4" />
+                                                            </button>
+                                                        @endif
+
+                                                        {{-- Payment Method Indicator --}}
+                                                        @php
+                                                            $paymentMethods = $student->user?->paymentMethods ?? collect();
+                                                            $hasPaymentMethod = $paymentMethods->where('is_active', true)->count() > 0;
+                                                            $defaultPaymentMethod = $paymentMethods->where('is_active', true)->where('is_default', true)->first() ?? $paymentMethods->where('is_active', true)->first();
+                                                        @endphp
+                                                        @if($hasPaymentMethod && $defaultPaymentMethod)
+                                                            <span
+                                                                class="inline-flex items-center gap-1 text-green-600"
+                                                                title="Card: {{ ucfirst($defaultPaymentMethod->card_brand ?? 'Card') }} •••• {{ $defaultPaymentMethod->card_last_four ?? '****' }}">
+                                                                <flux:icon name="credit-card" class="w-4 h-4" />
+                                                            </span>
+                                                        @else
+                                                            <span
+                                                                class="inline-flex items-center gap-1 text-gray-300"
+                                                                title="No payment method saved">
+                                                                <flux:icon name="credit-card" class="w-4 h-4" />
+                                                            </span>
+                                                        @endif
                                                     </div>
                                                 </div>
 
@@ -5541,13 +5700,63 @@ new class extends Component
                         <!-- Payment Method Type -->
                         <flux:field>
                             <flux:label>Subscription Type</flux:label>
-                            <flux:select wire:model="editPaymentMethodType" class="w-full">
+                            <flux:select wire:model.live="editPaymentMethodType" class="w-full">
                                 <flux:select.option value="automatic">Automatic (Card Payment)</flux:select.option>
                                 <flux:select.option value="manual">Manual Payment</flux:select.option>
                             </flux:select>
                             <flux:description>Choose how the student will make payments</flux:description>
                             <flux:error name="editPaymentMethodType" />
                         </flux:field>
+
+                        <!-- Next Payment Date - Only show when switching from Manual to Automatic -->
+                        @if($editOriginalPaymentMethodType === 'manual' && $editPaymentMethodType === 'automatic')
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="flex items-start gap-3">
+                                    <flux:icon.information-circle class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                    <div class="flex-1">
+                                        <flux:text class="text-sm font-medium text-blue-800">Schedule First Automatic Charge</flux:text>
+                                        <flux:text class="text-xs text-blue-700 mt-1">
+                                            Since you're switching to automatic payments, choose when the first charge should happen.
+                                            This is useful if the student has already paid manually for this month.
+                                        </flux:text>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <flux:field>
+                                <flux:label>First Payment Date</flux:label>
+                                <flux:input
+                                    wire:model="editNextPaymentDate"
+                                    type="date"
+                                    min="{{ now()->addDay()->format('Y-m-d') }}"
+                                />
+                                <flux:description>
+                                    The first automatic charge will happen on this date. Must be a future date.
+                                </flux:description>
+                                <flux:error name="editNextPaymentDate" />
+                            </flux:field>
+
+                            @php
+                                $hasPaymentMethod = $editingEnrollment->student->user?->paymentMethods()
+                                    ->where('is_active', true)
+                                    ->exists();
+                            @endphp
+
+                            @if(!$hasPaymentMethod)
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                    <div class="flex items-start gap-3">
+                                        <flux:icon.exclamation-triangle class="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                        <div class="flex-1">
+                                            <flux:text class="text-sm font-medium text-yellow-800">No Payment Method</flux:text>
+                                            <flux:text class="text-xs text-yellow-700 mt-1">
+                                                This student doesn't have a saved payment method yet. They need to add a card before you can switch to automatic payments.
+                                                Generate a magic link to allow them to add one.
+                                            </flux:text>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        @endif
 
                         <!-- Actions -->
                         <div class="flex justify-end gap-3 pt-4">

@@ -124,6 +124,11 @@ class Student extends Model
         return $this->hasMany(\App\Models\CertificateIssue::class);
     }
 
+    public function magicLinks(): HasMany
+    {
+        return $this->hasMany(PaymentMethodToken::class);
+    }
+
     public function orders(): HasMany
     {
         return $this->hasMany(ProductOrder::class);

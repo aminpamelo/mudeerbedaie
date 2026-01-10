@@ -156,57 +156,57 @@ new #[Layout('components.layouts.guest')] class extends Component {
     }
 }; ?>
 
-<div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-gray-50 dark:bg-zinc-900 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-lg mx-auto">
         <!-- Logo/Branding -->
         <div class="text-center mb-8">
-            <flux:heading size="xl">Update Payment Method</flux:heading>
-            <flux:text class="mt-2 text-gray-600">Secure payment method management</flux:text>
+            <flux:heading size="xl" class="text-gray-900 dark:text-white">Update Payment Method</flux:heading>
+            <flux:text class="mt-2 text-gray-600 dark:text-zinc-400">Secure payment method management</flux:text>
         </div>
 
         @if(!$isValidToken)
             <!-- Invalid/Expired Token -->
-            <flux:card>
+            <flux:card class="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
                 <div class="text-center py-8">
-                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <flux:icon icon="exclamation-triangle" class="w-8 h-8 text-red-600" />
+                    <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <flux:icon icon="exclamation-triangle" class="w-8 h-8 text-red-600 dark:text-red-400" />
                     </div>
-                    <flux:heading size="lg" class="text-gray-900 mb-2">Link Not Valid</flux:heading>
-                    <flux:text class="text-gray-600 mb-6">{{ $errorMessage }}</flux:text>
-                    <flux:text size="sm" class="text-gray-500">
+                    <flux:heading size="lg" class="text-gray-900 dark:text-white mb-2">Link Not Valid</flux:heading>
+                    <flux:text class="text-gray-600 dark:text-zinc-400 mb-6">{{ $errorMessage }}</flux:text>
+                    <flux:text size="sm" class="text-gray-500 dark:text-zinc-500">
                         If you believe this is an error, please contact your administrator.
                     </flux:text>
                 </div>
             </flux:card>
         @elseif($showSuccess)
             <!-- Success State -->
-            <flux:card>
+            <flux:card class="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
                 <div class="text-center py-8">
-                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <flux:icon icon="check-circle" class="w-8 h-8 text-green-600" />
+                    <div class="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <flux:icon icon="check-circle" class="w-8 h-8 text-green-600 dark:text-green-400" />
                     </div>
-                    <flux:heading size="lg" class="text-gray-900 mb-2">Payment Method Added!</flux:heading>
-                    <flux:text class="text-gray-600 mb-6">
+                    <flux:heading size="lg" class="text-gray-900 dark:text-white mb-2">Payment Method Added!</flux:heading>
+                    <flux:text class="text-gray-600 dark:text-zinc-400 mb-6">
                         Your payment method has been successfully saved. You can now close this page.
                     </flux:text>
 
                     @if($hasPaymentMethods)
-                        <div class="mt-6 pt-6 border-t border-gray-200">
-                            <flux:text class="font-medium text-gray-900 mb-4">Your Saved Payment Methods</flux:text>
+                        <div class="mt-6 pt-6 border-t border-gray-200 dark:border-zinc-700">
+                            <flux:text class="font-medium text-gray-900 dark:text-white mb-4">Your Saved Payment Methods</flux:text>
                             <div class="space-y-3">
                                 @foreach($paymentMethods as $method)
-                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg {{ $method->is_default ? 'ring-2 ring-blue-500' : '' }}">
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg {{ $method->is_default ? 'ring-2 ring-blue-500' : '' }}">
                                         <div class="flex items-center space-x-3">
-                                            <div class="w-10 h-6 bg-gray-200 rounded flex items-center justify-center">
-                                                <span class="text-xs font-bold text-gray-600">
+                                            <div class="w-10 h-6 bg-gray-200 dark:bg-zinc-600 rounded flex items-center justify-center">
+                                                <span class="text-xs font-bold text-gray-600 dark:text-zinc-300">
                                                     {{ strtoupper(substr($method->card_details['brand'] ?? 'CARD', 0, 4)) }}
                                                 </span>
                                             </div>
                                             <div>
-                                                <flux:text size="sm" class="font-medium">
+                                                <flux:text size="sm" class="font-medium text-gray-900 dark:text-white">
                                                     •••• {{ $method->card_details['last4'] ?? '****' }}
                                                 </flux:text>
-                                                <flux:text size="xs" class="text-gray-500">
+                                                <flux:text size="xs" class="text-gray-500 dark:text-zinc-400">
                                                     Expires {{ $method->card_details['exp_month'] ?? '**' }}/{{ $method->card_details['exp_year'] ?? '**' }}
                                                 </flux:text>
                                             </div>
@@ -223,39 +223,39 @@ new #[Layout('components.layouts.guest')] class extends Component {
             </flux:card>
         @else
             <!-- Student Info Card -->
-            <flux:card class="mb-6">
+            <flux:card class="mb-6 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
                 <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span class="text-blue-600 font-semibold text-lg">
+                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                        <span class="text-blue-600 dark:text-blue-400 font-semibold text-lg">
                             {{ strtoupper(substr($student->user->name ?? 'U', 0, 2)) }}
                         </span>
                     </div>
                     <div>
-                        <flux:text class="font-medium text-gray-900">{{ $student->user->name }}</flux:text>
-                        <flux:text size="sm" class="text-gray-500">{{ $student->user->email }}</flux:text>
-                        <flux:text size="xs" class="text-gray-400">Student ID: {{ $student->student_id }}</flux:text>
+                        <flux:text class="font-medium text-gray-900 dark:text-white">{{ $student->user->name }}</flux:text>
+                        <flux:text size="sm" class="text-gray-500 dark:text-zinc-400">{{ $student->user->email }}</flux:text>
+                        <flux:text size="xs" class="text-gray-400 dark:text-zinc-500">Student ID: {{ $student->student_id }}</flux:text>
                     </div>
                 </div>
             </flux:card>
 
             <!-- Flash Messages -->
             @if (session('success'))
-                <div class="mb-6 rounded-md bg-green-50 p-4">
+                <div class="mb-6 rounded-md bg-green-50 dark:bg-green-900/30 p-4 border border-green-200 dark:border-green-800">
                     <div class="flex">
                         <flux:icon icon="check-circle" class="h-5 w-5 text-green-400" />
                         <div class="ml-3">
-                            <p class="text-sm font-medium text-green-800">{{ session('success') }}</p>
+                            <p class="text-sm font-medium text-green-800 dark:text-green-200">{{ session('success') }}</p>
                         </div>
                     </div>
                 </div>
             @endif
 
             @if (session('error'))
-                <div class="mb-6 rounded-md bg-red-50 p-4">
+                <div class="mb-6 rounded-md bg-red-50 dark:bg-red-900/30 p-4 border border-red-200 dark:border-red-800">
                     <div class="flex">
                         <flux:icon icon="x-circle" class="h-5 w-5 text-red-400" />
                         <div class="ml-3">
-                            <p class="text-sm font-medium text-red-800">{{ session('error') }}</p>
+                            <p class="text-sm font-medium text-red-800 dark:text-red-200">{{ session('error') }}</p>
                         </div>
                     </div>
                 </div>
@@ -263,22 +263,22 @@ new #[Layout('components.layouts.guest')] class extends Component {
 
             <!-- Current Payment Methods -->
             @if($hasPaymentMethods)
-                <flux:card class="mb-6">
-                    <flux:heading size="md" class="mb-4">Current Payment Methods</flux:heading>
+                <flux:card class="mb-6 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
+                    <flux:heading size="md" class="mb-4 text-gray-900 dark:text-white">Current Payment Methods</flux:heading>
                     <div class="space-y-3">
                         @foreach($paymentMethods as $method)
-                            <div class="flex items-center justify-between p-3 border rounded-lg {{ $method->is_default ? 'border-blue-500 bg-blue-50' : 'border-gray-200' }}">
+                            <div class="flex items-center justify-between p-3 border rounded-lg {{ $method->is_default ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-zinc-600' }}">
                                 <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-6 bg-gray-200 rounded flex items-center justify-center">
-                                        <span class="text-xs font-bold text-gray-600">
+                                    <div class="w-10 h-6 bg-gray-200 dark:bg-zinc-600 rounded flex items-center justify-center">
+                                        <span class="text-xs font-bold text-gray-600 dark:text-zinc-300">
                                             {{ strtoupper(substr($method->card_details['brand'] ?? 'CARD', 0, 4)) }}
                                         </span>
                                     </div>
                                     <div>
-                                        <flux:text size="sm" class="font-medium">
+                                        <flux:text size="sm" class="font-medium text-gray-900 dark:text-white">
                                             {{ ucfirst($method->card_details['brand'] ?? 'Card') }} •••• {{ $method->card_details['last4'] ?? '****' }}
                                         </flux:text>
-                                        <flux:text size="xs" class="text-gray-500">
+                                        <flux:text size="xs" class="text-gray-500 dark:text-zinc-400">
                                             Expires {{ $method->card_details['exp_month'] ?? '**' }}/{{ $method->card_details['exp_year'] ?? '**' }}
                                         </flux:text>
                                     </div>
@@ -297,39 +297,39 @@ new #[Layout('components.layouts.guest')] class extends Component {
 
             <!-- Add New Payment Method -->
             @if($canAddPaymentMethods)
-                <flux:card>
-                    <flux:heading size="md" class="mb-4">
+                <flux:card class="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
+                    <flux:heading size="md" class="mb-4 text-gray-900 dark:text-white">
                         {{ $hasPaymentMethods ? 'Add New Payment Method' : 'Add Payment Method' }}
                     </flux:heading>
 
                     <div class="space-y-6">
                         <!-- Stripe Elements Card Input -->
                         <div>
-                            <flux:text class="font-medium mb-3">Card Information</flux:text>
-                            <div id="stripe-card-element" class="p-4 border rounded-lg bg-white min-h-[50px]">
+                            <flux:text class="font-medium mb-3 text-gray-900 dark:text-white">Card Information</flux:text>
+                            <div id="stripe-card-element" class="p-4 border border-gray-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-900 min-h-[50px]">
                                 <!-- Stripe Elements will be mounted here -->
-                                <div class="text-center text-gray-500 py-4">
+                                <div class="text-center text-gray-500 dark:text-zinc-400 py-4">
                                     <flux:icon icon="credit-card" class="w-6 h-6 mx-auto mb-2" />
                                     <div class="text-sm">Loading card input...</div>
                                 </div>
                             </div>
-                            <div id="stripe-card-errors" class="mt-2 text-red-600 text-sm"></div>
+                            <div id="stripe-card-errors" class="mt-2 text-red-600 dark:text-red-400 text-sm"></div>
                         </div>
 
                         <!-- Set as Default Option -->
                         <div>
                             <label class="flex items-center">
-                                <input type="checkbox" id="set-as-default" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" checked>
-                                <span class="ml-2 text-sm text-gray-700">Set as default payment method</span>
+                                <input type="checkbox" id="set-as-default" class="rounded border-gray-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500 dark:bg-zinc-700 dark:checked:bg-blue-600" checked>
+                                <span class="ml-2 text-sm text-gray-700 dark:text-zinc-300">Set as default payment method</span>
                             </label>
                         </div>
 
                         <!-- Security Notice -->
-                        <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="bg-gray-50 dark:bg-zinc-700/50 p-4 rounded-lg">
                             <div class="flex items-start text-sm">
-                                <flux:icon icon="shield-check" class="w-5 h-5 mr-2 text-green-500 flex-shrink-0 mt-0.5" />
-                                <div class="text-gray-600">
-                                    <span class="font-medium">Secure Payment Processing</span><br>
+                                <flux:icon icon="shield-check" class="w-5 h-5 mr-2 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                                <div class="text-gray-600 dark:text-zinc-300">
+                                    <span class="font-medium text-gray-900 dark:text-white">Secure Payment Processing</span><br>
                                     Your card information is securely processed by Stripe and never stored on our servers.
                                 </div>
                             </div>
@@ -361,11 +361,11 @@ new #[Layout('components.layouts.guest')] class extends Component {
                     </div>
                 </flux:card>
             @else
-                <flux:card>
+                <flux:card class="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
                     <div class="text-center py-8">
-                        <flux:icon icon="exclamation-triangle" class="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                        <flux:heading size="md" class="text-gray-700 mb-2">Payment System Unavailable</flux:heading>
-                        <flux:text class="text-gray-600">
+                        <flux:icon icon="exclamation-triangle" class="w-12 h-12 text-amber-500 dark:text-amber-400 mx-auto mb-4" />
+                        <flux:heading size="md" class="text-gray-700 dark:text-zinc-300 mb-2">Payment System Unavailable</flux:heading>
+                        <flux:text class="text-gray-600 dark:text-zinc-400">
                             The payment system is currently unavailable. Please try again later or contact support.
                         </flux:text>
                     </div>
@@ -375,7 +375,7 @@ new #[Layout('components.layouts.guest')] class extends Component {
             <!-- Link Expiry Notice -->
             @if($tokenModel)
                 <div class="mt-6 text-center">
-                    <flux:text size="sm" class="text-gray-500">
+                    <flux:text size="sm" class="text-gray-500 dark:text-zinc-500">
                         This link expires {{ $tokenModel->expires_in }}
                     </flux:text>
                 </div>
@@ -403,6 +403,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let cardElement = null;
     let isInitialized = false;
 
+    // Detect dark mode
+    function isDarkMode() {
+        return document.documentElement.classList.contains('dark');
+    }
+
     function initializeStripeCard() {
         const cardContainer = document.getElementById('stripe-card-element');
         if (!cardContainer) {
@@ -419,25 +424,30 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clear any existing placeholder content
             cardContainer.innerHTML = '';
 
-            cardElement = elements.create('card', {
-                style: {
-                    base: {
-                        fontSize: '16px',
-                        color: '#424770',
-                        fontFamily: 'system-ui, -apple-system, sans-serif',
-                        '::placeholder': {
-                            color: '#aab7c4',
-                        },
+            // Get dark mode styling
+            const darkMode = isDarkMode();
+            const cardStyle = {
+                base: {
+                    fontSize: '16px',
+                    color: darkMode ? '#f4f4f5' : '#424770',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    iconColor: darkMode ? '#a1a1aa' : '#6b7280',
+                    '::placeholder': {
+                        color: darkMode ? '#71717a' : '#aab7c4',
                     },
-                    invalid: {
-                        color: '#fa755a',
-                        iconColor: '#fa755a'
-                    }
                 },
+                invalid: {
+                    color: darkMode ? '#f87171' : '#fa755a',
+                    iconColor: darkMode ? '#f87171' : '#fa755a'
+                }
+            };
+
+            cardElement = elements.create('card', {
+                style: cardStyle,
             });
 
             cardElement.mount('#stripe-card-element');
-            console.log('Stripe card element mounted successfully');
+            console.log('Stripe card element mounted successfully', { darkMode });
 
             // Handle real-time validation errors
             cardElement.on('change', ({error}) => {

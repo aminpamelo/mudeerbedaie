@@ -20,6 +20,11 @@ new class extends Component
     public bool $showMagicLinkModal = false;
     public bool $isGeneratingMagicLink = false;
 
+    // Payment method indicator properties
+    public bool $hasPaymentMethods = false;
+    public int $paymentMethodsCount = 0;
+    public ?array $defaultPaymentMethodInfo = null;
+
     // Manual payment properties
     public $showManualPaymentModal = false;
 
@@ -99,6 +104,31 @@ new class extends Component
 
         // Load existing magic link
         $this->loadExistingMagicLink();
+
+        // Load payment method information
+        $this->loadPaymentMethodInfo();
+    }
+
+    public function loadPaymentMethodInfo(): void
+    {
+        $user = $this->enrollment->student->user;
+        $paymentMethods = $user->paymentMethods()->active()->get();
+
+        $this->paymentMethodsCount = $paymentMethods->count();
+        $this->hasPaymentMethods = $this->paymentMethodsCount > 0;
+
+        // Get default payment method info
+        $defaultMethod = $paymentMethods->where('is_default', true)->first() ?? $paymentMethods->first();
+
+        if ($defaultMethod) {
+            $this->defaultPaymentMethodInfo = [
+                'brand' => ucfirst($defaultMethod->card_brand ?? 'Card'),
+                'last4' => $defaultMethod->card_last_four ?? '****',
+                'exp_month' => $defaultMethod->card_exp_month,
+                'exp_year' => $defaultMethod->card_exp_year,
+                'is_default' => $defaultMethod->is_default,
+            ];
+        }
     }
 
     public function loadExistingMagicLink(): void
@@ -2391,6 +2421,46 @@ new class extends Component
                                         <span x-show="!copied">Copy</span>
                                         <span x-show="copied" x-cloak>Copied!</span>
                                     </flux:button>
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Payment Method Status Indicator --}}
+                        @if($hasPaymentMethods && $defaultPaymentMethodInfo)
+                            <div class="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex-shrink-0">
+                                        <flux:icon.check-circle class="h-5 w-5 text-green-500" />
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium text-green-800">Payment Method Saved</p>
+                                        <div class="flex items-center gap-2 mt-1">
+                                            <flux:icon.credit-card class="h-4 w-4 text-green-600" />
+                                            <p class="text-sm text-green-700">
+                                                {{ $defaultPaymentMethodInfo['brand'] }} •••• {{ $defaultPaymentMethodInfo['last4'] }}
+                                                @if($defaultPaymentMethodInfo['exp_month'] && $defaultPaymentMethodInfo['exp_year'])
+                                                    <span class="text-green-600">({{ str_pad($defaultPaymentMethodInfo['exp_month'], 2, '0', STR_PAD_LEFT) }}/{{ substr($defaultPaymentMethodInfo['exp_year'], -2) }})</span>
+                                                @endif
+                                            </p>
+                                            @if($paymentMethodsCount > 1)
+                                                <span class="text-xs text-green-600">+{{ $paymentMethodsCount - 1 }} more</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            <div class="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex-shrink-0">
+                                        <flux:icon.exclamation-triangle class="h-5 w-5 text-yellow-500" />
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium text-yellow-800">No Payment Method</p>
+                                        <p class="text-sm text-yellow-700 mt-1">
+                                            Student has not added a payment method yet. Generate a magic link to allow them to add one.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         @endif
