@@ -331,7 +331,18 @@ class NotificationService
     ): string {
         $course = $class->course;
         $classTeacher = $teacher ?? $class->teacher;
-        $sessionDateTime = Carbon::parse($sessionDate->toDateString().' '.$sessionTime);
+
+        // Handle both time-only format (09:00:00) and datetime format (2026-01-10 09:00:00)
+        // Extract just the time portion if it contains a date
+        if (preg_match('/\d{4}-\d{2}-\d{2}\s+(\d{2}:\d{2}(:\d{2})?)/', $sessionTime, $matches)) {
+            // It's a datetime format, extract just the time
+            $timeOnly = $matches[1];
+        } else {
+            // It's already just the time
+            $timeOnly = $sessionTime;
+        }
+
+        $sessionDateTime = Carbon::parse($sessionDate->toDateString().' '.$timeOnly);
 
         $replacements = [
             '{{student_name}}' => $student?->user?->name ?? '',

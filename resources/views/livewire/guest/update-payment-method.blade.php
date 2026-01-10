@@ -107,7 +107,7 @@ new #[Layout('components.layouts.guest')] class extends Component {
             $stripeService = app(StripeService::class);
 
             // Create/get Stripe customer for the student's user
-            $stripeCustomer = $stripeService->getOrCreateStripeCustomer($this->student->user);
+            $stripeCustomer = $stripeService->createOrGetCustomer($this->student->user);
 
             // Create payment method from token
             $paymentMethod = $stripeService->createPaymentMethodFromToken(
