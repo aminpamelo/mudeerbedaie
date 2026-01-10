@@ -382,12 +382,12 @@ class NotificationService
     private function calculateAttendanceRate(Student $student, ClassModel $class): float
     {
         $totalAttendances = $class->attendances()
-            ->where('student_id', $student->id)
+            ->where('class_attendance.student_id', $student->id)
             ->count();
 
         $presentAttendances = $class->attendances()
-            ->where('student_id', $student->id)
-            ->whereIn('status', ['present', 'late'])
+            ->where('class_attendance.student_id', $student->id)
+            ->whereIn('class_attendance.status', ['present', 'late'])
             ->count();
 
         return $totalAttendances > 0
