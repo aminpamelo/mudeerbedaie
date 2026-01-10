@@ -69,6 +69,14 @@ class SendClassNotificationJob implements ShouldQueue
             return;
         }
 
+        // Extract session time - handle both formats:
+        // - Time only: "18:00:00"
+        // - Full datetime: "2026-01-10 18:00:00" (legacy data with datetime cast)
+        $sessionTime = $notification->scheduled_session_time;
+        if ($sessionTime && preg_match('/\d{4}-\d{2}-\d{2}\s+(\d{2}:\d{2}(:\d{2})?)/', $sessionTime, $matches)) {
+            $sessionTime = $matches[1];
+        }
+
         foreach ($recipients as $recipient) {
             try {
                 // Replace placeholders for this recipient
@@ -78,7 +86,7 @@ class SendClassNotificationJob implements ShouldQueue
                         $subject,
                         $class,
                         Carbon::parse($notification->scheduled_session_date),
-                        $notification->scheduled_session_time,
+                        $sessionTime,
                         $recipient['type'] === 'student' ? $recipient['model'] : null,
                         $recipient['type'] === 'teacher' ? $recipient['model'] : null
                     );
@@ -87,7 +95,7 @@ class SendClassNotificationJob implements ShouldQueue
                         $content,
                         $class,
                         Carbon::parse($notification->scheduled_session_date),
-                        $notification->scheduled_session_time,
+                        $sessionTime,
                         $recipient['type'] === 'student' ? $recipient['model'] : null,
                         $recipient['type'] === 'teacher' ? $recipient['model'] : null
                     );
