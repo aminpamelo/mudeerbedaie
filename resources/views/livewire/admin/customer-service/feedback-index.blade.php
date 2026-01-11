@@ -82,23 +82,23 @@ new class extends Component
             <nav class="flex gap-4 px-6">
                 <button wire:click="$set('statusFilter', '')"
                     class="py-4 px-1 border-b-2 font-medium text-sm {{ $statusFilter === '' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    All <flux:badge size="sm" class="ml-2">{{ $counts['all'] }}</flux:badge>
+                    All <flux:badge size="sm" class="ml-2">{{ number_format($counts['all']) }}</flux:badge>
                 </button>
                 <button wire:click="$set('statusFilter', 'pending')"
                     class="py-4 px-1 border-b-2 font-medium text-sm {{ $statusFilter === 'pending' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    Pending <flux:badge size="sm" color="yellow" class="ml-2">{{ $counts['pending'] }}</flux:badge>
+                    Pending <flux:badge size="sm" color="yellow" class="ml-2">{{ number_format($counts['pending']) }}</flux:badge>
                 </button>
                 <button wire:click="$set('statusFilter', 'reviewed')"
                     class="py-4 px-1 border-b-2 font-medium text-sm {{ $statusFilter === 'reviewed' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    Reviewed <flux:badge size="sm" color="blue" class="ml-2">{{ $counts['reviewed'] }}</flux:badge>
+                    Reviewed <flux:badge size="sm" color="blue" class="ml-2">{{ number_format($counts['reviewed']) }}</flux:badge>
                 </button>
                 <button wire:click="$set('statusFilter', 'responded')"
                     class="py-4 px-1 border-b-2 font-medium text-sm {{ $statusFilter === 'responded' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    Responded <flux:badge size="sm" color="green" class="ml-2">{{ $counts['responded'] }}</flux:badge>
+                    Responded <flux:badge size="sm" color="green" class="ml-2">{{ number_format($counts['responded']) }}</flux:badge>
                 </button>
                 <button wire:click="$set('statusFilter', 'archived')"
                     class="py-4 px-1 border-b-2 font-medium text-sm {{ $statusFilter === 'archived' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    Archived <flux:badge size="sm" color="gray" class="ml-2">{{ $counts['archived'] }}</flux:badge>
+                    Archived <flux:badge size="sm" color="gray" class="ml-2">{{ number_format($counts['archived']) }}</flux:badge>
                 </button>
             </nav>
         </div>

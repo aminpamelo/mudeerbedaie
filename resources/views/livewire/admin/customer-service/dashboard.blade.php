@@ -296,31 +296,31 @@ new class extends Component
         <flux:heading size="lg" class="mb-4">Refund Status Breakdown</flux:heading>
         <div class="grid grid-cols-2 md:grid-cols-7 gap-4">
             <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'pending_review']) }}" wire:navigate class="text-center p-4 rounded-lg bg-yellow-50 hover:bg-yellow-100 transition-colors">
-                <flux:text class="text-2xl font-bold text-yellow-600">{{ $statusBreakdown['pending_review'] }}</flux:text>
+                <flux:text class="text-2xl font-bold text-yellow-600">{{ number_format($statusBreakdown['pending_review']) }}</flux:text>
                 <flux:text size="sm" class="text-gray-600">Pending Review</flux:text>
             </a>
             <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'approved_pending_return']) }}" wire:navigate class="text-center p-4 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
-                <flux:text class="text-2xl font-bold text-blue-600">{{ $statusBreakdown['approved_pending_return'] }}</flux:text>
+                <flux:text class="text-2xl font-bold text-blue-600">{{ number_format($statusBreakdown['approved_pending_return']) }}</flux:text>
                 <flux:text size="sm" class="text-gray-600">Awaiting Return</flux:text>
             </a>
             <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'item_received']) }}" wire:navigate class="text-center p-4 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors">
-                <flux:text class="text-2xl font-bold text-purple-600">{{ $statusBreakdown['item_received'] }}</flux:text>
+                <flux:text class="text-2xl font-bold text-purple-600">{{ number_format($statusBreakdown['item_received']) }}</flux:text>
                 <flux:text size="sm" class="text-gray-600">Item Received</flux:text>
             </a>
             <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'refund_processing']) }}" wire:navigate class="text-center p-4 rounded-lg bg-cyan-50 hover:bg-cyan-100 transition-colors">
-                <flux:text class="text-2xl font-bold text-cyan-600">{{ $statusBreakdown['refund_processing'] }}</flux:text>
+                <flux:text class="text-2xl font-bold text-cyan-600">{{ number_format($statusBreakdown['refund_processing']) }}</flux:text>
                 <flux:text size="sm" class="text-gray-600">Processing</flux:text>
             </a>
             <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'refund_completed']) }}" wire:navigate class="text-center p-4 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
-                <flux:text class="text-2xl font-bold text-green-600">{{ $statusBreakdown['refund_completed'] }}</flux:text>
+                <flux:text class="text-2xl font-bold text-green-600">{{ number_format($statusBreakdown['refund_completed']) }}</flux:text>
                 <flux:text size="sm" class="text-gray-600">Completed</flux:text>
             </a>
             <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'rejected']) }}" wire:navigate class="text-center p-4 rounded-lg bg-red-50 hover:bg-red-100 transition-colors">
-                <flux:text class="text-2xl font-bold text-red-600">{{ $statusBreakdown['rejected'] }}</flux:text>
+                <flux:text class="text-2xl font-bold text-red-600">{{ number_format($statusBreakdown['rejected']) }}</flux:text>
                 <flux:text size="sm" class="text-gray-600">Rejected</flux:text>
             </a>
             <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'cancelled']) }}" wire:navigate class="text-center p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                <flux:text class="text-2xl font-bold text-gray-600">{{ $statusBreakdown['cancelled'] }}</flux:text>
+                <flux:text class="text-2xl font-bold text-gray-600">{{ number_format($statusBreakdown['cancelled']) }}</flux:text>
                 <flux:text size="sm" class="text-gray-600">Cancelled</flux:text>
             </a>
         </div>
@@ -347,23 +347,23 @@ new class extends Component
         <div class="px-6 py-4 border-b border-gray-200">
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <a href="{{ route('admin.customer-service.feedback.index') }}" wire:navigate class="text-center p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <flux:text class="text-xl font-bold text-gray-700">{{ $feedbackStats['total'] }}</flux:text>
+                    <flux:text class="text-xl font-bold text-gray-700">{{ number_format($feedbackStats['total']) }}</flux:text>
                     <flux:text size="sm" class="text-gray-500">Total</flux:text>
                 </a>
                 <a href="{{ route('admin.customer-service.feedback.index', ['status' => 'pending']) }}" wire:navigate class="text-center p-3 rounded-lg bg-yellow-50 hover:bg-yellow-100 transition-colors">
-                    <flux:text class="text-xl font-bold text-yellow-600">{{ $feedbackStats['pending'] }}</flux:text>
+                    <flux:text class="text-xl font-bold text-yellow-600">{{ number_format($feedbackStats['pending']) }}</flux:text>
                     <flux:text size="sm" class="text-gray-500">Pending</flux:text>
                 </a>
                 <a href="{{ route('admin.customer-service.feedback.index', ['status' => 'responded']) }}" wire:navigate class="text-center p-3 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
-                    <flux:text class="text-xl font-bold text-green-600">{{ $feedbackStats['responded'] }}</flux:text>
+                    <flux:text class="text-xl font-bold text-green-600">{{ number_format($feedbackStats['responded']) }}</flux:text>
                     <flux:text size="sm" class="text-gray-500">Responded</flux:text>
                 </a>
                 <a href="{{ route('admin.customer-service.feedback.index', ['type' => 'complaint']) }}" wire:navigate class="text-center p-3 rounded-lg bg-red-50 hover:bg-red-100 transition-colors">
-                    <flux:text class="text-xl font-bold text-red-600">{{ $feedbackStats['complaints'] }}</flux:text>
+                    <flux:text class="text-xl font-bold text-red-600">{{ number_format($feedbackStats['complaints']) }}</flux:text>
                     <flux:text size="sm" class="text-gray-500">Complaints</flux:text>
                 </a>
                 <a href="{{ route('admin.customer-service.feedback.index', ['type' => 'compliment']) }}" wire:navigate class="text-center p-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors">
-                    <flux:text class="text-xl font-bold text-emerald-600">{{ $feedbackStats['compliments'] }}</flux:text>
+                    <flux:text class="text-xl font-bold text-emerald-600">{{ number_format($feedbackStats['compliments']) }}</flux:text>
                     <flux:text size="sm" class="text-gray-500">Compliments</flux:text>
                 </a>
             </div>
