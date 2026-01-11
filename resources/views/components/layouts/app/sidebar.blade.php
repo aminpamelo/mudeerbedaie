@@ -155,6 +155,7 @@
                     <flux:navlist.item icon="lifebuoy" :href="route('admin.customer-service.dashboard')" :current="request()->routeIs('admin.customer-service.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-path" :href="route('admin.customer-service.return-refunds.index')" :current="request()->routeIs('admin.customer-service.return-refunds.*')" wire:navigate>{{ __('Return & Refunds') }}</flux:navlist.item>
                     <flux:navlist.item icon="ticket" :href="route('admin.customer-service.tickets.index')" :current="request()->routeIs('admin.customer-service.tickets.*')" wire:navigate>{{ __('Tickets') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chat-bubble-left-right" :href="route('admin.customer-service.feedback.index')" :current="request()->routeIs('admin.customer-service.feedback.*')" wire:navigate>{{ __('Feedback') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group

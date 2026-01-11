@@ -334,6 +334,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('customer-service/tickets', 'admin.customer-service.tickets-index')->name('admin.customer-service.tickets.index');
     Volt::route('customer-service/tickets/create', 'admin.customer-service.tickets-create')->name('admin.customer-service.tickets.create');
     Volt::route('customer-service/tickets/{ticket}', 'admin.customer-service.tickets-show')->name('admin.customer-service.tickets.show');
+
+    // Customer Service - Feedback
+    Volt::route('customer-service/feedback', 'admin.customer-service.feedback-index')->name('admin.customer-service.feedback.index');
+    Volt::route('customer-service/feedback/{feedback}', 'admin.customer-service.feedback-show')->name('admin.customer-service.feedback.show');
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)
