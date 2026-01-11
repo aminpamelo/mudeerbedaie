@@ -67,6 +67,11 @@ Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
     // Payment method management for students
     Volt::route('payment-methods', 'student.payment-methods')->name('student.payment-methods');
 
+    // Refund requests for students
+    Volt::route('refund-requests', 'student.refund-requests')->name('student.refund-requests');
+    Volt::route('refund-requests/create', 'student.refund-request-create')->name('student.refund-requests.create');
+    Volt::route('refund-requests/{refund}', 'student.refund-request-show')->name('student.refund-requests.show');
+
     // Legacy invoice routes (will be removed later)
     Volt::route('invoices', 'student.invoice-list')->name('student.invoices');
     Volt::route('invoices/{invoice}', 'student.invoice-show')->name('student.invoices.show');

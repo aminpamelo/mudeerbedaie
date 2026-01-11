@@ -324,6 +324,7 @@
                     @click="saveState('studentAccount', $event)"
                 >
                     <flux:navlist.item icon="clipboard-document-list" :href="route('student.orders')" :current="request()->routeIs('student.orders*')" wire:navigate>{{ __('Order History') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrow-path" :href="route('student.refund-requests')" :current="request()->routeIs('student.refund-requests*')" wire:navigate>{{ __('Refund Requests') }}</flux:navlist.item>
                     <flux:navlist.item icon="credit-card" :href="route('student.payment-methods')" :current="request()->routeIs('student.payment-methods*')" wire:navigate>{{ __('Payment Methods') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
