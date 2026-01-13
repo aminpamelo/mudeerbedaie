@@ -88,16 +88,20 @@ class PaymentMethodToken extends Model
 
     /**
      * Record token usage
-     * Note: We must explicitly include expires_at to prevent MySQL's
-     * auto-update behavior on timestamp columns
+     * Using raw DB query to prevent any Eloquent/MySQL timestamp auto-update issues
      */
     public function recordUsage(): void
     {
-        $this->update([
-            'last_used_at' => now(),
-            'usage_count' => $this->usage_count + 1,
-            'expires_at' => $this->expires_at, // Preserve the original expiry date
-        ]);
+        // Use raw DB query to avoid any Eloquent attribute casting or MySQL auto-update issues
+        \DB::table('payment_method_tokens')
+            ->where('id', $this->id)
+            ->update([
+                'last_used_at' => now(),
+                'usage_count' => $this->usage_count + 1,
+            ]);
+
+        // Refresh the model to get updated values
+        $this->refresh();
     }
 
     /**
