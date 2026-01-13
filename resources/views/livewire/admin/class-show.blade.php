@@ -5233,38 +5233,45 @@ new class extends Component
                                                             $magicLink = $student->magicLinks->first();
                                                             $hasMagicLink = $magicLink && $magicLink->isValid();
                                                         @endphp
-                                                        @if($hasMagicLink)
-                                                            <button
-                                                                x-data="{ copied: false }"
-                                                                x-on:click="navigator.clipboard.writeText('{{ $magicLink->getMagicLinkUrl() }}'); copied = true; setTimeout(() => copied = false, 2000)"
-                                                                class="relative inline-flex items-center justify-center text-purple-600 hover:text-purple-800 transition-colors cursor-pointer"
-                                                                title="Copy Magic Link (expires {{ $magicLink->expires_at->format('M d, Y') }})">
-                                                                <span x-show="!copied" class="inline-flex">
-                                                                    <flux:icon name="clipboard-document" class="w-4 h-4" />
-                                                                </span>
-                                                                <span x-show="copied" x-cloak class="inline-flex text-green-600">
-                                                                    <flux:icon name="clipboard-document-check" class="w-4 h-4" />
-                                                                </span>
-                                                            </button>
-                                                        @else
-                                                            <button
-                                                                wire:click="generateMagicLinkForStudent({{ $student->id }})"
-                                                                wire:loading.attr="disabled"
-                                                                wire:loading.class="opacity-50"
-                                                                wire:target="generateMagicLinkForStudent({{ $student->id }})"
-                                                                class="inline-flex items-center justify-center text-gray-400 hover:text-purple-600 transition-colors cursor-pointer disabled:cursor-wait"
-                                                                title="Generate Magic Link">
-                                                                <span wire:loading.remove wire:target="generateMagicLinkForStudent({{ $student->id }})">
-                                                                    <flux:icon name="link" class="w-4 h-4" />
-                                                                </span>
-                                                                <span wire:loading wire:target="generateMagicLinkForStudent({{ $student->id }})" class="inline-flex">
-                                                                    <svg class="animate-spin w-4 h-4 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                    </svg>
-                                                                </span>
-                                                            </button>
-                                                        @endif
+                                                        <div wire:key="magic-link-{{ $student->id }}-{{ $hasMagicLink ? 'copy' : 'generate' }}">
+                                                            @if($hasMagicLink)
+                                                                <button
+                                                                    x-data="{ copied: false }"
+                                                                    x-init="copied = false"
+                                                                    @click="navigator.clipboard.writeText('{{ $magicLink->getMagicLinkUrl() }}').then(() => { copied = true; setTimeout(() => { copied = false }, 2000) })"
+                                                                    class="relative inline-flex items-center justify-center text-purple-600 hover:text-purple-800 transition-colors cursor-pointer"
+                                                                    title="Copy Magic Link (expires {{ $magicLink->expires_at->format('M d, Y') }})">
+                                                                    <template x-if="!copied">
+                                                                        <span class="inline-flex">
+                                                                            <flux:icon name="clipboard-document" class="w-4 h-4" />
+                                                                        </span>
+                                                                    </template>
+                                                                    <template x-if="copied">
+                                                                        <span class="inline-flex text-green-600">
+                                                                            <flux:icon name="clipboard-document-check" class="w-4 h-4" />
+                                                                        </span>
+                                                                    </template>
+                                                                </button>
+                                                            @else
+                                                                <button
+                                                                    wire:click="generateMagicLinkForStudent({{ $student->id }})"
+                                                                    wire:loading.attr="disabled"
+                                                                    wire:loading.class="opacity-50"
+                                                                    wire:target="generateMagicLinkForStudent({{ $student->id }})"
+                                                                    class="inline-flex items-center justify-center text-gray-400 hover:text-purple-600 transition-colors cursor-pointer disabled:cursor-wait"
+                                                                    title="Generate Magic Link">
+                                                                    <span wire:loading.remove wire:target="generateMagicLinkForStudent({{ $student->id }})">
+                                                                        <flux:icon name="link" class="w-4 h-4" />
+                                                                    </span>
+                                                                    <span wire:loading wire:target="generateMagicLinkForStudent({{ $student->id }})" class="inline-flex">
+                                                                        <svg class="animate-spin w-4 h-4 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                        </svg>
+                                                                    </span>
+                                                                </button>
+                                                            @endif
+                                                        </div>
 
                                                         {{-- Payment Method Indicator --}}
                                                         @php
