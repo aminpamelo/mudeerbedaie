@@ -15,6 +15,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Only run for MySQL/MariaDB - SQLite doesn't have this issue
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         // Remove the ON UPDATE CURRENT_TIMESTAMP behavior from expires_at
         // This ensures expires_at only changes when explicitly set
         DB::statement('ALTER TABLE payment_method_tokens MODIFY COLUMN expires_at TIMESTAMP NOT NULL');
