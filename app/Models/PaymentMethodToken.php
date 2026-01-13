@@ -88,12 +88,15 @@ class PaymentMethodToken extends Model
 
     /**
      * Record token usage
+     * Note: We must explicitly include expires_at to prevent MySQL's
+     * auto-update behavior on timestamp columns
      */
     public function recordUsage(): void
     {
         $this->update([
             'last_used_at' => now(),
             'usage_count' => $this->usage_count + 1,
+            'expires_at' => $this->expires_at, // Preserve the original expiry date
         ]);
     }
 
