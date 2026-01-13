@@ -1930,7 +1930,7 @@ new class extends Component
     }
 
     // Generate Magic Link for Student
-    public function generateMagicLinkForStudent($studentId)
+    public function generateMagicLinkForStudent($studentId, $forceRegenerate = false)
     {
         try {
             $student = \App\Models\Student::find($studentId);
@@ -1938,6 +1938,15 @@ new class extends Component
             if (! $student) {
                 session()->flash('error', 'Student not found.');
 
+                return;
+            }
+
+            // Check if a valid magic link already exists
+            $existingToken = $student->magicLinks()->valid()->first();
+
+            if ($existingToken && !$forceRegenerate) {
+                // Don't regenerate, just refresh the page to show the existing link
+                session()->flash('message', 'A valid magic link already exists for this student. Click the copy button to copy it.');
                 return;
             }
 
@@ -1956,6 +1965,12 @@ new class extends Component
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to generate magic link: '.$e->getMessage());
         }
+    }
+
+    // Force regenerate Magic Link for Student (invalidates existing links)
+    public function regenerateMagicLinkForStudent($studentId)
+    {
+        $this->generateMagicLinkForStudent($studentId, true);
     }
 
     // Get Magic Link URL for Student
@@ -5233,14 +5248,26 @@ new class extends Component
                                                             $magicLink = $student->magicLinks->first();
                                                             $hasMagicLink = $magicLink && $magicLink->isValid();
                                                         @endphp
-                                                        <div wire:key="magic-link-{{ $student->id }}-{{ $hasMagicLink ? 'copy' : 'generate' }}">
+                                                        <div wire:key="magic-link-{{ $student->id }}-{{ $hasMagicLink ? $magicLink->id : 'none' }}" class="relative"
+                                                             x-data="{
+                                                                 copied: false,
+                                                                 showMenu: false,
+                                                                 copyLink() {
+                                                                     @if($hasMagicLink)
+                                                                     navigator.clipboard.writeText('{{ $magicLink->getMagicLinkUrl() }}').then(() => {
+                                                                         this.copied = true;
+                                                                         setTimeout(() => { this.copied = false }, 2000);
+                                                                     });
+                                                                     @endif
+                                                                 }
+                                                             }"
+                                                             @click.away="showMenu = false">
                                                             @if($hasMagicLink)
                                                                 <button
-                                                                    x-data="{ copied: false }"
-                                                                    x-init="copied = false"
-                                                                    @click="navigator.clipboard.writeText('{{ $magicLink->getMagicLinkUrl() }}').then(() => { copied = true; setTimeout(() => { copied = false }, 2000) })"
+                                                                    @click="copyLink()"
+                                                                    @contextmenu.prevent="showMenu = !showMenu"
                                                                     class="relative inline-flex items-center justify-center text-purple-600 hover:text-purple-800 transition-colors cursor-pointer"
-                                                                    title="Copy Magic Link (expires {{ $magicLink->expires_at->format('M d, Y') }})">
+                                                                    title="Click to copy magic link (expires {{ $magicLink->expires_at->format('M d, Y') }}) • Right-click for options">
                                                                     <template x-if="!copied">
                                                                         <span class="inline-flex">
                                                                             <flux:icon name="clipboard-document" class="w-4 h-4" />
@@ -5252,6 +5279,33 @@ new class extends Component
                                                                         </span>
                                                                     </template>
                                                                 </button>
+                                                                {{-- Right-click context menu --}}
+                                                                <div x-show="showMenu"
+                                                                     x-cloak
+                                                                     x-transition:enter="transition ease-out duration-100"
+                                                                     x-transition:enter-start="transform opacity-0 scale-95"
+                                                                     x-transition:enter-end="transform opacity-100 scale-100"
+                                                                     x-transition:leave="transition ease-in duration-75"
+                                                                     x-transition:leave-start="transform opacity-100 scale-100"
+                                                                     x-transition:leave-end="transform opacity-0 scale-95"
+                                                                     class="absolute left-0 top-6 z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                                                                    <button @click="copyLink(); showMenu = false"
+                                                                            class="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                                                                        <flux:icon name="clipboard-document" class="w-4 h-4" />
+                                                                        Copy Link
+                                                                    </button>
+                                                                    <button wire:click="regenerateMagicLinkForStudent({{ $student->id }})"
+                                                                            wire:confirm="This will invalidate the current magic link. The client will need to use the new link. Are you sure?"
+                                                                            @click="showMenu = false"
+                                                                            class="w-full px-3 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2">
+                                                                        <flux:icon name="arrow-path" class="w-4 h-4" />
+                                                                        Regenerate Link
+                                                                    </button>
+                                                                    <div class="border-t border-gray-100 my-1"></div>
+                                                                    <div class="px-3 py-2 text-xs text-gray-500">
+                                                                        Expires: {{ $magicLink->expires_at->format('M d, Y') }}
+                                                                    </div>
+                                                                </div>
                                                             @else
                                                                 <button
                                                                     wire:click="generateMagicLinkForStudent({{ $student->id }})"
