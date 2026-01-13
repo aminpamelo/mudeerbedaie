@@ -137,14 +137,31 @@ new #[Layout('components.layouts.guest')] class extends Component
             $expiredToken = PaymentMethodToken::where('token', $this->token)->first();
 
             if ($expiredToken) {
+                // Log detailed info for debugging
+                \Log::warning('Magic link validation failed', [
+                    'token_id' => $expiredToken->id,
+                    'token_prefix' => substr($this->token, 0, 10) . '...',
+                    'student_id' => $expiredToken->student_id,
+                    'is_active' => $expiredToken->is_active,
+                    'expires_at' => $expiredToken->expires_at?->toIso8601String(),
+                    'now' => now()->toIso8601String(),
+                    'is_expired_check' => $expiredToken->isExpired(),
+                    'expires_at_is_past' => $expiredToken->expires_at?->isPast(),
+                    'created_at' => $expiredToken->created_at?->toIso8601String(),
+                ]);
+
                 if ($expiredToken->isExpired()) {
                     $this->errorMessage = 'This link has expired. Please contact the administrator for a new link.';
                     $this->errorMessageMy = 'Pautan ini telah tamat tempoh. Sila hubungi pentadbir untuk pautan baharu.';
                 } else {
-                    $this->errorMessage = 'This link is no longer valid. Please contact the administrator for a new link.';
-                    $this->errorMessageMy = 'Pautan ini tidak lagi sah. Sila hubungi pentadbir untuk pautan baharu.';
+                    $this->errorMessage = 'This link is no longer valid (deactivated). Please contact the administrator for a new link.';
+                    $this->errorMessageMy = 'Pautan ini tidak lagi sah (dinyahaktifkan). Sila hubungi pentadbir untuk pautan baharu.';
                 }
             } else {
+                \Log::warning('Magic link not found in database', [
+                    'token_prefix' => substr($this->token, 0, 10) . '...',
+                    'token_length' => strlen($this->token),
+                ]);
                 $this->errorMessage = 'Invalid link. Please contact the administrator for assistance.';
                 $this->errorMessageMy = 'Pautan tidak sah. Sila hubungi pentadbir untuk bantuan.';
             }
@@ -160,6 +177,12 @@ new #[Layout('components.layouts.guest')] class extends Component
 
         // Record token usage
         $this->tokenModel->recordUsage();
+
+        \Log::info('Magic link validated successfully', [
+            'token_id' => $this->tokenModel->id,
+            'student_id' => $this->student->id,
+            'expires_at' => $this->tokenModel->expires_at->toIso8601String(),
+        ]);
     }
 
     protected function initializeStripe(): void

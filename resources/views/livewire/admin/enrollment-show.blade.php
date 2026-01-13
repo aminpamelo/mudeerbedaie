@@ -144,10 +144,22 @@ new class extends Component
         }
     }
 
-    public function generateMagicLink(): void
+    public function generateMagicLink(bool $forceRegenerate = false): void
     {
         try {
             $this->isGeneratingMagicLink = true;
+
+            // Check if a valid magic link already exists
+            $existingToken = $this->enrollment->student->magicLinks()->valid()->first();
+
+            if ($existingToken && !$forceRegenerate) {
+                // Use existing token instead of generating a new one
+                $this->magicLink = $existingToken->getMagicLinkUrl();
+                $this->magicLinkExpiresAt = $existingToken->expires_at->format('M d, Y \a\t h:i A');
+                $this->showMagicLinkModal = true;
+                session()->flash('info', 'Using existing magic link. Click "Regenerate" to create a new one (this will invalidate the current link).');
+                return;
+            }
 
             $token = PaymentMethodToken::generateForStudent($this->enrollment->student);
 
@@ -171,6 +183,11 @@ new class extends Component
         } finally {
             $this->isGeneratingMagicLink = false;
         }
+    }
+
+    public function regenerateMagicLink(): void
+    {
+        $this->generateMagicLink(true);
     }
 
     public function closeMagicLinkModal(): void

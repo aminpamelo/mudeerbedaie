@@ -407,12 +407,29 @@ class PaymentController extends Controller
     /**
      * Generate a magic link for student to update payment method (admin only)
      */
-    public function generateMagicLink(\App\Models\Student $student): JsonResponse
+    public function generateMagicLink(\App\Models\Student $student, Request $request): JsonResponse
     {
         try {
             // Verify admin permissions
             if (! Auth::user()->isAdmin()) {
                 return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            $forceRegenerate = $request->boolean('force_regenerate', false);
+
+            // Check if a valid magic link already exists
+            $existingToken = $student->magicLinks()->valid()->first();
+
+            if ($existingToken && !$forceRegenerate) {
+                // Return existing token instead of generating a new one
+                return response()->json([
+                    'success' => true,
+                    'magic_link' => $existingToken->getMagicLinkUrl(),
+                    'expires_at' => $existingToken->expires_at->toIso8601String(),
+                    'expires_in' => $existingToken->expires_in,
+                    'is_existing' => true,
+                    'message' => 'Using existing magic link. Set force_regenerate=true to create a new one (this will invalidate the current link).',
+                ]);
             }
 
             // Generate the magic link token
@@ -433,6 +450,7 @@ class PaymentController extends Controller
                 'magic_link' => $token->getMagicLinkUrl(),
                 'expires_at' => $token->expires_at->toIso8601String(),
                 'expires_in' => $token->expires_in,
+                'is_existing' => false,
             ]);
 
         } catch (\Exception $e) {
