@@ -893,96 +893,194 @@ new class extends Component {
                 $dispatch('notify', { type: 'success', message: 'Placeholder disalin: ' + text });
             }
         }">
-            <flux:heading size="lg" class="mb-4">Edit Tetapan Notifikasi</flux:heading>
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-4 border-b border-gray-200 mb-5">
+                <div>
+                    <flux:heading size="lg">Edit Tetapan Notifikasi</flux:heading>
+                    <flux:text class="text-gray-500 text-sm mt-1">Konfigurasikan tetapan untuk notifikasi ini</flux:text>
+                </div>
+            </div>
 
-            <div class="space-y-4">
-                <!-- Template Selection -->
-                <flux:field>
-                    <flux:label>Templat</flux:label>
-                    <flux:select wire:model.live="selectedTemplateId">
+            <div class="space-y-5">
+                <!-- Template Selection Card -->
+                <div class="bg-gradient-to-br from-slate-50 to-gray-50 border border-gray-200 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <flux:icon.document-text class="w-4 h-4 text-blue-600" />
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-900 text-sm">Templat E-mel</p>
+                                <p class="text-xs text-gray-500">Pilih templat untuk notifikasi ini</p>
+                            </div>
+                        </div>
+                        @if($this->selectedTemplate)
+                            <a
+                                href="{{ route('admin.settings.notifications.builder', $this->selectedTemplate) }}"
+                                target="_blank"
+                                class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                            >
+                                <flux:icon.pencil-square class="w-4 h-4" />
+                                Edit Templat
+                            </a>
+                        @endif
+                    </div>
+
+                    <flux:select wire:model.live="selectedTemplateId" class="w-full">
                         <option value="">-- Pilih Templat --</option>
                         @foreach($this->templates as $type => $templateGroup)
                             <optgroup label="{{ ucfirst(str_replace('_', ' ', $type)) }}">
                                 @foreach($templateGroup as $template)
                                     <option value="{{ $template->id }}">
                                         {{ $template->name }} ({{ strtoupper($template->language) }})
+                                        @if($template->isVisualEditor()) - Visual @endif
                                     </option>
                                 @endforeach
                             </optgroup>
                         @endforeach
                     </flux:select>
-                </flux:field>
+                </div>
 
                 <!-- Template Preview -->
                 @if($this->selectedTemplate)
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
-                        <div class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            <flux:icon.eye class="w-4 h-4" />
-                            Pratonton Templat
-                        </div>
-
-                        @if($this->selectedTemplate->subject)
-                            <div>
-                                <p class="text-xs font-medium text-gray-500 mb-1">Subjek:</p>
-                                <p class="text-sm bg-white p-2 rounded border border-gray-100">{{ $this->selectedTemplate->subject }}</p>
+                    <div class="border border-gray-200 rounded-xl overflow-hidden">
+                        <!-- Preview Header -->
+                        <div class="bg-gradient-to-r from-gray-100 to-slate-100 px-4 py-3 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <flux:icon.eye class="w-4 h-4 text-gray-600" />
+                                    <span class="font-medium text-gray-700 text-sm">Pratonton Templat</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    @if($this->selectedTemplate->isVisualEditor())
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                                            <flux:icon.paint-brush class="w-3 h-3" />
+                                            Visual Editor
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                                            <flux:icon.code-bracket class="w-3 h-3" />
+                                            Teks
+                                        </span>
+                                    @endif
+                                </div>
                             </div>
-                        @endif
-
-                        <div>
-                            <p class="text-xs font-medium text-gray-500 mb-1">Kandungan:</p>
-                            <div class="text-sm bg-white p-3 rounded border border-gray-100 max-h-40 overflow-y-auto whitespace-pre-wrap">{{ $this->selectedTemplate->content }}</div>
                         </div>
+
+                        <!-- Preview Content -->
+                        <div class="bg-white p-4 space-y-4">
+                            @if($this->selectedTemplate->subject)
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Subjek</label>
+                                    <div class="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5 text-sm text-gray-900">
+                                        {{ $this->selectedTemplate->subject }}
+                                    </div>
+                                </div>
+                            @endif
+
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Kandungan</label>
+                                @if($this->selectedTemplate->isVisualEditor())
+                                    <div class="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-lg p-4 text-center">
+                                        <flux:icon.paint-brush class="w-8 h-8 mx-auto text-purple-400 mb-2" />
+                                        <p class="text-sm text-purple-700 font-medium">Templat Visual</p>
+                                        <p class="text-xs text-purple-600 mt-1">Klik "Edit Templat" untuk melihat dan mengubah reka bentuk</p>
+                                    </div>
+                                @else
+                                    <div class="bg-gray-50 border border-gray-100 rounded-lg p-3 max-h-40 overflow-y-auto">
+                                        <div class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{{ $this->selectedTemplate->content }}</div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <!-- No Template Selected State -->
+                    <div class="border border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50/50">
+                        <flux:icon.document class="w-10 h-10 mx-auto text-gray-300 mb-3" />
+                        <p class="text-gray-500 text-sm">Pilih templat untuk melihat pratonton</p>
                     </div>
                 @endif
 
-                <!-- Recipients -->
-                <div class="grid grid-cols-2 gap-4">
-                    <flux:field>
-                        <flux:checkbox wire:model="sendToStudents" label="Hantar kepada Pelajar" />
-                    </flux:field>
-                    <flux:field>
-                        <flux:checkbox wire:model="sendToTeacher" label="Hantar kepada Guru" />
-                    </flux:field>
+                <!-- Recipients Card -->
+                <div class="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center">
+                            <flux:icon.users class="w-4 h-4 text-green-600" />
+                        </div>
+                        <span class="font-semibold text-gray-900 text-sm">Penerima Notifikasi</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
+                            <input type="checkbox" wire:model="sendToStudents" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            <div>
+                                <p class="font-medium text-gray-900 text-sm">Pelajar</p>
+                                <p class="text-xs text-gray-500">Semua pelajar dalam kelas</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
+                            <input type="checkbox" wire:model="sendToTeacher" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            <div>
+                                <p class="font-medium text-gray-900 text-sm">Guru</p>
+                                <p class="text-xs text-gray-500">Guru yang mengajar kelas</p>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
-                <!-- Custom Subject -->
-                <flux:field>
-                    <flux:label>Subjek Tersuai (Pilihan)</flux:label>
-                    <flux:input wire:model="customSubject" placeholder="Biarkan kosong untuk menggunakan templat" />
-                    <flux:description>Gantikan subjek templat dengan subjek tersuai.</flux:description>
-                </flux:field>
+                <!-- Custom Override Section -->
+                <div class="border border-amber-200 rounded-xl overflow-hidden">
+                    <div class="bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-3 border-b border-amber-200">
+                        <div class="flex items-center gap-2">
+                            <flux:icon.adjustments-horizontal class="w-4 h-4 text-amber-600" />
+                            <span class="font-semibold text-gray-900 text-sm">Kandungan Tersuai (Pilihan)</span>
+                        </div>
+                        <p class="text-xs text-amber-700 mt-1">Gantikan kandungan templat dengan kandungan tersuai untuk kelas ini sahaja</p>
+                    </div>
+                    <div class="bg-white p-4 space-y-4">
+                        <flux:field>
+                            <flux:label>Subjek Tersuai</flux:label>
+                            <flux:input wire:model="customSubject" placeholder="Biarkan kosong untuk menggunakan templat" />
+                        </flux:field>
 
-                <!-- Custom Content -->
-                <flux:field>
-                    <flux:label>Kandungan Tersuai (Pilihan)</flux:label>
-                    <flux:textarea wire:model="customContent" rows="6" placeholder="Biarkan kosong untuk menggunakan templat" />
-                </flux:field>
+                        <flux:field>
+                            <flux:label>Kandungan Tersuai</flux:label>
+                            <flux:textarea wire:model="customContent" rows="4" placeholder="Biarkan kosong untuk menggunakan templat" />
+                        </flux:field>
+                    </div>
+                </div>
 
                 <!-- Available Placeholders -->
-                <div class="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                    <p class="text-xs font-medium text-blue-700 mb-2">
-                        <flux:icon.information-circle class="w-4 h-4 inline mr-1" />
-                        Klik placeholder untuk menyalin:
-                    </p>
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <flux:icon.code-bracket class="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                            <span class="font-semibold text-gray-900 text-sm">Placeholder</span>
+                            <p class="text-xs text-blue-600">Klik untuk menyalin</p>
+                        </div>
+                    </div>
                     <div class="flex flex-wrap gap-2">
                         @foreach($this->availablePlaceholders as $placeholder => $description)
                             <button
                                 type="button"
                                 x-on:click="copyToClipboard('{{ $placeholder }}')"
-                                class="inline-flex items-center gap-1 px-2 py-1 text-xs bg-white border border-blue-200 rounded hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer group"
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-all duration-150 cursor-pointer group shadow-sm"
                                 title="{{ $description }}"
                             >
-                                <code class="text-blue-700">{{ $placeholder }}</code>
-                                <flux:icon.clipboard-document class="w-3 h-3 text-blue-400 group-hover:text-blue-600" />
+                                <code class="text-xs text-blue-700 font-mono">{{ $placeholder }}</code>
+                                <flux:icon.clipboard-document class="w-3 h-3 text-blue-400 group-hover:text-blue-600 transition-colors" />
                             </button>
                         @endforeach
                     </div>
                 </div>
             </div>
 
-            <div class="flex justify-end gap-2 mt-6">
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-gray-200">
                 <flux:button variant="ghost" wire:click="$set('showEditModal', false)">Batal</flux:button>
-                <flux:button variant="primary" wire:click="saveSetting">Simpan</flux:button>
+                <flux:button variant="primary" wire:click="saveSetting" icon="check">Simpan Tetapan</flux:button>
             </div>
         </div>
     </flux:modal>
