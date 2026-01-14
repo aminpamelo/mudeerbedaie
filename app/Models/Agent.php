@@ -10,6 +10,28 @@ class Agent extends Model
 {
     use HasFactory;
 
+    public function orders(): HasMany
+    {
+        return $this->hasMany(ProductOrder::class);
+    }
+
+    public function paidOrders(): HasMany
+    {
+        return $this->orders()->whereHas('payments', function ($query) {
+            $query->where('status', 'completed');
+        });
+    }
+
+    public function pendingOrders(): HasMany
+    {
+        return $this->orders()->where('status', 'pending');
+    }
+
+    public function completedOrders(): HasMany
+    {
+        return $this->orders()->where('status', 'delivered');
+    }
+
     protected $fillable = [
         'agent_code',
         'name',
