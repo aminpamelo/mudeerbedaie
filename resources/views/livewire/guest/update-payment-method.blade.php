@@ -316,11 +316,24 @@ new #[Layout('components.layouts.guest')] class extends Component
 
         <!-- Logo/Branding -->
         <div class="text-center mb-8">
-            @if($logoUrl)
-                <div class="flex justify-center mb-4">
-                    <img src="{{ $logoUrl }}" alt="{{ $siteName }}" class="h-16 w-auto object-contain">
-                </div>
-            @endif
+            <!-- Dual Logo Display -->
+            <div class="flex items-center justify-center gap-4 mb-2">
+                <!-- BeDaie Company Logo -->
+                <a href="https://bedaie.com" target="_blank" rel="noopener noreferrer" class="hover:opacity-80 transition-opacity">
+                    <img src="{{ asset('images/bedaie-brand.png') }}" alt="BeDaie" class="h-12 w-auto object-contain">
+                </a>
+                <!-- Separator -->
+                <div class="h-10 w-px bg-gray-300 dark:bg-zinc-600"></div>
+                <!-- Application Logo -->
+                @if($logoUrl)
+                    <img src="{{ $logoUrl }}" alt="{{ $siteName }}" class="h-12 w-auto object-contain">
+                @endif
+            </div>
+            <!-- Company Disclosure -->
+            <flux:text size="xs" class="text-gray-400 dark:text-zinc-500 mb-4">
+                <span x-show="lang === 'my'">Platform ini dibangunkan oleh <span class="font-medium">BeDaie Sdn. Bhd.</span></span>
+                <span x-show="lang === 'en'" x-cloak>This platform is developed by <span class="font-medium">BeDaie Sdn. Bhd.</span></span>
+            </flux:text>
             <flux:heading size="xl" class="text-gray-900 dark:text-white">
                 <span x-show="lang === 'my'">Kemaskini Kaedah Pembayaran</span>
                 <span x-show="lang === 'en'" x-cloak>Update Payment Method</span>
@@ -776,6 +789,24 @@ new #[Layout('components.layouts.guest')] class extends Component
                 </div>
             @endif
         @endif
+
+        <!-- Powered by BeDaie Branding -->
+        <div class="mt-10 pt-6 border-t border-gray-200 dark:border-zinc-700">
+            <div class="flex flex-col items-center justify-center space-y-3">
+                <a href="https://bedaie.com" target="_blank" rel="noopener noreferrer" class="flex items-center hover:opacity-80 transition-opacity">
+                    <img src="{{ asset('images/bedaie-brand.png') }}" alt="BeDaie" class="h-10 w-auto">
+                </a>
+                <div class="text-center">
+                    <flux:text size="sm" class="text-gray-400 dark:text-zinc-500">
+                        <span x-show="lang === 'my'">Platform ini dibangunkan oleh</span>
+                        <span x-show="lang === 'en'" x-cloak>This platform is developed by</span>
+                    </flux:text>
+                    <flux:text size="sm" class="font-medium text-gray-500 dark:text-zinc-400">
+                        BeDaie Sdn. Bhd.
+                    </flux:text>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

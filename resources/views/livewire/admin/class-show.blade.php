@@ -623,7 +623,7 @@ new class extends Component
                 $student = $enrollment->student;
 
                 return str_contains(strtolower($student->fullName ?? ''), $searchTerm) ||
-                    str_contains(strtolower($student->student_id ?? ''), $searchTerm) ||
+                    str_contains(strtolower($student->phone ?? ''), $searchTerm) ||
                     str_contains(strtolower($student->user->email ?? ''), $searchTerm);
             });
         }
@@ -1319,6 +1319,15 @@ new class extends Component
             ->whereYear('period_start', $this->paymentYear)
             ->get();
 
+        // Query first paid order date for each student (across all years) to determine billing start
+        $firstPaidOrders = \App\Models\Order::whereIn('student_id', $studentIds)
+            ->where('course_id', $course->id)
+            ->where('status', \App\Models\Order::STATUS_PAID)
+            ->selectRaw('student_id, MIN(period_start) as first_payment_date')
+            ->groupBy('student_id')
+            ->pluck('first_payment_date', 'student_id')
+            ->map(fn ($date) => $date ? \Carbon\Carbon::parse($date) : null);
+
         // Query all document shipments for this class in the selected year
         $shipments = \App\Models\ClassDocumentShipment::where('class_id', $this->class->id)
             ->whereYear('period_start_date', $this->paymentYear)
@@ -1334,6 +1343,9 @@ new class extends Component
             $studentOrders = $orders->where('student_id', $student->id);
 
             $paymentData[$student->id] = [];
+
+            // Get first payment date for this student
+            $firstPaymentDate = $firstPaidOrders[$student->id] ?? null;
 
             foreach ($periodColumns as $period) {
                 $periodOrders = $studentOrders->filter(function ($order) use ($period) {
@@ -1351,15 +1363,12 @@ new class extends Component
                     ->whereIn('status', ['enrolled', 'active'])
                     ->first();
 
-                // Use class_students.enrolled_at as the billing start date
-                $classEnrolledAt = $classStudent->enrolled_at;
-
-                $expectedAmount = $this->calculateExpectedAmountForStudent($enrollment, $period, $course, $classEnrolledAt);
+                $expectedAmount = $this->calculateExpectedAmountForStudent($enrollment, $period, $course, $firstPaymentDate);
                 $paidAmount = $paidOrders->sum('amount');
                 $pendingAmount = $pendingOrders->sum('amount');
                 $unpaidAmount = max(0, $expectedAmount - $paidAmount);
 
-                $status = $this->determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $classEnrolledAt);
+                $status = $this->determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $firstPaymentDate);
 
                 // Find document shipment for this period and student
                 $shipmentItem = null;
@@ -1395,19 +1404,29 @@ new class extends Component
         return $paymentData;
     }
 
-    private function calculateExpectedAmountForStudent($enrollment, $period, $course, $classEnrolledAt = null)
+    private function calculateExpectedAmountForStudent($enrollment, $period, $course, $firstPaymentDate = null)
     {
         if (! $enrollment) {
             return 0;
         }
 
-        // Use class enrolled_at date as the primary billing start date
-        // Fall back to enrollment dates if class enrolled_at is not available
-        $enrollmentStart = $classEnrolledAt ?: ($enrollment->start_date ?: $enrollment->enrollment_date);
+        // Get enrollment date from the enrollment record
+        $enrollmentDate = $enrollment->start_date ?: $enrollment->enrollment_date;
+
+        // Use the OLDER date between enrollment date and first payment date
+        // This handles cases where payment might exist before enrollment (data migration, pre-payments)
+        // or enrollment happens before first payment (normal case)
+        $billingStartDate = $enrollmentDate;
+        if ($firstPaymentDate && $enrollmentDate) {
+            $billingStartDate = $firstPaymentDate < $enrollmentDate ? $firstPaymentDate : $enrollmentDate;
+        } elseif ($firstPaymentDate) {
+            $billingStartDate = $firstPaymentDate;
+        }
+
         $periodStart = $period['period_start'];
         $periodEnd = $period['period_end'];
 
-        if ($enrollmentStart && $enrollmentStart > $periodEnd) {
+        if ($billingStartDate && $billingStartDate > $periodEnd) {
             return 0;
         }
 
@@ -1433,19 +1452,29 @@ new class extends Component
         return 0;
     }
 
-    private function determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $classEnrolledAt = null)
+    private function determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $firstPaymentDate = null)
     {
         if (! $enrollment) {
             return 'no_enrollment';
         }
 
-        // Use class enrolled_at date as the primary billing start date
-        // Fall back to enrollment dates if class enrolled_at is not available
-        $enrollmentStart = $classEnrolledAt ?: ($enrollment->start_date ?: $enrollment->enrollment_date);
+        // Get enrollment date from the enrollment record
+        $enrollmentDate = $enrollment->start_date ?: $enrollment->enrollment_date;
+
+        // Use the OLDER date between enrollment date and first payment date
+        // This handles cases where payment might exist before enrollment (data migration, pre-payments)
+        // or enrollment happens before first payment (normal case)
+        $billingStartDate = $enrollmentDate;
+        if ($firstPaymentDate && $enrollmentDate) {
+            $billingStartDate = $firstPaymentDate < $enrollmentDate ? $firstPaymentDate : $enrollmentDate;
+        } elseif ($firstPaymentDate) {
+            $billingStartDate = $firstPaymentDate;
+        }
+
         $periodStart = $period['period_start'];
         $periodEnd = $period['period_end'];
 
-        if ($enrollmentStart && $enrollmentStart > $periodEnd) {
+        if ($billingStartDate && $billingStartDate > $periodEnd) {
             return 'not_started';
         }
 
@@ -2168,7 +2197,7 @@ new class extends Component
                     $userQuery->where('name', 'like', '%'.$this->enrolledStudentSearch.'%')
                         ->orWhere('email', 'like', '%'.$this->enrolledStudentSearch.'%');
                 })
-                    ->orWhere('student_id', 'like', '%'.$this->enrolledStudentSearch.'%');
+                    ->orWhere('phone', 'like', '%'.$this->enrolledStudentSearch.'%');
             });
         }
 
@@ -4393,7 +4422,7 @@ new class extends Component
                                 <div class="flex-1">
                                     <flux:input
                                         wire:model.live.debounce.300ms="enrolledStudentSearch"
-                                        placeholder="Search enrolled students by name, email or ID..."
+                                        placeholder="Search enrolled students by name, email or phone..."
                                         icon="magnifying-glass"
                                     />
                                 </div>
@@ -4448,7 +4477,7 @@ new class extends Component
                                                     <flux:avatar size="sm" :name="$student->fullName" />
                                                     <div>
                                                         <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
-                                                        <div class="text-sm text-gray-500">{{ $student->student_id }}</div>
+                                                        <div class="text-sm text-gray-500">{{ $student->phone ?? '-' }}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -4595,7 +4624,7 @@ new class extends Component
                                 <!-- Search Bar -->
                                 <flux:input
                                     wire:model.live.debounce.300ms="eligibleStudentSearch"
-                                    placeholder="Search students by name, email or ID..."
+                                    placeholder="Search students by name, email or phone..."
                                     icon="magnifying-glass"
                                     class="w-full"
                                 />
@@ -4638,7 +4667,7 @@ new class extends Component
                                                         <flux:avatar size="sm" :name="$student->fullName" />
                                                         <div>
                                                             <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
-                                                            <div class="text-sm text-gray-500">{{ $student->student_id }}</div>
+                                                            <div class="text-sm text-gray-500">{{ $student->phone ?? '-' }}</div>
                                                         </div>
                                                     </div>
                                                 </td>

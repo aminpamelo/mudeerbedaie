@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\NotificationLog;
 use App\Models\ScheduledNotification;
+use App\Services\EmailTemplateCompiler;
 use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -23,7 +24,7 @@ class SendClassNotificationJob implements ShouldQueue
         public ScheduledNotification $scheduledNotification
     ) {}
 
-    public function handle(NotificationService $notificationService): void
+    public function handle(NotificationService $notificationService, EmailTemplateCompiler $compiler): void
     {
         $notification = $this->scheduledNotification;
         $setting = $notification->setting;
@@ -61,7 +62,13 @@ class SendClassNotificationJob implements ShouldQueue
         $totalFailed = 0;
 
         $subject = $setting->getEffectiveSubject();
-        $content = $setting->getEffectiveContent();
+
+        // Check if template uses visual editor
+        $template = $setting->template;
+        $isVisualTemplate = $template && $template->isVisualEditor() && $template->html_content;
+
+        // Get content based on editor type
+        $content = $isVisualTemplate ? $template->html_content : $setting->getEffectiveContent();
 
         if (! $subject || ! $content) {
             $notification->markAsFailed('Missing subject or content template');
@@ -79,6 +86,9 @@ class SendClassNotificationJob implements ShouldQueue
 
         foreach ($recipients as $recipient) {
             try {
+                $student = $recipient['type'] === 'student' ? $recipient['model'] : null;
+                $teacher = $recipient['type'] === 'teacher' ? $recipient['model'] : null;
+
                 // Replace placeholders for this recipient
                 if ($isTimetableBased) {
                     // Use timetable-based placeholder replacement
@@ -87,37 +97,60 @@ class SendClassNotificationJob implements ShouldQueue
                         $class,
                         Carbon::parse($notification->scheduled_session_date),
                         $sessionTime,
-                        $recipient['type'] === 'student' ? $recipient['model'] : null,
-                        $recipient['type'] === 'teacher' ? $recipient['model'] : null
+                        $student,
+                        $teacher
                     );
 
-                    $personalizedContent = $notificationService->replacePlaceholdersForTimetable(
-                        $content,
-                        $class,
-                        Carbon::parse($notification->scheduled_session_date),
-                        $sessionTime,
-                        $recipient['type'] === 'student' ? $recipient['model'] : null,
-                        $recipient['type'] === 'teacher' ? $recipient['model'] : null
-                    );
+                    // Use appropriate compiler based on template type
+                    if ($isVisualTemplate) {
+                        $personalizedContent = $compiler->replacePlaceholdersForTimetable(
+                            $content,
+                            $class,
+                            Carbon::parse($notification->scheduled_session_date),
+                            $sessionTime,
+                            $student,
+                            $teacher
+                        );
+                    } else {
+                        $personalizedContent = $notificationService->replacePlaceholdersForTimetable(
+                            $content,
+                            $class,
+                            Carbon::parse($notification->scheduled_session_date),
+                            $sessionTime,
+                            $student,
+                            $teacher
+                        );
+                    }
                 } else {
                     // Use session-based placeholder replacement
                     $personalizedSubject = $notificationService->replacePlaceholders(
                         $subject,
                         $session,
-                        $recipient['type'] === 'student' ? $recipient['model'] : null,
-                        $recipient['type'] === 'teacher' ? $recipient['model'] : null
+                        $student,
+                        $teacher
                     );
 
-                    $personalizedContent = $notificationService->replacePlaceholders(
-                        $content,
-                        $session,
-                        $recipient['type'] === 'student' ? $recipient['model'] : null,
-                        $recipient['type'] === 'teacher' ? $recipient['model'] : null
-                    );
+                    if ($isVisualTemplate) {
+                        $personalizedContent = $compiler->replacePlaceholders(
+                            $content,
+                            $session,
+                            $student,
+                            $teacher
+                        );
+                    } else {
+                        $personalizedContent = $notificationService->replacePlaceholders(
+                            $content,
+                            $session,
+                            $student,
+                            $teacher
+                        );
+                    }
                 }
 
-                // Convert markdown to HTML for email
-                $htmlContent = $this->convertMarkdownToHtml($personalizedContent);
+                // Convert to HTML - visual templates are already HTML
+                $htmlContent = $isVisualTemplate
+                    ? $personalizedContent
+                    : $this->convertMarkdownToHtml($personalizedContent);
 
                 // Create log entry
                 $log = NotificationLog::create([

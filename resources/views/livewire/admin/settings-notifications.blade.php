@@ -25,6 +25,7 @@ new class extends Component
     // Preview
     public string $previewSubject = '';
     public string $previewContent = '';
+    public bool $previewIsVisual = false;
 
     public function getTemplatesProperty()
     {
@@ -165,11 +166,22 @@ new class extends Component
             $template->subject ?? ''
         );
 
-        $this->previewContent = str_replace(
-            array_keys($placeholders),
-            array_values($placeholders),
-            $template->content
-        );
+        // Check if template uses visual editor
+        $this->previewIsVisual = $template->isVisualEditor() && $template->html_content;
+
+        if ($this->previewIsVisual) {
+            $this->previewContent = str_replace(
+                array_keys($placeholders),
+                array_values($placeholders),
+                $template->html_content
+            );
+        } else {
+            $this->previewContent = str_replace(
+                array_keys($placeholders),
+                array_values($placeholders),
+                $template->content
+            );
+        }
 
         $this->showPreviewModal = true;
     }
@@ -313,7 +325,7 @@ new class extends Component
                                     <span class="text-sm">{{ strtoupper($template->language) }}</span>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         @if($template->is_active)
                                             <flux:badge color="green" size="sm">Aktif</flux:badge>
                                         @else
@@ -321,6 +333,9 @@ new class extends Component
                                         @endif
                                         @if($template->is_system)
                                             <flux:badge color="blue" size="sm">Sistem</flux:badge>
+                                        @endif
+                                        @if($template->editor_type === 'visual')
+                                            <flux:badge color="purple" size="sm">Visual</flux:badge>
                                         @endif
                                     </div>
                                 </td>
@@ -333,6 +348,17 @@ new class extends Component
                                             icon="eye"
                                             title="Pratonton"
                                         />
+                                        @if($template->channel === 'email')
+                                            <a
+                                                href="{{ route('admin.settings.notifications.builder', $template) }}"
+                                                class="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors h-8 px-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50"
+                                                title="Visual Builder"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                                                </svg>
+                                            </a>
+                                        @endif
                                         <flux:button
                                             variant="ghost"
                                             size="sm"
@@ -473,9 +499,14 @@ new class extends Component
     </flux:modal>
 
     <!-- Preview Modal -->
-    <flux:modal wire:model="showPreviewModal" class="max-w-2xl">
+    <flux:modal wire:model="showPreviewModal" class="{{ $previewIsVisual ? 'max-w-4xl' : 'max-w-2xl' }}">
         <div class="p-6">
-            <flux:heading size="lg" class="mb-4">Pratonton Templat</flux:heading>
+            <div class="flex items-center justify-between mb-4">
+                <flux:heading size="lg">Pratonton Templat</flux:heading>
+                @if($previewIsVisual)
+                    <flux:badge color="purple" size="sm">Visual Template</flux:badge>
+                @endif
+            </div>
 
             @if($previewSubject)
                 <div class="mb-4">
@@ -488,9 +519,20 @@ new class extends Component
 
             <div class="mb-4">
                 <flux:label class="mb-1">Kandungan:</flux:label>
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 prose prose-sm max-w-none">
-                    {!! nl2br(e($previewContent)) !!}
-                </div>
+                @if($previewIsVisual)
+                    <div class="bg-gray-100 rounded-lg border border-gray-200 overflow-hidden">
+                        <iframe
+                            srcdoc="{{ $previewContent }}"
+                            class="w-full border-0"
+                            style="height: 500px;"
+                            sandbox="allow-same-origin"
+                        ></iframe>
+                    </div>
+                @else
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 prose prose-sm max-w-none">
+                        {!! nl2br(e($previewContent)) !!}
+                    </div>
+                @endif
             </div>
 
             <div class="flex justify-end">

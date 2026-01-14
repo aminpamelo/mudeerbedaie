@@ -337,6 +337,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/payment', 'admin.settings-payment')->name('admin.settings.payment');
     Volt::route('settings/email', 'admin.settings-email')->name('admin.settings.email');
     Volt::route('settings/notifications', 'admin.settings-notifications')->name('admin.settings.notifications');
+    Volt::route('settings/notifications/{template}/builder', 'admin.template-builder')->name('admin.settings.notifications.builder');
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)

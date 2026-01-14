@@ -18,6 +18,9 @@ class NotificationTemplate extends Model
         'channel',
         'subject',
         'content',
+        'design_json',
+        'html_content',
+        'editor_type',
         'language',
         'is_system',
         'is_active',
@@ -30,6 +33,34 @@ class NotificationTemplate extends Model
             'is_system' => 'boolean',
             'is_active' => 'boolean',
             'available_placeholders' => 'array',
+            'design_json' => 'array',
+        ];
+    }
+
+    public function isVisualEditor(): bool
+    {
+        return $this->editor_type === 'visual';
+    }
+
+    public function isTextEditor(): bool
+    {
+        return $this->editor_type === 'text';
+    }
+
+    public function getEffectiveContent(): string
+    {
+        if ($this->isVisualEditor() && $this->html_content) {
+            return $this->html_content;
+        }
+
+        return $this->content ?? '';
+    }
+
+    public static function getEditorTypes(): array
+    {
+        return [
+            'text' => 'Teks',
+            'visual' => 'Visual Builder',
         ];
     }
 
