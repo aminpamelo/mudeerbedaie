@@ -234,7 +234,9 @@
                     @click="saveState('liveHost', $event)"
                 >
                     <flux:navlist.item icon="users" :href="route('admin.live-hosts')" :current="request()->routeIs('admin.live-hosts*')" wire:navigate>{{ __('Live Hosts') }}</flux:navlist.item>
-                    <flux:navlist.item icon="calendar-days" :href="route('admin.live-schedules.index')" :current="request()->routeIs('admin.live-schedules.*')" wire:navigate>{{ __('Live Schedules') }}</flux:navlist.item>
+                    <flux:navlist.item icon="table-cells" :href="route('admin.live-schedule-calendar')" :current="request()->routeIs('admin.live-schedule-calendar')" wire:navigate>{{ __('Schedule Live Host') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clock" :href="route('admin.live-time-slots')" :current="request()->routeIs('admin.live-time-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
+                    <flux:navlist.item icon="calendar-days" :href="route('admin.live-schedules.index')" :current="request()->routeIs('admin.live-schedules.*')" wire:navigate>{{ __('Legacy Schedules') }}</flux:navlist.item>
                     <flux:navlist.item icon="video-camera" :href="route('admin.live-sessions.index')" :current="request()->routeIs('admin.live-sessions.*')" wire:navigate>{{ __('Live Sessions') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
