@@ -56,6 +56,7 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
         autoSaveDelay: 30000, // 30 seconds
         blockSearch: '',
         isLoading: true,
+        isLoadingContent: false, // Flag to ignore change events during content load
         // Panel states
         leftPanelCollapsed: false,
         rightPanelCollapsed: false,
@@ -93,10 +94,12 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
             const container = this.$refs.editorCanvas;
             if (!container) {
                 console.error('Editor canvas not found');
+                this.isLoading = false;
                 return;
             }
 
-            this.editor = grapesjs.init({
+            try {
+                this.editor = grapesjs.init({
                 container: container,
                 height: '100%',
                 width: 'auto',
@@ -162,8 +165,12 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
                 this.loadHtml(initialHtml);
             }
 
-            // Track changes for auto-save
+            // Track changes for auto-save (ignore during content loading)
             this.editor.on('change:changesCount', () => {
+                // Skip change tracking during content load to prevent freeze
+                if (this.isLoadingContent) {
+                    return;
+                }
                 this.hasChanges = true;
                 this.triggerAutoSave();
             });
@@ -183,6 +190,12 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
                     this.showDropFeedback(component);
                 }
             });
+            } catch (e) {
+                console.error('Error initializing GrapeJS editor:', e);
+                this.isLoading = false;
+                // Don't throw - let the error bubble up to init() which has its own catch
+                throw e;
+            }
         },
 
         setupEventListeners() {
@@ -216,14 +229,29 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
             // Listen for Livewire events to load designs
             Livewire.on('load-design', (event) => {
                 if (event.design) {
-                    this.loadDesign(event.design);
+                    // Use setTimeout to prevent blocking
+                    setTimeout(() => {
+                        try {
+                            this.loadDesign(event.design);
+                        } catch (e) {
+                            console.error('Error loading design:', e);
+                        }
+                    }, 100);
                 }
             });
 
             // Listen for starter template HTML loading
             Livewire.on('load-starter-html', (event) => {
                 if (event.html !== undefined) {
-                    this.loadHtml(event.html);
+                    // Use setTimeout to allow UI to update and prevent freeze
+                    setTimeout(() => {
+                        try {
+                            this.loadHtml(event.html);
+                        } catch (e) {
+                            console.error('Error loading starter HTML:', e);
+                            alert('Ralat memuatkan templat. Sila cuba lagi.');
+                        }
+                    }, 100);
                 }
             });
 
@@ -235,11 +263,22 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
 
         // Load HTML content directly (used for starter templates)
         loadHtml(html) {
-            if (!this.editor) return;
+            if (!this.editor) {
+                console.warn('Editor not initialized, cannot load HTML');
+                return;
+            }
+
+            // Set loading flag to block all change events
+            this.isLoadingContent = true;
+            console.log('Loading HTML content, length:', html?.length || 0);
+
+            // Clear any pending auto-save
+            if (this.autoSaveTimeout) {
+                clearTimeout(this.autoSaveTimeout);
+                this.autoSaveTimeout = null;
+            }
 
             try {
-                console.log('Loading HTML content...');
-
                 // Clear existing content first
                 this.editor.DomComponents.clear();
 
@@ -248,24 +287,41 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
                     // Check for very large content that might cause issues
                     if (html.length > 500000) {
                         console.warn('HTML content is very large:', html.length, 'characters');
+                        if (!confirm('Kandungan templat sangat besar. Ini mungkin mengambil masa. Teruskan?')) {
+                            this.isLoadingContent = false;
+                            return;
+                        }
                     }
 
-                    // Use requestAnimationFrame to prevent blocking
+                    // Use requestAnimationFrame to prevent UI freeze
                     requestAnimationFrame(() => {
                         try {
                             this.editor.setComponents(html);
                             console.log('HTML content loaded successfully');
                         } catch (innerError) {
                             console.error('Error in setComponents:', innerError);
+                            // Try to recover by clearing
+                            try {
+                                this.editor.DomComponents.clear();
+                            } catch (e) {}
                         }
+
+                        // Re-enable change tracking after content is loaded
+                        setTimeout(() => {
+                            this.isLoadingContent = false;
+                            this.hasChanges = false;
+                            console.log('Content loading complete, change tracking re-enabled');
+                        }, 200);
                     });
                 } else {
                     console.log('Empty HTML, starting with blank canvas');
+                    this.isLoadingContent = false;
+                    this.hasChanges = false;
                 }
 
-                this.hasChanges = false;
             } catch (e) {
                 console.error('Error loading HTML:', e);
+                this.isLoadingContent = false;
                 // Don't show alert for load errors on page load - just log
                 console.warn('Failed to load template HTML, starting with blank canvas');
             }
@@ -314,18 +370,31 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
         loadDesign(design) {
             if (!this.editor) return;
 
+            // Set loading flag to block change events
+            this.isLoadingContent = true;
+
+            // Helper to reset loading flag
+            const finishLoading = () => {
+                setTimeout(() => {
+                    this.isLoadingContent = false;
+                    console.log('Design loading complete, change tracking re-enabled');
+                }, 200);
+            };
+
             try {
                 const designData = typeof design === 'string' ? JSON.parse(design) : design;
 
                 // Validate design data structure
                 if (!designData || typeof designData !== 'object') {
                     console.warn('Invalid design data: not an object');
+                    finishLoading();
                     return;
                 }
 
                 // Check if design data is empty
                 if (Object.keys(designData).length === 0) {
                     console.log('Design data is empty, skipping load');
+                    finishLoading();
                     return;
                 }
 
@@ -349,6 +418,7 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
                             }
                             this.hasChanges = false;
                             console.log('Loaded design from HTML format');
+                            finishLoading();
                             return;
                         } catch (htmlErr) {
                             console.error('Error loading HTML format:', htmlErr);
@@ -363,6 +433,7 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
                             this.editor.setComponents(components);
                             this.hasChanges = false;
                             console.log('Loaded design from components format');
+                            finishLoading();
                             return;
                         } catch (compErr) {
                             console.error('Error loading components format:', compErr);
@@ -377,6 +448,7 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
                 if (designData.pages) {
                     if (!Array.isArray(designData.pages)) {
                         console.error('Invalid pages structure: not an array');
+                        finishLoading();
                         return;
                     }
                     // Check for potentially problematic nested structures
@@ -384,6 +456,7 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
                     if (pagesStr.length > 1000000) { // 1MB limit
                         console.error('Pages data too large, may cause performance issues');
                         if (!confirm('Data reka bentuk sangat besar. Ini mungkin menyebabkan perlahan. Teruskan?')) {
+                            finishLoading();
                             return;
                         }
                     }
@@ -406,9 +479,12 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
                     alert('Gagal memuatkan reka bentuk yang disimpan. Sila pilih templat baru.');
                 }
 
+                finishLoading();
+
             } catch (e) {
                 console.error('Error parsing/loading design:', e);
                 alert('Ralat memproses data reka bentuk: ' + e.message);
+                this.isLoadingContent = false;
             }
         },
 
@@ -702,7 +778,8 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
 
         // Auto-save functionality
         triggerAutoSave() {
-            if (!this.autoSaveEnabled || !this.hasChanges) return;
+            // Don't trigger auto-save during content loading or if disabled
+            if (!this.autoSaveEnabled || !this.hasChanges || this.isLoadingContent) return;
 
             // Clear existing timeout
             if (this.autoSaveTimeout) {
@@ -711,12 +788,16 @@ const emailBuilderComponent = (initialHtml = null, autoSaveEnabledParam = true) 
 
             // Set new timeout
             this.autoSaveTimeout = setTimeout(() => {
-                this.autoSave();
+                // Double-check we're not loading content before saving
+                if (!this.isLoadingContent) {
+                    this.autoSave();
+                }
             }, this.autoSaveDelay);
         },
 
         async autoSave() {
-            if (!this.editor || !this.hasChanges || this.isAutoSaving) return;
+            // Don't auto-save during content loading or if already saving
+            if (!this.editor || !this.hasChanges || this.isAutoSaving || this.isLoadingContent) return;
 
             this.isAutoSaving = true;
             console.log('Starting auto-save...');
