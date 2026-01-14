@@ -17,6 +17,7 @@
                     'commerce': ['admin.orders.*', 'packages.*'],
                     'certificates': ['certificates.*'],
                     'inventory': ['inventory.*', 'stock.*', 'warehouses.*', 'agents.*'],
+                    'agentOrders': ['agent-orders.*'],
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
@@ -182,6 +183,16 @@
                     <flux:navlist.item icon="exclamation-triangle" :href="route('stock.alerts')" :current="request()->routeIs('stock.alerts*')" wire:navigate>{{ __('Stock Alerts') }}</flux:navlist.item>
                     <flux:navlist.item icon="building-storefront" :href="route('warehouses.index')" :current="request()->routeIs('warehouses.*')" wire:navigate>{{ __('Warehouses') }}</flux:navlist.item>
                     <flux:navlist.item icon="building-office" :href="route('agents.index')" :current="request()->routeIs('agents.*')" wire:navigate>{{ __('Agents & Companies') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Agent Orders (Kedai Buku)')"
+                    data-section='agentOrders' x-init="if (!isExpanded('agentOrders')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('agentOrders', $event)"
+                >
+                    <flux:navlist.item icon="shopping-bag" :href="route('agent-orders.index')" :current="request()->routeIs('agent-orders.index')" wire:navigate>{{ __('All Orders') }}</flux:navlist.item>
+                    <flux:navlist.item icon="plus-circle" :href="route('agent-orders.create')" :current="request()->routeIs('agent-orders.create')" wire:navigate>{{ __('Create Order') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
