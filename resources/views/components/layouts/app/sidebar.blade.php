@@ -235,7 +235,8 @@
                 >
                     <flux:navlist.item icon="users" :href="route('admin.live-hosts')" :current="request()->routeIs('admin.live-hosts*')" wire:navigate>{{ __('Live Hosts') }}</flux:navlist.item>
                     <flux:navlist.item icon="table-cells" :href="route('admin.live-schedule-calendar')" :current="request()->routeIs('admin.live-schedule-calendar')" wire:navigate>{{ __('Schedule Live Host') }}</flux:navlist.item>
-                    <flux:navlist.item icon="clock" :href="route('admin.live-time-slots')" :current="request()->routeIs('admin.live-time-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clock" :href="route('admin.live-time-slots')" :current="request()->routeIs('admin.live-time-slots')" wire:navigate>{{ __('Time Slots') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrow-up-tray" :href="route('admin.session-slots')" :current="request()->routeIs('admin.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar-days" :href="route('admin.live-schedules.index')" :current="request()->routeIs('admin.live-schedules.*')" wire:navigate>{{ __('Legacy Schedules') }}</flux:navlist.item>
                     <flux:navlist.item icon="video-camera" :href="route('admin.live-sessions.index')" :current="request()->routeIs('admin.live-sessions.*')" wire:navigate>{{ __('Live Sessions') }}</flux:navlist.item>
                 </flux:navlist.group>
@@ -342,6 +343,7 @@
                 >
                     <flux:navlist.item icon="video-camera" :href="route('live-host.dashboard')" :current="request()->routeIs('live-host.dashboard')" wire:navigate>{{ __('Live Dashboard') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar" :href="route('live-host.schedule')" :current="request()->routeIs('live-host.schedule')" wire:navigate>{{ __('My Schedule') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrow-up-tray" :href="route('live-host.session-slots')" :current="request()->routeIs('live-host.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
                     <flux:navlist.item icon="play-circle" :href="route('live-host.sessions.index')" :current="request()->routeIs('live-host.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif

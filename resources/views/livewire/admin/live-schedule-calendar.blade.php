@@ -542,7 +542,7 @@ new class extends Component
             <flux:button variant="outline" href="{{ route('admin.live-time-slots') }}">
                 <div class="flex items-center justify-center">
                     <flux:icon name="clock" class="w-4 h-4 mr-2" />
-                    Session Slots
+                    Time Slots
                 </div>
             </flux:button>
             <flux:button variant="outline" href="{{ route('admin.live-schedules.index') }}">
@@ -588,15 +588,15 @@ new class extends Component
         <!-- No Time Slots Warning -->
         <div class="text-center py-12 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
             <flux:icon name="exclamation-triangle" class="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Session Slots Configured</h3>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">Please configure session slots first to set up the schedule grid.</p>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Time Slots Configured</h3>
+            <p class="text-gray-500 dark:text-gray-400 mb-4">Please configure time slots first to set up the schedule grid.</p>
             <flux:button variant="primary" href="{{ route('admin.live-time-slots') }}">
-                Configure Session Slots
+                Configure Time Slots
             </flux:button>
         </div>
     @elseif($this->platformAccounts->isEmpty())
         <!-- No Platform Accounts -->
-        <div class="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="text-center py-12 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
             <flux:icon name="calendar-days" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Platform Accounts</h3>
             <p class="text-gray-500 dark:text-gray-400 mb-4">Create platform accounts first to set up the schedule.</p>
@@ -620,7 +620,7 @@ new class extends Component
                         $headerColor = $headerColors[$loop->index % 5];
                     @endphp
 
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden min-w-[420px]">
+                    <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-lg overflow-hidden min-w-[420px] border border-gray-200 dark:border-zinc-700">
                         <!-- Platform Header -->
                         <div class="{{ $headerColor }} px-4 py-3">
                             <h2 class="text-white font-bold text-center text-lg uppercase tracking-wide">
@@ -629,7 +629,7 @@ new class extends Component
                         </div>
 
                         <!-- Column Headers -->
-                        <div class="grid grid-cols-4 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <div class="grid grid-cols-4 bg-gray-100 dark:bg-zinc-700 border-b border-gray-200 dark:border-zinc-600">
                             <div class="px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase text-center">
                                 Hari
                             </div>
@@ -640,12 +640,12 @@ new class extends Component
                                 Masa
                             </div>
                             <div class="px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase text-center">
-                                Remark
+                                Admin Remark
                             </div>
                         </div>
 
                         <!-- Schedule Rows -->
-                        <div class="divide-y divide-gray-100 dark:divide-gray-700 max-h-[700px] overflow-y-auto">
+                        <div class="divide-y divide-gray-100 dark:divide-zinc-700 max-h-[700px] overflow-y-auto">
                             @foreach($this->daysOfWeek as $dayIndex => $dayName)
                                 @foreach($this->timeSlots as $slotIndex => $timeSlot)
                                     @php
@@ -655,18 +655,18 @@ new class extends Component
                                     @endphp
 
                                     <div
-                                        class="grid grid-cols-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                                        class="grid grid-cols-4 hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer"
                                         wire:click="openAssignmentModal({{ $platformAccount->id }}, {{ $dayIndex }}, {{ $timeSlot->id }})"
                                     >
                                         <!-- Day Column -->
-                                        <div class="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center justify-center border-r border-gray-100 dark:border-gray-700">
+                                        <div class="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center justify-center border-r border-gray-100 dark:border-zinc-700">
                                             @if($isFirstSlotOfDay)
                                                 {{ $dayName }}
                                             @endif
                                         </div>
 
                                         <!-- Host Name Column -->
-                                        <div class="px-2 py-1.5 flex items-center justify-center border-r border-gray-100 dark:border-gray-700">
+                                        <div class="px-2 py-1.5 flex items-center justify-center border-r border-gray-100 dark:border-zinc-700">
                                             @if($host)
                                                 <span
                                                     class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium truncate max-w-full"
@@ -675,21 +675,22 @@ new class extends Component
                                                     {{ $host->name }}
                                                 </span>
                                             @else
-                                                <span class="text-gray-300 dark:text-gray-600 text-xs">-</span>
+                                                <span class="text-gray-300 dark:text-zinc-500 text-xs">-</span>
                                             @endif
                                         </div>
 
                                         <!-- Time Column -->
-                                        <div class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-center border-r border-gray-100 dark:border-gray-700">
+                                        <div class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-center border-r border-gray-100 dark:border-zinc-700">
                                             {{ $timeSlot->time_range }}
                                         </div>
 
-                                        <!-- Remarks Column -->
+                                        <!-- Admin Remarks Column -->
                                         <div class="px-2 py-2 text-xs text-gray-500 dark:text-gray-400 flex items-center">
                                             @if($schedule?->remarks)
-                                                <span class="truncate" title="{{ $schedule->remarks }}">
-                                                    {{ Str::limit($schedule->remarks, 15) }}
-                                                </span>
+                                                <div class="flex items-center gap-1" title="{{ $schedule->remarks }}">
+                                                    <flux:icon name="chat-bubble-left-ellipsis" class="w-3 h-3 text-blue-500 flex-shrink-0" />
+                                                    <span class="truncate">{{ Str::limit($schedule->remarks, 12) }}</span>
+                                                </div>
                                             @else
                                                 <flux:icon name="chevron-down" class="w-3 h-3 text-gray-300 mx-auto" />
                                             @endif
@@ -716,7 +717,7 @@ new class extends Component
                     $dayName = $daysOfWeek[$editingDayOfWeek] ?? '';
                 @endphp
 
-                <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="mb-4 p-3 bg-gray-50 dark:bg-zinc-700 rounded-lg">
                     <div class="text-sm text-gray-600 dark:text-gray-400">
                         <strong>Platform:</strong> {{ $platform?->name }}
                     </div>
@@ -846,15 +847,15 @@ new class extends Component
 
                 <!-- Import Preview -->
                 @if(count($importPreview) > 0)
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-2 border-b border-gray-200 dark:border-gray-600">
+                    <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                        <div class="bg-gray-50 dark:bg-zinc-700 px-4 py-2 border-b border-gray-200 dark:border-zinc-600">
                             <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Preview ({{ count($importPreview) }} rows ready to import)
                             </h4>
                         </div>
                         <div class="max-h-60 overflow-y-auto">
                             <table class="w-full text-xs">
-                                <thead class="bg-gray-100 dark:bg-gray-800">
+                                <thead class="bg-gray-100 dark:bg-zinc-800">
                                     <tr>
                                         <th class="px-3 py-2 text-left text-gray-600 dark:text-gray-400">Platform</th>
                                         <th class="px-3 py-2 text-left text-gray-600 dark:text-gray-400">Day</th>
