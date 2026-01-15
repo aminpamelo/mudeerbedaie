@@ -30,6 +30,7 @@ class User extends Authenticatable
         'role',
         'status',
         'locale',
+        'host_color',
     ];
 
     /**
@@ -310,6 +311,54 @@ class User extends Authenticatable
             'user_id',
             'platform_account_id'
         );
+    }
+
+    /**
+     * Get schedule assignments for this live host
+     */
+    public function scheduleAssignments(): HasMany
+    {
+        return $this->hasMany(LiveScheduleAssignment::class, 'live_host_id');
+    }
+
+    /**
+     * Get the host color or generate a default one
+     */
+    public function getHostColorAttribute($value): string
+    {
+        if ($value) {
+            return $value;
+        }
+
+        // Generate a consistent color based on user ID
+        $colors = [
+            '#10B981', // green
+            '#F59E0B', // amber
+            '#3B82F6', // blue
+            '#EF4444', // red
+            '#8B5CF6', // purple
+            '#EC4899', // pink
+            '#14B8A6', // teal
+            '#F97316', // orange
+        ];
+
+        return $colors[$this->id % count($colors)];
+    }
+
+    /**
+     * Get contrasting text color for host color
+     */
+    public function getHostTextColorAttribute(): string
+    {
+        $hex = ltrim($this->host_color, '#');
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+
+        // Calculate luminance
+        $luminance = (0.299 * $r + 0.587 * $g + 0.114 * $b) / 255;
+
+        return $luminance > 0.5 ? '#000000' : '#FFFFFF';
     }
 
     /**
