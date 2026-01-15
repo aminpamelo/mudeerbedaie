@@ -138,6 +138,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
 Route::middleware(['auth', 'role:live_host'])->prefix('live-host')->name('live-host.')->group(function () {
     Volt::route('dashboard', 'live-host.dashboard')->name('dashboard');
     Volt::route('schedule', 'live-host.schedule')->name('schedule');
+    Volt::route('session-slots', 'live-host.session-upload')->name('session-slots');
     Volt::route('sessions', 'live-host.sessions-index')->name('sessions.index');
     Volt::route('sessions/{session}', 'live-host.sessions-show')->name('sessions.show');
 });
@@ -411,6 +412,9 @@ Route::middleware(['auth', 'role:admin,admin_livehost'])->prefix('admin')->name(
     // Live Sessions
     Volt::route('live-sessions', 'admin.live-sessions-index')->name('live-sessions.index');
     Volt::route('live-sessions/{session}', 'admin.live-sessions-show')->name('live-sessions.show');
+
+    // Uploaded Sessions (Session Slots)
+    Volt::route('session-slots', 'admin.uploaded-sessions')->name('session-slots');
 });
 
 // Stripe webhook route - no auth middleware needed
