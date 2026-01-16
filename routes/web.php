@@ -258,6 +258,22 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('agent-orders/{order}', 'admin.agent-orders.agent-orders-show')->name('agent-orders.show');
     Volt::route('agent-orders/{order}/edit', 'admin.agent-orders.agent-orders-edit')->name('agent-orders.edit');
 
+    // Agent Kedai Buku (Bookstore Agent) Management routes
+    Volt::route('agents-kedai-buku', 'admin.kedai-buku.kedai-buku-list')->name('agents-kedai-buku.index');
+    Volt::route('agents-kedai-buku/create', 'admin.kedai-buku.kedai-buku-create')->name('agents-kedai-buku.create');
+    Volt::route('agents-kedai-buku/{kedaiBuku}', 'admin.kedai-buku.kedai-buku-show')->name('agents-kedai-buku.show');
+    Volt::route('agents-kedai-buku/{kedaiBuku}/edit', 'admin.kedai-buku.kedai-buku-edit')->name('agents-kedai-buku.edit');
+    Volt::route('agents-kedai-buku/{kedaiBuku}/pricing', 'admin.kedai-buku.kedai-buku-pricing')->name('agents-kedai-buku.pricing');
+    Volt::route('agents-kedai-buku/{kedaiBuku}/orders', 'admin.kedai-buku.orders.kedai-buku-orders')->name('agents-kedai-buku.orders');
+
+    // Agent Kedai Buku Orders routes
+    Volt::route('agents-kedai-buku-orders', 'admin.kedai-buku.orders.kedai-buku-orders-index')->name('agents-kedai-buku.orders.index');
+    Volt::route('agents-kedai-buku-orders/create', 'admin.kedai-buku.orders.kedai-buku-orders-create')->name('agents-kedai-buku.orders.create');
+    Volt::route('agents-kedai-buku-orders/{order}', 'admin.kedai-buku.orders.kedai-buku-orders-show')->name('agents-kedai-buku.orders.show');
+    Volt::route('agents-kedai-buku-orders/{order}/edit', 'admin.kedai-buku.orders.kedai-buku-orders-edit')->name('agents-kedai-buku.orders.edit');
+    Volt::route('agents-kedai-buku-orders/{order}/invoice', 'admin.kedai-buku.orders.kedai-buku-orders-invoice')->name('agents-kedai-buku.orders.invoice');
+    Volt::route('agents-kedai-buku-orders/{order}/delivery-note', 'admin.kedai-buku.orders.kedai-buku-orders-delivery-note')->name('agents-kedai-buku.orders.delivery-note');
+
     // Product Order Management routes
     Volt::route('product-orders', 'admin.orders.order-list')->name('admin.orders.index');
     Volt::route('product-orders/create', 'admin.orders.order-create')->name('admin.orders.create');

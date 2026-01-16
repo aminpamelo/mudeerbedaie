@@ -269,7 +269,7 @@ new class extends Component
     </div>
 
     <!-- Filters -->
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <!-- Search -->
             <div class="md:col-span-2">
@@ -318,7 +318,7 @@ new class extends Component
 
         <!-- Clear Filters -->
         @if($search || $agentFilter || $statusFilter || $dateFilter)
-            <div class="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
+            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <flux:text size="sm" class="text-gray-600">Active filters:</flux:text>
                     @if($search)
@@ -354,10 +354,10 @@ new class extends Component
     </div>
 
     <!-- Orders Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
-                <thead class="bg-gray-50 border-b border-gray-200">
+                <thead class="bg-gray-50 dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-700">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <button wire:click="sortBy('order_number')" class="flex items-center space-x-1 hover:text-gray-700">
@@ -400,9 +400,9 @@ new class extends Component
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white">
+                <tbody class="bg-white dark:bg-zinc-800">
                     @forelse($orders as $order)
-                        <tr wire:key="order-{{ $order->id }}" class="border-b border-gray-200 hover:bg-gray-50">
+                        <tr wire:key="order-{{ $order->id }}" class="border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50">
                             <!-- Order Number -->
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <flux:text class="font-semibold">{{ $order->order_number }}</flux:text>
@@ -413,17 +413,17 @@ new class extends Component
                                 @if($order->agent)
                                     <div>
                                         <flux:text class="font-medium">{{ $order->agent->name }}</flux:text>
-                                        <flux:text size="sm" class="text-gray-500">{{ $order->agent->agent_code }}</flux:text>
+                                        <flux:text size="sm" class="text-gray-500 dark:text-zinc-400">{{ $order->agent->agent_code }}</flux:text>
                                     </div>
                                 @else
-                                    <flux:text class="text-gray-500">N/A</flux:text>
+                                    <flux:text class="text-gray-500 dark:text-zinc-400">N/A</flux:text>
                                 @endif
                             </td>
 
                             <!-- Order Date -->
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <flux:text>{{ ($order->order_date ?? $order->created_at)->format('M j, Y') }}</flux:text>
-                                <flux:text size="sm" class="text-gray-500">{{ ($order->order_date ?? $order->created_at)->format('g:i A') }}</flux:text>
+                                <flux:text size="sm" class="text-gray-500 dark:text-zinc-400">{{ ($order->order_date ?? $order->created_at)->format('g:i A') }}</flux:text>
                             </td>
 
                             <!-- Total -->
@@ -434,7 +434,7 @@ new class extends Component
                             <!-- Items -->
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <flux:text>{{ $order->items->count() }} item{{ $order->items->count() !== 1 ? 's' : '' }}</flux:text>
-                                <flux:text size="sm" class="text-gray-500">{{ $order->items->sum('quantity_ordered') }} qty</flux:text>
+                                <flux:text size="sm" class="text-gray-500 dark:text-zinc-400">{{ $order->items->sum('quantity_ordered') }} qty</flux:text>
                             </td>
 
                             <!-- Status -->
@@ -514,8 +514,8 @@ new class extends Component
                     @empty
                         <tr>
                             <td colspan="8" class="px-6 py-12 text-center">
-                                <div class="text-gray-500">
-                                    <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                                <div class="text-gray-500 dark:text-zinc-400">
+                                    <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-zinc-600" />
                                     <flux:heading size="lg">No agent orders found</flux:heading>
                                     <flux:text class="mt-2">Get started by creating your first agent order.</flux:text>
                                     <div class="mt-4">
@@ -536,7 +536,7 @@ new class extends Component
 
         <!-- Pagination -->
         @if($orders->hasPages())
-            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900">
                 {{ $orders->links() }}
             </div>
         @endif

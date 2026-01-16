@@ -330,7 +330,7 @@ new class extends Component
             <div class="lg:col-span-2 space-y-6">
 
                 <!-- Agent Selection -->
-                <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Agent Information</flux:heading>
 
                     <div class="space-y-4">
@@ -344,7 +344,7 @@ new class extends Component
                                     @input.debounce.300ms="$wire.set('agentSearch', search)"
                                     @focus="showDropdown = true"
                                     placeholder="Search by name, code, company, or email..."
-                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pr-10"
+                                    class="w-full rounded-lg border-gray-300 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-400 pr-10"
                                 />
                                 <template x-if="!$wire.form.agent_id">
                                     <flux:icon name="magnifying-glass" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -364,7 +364,7 @@ new class extends Component
                                     x-show="showDropdown && search.length > 0 && !$wire.form.agent_id"
                                     @click.away="showDropdown = false"
                                     x-transition
-                                    class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                    class="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-lg shadow-lg max-h-60 overflow-y-auto"
                                     style="display: none;"
                                 >
                                     @if($agents->count() > 0)
@@ -378,11 +378,11 @@ new class extends Component
                                                     >
                                                         <div class="flex flex-col">
                                                             <div class="flex items-center gap-2">
-                                                                <span class="font-medium text-gray-900">{{ $agent->name }}</span>
+                                                                <span class="font-medium text-gray-900 dark:text-zinc-100">{{ $agent->name }}</span>
                                                                 <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{{ $agent->agent_code }}</span>
                                                             </div>
                                                             @if($agent->company_name)
-                                                                <span class="text-sm text-gray-600">{{ $agent->company_name }}</span>
+                                                                <span class="text-sm text-gray-600 dark:text-zinc-400">{{ $agent->company_name }}</span>
                                                             @endif
                                                         </div>
                                                     </button>
@@ -390,7 +390,7 @@ new class extends Component
                                             @endforeach
                                         </ul>
                                     @else
-                                        <div class="px-4 py-3 text-sm text-gray-500">
+                                        <div class="px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">
                                             No agents found matching "{{ $agentSearch }}"
                                         </div>
                                     @endif
@@ -433,7 +433,7 @@ new class extends Component
                 </div>
 
                 <!-- Order Items -->
-                <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                     <div class="flex items-center justify-between mb-4">
                         <flux:heading size="lg">Products</flux:heading>
                         <flux:button type="button" wire:click="addOrderItem" size="sm">
@@ -511,7 +511,7 @@ new class extends Component
                 </div>
 
                 <!-- Order Notes -->
-                <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Notes / Remarks</flux:heading>
                     <flux:field>
                         <flux:textarea wire:model="form.notes" rows="4" placeholder="Any special instructions or notes..." />
@@ -521,7 +521,7 @@ new class extends Component
 
             <!-- Right Column - Order Summary -->
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6 sticky top-6">
                     <flux:heading size="lg" class="mb-4">Order Summary</flux:heading>
 
                     <!-- Order Status Settings -->

@@ -18,6 +18,7 @@
                     'certificates': ['certificates.*'],
                     'inventory': ['inventory.*', 'stock.*', 'warehouses.*', 'agents.*'],
                     'agentOrders': ['agent-orders.*'],
+                    'kedaiBuku': ['agents-kedai-buku.*'],
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
@@ -187,12 +188,22 @@
 
                 <flux:navlist.group
                     expandable
-                    :heading="__('Agent Orders (Kedai Buku)')"
+                    :heading="__('Agent Orders')"
                     data-section='agentOrders' x-init="if (!isExpanded('agentOrders')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('agentOrders', $event)"
                 >
                     <flux:navlist.item icon="shopping-bag" :href="route('agent-orders.index')" :current="request()->routeIs('agent-orders.index')" wire:navigate>{{ __('All Orders') }}</flux:navlist.item>
                     <flux:navlist.item icon="plus-circle" :href="route('agent-orders.create')" :current="request()->routeIs('agent-orders.create')" wire:navigate>{{ __('Create Order') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Agent Kedai Buku')"
+                    data-section='kedaiBuku' x-init="if (!isExpanded('kedaiBuku')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('kedaiBuku', $event)"
+                >
+                    <flux:navlist.item icon="building-storefront" :href="route('agents-kedai-buku.index')" :current="request()->routeIs('agents-kedai-buku.index')" wire:navigate>{{ __('Senarai Kedai Buku') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clipboard-document-list" :href="route('agents-kedai-buku.orders.index')" :current="request()->routeIs('agents-kedai-buku.orders.*')" wire:navigate>{{ __('Pesanan Kedai Buku') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group

@@ -113,8 +113,8 @@ new class extends Component {
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <!-- Main Information -->
             <div class="lg:col-span-2 space-y-6">
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Basic Information</h3>
 
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <flux:field>
@@ -155,8 +155,8 @@ new class extends Component {
                 </div>
 
                 <!-- Contact Information -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Contact Information</h3>
 
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <flux:field>
@@ -180,8 +180,8 @@ new class extends Component {
                 </div>
 
                 <!-- Address -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Address</h3>
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Address</h3>
 
                     <div class="space-y-4">
                         <flux:field>
@@ -219,8 +219,8 @@ new class extends Component {
                 </div>
 
                 <!-- Bank Details -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Bank Details</h3>
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Bank Details</h3>
 
                     <div class="grid grid-cols-1 gap-4">
                         <flux:field>
@@ -246,8 +246,8 @@ new class extends Component {
 
             <!-- Sidebar -->
             <div class="space-y-6">
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Settings</h3>
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Settings</h3>
 
                     <div class="space-y-4">
                         <flux:field>

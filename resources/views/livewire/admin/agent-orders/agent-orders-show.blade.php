@@ -216,70 +216,70 @@ new class extends Component
         <div class="lg:col-span-2 space-y-6">
 
             <!-- Agent Information -->
-            <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Agent Information</flux:heading>
 
                 @if($order->agent)
                     <div class="grid md:grid-cols-2 gap-6">
                         <div>
-                            <flux:text class="text-sm text-zinc-600">Agent Name</flux:text>
+                            <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Agent Name</flux:text>
                             <flux:text class="font-medium">{{ $order->agent->name }}</flux:text>
                         </div>
                         <div>
-                            <flux:text class="text-sm text-zinc-600">Agent Code</flux:text>
+                            <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Agent Code</flux:text>
                             <flux:text class="font-medium">{{ $order->agent->agent_code }}</flux:text>
                         </div>
                         @if($order->agent->company_name)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Company Name</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Company Name</flux:text>
                                 <flux:text class="font-medium">{{ $order->agent->company_name }}</flux:text>
                             </div>
                         @endif
                         <div>
-                            <flux:text class="text-sm text-zinc-600">Type</flux:text>
+                            <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Type</flux:text>
                             <flux:badge :variant="$order->agent->type === 'company' ? 'info' : 'outline'" size="sm">
                                 {{ ucfirst($order->agent->type) }}
                             </flux:badge>
                         </div>
                         @if($order->agent->contact_person)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Contact Person</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Contact Person</flux:text>
                                 <flux:text class="font-medium">{{ $order->agent->contact_person }}</flux:text>
                             </div>
                         @endif
                         @if($order->agent->phone)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Phone</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Phone</flux:text>
                                 <flux:text class="font-medium">{{ $order->agent->phone }}</flux:text>
                             </div>
                         @endif
                         @if($order->agent->email)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Email</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Email</flux:text>
                                 <flux:text class="font-medium">{{ $order->agent->email }}</flux:text>
                             </div>
                         @endif
                         @if($order->agent->payment_terms)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Payment Terms</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Payment Terms</flux:text>
                                 <flux:text class="font-medium">{{ $order->agent->payment_terms }}</flux:text>
                             </div>
                         @endif
                     </div>
 
                     @if($order->agent->formatted_address)
-                        <div class="mt-4 pt-4 border-t">
-                            <flux:text class="text-sm text-zinc-600">Address</flux:text>
+                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
+                            <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Address</flux:text>
                             <flux:text class="font-medium">{{ $order->agent->formatted_address }}</flux:text>
                         </div>
                     @endif
                 @else
-                    <flux:text class="text-gray-500">No agent information available</flux:text>
+                    <flux:text class="text-gray-500 dark:text-zinc-400">No agent information available</flux:text>
                 @endif
             </div>
 
             <!-- Order Status -->
-            <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Order Status</flux:heading>
 
                 <div class="grid md:grid-cols-2 gap-4">
@@ -313,63 +313,63 @@ new class extends Component
                 </div>
 
                 <!-- Order Timeline -->
-                <div class="mt-6 pt-6 border-t">
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-zinc-700">
                     <flux:heading size="sm" class="mb-3">Order Timeline</flux:heading>
                     <div class="space-y-3">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                                <flux:icon name="check" class="w-4 h-4 text-green-600" />
+                            <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                <flux:icon name="check" class="w-4 h-4 text-green-600 dark:text-green-400" />
                             </div>
                             <div>
                                 <flux:text class="font-medium">Order Created</flux:text>
-                                <flux:text size="sm" class="text-zinc-500">{{ $order->created_at->format('M j, Y g:i A') }}</flux:text>
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">{{ $order->created_at->format('M j, Y g:i A') }}</flux:text>
                             </div>
                         </div>
 
                         @if($order->confirmed_at)
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                    <flux:icon name="check-circle" class="w-4 h-4 text-blue-600" />
+                                <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                    <flux:icon name="check-circle" class="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div>
                                     <flux:text class="font-medium">Confirmed</flux:text>
-                                    <flux:text size="sm" class="text-zinc-500">{{ $order->confirmed_at->format('M j, Y g:i A') }}</flux:text>
+                                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">{{ $order->confirmed_at->format('M j, Y g:i A') }}</flux:text>
                                 </div>
                             </div>
                         @endif
 
                         @if($order->shipped_at)
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                                    <flux:icon name="truck" class="w-4 h-4 text-purple-600" />
+                                <div class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                                    <flux:icon name="truck" class="w-4 h-4 text-purple-600 dark:text-purple-400" />
                                 </div>
                                 <div>
                                     <flux:text class="font-medium">Shipped</flux:text>
-                                    <flux:text size="sm" class="text-zinc-500">{{ $order->shipped_at->format('M j, Y g:i A') }}</flux:text>
+                                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">{{ $order->shipped_at->format('M j, Y g:i A') }}</flux:text>
                                 </div>
                             </div>
                         @endif
 
                         @if($order->delivered_at)
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                                    <flux:icon name="home" class="w-4 h-4 text-green-600" />
+                                <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                    <flux:icon name="home" class="w-4 h-4 text-green-600 dark:text-green-400" />
                                 </div>
                                 <div>
                                     <flux:text class="font-medium">Delivered</flux:text>
-                                    <flux:text size="sm" class="text-zinc-500">{{ $order->delivered_at->format('M j, Y g:i A') }}</flux:text>
+                                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">{{ $order->delivered_at->format('M j, Y g:i A') }}</flux:text>
                                 </div>
                             </div>
                         @endif
 
                         @if($order->cancelled_at)
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                                    <flux:icon name="x-circle" class="w-4 h-4 text-red-600" />
+                                <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                                    <flux:icon name="x-circle" class="w-4 h-4 text-red-600 dark:text-red-400" />
                                 </div>
                                 <div>
                                     <flux:text class="font-medium">Cancelled</flux:text>
-                                    <flux:text size="sm" class="text-zinc-500">{{ $order->cancelled_at->format('M j, Y g:i A') }}</flux:text>
+                                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">{{ $order->cancelled_at->format('M j, Y g:i A') }}</flux:text>
                                 </div>
                             </div>
                         @endif
@@ -378,31 +378,31 @@ new class extends Component
             </div>
 
             <!-- Order Items -->
-            <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Order Items</flux:heading>
 
                 <div class="space-y-4">
                     @foreach($order->items as $item)
-                        <div class="flex items-center justify-between border-b pb-4">
+                        <div class="flex items-center justify-between border-b border-gray-200 dark:border-zinc-700 pb-4">
                             <div class="flex items-center space-x-4">
-                                <div class="w-16 h-16 bg-zinc-100 rounded-lg flex items-center justify-center">
-                                    <flux:icon name="cube" class="w-8 h-8 text-zinc-400" />
+                                <div class="w-16 h-16 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                                    <flux:icon name="cube" class="w-8 h-8 text-zinc-400 dark:text-zinc-500" />
                                 </div>
                                 <div>
                                     <flux:heading class="font-medium">{{ $item->product?->name ?? $item->product_name ?? 'Unknown Product' }}</flux:heading>
                                     @if($item->product)
-                                        <flux:text class="text-sm text-zinc-600">
+                                        <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">
                                             SKU: {{ $item->product->sku }}
                                         </flux:text>
                                     @endif
-                                    <flux:text class="text-sm text-zinc-600">
+                                    <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">
                                         Warehouse: {{ $item->warehouse?->name ?? 'Not assigned' }}
                                     </flux:text>
                                 </div>
                             </div>
                             <div class="text-right">
                                 <flux:text class="font-medium">{{ $item->quantity_ordered }} x RM {{ number_format($item->unit_price, 2) }}</flux:text>
-                                <flux:text class="text-sm text-zinc-600">RM {{ number_format($item->total_price, 2) }}</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">RM {{ number_format($item->total_price, 2) }}</flux:text>
                             </div>
                         </div>
                     @endforeach
@@ -411,20 +411,20 @@ new class extends Component
 
             <!-- Order Notes -->
             @if($order->notes->count() > 0 || $order->internal_notes || $order->customer_notes)
-                <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Order Notes</flux:heading>
 
                     @if($order->customer_notes)
-                        <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <flux:text class="text-sm font-medium text-blue-900">Customer Notes</flux:text>
-                            <flux:text class="text-sm text-blue-800 mt-1">{{ $order->customer_notes }}</flux:text>
+                        <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <flux:text class="text-sm font-medium text-blue-900 dark:text-blue-100">Customer Notes</flux:text>
+                            <flux:text class="text-sm text-blue-800 dark:text-blue-200 mt-1">{{ $order->customer_notes }}</flux:text>
                         </div>
                     @endif
 
                     @if($order->internal_notes)
-                        <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <flux:text class="text-sm font-medium text-yellow-900">Internal Notes</flux:text>
-                            <flux:text class="text-sm text-yellow-800 mt-1">{{ $order->internal_notes }}</flux:text>
+                        <div class="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                            <flux:text class="text-sm font-medium text-yellow-900 dark:text-yellow-100">Internal Notes</flux:text>
+                            <flux:text class="text-sm text-yellow-800 dark:text-yellow-200 mt-1">{{ $order->internal_notes }}</flux:text>
                         </div>
                     @endif
 
@@ -432,12 +432,12 @@ new class extends Component
                         <div class="space-y-4">
                             @foreach($order->notes()->orderBy('created_at', 'desc')->get() as $note)
                                 <div class="border-l-4 @if($note->type === 'system') border-blue-500 @elseif($note->type === 'customer') border-green-500 @else border-amber-500 @endif pl-4 py-2">
-                                    <flux:text class="text-zinc-900">{{ $note->message }}</flux:text>
+                                    <flux:text class="text-zinc-900 dark:text-zinc-100">{{ $note->message }}</flux:text>
                                     <div class="flex items-center gap-3 mt-2">
                                         <flux:badge size="sm">{{ ucfirst($note->type) }}</flux:badge>
-                                        <flux:text class="text-xs text-zinc-500">{{ $note->created_at->format('M j, Y g:i A') }}</flux:text>
+                                        <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">{{ $note->created_at->format('M j, Y g:i A') }}</flux:text>
                                         @if($note->user)
-                                            <flux:text class="text-xs text-zinc-500">by {{ $note->user->name }}</flux:text>
+                                            <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">by {{ $note->user->name }}</flux:text>
                                         @endif
                                     </div>
                                 </div>
@@ -450,7 +450,7 @@ new class extends Component
 
         <!-- Right Column - Order Summary -->
         <div class="lg:col-span-1">
-            <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6 sticky top-6">
                 <flux:heading size="lg" class="mb-4">Order Summary</flux:heading>
 
                 <!-- Order Totals -->
@@ -461,7 +461,7 @@ new class extends Component
                     </div>
 
                     @if($order->discount_amount > 0)
-                        <div class="flex justify-between text-green-600">
+                        <div class="flex justify-between text-green-600 dark:text-green-400">
                             <flux:text>Discount</flux:text>
                             <flux:text>-RM {{ number_format($order->discount_amount, 2) }}</flux:text>
                         </div>
@@ -481,10 +481,10 @@ new class extends Component
                         </div>
                     @endif
 
-                    <div class="border-t-2 pt-3 mt-2">
+                    <div class="border-t-2 border-gray-200 dark:border-zinc-700 pt-3 mt-2">
                         <div class="flex justify-between">
                             <flux:text class="font-semibold text-lg">Total</flux:text>
-                            <flux:text class="font-semibold text-lg text-blue-600">RM {{ number_format($order->total_amount, 2) }}</flux:text>
+                            <flux:text class="font-semibold text-lg text-blue-600 dark:text-blue-400">RM {{ number_format($order->total_amount, 2) }}</flux:text>
                         </div>
                     </div>
                 </div>
@@ -553,7 +553,7 @@ new class extends Component
                 </div>
 
                 <!-- Timestamps -->
-                <div class="mt-6 pt-6 border-t text-sm text-zinc-600 space-y-2">
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-zinc-700 text-sm text-zinc-600 dark:text-zinc-400 space-y-2">
                     <div>
                         <flux:text class="font-medium">Created</flux:text>
                         <flux:text>{{ $order->created_at->format('M j, Y g:i A') }}</flux:text>
