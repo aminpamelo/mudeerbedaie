@@ -34,6 +34,9 @@ class DatabaseSeeder extends Seeder
             // 5. Products and Orders
             ProductsAndOrdersSeeder::class,
 
+            // 5.5 Agents, Bookstores and Agent Orders
+            AgentSeeder::class,
+
             // 6. Certificates
             CertificatesSeeder::class,
 
@@ -72,6 +75,7 @@ class DatabaseSeeder extends Seeder
                 ['Attendance Records', \App\Models\ClassAttendance::count()],
                 ['Products', \App\Models\Product::count()],
                 ['Product Orders', \App\Models\ProductOrder::count()],
+                ['Agents', \App\Models\Agent::count()],
                 ['Certificates', \App\Models\Certificate::count()],
                 ['Certificate Issues', \App\Models\CertificateIssue::count()],
                 ['Payslips', \App\Models\Payslip::count()],
