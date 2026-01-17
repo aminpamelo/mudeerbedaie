@@ -136,6 +136,12 @@ new class extends Component
                     Back to Students
                 </div>
             </flux:button>
+            <flux:button variant="outline" href="{{ route('admin.customer-service.return-refunds.create') }}">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
+                    Return & Refund
+                </div>
+            </flux:button>
             <flux:button variant="primary" href="{{ route('students.edit', $student) }}" icon="pencil">
                 Edit Student
             </flux:button>
@@ -391,9 +397,19 @@ new class extends Component
                                             {{ $order->source ? ucfirst(str_replace('_', ' ', $order->source)) : 'Manual' }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <flux:button size="sm" variant="ghost" href="{{ route('admin.orders.show', $order) }}">
-                                                View
-                                            </flux:button>
+                                            <div class="flex items-center gap-2">
+                                                <flux:button size="sm" variant="ghost" href="{{ route('admin.orders.show', $order) }}">
+                                                    View
+                                                </flux:button>
+                                                @if(in_array($order->status, ['delivered', 'shipped', 'completed']))
+                                                    <flux:button size="sm" variant="ghost" href="{{ route('admin.customer-service.return-refunds.create', ['order_id' => $order->id]) }}">
+                                                        <div class="flex items-center">
+                                                            <flux:icon name="arrow-path" class="w-3 h-3 mr-1" />
+                                                            Refund
+                                                        </div>
+                                                    </flux:button>
+                                                @endif
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach

@@ -15,6 +15,7 @@
                     'products': ['products.*', 'product-categories.*', 'product-attributes.*'],
                     'crm': ['crm.*'],
                     'commerce': ['admin.orders.*', 'packages.*'],
+                    'customerService': ['admin.customer-service.*'],
                     'certificates': ['certificates.*'],
                     'inventory': ['inventory.*', 'stock.*', 'warehouses.*', 'agents.*'],
                     'platformMgmt': ['platforms.*'],
@@ -157,6 +158,18 @@
                 >
                     <flux:navlist.item icon="shopping-bag" :href="route('admin.orders.index')" :current="request()->routeIs('admin.orders.*')" wire:navigate>{{ __('Orders & Package Sales') }}</flux:navlist.item>
                     <flux:navlist.item icon="gift" :href="route('packages.index')" :current="request()->routeIs('packages.*')" wire:navigate>{{ __('Packages') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Customer Service')"
+                    data-section='customerService' x-init="if (!isExpanded('customerService')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('customerService', $event)"
+                >
+                    <flux:navlist.item icon="lifebuoy" :href="route('admin.customer-service.dashboard')" :current="request()->routeIs('admin.customer-service.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrow-path" :href="route('admin.customer-service.return-refunds.index')" :current="request()->routeIs('admin.customer-service.return-refunds.*')" wire:navigate>{{ __('Return & Refunds') }}</flux:navlist.item>
+                    <flux:navlist.item icon="ticket" :href="route('admin.customer-service.tickets.index')" :current="request()->routeIs('admin.customer-service.tickets.*')" wire:navigate>{{ __('Tickets') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chat-bubble-left-right" :href="route('admin.customer-service.feedback.index')" :current="request()->routeIs('admin.customer-service.feedback.*')" wire:navigate>{{ __('Feedback') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -334,6 +347,7 @@
                     @click="saveState('studentAccount', $event)"
                 >
                     <flux:navlist.item icon="clipboard-document-list" :href="route('student.orders')" :current="request()->routeIs('student.orders*')" wire:navigate>{{ __('Order History') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrow-path" :href="route('student.refund-requests')" :current="request()->routeIs('student.refund-requests*')" wire:navigate>{{ __('Refund Requests') }}</flux:navlist.item>
                     <flux:navlist.item icon="credit-card" :href="route('student.payment-methods')" :current="request()->routeIs('student.payment-methods*')" wire:navigate>{{ __('Payment Methods') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif

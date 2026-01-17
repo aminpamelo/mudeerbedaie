@@ -80,6 +80,11 @@ Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
     // Payment method management for students
     Volt::route('payment-methods', 'student.payment-methods')->name('student.payment-methods');
 
+    // Refund requests for students
+    Volt::route('refund-requests', 'student.refund-requests')->name('student.refund-requests');
+    Volt::route('refund-requests/create', 'student.refund-request-create')->name('student.refund-requests.create');
+    Volt::route('refund-requests/{refund}', 'student.refund-request-show')->name('student.refund-requests.show');
+
     // Legacy invoice routes (will be removed later)
     Volt::route('invoices', 'student.invoice-list')->name('student.invoices');
     Volt::route('invoices/{invoice}', 'student.invoice-show')->name('student.invoices.show');
@@ -339,6 +344,21 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/email', 'admin.settings-email')->name('admin.settings.email');
     Volt::route('settings/notifications', 'admin.settings-notifications')->name('admin.settings.notifications');
     Volt::route('settings/notifications/{template}/builder', 'admin.react-template-builder')->name('admin.settings.notifications.builder');
+
+    // Customer Service routes
+    Volt::route('customer-service', 'admin.customer-service.dashboard')->name('admin.customer-service.dashboard');
+    Volt::route('customer-service/return-refunds', 'admin.customer-service.return-refunds-index')->name('admin.customer-service.return-refunds.index');
+    Volt::route('customer-service/return-refunds/create', 'admin.customer-service.return-refunds-create')->name('admin.customer-service.return-refunds.create');
+    Volt::route('customer-service/return-refunds/{refund}', 'admin.customer-service.return-refunds-show')->name('admin.customer-service.return-refunds.show');
+
+    // Customer Service - Tickets
+    Volt::route('customer-service/tickets', 'admin.customer-service.tickets-index')->name('admin.customer-service.tickets.index');
+    Volt::route('customer-service/tickets/create', 'admin.customer-service.tickets-create')->name('admin.customer-service.tickets.create');
+    Volt::route('customer-service/tickets/{ticket}', 'admin.customer-service.tickets-show')->name('admin.customer-service.tickets.show');
+
+    // Customer Service - Feedback
+    Volt::route('customer-service/feedback', 'admin.customer-service.feedback-index')->name('admin.customer-service.feedback.index');
+    Volt::route('customer-service/feedback/{feedback}', 'admin.customer-service.feedback-show')->name('admin.customer-service.feedback.show');
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)
