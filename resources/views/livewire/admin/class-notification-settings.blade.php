@@ -11,29 +11,44 @@ use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
-new class extends Component {
-    use WithPagination;
+new class extends Component
+{
     use WithFileUploads;
+    use WithPagination;
 
     public ClassModel $class;
 
     public bool $showEditModal = false;
+
     public ?int $editingSettingId = null;
+
     public ?int $selectedTemplateId = null;
+
     public ?string $customSubject = '';
+
     public ?string $customContent = '';
+
     public bool $sendToStudents = true;
+
     public bool $sendToTeacher = true;
+
     public ?int $customMinutesBefore = null;
+
+    // Content source selection: 'system' or 'custom'
+    public string $contentSource = 'system';
 
     // Visual builder properties
     public string $editorType = 'text';
+
     public ?string $designJson = null;
+
     public ?string $htmlContent = null;
+
     public bool $hasVisualContent = false;
 
     // Attachment properties
     public $newAttachments = [];
+
     public Collection $attachments;
 
     public function mount(ClassModel $class): void
@@ -60,7 +75,7 @@ new class extends Component {
                 ->where('notification_type', $type)
                 ->first();
 
-            if (!$existingSetting) {
+            if (! $existingSetting) {
                 $templateType = str_starts_with($type, 'session_reminder_')
                     ? 'session_reminder'
                     : (str_starts_with($type, 'session_followup_')
@@ -122,12 +137,12 @@ new class extends Component {
         foreach ($notifications as $notification) {
             // Create a unique key for each session slot
             if ($notification->scheduled_session_date) {
-                $slotKey = $notification->scheduled_session_date->format('Y-m-d') . '_' . $notification->scheduled_session_time;
-                $slotLabel = $notification->scheduled_session_date->format('d M Y') . ' - ' . \Carbon\Carbon::parse($notification->scheduled_session_time)->format('g:i A');
+                $slotKey = $notification->scheduled_session_date->format('Y-m-d').'_'.$notification->scheduled_session_time;
+                $slotLabel = $notification->scheduled_session_date->format('d M Y').' - '.\Carbon\Carbon::parse($notification->scheduled_session_time)->format('g:i A');
                 $slotDate = $notification->scheduled_session_date;
             } elseif ($notification->session) {
-                $slotKey = $notification->session->session_date->format('Y-m-d') . '_' . $notification->session->session_time->format('H:i:s');
-                $slotLabel = $notification->session->session_date->format('d M Y') . ' - ' . $notification->session->session_time->format('g:i A');
+                $slotKey = $notification->session->session_date->format('Y-m-d').'_'.$notification->session->session_time->format('H:i:s');
+                $slotLabel = $notification->session->session_date->format('d M Y').' - '.$notification->session->session_time->format('g:i A');
                 $slotDate = $notification->session->session_date;
             } else {
                 $slotKey = 'unknown';
@@ -135,7 +150,7 @@ new class extends Component {
                 $slotDate = null;
             }
 
-            if (!isset($grouped[$slotKey])) {
+            if (! isset($grouped[$slotKey])) {
                 $grouped[$slotKey] = [
                     'label' => $slotLabel,
                     'date' => $slotDate,
@@ -160,7 +175,7 @@ new class extends Component {
 
     public function getSelectedTemplateProperty(): ?NotificationTemplate
     {
-        if (!$this->selectedTemplateId) {
+        if (! $this->selectedTemplateId) {
             return null;
         }
 
@@ -191,7 +206,7 @@ new class extends Component {
     {
         $setting = ClassNotificationSetting::find($settingId);
         if ($setting && $setting->class_id === $this->class->id) {
-            $setting->update(['is_enabled' => !$setting->is_enabled]);
+            $setting->update(['is_enabled' => ! $setting->is_enabled]);
 
             $this->dispatch('notify',
                 type: 'success',
@@ -218,7 +233,12 @@ new class extends Component {
             $this->editorType = $setting->editor_type ?? 'text';
             $this->designJson = $setting->design_json ? json_encode($setting->design_json) : null;
             $this->htmlContent = $setting->html_content;
-            $this->hasVisualContent = !empty($setting->html_content);
+            $this->hasVisualContent = ! empty($setting->html_content);
+
+            // Determine content source based on template_id
+            // If template_id is null, it means custom content mode is being used (even if content is empty)
+            // If template_id is set, it means system template is being used
+            $this->contentSource = $setting->template_id === null ? 'custom' : 'system';
 
             // Attachments
             $this->attachments = $setting->attachments;
@@ -228,21 +248,82 @@ new class extends Component {
         }
     }
 
+    /**
+     * Auto-select appropriate template when switching to system mode
+     */
+    public function updatedContentSource(string $value): void
+    {
+        if ($value === 'system' && empty($this->selectedTemplateId)) {
+            // Try to auto-select an appropriate template based on notification type
+            $setting = ClassNotificationSetting::find($this->editingSettingId);
+            if ($setting) {
+                $type = $setting->notification_type;
+                $templateType = str_starts_with($type, 'session_reminder_')
+                    ? 'session_reminder'
+                    : (str_starts_with($type, 'session_followup_')
+                        ? 'session_followup'
+                        : $type);
+
+                $template = NotificationTemplate::active()
+                    ->where('type', $templateType)
+                    ->where('language', 'ms')
+                    ->first();
+
+                if ($template) {
+                    $this->selectedTemplateId = $template->id;
+                }
+            }
+        }
+    }
+
     public function saveSetting(): void
     {
         $setting = ClassNotificationSetting::find($this->editingSettingId);
         if ($setting && $setting->class_id === $this->class->id) {
-            $setting->update([
-                'template_id' => $this->selectedTemplateId,
-                'custom_subject' => $this->customSubject ?: null,
-                'custom_content' => $this->customContent ?: null,
+            // Validate: if system mode, template must be selected
+            if ($this->contentSource === 'system' && empty($this->selectedTemplateId)) {
+                $this->dispatch('notify',
+                    type: 'error',
+                    message: 'Sila pilih templat sistem terlebih dahulu',
+                );
+
+                return;
+            }
+
+            // Prepare data based on content source
+            $data = [
                 'send_to_students' => $this->sendToStudents,
                 'send_to_teacher' => $this->sendToTeacher,
                 'custom_minutes_before' => $this->customMinutesBefore,
-                'editor_type' => $this->editorType,
-                'design_json' => $this->designJson ? json_decode($this->designJson, true) : null,
-                'html_content' => $this->htmlContent,
-            ]);
+            ];
+
+            if ($this->contentSource === 'system') {
+                // Using system template - clear custom content and keep template
+                $data['template_id'] = $this->selectedTemplateId;
+                $data['custom_subject'] = null;
+                $data['custom_content'] = null;
+                $data['editor_type'] = 'text';
+                $data['design_json'] = null;
+                $data['html_content'] = null;
+            } else {
+                // Using custom content - keep editor type and content
+                $data['template_id'] = null; // Clear system template when using custom
+                $data['editor_type'] = $this->editorType;
+
+                if ($this->editorType === 'visual') {
+                    $data['custom_subject'] = null;
+                    $data['custom_content'] = null;
+                    $data['design_json'] = $this->designJson ? json_decode($this->designJson, true) : null;
+                    $data['html_content'] = $this->htmlContent;
+                } else {
+                    $data['custom_subject'] = $this->customSubject ?: null;
+                    $data['custom_content'] = $this->customContent ?: null;
+                    $data['design_json'] = null;
+                    $data['html_content'] = null;
+                }
+            }
+
+            $setting->update($data);
 
             $this->showEditModal = false;
             $this->resetEditForm();
@@ -263,6 +344,7 @@ new class extends Component {
         $this->sendToStudents = true;
         $this->sendToTeacher = true;
         $this->customMinutesBefore = null;
+        $this->contentSource = 'system';
         $this->editorType = 'text';
         $this->designJson = null;
         $this->htmlContent = null;
@@ -294,7 +376,7 @@ new class extends Component {
         $service = app(\App\Services\NotificationService::class);
         $timetable = $this->class->timetable;
 
-        if (!$timetable || !$timetable->is_active) {
+        if (! $timetable || ! $timetable->is_active) {
             return [];
         }
 
@@ -323,9 +405,9 @@ new class extends Component {
                 $time = $matches[1]; // Get only HH:MM part
             }
 
-            $slotKey = $notification->scheduled_session_date->format('Y-m-d') . '_' . $time;
+            $slotKey = $notification->scheduled_session_date->format('Y-m-d').'_'.$time;
 
-            if (!isset($scheduled[$slotKey])) {
+            if (! isset($scheduled[$slotKey])) {
                 $scheduled[$slotKey] = [
                     'total' => 0,
                     'pending' => 0,
@@ -346,13 +428,15 @@ new class extends Component {
 
     public function isSlotScheduled(string $date, string $time): bool
     {
-        $slotKey = $date . '_' . $time;
+        $slotKey = $date.'_'.$time;
+
         return isset($this->scheduledSlots[$slotKey]) && $this->scheduledSlots[$slotKey]['total'] > 0;
     }
 
     public function getSlotScheduledCount(string $date, string $time): int
     {
-        $slotKey = $date . '_' . $time;
+        $slotKey = $date.'_'.$time;
+
         return $this->scheduledSlots[$slotKey]['pending'] ?? 0;
     }
 
@@ -368,11 +452,12 @@ new class extends Component {
                 type: 'info',
                 message: 'Tiada tetapan notifikasi aktif. Sila aktifkan sekurang-kurangnya satu tetapan.',
             );
+
             return;
         }
 
         $sessionDate = \Carbon\Carbon::parse($date);
-        $sessionDateTime = \Carbon\Carbon::parse($date . ' ' . $time);
+        $sessionDateTime = \Carbon\Carbon::parse($date.' '.$time);
         $totalScheduled = 0;
 
         // Normalize time for storage (HH:MM format)
@@ -387,13 +472,13 @@ new class extends Component {
                     ->where('scheduled_session_date', $sessionDate->toDateString())
                     ->where(function ($query) use ($normalizedTime) {
                         $query->where('scheduled_session_time', $normalizedTime)
-                            ->orWhere('scheduled_session_time', $normalizedTime . ':00');
+                            ->orWhere('scheduled_session_time', $normalizedTime.':00');
                     })
                     ->where('class_notification_setting_id', $setting->id)
                     ->whereIn('status', ['pending', 'processing'])
                     ->exists();
 
-                if (!$exists) {
+                if (! $exists) {
                     \App\Models\ScheduledNotification::create([
                         'class_id' => $this->class->id,
                         'session_id' => null,
@@ -415,7 +500,7 @@ new class extends Component {
         if ($totalScheduled > 0) {
             $this->dispatch('notify',
                 type: 'success',
-                message: $totalScheduled . ' notifikasi telah dijadualkan untuk slot ini',
+                message: $totalScheduled.' notifikasi telah dijadualkan untuk slot ini',
             );
         } else {
             $this->dispatch('notify',
@@ -430,11 +515,12 @@ new class extends Component {
         $service = app(\App\Services\NotificationService::class);
 
         // Check if timetable exists
-        if (!$this->class->timetable || !$this->class->timetable->is_active) {
+        if (! $this->class->timetable || ! $this->class->timetable->is_active) {
             $this->dispatch('notify',
                 type: 'error',
                 message: 'Kelas ini tidak mempunyai jadual waktu yang aktif.',
             );
+
             return;
         }
 
@@ -448,6 +534,7 @@ new class extends Component {
                 type: 'info',
                 message: 'Tiada tetapan notifikasi aktif. Sila aktifkan sekurang-kurangnya satu tetapan peringatan.',
             );
+
             return;
         }
 
@@ -460,7 +547,7 @@ new class extends Component {
         if (count($scheduled) > 0) {
             $this->dispatch('notify',
                 type: 'success',
-                message: count($scheduled) . ' notifikasi telah dijadualkan berdasarkan jadual waktu',
+                message: count($scheduled).' notifikasi telah dijadualkan berdasarkan jadual waktu',
             );
         } else {
             $this->dispatch('notify',
@@ -474,11 +561,12 @@ new class extends Component {
     {
         $setting = ClassNotificationSetting::with(['template', 'attachments'])->find($settingId);
 
-        if (!$setting || $setting->class_id !== $this->class->id) {
+        if (! $setting || $setting->class_id !== $this->class->id) {
             $this->dispatch('notify',
                 type: 'error',
                 message: 'Tetapan tidak dijumpai',
             );
+
             return;
         }
 
@@ -511,16 +599,18 @@ new class extends Component {
                 type: 'error',
                 message: 'Sila pilih templat atau tetapkan kandungan tersuai terlebih dahulu',
             );
+
             return;
         }
 
         $subject = $setting->getEffectiveSubject();
 
-        if (!$subject || !$content) {
+        if (! $subject || ! $content) {
             $this->dispatch('notify',
                 type: 'error',
                 message: 'Templat subjek atau kandungan tidak lengkap. Sila edit tetapan ini.',
             );
+
             return;
         }
 
@@ -532,7 +622,7 @@ new class extends Component {
             '{{course_name}}' => $this->class->course?->name ?? '',
             '{{session_date}}' => now()->addDay()->format('d M Y'),
             '{{session_time}}' => '8:00 PM',
-            '{{session_datetime}}' => now()->addDay()->format('d M Y') . ' - 8:00 PM',
+            '{{session_datetime}}' => now()->addDay()->format('d M Y').' - 8:00 PM',
             '{{location}}' => $this->class->location ?? 'TBA',
             '{{meeting_url}}' => $this->class->meeting_url ?? 'https://meet.example.com',
             '{{whatsapp_link}}' => $this->class->whatsapp_group_link ?? '',
@@ -547,7 +637,7 @@ new class extends Component {
 
         // Get attachments for email
         $attachments = $setting->attachments()->ordered()->get();
-        $fileAttachments = $attachments->filter(fn ($a) => !$a->isImage() || !$a->embed_in_email);
+        $fileAttachments = $attachments->filter(fn ($a) => ! $a->isImage() || ! $a->embed_in_email);
 
         try {
             // Build HTML content based on template type
@@ -556,8 +646,8 @@ new class extends Component {
                 $htmlContent = $personalizedContent;
             } else {
                 // Text template - convert to simple HTML
-                $htmlContent = '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">' .
-                    nl2br(e($personalizedContent)) .
+                $htmlContent = '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">'.
+                    nl2br(e($personalizedContent)).
                     '</div>';
             }
 
@@ -568,7 +658,7 @@ new class extends Component {
                 $htmlContent,
                 function ($message) use ($user, $personalizedSubject, $fileAttachments) {
                     $message->to($user->email, $user->name)
-                        ->subject('[UJIAN] ' . $personalizedSubject);
+                        ->subject('[UJIAN] '.$personalizedSubject);
 
                     // Attach files
                     foreach ($fileAttachments as $file) {
@@ -590,14 +680,14 @@ new class extends Component {
         } catch (\Exception $e) {
             $this->dispatch('notify',
                 type: 'error',
-                message: 'Gagal menghantar e-mel ujian: ' . $e->getMessage(),
+                message: 'Gagal menghantar e-mel ujian: '.$e->getMessage(),
             );
         }
     }
 
     public function openVisualBuilder(): void
     {
-        if (!$this->editingSettingId) {
+        if (! $this->editingSettingId) {
             return;
         }
 
@@ -656,14 +746,14 @@ new class extends Component {
         $attachment = ClassNotificationAttachment::find($attachmentId);
 
         if ($attachment && $attachment->class_notification_setting_id === $this->editingSettingId) {
-            $attachment->update(['embed_in_email' => !$attachment->embed_in_email]);
+            $attachment->update(['embed_in_email' => ! $attachment->embed_in_email]);
             $this->attachments = ClassNotificationSetting::find($this->editingSettingId)->attachments;
         }
     }
 
     public function getEditingSettingProperty(): ?ClassNotificationSetting
     {
-        if (!$this->editingSettingId) {
+        if (! $this->editingSettingId) {
             return null;
         }
 
@@ -1058,6 +1148,7 @@ new class extends Component {
     <!-- Edit Setting Modal -->
     <flux:modal wire:model="showEditModal" class="max-w-3xl">
         <div class="p-6" x-data="{
+            showPlaceholders: false,
             copyToClipboard(text) {
                 navigator.clipboard.writeText(text);
                 $dispatch('notify', { type: 'success', message: 'Placeholder disalin: ' + text });
@@ -1072,222 +1163,277 @@ new class extends Component {
             </div>
 
             <div class="space-y-5">
-                <!-- Template Selection Card -->
+                <!-- STEP 1: Content Source Selection -->
                 <div class="bg-gradient-to-br from-slate-50 to-gray-50 border border-gray-200 rounded-xl p-5">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center gap-2">
-                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <flux:icon.document-text class="w-4 h-4 text-blue-600" />
-                            </div>
-                            <div>
-                                <p class="font-semibold text-gray-900 text-sm">Templat E-mel</p>
-                                <p class="text-xs text-gray-500">Pilih templat untuk notifikasi ini</p>
-                            </div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <flux:icon.document-text class="w-4 h-4 text-blue-600" />
                         </div>
-                        @if($this->selectedTemplate)
-                            <a
-                                href="{{ route('admin.settings.notifications.builder', $this->selectedTemplate) }}"
-                                target="_blank"
-                                class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                            >
-                                <flux:icon.pencil-square class="w-4 h-4" />
-                                Edit Templat
-                            </a>
-                        @endif
+                        <div>
+                            <p class="font-semibold text-gray-900 text-sm">Sumber Kandungan E-mel</p>
+                            <p class="text-xs text-gray-500">Pilih sama ada menggunakan templat sistem atau kandungan tersuai</p>
+                        </div>
                     </div>
 
-                    <flux:select wire:model.live="selectedTemplateId" class="w-full">
-                        <option value="">-- Pilih Templat --</option>
-                        @foreach($this->templates as $type => $templateGroup)
-                            <optgroup label="{{ ucfirst(str_replace('_', ' ', $type)) }}">
-                                @foreach($templateGroup as $template)
-                                    <option value="{{ $template->id }}">
-                                        {{ $template->name }} ({{ strtoupper($template->language) }})
-                                        @if($template->isVisualEditor()) - Visual @endif
-                                    </option>
-                                @endforeach
-                            </optgroup>
-                        @endforeach
-                    </flux:select>
-                </div>
-
-                <!-- Template Preview -->
-                @if($this->selectedTemplate)
-                    <div class="border border-gray-200 rounded-xl overflow-hidden">
-                        <!-- Preview Header -->
-                        <div class="bg-gradient-to-r from-gray-100 to-slate-100 px-4 py-3 border-b border-gray-200">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <flux:icon.eye class="w-4 h-4 text-gray-600" />
-                                    <span class="font-medium text-gray-700 text-sm">Pratonton Templat</span>
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- System Template Option -->
+                        <label class="relative flex flex-col p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $contentSource === 'system' ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300' }}">
+                            <input type="radio" name="content_source" wire:model.live="contentSource" value="system" class="sr-only">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="w-10 h-10 {{ $contentSource === 'system' ? 'bg-blue-100' : 'bg-gray-100' }} rounded-lg flex items-center justify-center">
+                                    <flux:icon.rectangle-stack class="w-5 h-5 {{ $contentSource === 'system' ? 'text-blue-600' : 'text-gray-500' }}" />
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    @if($this->selectedTemplate->isVisualEditor())
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                                            <flux:icon.paint-brush class="w-3 h-3" />
-                                            Visual Editor
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                                            <flux:icon.code-bracket class="w-3 h-3" />
-                                            Teks
-                                        </span>
-                                    @endif
+                                <div>
+                                    <p class="font-semibold text-gray-900">Templat Sistem</p>
+                                    <p class="text-xs {{ $contentSource === 'system' ? 'text-blue-600' : 'text-gray-500' }}">Guna templat yang telah disediakan</p>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Preview Content -->
-                        <div class="bg-white p-4 space-y-4">
-                            @if($this->selectedTemplate->subject)
-                                <div>
-                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Subjek</label>
-                                    <div class="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5 text-sm text-gray-900">
-                                        {{ $this->selectedTemplate->subject }}
-                                    </div>
+                            @if($contentSource === 'system')
+                                <div class="absolute top-2 right-2">
+                                    <flux:icon.check-circle class="w-5 h-5 text-blue-600" />
                                 </div>
                             @endif
+                        </label>
 
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Kandungan</label>
-                                @if($this->selectedTemplate->isVisualEditor())
-                                    <div class="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-lg p-4 text-center">
-                                        <flux:icon.paint-brush class="w-8 h-8 mx-auto text-purple-400 mb-2" />
-                                        <p class="text-sm text-purple-700 font-medium">Templat Visual</p>
-                                        <p class="text-xs text-purple-600 mt-1">Klik "Edit Templat" untuk melihat dan mengubah reka bentuk</p>
-                                    </div>
-                                @else
-                                    <div class="bg-gray-50 border border-gray-100 rounded-lg p-3 max-h-40 overflow-y-auto">
-                                        <div class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{{ $this->selectedTemplate->content }}</div>
-                                    </div>
+                        <!-- Custom Content Option -->
+                        <label class="relative flex flex-col p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $contentSource === 'custom' ? 'border-amber-500 bg-amber-50 shadow-md' : 'border-gray-200 hover:border-amber-300' }}">
+                            <input type="radio" name="content_source" wire:model.live="contentSource" value="custom" class="sr-only">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="w-10 h-10 {{ $contentSource === 'custom' ? 'bg-amber-100' : 'bg-gray-100' }} rounded-lg flex items-center justify-center">
+                                    <flux:icon.pencil-square class="w-5 h-5 {{ $contentSource === 'custom' ? 'text-amber-600' : 'text-gray-500' }}" />
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-900">Kandungan Tersuai</p>
+                                    <p class="text-xs {{ $contentSource === 'custom' ? 'text-amber-600' : 'text-gray-500' }}">Cipta templat khusus untuk kelas ini</p>
+                                </div>
+                            </div>
+                            @if($contentSource === 'custom')
+                                <div class="absolute top-2 right-2">
+                                    <flux:icon.check-circle class="w-5 h-5 text-amber-600" />
+                                </div>
+                            @endif
+                        </label>
+                    </div>
+                </div>
+
+                <!-- STEP 2A: System Template Selection (shown when system is selected) -->
+                @if($contentSource === 'system')
+                    <div class="border border-blue-200 rounded-xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b border-blue-200">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <flux:icon.rectangle-stack class="w-4 h-4 text-blue-600" />
+                                    <span class="font-semibold text-gray-900 text-sm">Pilih Templat Sistem</span>
+                                </div>
+                                @if($this->selectedTemplate)
+                                    <a
+                                        href="{{ route('admin.settings.notifications.builder', $this->selectedTemplate) }}"
+                                        target="_blank"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+                                    >
+                                        <flux:icon.arrow-top-right-on-square class="w-3.5 h-3.5" />
+                                        Edit Templat
+                                    </a>
                                 @endif
                             </div>
                         </div>
-                    </div>
-                @else
-                    <!-- No Template Selected State -->
-                    <div class="border border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50/50">
-                        <flux:icon.document class="w-10 h-10 mx-auto text-gray-300 mb-3" />
-                        <p class="text-gray-500 text-sm">Pilih templat untuk melihat pratonton</p>
+                        <div class="bg-white p-4 space-y-4">
+                            <flux:select wire:model.live="selectedTemplateId" class="w-full">
+                                <option value="">-- Pilih Templat --</option>
+                                @foreach($this->templates as $type => $templateGroup)
+                                    <optgroup label="{{ ucfirst(str_replace('_', ' ', $type)) }}">
+                                        @foreach($templateGroup as $template)
+                                            <option value="{{ $template->id }}">
+                                                {{ $template->name }} ({{ strtoupper($template->language) }})
+                                                @if($template->isVisualEditor()) - Visual @endif
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </flux:select>
+
+                            <!-- Template Preview -->
+                            @if($this->selectedTemplate)
+                                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                    <div class="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs font-medium text-gray-600">Pratonton</span>
+                                            @if($this->selectedTemplate->isVisualEditor())
+                                                <flux:badge color="purple" size="sm">
+                                                    <flux:icon.paint-brush class="w-3 h-3 mr-1" />
+                                                    Visual
+                                                </flux:badge>
+                                            @else
+                                                <flux:badge color="zinc" size="sm">
+                                                    <flux:icon.code-bracket class="w-3 h-3 mr-1" />
+                                                    Teks
+                                                </flux:badge>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="p-3 space-y-3">
+                                        @if($this->selectedTemplate->subject)
+                                            <div>
+                                                <label class="block text-xs text-gray-500 mb-1">Subjek</label>
+                                                <div class="bg-gray-50 rounded px-3 py-2 text-sm text-gray-900">
+                                                    {{ $this->selectedTemplate->subject }}
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-1">Kandungan</label>
+                                            @if($this->selectedTemplate->isVisualEditor())
+                                                <div class="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-lg p-3 text-center">
+                                                    <flux:icon.paint-brush class="w-6 h-6 mx-auto text-purple-400 mb-1" />
+                                                    <p class="text-xs text-purple-700">Templat visual - klik "Edit Templat" untuk melihat</p>
+                                                </div>
+                                            @else
+                                                <div class="bg-gray-50 rounded p-2 max-h-32 overflow-y-auto">
+                                                    <div class="text-xs text-gray-700 whitespace-pre-wrap">{{ Str::limit($this->selectedTemplate->content, 300) }}</div>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50/50">
+                                    <flux:icon.document class="w-8 h-8 mx-auto text-gray-300 mb-2" />
+                                    <p class="text-gray-500 text-sm">Pilih templat untuk melihat pratonton</p>
+                                </div>
+                            @endif
+                        </div>
                     </div>
                 @endif
 
-                <!-- Recipients Card -->
-                <div class="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
-                        <div class="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center">
-                            <flux:icon.users class="w-4 h-4 text-green-600" />
+                <!-- STEP 2B: Custom Content Editor (shown when custom is selected) -->
+                @if($contentSource === 'custom')
+                    <div class="border border-amber-200 rounded-xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-3 border-b border-amber-200">
+                            <div class="flex items-center gap-2">
+                                <flux:icon.pencil-square class="w-4 h-4 text-amber-600" />
+                                <span class="font-semibold text-gray-900 text-sm">Kandungan Tersuai</span>
+                            </div>
+                            <p class="text-xs text-amber-700 mt-1">Templat ini akan digunakan khusus untuk kelas ini sahaja</p>
                         </div>
-                        <span class="font-semibold text-gray-900 text-sm">Penerima Notifikasi</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
-                            <input type="checkbox" wire:model="sendToStudents" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                        <div class="bg-white p-4 space-y-4">
+                            <!-- Editor Type Selection -->
                             <div>
-                                <p class="font-medium text-gray-900 text-sm">Pelajar</p>
-                                <p class="text-xs text-gray-500">Semua pelajar dalam kelas</p>
-                            </div>
-                        </label>
-                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
-                            <input type="checkbox" wire:model="sendToTeacher" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
-                            <div>
-                                <p class="font-medium text-gray-900 text-sm">Guru</p>
-                                <p class="text-xs text-gray-500">Guru yang mengajar kelas</p>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Custom Override Section -->
-                <div class="border border-amber-200 rounded-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-3 border-b border-amber-200">
-                        <div class="flex items-center gap-2">
-                            <flux:icon.adjustments-horizontal class="w-4 h-4 text-amber-600" />
-                            <span class="font-semibold text-gray-900 text-sm">Kandungan Tersuai (Pilihan)</span>
-                        </div>
-                        <p class="text-xs text-amber-700 mt-1">Gantikan kandungan templat dengan kandungan tersuai untuk kelas ini sahaja</p>
-                    </div>
-                    <div class="bg-white p-4 space-y-4">
-                        <!-- Editor Type Selection -->
-                        <div>
-                            <flux:label class="mb-2">Jenis Editor</flux:label>
-                            <div class="grid grid-cols-2 gap-3">
-                                <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:border-amber-300 transition-colors {{ $editorType === 'text' ? 'border-amber-500 bg-amber-50' : 'border-gray-200' }}">
-                                    <input type="radio" name="editor_type" wire:model.live="editorType" value="text" class="w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500">
-                                    <div>
-                                        <p class="font-medium text-gray-900 text-sm">Teks Biasa</p>
-                                        <p class="text-xs text-gray-500">Editor teks dengan placeholder</p>
-                                    </div>
-                                </label>
-                                <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:border-purple-300 transition-colors {{ $editorType === 'visual' ? 'border-purple-500 bg-purple-50' : 'border-gray-200' }}">
-                                    <input type="radio" name="editor_type" wire:model.live="editorType" value="visual" class="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500">
-                                    <div>
-                                        <p class="font-medium text-gray-900 text-sm">Visual Builder</p>
-                                        <p class="text-xs text-gray-500">Reka bentuk email dengan gambar</p>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-
-                        @if($editorType === 'visual')
-                            <!-- Visual Builder Section -->
-                            <div class="p-4 border border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50">
-                                <div class="flex items-center justify-between mb-3">
-                                    <div>
-                                        <p class="font-semibold text-gray-900 text-sm">Templat Visual</p>
-                                        <p class="text-xs text-purple-600">Reka bentuk email dengan gambar dan susun atur tersuai</p>
-                                    </div>
-                                    <flux:button
-                                        wire:click="openVisualBuilder"
-                                        variant="primary"
-                                        size="sm"
-                                        icon="pencil-square"
-                                    >
-                                        {{ $hasVisualContent ? 'Edit Reka Bentuk' : 'Cipta Reka Bentuk' }}
-                                    </flux:button>
-                                </div>
-
-                                @if($hasVisualContent)
-                                    <div class="p-3 bg-white rounded border border-purple-100">
-                                        <div class="flex items-center gap-2">
-                                            <flux:badge color="green" size="sm">Templat Disimpan</flux:badge>
+                                <flux:label class="mb-2">Jenis Editor</flux:label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <label class="flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer hover:border-amber-300 transition-colors {{ $editorType === 'text' ? 'border-amber-500 bg-amber-50' : 'border-gray-200' }}">
+                                        <input type="radio" name="editor_type" wire:model.live="editorType" value="text" class="w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500">
+                                        <div>
+                                            <p class="font-medium text-gray-900 text-sm">Teks Biasa</p>
+                                            <p class="text-xs text-gray-500">Editor teks dengan placeholder</p>
                                         </div>
-                                        <p class="text-xs text-gray-500 mt-1">Templat visual telah dikonfigurasi untuk notifikasi ini.</p>
-                                    </div>
-                                @else
-                                    <div class="p-3 bg-white rounded border border-purple-100 text-center">
-                                        <flux:icon.paint-brush class="w-6 h-6 mx-auto text-purple-300 mb-1" />
-                                        <p class="text-xs text-gray-500">Klik butang untuk mula mereka bentuk templat</p>
-                                    </div>
-                                @endif
+                                    </label>
+                                    <label class="flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer hover:border-purple-300 transition-colors {{ $editorType === 'visual' ? 'border-purple-500 bg-purple-50' : 'border-gray-200' }}">
+                                        <input type="radio" name="editor_type" wire:model.live="editorType" value="visual" class="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500">
+                                        <div>
+                                            <p class="font-medium text-gray-900 text-sm">Visual Builder</p>
+                                            <p class="text-xs text-gray-500">Reka bentuk email dengan gambar</p>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
-                        @else
-                            <!-- Text Editor Section -->
-                            <flux:field>
-                                <flux:label>Subjek Tersuai</flux:label>
-                                <flux:input wire:model="customSubject" placeholder="Biarkan kosong untuk menggunakan templat" />
-                            </flux:field>
 
-                            <flux:field>
-                                <flux:label>Kandungan Tersuai</flux:label>
-                                <flux:textarea wire:model="customContent" rows="4" placeholder="Biarkan kosong untuk menggunakan templat" />
-                            </flux:field>
-                        @endif
-                    </div>
-                </div>
+                            @if($editorType === 'visual')
+                                <!-- Visual Builder Section -->
+                                <div class="p-4 border border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div>
+                                            <p class="font-semibold text-gray-900 text-sm">Templat Visual</p>
+                                            <p class="text-xs text-purple-600">Reka bentuk email dengan gambar dan susun atur tersuai</p>
+                                        </div>
+                                        <flux:button
+                                            wire:click="openVisualBuilder"
+                                            variant="primary"
+                                            size="sm"
+                                            icon="pencil-square"
+                                        >
+                                            {{ $hasVisualContent ? 'Edit Reka Bentuk' : 'Cipta Reka Bentuk' }}
+                                        </flux:button>
+                                    </div>
 
-                <!-- Attachments Section -->
-                <div class="border border-indigo-200 rounded-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-indigo-50 to-blue-50 px-4 py-3 border-b border-indigo-200">
-                        <div class="flex items-center gap-2">
-                            <flux:icon.paper-clip class="w-4 h-4 text-indigo-600" />
-                            <span class="font-semibold text-gray-900 text-sm">Lampiran</span>
+                                    @if($hasVisualContent)
+                                        <div class="p-3 bg-white rounded border border-purple-100">
+                                            <div class="flex items-center gap-2">
+                                                <flux:badge color="green" size="sm">Templat Disimpan</flux:badge>
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-1">Templat visual telah dikonfigurasi untuk notifikasi ini.</p>
+                                        </div>
+                                    @else
+                                        <div class="p-3 bg-white rounded border border-purple-100 text-center">
+                                            <flux:icon.paint-brush class="w-6 h-6 mx-auto text-purple-300 mb-1" />
+                                            <p class="text-xs text-gray-500">Klik butang untuk mula mereka bentuk templat</p>
+                                        </div>
+                                    @endif
+                                </div>
+                            @else
+                                <!-- Text Editor Section -->
+                                <div class="space-y-4">
+                                    <flux:field>
+                                        <flux:label>Subjek E-mel</flux:label>
+                                        <flux:input wire:model="customSubject" placeholder="Contoh: Peringatan Kelas @{{class_name}}" />
+                                    </flux:field>
+
+                                    <flux:field>
+                                        <flux:label>Kandungan E-mel</flux:label>
+                                        <flux:textarea wire:model="customContent" rows="5" placeholder="Tulis kandungan e-mel anda di sini. Gunakan placeholder seperti @{{student_name}} untuk personalisasi." />
+                                    </flux:field>
+                                </div>
+                            @endif
                         </div>
-                        <p class="text-xs text-indigo-700 mt-1">Muat naik gambar atau fail untuk disertakan dalam email</p>
+                    </div>
+
+                    <!-- Placeholder Reference (Collapsible) -->
+                    <div class="border border-blue-200 rounded-xl overflow-hidden">
+                        <button
+                            type="button"
+                            @click="showPlaceholders = !showPlaceholders"
+                            class="w-full bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 flex items-center justify-between hover:from-blue-100 hover:to-indigo-100 transition-colors"
+                        >
+                            <div class="flex items-center gap-2">
+                                <flux:icon.code-bracket class="w-4 h-4 text-blue-600" />
+                                <span class="font-semibold text-gray-900 text-sm">Placeholder</span>
+                                <span class="text-xs text-blue-600">(Klik untuk menyalin)</span>
+                            </div>
+                            <flux:icon.chevron-down
+                                class="w-5 h-5 text-gray-400 transition-transform duration-200"
+                                ::class="showPlaceholders ? 'rotate-180' : ''"
+                            />
+                        </button>
+                        <div x-show="showPlaceholders" x-collapse class="bg-white p-4">
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($this->availablePlaceholders as $placeholder => $description)
+                                    <button
+                                        type="button"
+                                        x-on:click="copyToClipboard('{{ $placeholder }}')"
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-all duration-150 cursor-pointer group"
+                                        title="{{ $description }}"
+                                    >
+                                        <code class="text-xs text-blue-700 font-mono">{{ $placeholder }}</code>
+                                        <flux:icon.clipboard-document class="w-3 h-3 text-blue-400 group-hover:text-blue-600 transition-colors" />
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Attachments Section (Always shown) -->
+                <div class="border border-gray-200 rounded-xl overflow-hidden">
+                    <div class="bg-gradient-to-r from-gray-50 to-slate-50 px-4 py-3 border-b border-gray-200">
+                        <div class="flex items-center gap-2">
+                            <flux:icon.paper-clip class="w-4 h-4 text-gray-600" />
+                            <span class="font-semibold text-gray-900 text-sm">Lampiran</span>
+                            <span class="text-xs text-gray-500">(Pilihan)</span>
+                        </div>
                     </div>
                     <div class="bg-white p-4 space-y-4">
                         <!-- Upload Area -->
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-indigo-400 transition-colors">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
                             <input type="file" wire:model="newAttachments" multiple class="hidden" id="attachment-upload-{{ $editingSettingId }}">
                             <label for="attachment-upload-{{ $editingSettingId }}" class="cursor-pointer block">
                                 <flux:icon.cloud-arrow-up class="w-8 h-8 mx-auto text-gray-400" />
@@ -1342,35 +1488,33 @@ new class extends Component {
                                     </div>
                                 @endforeach
                             </div>
-                        @else
-                            <p class="text-sm text-gray-500 text-center py-2">Tiada lampiran</p>
                         @endif
                     </div>
                 </div>
 
-                <!-- Available Placeholders -->
-                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                <!-- Recipients Card (Always shown at bottom) -->
+                <div class="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
                     <div class="flex items-center gap-2 mb-3">
-                        <div class="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <flux:icon.code-bracket class="w-4 h-4 text-blue-600" />
+                        <div class="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center">
+                            <flux:icon.users class="w-4 h-4 text-green-600" />
                         </div>
-                        <div>
-                            <span class="font-semibold text-gray-900 text-sm">Placeholder</span>
-                            <p class="text-xs text-blue-600">Klik untuk menyalin</p>
-                        </div>
+                        <span class="font-semibold text-gray-900 text-sm">Penerima Notifikasi</span>
                     </div>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach($this->availablePlaceholders as $placeholder => $description)
-                            <button
-                                type="button"
-                                x-on:click="copyToClipboard('{{ $placeholder }}')"
-                                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-all duration-150 cursor-pointer group shadow-sm"
-                                title="{{ $description }}"
-                            >
-                                <code class="text-xs text-blue-700 font-mono">{{ $placeholder }}</code>
-                                <flux:icon.clipboard-document class="w-3 h-3 text-blue-400 group-hover:text-blue-600 transition-colors" />
-                            </button>
-                        @endforeach
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
+                            <input type="checkbox" wire:model="sendToStudents" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            <div>
+                                <p class="font-medium text-gray-900 text-sm">Pelajar</p>
+                                <p class="text-xs text-gray-500">Semua pelajar dalam kelas</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
+                            <input type="checkbox" wire:model="sendToTeacher" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            <div>
+                                <p class="font-medium text-gray-900 text-sm">Guru</p>
+                                <p class="text-xs text-gray-500">Guru yang mengajar kelas</p>
+                            </div>
+                        </label>
                     </div>
                 </div>
             </div>
