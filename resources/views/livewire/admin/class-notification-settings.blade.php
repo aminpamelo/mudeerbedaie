@@ -459,7 +459,7 @@ new class extends Component {
 
     public function sendTestNotification(int $settingId): void
     {
-        $setting = ClassNotificationSetting::with('template')->find($settingId);
+        $setting = ClassNotificationSetting::with(['template', 'attachments'])->find($settingId);
 
         if (!$setting || $setting->class_id !== $this->class->id) {
             $this->dispatch('notify',
@@ -472,8 +472,28 @@ new class extends Component {
         // Get the current user's email for test
         $user = auth()->user();
 
-        // Check if template or custom content exists
-        if (!$setting->template && !$setting->custom_subject && !$setting->custom_content) {
+        // Determine content source with priority: class custom > system template
+        $template = $setting->template;
+        $hasCustomVisualTemplate = $setting->isVisualEditor() && $setting->html_content;
+        $hasCustomTextTemplate = $setting->isTextEditor() && $setting->custom_content;
+
+        if ($hasCustomVisualTemplate) {
+            // Use class-level visual template
+            $content = $setting->html_content;
+            $isVisualTemplate = true;
+        } elseif ($hasCustomTextTemplate) {
+            // Use class-level text template
+            $content = $setting->custom_content;
+            $isVisualTemplate = false;
+        } elseif ($template && $template->isVisualEditor() && $template->html_content) {
+            // Fall back to system visual template
+            $content = $template->html_content;
+            $isVisualTemplate = true;
+        } elseif ($template) {
+            // Fall back to system text template
+            $content = $setting->getEffectiveContent();
+            $isVisualTemplate = false;
+        } else {
             $this->dispatch('notify',
                 type: 'error',
                 message: 'Sila pilih templat atau tetapkan kandungan tersuai terlebih dahulu',
@@ -482,7 +502,6 @@ new class extends Component {
         }
 
         $subject = $setting->getEffectiveSubject();
-        $content = $setting->getEffectiveContent();
 
         if (!$subject || !$content) {
             $this->dispatch('notify',
@@ -513,20 +532,47 @@ new class extends Component {
         $personalizedSubject = str_replace(array_keys($placeholders), array_values($placeholders), $subject);
         $personalizedContent = str_replace(array_keys($placeholders), array_values($placeholders), $content);
 
+        // Get attachments for email
+        $attachments = $setting->attachments()->ordered()->get();
+        $fileAttachments = $attachments->filter(fn ($a) => !$a->isImage() || !$a->embed_in_email);
+
         try {
+            // Build HTML content based on template type
+            if ($isVisualTemplate) {
+                // Visual template is already HTML
+                $htmlContent = $personalizedContent;
+            } else {
+                // Text template - convert to simple HTML
+                $htmlContent = '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">' .
+                    nl2br(e($personalizedContent)) .
+                    '</div>';
+            }
+
+            // Add test email footer
+            $htmlContent .= '<br><br><div style="border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px;"><em style="color: #999; font-size: 12px;">— Ini adalah e-mel ujian —</em></div>';
+
             \Illuminate\Support\Facades\Mail::html(
-                '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">' .
-                nl2br(e($personalizedContent)) .
-                '<br><br><em style="color: #999;">— Ini adalah e-mel ujian —</em></div>',
-                function ($message) use ($user, $personalizedSubject) {
+                $htmlContent,
+                function ($message) use ($user, $personalizedSubject, $fileAttachments) {
                     $message->to($user->email, $user->name)
                         ->subject('[UJIAN] ' . $personalizedSubject);
+
+                    // Attach files
+                    foreach ($fileAttachments as $file) {
+                        if (\Illuminate\Support\Facades\Storage::disk($file->disk)->exists($file->file_path)) {
+                            $message->attach($file->full_path, [
+                                'as' => $file->file_name,
+                                'mime' => $file->file_type,
+                            ]);
+                        }
+                    }
                 }
             );
 
+            $templateType = $isVisualTemplate ? 'visual' : 'teks';
             $this->dispatch('notify',
                 type: 'success',
-                message: 'E-mel ujian telah dihantar ke ' . $user->email,
+                message: "E-mel ujian (templat {$templateType}) telah dihantar ke {$user->email}",
             );
         } catch (\Exception $e) {
             $this->dispatch('notify',
