@@ -18,6 +18,8 @@ new class extends Component
 
     public ClassModel $class;
 
+    public bool $autoScheduleEnabled = false;
+
     public bool $showEditModal = false;
 
     public ?int $editingSettingId = null;
@@ -54,6 +56,7 @@ new class extends Component
     public function mount(ClassModel $class): void
     {
         $this->class = $class;
+        $this->autoScheduleEnabled = $class->auto_schedule_notifications ?? false;
         $this->attachments = collect();
         $this->initializeSettings();
     }
@@ -96,6 +99,20 @@ new class extends Component
                 ]);
             }
         }
+    }
+
+    public function toggleAutoSchedule(): void
+    {
+        $newValue = ! $this->autoScheduleEnabled;
+        $this->class->update(['auto_schedule_notifications' => $newValue]);
+        $this->autoScheduleEnabled = $newValue;
+
+        $this->dispatch('notify',
+            type: 'success',
+            message: $newValue
+                ? 'Penjadualan automatik telah diaktifkan. Sistem akan menjadualkan notifikasi secara automatik setiap hari.'
+                : 'Penjadualan automatik telah dinyahaktifkan. Sila jadualkan notifikasi secara manual.',
+        );
     }
 
     public function getSettingsProperty()
@@ -762,7 +779,63 @@ new class extends Component
 }; ?>
 
 <div class="space-y-6">
-    <!-- Quick Actions Section -->
+    <!-- Auto-Schedule Toggle Section -->
+    <flux:card>
+        <div class="p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 {{ $autoScheduleEnabled ? 'bg-green-100' : 'bg-gray-100' }} rounded-xl flex items-center justify-center transition-colors">
+                        @if($autoScheduleEnabled)
+                            <flux:icon.bolt class="w-6 h-6 text-green-600" />
+                        @else
+                            <flux:icon.hand-raised class="w-6 h-6 text-gray-500" />
+                        @endif
+                    </div>
+                    <div>
+                        <flux:heading size="lg">Mod Penjadualan Notifikasi</flux:heading>
+                        <flux:text class="text-gray-500 mt-1">
+                            @if($autoScheduleEnabled)
+                                <span class="text-green-600 font-medium">Automatik</span> — Sistem akan menjadualkan notifikasi secara automatik setiap hari untuk 7 hari akan datang.
+                            @else
+                                <span class="text-gray-600 font-medium">Manual</span> — Klik butang untuk menjadualkan notifikasi secara manual.
+                            @endif
+                        </flux:text>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    @if($autoScheduleEnabled)
+                        <flux:badge color="green" size="lg">
+                            <flux:icon.check-circle class="w-4 h-4 mr-1" />
+                            Automatik
+                        </flux:badge>
+                    @else
+                        <flux:badge color="zinc" size="lg">Manual</flux:badge>
+                    @endif
+                    <flux:switch
+                        wire:click="toggleAutoSchedule"
+                        :checked="$autoScheduleEnabled"
+                    />
+                </div>
+            </div>
+
+            @if($autoScheduleEnabled)
+                <div class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div class="flex items-start gap-3">
+                        <flux:icon.information-circle class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p class="text-sm font-medium text-green-800">Penjadualan Automatik Aktif</p>
+                            <p class="text-sm text-green-700 mt-1">
+                                Sistem akan menjadualkan notifikasi secara automatik setiap hari pada jam 00:30 untuk 7 hari akan datang.
+                                Pastikan tetapan notifikasi di bawah telah diaktifkan.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
+    </flux:card>
+
+    <!-- Quick Actions Section (Manual Scheduling) -->
     <flux:card>
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
@@ -772,15 +845,22 @@ new class extends Component
                         Jadualkan notifikasi berdasarkan jadual waktu kelas (7 hari akan datang).
                     </flux:text>
                 </div>
-                <flux:button
-                    variant="primary"
-                    wire:click="scheduleAllUpcomingNotifications"
-                    wire:loading.attr="disabled"
-                    icon="bell-alert"
-                >
-                    <span wire:loading.remove wire:target="scheduleAllUpcomingNotifications">Jadualkan Semua</span>
-                    <span wire:loading wire:target="scheduleAllUpcomingNotifications">Menjadualkan...</span>
-                </flux:button>
+                @if(!$autoScheduleEnabled)
+                    <flux:button
+                        variant="primary"
+                        wire:click="scheduleAllUpcomingNotifications"
+                        wire:loading.attr="disabled"
+                        icon="bell-alert"
+                    >
+                        <span wire:loading.remove wire:target="scheduleAllUpcomingNotifications">Jadualkan Semua</span>
+                        <span wire:loading wire:target="scheduleAllUpcomingNotifications">Menjadualkan...</span>
+                    </flux:button>
+                @else
+                    <flux:badge color="green" size="lg">
+                        <flux:icon.bolt class="w-4 h-4 mr-1" />
+                        Dijadualkan Automatik
+                    </flux:badge>
+                @endif
             </div>
 
             @if($this->timetable && $this->timetable->is_active)
@@ -837,6 +917,11 @@ new class extends Component
                                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 text-sm font-medium rounded-lg">
                                         <flux:icon.check-circle class="w-4 h-4" />
                                         Telah Dijadualkan
+                                    </span>
+                                @elseif($autoScheduleEnabled)
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg">
+                                        <flux:icon.bolt class="w-4 h-4" />
+                                        Auto
                                     </span>
                                 @else
                                     <flux:button
