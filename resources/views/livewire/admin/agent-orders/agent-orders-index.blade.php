@@ -215,8 +215,8 @@ new class extends Component
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">Pesanan Kedai Buku</flux:heading>
-            <flux:text class="mt-2">Manage orders from agents (kedai buku)</flux:text>
+            <flux:heading size="xl">All Agent's Order</flux:heading>
+            <flux:text class="mt-2">Manage orders from all agents (agent, company, kedai buku)</flux:text>
         </div>
 
         <div class="flex gap-3">
@@ -240,7 +240,7 @@ new class extends Component
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text class="text-gray-600">Total Agent Orders</flux:text>
+                    <flux:text class="text-gray-600 dark:text-zinc-400">Total Agent Orders</flux:text>
                     <flux:heading size="lg">{{ number_format($totalAgentOrders) }}</flux:heading>
                 </div>
                 <flux:icon name="shopping-bag" class="w-8 h-8 text-blue-500" />
@@ -250,7 +250,7 @@ new class extends Component
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text class="text-gray-600">Pending Orders</flux:text>
+                    <flux:text class="text-gray-600 dark:text-zinc-400">Pending Orders</flux:text>
                     <flux:heading size="lg" class="text-yellow-600">{{ number_format($pendingAgentOrders) }}</flux:heading>
                 </div>
                 <flux:icon name="clock" class="w-8 h-8 text-yellow-500" />
@@ -260,7 +260,7 @@ new class extends Component
         <flux:card>
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text class="text-gray-600">Total Revenue</flux:text>
+                    <flux:text class="text-gray-600 dark:text-zinc-400">Total Revenue</flux:text>
                     <flux:heading size="lg" class="text-green-600">RM {{ number_format($totalRevenue, 2) }}</flux:heading>
                 </div>
                 <flux:icon name="banknotes" class="w-8 h-8 text-green-500" />
@@ -320,7 +320,7 @@ new class extends Component
         @if($search || $agentFilter || $statusFilter || $dateFilter)
             <div class="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700 flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <flux:text size="sm" class="text-gray-600">Active filters:</flux:text>
+                    <flux:text size="sm" class="text-gray-600 dark:text-zinc-400">Active filters:</flux:text>
                     @if($search)
                         <flux:badge color="gray">
                             Search: {{ Str::limit($search, 20) }}
@@ -359,43 +359,43 @@ new class extends Component
             <table class="min-w-full border-collapse border-0">
                 <thead class="bg-gray-50 dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-700">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <button wire:click="sortBy('order_number')" class="flex items-center space-x-1 hover:text-gray-700">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                            <button wire:click="sortBy('order_number')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-zinc-200">
                                 <span>Order ID</span>
                                 @if($sortBy === 'order_number')
                                     <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                             Agent
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-gray-700">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                            <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-zinc-200">
                                 <span>Order Date</span>
                                 @if($sortBy === 'created_at')
                                     <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <button wire:click="sortBy('total_amount')" class="flex items-center space-x-1 hover:text-gray-700">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                            <button wire:click="sortBy('total_amount')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-zinc-200">
                                 <span>Total (RM)</span>
                                 @if($sortBy === 'total_amount')
                                     <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                             Items
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                             Status
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                             Payment
                         </th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                             Actions
                         </th>
                     </tr>
@@ -516,8 +516,8 @@ new class extends Component
                             <td colspan="8" class="px-6 py-12 text-center">
                                 <div class="text-gray-500 dark:text-zinc-400">
                                     <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-zinc-600" />
-                                    <flux:heading size="lg">No agent orders found</flux:heading>
-                                    <flux:text class="mt-2">Get started by creating your first agent order.</flux:text>
+                                    <flux:heading size="lg">Tiada pesanan ejen ditemui</flux:heading>
+                                    <flux:text class="mt-2">Mulakan dengan membuat pesanan ejen pertama anda.</flux:text>
                                     <div class="mt-4">
                                         <flux:button variant="primary" :href="route('agent-orders.create')" wire:navigate>
                                             <div class="flex items-center justify-center">
