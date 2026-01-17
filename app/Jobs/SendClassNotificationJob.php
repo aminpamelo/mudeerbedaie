@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 
 class SendClassNotificationJob implements ShouldQueue
 {
@@ -63,18 +64,40 @@ class SendClassNotificationJob implements ShouldQueue
 
         $subject = $setting->getEffectiveSubject();
 
-        // Check if template uses visual editor
+        // Check if class has custom template (visual or text) - these take priority
         $template = $setting->template;
-        $isVisualTemplate = $template && $template->isVisualEditor() && $template->html_content;
+        $hasCustomVisualTemplate = $setting->isVisualEditor() && $setting->html_content;
+        $hasCustomTextTemplate = $setting->isTextEditor() && $setting->custom_content;
 
-        // Get content based on editor type
-        $content = $isVisualTemplate ? $template->html_content : $setting->getEffectiveContent();
+        // Determine content source with priority: class custom > system template
+        if ($hasCustomVisualTemplate) {
+            // Use class-level visual template
+            $content = $setting->html_content;
+            $isVisualTemplate = true;
+        } elseif ($hasCustomTextTemplate) {
+            // Use class-level text template
+            $content = $setting->custom_content;
+            $isVisualTemplate = false;
+        } elseif ($template && $template->isVisualEditor() && $template->html_content) {
+            // Fall back to system visual template
+            $content = $template->html_content;
+            $isVisualTemplate = true;
+        } else {
+            // Fall back to system text template
+            $content = $setting->getEffectiveContent();
+            $isVisualTemplate = false;
+        }
 
         if (! $subject || ! $content) {
             $notification->markAsFailed('Missing subject or content template');
 
             return;
         }
+
+        // Get attachments for this notification setting
+        $attachments = $setting->attachments()->ordered()->get();
+        $embeddedImages = $attachments->filter(fn ($a) => $a->isImage() && $a->embed_in_email);
+        $fileAttachments = $attachments->filter(fn ($a) => ! $a->isImage() || ! $a->embed_in_email);
 
         // Extract session time - handle both formats:
         // - Time only: "18:00:00"
@@ -162,10 +185,24 @@ class SendClassNotificationJob implements ShouldQueue
                     'status' => 'pending',
                 ]);
 
-                // Send email
-                Mail::html($htmlContent, function ($message) use ($recipient, $personalizedSubject) {
+                // Send email with attachments
+                Mail::send([], [], function ($message) use ($recipient, $personalizedSubject, $htmlContent, $fileAttachments) {
                     $message->to($recipient['email'], $recipient['name'])
-                        ->subject($personalizedSubject);
+                        ->subject($personalizedSubject)
+                        ->html($htmlContent);
+
+                    // Attach files (PDFs, documents, non-embedded images)
+                    foreach ($fileAttachments as $file) {
+                        if (Storage::disk($file->disk)->exists($file->file_path)) {
+                            $message->attach($file->full_path, [
+                                'as' => $file->file_name,
+                                'mime' => $file->file_type,
+                            ]);
+                        }
+                    }
+
+                    // Note: For embedded images in HTML emails, they should be referenced
+                    // in the HTML content using absolute URLs from the storage
                 });
 
                 $log->markAsSent();

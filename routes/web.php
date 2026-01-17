@@ -169,6 +169,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('classes/create', 'admin.class-create')->name('classes.create');
     Volt::route('classes/{class}', 'admin.class-show')->name('classes.show');
     Volt::route('classes/{class}/edit', 'admin.class-edit')->name('classes.edit');
+    Volt::route('classes/notification-builder/{settingId}', 'admin.class-notification-builder')->name('admin.class-notification-builder');
 
     // Class Category routes
     Volt::route('class-categories', 'admin.class-category-list')->name('class-categories.index');

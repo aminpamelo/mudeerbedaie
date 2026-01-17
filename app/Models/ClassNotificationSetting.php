@@ -21,6 +21,9 @@ class ClassNotificationSetting extends Model
         'send_to_teacher',
         'custom_subject',
         'custom_content',
+        'design_json',
+        'html_content',
+        'editor_type',
     ];
 
     protected function casts(): array
@@ -29,6 +32,7 @@ class ClassNotificationSetting extends Model
             'is_enabled' => 'boolean',
             'send_to_students' => 'boolean',
             'send_to_teacher' => 'boolean',
+            'design_json' => 'array',
         ];
     }
 
@@ -45,6 +49,37 @@ class ClassNotificationSetting extends Model
     public function scheduledNotifications(): HasMany
     {
         return $this->hasMany(ScheduledNotification::class, 'class_notification_setting_id');
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(ClassNotificationAttachment::class);
+    }
+
+    public function isVisualEditor(): bool
+    {
+        return $this->editor_type === 'visual';
+    }
+
+    public function isTextEditor(): bool
+    {
+        return $this->editor_type === 'text' || empty($this->editor_type);
+    }
+
+    public function hasCustomTemplate(): bool
+    {
+        return $this->isVisualEditor()
+            ? ! empty($this->html_content)
+            : ! empty($this->custom_content);
+    }
+
+    public function getEffectiveHtmlContent(): ?string
+    {
+        if ($this->isVisualEditor() && $this->html_content) {
+            return $this->html_content;
+        }
+
+        return null;
     }
 
     public function getEffectiveSubject(): ?string

@@ -1,14 +1,19 @@
 <?php
 
 use App\Models\ClassModel;
+use App\Models\ClassNotificationAttachment;
 use App\Models\ClassNotificationSetting;
 use App\Models\NotificationTemplate;
 use App\Models\ScheduledNotification;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 new class extends Component {
     use WithPagination;
+    use WithFileUploads;
 
     public ClassModel $class;
 
@@ -21,9 +26,20 @@ new class extends Component {
     public bool $sendToTeacher = true;
     public ?int $customMinutesBefore = null;
 
+    // Visual builder properties
+    public string $editorType = 'text';
+    public ?string $designJson = null;
+    public ?string $htmlContent = null;
+    public bool $hasVisualContent = false;
+
+    // Attachment properties
+    public $newAttachments = [];
+    public Collection $attachments;
+
     public function mount(ClassModel $class): void
     {
         $this->class = $class;
+        $this->attachments = collect();
         $this->initializeSettings();
     }
 
@@ -188,7 +204,7 @@ new class extends Component {
 
     public function editSetting(int $settingId): void
     {
-        $setting = ClassNotificationSetting::find($settingId);
+        $setting = ClassNotificationSetting::with('attachments')->find($settingId);
         if ($setting && $setting->class_id === $this->class->id) {
             $this->editingSettingId = $settingId;
             $this->selectedTemplateId = $setting->template_id;
@@ -197,6 +213,17 @@ new class extends Component {
             $this->sendToStudents = $setting->send_to_students;
             $this->sendToTeacher = $setting->send_to_teacher;
             $this->customMinutesBefore = $setting->custom_minutes_before;
+
+            // Visual builder fields
+            $this->editorType = $setting->editor_type ?? 'text';
+            $this->designJson = $setting->design_json ? json_encode($setting->design_json) : null;
+            $this->htmlContent = $setting->html_content;
+            $this->hasVisualContent = !empty($setting->html_content);
+
+            // Attachments
+            $this->attachments = $setting->attachments;
+            $this->newAttachments = [];
+
             $this->showEditModal = true;
         }
     }
@@ -212,6 +239,9 @@ new class extends Component {
                 'send_to_students' => $this->sendToStudents,
                 'send_to_teacher' => $this->sendToTeacher,
                 'custom_minutes_before' => $this->customMinutesBefore,
+                'editor_type' => $this->editorType,
+                'design_json' => $this->designJson ? json_decode($this->designJson, true) : null,
+                'html_content' => $this->htmlContent,
             ]);
 
             $this->showEditModal = false;
@@ -233,6 +263,12 @@ new class extends Component {
         $this->sendToStudents = true;
         $this->sendToTeacher = true;
         $this->customMinutesBefore = null;
+        $this->editorType = 'text';
+        $this->designJson = null;
+        $this->htmlContent = null;
+        $this->hasVisualContent = false;
+        $this->attachments = collect();
+        $this->newAttachments = [];
     }
 
     public function cancelNotification(int $notificationId): void
@@ -498,6 +534,81 @@ new class extends Component {
                 message: 'Gagal menghantar e-mel ujian: ' . $e->getMessage(),
             );
         }
+    }
+
+    public function openVisualBuilder(): void
+    {
+        if (!$this->editingSettingId) {
+            return;
+        }
+
+        // Store current setting ID in session and redirect to builder
+        session(['editing_notification_setting_id' => $this->editingSettingId]);
+        $this->redirect(route('admin.class-notification-builder', ['settingId' => $this->editingSettingId]));
+    }
+
+    public function updatedNewAttachments(): void
+    {
+        $this->validate([
+            'newAttachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx,ppt,pptx',
+        ]);
+
+        foreach ($this->newAttachments as $file) {
+            $path = $file->store("notification-attachments/{$this->editingSettingId}", 'public');
+
+            ClassNotificationAttachment::create([
+                'class_notification_setting_id' => $this->editingSettingId,
+                'file_path' => $path,
+                'file_name' => $file->getClientOriginalName(),
+                'file_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'embed_in_email' => str_starts_with($file->getMimeType(), 'image/'),
+            ]);
+        }
+
+        $this->attachments = ClassNotificationSetting::find($this->editingSettingId)->attachments;
+        $this->newAttachments = [];
+
+        $this->dispatch('notify',
+            type: 'success',
+            message: 'Lampiran telah dimuat naik',
+        );
+    }
+
+    public function removeAttachment(int $attachmentId): void
+    {
+        $attachment = ClassNotificationAttachment::find($attachmentId);
+
+        if ($attachment && $attachment->class_notification_setting_id === $this->editingSettingId) {
+            Storage::disk($attachment->disk)->delete($attachment->file_path);
+            $attachment->delete();
+
+            $this->attachments = ClassNotificationSetting::find($this->editingSettingId)->attachments;
+
+            $this->dispatch('notify',
+                type: 'success',
+                message: 'Lampiran telah dipadamkan',
+            );
+        }
+    }
+
+    public function toggleEmbedImage(int $attachmentId): void
+    {
+        $attachment = ClassNotificationAttachment::find($attachmentId);
+
+        if ($attachment && $attachment->class_notification_setting_id === $this->editingSettingId) {
+            $attachment->update(['embed_in_email' => !$attachment->embed_in_email]);
+            $this->attachments = ClassNotificationSetting::find($this->editingSettingId)->attachments;
+        }
+    }
+
+    public function getEditingSettingProperty(): ?ClassNotificationSetting
+    {
+        if (!$this->editingSettingId) {
+            return null;
+        }
+
+        return ClassNotificationSetting::find($this->editingSettingId);
     }
 }; ?>
 
@@ -1038,15 +1149,143 @@ new class extends Component {
                         <p class="text-xs text-amber-700 mt-1">Gantikan kandungan templat dengan kandungan tersuai untuk kelas ini sahaja</p>
                     </div>
                     <div class="bg-white p-4 space-y-4">
-                        <flux:field>
-                            <flux:label>Subjek Tersuai</flux:label>
-                            <flux:input wire:model="customSubject" placeholder="Biarkan kosong untuk menggunakan templat" />
-                        </flux:field>
+                        <!-- Editor Type Selection -->
+                        <div>
+                            <flux:label class="mb-2">Jenis Editor</flux:label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:border-amber-300 transition-colors {{ $editorType === 'text' ? 'border-amber-500 bg-amber-50' : 'border-gray-200' }}">
+                                    <input type="radio" name="editor_type" wire:model.live="editorType" value="text" class="w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500">
+                                    <div>
+                                        <p class="font-medium text-gray-900 text-sm">Teks Biasa</p>
+                                        <p class="text-xs text-gray-500">Editor teks dengan placeholder</p>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:border-purple-300 transition-colors {{ $editorType === 'visual' ? 'border-purple-500 bg-purple-50' : 'border-gray-200' }}">
+                                    <input type="radio" name="editor_type" wire:model.live="editorType" value="visual" class="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500">
+                                    <div>
+                                        <p class="font-medium text-gray-900 text-sm">Visual Builder</p>
+                                        <p class="text-xs text-gray-500">Reka bentuk email dengan gambar</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
 
-                        <flux:field>
-                            <flux:label>Kandungan Tersuai</flux:label>
-                            <flux:textarea wire:model="customContent" rows="4" placeholder="Biarkan kosong untuk menggunakan templat" />
-                        </flux:field>
+                        @if($editorType === 'visual')
+                            <!-- Visual Builder Section -->
+                            <div class="p-4 border border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div>
+                                        <p class="font-semibold text-gray-900 text-sm">Templat Visual</p>
+                                        <p class="text-xs text-purple-600">Reka bentuk email dengan gambar dan susun atur tersuai</p>
+                                    </div>
+                                    <flux:button
+                                        wire:click="openVisualBuilder"
+                                        variant="primary"
+                                        size="sm"
+                                        icon="pencil-square"
+                                    >
+                                        {{ $hasVisualContent ? 'Edit Reka Bentuk' : 'Cipta Reka Bentuk' }}
+                                    </flux:button>
+                                </div>
+
+                                @if($hasVisualContent)
+                                    <div class="p-3 bg-white rounded border border-purple-100">
+                                        <div class="flex items-center gap-2">
+                                            <flux:badge color="green" size="sm">Templat Disimpan</flux:badge>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Templat visual telah dikonfigurasi untuk notifikasi ini.</p>
+                                    </div>
+                                @else
+                                    <div class="p-3 bg-white rounded border border-purple-100 text-center">
+                                        <flux:icon.paint-brush class="w-6 h-6 mx-auto text-purple-300 mb-1" />
+                                        <p class="text-xs text-gray-500">Klik butang untuk mula mereka bentuk templat</p>
+                                    </div>
+                                @endif
+                            </div>
+                        @else
+                            <!-- Text Editor Section -->
+                            <flux:field>
+                                <flux:label>Subjek Tersuai</flux:label>
+                                <flux:input wire:model="customSubject" placeholder="Biarkan kosong untuk menggunakan templat" />
+                            </flux:field>
+
+                            <flux:field>
+                                <flux:label>Kandungan Tersuai</flux:label>
+                                <flux:textarea wire:model="customContent" rows="4" placeholder="Biarkan kosong untuk menggunakan templat" />
+                            </flux:field>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Attachments Section -->
+                <div class="border border-indigo-200 rounded-xl overflow-hidden">
+                    <div class="bg-gradient-to-r from-indigo-50 to-blue-50 px-4 py-3 border-b border-indigo-200">
+                        <div class="flex items-center gap-2">
+                            <flux:icon.paper-clip class="w-4 h-4 text-indigo-600" />
+                            <span class="font-semibold text-gray-900 text-sm">Lampiran</span>
+                        </div>
+                        <p class="text-xs text-indigo-700 mt-1">Muat naik gambar atau fail untuk disertakan dalam email</p>
+                    </div>
+                    <div class="bg-white p-4 space-y-4">
+                        <!-- Upload Area -->
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-indigo-400 transition-colors">
+                            <input type="file" wire:model="newAttachments" multiple class="hidden" id="attachment-upload-{{ $editingSettingId }}">
+                            <label for="attachment-upload-{{ $editingSettingId }}" class="cursor-pointer block">
+                                <flux:icon.cloud-arrow-up class="w-8 h-8 mx-auto text-gray-400" />
+                                <p class="text-sm text-gray-600 mt-2">Klik untuk muat naik fail</p>
+                                <p class="text-xs text-gray-400">JPG, PNG, PDF, DOC, XLS, PPT (Maks 10MB)</p>
+                            </label>
+                            <div wire:loading wire:target="newAttachments" class="mt-2">
+                                <flux:badge color="blue" size="sm">Memuat naik...</flux:badge>
+                            </div>
+                        </div>
+
+                        <!-- Attachment List -->
+                        @if($attachments->count() > 0)
+                            <div class="space-y-2">
+                                @foreach($attachments as $attachment)
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <div class="flex items-center gap-3">
+                                            @if($attachment->isImage())
+                                                <img src="{{ $attachment->url }}" class="w-10 h-10 object-cover rounded" alt="{{ $attachment->file_name }}" />
+                                            @else
+                                                <div class="w-10 h-10 bg-gray-200 rounded flex items-center justify-center">
+                                                    <flux:icon :name="$attachment->file_icon" class="w-5 h-5 text-gray-500" />
+                                                </div>
+                                            @endif
+                                            <div>
+                                                <p class="text-sm font-medium text-gray-900">{{ Str::limit($attachment->file_name, 30) }}</p>
+                                                <p class="text-xs text-gray-500">{{ $attachment->formatted_size }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            @if($attachment->isImage())
+                                                <label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        wire:click="toggleEmbedImage({{ $attachment->id }})"
+                                                        {{ $attachment->embed_in_email ? 'checked' : '' }}
+                                                        class="w-3.5 h-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                                    >
+                                                    Embed
+                                                </label>
+                                            @endif
+                                            <flux:button
+                                                wire:click="removeAttachment({{ $attachment->id }})"
+                                                wire:confirm="Adakah anda pasti untuk memadam lampiran ini?"
+                                                variant="ghost"
+                                                size="sm"
+                                                class="text-red-600 hover:text-red-800"
+                                            >
+                                                <flux:icon.trash class="w-4 h-4" />
+                                            </flux:button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-500 text-center py-2">Tiada lampiran</p>
+                        @endif
                     </div>
                 </div>
 
