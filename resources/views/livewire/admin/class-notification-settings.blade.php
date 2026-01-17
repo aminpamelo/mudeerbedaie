@@ -317,7 +317,13 @@ new class extends Component {
         $scheduled = [];
 
         foreach ($notifications as $notification) {
-            $slotKey = $notification->scheduled_session_date->format('Y-m-d') . '_' . $notification->scheduled_session_time;
+            // Normalize time format to HH:MM (remove seconds if present)
+            $time = $notification->scheduled_session_time;
+            if ($time && preg_match('/^(\d{1,2}:\d{2})(:\d{2})?$/', $time, $matches)) {
+                $time = $matches[1]; // Get only HH:MM part
+            }
+
+            $slotKey = $notification->scheduled_session_date->format('Y-m-d') . '_' . $time;
 
             if (!isset($scheduled[$slotKey])) {
                 $scheduled[$slotKey] = [
@@ -369,13 +375,20 @@ new class extends Component {
         $sessionDateTime = \Carbon\Carbon::parse($date . ' ' . $time);
         $totalScheduled = 0;
 
+        // Normalize time for storage (HH:MM format)
+        $normalizedTime = preg_replace('/^(\d{1,2}:\d{2})(:\d{2})?$/', '$1', $time);
+
         foreach ($settings as $setting) {
             $scheduledAt = $sessionDateTime->copy()->subMinutes($setting->getMinutesBefore());
 
             if ($scheduledAt->isFuture()) {
+                // Check for existing with both time formats (HH:MM and HH:MM:SS)
                 $exists = \App\Models\ScheduledNotification::where('class_id', $this->class->id)
                     ->where('scheduled_session_date', $sessionDate->toDateString())
-                    ->where('scheduled_session_time', $time)
+                    ->where(function ($query) use ($normalizedTime) {
+                        $query->where('scheduled_session_time', $normalizedTime)
+                            ->orWhere('scheduled_session_time', $normalizedTime . ':00');
+                    })
                     ->where('class_notification_setting_id', $setting->id)
                     ->whereIn('status', ['pending', 'processing'])
                     ->exists();
@@ -385,7 +398,7 @@ new class extends Component {
                         'class_id' => $this->class->id,
                         'session_id' => null,
                         'scheduled_session_date' => $sessionDate->toDateString(),
-                        'scheduled_session_time' => $time,
+                        'scheduled_session_time' => $normalizedTime,
                         'class_notification_setting_id' => $setting->id,
                         'status' => 'pending',
                         'scheduled_at' => $scheduledAt,
