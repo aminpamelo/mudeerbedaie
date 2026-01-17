@@ -11,18 +11,24 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Add visual builder fields to class_notification_settings (check if not exists)
-        Schema::table('class_notification_settings', function (Blueprint $table) {
-            if (! Schema::hasColumn('class_notification_settings', 'design_json')) {
+        // Add visual builder fields to class_notification_settings (check each column separately)
+        if (! Schema::hasColumn('class_notification_settings', 'design_json')) {
+            Schema::table('class_notification_settings', function (Blueprint $table) {
                 $table->json('design_json')->nullable()->after('custom_content');
-            }
-            if (! Schema::hasColumn('class_notification_settings', 'html_content')) {
+            });
+        }
+
+        if (! Schema::hasColumn('class_notification_settings', 'html_content')) {
+            Schema::table('class_notification_settings', function (Blueprint $table) {
                 $table->longText('html_content')->nullable()->after('design_json');
-            }
-            if (! Schema::hasColumn('class_notification_settings', 'editor_type')) {
+            });
+        }
+
+        if (! Schema::hasColumn('class_notification_settings', 'editor_type')) {
+            Schema::table('class_notification_settings', function (Blueprint $table) {
                 $table->string('editor_type')->default('text')->after('html_content');
-            }
-        });
+            });
+        }
 
         // Create attachments table for class notification settings (if not exists)
         if (! Schema::hasTable('class_notification_attachments')) {
