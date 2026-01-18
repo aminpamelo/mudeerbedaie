@@ -797,21 +797,23 @@ new class extends Component
         $text = $html;
 
         // Replace common HTML elements
-        $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
-        $text = preg_replace('/<\/p>/i', "\n\n", $text);
-        $text = preg_replace('/<\/div>/i', "\n", $text);
-        $text = preg_replace('/<\/h[1-6]>/i', "\n\n", $text);
-        $text = preg_replace('/<li>/i', "• ", $text);
-        $text = preg_replace('/<\/li>/i', "\n", $text);
+        // Using # delimiter and specific patterns to avoid Blade compiler issues
+        $text = preg_replace('#<br\s*/>#i', "\n", $text);  // <br />
+        $text = preg_replace('#<br\s*>#i', "\n", $text);   // <br>
+        $text = preg_replace('#</p>#i', "\n\n", $text);
+        $text = preg_replace('#</div>#i', "\n", $text);
+        $text = preg_replace('#</h[1-6]>#i', "\n\n", $text);
+        $text = preg_replace('#<li>#i', "• ", $text);
+        $text = preg_replace('#</li>#i', "\n", $text);
 
         // Bold text: <strong> or <b> -> *text*
-        $text = preg_replace('/<(strong|b)>(.*?)<\/(strong|b)>/is', '*$2*', $text);
+        $text = preg_replace('#<(strong|b)>(.*?)</(strong|b)>#is', '*$2*', $text);
 
         // Italic text: <em> or <i> -> _text_
-        $text = preg_replace('/<(em|i)>(.*?)<\/(em|i)>/is', '_$2_', $text);
+        $text = preg_replace('#<(em|i)>(.*?)</(em|i)>#is', '_$2_', $text);
 
         // Links: <a href="url">text</a> -> text (url)
-        $text = preg_replace('/<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is', '$2 ($1)', $text);
+        $text = preg_replace('#<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>#is', '$2 ($1)', $text);
 
         // Strip remaining HTML tags
         $text = strip_tags($text);
@@ -820,7 +822,7 @@ new class extends Component
         $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
 
         // Clean up whitespace
-        $text = preg_replace('/\n{3,}/', "\n\n", $text);
+        $text = preg_replace('#\n{3,}#', "\n\n", $text);
         $text = trim($text);
 
         return $text;
