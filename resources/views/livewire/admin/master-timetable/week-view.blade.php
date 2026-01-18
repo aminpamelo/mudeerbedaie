@@ -59,13 +59,13 @@
         </flux:button>
 
         <div class="text-center">
-            <div class="text-sm font-medium text-gray-900" x-text="
+            <div class="text-sm font-medium text-gray-900 dark:text-zinc-100" x-text="
                 (() => {
                     const days = {{ collect($days)->map(function($day) { return $day['dayName'] . ', ' . $day['date']->format('M d'); })->toJson() }};
                     return days[currentDayIndex] || 'Current Day';
                 })()">
             </div>
-            <div class="text-xs text-gray-500">
+            <div class="text-xs text-gray-500 dark:text-zinc-400">
                 Day <span x-text="currentDayIndex + 1"></span> of {{ count($days) }}
             </div>
         </div>
@@ -86,7 +86,7 @@
         @foreach($days as $index => $day)
             <button
                 class="w-2 h-2 rounded-full transition-all duration-200"
-                x-bind:class="currentDayIndex === {{ $index }} ? 'bg-blue-500 w-6' : 'bg-gray-300'"
+                x-bind:class="currentDayIndex === {{ $index }} ? 'bg-blue-500 w-6' : 'bg-gray-300 dark:bg-zinc-600'"
                 x-on:click="scrollToDay({{ $index }})"
                 title="{{ $day['dayName'] }}, {{ $day['date']->format('M d') }}"
             ></button>
@@ -102,16 +102,16 @@
         <div class="flex gap-4 pb-4" style="width: {{ count($days) * 100 }}%;">
             @foreach($days as $day)
                 <div
-                    class="flex-shrink-0 bg-white border border-gray-200 rounded-lg {{ $day['isToday'] ? 'ring-2 ring-blue-500' : '' }}"
+                    class="flex-shrink-0 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg {{ $day['isToday'] ? 'ring-2 ring-blue-500' : '' }}"
                     style="width: calc(100% / {{ count($days) }} - 0.75rem); scroll-snap-align: start;"
                 >
                     {{-- Mobile Day Header --}}
-                    <div class="p-4 border-b border-gray-200">
+                    <div class="p-4 border-b border-gray-200 dark:border-zinc-700">
                         <div class="text-center">
-                            <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
                                 {{ $day['dayName'] }}
                             </div>
-                            <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600' : 'text-gray-900' }}">
+                            <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-zinc-100' }}">
                                 {{ $day['dayNumber'] }}
                             </div>
                             @if($day['isToday'])
@@ -140,15 +140,15 @@
                                     {{ $session->session_time->format('g:i A') }}
                                 </div>
 
-                                <div class="text-gray-800 font-medium truncate mb-1" title="{{ $session->class->title }}">
+                                <div class="text-gray-800 dark:text-zinc-100 font-medium truncate mb-1" title="{{ $session->class->title }}">
                                     {{ $session->class->title }}
                                 </div>
 
-                                <div class="text-gray-600 text-xs truncate mb-2" title="{{ $session->class->course?->name }}">
+                                <div class="text-gray-600 dark:text-zinc-300 text-xs truncate mb-2" title="{{ $session->class->course?->name }}">
                                     {{ $session->class->course?->name ?? 'N/A' }}
                                 </div>
 
-                                <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
+                                <div class="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400 mb-2">
                                     <span>{{ $session->formatted_duration }}</span>
                                     @if($session->attendances->count() > 0)
                                         <span>{{ $session->attendances->count() }} students</span>
@@ -156,9 +156,14 @@
                                 </div>
 
                                 <div class="flex items-center justify-between">
-                                    <flux:badge size="sm" class="{{ $session->status_badge_class }}">
-                                        {{ ucfirst($session->status) }}
-                                    </flux:badge>
+                                    <div class="flex items-center gap-1">
+                                        <flux:badge size="sm" class="{{ $session->status_badge_class }}">
+                                            {{ ucfirst($session->status) }}
+                                        </flux:badge>
+                                        @if($this->isClassEnded($session))
+                                            <flux:badge size="sm" color="red">Ended</flux:badge>
+                                        @endif
+                                    </div>
 
                                     @if($session->status === 'ongoing')
                                         <div class="flex items-center gap-1">
@@ -167,9 +172,27 @@
                                         </div>
                                     @endif
                                 </div>
+
+                                {{-- Teacher Activity Indicator (Mobile) --}}
+                                @php
+                                    $expectedTime = $session->session_date->copy()->setTimeFromTimeString($session->session_time->format('H:i:s'));
+                                    $isPastTime = now()->gt($expectedTime);
+                                    $isNotStarted = $session->started_at === null;
+                                @endphp
+                                @if($session->status === 'scheduled' && $isPastTime && $isNotStarted)
+                                    <div class="flex items-center gap-1 mt-2 text-xs text-red-600 dark:text-red-400">
+                                        <flux:icon name="exclamation-triangle" class="w-3 h-3" />
+                                        <span>Not started by teacher</span>
+                                    </div>
+                                @elseif($session->started_at)
+                                    <div class="flex items-center gap-1 mt-2 text-xs text-green-600 dark:text-green-400">
+                                        <flux:icon name="check-circle" class="w-3 h-3" />
+                                        <span>Started by teacher</span>
+                                    </div>
+                                @endif
                             </div>
                         @empty
-                            <div class="text-center py-8 text-gray-400">
+                            <div class="text-center py-8 text-gray-400 dark:text-zinc-500">
                                 <flux:icon name="calendar" class="w-8 h-8 mx-auto mb-2 opacity-50" />
                                 <div class="text-sm">No sessions scheduled</div>
                             </div>
@@ -183,16 +206,16 @@
 
 {{-- Desktop Week View --}}
 <div class="hidden md:block overflow-x-auto scrollbar-hide">
-    <div class="grid gap-px bg-gray-200 rounded-lg overflow-hidden" style="grid-template-columns: repeat(7, minmax(180px, 1fr)); min-width: 1260px;">
+    <div class="grid gap-px bg-gray-200 dark:bg-zinc-700 rounded-lg overflow-hidden" style="grid-template-columns: repeat(7, minmax(180px, 1fr)); min-width: 1260px;">
         @foreach($days as $day)
-            <div class="bg-white {{ $day['isToday'] ? 'ring-2 ring-blue-500 ring-inset' : '' }}">
+            <div class="bg-white dark:bg-zinc-800 {{ $day['isToday'] ? 'ring-2 ring-blue-500 ring-inset' : '' }}">
                 {{-- Day Header --}}
-                <div class="p-4 border-b border-gray-200">
+                <div class="p-4 border-b border-gray-200 dark:border-zinc-700">
                     <div class="text-center">
-                        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        <div class="text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
                             {{ $day['dayName'] }}
                         </div>
-                        <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600' : 'text-gray-900' }}">
+                        <div class="mt-1 text-lg font-semibold {{ $day['isToday'] ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-zinc-100' }}">
                             {{ $day['dayNumber'] }}
                         </div>
                         @if($day['isToday'])
@@ -218,27 +241,32 @@
                             </div>
 
                             {{-- Class Title --}}
-                            <div class="text-gray-800 font-medium truncate" title="{{ $session->class->title }}">
+                            <div class="text-gray-800 dark:text-zinc-100 font-medium truncate" title="{{ $session->class->title }}">
                                 {{ $session->class->title }}
                             </div>
 
                             {{-- Course Name --}}
-                            <div class="text-gray-600 truncate" title="{{ $session->class->course?->name }}">
+                            <div class="text-gray-600 dark:text-zinc-300 truncate" title="{{ $session->class->course?->name }}">
                                 {{ $session->class->course?->name ?? 'N/A' }}
                             </div>
 
                             {{-- Teacher --}}
                             @if($session->class->teacher?->user)
-                                <div class="text-gray-500 truncate text-xs mt-1">
+                                <div class="text-gray-500 dark:text-zinc-400 truncate text-xs mt-1">
                                     {{ $session->class->teacher->user->name }}
                                 </div>
                             @endif
 
                             {{-- Status and Duration --}}
                             <div class="flex items-center justify-between mt-1">
-                                <flux:badge size="sm" class="{{ $session->status_badge_class }}">
-                                    {{ ucfirst($session->status) }}
-                                </flux:badge>
+                                <div class="flex items-center gap-1 flex-wrap">
+                                    <flux:badge size="sm" class="{{ $session->status_badge_class }}">
+                                        {{ ucfirst($session->status) }}
+                                    </flux:badge>
+                                    @if($this->isClassEnded($session))
+                                        <flux:badge size="sm" color="red">Ended</flux:badge>
+                                    @endif
+                                </div>
 
                                 @if($session->status === 'ongoing')
                                     <div class="flex items-center gap-1">
@@ -247,9 +275,27 @@
                                     </div>
                                 @endif
                             </div>
+
+                            {{-- Teacher Activity Indicator --}}
+                            @php
+                                $expectedTime = $session->session_date->copy()->setTimeFromTimeString($session->session_time->format('H:i:s'));
+                                $isPastTime = now()->gt($expectedTime);
+                                $isNotStarted = $session->started_at === null;
+                            @endphp
+                            @if($session->status === 'scheduled' && $isPastTime && $isNotStarted)
+                                <div class="flex items-center gap-1 mt-1 text-xs text-red-600 dark:text-red-400">
+                                    <flux:icon name="exclamation-triangle" class="w-3 h-3" />
+                                    <span>Not started</span>
+                                </div>
+                            @elseif($session->started_at)
+                                <div class="flex items-center gap-1 mt-1 text-xs text-green-600 dark:text-green-400">
+                                    <flux:icon name="check-circle" class="w-3 h-3" />
+                                    <span>Started</span>
+                                </div>
+                            @endif
                         </div>
                     @empty
-                        <div class="text-center py-8 text-gray-400">
+                        <div class="text-center py-8 text-gray-400 dark:text-zinc-500">
                             <flux:icon name="calendar" class="w-8 h-8 mx-auto mb-2 opacity-50" />
                             <div class="text-sm">No sessions</div>
                         </div>
