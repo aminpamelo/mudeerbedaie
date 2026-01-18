@@ -34,6 +34,8 @@ new class extends Component
 
     public bool $sendToTeacher = true;
 
+    public bool $whatsappEnabled = false;
+
     public ?int $customMinutesBefore = null;
 
     // Content source selection: 'system' or 'custom'
@@ -244,6 +246,7 @@ new class extends Component
             $this->customContent = $setting->custom_content;
             $this->sendToStudents = $setting->send_to_students;
             $this->sendToTeacher = $setting->send_to_teacher;
+            $this->whatsappEnabled = $setting->whatsapp_enabled ?? false;
             $this->customMinutesBefore = $setting->custom_minutes_before;
 
             // Visual builder fields
@@ -311,6 +314,7 @@ new class extends Component
             $data = [
                 'send_to_students' => $this->sendToStudents,
                 'send_to_teacher' => $this->sendToTeacher,
+                'whatsapp_enabled' => $this->whatsappEnabled,
                 'custom_minutes_before' => $this->customMinutesBefore,
             ];
 
@@ -360,6 +364,7 @@ new class extends Component
         $this->customContent = '';
         $this->sendToStudents = true;
         $this->sendToTeacher = true;
+        $this->whatsappEnabled = false;
         $this->customMinutesBefore = null;
         $this->contentSource = 'system';
         $this->editorType = 'text';
@@ -574,20 +579,32 @@ new class extends Component
         }
     }
 
-    public function sendTestNotification(int $settingId): void
+    public ?int $testSettingId = null;
+    public string $testChannel = 'email';
+    public bool $showTestModal = false;
+
+    public function openTestModal(int $settingId): void
     {
-        $setting = ClassNotificationSetting::with(['template', 'attachments'])->find($settingId);
+        $this->testSettingId = $settingId;
+        $this->testChannel = 'email';
+        $this->showTestModal = true;
+    }
+
+    public function sendTestNotification(): void
+    {
+        $setting = ClassNotificationSetting::with(['template', 'attachments'])->find($this->testSettingId);
 
         if (! $setting || $setting->class_id !== $this->class->id) {
             $this->dispatch('notify',
                 type: 'error',
                 message: 'Tetapan tidak dijumpai',
             );
+            $this->showTestModal = false;
 
             return;
         }
 
-        // Get the current user's email for test
+        // Get the current user for test
         $user = auth()->user();
 
         // Determine content source with priority: class custom > system template
@@ -616,17 +633,26 @@ new class extends Component
                 type: 'error',
                 message: 'Sila pilih templat atau tetapkan kandungan tersuai terlebih dahulu',
             );
+            $this->showTestModal = false;
 
             return;
         }
 
-        $subject = $setting->getEffectiveSubject();
+        // Get subject - use custom, template, or generate default based on notification type
+        $subject = $setting->custom_subject ?? $template?->subject;
+        if (! $subject) {
+            // Generate default subject for visual templates without explicit subject
+            $typeLabels = ClassNotificationSetting::getNotificationTypeLabels();
+            $typeName = $typeLabels[$setting->notification_type]['name'] ?? 'Notifikasi';
+            $subject = "{$typeName} - {$this->class->title}";
+        }
 
-        if (! $subject || ! $content) {
+        if (! $content) {
             $this->dispatch('notify',
                 type: 'error',
-                message: 'Templat subjek atau kandungan tidak lengkap. Sila edit tetapan ini.',
+                message: 'Kandungan templat tidak lengkap. Sila edit tetapan ini.',
             );
+            $this->showTestModal = false;
 
             return;
         }
@@ -652,54 +678,152 @@ new class extends Component
         $personalizedSubject = str_replace(array_keys($placeholders), array_values($placeholders), $subject);
         $personalizedContent = str_replace(array_keys($placeholders), array_values($placeholders), $content);
 
-        // Get attachments for email
-        $attachments = $setting->attachments()->ordered()->get();
-        $fileAttachments = $attachments->filter(fn ($a) => ! $a->isImage() || ! $a->embed_in_email);
-
         try {
-            // Build HTML content based on template type
-            if ($isVisualTemplate) {
-                // Visual template is already HTML
-                $htmlContent = $personalizedContent;
+            if ($this->testChannel === 'whatsapp') {
+                // Send WhatsApp test message
+                $phoneNumber = $user->phone_number ?? $user->phone;
+
+                if (empty($phoneNumber)) {
+                    $this->dispatch('notify',
+                        type: 'error',
+                        message: 'Nombor telefon anda tidak ditetapkan. Sila kemaskini profil anda terlebih dahulu.',
+                    );
+                    $this->showTestModal = false;
+
+                    return;
+                }
+
+                // Update config before instantiating service
+                $apiToken = app(\App\Services\SettingsService::class)->get('whatsapp_api_token');
+                if (! empty($apiToken)) {
+                    config(['services.onsend.api_token' => $apiToken]);
+                    config(['services.onsend.enabled' => true]);
+                }
+
+                $whatsApp = new \App\Services\WhatsAppService();
+
+                if (! $whatsApp->isEnabled()) {
+                    $this->dispatch('notify',
+                        type: 'error',
+                        message: 'Perkhidmatan WhatsApp tidak diaktifkan. Sila konfigurasikan dalam Tetapan > WhatsApp.',
+                    );
+                    $this->showTestModal = false;
+
+                    return;
+                }
+
+                // Convert HTML to plain text for WhatsApp
+                $plainTextContent = $this->convertHtmlToWhatsAppText($personalizedContent);
+                $whatsAppMessage = "[UJIAN] {$personalizedSubject}\n\n{$plainTextContent}\n\n— Ini adalah mesej ujian —";
+
+                // Normalize phone number
+                $normalizedPhone = preg_replace('/[^0-9]/', '', $phoneNumber);
+                if (str_starts_with($normalizedPhone, '0')) {
+                    $normalizedPhone = '60'.substr($normalizedPhone, 1);
+                } elseif (! str_starts_with($normalizedPhone, '60')) {
+                    $normalizedPhone = '60'.$normalizedPhone;
+                }
+
+                $result = $whatsApp->send($normalizedPhone, $whatsAppMessage);
+
+                if ($result['success']) {
+                    $this->dispatch('notify',
+                        type: 'success',
+                        message: "Mesej WhatsApp ujian telah dihantar ke {$normalizedPhone}",
+                    );
+                } else {
+                    $this->dispatch('notify',
+                        type: 'error',
+                        message: 'Gagal menghantar mesej WhatsApp: '.($result['error'] ?? 'Unknown error'),
+                    );
+                }
             } else {
-                // Text template - convert to simple HTML
-                $htmlContent = '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">'.
-                    nl2br(e($personalizedContent)).
-                    '</div>';
-            }
+                // Send Email test message
+                $attachments = $setting->attachments()->ordered()->get();
+                $fileAttachments = $attachments->filter(fn ($a) => ! $a->isImage() || ! $a->embed_in_email);
 
-            // Add test email footer
-            $htmlContent .= '<br><br><div style="border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px;"><em style="color: #999; font-size: 12px;">— Ini adalah e-mel ujian —</em></div>';
+                // Build HTML content based on template type
+                if ($isVisualTemplate) {
+                    // Visual template is already HTML
+                    $htmlContent = $personalizedContent;
+                } else {
+                    // Text template - convert to simple HTML
+                    $htmlContent = '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">'.
+                        nl2br(e($personalizedContent)).
+                        '</div>';
+                }
 
-            \Illuminate\Support\Facades\Mail::html(
-                $htmlContent,
-                function ($message) use ($user, $personalizedSubject, $fileAttachments) {
-                    $message->to($user->email, $user->name)
-                        ->subject('[UJIAN] '.$personalizedSubject);
+                // Add test email footer
+                $htmlContent .= '<br><br><div style="border-top: 1px solid #eee; padding-top: 10px; margin-top: 20px;"><em style="color: #999; font-size: 12px;">— Ini adalah e-mel ujian —</em></div>';
 
-                    // Attach files
-                    foreach ($fileAttachments as $file) {
-                        if (\Illuminate\Support\Facades\Storage::disk($file->disk)->exists($file->file_path)) {
-                            $message->attach($file->full_path, [
-                                'as' => $file->file_name,
-                                'mime' => $file->file_type,
-                            ]);
+                \Illuminate\Support\Facades\Mail::html(
+                    $htmlContent,
+                    function ($message) use ($user, $personalizedSubject, $fileAttachments) {
+                        $message->to($user->email, $user->name)
+                            ->subject('[UJIAN] '.$personalizedSubject);
+
+                        // Attach files
+                        foreach ($fileAttachments as $file) {
+                            if (\Illuminate\Support\Facades\Storage::disk($file->disk)->exists($file->file_path)) {
+                                $message->attach($file->full_path, [
+                                    'as' => $file->file_name,
+                                    'mime' => $file->file_type,
+                                ]);
+                            }
                         }
                     }
-                }
-            );
+                );
 
-            $templateType = $isVisualTemplate ? 'visual' : 'teks';
-            $this->dispatch('notify',
-                type: 'success',
-                message: "E-mel ujian (templat {$templateType}) telah dihantar ke {$user->email}",
-            );
+                $templateType = $isVisualTemplate ? 'visual' : 'teks';
+                $this->dispatch('notify',
+                    type: 'success',
+                    message: "E-mel ujian (templat {$templateType}) telah dihantar ke {$user->email}",
+                );
+            }
+
+            $this->showTestModal = false;
         } catch (\Exception $e) {
             $this->dispatch('notify',
                 type: 'error',
-                message: 'Gagal menghantar e-mel ujian: '.$e->getMessage(),
+                message: 'Gagal menghantar ujian: '.$e->getMessage(),
             );
+            $this->showTestModal = false;
         }
+    }
+
+    private function convertHtmlToWhatsAppText(string $html): string
+    {
+        // Convert HTML to plain text for WhatsApp
+        $text = $html;
+
+        // Replace common HTML elements
+        $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
+        $text = preg_replace('/<\/p>/i', "\n\n", $text);
+        $text = preg_replace('/<\/div>/i', "\n", $text);
+        $text = preg_replace('/<\/h[1-6]>/i', "\n\n", $text);
+        $text = preg_replace('/<li>/i', "• ", $text);
+        $text = preg_replace('/<\/li>/i', "\n", $text);
+
+        // Bold text: <strong> or <b> -> *text*
+        $text = preg_replace('/<(strong|b)>(.*?)<\/(strong|b)>/is', '*$2*', $text);
+
+        // Italic text: <em> or <i> -> _text_
+        $text = preg_replace('/<(em|i)>(.*?)<\/(em|i)>/is', '_$2_', $text);
+
+        // Links: <a href="url">text</a> -> text (url)
+        $text = preg_replace('/<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is', '$2 ($1)', $text);
+
+        // Strip remaining HTML tags
+        $text = strip_tags($text);
+
+        // Decode HTML entities
+        $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+
+        // Clean up whitespace
+        $text = preg_replace('/\n{3,}/', "\n\n", $text);
+        $text = trim($text);
+
+        return $text;
     }
 
     public function openVisualBuilder(): void
@@ -984,6 +1108,12 @@ new class extends Component
                                 @else
                                     <flux:badge color="zinc" size="sm">Tidak Aktif</flux:badge>
                                 @endif
+                                @if($setting->whatsapp_enabled)
+                                    <flux:badge color="emerald" size="sm">
+                                        <flux:icon.device-phone-mobile class="w-3 h-3 mr-0.5" />
+                                        WhatsApp
+                                    </flux:badge>
+                                @endif
                             </div>
                             <p class="text-sm text-gray-500 mt-1">{{ $label['description'] }}</p>
                             @if($setting->template)
@@ -1011,10 +1141,9 @@ new class extends Component
                                 <flux:button
                                     variant="outline"
                                     size="sm"
-                                    wire:click="sendTestNotification({{ $setting->id }})"
+                                    wire:click="openTestModal({{ $setting->id }})"
                                     wire:loading.attr="disabled"
-                                    wire:target="sendTestNotification({{ $setting->id }})"
-                                    title="Hantar e-mel ujian"
+                                    title="Hantar mesej ujian"
                                 >
                                     <flux:icon.paper-airplane class="w-4 h-4" />
                                 </flux:button>
@@ -1577,6 +1706,40 @@ new class extends Component
                     </div>
                 </div>
 
+                <!-- Delivery Channels Card -->
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <flux:icon.megaphone class="w-4 h-4 text-blue-600" />
+                        </div>
+                        <span class="font-semibold text-gray-900 text-sm">Saluran Penghantaran</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Email Channel (always enabled) -->
+                        <div class="flex items-center gap-3 p-3 bg-white border border-blue-100 rounded-lg">
+                            <input type="checkbox" checked disabled class="w-4 h-4 text-blue-600 border-gray-300 rounded cursor-not-allowed">
+                            <div class="flex items-center gap-2">
+                                <flux:icon.envelope class="w-4 h-4 text-blue-600" />
+                                <div>
+                                    <p class="font-medium text-gray-900 text-sm">E-mel</p>
+                                    <p class="text-xs text-gray-500">Sentiasa aktif</p>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- WhatsApp Channel (toggleable) -->
+                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
+                            <input type="checkbox" wire:model="whatsappEnabled" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            <div class="flex items-center gap-2">
+                                <flux:icon.device-phone-mobile class="w-4 h-4 text-green-600" />
+                                <div>
+                                    <p class="font-medium text-gray-900 text-sm">WhatsApp</p>
+                                    <p class="text-xs text-amber-600">⚠️ API Tidak Rasmi</p>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Recipients Card (Always shown at bottom) -->
                 <div class="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
                     <div class="flex items-center gap-2 mb-3">
@@ -1608,6 +1771,92 @@ new class extends Component
             <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-gray-200">
                 <flux:button variant="ghost" wire:click="$set('showEditModal', false)">Batal</flux:button>
                 <flux:button variant="primary" wire:click="saveSetting" icon="check">Simpan Tetapan</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Test Notification Modal -->
+    <flux:modal wire:model="showTestModal" class="max-w-md">
+        <div class="p-6">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-200 mb-5">
+                <div>
+                    <flux:heading size="lg">Hantar Mesej Ujian</flux:heading>
+                    <flux:text class="text-gray-500 text-sm mt-1">Pilih saluran untuk menghantar mesej ujian</flux:text>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Channel Selection -->
+                <div>
+                    <flux:label class="mb-3">Pilih Saluran</flux:label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Email Option -->
+                        <label class="relative flex flex-col p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $testChannel === 'email' ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300' }}">
+                            <input type="radio" name="test_channel" wire:model="testChannel" value="email" class="sr-only">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 {{ $testChannel === 'email' ? 'bg-blue-100' : 'bg-gray-100' }} rounded-lg flex items-center justify-center">
+                                    <flux:icon.envelope class="w-5 h-5 {{ $testChannel === 'email' ? 'text-blue-600' : 'text-gray-500' }}" />
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-900">E-mel</p>
+                                    <p class="text-xs text-gray-500">{{ auth()->user()->email }}</p>
+                                </div>
+                            </div>
+                            @if($testChannel === 'email')
+                                <div class="absolute top-2 right-2">
+                                    <flux:icon.check-circle class="w-5 h-5 text-blue-600" />
+                                </div>
+                            @endif
+                        </label>
+
+                        <!-- WhatsApp Option -->
+                        <label class="relative flex flex-col p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $testChannel === 'whatsapp' ? 'border-green-500 bg-green-50 shadow-md' : 'border-gray-200 hover:border-green-300' }}">
+                            <input type="radio" name="test_channel" wire:model="testChannel" value="whatsapp" class="sr-only">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 {{ $testChannel === 'whatsapp' ? 'bg-green-100' : 'bg-gray-100' }} rounded-lg flex items-center justify-center">
+                                    <flux:icon.device-phone-mobile class="w-5 h-5 {{ $testChannel === 'whatsapp' ? 'text-green-600' : 'text-gray-500' }}" />
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-900">WhatsApp</p>
+                                    <p class="text-xs text-gray-500">{{ auth()->user()->phone_number ?? auth()->user()->phone ?? 'Tidak ditetapkan' }}</p>
+                                </div>
+                            </div>
+                            @if($testChannel === 'whatsapp')
+                                <div class="absolute top-2 right-2">
+                                    <flux:icon.check-circle class="w-5 h-5 text-green-600" />
+                                </div>
+                            @endif
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Info Box -->
+                <div class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div class="flex items-start gap-2">
+                        <flux:icon.information-circle class="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />
+                        <div class="text-sm text-gray-600">
+                            @if($testChannel === 'email')
+                                Mesej ujian akan dihantar ke alamat e-mel anda: <strong>{{ auth()->user()->email }}</strong>
+                            @else
+                                Mesej ujian akan dihantar ke nombor WhatsApp anda: <strong>{{ auth()->user()->phone_number ?? auth()->user()->phone ?? 'Tidak ditetapkan' }}</strong>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-gray-200">
+                <flux:button variant="ghost" wire:click="$set('showTestModal', false)">Batal</flux:button>
+                <flux:button
+                    variant="primary"
+                    wire:click="sendTestNotification"
+                    wire:loading.attr="disabled"
+                    icon="paper-airplane"
+                >
+                    <span wire:loading.remove wire:target="sendTestNotification">Hantar Ujian</span>
+                    <span wire:loading wire:target="sendTestNotification">Menghantar...</span>
+                </flux:button>
             </div>
         </div>
     </flux:modal>

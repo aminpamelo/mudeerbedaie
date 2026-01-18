@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\ImpersonationService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -86,7 +87,31 @@ new class extends Component {
             session()->flash('success', 'User deleted successfully.');
         }
     }
-    
+
+    public function impersonateUser($userId)
+    {
+        $user = User::find($userId);
+        if (! $user) {
+            session()->flash('error', 'User not found.');
+
+            return;
+        }
+
+        $impersonationService = app(ImpersonationService::class);
+        $admin = auth()->user();
+
+        if (! $impersonationService->canBeImpersonated($user, $admin)) {
+            session()->flash('error', 'You cannot impersonate this user.');
+
+            return;
+        }
+
+        $impersonationService->start($admin, $user);
+        $dashboardRoute = $impersonationService->getDashboardRoute($user);
+
+        return $this->redirect(route($dashboardRoute), navigate: true);
+    }
+
     public function getUsersProperty()
     {
         return User::query()
@@ -428,8 +453,17 @@ new class extends Component {
                                             Edit
                                         </flux:button>
                                         @if ($user->id !== auth()->id())
-                                            <flux:button 
-                                                size="sm" 
+                                            <flux:button
+                                                size="sm"
+                                                variant="ghost"
+                                                wire:click="impersonateUser({{ $user->id }})"
+                                                wire:confirm="Are you sure you want to impersonate {{ $user->name }}?"
+                                                title="Impersonate User"
+                                            >
+                                                <flux:icon name="eye" class="w-4 h-4" />
+                                            </flux:button>
+                                            <flux:button
+                                                size="sm"
                                                 variant="ghost"
                                                 wire:click="deleteUser({{ $user->id }})"
                                                 wire:confirm="Are you sure you want to delete this user? This action cannot be undone."

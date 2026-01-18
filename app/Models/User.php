@@ -109,6 +109,44 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is class admin
+     */
+    public function isClassAdmin(): bool
+    {
+        return $this->role === 'class_admin';
+    }
+
+    /**
+     * Get assigned class IDs for this class admin (from PIC relationship)
+     *
+     * @return array<int>
+     */
+    public function getAssignedClassIds(): array
+    {
+        return $this->picClasses()->pluck('classes.id')->toArray();
+    }
+
+    /**
+     * Check if user can manage a specific class (admin, class_admin assigned, or teacher owner)
+     */
+    public function canManageClass(ClassModel $class): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->isClassAdmin()) {
+            return $this->isPicOf($class);
+        }
+
+        if ($this->isTeacher() && $this->teacher && $class->teacher_id === $this->teacher->id) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Check if user has specific role
      */
     public function hasRole(string $role): bool
@@ -328,5 +366,21 @@ class User extends Authenticatable
         if (in_array($locale, ['en', 'ms'])) {
             $this->update(['locale' => $locale]);
         }
+    }
+
+    /**
+     * Get impersonation logs where this user was the impersonator
+     */
+    public function impersonationLogsAsImpersonator(): HasMany
+    {
+        return $this->hasMany(ImpersonationLog::class, 'impersonator_id');
+    }
+
+    /**
+     * Get impersonation logs where this user was impersonated
+     */
+    public function impersonationLogsAsTarget(): HasMany
+    {
+        return $this->hasMany(ImpersonationLog::class, 'impersonated_id');
     }
 }

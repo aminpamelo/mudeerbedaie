@@ -6,6 +6,7 @@ use App\Models\NotificationLog;
 use App\Models\ScheduledNotification;
 use App\Services\EmailTemplateCompiler;
 use App\Services\NotificationService;
+use App\Services\WhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -208,6 +209,15 @@ class SendClassNotificationJob implements ShouldQueue
                 $log->markAsSent();
                 $totalSent++;
 
+                // Send WhatsApp notification if enabled and phone number available
+                $this->dispatchWhatsAppNotification(
+                    $notification,
+                    $setting,
+                    $recipient,
+                    $personalizedContent,
+                    $isVisualTemplate
+                );
+
             } catch (\Exception $e) {
                 Log::error('Failed to send class notification', [
                     'notification_id' => $notification->id,
@@ -256,6 +266,119 @@ class SendClassNotificationJob implements ShouldQueue
             {$html}
         </div>
         HTML;
+    }
+
+    /**
+     * Convert HTML content to plain text suitable for WhatsApp.
+     */
+    private function convertHtmlToWhatsAppText(string $html): string
+    {
+        // Replace common HTML elements with appropriate text representations
+        $text = $html;
+
+        // Replace line break elements with newlines
+        $text = str_replace(['<br>', '<br/>', '<br />', '<BR>', '<BR/>', '<BR />'], "\n", $text);
+
+        // Replace closing block elements with double newlines
+        $text = preg_replace('/<\/(p|div|h[1-6]|li|tr)>/i', "\n\n", $text);
+
+        // Replace list items with bullets
+        $text = preg_replace('/<li[^>]*>/i', '• ', $text);
+
+        // Replace horizontal rules with dashes
+        $text = preg_replace('/<hr[^>]*>/i', "\n---\n", $text);
+
+        // Extract href from links and format as: text (url)
+        $text = preg_replace('/<a[^>]*href=["\']([^"\']+)["\'][^>]*>([^<]+)<\/a>/i', '$2 ($1)', $text);
+
+        // Remove all remaining HTML tags
+        $text = strip_tags($text);
+
+        // Decode HTML entities
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Clean up excessive whitespace
+        $text = preg_replace('/[ \t]+/', ' ', $text); // Multiple spaces to single
+        $text = preg_replace('/\n\s*\n\s*\n/', "\n\n", $text); // Multiple newlines to double
+        $text = trim($text);
+
+        return $text;
+    }
+
+    /**
+     * Dispatch WhatsApp notification job if enabled and phone available.
+     */
+    private function dispatchWhatsAppNotification(
+        ScheduledNotification $notification,
+        $setting,
+        array $recipient,
+        string $personalizedContent,
+        bool $isVisualTemplate
+    ): void {
+        // Check if WhatsApp is enabled for this notification setting
+        if (! $setting->whatsapp_enabled) {
+            return;
+        }
+
+        // Check if WhatsApp service is globally enabled
+        $whatsApp = app(WhatsAppService::class);
+        if (! $whatsApp->isEnabled()) {
+            return;
+        }
+
+        // Check if recipient has a phone number
+        $phone = $recipient['phone'] ?? null;
+        if (empty($phone)) {
+            Log::info('WhatsApp notification skipped - no phone number', [
+                'notification_id' => $notification->id,
+                'recipient_type' => $recipient['type'],
+                'recipient_name' => $recipient['name'],
+            ]);
+
+            return;
+        }
+
+        try {
+            // Convert HTML content to plain text for WhatsApp
+            $whatsAppContent = $isVisualTemplate
+                ? $this->convertHtmlToWhatsAppText($personalizedContent)
+                : $personalizedContent;
+
+            // Calculate random delay for this message (anti-ban measure)
+            $delay = $whatsApp->getRandomDelay();
+
+            // Create WhatsApp notification log
+            $waLog = NotificationLog::create([
+                'scheduled_notification_id' => $notification->id,
+                'recipient_type' => $recipient['type'],
+                'recipient_id' => $recipient['model']->id,
+                'channel' => 'whatsapp',
+                'destination' => $phone,
+                'status' => 'pending',
+            ]);
+
+            // Dispatch WhatsApp job with calculated delay
+            SendWhatsAppNotificationJob::dispatch(
+                $phone,
+                $whatsAppContent,
+                $waLog->id
+            )->delay(now()->addSeconds($delay))
+                ->onQueue('whatsapp');
+
+            Log::info('WhatsApp notification queued', [
+                'notification_id' => $notification->id,
+                'recipient_type' => $recipient['type'],
+                'phone' => $phone,
+                'delay_seconds' => $delay,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to queue WhatsApp notification', [
+                'notification_id' => $notification->id,
+                'recipient_type' => $recipient['type'],
+                'phone' => $phone,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function failed(\Throwable $exception): void

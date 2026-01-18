@@ -4,6 +4,8 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-900">
+        <x-impersonation-banner />
+
         <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
             x-data="{
                 sections: {},
@@ -24,6 +26,10 @@
                     'settings': ['admin.settings.*'],
                     'teaching': ['teacher.courses.*', 'teacher.classes.*', 'teacher.sessions.*', 'teacher.payslips.*', 'teacher.students.*', 'teacher.timetable'],
                     'liveStreaming': ['live-host.*'],
+                    'classAdminDashboard': ['class-admin.dashboard'],
+                    'classAdminManagement': ['classes.*', 'admin.sessions.*', 'class-categories.*'],
+                    'classAdminAcademic': ['courses.*', 'students.*', 'teachers.*', 'enrollments.*'],
+                    'classAdminFinance': ['admin.payslips.*'],
                     'studentDashboard': ['student.dashboard'],
                     'studentCourses': ['student.courses*', 'student.subscriptions*'],
                     'studentLearning': ['student.classes.*', 'student.timetable'],
@@ -87,6 +93,16 @@
                     @click="saveState('studentDashboard', $event)"
                 >
                     <flux:navlist.item icon="home" :href="route('student.dashboard')" :current="request()->routeIs('student.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @elseif(auth()->user()->isClassAdmin())
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Platform')"
+                    data-section="classAdminDashboard"
+                    x-init="if (!isExpanded('classAdminDashboard')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('classAdminDashboard', $event)"
+                >
+                    <flux:navlist.item icon="home" :href="route('class-admin.dashboard')" :current="request()->routeIs('class-admin.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @else
                 <flux:navlist.group
@@ -287,6 +303,15 @@
                     >
                         {{ __('Notifications') }}
                     </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="device-phone-mobile"
+                        :href="route('admin.settings.whatsapp')"
+                        :current="request()->routeIs('admin.settings.whatsapp')"
+                        wire:navigate
+                    >
+                        {{ __('WhatsApp') }}
+                    </flux:navlist.item>
                 </flux:navlist.group>
                 @endif
                 
@@ -318,7 +343,41 @@
                     <flux:navlist.item icon="play-circle" :href="route('live-host.sessions.index')" :current="request()->routeIs('live-host.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
-                
+
+                @if(auth()->user()->isClassAdmin())
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Class Management')"
+                    data-section='classAdminManagement' x-init="if (!isExpanded('classAdminManagement')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('classAdminManagement', $event)"
+                >
+                    <flux:navlist.item icon="calendar-days" :href="route('classes.index')" :current="request()->routeIs('classes.*')" wire:navigate>{{ __('Classes') }}</flux:navlist.item>
+                    <flux:navlist.item icon="presentation-chart-bar" :href="route('admin.sessions.index')" :current="request()->routeIs('admin.sessions.*')" wire:navigate>{{ __('Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="folder" :href="route('class-categories.index')" :current="request()->routeIs('class-categories.*')" wire:navigate>{{ __('Class Categories') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Academic')"
+                    data-section='classAdminAcademic' x-init="if (!isExpanded('classAdminAcademic')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('classAdminAcademic', $event)"
+                >
+                    <flux:navlist.item icon="academic-cap" :href="route('courses.index')" :current="request()->routeIs('courses.*')" wire:navigate>{{ __('Courses') }}</flux:navlist.item>
+                    <flux:navlist.item icon="users" :href="route('students.index')" :current="request()->routeIs('students.*')" wire:navigate>{{ __('Students') }}</flux:navlist.item>
+                    <flux:navlist.item icon="user-group" :href="route('teachers.index')" :current="request()->routeIs('teachers.*')" wire:navigate>{{ __('Teachers') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clipboard" :href="route('enrollments.index')" :current="request()->routeIs('enrollments.*')" wire:navigate>{{ __('Enrollments') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Finance')"
+                    data-section='classAdminFinance' x-init="if (!isExpanded('classAdminFinance')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('classAdminFinance', $event)"
+                >
+                    <flux:navlist.item icon="banknotes" :href="route('admin.payslips.index')" :current="request()->routeIs('admin.payslips.*')" wire:navigate>{{ __('Payslips') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @endif
+
                 @if(auth()->user()->isStudent())
                 <flux:navlist.group
                     expandable
@@ -403,7 +462,7 @@
         </flux:sidebar>
 
         <!-- Mobile User Menu (Non-Student) -->
-        @if(!auth()->user()->isStudent())
+        @if(!auth()->user()->isStudent() || auth()->user()->isClassAdmin())
         <flux:header class="lg:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 

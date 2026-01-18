@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\ImpersonationService;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -43,13 +44,31 @@ new class extends Component {
     {
         if ($this->user->id === auth()->id()) {
             session()->flash('error', 'You cannot delete your own account.');
+
             return;
         }
-        
+
         $this->user->delete();
         session()->flash('success', 'User deleted successfully.');
-        
+
         return $this->redirect(route('users.index'), navigate: true);
+    }
+
+    public function impersonateUser()
+    {
+        $impersonationService = app(ImpersonationService::class);
+        $admin = auth()->user();
+
+        if (! $impersonationService->canBeImpersonated($this->user, $admin)) {
+            session()->flash('error', 'You cannot impersonate this user.');
+
+            return;
+        }
+
+        $impersonationService->start($admin, $this->user);
+        $dashboardRoute = $impersonationService->getDashboardRoute($this->user);
+
+        return $this->redirect(route($dashboardRoute), navigate: true);
     }
 };
 
@@ -234,8 +253,8 @@ new class extends Component {
                     <flux:heading size="lg" class="mb-4">Quick Actions</flux:heading>
                     
                     <div class="space-y-3">
-                        <flux:button 
-                            variant="outline" 
+                        <flux:button
+                            variant="outline"
                             class="w-full justify-start"
                             href="{{ route('users.edit', $user) }}"
                             wire:navigate
@@ -245,7 +264,21 @@ new class extends Component {
                                 Edit User
                             </div>
                         </flux:button>
-                        
+
+                        @if ($user->id !== auth()->id())
+                            <flux:button
+                                variant="outline"
+                                class="w-full justify-start"
+                                wire:click="impersonateUser"
+                                wire:confirm="Are you sure you want to impersonate {{ $user->name }}?"
+                            >
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="eye" class="w-4 h-4 mr-2" />
+                                    Impersonate User
+                                </div>
+                            </flux:button>
+                        @endif
+
                         @if ($user->status === 'active')
                             @if ($user->id !== auth()->id())
                                 <flux:button 

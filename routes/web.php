@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,10 @@ Route::get('dashboard', function () {
         return redirect()->route('live-host.dashboard');
     }
 
+    if ($user->isClassAdmin()) {
+        return redirect()->route('class-admin.dashboard');
+    }
+
     return view('dashboard');
 })
     ->middleware(['auth', 'verified'])
@@ -41,6 +46,9 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
+
+    // Stop impersonation route (accessible when impersonating any role)
+    Route::post('stop-impersonation', [ImpersonationController::class, 'stop'])->name('impersonation.stop');
 });
 
 // Product Cart routes - accessible by authenticated and guest users
@@ -137,8 +145,15 @@ Route::middleware(['auth', 'role:live_host'])->prefix('live-host')->name('live-h
 // Public Live Schedule - accessible by everyone
 Volt::route('live/schedule', 'live.schedule-public')->name('live.schedule');
 
-// Admin routes for course management
-Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
+// Class Admin Dashboard - only class_admin (entry point for class_admin users)
+Route::middleware(['auth', 'role:class_admin'])->prefix('class-admin')->name('class-admin.')->group(function () {
+    Volt::route('dashboard', 'class-admin.dashboard')->name('dashboard');
+});
+
+// ============================================================================
+// SHARED ADMIN ROUTES - Accessible by both admin and class_admin roles
+// ============================================================================
+Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(function () {
     // Course routes
     Route::get('courses', [CourseController::class, 'index'])->name('courses.index');
     Route::get('courses/create', [CourseController::class, 'create'])->name('courses.create');
@@ -153,12 +168,6 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('students/sample-csv', [StudentController::class, 'sampleCsv'])->name('students.sample-csv');
     Route::get('students/{student}', [StudentController::class, 'show'])->name('students.show');
     Route::get('students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
-
-    // User management routes
-    Volt::route('users', 'admin.user-list')->name('users.index');
-    Volt::route('users/create', 'admin.user-create')->name('users.create');
-    Volt::route('users/{user}', 'admin.user-show')->name('users.show');
-    Volt::route('users/{user}/edit', 'admin.user-edit')->name('users.edit');
 
     // Teacher routes
     Volt::route('teachers', 'admin.teacher-list')->name('teachers.index');
@@ -183,7 +192,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('sessions', 'admin.sessions-index')->name('admin.sessions.index');
     Volt::route('sessions/{session}', 'admin.sessions-show')->name('admin.sessions.show');
 
-    // Student payment method management (admin-only)
+    // Student payment method management
     Volt::route('students/{student}/payment-methods', 'admin.student-payment-methods')->name('admin.students.payment-methods');
 
     // Enrollment routes
@@ -213,6 +222,21 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('payslips/generate', 'admin.payslips-generate')->name('admin.payslips.generate');
     Volt::route('payslips/{payslip}', 'admin.payslips-show')->name('admin.payslips.show');
     Volt::route('payslips/{payslip}/edit', 'admin.payslips-edit')->name('admin.payslips.edit');
+});
+
+// ============================================================================
+// ADMIN-ONLY ROUTES - Accessible only by admin role
+// ============================================================================
+Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
+    // User management routes
+    Volt::route('users', 'admin.user-list')->name('users.index');
+    Volt::route('users/create', 'admin.user-create')->name('users.create');
+    Volt::route('users/{user}', 'admin.user-show')->name('users.show');
+    Volt::route('users/{user}/edit', 'admin.user-edit')->name('users.edit');
+
+    // Impersonation routes
+    Route::post('impersonate/{user}', [ImpersonationController::class, 'start'])->name('impersonation.start');
+    Volt::route('impersonation-logs', 'admin.impersonation-logs')->name('admin.impersonation-logs');
 
     // Reports routes
     Volt::route('reports/subscriptions', 'admin.subscription-reports')->name('admin.reports.subscriptions');
@@ -344,6 +368,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/email', 'admin.settings-email')->name('admin.settings.email');
     Volt::route('settings/notifications', 'admin.settings-notifications')->name('admin.settings.notifications');
     Volt::route('settings/notifications/{template}/builder', 'admin.react-template-builder')->name('admin.settings.notifications.builder');
+    Volt::route('settings/whatsapp', 'admin.settings-whatsapp')->name('admin.settings.whatsapp');
 
     // Customer Service routes
     Volt::route('customer-service', 'admin.customer-service.dashboard')->name('admin.customer-service.dashboard');
@@ -388,8 +413,8 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('payment-methods/{paymentMethod}', [App\Http\Controllers\PaymentController::class, 'deletePaymentMethod'])->name('payment-methods.delete');
     Route::patch('payment-methods/{paymentMethod}/default', [App\Http\Controllers\PaymentController::class, 'setDefaultPaymentMethod'])->name('payment-methods.default');
 
-    // Admin payment method management (for managing student payment methods)
-    Route::middleware(['role:admin'])->group(function () {
+    // Admin payment method management (for managing student payment methods) - accessible by admin and class_admin
+    Route::middleware(['role:admin,class_admin'])->group(function () {
         Route::post('admin/students/{student}/payment-methods', [App\Http\Controllers\PaymentController::class, 'adminStorePaymentMethod'])->name('admin.students.payment-methods.store');
         Route::delete('admin/students/{student}/payment-methods/{paymentMethod}', [App\Http\Controllers\PaymentController::class, 'adminDeletePaymentMethod'])->name('admin.students.payment-methods.delete');
         Route::patch('admin/students/{student}/payment-methods/{paymentMethod}/default', [App\Http\Controllers\PaymentController::class, 'adminSetDefaultPaymentMethod'])->name('admin.students.payment-methods.default');

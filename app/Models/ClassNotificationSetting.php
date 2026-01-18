@@ -19,6 +19,7 @@ class ClassNotificationSetting extends Model
         'custom_minutes_before',
         'send_to_students',
         'send_to_teacher',
+        'whatsapp_enabled',
         'custom_subject',
         'custom_content',
         'design_json',
@@ -32,6 +33,7 @@ class ClassNotificationSetting extends Model
             'is_enabled' => 'boolean',
             'send_to_students' => 'boolean',
             'send_to_teacher' => 'boolean',
+            'whatsapp_enabled' => 'boolean',
             'design_json' => 'array',
         ];
     }

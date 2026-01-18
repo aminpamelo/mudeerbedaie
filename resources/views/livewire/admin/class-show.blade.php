@@ -2,6 +2,7 @@
 
 use App\Models\ClassModel;
 use App\Services\StripeService;
+use Livewire\Attributes\On;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -189,6 +190,10 @@ new class extends Component
     public $autoEnrollImported = true;
 
     public $importStudentPassword = 'password123';
+
+    public ?int $currentStudentImportProgressId = null;
+
+    public ?array $studentImportProgress = null;
 
     // Student shipment details modal
     public $showStudentShipmentModal = false;
@@ -2839,170 +2844,82 @@ new class extends Component
         $this->importStudentProcessing = true;
 
         try {
-            $fileContents = file_get_contents($this->importStudentFile->getRealPath());
+            // Save the uploaded file to storage
+            $fileName = 'student_import_' . time() . '_' . uniqid() . '.csv';
+            $filePath = storage_path('app/temp/' . $fileName);
 
-            if ($fileContents === false) {
-                throw new \Exception('Failed to read uploaded file');
+            // Ensure temp directory exists
+            if (! file_exists(storage_path('app/temp'))) {
+                mkdir(storage_path('app/temp'), 0755, true);
             }
 
-            // Parse CSV
-            $lines = preg_split('/\r\n|\r|\n/', $fileContents);
-            $header = str_getcsv(array_shift($lines));
+            // Copy file to temp location
+            copy($this->importStudentFile->getRealPath(), $filePath);
 
-            // Normalize headers (lowercase and trim)
-            $header = array_map(fn ($h) => strtolower(trim($h)), $header);
+            // Create import progress record
+            $importProgress = \App\Models\StudentImportProgress::create([
+                'class_id' => $this->class->id,
+                'user_id' => auth()->id(),
+                'file_path' => $filePath,
+                'status' => 'pending',
+                'auto_enroll' => $this->autoEnrollImported,
+                'create_missing' => $this->createMissingStudents,
+                'default_password' => $this->createMissingStudents ? $this->importStudentPassword : null,
+            ]);
 
-            // Find required columns
-            $phoneIndex = array_search('phone', $header);
-            $nameIndex = array_search('name', $header);
-            $emailIndex = array_search('email', $header);
-            $orderIdIndex = array_search('order_id', $header);
+            $this->currentStudentImportProgressId = $importProgress->id;
 
-            if ($phoneIndex === false) {
-                throw new \Exception('CSV must contain a "phone" column.');
-            }
+            // Dispatch the job
+            \App\Jobs\ProcessStudentImportToClass::dispatch($importProgress->id);
 
-            $result = [
-                'matched' => [],
-                'created' => [],
-                'skipped' => [],
-                'enrolled' => [],
-                'already_enrolled' => [],
-                'errors' => [],
-            ];
-
-            // Get existing students in this class
-            $classStudentIds = $this->class->activeStudents()
-                ->pluck('student_id')
-                ->toArray();
-
-            foreach ($lines as $lineNumber => $line) {
-                if (empty(trim($line))) {
-                    continue;
-                }
-
-                $row = str_getcsv($line);
-                $phone = isset($row[$phoneIndex]) ? trim($row[$phoneIndex]) : null;
-                $name = $nameIndex !== false && isset($row[$nameIndex]) ? trim($row[$nameIndex]) : null;
-                $email = $emailIndex !== false && isset($row[$emailIndex]) ? trim($row[$emailIndex]) : null;
-                $orderId = $orderIdIndex !== false && isset($row[$orderIdIndex]) ? trim($row[$orderIdIndex]) : null;
-
-                if (empty($phone)) {
-                    $result['errors'][] = "Row " . ($lineNumber + 2) . ": Phone number is required.";
-                    continue;
-                }
-
-                // Normalize phone number (remove spaces, dashes, and leading zeros after country code)
-                $normalizedPhone = preg_replace('/[^0-9+]/', '', $phone);
-                // Remove leading + if present for comparison
-                $phoneVariants = [
-                    $normalizedPhone,
-                    ltrim($normalizedPhone, '+'),
-                    '60' . ltrim(ltrim($normalizedPhone, '+'), '0'),
-                    ltrim(ltrim($normalizedPhone, '+'), '60'),
-                ];
-
-                // Try to find student by phone
-                $student = \App\Models\Student::where(function ($query) use ($phoneVariants) {
-                    foreach ($phoneVariants as $variant) {
-                        $query->orWhere('phone', 'like', '%' . $variant)
-                              ->orWhere('phone', $variant);
-                    }
-                })->first();
-
-                if ($student) {
-                    $result['matched'][] = [
-                        'phone' => $phone,
-                        'name' => $student->user->name,
-                        'student_id' => $student->student_id,
-                    ];
-
-                    // Check if already enrolled
-                    if (in_array($student->id, $classStudentIds)) {
-                        $result['already_enrolled'][] = [
-                            'phone' => $phone,
-                            'name' => $student->user->name,
-                        ];
-                        continue;
-                    }
-
-                    // Enroll if auto-enroll is enabled
-                    if ($this->autoEnrollImported) {
-                        // Check capacity
-                        if ($this->class->max_capacity) {
-                            $currentCount = count($classStudentIds) + count($result['enrolled']);
-                            if ($currentCount >= $this->class->max_capacity) {
-                                $result['errors'][] = "Skipped {$student->user->name}: Class is at maximum capacity.";
-                                continue;
-                            }
-                        }
-
-                        $this->class->addStudent($student, $orderId);
-                        $result['enrolled'][] = [
-                            'phone' => $phone,
-                            'name' => $student->user->name,
-                            'order_id' => $orderId,
-                        ];
-                    }
-                } else {
-                    // Student not found
-                    if ($this->createMissingStudents && $name) {
-                        try {
-                            // Create user first
-                            $user = \App\Models\User::create([
-                                'name' => $name,
-                                'email' => $email ?: null,
-                                'password' => bcrypt($this->importStudentPassword),
-                                'role' => 'student',
-                            ]);
-
-                            // Create student profile
-                            $newStudent = \App\Models\Student::create([
-                                'user_id' => $user->id,
-                                'phone' => $normalizedPhone,
-                                'status' => 'active',
-                            ]);
-
-                            $result['created'][] = [
-                                'phone' => $phone,
-                                'name' => $name,
-                                'student_id' => $newStudent->student_id,
-                            ];
-
-                            // Enroll if auto-enroll is enabled
-                            if ($this->autoEnrollImported) {
-                                // Check capacity
-                                if ($this->class->max_capacity) {
-                                    $currentCount = count($classStudentIds) + count($result['enrolled']);
-                                    if ($currentCount >= $this->class->max_capacity) {
-                                        $result['errors'][] = "Skipped enrolling {$name}: Class is at maximum capacity.";
-                                        continue;
-                                    }
-                                }
-
-                                $this->class->addStudent($newStudent, $orderId);
-                                $result['enrolled'][] = [
-                                    'phone' => $phone,
-                                    'name' => $name,
-                                    'order_id' => $orderId,
-                                ];
-                            }
-                        } catch (\Exception $e) {
-                            $result['errors'][] = "Row " . ($lineNumber + 2) . ": Failed to create student - " . $e->getMessage();
-                        }
-                    } else {
-                        $result['skipped'][] = [
-                            'phone' => $phone,
-                            'name' => $name ?? 'Unknown',
-                            'reason' => $this->createMissingStudents ? 'Name is required to create student' : 'Student not found',
-                        ];
-                    }
-                }
-            }
-
-            $this->importStudentResult = $result;
-            $this->showImportStudentResultModal = true;
+            // Close the import modal and show progress
             $this->closeImportStudentModal();
+
+            // Start polling for progress
+            $this->dispatch('start-student-import-polling');
+
+        } catch (\Exception $e) {
+            session()->flash('error', 'Import failed: ' . $e->getMessage());
+            $this->importStudentProcessing = false;
+        }
+    }
+
+    #[On('checkStudentImportProgress')]
+    public function checkStudentImportProgress(): void
+    {
+        if (! $this->currentStudentImportProgressId) {
+            $this->importStudentProcessing = false;
+            return;
+        }
+
+        $progress = \App\Models\StudentImportProgress::find($this->currentStudentImportProgressId);
+
+        if (! $progress) {
+            $this->importStudentProcessing = false;
+            $this->currentStudentImportProgressId = null;
+            $this->dispatch('stop-student-import-polling');
+            return;
+        }
+
+        $this->studentImportProgress = [
+            'status' => $progress->status,
+            'total_rows' => $progress->total_rows,
+            'processed_rows' => $progress->processed_rows,
+            'matched_count' => $progress->matched_count,
+            'created_count' => $progress->created_count,
+            'enrolled_count' => $progress->enrolled_count,
+            'skipped_count' => $progress->skipped_count,
+            'error_count' => $progress->error_count,
+            'progress_percentage' => $progress->progress_percentage,
+        ];
+
+        if ($progress->isCompleted()) {
+            $this->importStudentProcessing = false;
+            $this->importStudentResult = $progress->result ?? [];
+            $this->showImportStudentResultModal = true;
+            $this->currentStudentImportProgressId = null;
+            $this->studentImportProgress = null;
+            $this->dispatch('stop-student-import-polling');
 
             // Refresh the class data
             $this->class->refresh();
@@ -3012,12 +2929,31 @@ new class extends Component
                 'sessions.attendances.student.user',
                 'activeStudents.student.user',
             ]);
-
-        } catch (\Exception $e) {
-            session()->flash('error', 'Import failed: ' . $e->getMessage());
-        } finally {
+        } elseif ($progress->isFailed()) {
             $this->importStudentProcessing = false;
+            $this->currentStudentImportProgressId = null;
+            $this->studentImportProgress = null;
+            $this->dispatch('stop-student-import-polling');
+            session()->flash('error', 'Import failed: ' . ($progress->error_message ?? 'Unknown error'));
         }
+    }
+
+    public function cancelStudentImport(): void
+    {
+        if ($this->currentStudentImportProgressId) {
+            $progress = \App\Models\StudentImportProgress::find($this->currentStudentImportProgressId);
+            if ($progress && $progress->isPending()) {
+                $progress->update(['status' => 'failed', 'error_message' => 'Cancelled by user']);
+                if (file_exists($progress->file_path)) {
+                    unlink($progress->file_path);
+                }
+            }
+        }
+
+        $this->importStudentProcessing = false;
+        $this->currentStudentImportProgressId = null;
+        $this->studentImportProgress = null;
+        $this->dispatch('stop-student-import-polling');
     }
 
     public function viewStudentShipmentDetails($itemId): void
@@ -3187,6 +3123,7 @@ new class extends Component
         }
     }
 
+    #[On('checkImportProgress')]
     public function checkImportProgress(): void
     {
         $userId = auth()->id();
@@ -8661,6 +8598,83 @@ new class extends Component
         </div>
     </flux:modal>
 
+    <!-- Student Import Progress Modal -->
+    <flux:modal name="student-import-progress" :show="$importStudentProcessing" wire:model="importStudentProcessing">
+        <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+            <flux:heading size="lg">Importing Students</flux:heading>
+            <flux:text class="mt-2">Please wait while students are being imported...</flux:text>
+        </div>
+
+        <div class="space-y-4">
+            @if($studentImportProgress)
+                <!-- Progress Bar -->
+                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div class="bg-blue-600 h-4 rounded-full transition-all duration-300 flex items-center justify-center"
+                         style="width: {{ $studentImportProgress['progress_percentage'] ?? 0 }}%">
+                        @if(($studentImportProgress['progress_percentage'] ?? 0) > 15)
+                            <span class="text-xs text-white font-medium">{{ $studentImportProgress['progress_percentage'] ?? 0 }}%</span>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="text-center text-sm text-gray-600">
+                    Processing {{ $studentImportProgress['processed_rows'] ?? 0 }} of {{ $studentImportProgress['total_rows'] ?? 0 }} rows
+                </div>
+
+                <!-- Live Stats -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                    <div class="bg-blue-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-blue-600">{{ $studentImportProgress['matched_count'] ?? 0 }}</div>
+                        <div class="text-xs text-blue-700">Matched</div>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-green-600">{{ $studentImportProgress['created_count'] ?? 0 }}</div>
+                        <div class="text-xs text-green-700">Created</div>
+                    </div>
+                    <div class="bg-purple-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-purple-600">{{ $studentImportProgress['enrolled_count'] ?? 0 }}</div>
+                        <div class="text-xs text-purple-700">Enrolled</div>
+                    </div>
+                    <div class="bg-yellow-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-yellow-600">{{ $studentImportProgress['skipped_count'] ?? 0 }}</div>
+                        <div class="text-xs text-yellow-700">Skipped</div>
+                    </div>
+                </div>
+
+                @if(($studentImportProgress['error_count'] ?? 0) > 0)
+                    <div class="bg-red-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-red-600">{{ $studentImportProgress['error_count'] }}</div>
+                        <div class="text-xs text-red-700">Errors</div>
+                    </div>
+                @endif
+
+                <!-- Animated Loading Indicator -->
+                <div class="flex items-center justify-center gap-2 text-gray-500">
+                    <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-sm">Processing in background...</span>
+                </div>
+            @else
+                <!-- Initial Loading State -->
+                <div class="flex flex-col items-center justify-center py-8">
+                    <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-gray-600">Starting import process...</p>
+                </div>
+            @endif
+        </div>
+
+        <div class="flex justify-end gap-2 mt-6">
+            <flux:button variant="ghost" wire:click="cancelStudentImport" :disabled="($studentImportProgress['status'] ?? 'pending') === 'processing'">
+                Cancel
+            </flux:button>
+        </div>
+    </flux:modal>
+
     <!-- Create Student Modal -->
     <flux:modal name="create-student" :show="$showCreateStudentModal" wire:model="showCreateStudentModal">
         <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
@@ -8921,6 +8935,27 @@ document.addEventListener('livewire:init', () => {
         if (importPollingInterval) {
             clearInterval(importPollingInterval);
             importPollingInterval = null;
+        }
+    });
+
+    // Student import progress polling
+    let studentImportPollingInterval = null;
+
+    Livewire.on('start-student-import-polling', () => {
+        if (studentImportPollingInterval) {
+            clearInterval(studentImportPollingInterval);
+        }
+
+        // Poll every 2 seconds
+        studentImportPollingInterval = setInterval(() => {
+            Livewire.dispatch('checkStudentImportProgress');
+        }, 2000);
+    });
+
+    Livewire.on('stop-student-import-polling', () => {
+        if (studentImportPollingInterval) {
+            clearInterval(studentImportPollingInterval);
+            studentImportPollingInterval = null;
         }
     });
 });
