@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Agent;
+use App\Models\AgentPricing;
+use App\Models\Package;
 use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderItem;
@@ -12,6 +14,20 @@ new class extends Component
 {
     public array $form = [
         'agent_id' => '',
+        'order_date' => '', // For keying in older order records
+
+        'billing_address' => [
+            'first_name' => '',
+            'last_name' => '',
+            'company' => '',
+            'address_line_1' => '',
+            'address_line_2' => '',
+            'city' => '',
+            'state' => '',
+            'postal_code' => '',
+            'country' => 'Malaysia',
+        ],
+
         'payment_method' => 'cash',
         'payment_status' => 'pending',
         'order_status' => 'pending',
@@ -36,18 +52,24 @@ new class extends Component
 
     public function mount(): void
     {
+        $this->form['order_date'] = now()->format('Y-m-d\TH:i'); // Default to current datetime
         $this->addOrderItem();
     }
 
     public function addOrderItem(): void
     {
         $this->orderItems[] = [
+            'item_type' => 'product', // 'product' or 'package'
             'product_id' => '',
+            'package_id' => '',
             'product_variant_id' => null,
             'warehouse_id' => '',
             'quantity' => 1,
-            'unit_price' => 0,
+            'base_price' => 0, // Original price before discount
+            'unit_price' => 0, // Price after discount
             'total_price' => 0,
+            'pricing_type' => '', // 'custom', 'tier', or 'base'
+            'discount_percent' => 0, // Discount percentage applied
         ];
     }
 
@@ -63,19 +85,143 @@ new class extends Component
         $this->calculateTotals();
     }
 
-    public function productSelected(int $index, int $productId): void
+    public function itemTypeChanged(int $index): void
     {
-        $product = Product::find($productId);
-        if ($product) {
-            $this->orderItems[$index]['unit_price'] = $product->base_price;
-            $this->orderItems[$index]['total_price'] = $product->base_price * $this->orderItems[$index]['quantity'];
-        }
+        // Reset item data when type changes
+        $this->orderItems[$index]['product_id'] = '';
+        $this->orderItems[$index]['package_id'] = '';
+        $this->orderItems[$index]['base_price'] = 0;
+        $this->orderItems[$index]['unit_price'] = 0;
+        $this->orderItems[$index]['total_price'] = 0;
+        $this->orderItems[$index]['pricing_type'] = '';
+        $this->orderItems[$index]['discount_percent'] = 0;
         $this->calculateTotals();
+    }
+
+    public function productSelected(int $index, $productId): void
+    {
+        if (empty($productId)) {
+            return;
+        }
+
+        $product = Product::find($productId);
+        if (! $product) {
+            return;
+        }
+
+        $basePrice = $product->base_price;
+        $quantity = $this->orderItems[$index]['quantity'] ?? 1;
+
+        // Store the base price
+        $this->orderItems[$index]['base_price'] = $basePrice;
+
+        // Calculate the discounted price based on agent's pricing
+        $priceInfo = $this->calculateAgentPrice($product->id, $basePrice, $quantity);
+
+        $this->orderItems[$index]['unit_price'] = $priceInfo['price'];
+        $this->orderItems[$index]['pricing_type'] = $priceInfo['type'];
+        $this->orderItems[$index]['discount_percent'] = $priceInfo['discount'];
+        $this->orderItems[$index]['total_price'] = $priceInfo['price'] * $quantity;
+
+        $this->calculateTotals();
+    }
+
+    public function packageSelected(int $index, $packageId): void
+    {
+        if (empty($packageId)) {
+            return;
+        }
+
+        $package = Package::find($packageId);
+        if (! $package) {
+            return;
+        }
+
+        $basePrice = $package->price;
+        $quantity = $this->orderItems[$index]['quantity'] ?? 1;
+
+        // Store the base price
+        $this->orderItems[$index]['base_price'] = $basePrice;
+
+        // For packages, apply tier discount only (no custom pricing for packages)
+        $priceInfo = $this->calculateAgentTierPrice($basePrice);
+
+        $this->orderItems[$index]['unit_price'] = $priceInfo['price'];
+        $this->orderItems[$index]['pricing_type'] = $priceInfo['type'];
+        $this->orderItems[$index]['discount_percent'] = $priceInfo['discount'];
+        $this->orderItems[$index]['total_price'] = $priceInfo['price'] * $quantity;
+
+        // Set default warehouse from package if not set
+        if (empty($this->orderItems[$index]['warehouse_id']) && $package->default_warehouse_id) {
+            $this->orderItems[$index]['warehouse_id'] = $package->default_warehouse_id;
+        }
+
+        $this->calculateTotals();
+    }
+
+    /**
+     * Calculate agent price for a product - checks custom pricing first, then tier discount.
+     */
+    private function calculateAgentPrice(int $productId, float $basePrice, int $quantity = 1): array
+    {
+        if (! $this->selectedAgent) {
+            return ['price' => $basePrice, 'type' => 'base', 'discount' => 0];
+        }
+
+        // First check for custom pricing
+        $customPrice = AgentPricing::where('agent_id', $this->selectedAgent->id)
+            ->where('product_id', $productId)
+            ->where('is_active', true)
+            ->where('min_quantity', '<=', $quantity)
+            ->orderBy('min_quantity', 'desc')
+            ->first();
+
+        if ($customPrice) {
+            $discount = $basePrice > 0 ? round((1 - ($customPrice->price / $basePrice)) * 100, 1) : 0;
+            return [
+                'price' => (float) $customPrice->price,
+                'type' => 'custom',
+                'discount' => $discount,
+            ];
+        }
+
+        // Fall back to tier discount
+        return $this->calculateAgentTierPrice($basePrice);
+    }
+
+    /**
+     * Calculate tier-based discount for the selected agent.
+     */
+    private function calculateAgentTierPrice(float $basePrice): array
+    {
+        if (! $this->selectedAgent) {
+            return ['price' => $basePrice, 'type' => 'base', 'discount' => 0];
+        }
+
+        $discountPercent = $this->selectedAgent->getTierDiscountPercentage();
+        $discountedPrice = $basePrice * (1 - ($discountPercent / 100));
+
+        return [
+            'price' => round($discountedPrice, 2),
+            'type' => 'tier',
+            'discount' => $discountPercent,
+        ];
     }
 
     public function quantityUpdated(int $index): void
     {
-        $quantity = $this->orderItems[$index]['quantity'];
+        $quantity = (int) ($this->orderItems[$index]['quantity'] ?? 1);
+        $productId = $this->orderItems[$index]['product_id'] ?? null;
+        $basePrice = $this->orderItems[$index]['base_price'] ?? 0;
+
+        // Recalculate price if product selected (quantity-based custom pricing may change)
+        if ($this->orderItems[$index]['item_type'] === 'product' && $productId && $basePrice > 0) {
+            $priceInfo = $this->calculateAgentPrice((int) $productId, $basePrice, $quantity);
+            $this->orderItems[$index]['unit_price'] = $priceInfo['price'];
+            $this->orderItems[$index]['pricing_type'] = $priceInfo['type'];
+            $this->orderItems[$index]['discount_percent'] = $priceInfo['discount'];
+        }
+
         $unitPrice = $this->orderItems[$index]['unit_price'];
         $this->orderItems[$index]['total_price'] = $quantity * $unitPrice;
         $this->calculateTotals();
@@ -123,9 +269,51 @@ new class extends Component
 
         if ($this->selectedAgent) {
             $this->agentSearch = $this->selectedAgent->name . ' (' . $this->selectedAgent->agent_code . ')';
+
+            // Fill billing address from agent
+            $this->form['billing_address']['first_name'] = $this->selectedAgent->contact_person ?: $this->selectedAgent->name;
+            $this->form['billing_address']['company'] = $this->selectedAgent->company_name ?? '';
+
+            if (is_array($this->selectedAgent->address)) {
+                $this->form['billing_address']['address_line_1'] = $this->selectedAgent->address['street'] ?? '';
+                $this->form['billing_address']['city'] = $this->selectedAgent->address['city'] ?? '';
+                $this->form['billing_address']['state'] = $this->selectedAgent->address['state'] ?? '';
+                $this->form['billing_address']['postal_code'] = $this->selectedAgent->address['postal_code'] ?? '';
+                $this->form['billing_address']['country'] = $this->selectedAgent->address['country'] ?? 'Malaysia';
+            }
+
+            // Recalculate all item prices with new agent's pricing
+            $this->recalculateAllItemPrices();
         }
 
         $this->dispatch('close-dropdown');
+    }
+
+    /**
+     * Recalculate all order item prices when agent changes.
+     */
+    private function recalculateAllItemPrices(): void
+    {
+        foreach ($this->orderItems as $index => $item) {
+            $basePrice = $item['base_price'] ?? 0;
+            $quantity = $item['quantity'] ?? 1;
+
+            if ($basePrice > 0) {
+                if ($item['item_type'] === 'product' && ! empty($item['product_id'])) {
+                    $priceInfo = $this->calculateAgentPrice((int) $item['product_id'], $basePrice, $quantity);
+                } else {
+                    // For packages, apply tier discount only
+                    $priceInfo = $this->calculateAgentTierPrice($basePrice);
+                }
+
+                $this->orderItems[$index]['unit_price'] = $priceInfo['price'];
+                $this->orderItems[$index]['pricing_type'] = $priceInfo['type'];
+                $this->orderItems[$index]['discount_percent'] = $priceInfo['discount'];
+                $this->orderItems[$index]['total_price'] = $priceInfo['price'] * $quantity;
+            }
+        }
+
+        $this->calculateTotals();
     }
 
     public function clearAgentSelection(): void
@@ -133,25 +321,84 @@ new class extends Component
         $this->form['agent_id'] = '';
         $this->selectedAgent = null;
         $this->agentSearch = '';
+
+        // Reset billing address
+        $this->form['billing_address'] = [
+            'first_name' => '',
+            'last_name' => '',
+            'company' => '',
+            'address_line_1' => '',
+            'address_line_2' => '',
+            'city' => '',
+            'state' => '',
+            'postal_code' => '',
+            'country' => 'Malaysia',
+        ];
+
+        // Recalculate prices to remove agent discounts
+        $this->recalculateAllItemPrices();
     }
 
     public function createOrder(): void
     {
         $this->validate([
             'form.agent_id' => 'required|exists:agents,id',
+            'form.billing_address.first_name' => 'required|string|max:255',
+            'form.billing_address.address_line_1' => 'required|string|max:255',
+            'form.billing_address.city' => 'required|string|max:255',
+            'form.billing_address.state' => 'required|string|max:255',
+            'form.billing_address.postal_code' => 'required|string|max:20',
             'orderItems' => 'required|array|min:1',
-            'orderItems.*.product_id' => 'required|exists:products,id',
+            'orderItems.*.item_type' => 'required|in:product,package',
             'orderItems.*.warehouse_id' => 'required|exists:warehouses,id',
             'orderItems.*.quantity' => 'required|integer|min:1',
         ], [
             'form.agent_id.required' => 'Please select an agent.',
-            'orderItems.required' => 'Please add at least one product.',
-            'orderItems.*.product_id.required' => 'Please select a product.',
+            'form.billing_address.first_name.required' => 'Contact name is required.',
+            'form.billing_address.address_line_1.required' => 'Address is required.',
+            'form.billing_address.city.required' => 'City is required.',
+            'form.billing_address.state.required' => 'State is required.',
+            'form.billing_address.postal_code.required' => 'Postal code is required.',
+            'orderItems.required' => 'Please add at least one item.',
             'orderItems.*.warehouse_id.required' => 'Please select a warehouse.',
         ]);
 
+        // Additional validation based on item type
+        foreach ($this->orderItems as $index => $item) {
+            if ($item['item_type'] === 'product') {
+                $this->validate([
+                    "orderItems.{$index}.product_id" => 'required|exists:products,id',
+                ], [
+                    "orderItems.{$index}.product_id.required" => 'Please select a product.',
+                ]);
+            } elseif ($item['item_type'] === 'package') {
+                $this->validate([
+                    "orderItems.{$index}.package_id" => 'required|exists:packages,id',
+                ], [
+                    "orderItems.{$index}.package_id.required" => 'Please select a package.',
+                ]);
+            }
+        }
+
+        // Validate stock availability
+        $stockErrors = $this->validateStockAvailability();
+        if (! empty($stockErrors)) {
+            $errorMessage = "Insufficient stock for the following items:\n";
+            foreach ($stockErrors as $error) {
+                $errorMessage .= "• {$error['product_name']}: Need {$error['needed']}, Available {$error['available']} (Shortage: {$error['shortage']})\n";
+            }
+            session()->flash('error', $errorMessage);
+
+            return;
+        }
+
         DB::transaction(function () {
             $agent = Agent::find($this->form['agent_id']);
+
+            // Parse the order date from form input
+            $orderDate = $this->form['order_date']
+                ? \Carbon\Carbon::parse($this->form['order_date'])
+                : now();
 
             $shippingCost = $this->shippingCost ?? 0;
             $order = ProductOrder::create([
@@ -167,45 +414,73 @@ new class extends Component
                 'tax_amount' => $this->taxAmount,
                 'total_amount' => $this->total,
                 'customer_notes' => $this->form['notes'],
-                'order_date' => now(),
+                'order_date' => $orderDate,
+                'created_at' => $orderDate, // Also set created_at for older records
             ]);
 
+            // Create order items
             foreach ($this->orderItems as $item) {
-                $product = Product::find($item['product_id']);
+                if ($item['item_type'] === 'package' && ! empty($item['package_id'])) {
+                    $package = Package::with(['products', 'courses'])->find($item['package_id']);
 
-                ProductOrderItem::create([
-                    'order_id' => $order->id,
-                    'itemable_type' => Product::class,
-                    'itemable_id' => $product->id,
-                    'product_id' => $product->id,
-                    'product_variant_id' => $item['product_variant_id'],
-                    'warehouse_id' => $item['warehouse_id'],
-                    'product_name' => $product->name,
-                    'sku' => $product->sku,
-                    'quantity_ordered' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'total_price' => $item['total_price'],
-                    'unit_cost' => $product->cost_price ?? 0,
-                    'product_snapshot' => $product->toArray(),
-                ]);
+                    $orderItem = ProductOrderItem::create([
+                        'order_id' => $order->id,
+                        'itemable_type' => Package::class,
+                        'itemable_id' => $package->id,
+                        'package_id' => $package->id,
+                        'warehouse_id' => $item['warehouse_id'],
+                        'product_name' => $package->name,
+                        'sku' => 'PKG-' . $package->id,
+                        'quantity_ordered' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'total_price' => $item['total_price'],
+                        'unit_cost' => 0,
+                        'package_snapshot' => $package->toArray(),
+                        'package_items_snapshot' => $package->items->toArray(),
+                    ]);
+
+                    // Deduct stock for package products
+                    $orderItem->deductStock();
+
+                } elseif ($item['item_type'] === 'product' && ! empty($item['product_id'])) {
+                    $product = Product::find($item['product_id']);
+
+                    $orderItem = ProductOrderItem::create([
+                        'order_id' => $order->id,
+                        'itemable_type' => Product::class,
+                        'itemable_id' => $product->id,
+                        'product_id' => $product->id,
+                        'product_variant_id' => $item['product_variant_id'],
+                        'warehouse_id' => $item['warehouse_id'],
+                        'product_name' => $product->name,
+                        'sku' => $product->sku,
+                        'quantity_ordered' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'total_price' => $item['total_price'],
+                        'unit_cost' => $product->cost_price ?? 0,
+                        'product_snapshot' => $product->toArray(),
+                    ]);
+
+                    // Deduct stock for product
+                    $orderItem->deductStock();
+                }
             }
 
-            // Create billing address from agent
-            if ($agent->address || $agent->contact_person) {
-                $order->addresses()->create([
-                    'type' => 'billing',
-                    'first_name' => $agent->contact_person ?: $agent->name,
-                    'last_name' => '',
-                    'company' => $agent->company_name,
-                    'email' => $agent->email,
-                    'phone' => $agent->phone,
-                    'address_line_1' => $agent->address['street'] ?? '',
-                    'city' => $agent->address['city'] ?? '',
-                    'state' => $agent->address['state'] ?? '',
-                    'postal_code' => $agent->address['postal_code'] ?? '',
-                    'country' => $agent->address['country'] ?? 'Malaysia',
-                ]);
-            }
+            // Create billing address
+            $order->addresses()->create([
+                'type' => 'billing',
+                'first_name' => $this->form['billing_address']['first_name'],
+                'last_name' => $this->form['billing_address']['last_name'],
+                'company' => $this->form['billing_address']['company'],
+                'email' => $agent->email,
+                'phone' => $agent->phone,
+                'address_line_1' => $this->form['billing_address']['address_line_1'],
+                'address_line_2' => $this->form['billing_address']['address_line_2'],
+                'city' => $this->form['billing_address']['city'],
+                'state' => $this->form['billing_address']['state'],
+                'postal_code' => $this->form['billing_address']['postal_code'],
+                'country' => $this->form['billing_address']['country'],
+            ]);
 
             // Create payment record
             $order->payments()->create([
@@ -223,6 +498,63 @@ new class extends Component
         });
     }
 
+    private function validateStockAvailability(): array
+    {
+        $allStockErrors = [];
+
+        foreach ($this->orderItems as $item) {
+            if ($item['item_type'] === 'package' && ! empty($item['package_id'])) {
+                $package = Package::with('products')->find($item['package_id']);
+
+                if ($package && $package->track_stock) {
+                    $warehouseId = $item['warehouse_id'] ?? $package->default_warehouse_id;
+
+                    foreach ($package->products as $product) {
+                        $quantityPerPackage = $product->pivot->quantity;
+                        $totalQuantityNeeded = $quantityPerPackage * $item['quantity'];
+                        $productWarehouseId = $warehouseId ?? $product->pivot->warehouse_id;
+
+                        $stockLevel = $product->stockLevels()
+                            ->where('warehouse_id', $productWarehouseId)
+                            ->first();
+
+                        $availableStock = $stockLevel ? $stockLevel->quantity : 0;
+
+                        if ($availableStock < $totalQuantityNeeded) {
+                            $allStockErrors[] = [
+                                'product_name' => $product->name . ' (in ' . $package->name . ')',
+                                'needed' => $totalQuantityNeeded,
+                                'available' => $availableStock,
+                                'shortage' => $totalQuantityNeeded - $availableStock,
+                            ];
+                        }
+                    }
+                }
+            } elseif ($item['item_type'] === 'product' && ! empty($item['product_id'])) {
+                $product = Product::find($item['product_id']);
+
+                if ($product && $product->shouldTrackQuantity()) {
+                    $stockLevel = $product->stockLevels()
+                        ->where('warehouse_id', $item['warehouse_id'])
+                        ->first();
+
+                    $availableStock = $stockLevel ? $stockLevel->quantity : 0;
+
+                    if ($availableStock < $item['quantity']) {
+                        $allStockErrors[] = [
+                            'product_name' => $product->name,
+                            'needed' => $item['quantity'],
+                            'available' => $availableStock,
+                            'shortage' => $item['quantity'] - $availableStock,
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $allStockErrors;
+    }
+
     public function with(): array
     {
         $agentsQuery = Agent::active();
@@ -238,6 +570,7 @@ new class extends Component
 
         return [
             'products' => Product::active()->get(),
+            'packages' => Package::active()->with(['products', 'courses'])->get(),
             'warehouses' => Warehouse::all(),
             'agents' => $agentsQuery->orderBy('name')->limit(50)->get(),
         ];
@@ -248,14 +581,25 @@ new class extends Component
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">Buat Pesanan Agent Baru</flux:heading>
-            <flux:text class="mt-2">Create a new order for agent (kedai buku)</flux:text>
+            <flux:heading size="xl">Create Agent Order</flux:heading>
+            <flux:text class="mt-2">Create a new order for agent or bookstore</flux:text>
         </div>
         <flux:button variant="outline" :href="route('agent-orders.index')" wire:navigate>
-            <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
-            Back to List
+            <div class="flex items-center">
+                <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
+                Back to List
+            </div>
         </flux:button>
     </div>
+
+    @if(session('error'))
+        <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+            <div class="flex items-start">
+                <flux:icon name="exclamation-circle" class="w-5 h-5 text-red-600 dark:text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+                <div class="text-sm text-red-700 dark:text-red-300 whitespace-pre-line">{{ session('error') }}</div>
+            </div>
+        </div>
+    @endif
 
     <form wire:submit="createOrder">
         <div class="grid lg:grid-cols-3 gap-6">
@@ -264,12 +608,12 @@ new class extends Component
 
                 <!-- Agent Selection -->
                 <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                    <flux:heading size="lg" class="mb-4">Select Agent</flux:heading>
+                    <flux:heading size="lg" class="mb-4">Agent Information</flux:heading>
 
                     <div class="space-y-4">
                         <!-- Searchable Agent Selection -->
                         <div class="space-y-2" x-data="agentSearchComponent()">
-                            <flux:label>Agent / Kedai Buku</flux:label>
+                            <flux:label>Select Agent / Bookstore</flux:label>
                             <div class="relative">
                                 <input
                                     type="text"
@@ -342,8 +686,26 @@ new class extends Component
 
                         <!-- Selected Agent Details -->
                         @if($selectedAgent)
+                            @php
+                                $tierColors = [
+                                    'standard' => 'gray',
+                                    'premium' => 'blue',
+                                    'vip' => 'yellow',
+                                ];
+                                $tierDiscount = $selectedAgent->getTierDiscountPercentage();
+                            @endphp
                             <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                                <flux:text class="font-semibold text-blue-900 dark:text-blue-100 mb-2">Selected Agent Details</flux:text>
+                                <div class="flex items-center justify-between mb-2">
+                                    <flux:text class="font-semibold text-blue-900 dark:text-blue-100">Selected Agent Details</flux:text>
+                                    <div class="flex items-center gap-2">
+                                        <flux:badge color="{{ $tierColors[$selectedAgent->pricing_tier] ?? 'gray' }}" size="sm">
+                                            {{ ucfirst($selectedAgent->pricing_tier ?? 'standard') }} Tier
+                                        </flux:badge>
+                                        <span class="text-xs font-medium text-green-600 dark:text-green-400">
+                                            {{ $tierDiscount }}% discount
+                                        </span>
+                                    </div>
+                                </div>
                                 <div class="grid md:grid-cols-2 gap-3 text-sm">
                                     <div>
                                         <span class="text-blue-700 dark:text-blue-300">Agent Code:</span>
@@ -365,6 +727,12 @@ new class extends Component
                                             <span class="font-medium text-blue-900 dark:text-blue-100">{{ $selectedAgent->phone }}</span>
                                         </div>
                                     @endif
+                                    @if($selectedAgent->email)
+                                        <div>
+                                            <span class="text-blue-700 dark:text-blue-300">Email:</span>
+                                            <span class="font-medium text-blue-900 dark:text-blue-100">{{ $selectedAgent->email }}</span>
+                                        </div>
+                                    @endif
                                     @if($selectedAgent->payment_terms)
                                         <div class="md:col-span-2">
                                             <span class="text-blue-700 dark:text-blue-300">Payment Terms:</span>
@@ -380,30 +748,71 @@ new class extends Component
                 <!-- Order Items -->
                 <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <flux:heading size="lg">Products</flux:heading>
+                        <flux:heading size="lg">Order Items</flux:heading>
                         <flux:button type="button" wire:click="addOrderItem" size="sm">
-                            <flux:icon name="plus" class="w-4 h-4 mr-1" />
-                            Add Product
+                            <div class="flex items-center">
+                                <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                                Add Item
+                            </div>
                         </flux:button>
                     </div>
 
                     <div class="space-y-4">
                         @foreach($orderItems as $index => $item)
                             <div class="border border-gray-200 dark:border-zinc-700 rounded-lg p-4" wire:key="item-{{ $index }}">
-                                <div class="grid md:grid-cols-5 gap-4 items-end">
-                                    <!-- Product Selection -->
-                                    <flux:field class="md:col-span-2">
-                                        <flux:label>Product</flux:label>
-                                        <flux:select wire:model.live="orderItems.{{ $index }}.product_id" wire:change="productSelected({{ $index }}, $event.target.value)">
-                                            <option value="">Select Product...</option>
-                                            @foreach($products as $product)
-                                                <option value="{{ $product->id }}">{{ $product->name }} (RM {{ number_format($product->base_price, 2) }})</option>
-                                            @endforeach
-                                        </flux:select>
-                                        @error('orderItems.' . $index . '.product_id')
-                                            <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                                        @enderror
+                                <!-- Item Type Selection -->
+                                <div class="mb-4">
+                                    <flux:field>
+                                        <flux:label>Item Type</flux:label>
+                                        <div class="flex gap-4">
+                                            <label class="flex items-center cursor-pointer">
+                                                <input type="radio" wire:model.live="orderItems.{{ $index }}.item_type"
+                                                       wire:change="itemTypeChanged({{ $index }})"
+                                                       value="product" class="mr-2 text-indigo-600 dark:text-indigo-400">
+                                                <span class="text-gray-900 dark:text-zinc-100">Product</span>
+                                            </label>
+                                            <label class="flex items-center cursor-pointer">
+                                                <input type="radio" wire:model.live="orderItems.{{ $index }}.item_type"
+                                                       wire:change="itemTypeChanged({{ $index }})"
+                                                       value="package" class="mr-2 text-indigo-600 dark:text-indigo-400">
+                                                <span class="text-gray-900 dark:text-zinc-100">Package</span>
+                                            </label>
+                                        </div>
                                     </flux:field>
+                                </div>
+
+                                <div class="grid md:grid-cols-5 gap-4 items-end">
+                                    <!-- Product or Package Selection -->
+                                    @if($item['item_type'] === 'product')
+                                        <flux:field class="md:col-span-2">
+                                            <flux:label>Product</flux:label>
+                                            <flux:select wire:model.live="orderItems.{{ $index }}.product_id" wire:change="productSelected({{ $index }}, $event.target.value)">
+                                                <option value="">Select Product...</option>
+                                                @foreach($products as $product)
+                                                    <option value="{{ $product->id }}">{{ $product->name }} (RM {{ number_format($product->base_price, 2) }})</option>
+                                                @endforeach
+                                            </flux:select>
+                                            @error('orderItems.' . $index . '.product_id')
+                                                <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                                            @enderror
+                                        </flux:field>
+                                    @else
+                                        <flux:field class="md:col-span-2">
+                                            <flux:label>Package</flux:label>
+                                            <flux:select wire:model.live="orderItems.{{ $index }}.package_id" wire:change="packageSelected({{ $index }}, $event.target.value)">
+                                                <option value="">Select Package...</option>
+                                                @foreach($packages as $package)
+                                                    <option value="{{ $package->id }}">
+                                                        {{ $package->name }} (RM {{ number_format($package->price, 2) }})
+                                                        @if($package->track_stock) - Stock Tracked @endif
+                                                    </option>
+                                                @endforeach
+                                            </flux:select>
+                                            @error('orderItems.' . $index . '.package_id')
+                                                <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                                            @enderror
+                                        </flux:field>
+                                    @endif
 
                                     <!-- Warehouse -->
                                     <flux:field>
@@ -439,12 +848,41 @@ new class extends Component
                                     </flux:field>
                                 </div>
 
+                                <!-- Pricing Summary -->
                                 <div class="mt-3 flex items-center justify-between">
-                                    @if($item['total_price'] > 0)
-                                        <flux:text class="font-medium">Subtotal: RM {{ number_format($item['total_price'], 2) }}</flux:text>
-                                    @else
-                                        <div></div>
-                                    @endif
+                                    <div class="flex items-center gap-3">
+                                        @if($item['total_price'] > 0)
+                                            <div class="flex flex-col">
+                                                {{-- Show original price with strikethrough if discounted --}}
+                                                @if(!empty($item['pricing_type']) && $item['pricing_type'] !== 'base' && $item['base_price'] > $item['unit_price'])
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="text-sm text-gray-400 dark:text-zinc-500 line-through">
+                                                            RM {{ number_format($item['base_price'] * $item['quantity'], 2) }}
+                                                        </span>
+                                                        <flux:text class="font-medium text-green-600 dark:text-green-400">
+                                                            RM {{ number_format($item['total_price'], 2) }}
+                                                        </flux:text>
+                                                    </div>
+                                                    <div class="flex items-center gap-2 mt-1">
+                                                        @if($item['pricing_type'] === 'custom')
+                                                            <flux:badge color="purple" size="sm">Custom Price</flux:badge>
+                                                        @elseif($item['pricing_type'] === 'tier')
+                                                            <flux:badge color="blue" size="sm">Tier Discount</flux:badge>
+                                                        @endif
+                                                        <span class="text-xs text-green-600 dark:text-green-400">
+                                                            Save {{ $item['discount_percent'] }}%
+                                                        </span>
+                                                    </div>
+                                                @else
+                                                    <flux:text class="font-medium text-gray-900 dark:text-zinc-100">
+                                                        Subtotal: RM {{ number_format($item['total_price'], 2) }}
+                                                    </flux:text>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <div></div>
+                                        @endif
+                                    </div>
 
                                     @if(count($orderItems) > 1)
                                         <flux:button type="button" wire:click="removeOrderItem({{ $index }})"
@@ -453,15 +891,112 @@ new class extends Component
                                         </flux:button>
                                     @endif
                                 </div>
+
+                                <!-- Show package contents if package is selected -->
+                                @if($item['item_type'] === 'package' && !empty($item['package_id']))
+                                    @php
+                                        $selectedPackage = $packages->find($item['package_id']);
+                                    @endphp
+                                    @if($selectedPackage)
+                                        <div class="mt-4 p-3 bg-gray-50 dark:bg-zinc-900 rounded border border-gray-200 dark:border-zinc-700">
+                                            <flux:text class="font-semibold mb-2 text-gray-900 dark:text-zinc-100">Package Contents:</flux:text>
+                                            <ul class="space-y-1 text-sm">
+                                                @foreach($selectedPackage->products as $product)
+                                                    <li class="flex justify-between text-gray-700 dark:text-zinc-300">
+                                                        <span>• {{ $product->name }}</span>
+                                                        <span class="text-gray-500 dark:text-zinc-500">Qty: {{ $product->pivot->quantity }}</span>
+                                                    </li>
+                                                @endforeach
+                                                @foreach($selectedPackage->courses as $course)
+                                                    <li class="flex justify-between text-gray-700 dark:text-zinc-300">
+                                                        <span>• {{ $course->name }}</span>
+                                                        <span class="text-gray-500 dark:text-zinc-500">(Course)</span>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        </div>
+                                    @endif
+                                @endif
                             </div>
                         @endforeach
                     </div>
                 </div>
 
-                <!-- Order Notes -->
+                <!-- Billing Address -->
                 <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                    <flux:heading size="lg" class="mb-4">Notes / Remarks</flux:heading>
+                    <flux:heading size="lg" class="mb-4">Billing Address</flux:heading>
+
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <flux:field>
+                            <flux:label>Contact Name</flux:label>
+                            <flux:input wire:model="form.billing_address.first_name" />
+                            @error('form.billing_address.first_name')
+                                <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Company (Optional)</flux:label>
+                            <flux:input wire:model="form.billing_address.company" />
+                        </flux:field>
+                    </div>
+
+                    <flux:field class="mt-4">
+                        <flux:label>Address</flux:label>
+                        <flux:input wire:model="form.billing_address.address_line_1" placeholder="Street address" />
+                        @error('form.billing_address.address_line_1')
+                            <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                        @enderror
+                    </flux:field>
+
+                    <flux:field class="mt-4">
+                        <flux:input wire:model="form.billing_address.address_line_2" placeholder="Apartment, suite, etc. (optional)" />
+                    </flux:field>
+
+                    <div class="grid md:grid-cols-3 gap-4 mt-4">
+                        <flux:field>
+                            <flux:label>City</flux:label>
+                            <flux:input wire:model="form.billing_address.city" />
+                            @error('form.billing_address.city')
+                                <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>State</flux:label>
+                            <flux:input wire:model="form.billing_address.state" />
+                            @error('form.billing_address.state')
+                                <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Postal Code</flux:label>
+                            <flux:input wire:model="form.billing_address.postal_code" />
+                            @error('form.billing_address.postal_code')
+                                <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </flux:field>
+                    </div>
+                </div>
+
+                <!-- Order Date & Notes -->
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <flux:heading size="lg" class="mb-4">Order Date & Notes</flux:heading>
+
+                    <flux:field class="mb-4">
+                        <flux:label>Order Date (Tarikh Key In)</flux:label>
+                        <flux:input
+                            type="datetime-local"
+                            wire:model="form.order_date"
+                        />
+                        <flux:description class="text-gray-500 dark:text-zinc-400">
+                            Use this to key in older order records. Default is current date/time.
+                        </flux:description>
+                    </flux:field>
+
                     <flux:field>
+                        <flux:label>Notes / Remarks</flux:label>
                         <flux:textarea wire:model="form.notes" rows="4" placeholder="Any special instructions or notes for this order..." />
                     </flux:field>
                 </div>
@@ -482,6 +1017,9 @@ new class extends Component
                                 <option value="processing">Processing</option>
                                 <option value="shipped">Shipped</option>
                                 <option value="delivered">Delivered</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="refunded">Refunded</option>
+                                <option value="returned">Returned</option>
                             </flux:select>
                         </flux:field>
 
@@ -491,6 +1029,7 @@ new class extends Component
                                 <option value="pending">Pending</option>
                                 <option value="completed">Completed</option>
                                 <option value="failed">Failed</option>
+                                <option value="refunded">Refunded</option>
                             </flux:select>
                         </flux:field>
 
@@ -498,7 +1037,12 @@ new class extends Component
                             <flux:label>Payment Method</flux:label>
                             <flux:select wire:model="form.payment_method">
                                 <option value="cash">Cash</option>
+                                <option value="credit_card">Credit Card</option>
+                                <option value="debit_card">Debit Card</option>
                                 <option value="bank_transfer">Bank Transfer</option>
+                                <option value="fpx">FPX Online Banking</option>
+                                <option value="grabpay">GrabPay</option>
+                                <option value="boost">Boost</option>
                                 <option value="credit">Credit (Agent Terms)</option>
                             </flux:select>
                         </flux:field>
@@ -507,12 +1051,13 @@ new class extends Component
                     <!-- Delivery Fees -->
                     <div class="border-t border-gray-200 dark:border-zinc-700 pt-4">
                         <flux:field>
-                            <flux:label>Shipping Cost (RM)</flux:label>
+                            <flux:label>Delivery / Shipping Fees (RM)</flux:label>
                             <flux:input
                                 type="text"
                                 inputmode="decimal"
                                 wire:model.live.debounce.500ms="shippingCost"
                                 placeholder="0.00"
+                                x-on:blur="$el.value = $el.value ? parseFloat($el.value).toFixed(2) : ''"
                             />
                         </flux:field>
                     </div>
@@ -535,27 +1080,27 @@ new class extends Component
                     <!-- Order Totals -->
                     <div class="space-y-3 border-t border-gray-200 dark:border-zinc-700 pt-4 mt-4">
                         <div class="flex justify-between">
-                            <flux:text>Subtotal</flux:text>
-                            <flux:text>RM {{ number_format($subtotal, 2) }}</flux:text>
+                            <flux:text class="text-gray-600 dark:text-zinc-400">Subtotal</flux:text>
+                            <flux:text class="text-gray-900 dark:text-zinc-100">RM {{ number_format($subtotal, 2) }}</flux:text>
                         </div>
 
                         @if(($shippingCost ?? 0) > 0)
                             <div class="flex justify-between">
-                                <flux:text>Shipping</flux:text>
-                                <flux:text>RM {{ number_format($shippingCost ?? 0, 2) }}</flux:text>
+                                <flux:text class="text-gray-600 dark:text-zinc-400">Delivery / Shipping</flux:text>
+                                <flux:text class="text-gray-900 dark:text-zinc-100">RM {{ number_format($shippingCost ?? 0, 2) }}</flux:text>
                             </div>
                         @endif
 
                         @if(($taxRate ?? 0) > 0)
                             <div class="flex justify-between">
-                                <flux:text>Tax ({{ number_format($taxRate ?? 0, 1) }}%)</flux:text>
-                                <flux:text>RM {{ number_format($taxAmount, 2) }}</flux:text>
+                                <flux:text class="text-gray-600 dark:text-zinc-400">Tax ({{ number_format($taxRate ?? 0, 1) }}%)</flux:text>
+                                <flux:text class="text-gray-900 dark:text-zinc-100">RM {{ number_format($taxAmount, 2) }}</flux:text>
                             </div>
                         @endif
 
                         <div class="border-t border-gray-200 dark:border-zinc-700 pt-3">
                             <div class="flex justify-between">
-                                <flux:text class="font-semibold text-lg">Total</flux:text>
+                                <flux:text class="font-semibold text-lg text-gray-900 dark:text-zinc-100">Total</flux:text>
                                 <flux:text class="font-semibold text-lg text-blue-600 dark:text-blue-400">RM {{ number_format($total, 2) }}</flux:text>
                             </div>
                         </div>
@@ -564,7 +1109,7 @@ new class extends Component
                     <!-- Create Order Button -->
                     <div class="mt-6">
                         <flux:button type="submit" variant="primary" class="w-full">
-                            Buat Pesanan
+                            Create Order
                         </flux:button>
                     </div>
                 </div>
