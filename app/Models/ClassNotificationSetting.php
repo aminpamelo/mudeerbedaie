@@ -20,6 +20,10 @@ class ClassNotificationSetting extends Model
         'send_to_students',
         'send_to_teacher',
         'whatsapp_enabled',
+        'whatsapp_content',
+        'whatsapp_image_path',
+        'sms_content',
+        'use_custom_whatsapp_template',
         'custom_subject',
         'custom_content',
         'design_json',
@@ -34,6 +38,7 @@ class ClassNotificationSetting extends Model
             'send_to_students' => 'boolean',
             'send_to_teacher' => 'boolean',
             'whatsapp_enabled' => 'boolean',
+            'use_custom_whatsapp_template' => 'boolean',
             'design_json' => 'array',
         ];
     }
@@ -92,6 +97,78 @@ class ClassNotificationSetting extends Model
     public function getEffectiveContent(): ?string
     {
         return $this->custom_content ?? $this->template?->content;
+    }
+
+    /**
+     * Check if this setting has a custom WhatsApp template.
+     */
+    public function hasCustomWhatsAppTemplate(): bool
+    {
+        return $this->use_custom_whatsapp_template && ! empty($this->whatsapp_content);
+    }
+
+    /**
+     * Get the effective WhatsApp content.
+     * Returns custom WhatsApp content if set, otherwise returns null (caller should convert from email).
+     */
+    public function getEffectiveWhatsAppContent(): ?string
+    {
+        if ($this->hasCustomWhatsAppTemplate()) {
+            return $this->whatsapp_content;
+        }
+
+        return null;
+    }
+
+    /**
+     * Get WhatsApp formatting guide for UI display.
+     */
+    public static function getWhatsAppFormattingGuide(): array
+    {
+        return [
+            '*bold*' => 'Teks tebal',
+            '_italic_' => 'Teks condong',
+            '~strikethrough~' => 'Teks bergaris',
+            '```code```' => 'Kod/monospace',
+        ];
+    }
+
+    /**
+     * Check if this setting has a WhatsApp image.
+     */
+    public function hasWhatsAppImage(): bool
+    {
+        return ! empty($this->whatsapp_image_path);
+    }
+
+    /**
+     * Get the full URL for the WhatsApp image.
+     */
+    public function getWhatsAppImageUrl(): ?string
+    {
+        if (! $this->hasWhatsAppImage()) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->url($this->whatsapp_image_path);
+    }
+
+    /**
+     * Delete the WhatsApp image file.
+     */
+    public function deleteWhatsAppImage(): bool
+    {
+        if (! $this->hasWhatsAppImage()) {
+            return false;
+        }
+
+        $deleted = \Illuminate\Support\Facades\Storage::disk('public')->delete($this->whatsapp_image_path);
+
+        if ($deleted) {
+            $this->update(['whatsapp_image_path' => null]);
+        }
+
+        return $deleted;
     }
 
     public function getMinutesBefore(): int

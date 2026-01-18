@@ -215,7 +215,8 @@ class SendClassNotificationJob implements ShouldQueue
                     $setting,
                     $recipient,
                     $personalizedContent,
-                    $isVisualTemplate
+                    $isVisualTemplate,
+                    $notificationService
                 );
 
             } catch (\Exception $e) {
@@ -313,7 +314,8 @@ class SendClassNotificationJob implements ShouldQueue
         $setting,
         array $recipient,
         string $personalizedContent,
-        bool $isVisualTemplate
+        bool $isVisualTemplate,
+        ?NotificationService $notificationService = null
     ): void {
         // Check if WhatsApp is enabled for this notification setting
         if (! $setting->whatsapp_enabled) {
@@ -339,10 +341,54 @@ class SendClassNotificationJob implements ShouldQueue
         }
 
         try {
-            // Convert HTML content to plain text for WhatsApp
-            $whatsAppContent = $isVisualTemplate
-                ? $this->convertHtmlToWhatsAppText($personalizedContent)
-                : $personalizedContent;
+            // Determine WhatsApp content source
+            if ($setting->hasCustomWhatsAppTemplate()) {
+                // Use dedicated custom WhatsApp template
+                $whatsAppContent = $setting->whatsapp_content;
+
+                // Replace placeholders in WhatsApp content
+                if ($notificationService) {
+                    $student = $recipient['type'] === 'student' ? $recipient['model'] : null;
+                    $teacher = $recipient['type'] === 'teacher' ? $recipient['model'] : null;
+                    $session = $notification->session;
+                    $class = $notification->class;
+                    $isTimetableBased = $notification->scheduled_session_date && ! $notification->session_id;
+
+                    // Extract session time
+                    $sessionTime = $notification->scheduled_session_time;
+                    if ($sessionTime && preg_match('/\d{4}-\d{2}-\d{2}\s+(\d{2}:\d{2}(:\d{2})?)/', $sessionTime, $matches)) {
+                        $sessionTime = $matches[1];
+                    }
+
+                    if ($isTimetableBased) {
+                        $whatsAppContent = $notificationService->replacePlaceholdersForTimetable(
+                            $whatsAppContent,
+                            $class,
+                            Carbon::parse($notification->scheduled_session_date),
+                            $sessionTime,
+                            $student,
+                            $teacher
+                        );
+                    } else {
+                        $whatsAppContent = $notificationService->replacePlaceholders(
+                            $whatsAppContent,
+                            $session,
+                            $student,
+                            $teacher
+                        );
+                    }
+                }
+
+                Log::info('Using custom WhatsApp template', [
+                    'notification_id' => $notification->id,
+                    'setting_id' => $setting->id,
+                ]);
+            } else {
+                // Fall back to converting email content to WhatsApp-friendly text
+                $whatsAppContent = $isVisualTemplate
+                    ? $this->convertHtmlToWhatsAppText($personalizedContent)
+                    : $personalizedContent;
+            }
 
             // Calculate random delay for this message (anti-ban measure)
             $delay = $whatsApp->getRandomDelay();
@@ -357,11 +403,15 @@ class SendClassNotificationJob implements ShouldQueue
                 'status' => 'pending',
             ]);
 
+            // Get WhatsApp image path if exists
+            $whatsAppImagePath = $setting->whatsapp_image_path;
+
             // Dispatch WhatsApp job with calculated delay
             SendWhatsAppNotificationJob::dispatch(
                 $phone,
                 $whatsAppContent,
-                $waLog->id
+                $waLog->id,
+                $whatsAppImagePath
             )->delay(now()->addSeconds($delay))
                 ->onQueue('whatsapp');
 
@@ -370,6 +420,7 @@ class SendClassNotificationJob implements ShouldQueue
                 'recipient_type' => $recipient['type'],
                 'phone' => $phone,
                 'delay_seconds' => $delay,
+                'has_image' => ! empty($whatsAppImagePath),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to queue WhatsApp notification', [

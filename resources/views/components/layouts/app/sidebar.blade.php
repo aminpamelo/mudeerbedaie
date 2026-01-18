@@ -130,10 +130,11 @@
                     <flux:navlist.item icon="calendar-days" :href="route('classes.index')" :current="request()->routeIs('classes.*')" wire:navigate>{{ __('Classes') }}</flux:navlist.item>
                     <flux:navlist.item icon="folder" :href="route('class-categories.index')" :current="request()->routeIs('class-categories.*')" wire:navigate>{{ __('Class Categories') }}</flux:navlist.item>
                     <flux:navlist.item icon="presentation-chart-bar" :href="route('admin.sessions.index')" :current="request()->routeIs('admin.sessions.*')" wire:navigate>{{ __('Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="table-cells" :href="route('admin.master-timetable')" :current="request()->routeIs('admin.master-timetable')" wire:navigate>{{ __('Master Timetable') }}</flux:navlist.item>
                     <flux:navlist.item icon="banknotes" :href="route('admin.payslips.index')" :current="request()->routeIs('admin.payslips.*')" wire:navigate>{{ __('Payslips') }}</flux:navlist.item>
                     <flux:navlist.item icon="clipboard" :href="route('enrollments.index')" :current="request()->routeIs('enrollments.*')" wire:navigate>{{ __('Enrollments') }}</flux:navlist.item>
                 </flux:navlist.group>
-                
+
                 <flux:navlist.group
                     expandable
                     :heading="__('Subscription Management')"
@@ -353,6 +354,7 @@
                 >
                     <flux:navlist.item icon="calendar-days" :href="route('classes.index')" :current="request()->routeIs('classes.*')" wire:navigate>{{ __('Classes') }}</flux:navlist.item>
                     <flux:navlist.item icon="presentation-chart-bar" :href="route('admin.sessions.index')" :current="request()->routeIs('admin.sessions.*')" wire:navigate>{{ __('Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="table-cells" :href="route('admin.master-timetable')" :current="request()->routeIs('admin.master-timetable')" wire:navigate>{{ __('Master Timetable') }}</flux:navlist.item>
                     <flux:navlist.item icon="folder" :href="route('class-categories.index')" :current="request()->routeIs('class-categories.*')" wire:navigate>{{ __('Class Categories') }}</flux:navlist.item>
                 </flux:navlist.group>
 

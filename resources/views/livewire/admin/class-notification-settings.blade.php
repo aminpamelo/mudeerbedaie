@@ -50,6 +50,18 @@ new class extends Component
 
     public bool $hasVisualContent = false;
 
+    // WhatsApp template properties
+    public ?string $whatsappContent = '';
+
+    public bool $useCustomWhatsappTemplate = false;
+
+    public string $activeChannelTab = 'email';
+
+    // WhatsApp image properties
+    public $whatsappImage = null;
+
+    public ?string $existingWhatsappImagePath = null;
+
     // Attachment properties
     public $newAttachments = [];
 
@@ -260,6 +272,15 @@ new class extends Component
             // If template_id is set, it means system template is being used
             $this->contentSource = $setting->template_id === null ? 'custom' : 'system';
 
+            // WhatsApp template fields
+            $this->whatsappContent = $setting->whatsapp_content ?? '';
+            $this->useCustomWhatsappTemplate = $setting->use_custom_whatsapp_template ?? false;
+            $this->activeChannelTab = 'email';
+
+            // WhatsApp image
+            $this->whatsappImage = null;
+            $this->existingWhatsappImagePath = $setting->whatsapp_image_path;
+
             // Attachments
             $this->attachments = $setting->attachments;
             $this->newAttachments = [];
@@ -316,6 +337,9 @@ new class extends Component
                 'send_to_teacher' => $this->sendToTeacher,
                 'whatsapp_enabled' => $this->whatsappEnabled,
                 'custom_minutes_before' => $this->customMinutesBefore,
+                // WhatsApp template data
+                'whatsapp_content' => $this->useCustomWhatsappTemplate ? ($this->whatsappContent ?: null) : null,
+                'use_custom_whatsapp_template' => $this->useCustomWhatsappTemplate,
             ];
 
             if ($this->contentSource === 'system') {
@@ -344,6 +368,18 @@ new class extends Component
                 }
             }
 
+            // Handle WhatsApp image upload
+            if ($this->whatsappImage) {
+                // Delete old image if exists
+                if ($setting->whatsapp_image_path) {
+                    Storage::disk('public')->delete($setting->whatsapp_image_path);
+                }
+
+                // Store new image
+                $path = $this->whatsappImage->store('whatsapp-images', 'public');
+                $data['whatsapp_image_path'] = $path;
+            }
+
             $setting->update($data);
 
             $this->showEditModal = false;
@@ -352,6 +388,24 @@ new class extends Component
             $this->dispatch('notify',
                 type: 'success',
                 message: 'Tetapan notifikasi telah dikemaskini',
+            );
+        }
+    }
+
+    public function removeWhatsappImage(): void
+    {
+        $setting = ClassNotificationSetting::find($this->editingSettingId);
+        if ($setting && $setting->class_id === $this->class->id) {
+            if ($setting->whatsapp_image_path) {
+                Storage::disk('public')->delete($setting->whatsapp_image_path);
+                $setting->update(['whatsapp_image_path' => null]);
+            }
+            $this->existingWhatsappImagePath = null;
+            $this->whatsappImage = null;
+
+            $this->dispatch('notify',
+                type: 'success',
+                message: 'Gambar WhatsApp telah dipadam',
             );
         }
     }
@@ -371,6 +425,14 @@ new class extends Component
         $this->designJson = null;
         $this->htmlContent = null;
         $this->hasVisualContent = false;
+        // WhatsApp template fields
+        $this->whatsappContent = '';
+        $this->useCustomWhatsappTemplate = false;
+        $this->activeChannelTab = 'email';
+        // WhatsApp image
+        $this->whatsappImage = null;
+        $this->existingWhatsappImagePath = null;
+        // Attachments
         $this->attachments = collect();
         $this->newAttachments = [];
     }
@@ -712,9 +774,40 @@ new class extends Component
                     return;
                 }
 
-                // Convert HTML to plain text for WhatsApp
-                $plainTextContent = $this->convertHtmlToWhatsAppText($personalizedContent);
-                $whatsAppMessage = "[UJIAN] {$personalizedSubject}\n\n{$plainTextContent}\n\n— Ini adalah mesej ujian —";
+                // Check for dedicated WhatsApp image FIRST (independent of template choice)
+                // Prioritize: newly uploaded in modal > saved path in modal > saved in database
+                $dedicatedWhatsAppImage = null;
+                if ($this->whatsappImage) {
+                    // Save temporarily uploaded image to public storage for API access
+                    $tempPath = $this->whatsappImage->store('whatsapp-images/temp', 'public');
+                    $dedicatedWhatsAppImage = Storage::disk('public')->url($tempPath);
+                } elseif ($this->existingWhatsappImagePath) {
+                    // Use existing saved image path from edit modal
+                    $dedicatedWhatsAppImage = Storage::disk('public')->url($this->existingWhatsappImagePath);
+                } elseif ($setting->hasWhatsAppImage()) {
+                    // Fallback to setting's saved image in database
+                    $dedicatedWhatsAppImage = $setting->getWhatsAppImageUrl();
+                }
+
+                // Determine WhatsApp content
+                if ($setting->hasCustomWhatsAppTemplate()) {
+                    // Use custom WhatsApp template with placeholder replacement
+                    $whatsAppContent = str_replace(
+                        array_keys($placeholders),
+                        array_values($placeholders),
+                        $setting->whatsapp_content
+                    );
+                    $whatsAppMessage = "[UJIAN] {$personalizedSubject}\n\n{$whatsAppContent}\n\n— Ini adalah mesej ujian —";
+                    $imageUrls = []; // Custom WhatsApp templates don't include HTML images
+                } else {
+                    // Fall back to converting email content
+                    // Extract image URLs from HTML content first
+                    $imageUrls = $this->extractImageUrls($personalizedContent);
+
+                    // Convert HTML to plain text for WhatsApp (without image URLs at end)
+                    $plainTextContent = $this->convertHtmlToWhatsAppText($personalizedContent, false);
+                    $whatsAppMessage = "[UJIAN] {$personalizedSubject}\n\n{$plainTextContent}\n\n— Ini adalah mesej ujian —";
+                }
 
                 // Normalize phone number
                 $normalizedPhone = preg_replace('/[^0-9]/', '', $phoneNumber);
@@ -724,12 +817,91 @@ new class extends Component
                     $normalizedPhone = '60'.$normalizedPhone;
                 }
 
+                $imagesSent = 0;
+                $imagesFailed = 0;
+
+                // Send dedicated WhatsApp image first (if exists)
+                $localDomainWarning = false;
+                if ($dedicatedWhatsAppImage) {
+                    // Check if URL is local/development (WhatsApp API can't access these)
+                    $parsedUrl = parse_url($dedicatedWhatsAppImage);
+                    $host = $parsedUrl['host'] ?? '';
+                    if (str_ends_with($host, '.test') || str_ends_with($host, '.local') || $host === 'localhost' || str_starts_with($host, '127.') || str_starts_with($host, '192.168.')) {
+                        $localDomainWarning = true;
+                        \Illuminate\Support\Facades\Log::warning('WhatsApp image URL is local domain - API cannot access', [
+                            'image_url' => $dedicatedWhatsAppImage,
+                            'host' => $host,
+                        ]);
+                    }
+
+                    \Illuminate\Support\Facades\Log::info('Sending WhatsApp test image', [
+                        'phone' => $normalizedPhone,
+                        'image_url' => $dedicatedWhatsAppImage,
+                    ]);
+
+                    $imageResult = $whatsApp->sendImage($normalizedPhone, $dedicatedWhatsAppImage);
+                    if ($imageResult['success']) {
+                        $imagesSent++;
+                        // Small delay after image
+                        usleep(500000); // 0.5 second delay
+                    } else {
+                        $imagesFailed++;
+                        \Illuminate\Support\Facades\Log::warning('WhatsApp test image failed', [
+                            'phone' => $normalizedPhone,
+                            'image_url' => $dedicatedWhatsAppImage,
+                            'error' => $imageResult['error'] ?? 'Unknown error',
+                        ]);
+                    }
+                } else {
+                    // Check if image should have been found but wasn't
+                    if ($setting->whatsapp_image_path) {
+                        \Illuminate\Support\Facades\Log::warning('WhatsApp image path exists in DB but not used', [
+                            'setting_id' => $setting->id,
+                            'whatsapp_image_path' => $setting->whatsapp_image_path,
+                            'this_whatsappImage' => $this->whatsappImage ? 'set' : 'null',
+                            'this_existingPath' => $this->existingWhatsappImagePath,
+                        ]);
+                    }
+                }
+
+                // Send text message
                 $result = $whatsApp->send($normalizedPhone, $whatsAppMessage);
 
+                // Then send extracted HTML images if any (only for auto-converted content)
+                if ($result['success'] && ! empty($imageUrls)) {
+                    // Small delay before sending images
+                    usleep(500000); // 0.5 second delay
+
+                    foreach ($imageUrls as $imageUrl) {
+                        $imageResult = $whatsApp->sendImage($normalizedPhone, $imageUrl);
+                        if ($imageResult['success']) {
+                            $imagesSent++;
+                        } else {
+                            $imagesFailed++;
+                        }
+                        // Small delay between images
+                        usleep(300000); // 0.3 second delay
+                    }
+                }
+
                 if ($result['success']) {
+                    $message = "Mesej WhatsApp ujian telah dihantar ke {$normalizedPhone}";
+                    if ($imagesSent > 0) {
+                        $message .= " ({$imagesSent} gambar berjaya dihantar)";
+                    }
+                    if ($imagesFailed > 0) {
+                        if ($localDomainWarning) {
+                            $message .= " ({$imagesFailed} gambar gagal - URL tempatan (.test) tidak boleh diakses oleh API WhatsApp. Gunakan domain awam atau ngrok untuk ujian gambar.)";
+                        } else {
+                            $message .= " ({$imagesFailed} gambar gagal)";
+                        }
+                    }
+                    if (! $dedicatedWhatsAppImage && ! empty($setting->whatsapp_image_path)) {
+                        $message .= " (Nota: Gambar dalam DB tidak digunakan)";
+                    }
                     $this->dispatch('notify',
-                        type: 'success',
-                        message: "Mesej WhatsApp ujian telah dihantar ke {$normalizedPhone}",
+                        type: $imagesFailed > 0 ? 'warning' : 'success',
+                        message: $message,
                     );
                 } else {
                     $this->dispatch('notify',
@@ -791,13 +963,68 @@ new class extends Component
         }
     }
 
-    private function convertHtmlToWhatsAppText(string $html): string
+    /**
+     * Extract image URLs from HTML content.
+     */
+    private function extractImageUrls(string $html): array
+    {
+        $imageUrls = [];
+        preg_match_all('#<img[^>]+src=["\']([^"\']+)["\'][^>]*>#i', $html, $matches);
+
+        if (! empty($matches[1])) {
+            foreach (array_unique($matches[1]) as $url) {
+                // Only include valid HTTP/HTTPS URLs (not data: URIs or placeholders)
+                if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+                    $imageUrls[] = $url;
+                }
+            }
+        }
+
+        return $imageUrls;
+    }
+
+    /**
+     * Convert HTML to WhatsApp-friendly plain text.
+     */
+    private function convertHtmlToWhatsAppText(string $html, bool $includeImageUrls = true): string
     {
         // Convert HTML to plain text for WhatsApp
         $text = $html;
 
-        // Replace common HTML elements
-        // Using # delimiter and specific patterns to avoid Blade compiler issues
+        // Extract image URLs before removing tags (for appending later if needed)
+        $imageUrls = $includeImageUrls ? $this->extractImageUrls($html) : [];
+
+        // FIRST: Remove non-content sections completely
+        // Remove <style>...</style> blocks (CSS)
+        $text = preg_replace('#<style[^>]*>.*?</style>#is', '', $text);
+
+        // Remove <script>...</script> blocks (JavaScript)
+        $text = preg_replace('#<script[^>]*>.*?</script>#is', '', $text);
+
+        // Remove <head>...</head> section
+        $text = preg_replace('#<head[^>]*>.*?</head>#is', '', $text);
+
+        // Remove HTML comments
+        $text = preg_replace('#<!--.*?-->#s', '', $text);
+
+        // Remove DOCTYPE, html, body tags but keep content
+        $text = preg_replace('#<!DOCTYPE[^>]*>#i', '', $text);
+        $text = preg_replace('#</?html[^>]*>#i', '', $text);
+        $text = preg_replace('#</?body[^>]*>#i', '', $text);
+        $text = preg_replace('#</?table[^>]*>#i', '', $text);
+        $text = preg_replace('#</?tr[^>]*>#i', '', $text);
+        $text = preg_replace('#</?td[^>]*>#i', ' ', $text);
+        $text = preg_replace('#</?th[^>]*>#i', ' ', $text);
+        $text = preg_replace('#</?tbody[^>]*>#i', '', $text);
+        $text = preg_replace('#</?thead[^>]*>#i', '', $text);
+
+        // Remove meta, link, title tags
+        $text = preg_replace('#<meta[^>]*>#i', '', $text);
+        $text = preg_replace('#<link[^>]*>#i', '', $text);
+        $text = preg_replace('#<title[^>]*>.*?</title>#is', '', $text);
+
+        // NOW: Convert content HTML elements
+        // Using # delimiter to avoid Blade compiler issues
         $text = preg_replace('#<br\s*/>#i', "\n", $text);  // <br />
         $text = preg_replace('#<br\s*>#i', "\n", $text);   // <br>
         $text = preg_replace('#</p>#i', "\n\n", $text);
@@ -822,8 +1049,22 @@ new class extends Component
         $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
 
         // Clean up whitespace
-        $text = preg_replace('#\n{3,}#', "\n\n", $text);
+        $text = preg_replace('#[ \t]+#', ' ', $text);      // Multiple spaces/tabs to single space
+        $text = preg_replace('#\n[ \t]+#', "\n", $text);   // Remove leading spaces on lines
+        $text = preg_replace('#[ \t]+\n#', "\n", $text);   // Remove trailing spaces on lines
+        $text = preg_replace('#\n{3,}#', "\n\n", $text);   // Max 2 newlines
         $text = trim($text);
+
+        // Append image URLs at the end if any were found
+        if (! empty($imageUrls)) {
+            $text .= "\n\n📷 *Gambar:*";
+            foreach ($imageUrls as $url) {
+                // Only include if it's a valid URL (not data: URIs or placeholders)
+                if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+                    $text .= "\n• {$url}";
+                }
+            }
+        }
 
         return $text;
     }
@@ -1709,36 +1950,271 @@ new class extends Component
                 </div>
 
                 <!-- Delivery Channels Card -->
-                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
-                        <div class="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <flux:icon.megaphone class="w-4 h-4 text-blue-600" />
+                <div class="border border-gray-200 rounded-xl overflow-hidden">
+                    <div class="bg-gradient-to-r from-gray-50 to-slate-50 px-4 py-3 border-b border-gray-200">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <flux:icon.megaphone class="w-4 h-4 text-blue-600" />
+                            </div>
+                            <span class="font-semibold text-gray-900 text-sm">Saluran Penghantaran</span>
                         </div>
-                        <span class="font-semibold text-gray-900 text-sm">Saluran Penghantaran</span>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <!-- Email Channel (always enabled) -->
-                        <div class="flex items-center gap-3 p-3 bg-white border border-blue-100 rounded-lg">
-                            <input type="checkbox" checked disabled class="w-4 h-4 text-blue-600 border-gray-300 rounded cursor-not-allowed">
-                            <div class="flex items-center gap-2">
-                                <flux:icon.envelope class="w-4 h-4 text-blue-600" />
-                                <div>
-                                    <p class="font-medium text-gray-900 text-sm">E-mel</p>
-                                    <p class="text-xs text-gray-500">Sentiasa aktif</p>
+
+                    <div class="p-4 space-y-4">
+                        <!-- Channel Selection -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <!-- Email Channel (always enabled) -->
+                            <div class="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <input type="checkbox" checked disabled class="w-4 h-4 text-blue-600 border-gray-300 rounded cursor-not-allowed">
+                                <div class="flex items-center gap-2">
+                                    <flux:icon.envelope class="w-4 h-4 text-blue-600" />
+                                    <div>
+                                        <p class="font-medium text-gray-900 text-sm">E-mel</p>
+                                        <p class="text-xs text-gray-500">Sentiasa aktif</p>
+                                    </div>
                                 </div>
+                            </div>
+                            <!-- WhatsApp Channel (toggleable) -->
+                            <label class="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-green-300 transition-colors {{ $whatsappEnabled ? 'border-green-300 bg-green-50' : '' }}">
+                                <input type="checkbox" wire:model.live="whatsappEnabled" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                                <div class="flex items-center gap-2">
+                                    <flux:icon.device-phone-mobile class="w-4 h-4 {{ $whatsappEnabled ? 'text-green-600' : 'text-gray-400' }}" />
+                                    <div>
+                                        <p class="font-medium text-gray-900 text-sm">WhatsApp</p>
+                                        <p class="text-xs text-amber-600">⚠️ API Tidak Rasmi</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Channel Template Tabs (show when WhatsApp is enabled) -->
+                        @if($whatsappEnabled)
+                        <div class="border border-gray-200 rounded-xl overflow-hidden mt-4">
+                            <!-- Tab Headers -->
+                            <div class="flex border-b border-gray-200 bg-gray-50">
+                                <button
+                                    type="button"
+                                    wire:click="$set('activeChannelTab', 'email')"
+                                    class="flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 {{ $activeChannelTab === 'email' ? 'bg-white border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700' }}"
+                                >
+                                    <flux:icon.envelope class="w-4 h-4" />
+                                    E-mel
+                                </button>
+                                <button
+                                    type="button"
+                                    wire:click="$set('activeChannelTab', 'whatsapp')"
+                                    class="flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 {{ $activeChannelTab === 'whatsapp' ? 'bg-white border-b-2 border-green-500 text-green-600' : 'text-gray-500 hover:text-gray-700' }}"
+                                >
+                                    <flux:icon.device-phone-mobile class="w-4 h-4" />
+                                    WhatsApp
+                                    @if($useCustomWhatsappTemplate)
+                                        <span class="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded">Tersuai</span>
+                                    @endif
+                                </button>
+                            </div>
+
+                            <!-- Tab Content -->
+                            <div class="p-4">
+                                <!-- Email Tab -->
+                                @if($activeChannelTab === 'email')
+                                <div class="p-3 bg-blue-50 rounded-lg">
+                                    <div class="flex items-start gap-2">
+                                        <flux:icon.check-circle class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p class="text-sm font-medium text-blue-800">Kandungan e-mel dikonfigurasikan di bahagian "Sumber Kandungan" di atas.</p>
+                                            <p class="text-xs text-blue-600 mt-1">Templat {{ $contentSource === 'system' ? 'sistem' : ($editorType === 'visual' ? 'visual tersuai' : 'teks tersuai') }} akan digunakan.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
+
+                                <!-- WhatsApp Tab -->
+                                @if($activeChannelTab === 'whatsapp')
+                                <div class="space-y-4">
+                                    <!-- Template Source Toggle -->
+                                    <label class="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-green-300">
+                                        <input
+                                            type="checkbox"
+                                            wire:model.live="useCustomWhatsappTemplate"
+                                            class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                        >
+                                        <div>
+                                            <p class="font-medium text-gray-900 text-sm">Guna templat WhatsApp tersuai</p>
+                                            <p class="text-xs text-gray-500">Jika tidak diaktifkan, kandungan e-mel akan ditukar secara automatik</p>
+                                        </div>
+                                    </label>
+
+                                    @if($useCustomWhatsappTemplate)
+                                    <!-- WhatsApp Editor -->
+                                    <div class="space-y-3">
+                                        <!-- Formatting Toolbar -->
+                                        <div class="flex flex-wrap items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                            <button type="button" onclick="insertWhatsAppFormat('*', '*')" class="px-2.5 py-1.5 text-xs font-bold bg-white border border-gray-300 rounded hover:bg-gray-100" title="Bold">B</button>
+                                            <button type="button" onclick="insertWhatsAppFormat('_', '_')" class="px-2.5 py-1.5 text-xs italic bg-white border border-gray-300 rounded hover:bg-gray-100" title="Italic">I</button>
+                                            <button type="button" onclick="insertWhatsAppFormat('~', '~')" class="px-2.5 py-1.5 text-xs line-through bg-white border border-gray-300 rounded hover:bg-gray-100" title="Strikethrough">S</button>
+                                            <button type="button" onclick="insertWhatsAppFormat('\`\`\`', '\`\`\`')" class="px-2.5 py-1.5 text-xs font-mono bg-white border border-gray-300 rounded hover:bg-gray-100" title="Code">&lt;/&gt;</button>
+                                            <span class="border-l border-gray-300 h-6 mx-1"></span>
+                                            <span class="text-xs text-gray-500">WhatsApp Formatting</span>
+                                        </div>
+
+                                        <!-- WhatsApp Content Textarea -->
+                                        <div>
+                                            <textarea
+                                                id="whatsapp-content-editor"
+                                                wire:model="whatsappContent"
+                                                rows="10"
+                                                class="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                                placeholder="Tulis mesej WhatsApp anda di sini...
+
+Contoh:
+Assalamualaikum *@{{student_name}}*,
+
+Kelas anda akan bermula dalam *1 JAM*:
+📚 @{{class_name}}
+⏰ @{{session_time}}
+🔗 @{{meeting_url}}
+
+Sila hadir tepat pada waktunya."
+                                            ></textarea>
+                                        </div>
+
+                                        <!-- Character Count & Actions -->
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="text-gray-500">{{ strlen($whatsappContent ?? '') }} aksara</span>
+                                            <button
+                                                type="button"
+                                                x-data="{ showPreview: false }"
+                                                x-on:click="showPreview = !showPreview; $dispatch('toggle-whatsapp-preview')"
+                                                class="text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
+                                            >
+                                                <flux:icon.eye class="w-3.5 h-3.5" />
+                                                Pratonton
+                                            </button>
+                                        </div>
+
+                                        <!-- WhatsApp Preview -->
+                                        <div
+                                            x-data="{ visible: false }"
+                                            x-on:toggle-whatsapp-preview.window="visible = !visible"
+                                            x-show="visible"
+                                            x-transition
+                                            class="p-4 bg-[#e5ddd5] rounded-lg"
+                                        >
+                                            <p class="text-xs text-gray-600 mb-2 text-center">Pratonton WhatsApp</p>
+                                            <div class="max-w-sm mx-auto">
+                                                <div class="bg-[#dcf8c6] rounded-lg p-3 shadow-sm">
+                                                    <div
+                                                        class="text-sm text-gray-800 whitespace-pre-wrap"
+                                                        x-html="formatWhatsAppPreview($wire.whatsappContent || '')"
+                                                    ></div>
+                                                    <div class="text-right mt-1">
+                                                        <span class="text-xs text-gray-500">{{ now()->format('g:i A') }}</span>
+                                                        <span class="text-blue-500 ml-1">✓✓</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- WhatsApp Image Upload -->
+                                        <div class="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
+                                            <div class="flex items-center gap-2 mb-3">
+                                                <flux:icon.photo class="w-4 h-4 text-purple-600" />
+                                                <span class="font-semibold text-gray-900 text-sm">Gambar WhatsApp (Pilihan)</span>
+                                            </div>
+                                            <p class="text-xs text-gray-600 mb-3">Gambar akan dihantar sebelum mesej teks. Format yang disokong: JPG, PNG, GIF (maks 5MB)</p>
+
+                                            @if($existingWhatsappImagePath || $whatsappImage)
+                                            <!-- Image Preview -->
+                                            <div class="relative mb-3">
+                                                <div class="aspect-video w-full max-w-xs mx-auto overflow-hidden rounded-lg border border-gray-200 bg-white">
+                                                    @if($whatsappImage)
+                                                        <img src="{{ $whatsappImage->temporaryUrl() }}" alt="Preview" class="w-full h-full object-contain">
+                                                    @elseif($existingWhatsappImagePath)
+                                                        <img src="{{ Storage::disk('public')->url($existingWhatsappImagePath) }}" alt="Existing Image" class="w-full h-full object-contain">
+                                                    @endif
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    wire:click="removeWhatsappImage"
+                                                    class="absolute top-2 right-2 p-1.5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors"
+                                                    title="Padam gambar"
+                                                >
+                                                    <flux:icon.x-mark class="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            @else
+                                            <!-- Upload Area -->
+                                            <div class="relative">
+                                                <input
+                                                    type="file"
+                                                    wire:model="whatsappImage"
+                                                    accept="image/jpeg,image/png,image/gif"
+                                                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                    id="whatsapp-image-upload"
+                                                >
+                                                <label
+                                                    for="whatsapp-image-upload"
+                                                    class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-purple-300 rounded-lg bg-white hover:bg-purple-50 hover:border-purple-400 transition-colors cursor-pointer"
+                                                >
+                                                    <flux:icon.cloud-arrow-up class="w-8 h-8 text-purple-400 mb-2" />
+                                                    <span class="text-sm font-medium text-gray-700">Klik untuk muat naik gambar</span>
+                                                    <span class="text-xs text-gray-500 mt-1">atau seret & lepaskan di sini</span>
+                                                </label>
+                                            </div>
+                                            @endif
+
+                                            <!-- Upload Loading -->
+                                            <div wire:loading wire:target="whatsappImage" class="mt-3">
+                                                <div class="flex items-center justify-center gap-2 text-sm text-purple-600">
+                                                    <flux:icon.arrow-path class="w-4 h-4 animate-spin" />
+                                                    <span>Memuat naik gambar...</span>
+                                                </div>
+                                            </div>
+
+                                            @error('whatsappImage')
+                                            <div class="mt-2 text-xs text-red-600">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <!-- Formatting Guide -->
+                                        <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                            <p class="text-xs font-semibold text-green-800 mb-2">Panduan Format WhatsApp:</p>
+                                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                                <div class="flex items-center gap-2">
+                                                    <code class="px-1 bg-white rounded text-green-700">*teks*</code>
+                                                    <span class="text-gray-600">→ <strong>tebal</strong></span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <code class="px-1 bg-white rounded text-green-700">_teks_</code>
+                                                    <span class="text-gray-600">→ <em>condong</em></span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <code class="px-1 bg-white rounded text-green-700">~teks~</code>
+                                                    <span class="text-gray-600">→ <s>bergaris</s></span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <code class="px-1 bg-white rounded text-green-700">`kod`</code>
+                                                    <span class="text-gray-600">→ <code class="text-xs">monospace</code></span>
+                                                </div>
+                                            </div>
+                                            <div class="mt-2 pt-2 border-t border-green-200">
+                                                <p class="text-xs text-green-700">Placeholder tersedia: <code class="px-1 bg-white rounded">@{{student_name}}</code>, <code class="px-1 bg-white rounded">@{{class_name}}</code>, <code class="px-1 bg-white rounded">@{{session_time}}</code>, <code class="px-1 bg-white rounded">@{{meeting_url}}</code></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @else
+                                    <!-- Auto-convert info -->
+                                    <div class="p-4 bg-gray-50 rounded-lg text-center">
+                                        <flux:icon.arrows-right-left class="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                                        <p class="text-sm text-gray-600">Kandungan e-mel akan ditukar secara automatik kepada format WhatsApp</p>
+                                        <p class="text-xs text-gray-500 mt-1">Aktifkan templat tersuai untuk kawalan penuh</p>
+                                    </div>
+                                    @endif
+                                </div>
+                                @endif
                             </div>
                         </div>
-                        <!-- WhatsApp Channel (toggleable) -->
-                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
-                            <input type="checkbox" wire:model="whatsappEnabled" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
-                            <div class="flex items-center gap-2">
-                                <flux:icon.device-phone-mobile class="w-4 h-4 text-green-600" />
-                                <div>
-                                    <p class="font-medium text-gray-900 text-sm">WhatsApp</p>
-                                    <p class="text-xs text-amber-600">⚠️ API Tidak Rasmi</p>
-                                </div>
-                            </div>
-                        </label>
+                        @endif
                     </div>
                 </div>
 
@@ -1778,7 +2254,7 @@ new class extends Component
     </flux:modal>
 
     <!-- Test Notification Modal -->
-    <flux:modal wire:model="showTestModal" class="max-w-md">
+    <flux:modal wire:model="showTestModal" class="max-w-lg">
         <div class="p-6">
             <div class="flex items-center justify-between pb-4 border-b border-gray-200 mb-5">
                 <div>
@@ -1791,50 +2267,54 @@ new class extends Component
                 <!-- Channel Selection -->
                 <div>
                     <flux:label class="mb-3">Pilih Saluran</flux:label>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-2 gap-4">
                         <!-- Email Option -->
-                        <label class="relative flex flex-col p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $testChannel === 'email' ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300' }}">
-                            <input type="radio" name="test_channel" wire:model="testChannel" value="email" class="sr-only">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 {{ $testChannel === 'email' ? 'bg-blue-100' : 'bg-gray-100' }} rounded-lg flex items-center justify-center">
-                                    <flux:icon.envelope class="w-5 h-5 {{ $testChannel === 'email' ? 'text-blue-600' : 'text-gray-500' }}" />
+                        <div
+                            wire:click="$set('testChannel', 'email')"
+                            class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $testChannel === 'email' ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300' }}"
+                        >
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 {{ $testChannel === 'email' ? 'bg-blue-100' : 'bg-gray-100' }} rounded-xl flex items-center justify-center">
+                                    <flux:icon.envelope class="w-6 h-6 {{ $testChannel === 'email' ? 'text-blue-600' : 'text-gray-500' }}" />
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-900">E-mel</p>
-                                    <p class="text-xs text-gray-500">{{ auth()->user()->email }}</p>
+                                    <p class="font-semibold text-gray-900 text-base">E-mel</p>
+                                    <p class="text-sm text-gray-500 truncate max-w-[140px]">{{ auth()->user()->email }}</p>
                                 </div>
                             </div>
                             @if($testChannel === 'email')
-                                <div class="absolute top-2 right-2">
-                                    <flux:icon.check-circle class="w-5 h-5 text-blue-600" />
+                                <div class="absolute top-3 right-3">
+                                    <flux:icon.check-circle class="w-6 h-6 text-blue-600" />
                                 </div>
                             @endif
-                        </label>
+                        </div>
 
                         <!-- WhatsApp Option -->
-                        <label class="relative flex flex-col p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $testChannel === 'whatsapp' ? 'border-green-500 bg-green-50 shadow-md' : 'border-gray-200 hover:border-green-300' }}">
-                            <input type="radio" name="test_channel" wire:model="testChannel" value="whatsapp" class="sr-only">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 {{ $testChannel === 'whatsapp' ? 'bg-green-100' : 'bg-gray-100' }} rounded-lg flex items-center justify-center">
-                                    <flux:icon.device-phone-mobile class="w-5 h-5 {{ $testChannel === 'whatsapp' ? 'text-green-600' : 'text-gray-500' }}" />
+                        <div
+                            wire:click="$set('testChannel', 'whatsapp')"
+                            class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $testChannel === 'whatsapp' ? 'border-green-500 bg-green-50 shadow-md' : 'border-gray-200 hover:border-green-300' }}"
+                        >
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 {{ $testChannel === 'whatsapp' ? 'bg-green-100' : 'bg-gray-100' }} rounded-xl flex items-center justify-center">
+                                    <flux:icon.device-phone-mobile class="w-6 h-6 {{ $testChannel === 'whatsapp' ? 'text-green-600' : 'text-gray-500' }}" />
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-900">WhatsApp</p>
-                                    <p class="text-xs text-gray-500">{{ auth()->user()->phone_number ?? auth()->user()->phone ?? 'Tidak ditetapkan' }}</p>
+                                    <p class="font-semibold text-gray-900 text-base">WhatsApp</p>
+                                    <p class="text-sm text-gray-500">{{ auth()->user()->phone_number ?? auth()->user()->phone ?? 'Tidak ditetapkan' }}</p>
                                 </div>
                             </div>
                             @if($testChannel === 'whatsapp')
-                                <div class="absolute top-2 right-2">
-                                    <flux:icon.check-circle class="w-5 h-5 text-green-600" />
+                                <div class="absolute top-3 right-3">
+                                    <flux:icon.check-circle class="w-6 h-6 text-green-600" />
                                 </div>
                             @endif
-                        </label>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Info Box -->
-                <div class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                    <div class="flex items-start gap-2">
+                <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <div class="flex items-start gap-3">
                         <flux:icon.information-circle class="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />
                         <div class="text-sm text-gray-600">
                             @if($testChannel === 'email')
@@ -1863,3 +2343,33 @@ new class extends Component
         </div>
     </flux:modal>
 </div>
+
+<script>
+    function formatWhatsAppPreview(text) {
+        if (!text) return '';
+        return text
+            .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+            .replace(/_([^_]+)_/g, '<em>$1</em>')
+            .replace(/~([^~]+)~/g, '<del>$1</del>')
+            .replace(/```([^`]+)```/g, '<code class="bg-gray-200 px-1 rounded text-sm">$1</code>')
+            .replace(/`([^`]+)`/g, '<code class="bg-gray-200 px-0.5 rounded text-sm">$1</code>')
+            .replace(/\n/g, '<br>');
+    }
+
+    function insertWhatsAppFormat(before, after) {
+        const textarea = document.getElementById('whatsapp-content-editor');
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const selectedText = text.substring(start, end);
+
+        textarea.value = text.substring(0, start) + before + selectedText + after + text.substring(end);
+        textarea.focus();
+        textarea.setSelectionRange(start + before.length, end + before.length);
+
+        // Trigger Livewire update
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+</script>
