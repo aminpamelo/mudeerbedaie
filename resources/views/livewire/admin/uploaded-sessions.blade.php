@@ -334,7 +334,7 @@ new class extends Component
                         </td>
                         <td class="px-4 py-4">
                             <span class="text-sm text-gray-500 dark:text-gray-400">
-                                {{ $session->uploaded_at->diffForHumans() }}
+                                {{ $session->uploaded_at?->diffForHumans() ?? '-' }}
                             </span>
                         </td>
                         <td class="px-4 py-4 text-right">
