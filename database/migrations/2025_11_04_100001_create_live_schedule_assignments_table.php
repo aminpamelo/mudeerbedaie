@@ -24,12 +24,12 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
-            // Indexes for common queries
-            $table->index(['platform_account_id', 'day_of_week']);
-            $table->index(['platform_account_id', 'schedule_date']);
-            $table->index(['live_host_id', 'day_of_week']);
-            $table->index(['live_host_id', 'schedule_date']);
-            $table->index(['is_template', 'day_of_week']);
+            // Indexes for common queries (with short names to avoid MySQL 64-char limit)
+            $table->index(['platform_account_id', 'day_of_week'], 'lsa_platform_day_idx');
+            $table->index(['platform_account_id', 'schedule_date'], 'lsa_platform_date_idx');
+            $table->index(['live_host_id', 'day_of_week'], 'lsa_host_day_idx');
+            $table->index(['live_host_id', 'schedule_date'], 'lsa_host_date_idx');
+            $table->index(['is_template', 'day_of_week'], 'lsa_template_day_idx');
 
             // Unique constraint for template slots (one host per platform/day/slot)
             $table->unique(

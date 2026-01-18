@@ -12,9 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('live_schedules', function (Blueprint $table) {
-            $table->foreignId('live_host_id')->nullable()->after('is_active')->constrained('users')->nullOnDelete();
-            $table->text('remarks')->nullable()->after('live_host_id');
-            $table->foreignId('created_by')->nullable()->after('remarks')->constrained('users')->nullOnDelete();
+            if (!Schema::hasColumn('live_schedules', 'live_host_id')) {
+                $table->foreignId('live_host_id')->nullable()->after('is_active')->constrained('users')->nullOnDelete();
+            }
+            if (!Schema::hasColumn('live_schedules', 'remarks')) {
+                $table->text('remarks')->nullable()->after('live_host_id');
+            }
+            if (!Schema::hasColumn('live_schedules', 'created_by')) {
+                $table->foreignId('created_by')->nullable()->after('remarks')->constrained('users')->nullOnDelete();
+            }
         });
     }
 

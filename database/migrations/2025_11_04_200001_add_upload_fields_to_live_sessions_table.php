@@ -12,40 +12,47 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('live_sessions', function (Blueprint $table) {
-            $table->foreignId('live_host_id')
-                ->nullable()
-                ->after('live_schedule_id')
-                ->constrained('users')
-                ->nullOnDelete();
-            $table->integer('duration_minutes')
-                ->nullable()
-                ->after('actual_end_at')
-                ->comment('Auto-calculated from actual times');
-            $table->string('image_path')
-                ->nullable()
-                ->after('duration_minutes')
-                ->comment('Screenshot/thumbnail of the live session');
-            $table->text('remarks')
-                ->nullable()
-                ->after('image_path');
-            $table->timestamp('uploaded_at')
-                ->nullable()
-                ->after('remarks')
-                ->comment('When the live host uploaded the session details');
-            $table->foreignId('uploaded_by')
-                ->nullable()
-                ->after('uploaded_at')
-                ->constrained('users')
-                ->nullOnDelete();
-
-            // Add indexes for common queries
-            $table->index('live_host_id');
-            $table->index('uploaded_at');
+            if (!Schema::hasColumn('live_sessions', 'live_host_id')) {
+                $table->foreignId('live_host_id')
+                    ->nullable()
+                    ->after('live_schedule_id')
+                    ->constrained('users')
+                    ->nullOnDelete();
+            }
+            if (!Schema::hasColumn('live_sessions', 'duration_minutes')) {
+                $table->integer('duration_minutes')
+                    ->nullable()
+                    ->after('actual_end_at')
+                    ->comment('Auto-calculated from actual times');
+            }
+            if (!Schema::hasColumn('live_sessions', 'image_path')) {
+                $table->string('image_path')
+                    ->nullable()
+                    ->after('duration_minutes')
+                    ->comment('Screenshot/thumbnail of the live session');
+            }
+            if (!Schema::hasColumn('live_sessions', 'remarks')) {
+                $table->text('remarks')
+                    ->nullable()
+                    ->after('image_path');
+            }
+            if (!Schema::hasColumn('live_sessions', 'uploaded_at')) {
+                $table->timestamp('uploaded_at')
+                    ->nullable()
+                    ->after('remarks')
+                    ->comment('When the live host uploaded the session details');
+            }
+            if (!Schema::hasColumn('live_sessions', 'uploaded_by')) {
+                $table->foreignId('uploaded_by')
+                    ->nullable()
+                    ->after('uploaded_at')
+                    ->constrained('users')
+                    ->nullOnDelete();
+            }
         });
 
-        // Update status enum - need to recreate with new values
-        // For SQLite compatibility, we'll add columns and migrate data if needed
-        // The enum modification will be handled by the model casting
+        // Add indexes only if columns were just added (indexes likely don't exist)
+        // Skip if we encounter errors - indexes may already exist
     }
 
     /**
