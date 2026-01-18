@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('live_schedule_assignments')) {
+            return;
+        }
+
         Schema::create('live_schedule_assignments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('platform_account_id')->constrained()->onDelete('cascade');
