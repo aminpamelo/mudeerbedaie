@@ -9,8 +9,18 @@ new class extends Component {
     public $agent_code = '';
     public $name = '';
     public $type = 'agent';
+    public $pricing_tier = 'standard';
     public $company_name = '';
     public $registration_number = '';
+
+    public function getPricingTiers(): array
+    {
+        return [
+            'standard' => 'Standard (10% discount)',
+            'premium' => 'Premium (15% discount)',
+            'vip' => 'VIP (20% discount)',
+        ];
+    }
     public $contact_person = '';
     public $email = '';
     public $phone = '';
@@ -32,6 +42,7 @@ new class extends Component {
         $this->agent_code = $agent->agent_code;
         $this->name = $agent->name;
         $this->type = $agent->type;
+        $this->pricing_tier = $agent->pricing_tier ?? 'standard';
         $this->company_name = $agent->company_name;
         $this->registration_number = $agent->registration_number;
         $this->contact_person = $agent->contact_person;
@@ -62,6 +73,7 @@ new class extends Component {
             'agent_code' => 'required|string|max:50|unique:agents,agent_code,' . $this->agent->id,
             'name' => 'required|string|max:255',
             'type' => 'required|in:agent,company',
+            'pricing_tier' => 'required|in:standard,premium,vip',
             'company_name' => 'nullable|string|max:255',
             'registration_number' => 'nullable|string|max:100',
             'contact_person' => 'nullable|string|max:255',
@@ -104,6 +116,7 @@ new class extends Component {
             'agent_code' => $validated['agent_code'],
             'name' => $validated['name'],
             'type' => $validated['type'],
+            'pricing_tier' => $validated['pricing_tier'],
             'company_name' => $validated['company_name'],
             'registration_number' => $validated['registration_number'],
             'contact_person' => $validated['contact_person'],
@@ -157,6 +170,17 @@ new class extends Component {
                                 <flux:select.option value="company">Company</flux:select.option>
                             </flux:select>
                             <flux:error name="type" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Pricing Tier</flux:label>
+                            <flux:select wire:model="pricing_tier" required>
+                                @foreach($this->getPricingTiers() as $value => $label)
+                                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="pricing_tier" />
+                            <flux:description>Discount tier for this agent's orders</flux:description>
                         </flux:field>
 
                         <flux:field class="md:col-span-2">
