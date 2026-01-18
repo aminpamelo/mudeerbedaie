@@ -203,7 +203,11 @@ new class extends Component {
                 'is_active' => true,
             ]);
 
-            session()->flash('success', 'Class created with timetable successfully.');
+            // Generate sessions from timetable
+            $class->load('timetable');
+            $sessionsCreated = $class->createSessionsFromTimetable();
+
+            session()->flash('success', "Class created with timetable successfully. {$sessionsCreated} sessions generated.");
         } else {
             // Create attendance records for enrolled students (single session)
             $this->createAttendanceRecords($class);

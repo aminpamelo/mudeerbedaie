@@ -221,15 +221,27 @@ new class extends Component {
                 'is_active' => true,
             ];
 
+            $isNewTimetable = !$this->class->timetable;
+
             if ($this->class->timetable) {
                 // Update existing timetable
                 $this->class->timetable->update($timetableData);
+
+                // Delete future scheduled sessions (keep completed, ongoing, cancelled)
+                $this->class->sessions()
+                    ->where('status', 'scheduled')
+                    ->where('session_date', '>=', now()->toDateString())
+                    ->delete();
             } else {
                 // Create new timetable
                 $this->class->timetable()->create($timetableData);
             }
 
-            session()->flash('success', 'Class and timetable updated successfully.');
+            // Reload timetable relationship and generate sessions
+            $this->class->load('timetable');
+            $sessionsCreated = $this->class->createSessionsFromTimetable();
+
+            session()->flash('success', "Class and timetable updated successfully. {$sessionsCreated} sessions generated.");
         } else {
             // Remove timetable if disabled
             if ($this->class->timetable) {
