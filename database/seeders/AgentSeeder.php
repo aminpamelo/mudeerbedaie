@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Agent;
-use App\Models\KedaiBukuPricing;
+use App\Models\AgentPricing;
 use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderItem;
@@ -335,8 +335,8 @@ class AgentSeeder extends Seeder
         // Create orders for agents
         $this->createAgentOrders($createdAgents);
 
-        // Create custom pricing for bookstores
-        $this->createBookstorePricing();
+        // Create custom pricing for all agents
+        $this->createAgentPricing($createdAgents);
     }
 
     /**
@@ -445,23 +445,22 @@ class AgentSeeder extends Seeder
     }
 
     /**
-     * Create custom pricing for bookstore agents.
+     * Create custom pricing for all agents.
      */
-    private function createBookstorePricing(): void
+    private function createAgentPricing(array $agents): void
     {
-        $bookstores = Agent::bookstores()->get();
         $products = Product::take(5)->get();
 
-        if ($products->isEmpty() || $bookstores->isEmpty()) {
-            $this->command->warn('No products or bookstores found. Skipping custom pricing creation.');
+        if ($products->isEmpty()) {
+            $this->command->warn('No products found. Skipping custom pricing creation.');
 
             return;
         }
 
         $pricingCount = 0;
 
-        foreach ($bookstores as $bookstore) {
-            // Create custom pricing for 2-4 products per bookstore
+        foreach ($agents as $agent) {
+            // Create custom pricing for 2-4 products per agent
             $numPricing = rand(2, min(4, $products->count()));
             $selectedProducts = $products->random($numPricing);
 
@@ -478,9 +477,9 @@ class AgentSeeder extends Seeder
                 foreach ($pricingTiers as $tier) {
                     $customPrice = $basePrice * (1 - ($tier['discount'] / 100));
 
-                    KedaiBukuPricing::updateOrCreate(
+                    AgentPricing::updateOrCreate(
                         [
-                            'agent_id' => $bookstore->id,
+                            'agent_id' => $agent->id,
                             'product_id' => $product->id,
                             'min_quantity' => $tier['min_quantity'],
                         ],
@@ -495,6 +494,6 @@ class AgentSeeder extends Seeder
             }
         }
 
-        $this->command->info('Created '.$pricingCount.' custom pricing entries for bookstores');
+        $this->command->info('Created '.$pricingCount.' custom pricing entries for all agents');
     }
 }
