@@ -9,6 +9,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class SendWhatsAppNotificationJob implements ShouldQueue
 {
@@ -21,7 +22,8 @@ class SendWhatsAppNotificationJob implements ShouldQueue
     public function __construct(
         public string $phoneNumber,
         public string $message,
-        public ?int $notificationLogId = null
+        public ?int $notificationLogId = null,
+        public ?string $imagePath = null
     ) {}
 
     /**
@@ -93,13 +95,31 @@ class SendWhatsAppNotificationJob implements ShouldQueue
             return;
         }
 
-        // Send the message
+        // Send image first if provided
+        $imageResult = null;
+        if ($this->imagePath) {
+            $imageUrl = Storage::disk('public')->url($this->imagePath);
+            $imageResult = $whatsApp->sendImage($this->phoneNumber, $imageUrl);
+
+            if (! $imageResult['success']) {
+                Log::warning('WhatsApp image send failed, continuing with text', [
+                    'phone' => $this->phoneNumber,
+                    'error' => $imageResult['error'] ?? 'Unknown error',
+                ]);
+            } else {
+                // Add small delay between image and text message
+                sleep(random_int(2, 5));
+            }
+        }
+
+        // Send the text message
         $result = $whatsApp->send($this->phoneNumber, $this->message);
 
         // Update notification log if provided
         if ($this->notificationLogId) {
             $log = NotificationLog::find($this->notificationLogId);
             if ($log) {
+                // Consider success if text was sent (image failure is logged separately)
                 if ($result['success']) {
                     $log->markAsSent($result['message_id'] ?? null);
                 } else {

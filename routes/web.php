@@ -188,6 +188,9 @@ Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(fu
     // Class Category routes
     Volt::route('class-categories', 'admin.class-category-list')->name('class-categories.index');
 
+    // Master Timetable route
+    Volt::route('master-timetable', 'admin.master-timetable')->name('admin.master-timetable');
+
     // Session routes
     Volt::route('sessions', 'admin.sessions-index')->name('admin.sessions.index');
     Volt::route('sessions/{session}', 'admin.sessions-show')->name('admin.sessions.show');

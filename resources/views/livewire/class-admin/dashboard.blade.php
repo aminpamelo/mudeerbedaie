@@ -65,14 +65,16 @@ new #[Layout('components.layouts.app.sidebar')] class extends Component {
             'kpi_met_this_week' => ClassSession::whereIn('class_id', $classIds)
                 ->whereBetween('session_date', [$weekStart, now()])
                 ->where('status', 'completed')
-                ->whereNotNull('actual_duration_minutes')
-                ->whereRaw('actual_duration_minutes >= duration_minutes - 10')
+                ->whereNotNull('started_at')
+                ->whereNotNull('completed_at')
+                ->whereRaw('(strftime(\'%s\', completed_at) - strftime(\'%s\', started_at)) / 60 >= duration_minutes - 10')
                 ->count(),
             'kpi_missed_this_week' => ClassSession::whereIn('class_id', $classIds)
                 ->whereBetween('session_date', [$weekStart, now()])
                 ->where('status', 'completed')
-                ->whereNotNull('actual_duration_minutes')
-                ->whereRaw('actual_duration_minutes < duration_minutes - 10')
+                ->whereNotNull('started_at')
+                ->whereNotNull('completed_at')
+                ->whereRaw('(strftime(\'%s\', completed_at) - strftime(\'%s\', started_at)) / 60 < duration_minutes - 10')
                 ->count(),
         ];
     }
@@ -411,21 +413,21 @@ new #[Layout('components.layouts.app.sidebar')] class extends Component {
 
     <!-- KPI & Verification Stats -->
     <div class="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <!-- Pending Verification -->
-        <flux:card class="{{ $this->statistics['pending_verification'] > 0 ? 'ring-2 ring-orange-400' : '' }}">
+        <!-- Pending Verification - Amber warning (industry standard for tasks needing attention) -->
+        <flux:card class="{{ $this->statistics['pending_verification'] > 0 ? 'ring-1 ring-amber-400 dark:ring-amber-500' : '' }}">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:heading size="sm" class="text-gray-600 dark:text-gray-400">Pending Verify</flux:heading>
-                    <flux:heading size="xl" class="text-gray-900 dark:text-white">{{ $this->statistics['pending_verification'] }}</flux:heading>
-                    <flux:text size="sm" class="text-orange-600 dark:text-orange-400">
+                    <flux:heading size="sm" class="{{ $this->statistics['pending_verification'] > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-gray-600 dark:text-gray-400' }}">Pending Verify</flux:heading>
+                    <flux:heading size="xl" class="{{ $this->statistics['pending_verification'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white' }}">{{ $this->statistics['pending_verification'] }}</flux:heading>
+                    <flux:text size="sm" class="{{ $this->statistics['pending_verification'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400' }}">
                         @if($this->statistics['pending_verification'] > 0)
-                            Needs action
+                            Needs attention
                         @else
-                            All verified
+                            ✓ All verified
                         @endif
                     </flux:text>
                 </div>
-                <flux:icon icon="check-badge" class="w-8 h-8 text-orange-500 dark:text-orange-400 hidden sm:block {{ $this->statistics['pending_verification'] > 0 ? 'animate-pulse' : '' }}" />
+                <flux:icon icon="clock" class="w-8 h-8 {{ $this->statistics['pending_verification'] > 0 ? 'text-amber-500 dark:text-amber-400' : 'text-green-500 dark:text-green-400' }} hidden sm:block" />
             </div>
         </flux:card>
 
@@ -526,10 +528,10 @@ new #[Layout('components.layouts.app.sidebar')] class extends Component {
                                             - {{ $session->class->teacher->user->name ?? 'No teacher' }}
                                             - {{ $session->class->activeStudents()->count() }} students
                                         </flux:text>
-                                        @if($session->isCompleted() && $session->actual_duration_minutes)
+                                        @if($session->isCompleted() && $session->getActualDurationInMinutes())
                                             <div class="flex items-center gap-2 mt-1">
                                                 <flux:text size="xs" class="{{ $session->meetsKpi() === true ? 'text-green-600 dark:text-green-400' : ($session->meetsKpi() === false ? 'text-red-600 dark:text-red-400' : 'text-gray-500') }}">
-                                                    Target: {{ $session->duration_minutes }}min → Actual: {{ $session->actual_duration_minutes }}min
+                                                    Target: {{ $session->duration_minutes }}min → Actual: {{ $session->getActualDurationInMinutes() }}min
                                                 </flux:text>
                                                 @if($session->meetsKpi() !== null)
                                                     <flux:badge size="xs" :color="$session->meetsKpi() ? 'green' : 'red'">
@@ -548,7 +550,7 @@ new #[Layout('components.layouts.app.sidebar')] class extends Component {
                                             @if($session->verified_at)
                                                 <flux:badge size="xs" color="green">Verified</flux:badge>
                                             @else
-                                                <flux:badge size="xs" color="orange">Pending Verify</flux:badge>
+                                                <flux:badge size="xs" color="amber">Pending Verify</flux:badge>
                                             @endif
                                         @endif
                                     </div>
@@ -652,18 +654,18 @@ new #[Layout('components.layouts.app.sidebar')] class extends Component {
         <div class="space-y-6">
             <!-- Sessions Pending Verification -->
             @if($this->pendingVerificationSessions->isNotEmpty())
-            <flux:card class="border-2 border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/20">
+            <flux:card class="border border-amber-300 dark:border-amber-600">
                 <flux:header>
                     <div class="flex items-center gap-2">
-                        <flux:icon name="check-badge" class="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                        <flux:icon name="clock" class="w-5 h-5 text-amber-600 dark:text-amber-400" />
                         <flux:heading size="lg" class="text-gray-900 dark:text-white">Pending Verification</flux:heading>
-                        <flux:badge color="orange" size="sm">{{ $this->pendingVerificationSessions->count() }}</flux:badge>
+                        <flux:badge color="amber" size="sm">{{ $this->pendingVerificationSessions->count() }}</flux:badge>
                     </div>
                 </flux:header>
 
                 <div class="space-y-3">
                     @foreach($this->pendingVerificationSessions as $session)
-                        <div class="p-3 rounded-lg bg-white dark:bg-zinc-800 border border-orange-200 dark:border-orange-700">
+                        <div class="p-3 rounded-lg bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
                             <div class="flex items-start justify-between mb-2">
                                 <div>
                                     <flux:text size="sm" class="font-medium text-gray-900 dark:text-white">
@@ -712,7 +714,7 @@ new #[Layout('components.layouts.app.sidebar')] class extends Component {
                     @endforeach
                 </div>
 
-                <div class="mt-4 pt-4 border-t border-orange-200 dark:border-orange-700">
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
                     <flux:link :href="route('admin.sessions.index', ['verificationFilter' => 'verifiable'])" wire:navigate variant="subtle" icon="arrow-right">
                         View all pending verification
                     </flux:link>
