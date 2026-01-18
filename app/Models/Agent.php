@@ -56,7 +56,7 @@ class Agent extends Model
 
     public function customPricing(): HasMany
     {
-        return $this->hasMany(KedaiBukuPricing::class);
+        return $this->hasMany(AgentPricing::class);
     }
 
     protected $fillable = [
