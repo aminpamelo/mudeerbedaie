@@ -5,6 +5,7 @@ use App\Models\ClassModel;
 use App\Models\ClassStudent;
 use App\Models\Enrollment;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 
@@ -67,14 +68,14 @@ new #[Layout('components.layouts.app.sidebar')] class extends Component {
                 ->where('status', 'completed')
                 ->whereNotNull('started_at')
                 ->whereNotNull('completed_at')
-                ->whereRaw('(strftime(\'%s\', completed_at) - strftime(\'%s\', started_at)) / 60 >= duration_minutes - 10')
+                ->whereRaw($this->getDurationDiffSql() . ' >= duration_minutes - 10')
                 ->count(),
             'kpi_missed_this_week' => ClassSession::whereIn('class_id', $classIds)
                 ->whereBetween('session_date', [$weekStart, now()])
                 ->where('status', 'completed')
                 ->whereNotNull('started_at')
                 ->whereNotNull('completed_at')
-                ->whereRaw('(strftime(\'%s\', completed_at) - strftime(\'%s\', started_at)) / 60 < duration_minutes - 10')
+                ->whereRaw($this->getDurationDiffSql() . ' < duration_minutes - 10')
                 ->count(),
         ];
     }
@@ -94,6 +95,21 @@ new #[Layout('components.layouts.app.sidebar')] class extends Component {
                 $query->whereIn('classes.id', $classIds);
             })
             ->count();
+    }
+
+    /**
+     * Get database-agnostic SQL for calculating duration difference in minutes
+     */
+    private function getDurationDiffSql(): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        return match ($driver) {
+            'mysql' => 'TIMESTAMPDIFF(MINUTE, started_at, completed_at)',
+            'pgsql' => 'EXTRACT(EPOCH FROM (completed_at - started_at)) / 60',
+            'sqlite' => "(strftime('%s', completed_at) - strftime('%s', started_at)) / 60",
+            default => 'TIMESTAMPDIFF(MINUTE, started_at, completed_at)',
+        };
     }
 
     /**
