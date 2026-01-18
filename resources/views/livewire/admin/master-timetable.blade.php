@@ -17,7 +17,7 @@ new class extends Component {
     public string $categoryFilter = 'all';
     public string $classFilter = 'all';
     public string $teacherFilter = 'all';
-    public string $statusFilter = 'active'; // Default to active (scheduled + ongoing)
+    public string $statusFilter = 'all'; // Default to show all statuses
 
     // Modal state
     public bool $showModal = false;
@@ -252,25 +252,11 @@ new class extends Component {
         if ($this->statusFilter === 'active') {
             // Show only scheduled and ongoing sessions
             $query->whereIn('status', ['scheduled', 'ongoing']);
-        } elseif ($this->statusFilter === 'all') {
-            // Show all statuses (scheduled, ongoing, cancelled, completed)
-            // For completed: only show when class has ended (timetable end_date has passed)
-            $today = Carbon::today();
-            $query->where(function ($q) use ($today) {
-                // Show scheduled, ongoing, cancelled sessions
-                $q->whereIn('status', ['scheduled', 'ongoing', 'cancelled'])
-                  // For completed: show only if class timetable end_date has passed
-                  ->orWhere(function ($q2) use ($today) {
-                      $q2->where('status', 'completed')
-                         ->whereHas('class.timetable', function ($tq) use ($today) {
-                             $tq->whereNotNull('end_date')
-                                ->where('end_date', '<=', $today);
-                         });
-                  });
-            });
         } elseif ($this->statusFilter !== 'all') {
+            // Filter by specific status (scheduled, ongoing, completed, cancelled, no_show)
             $query->where('status', $this->statusFilter);
         }
+        // If 'all', no status filter is applied - show all sessions
 
         return $query->orderBy('session_date')->orderBy('session_time')->get();
     }
@@ -577,12 +563,13 @@ new class extends Component {
                     <div>
                         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Status</label>
                         <flux:select wire:model.live="statusFilter" size="sm">
-                            <option value="active">Active (Scheduled & Ongoing)</option>
                             <option value="all">All Status</option>
+                            <option value="active">Active (Scheduled & Ongoing)</option>
                             <option value="scheduled">Scheduled</option>
                             <option value="ongoing">Ongoing</option>
                             <option value="completed">Completed</option>
                             <option value="cancelled">Cancelled</option>
+                            <option value="no_show">No Show</option>
                         </flux:select>
                     </div>
                 </div>
@@ -620,6 +607,10 @@ new class extends Component {
                 <div class="flex items-center gap-2">
                     <div class="w-3 h-3 rounded-full bg-red-400"></div>
                     <span class="text-xs text-gray-600 dark:text-zinc-400">Cancelled</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-orange-400"></div>
+                    <span class="text-xs text-gray-600 dark:text-zinc-400">No Show</span>
                 </div>
             </div>
         </flux:card>
@@ -952,10 +943,16 @@ new class extends Component {
 
             {{-- Modal Footer --}}
             <div class="p-6 border-t border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/50 flex justify-between">
-                <flux:button variant="primary" href="{{ route('admin.sessions.show', $selectedSession) }}" wire:navigate>
-                    <flux:icon name="eye" class="w-4 h-4 mr-1" />
-                    View Full Details
-                </flux:button>
+                <div class="flex gap-2">
+                    <flux:button variant="outline" href="{{ route('classes.show', $selectedSession->class) }}" wire:navigate>
+                        <flux:icon name="academic-cap" class="w-4 h-4 mr-1" />
+                        View Class
+                    </flux:button>
+                    <flux:button variant="primary" href="{{ route('admin.sessions.show', $selectedSession) }}" wire:navigate>
+                        <flux:icon name="eye" class="w-4 h-4 mr-1" />
+                        View Session
+                    </flux:button>
+                </div>
                 <flux:button wire:click="closeModal" variant="ghost">
                     Close
                 </flux:button>

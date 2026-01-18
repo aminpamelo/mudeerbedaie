@@ -133,7 +133,8 @@
                                 class="group cursor-pointer rounded-lg p-3 text-sm transition-all duration-200 hover:shadow-md {{ $color['bg'] }} {{ $color['border'] }} border
                                        @if($session->status === 'ongoing') animate-pulse @endif
                                        @if($session->status === 'completed') opacity-75 @endif
-                                       @if($session->status === 'cancelled') line-through opacity-50 @endif"
+                                       @if($session->status === 'cancelled') line-through opacity-50 @endif
+                                       @if($session->status === 'no_show') opacity-60 border-orange-400 @endif"
                                 wire:click="selectSession({{ $session->id }})"
                             >
                                 <div class="font-medium {{ $color['text'] }} mb-1">
@@ -232,7 +233,8 @@
                             class="group cursor-pointer rounded-lg p-2 text-xs transition-all duration-200 hover:shadow-md {{ $color['bg'] }} {{ $color['border'] }} border
                                    @if($session->status === 'ongoing') animate-pulse @endif
                                    @if($session->status === 'completed') opacity-75 @endif
-                                   @if($session->status === 'cancelled') line-through opacity-50 @endif"
+                                   @if($session->status === 'cancelled') line-through opacity-50 @endif
+                                   @if($session->status === 'no_show') opacity-60 border-orange-400 @endif"
                             wire:click="selectSession({{ $session->id }})"
                         >
                             {{-- Session Time --}}
