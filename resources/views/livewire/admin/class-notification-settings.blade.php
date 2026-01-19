@@ -1344,7 +1344,7 @@ new class extends Component
                     @endphp
                     <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                         <div class="flex-1">
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
                                 <p class="font-medium text-gray-900">{{ $label['name'] }}</p>
                                 @if($setting->is_enabled)
                                     <flux:badge color="green" size="sm">Aktif</flux:badge>
@@ -1357,11 +1357,45 @@ new class extends Component
                                         WhatsApp
                                     </flux:badge>
                                 @endif
+                                @php $readiness = $setting->template_readiness; @endphp
+                                @if($setting->is_enabled)
+                                    @if($readiness['ready'])
+                                        <flux:badge color="sky" size="sm" title="Templat sedia untuk penghantaran">
+                                            <flux:icon.check-circle class="w-3 h-3 mr-0.5" />
+                                            Sedia
+                                        </flux:badge>
+                                    @else
+                                        <flux:badge color="amber" size="sm" title="{{ implode(', ', $readiness['issues']) }}">
+                                            <flux:icon.exclamation-triangle class="w-3 h-3 mr-0.5" />
+                                            {{ implode(', ', $readiness['issues']) }}
+                                        </flux:badge>
+                                    @endif
+                                @endif
                             </div>
                             <p class="text-sm text-gray-500 mt-1">{{ $label['description'] }}</p>
                             @if($setting->template)
                                 <p class="text-xs text-gray-400 mt-1">
+                                    <flux:icon.document-text class="w-3 h-3 inline mr-0.5" />
                                     Templat: {{ $setting->template->name }}
+                                    @if($readiness['source'] === 'custom_visual')
+                                        <span class="text-sky-600">(Templat visual tersuai)</span>
+                                    @elseif($readiness['source'] === 'custom_text')
+                                        <span class="text-sky-600">(Templat teks tersuai)</span>
+                                    @endif
+                                </p>
+                            @elseif($setting->hasCustomTemplate())
+                                <p class="text-xs text-gray-400 mt-1">
+                                    <flux:icon.document-text class="w-3 h-3 inline mr-0.5" />
+                                    @if($readiness['source'] === 'custom_visual')
+                                        <span class="text-sky-600">Templat visual tersuai</span>
+                                    @elseif($readiness['source'] === 'custom_text')
+                                        <span class="text-sky-600">Templat teks tersuai</span>
+                                    @endif
+                                </p>
+                            @elseif($setting->is_enabled && !$readiness['ready'])
+                                <p class="text-xs text-amber-600 mt-1">
+                                    <flux:icon.exclamation-circle class="w-3 h-3 inline mr-0.5" />
+                                    Sila tetapkan templat atau kandungan tersuai
                                 </p>
                             @endif
                         </div>
