@@ -27,6 +27,17 @@ new class extends Component {
     public bool $is_active = true;
     public string $notes = '';
 
+    public function getPricingTiers(): array
+    {
+        $discounts = Agent::getTierDiscountsFromSettings();
+
+        return [
+            'standard' => "Standard ({$discounts['standard']}% discount)",
+            'premium' => "Premium ({$discounts['premium']}% discount)",
+            'vip' => "VIP ({$discounts['vip']}% discount)",
+        ];
+    }
+
     public function mount(): void
     {
         $this->agent_code = Agent::generateBookstoreCode();
@@ -185,9 +196,9 @@ new class extends Component {
                         <flux:field>
                             <flux:label>Pricing Tier *</flux:label>
                             <flux:select wire:model="pricing_tier" required>
-                                <flux:select.option value="standard">Standard (10% discount)</flux:select.option>
-                                <flux:select.option value="premium">Premium (15% discount)</flux:select.option>
-                                <flux:select.option value="vip">VIP (20% discount)</flux:select.option>
+                                @foreach($this->getPricingTiers() as $value => $label)
+                                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                                @endforeach
                             </flux:select>
                             <flux:error name="pricing_tier" />
                             <flux:description>Default discount applied to all products</flux:description>

@@ -27,10 +27,12 @@ new class extends Component {
 
     public function getPricingTiers(): array
     {
+        $discounts = Agent::getTierDiscountsFromSettings();
+
         return [
-            'standard' => 'Standard (10% discount)',
-            'premium' => 'Premium (15% discount)',
-            'vip' => 'VIP (20% discount)',
+            'standard' => "Standard ({$discounts['standard']}% discount)",
+            'premium' => "Premium ({$discounts['premium']}% discount)",
+            'vip' => "VIP ({$discounts['vip']}% discount)",
         ];
     }
 
