@@ -118,10 +118,32 @@ class Agent extends Model
 
     /**
      * Get the tier discount percentage for this agent.
+     * Reads from settings if available, otherwise falls back to hardcoded defaults.
      */
     public function getTierDiscountPercentage(): int
     {
-        return self::TIER_DISCOUNTS[$this->pricing_tier] ?? self::TIER_DISCOUNTS[self::PRICING_TIER_STANDARD];
+        $settingKey = 'pricing.tier_discount_' . $this->pricing_tier;
+        $discount = Setting::getValue($settingKey);
+
+        // Fallback to hardcoded defaults if setting not found
+        if ($discount === null) {
+            return self::TIER_DISCOUNTS[$this->pricing_tier] ?? self::TIER_DISCOUNTS[self::PRICING_TIER_STANDARD];
+        }
+
+        return (int) $discount;
+    }
+
+    /**
+     * Get all tier discounts from settings (for UI labels).
+     * Falls back to hardcoded defaults if settings not found.
+     */
+    public static function getTierDiscountsFromSettings(): array
+    {
+        return [
+            self::PRICING_TIER_STANDARD => (int) Setting::getValue('pricing.tier_discount_standard', self::TIER_DISCOUNTS[self::PRICING_TIER_STANDARD]),
+            self::PRICING_TIER_PREMIUM => (int) Setting::getValue('pricing.tier_discount_premium', self::TIER_DISCOUNTS[self::PRICING_TIER_PREMIUM]),
+            self::PRICING_TIER_VIP => (int) Setting::getValue('pricing.tier_discount_vip', self::TIER_DISCOUNTS[self::PRICING_TIER_VIP]),
+        ];
     }
 
     /**
