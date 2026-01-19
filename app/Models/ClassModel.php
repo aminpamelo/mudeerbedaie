@@ -412,8 +412,13 @@ class ClassModel extends Model
             return 0;
         }
 
-        // Insert sessions in bulk for better performance
-        ClassSession::insert($sessionsData);
+        // Use upsert to handle existing sessions (avoid duplicate constraint violations)
+        // Only insert new sessions, don't update existing ones (preserve their status/notes)
+        ClassSession::upsert(
+            $sessionsData,
+            ['class_id', 'session_date', 'session_time'], // Unique key columns
+            ['duration_minutes'] // Only update duration if session exists
+        );
 
         return count($sessionsData);
     }
