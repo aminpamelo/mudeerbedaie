@@ -356,7 +356,7 @@ new class extends Component
                 $data['editor_type'] = $this->editorType;
 
                 if ($this->editorType === 'visual') {
-                    $data['custom_subject'] = null;
+                    $data['custom_subject'] = $this->customSubject ?: null; // Allow subject for visual editor
                     $data['custom_content'] = null;
                     $data['design_json'] = $this->designJson ? json_decode($this->designJson, true) : null;
                     $data['html_content'] = $this->htmlContent;
@@ -1926,21 +1926,29 @@ new class extends Component
 
                             @if($editorType === 'visual')
                                 <!-- Visual Builder Section -->
-                                <div class="p-4 border border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div>
-                                            <p class="font-semibold text-gray-900 text-sm">Templat Visual</p>
-                                            <p class="text-xs text-purple-600">Reka bentuk email dengan gambar dan susun atur tersuai</p>
+                                <div class="space-y-4">
+                                    <!-- Subject field for visual editor -->
+                                    <flux:field>
+                                        <flux:label>Subjek E-mel</flux:label>
+                                        <flux:input wire:model="customSubject" placeholder="Contoh: Peringatan Kelas @{{class_name}}" />
+                                        <flux:description>Subjek e-mel akan digunakan untuk templat visual anda.</flux:description>
+                                    </flux:field>
+
+                                    <div class="p-4 border border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div>
+                                                <p class="font-semibold text-gray-900 text-sm">Templat Visual</p>
+                                                <p class="text-xs text-purple-600">Reka bentuk email dengan gambar dan susun atur tersuai</p>
+                                            </div>
+                                            <flux:button
+                                                wire:click="openVisualBuilder"
+                                                variant="primary"
+                                                size="sm"
+                                                icon="pencil-square"
+                                            >
+                                                {{ $hasVisualContent ? 'Edit Reka Bentuk' : 'Cipta Reka Bentuk' }}
+                                            </flux:button>
                                         </div>
-                                        <flux:button
-                                            wire:click="openVisualBuilder"
-                                            variant="primary"
-                                            size="sm"
-                                            icon="pencil-square"
-                                        >
-                                            {{ $hasVisualContent ? 'Edit Reka Bentuk' : 'Cipta Reka Bentuk' }}
-                                        </flux:button>
-                                    </div>
 
                                     @if($hasVisualContent)
                                         <div class="p-3 bg-white rounded border border-purple-100">
@@ -1955,6 +1963,7 @@ new class extends Component
                                             <p class="text-xs text-gray-500">Klik butang untuk mula mereka bentuk templat</p>
                                         </div>
                                     @endif
+                                    </div>
                                 </div>
                             @else
                                 <!-- Text Editor Section -->
