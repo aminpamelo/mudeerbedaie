@@ -148,7 +148,7 @@ new class extends Component
 
     <!-- Key Stats -->
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -164,7 +164,7 @@ new class extends Component
             </div>
         </div>
 
-        <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -180,7 +180,7 @@ new class extends Component
             </div>
         </div>
 
-        <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -196,7 +196,7 @@ new class extends Component
             </div>
         </div>
 
-        <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -217,9 +217,9 @@ new class extends Component
         <!-- Main Content -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Package Details -->
-            <div class="bg-white shadow rounded-lg">
+            <div class="bg-white dark:bg-zinc-800 shadow rounded-lg">
                 <div class="px-4 py-5 sm:p-6">
-                    <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Package Details</h3>
+                    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Package Details</h3>
 
                     @if($package->featured_image)
                         <img src="{{ $package->featured_image }}"
@@ -301,9 +301,9 @@ new class extends Component
             </div>
 
             <!-- Package Items -->
-            <div class="bg-white shadow rounded-lg">
+            <div class="bg-white dark:bg-zinc-800 shadow rounded-lg">
                 <div class="px-4 py-5 sm:p-6">
-                    <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Package Contents</h3>
+                    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Package Contents</h3>
 
                     <div class="space-y-4">
                         @if($package->products->count() > 0)
@@ -388,9 +388,9 @@ new class extends Component
 
             <!-- Stock Status -->
             @if($package->track_stock && $stockStatus)
-                <div class="bg-white shadow rounded-lg">
+                <div class="bg-white dark:bg-zinc-800 shadow rounded-lg">
                     <div class="px-4 py-5 sm:p-6">
-                        <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Stock Status</h3>
+                        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Stock Status</h3>
 
                         @if($stockStatus['available'])
                             <div class="rounded-md bg-green-50 p-4">
@@ -436,7 +436,7 @@ new class extends Component
                                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                                             </tr>
                                         </thead>
-                                        <tbody class="divide-y divide-gray-200 bg-white">
+                                        <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-800">
                                             @foreach($stockStatus['details'] as $detail)
                                                 <tr>
                                                     <td class="px-3 py-2 text-sm text-gray-900">{{ $detail['product_name'] }}</td>
@@ -462,10 +462,10 @@ new class extends Component
 
             <!-- Recent Purchases -->
             @if($recentPurchases->count() > 0)
-                <div class="bg-white shadow rounded-lg">
+                <div class="bg-white dark:bg-zinc-800 shadow rounded-lg">
                     <div class="px-4 py-5 sm:p-6">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-medium leading-6 text-gray-900">Recent Purchases</h3>
+                            <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">Recent Purchases</h3>
                             <flux:button
                                 href="{{ route('package-purchases.index', ['packageFilter' => $package->id]) }}"
                                 variant="outline"
@@ -486,7 +486,7 @@ new class extends Component
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-gray-200 bg-white">
+                                <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-800">
                                     @foreach($recentPurchases as $purchase)
                                         <tr class="hover:bg-gray-50">
                                             <td class="px-3 py-2 text-sm font-medium text-gray-900">
@@ -521,9 +521,9 @@ new class extends Component
         <!-- Sidebar -->
         <div class="lg:col-span-1 space-y-6">
             <!-- Pricing Info -->
-            <div class="bg-white shadow rounded-lg">
+            <div class="bg-white dark:bg-zinc-800 shadow rounded-lg">
                 <div class="px-4 py-5 sm:p-6">
-                    <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Pricing</h3>
+                    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Pricing</h3>
 
                     <div class="space-y-3">
                         <div>
@@ -549,9 +549,9 @@ new class extends Component
             </div>
 
             <!-- Quick Actions -->
-            <div class="bg-white shadow rounded-lg">
+            <div class="bg-white dark:bg-zinc-800 shadow rounded-lg">
                 <div class="px-4 py-5 sm:p-6">
-                    <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Quick Actions</h3>
+                    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
 
                     <div class="space-y-2">
                         <flux:button
@@ -597,9 +597,9 @@ new class extends Component
             </div>
 
             <!-- Metadata -->
-            <div class="bg-white shadow rounded-lg">
+            <div class="bg-white dark:bg-zinc-800 shadow rounded-lg">
                 <div class="px-4 py-5 sm:p-6">
-                    <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Metadata</h3>
+                    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Metadata</h3>
 
                     <dl class="space-y-3 text-sm">
                         <div>

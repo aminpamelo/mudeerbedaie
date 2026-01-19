@@ -155,36 +155,36 @@ new class extends Component
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-blue-50 p-3">
-                        <flux:icon.clipboard class="h-6 w-6 text-blue-600" />
+                    <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-3">
+                        <flux:icon.clipboard class="h-6 w-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $totalEnrollments }}</p>
-                        <p class="text-sm text-gray-500">Total Enrollments</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $totalEnrollments }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Enrollments</p>
                     </div>
                 </div>
             </flux:card>
             
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-green-50 p-3">
-                        <flux:icon.check-circle class="h-6 w-6 text-green-600" />
+                    <div class="rounded-md bg-green-50 dark:bg-green-900/30 p-3">
+                        <flux:icon.check-circle class="h-6 w-6 text-green-600 dark:text-green-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $activeEnrollments }}</p>
-                        <p class="text-sm text-gray-500">Active Enrollments</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $activeEnrollments }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Active Enrollments</p>
                     </div>
                 </div>
             </flux:card>
 
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-emerald-50 p-3">
-                        <flux:icon.check-badge class="h-6 w-6 text-emerald-600" />
+                    <div class="rounded-md bg-emerald-50 dark:bg-emerald-900/30 p-3">
+                        <flux:icon.check-badge class="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $completedEnrollments }}</p>
-                        <p class="text-sm text-gray-500">Completed</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $completedEnrollments }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Completed</p>
                     </div>
                 </div>
             </flux:card>
@@ -192,7 +192,7 @@ new class extends Component
 
         <!-- Search and Filters -->
         <flux:card>
-            <div class="p-6 border-b border-gray-200">
+            <div class="p-6 border-b border-gray-200 dark:border-zinc-700">
                 <div class="flex flex-col gap-4">
                     <div class="flex-1">
                         <flux:input
@@ -258,37 +258,37 @@ new class extends Component
 
             <!-- Enrollments Table -->
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                    <thead class="bg-gray-50 dark:bg-zinc-700/50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subscription</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PIC</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Fee</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Next Payment</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Payment</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Student</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Course</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Subscription</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PIC</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Monthly Fee</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Next Payment</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Last Payment</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                         @forelse($enrollments as $enrollment)
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         <flux:avatar size="sm" class="mr-3">
                                             {{ $enrollment->student?->user?->initials() ?? '?' }}
                                         </flux:avatar>
                                         <div>
-                                            <div class="text-sm font-medium text-gray-900">{{ $enrollment->student?->user?->name ?? 'Unknown Student' }}</div>
-                                            <div class="text-sm text-gray-500">{{ $enrollment->student?->student_id ?? '-' }}</div>
+                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $enrollment->student?->user?->name ?? 'Unknown Student' }}</div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ $enrollment->student?->student_id ?? '-' }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">{{ $enrollment->course?->name ?? 'Unknown Course' }}</div>
-                                    <div class="text-sm text-gray-500">{{ Str::limit($enrollment->course?->description ?? '', 50) }}</div>
+                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $enrollment->course?->name ?? 'Unknown Course' }}</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ Str::limit($enrollment->course?->description ?? '', 50) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <flux:badge :class="$enrollment->academic_status->badgeClass()">
@@ -319,28 +319,28 @@ new class extends Component
                                             <flux:avatar size="xs" class="mr-2">
                                                 {{ $enrollment->enrolledBy->initials() }}
                                             </flux:avatar>
-                                            <div class="text-sm text-gray-900">{{ $enrollment->enrolledBy->name }}</div>
+                                            <div class="text-sm text-gray-900 dark:text-gray-100">{{ $enrollment->enrolledBy->name }}</div>
                                         </div>
                                     @else
-                                        <span class="text-sm text-gray-400">-</span>
+                                        <span class="text-sm text-gray-400 dark:text-gray-500">-</span>
                                     @endif
                                 </td>
                                 <!-- Monthly Fee -->
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                     @if($enrollment->course?->feeSettings)
                                         {{ $enrollment->course->feeSettings->formatted_fee }}
                                     @else
-                                        <span class="text-gray-400">-</span>
+                                        <span class="text-gray-400 dark:text-gray-500">-</span>
                                     @endif
                                 </td>
                                 <!-- Next Payment -->
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                     @if($enrollment->hasActiveSubscription())
                                         @php $nextPayment = $enrollment->getFormattedNextPaymentDate(); @endphp
                                         @if($nextPayment)
                                             <span class="text-green-600">{{ $nextPayment }}</span>
                                         @else
-                                            <span class="text-gray-400">Not scheduled</span>
+                                            <span class="text-gray-400 dark:text-gray-500">Not scheduled</span>
                                         @endif
                                     @elseif($enrollment->isSubscriptionPastDue())
                                         <span class="text-red-600">Overdue</span>
@@ -349,7 +349,7 @@ new class extends Component
                                     @endif
                                 </td>
                                 <!-- Last Payment -->
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                     @if($enrollment->orders->isNotEmpty())
                                         @php $lastOrder = $enrollment->orders->first(); @endphp
                                         @if($lastOrder->isPaid())
@@ -383,9 +383,9 @@ new class extends Component
                         @empty
                             <tr>
                                 <td colspan="9" class="px-6 py-12 text-center">
-                                    <flux:icon.clipboard class="mx-auto h-12 w-12 text-gray-400" />
-                                    <h3 class="mt-2 text-sm font-medium text-gray-900">No enrollments found</h3>
-                                    <p class="mt-1 text-sm text-gray-500">
+                                    <flux:icon.clipboard class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
+                                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No enrollments found</h3>
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                         @if($search || $statusFilter || $courseFilter || $subscriptionStatusFilter || $hasSubscriptionFilter || $picFilter)
                                             Try adjusting your search or filter criteria.
                                         @else
@@ -407,7 +407,7 @@ new class extends Component
             </div>
 
             @if($enrollments->hasPages())
-                <div class="px-6 py-4 border-t border-gray-200">
+                <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700">
                     {{ $enrollments->links() }}
                 </div>
             @endif

@@ -66,8 +66,8 @@ new class extends Component {
         <!-- Main Content -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Basic Information -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Basic Information</h3>
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
@@ -102,8 +102,8 @@ new class extends Component {
             </div>
 
             <!-- Contact Information -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Contact Information</h3>
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     @if($agent->contact_person)
@@ -131,8 +131,8 @@ new class extends Component {
 
             <!-- Address -->
             @if($agent->address)
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Address</h3>
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Address</h3>
 
                     <flux:text class="text-gray-900">{{ $agent->formatted_address }}</flux:text>
                 </div>
@@ -140,8 +140,8 @@ new class extends Component {
 
             <!-- Bank Details -->
             @if($agent->bank_details)
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Bank Details</h3>
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Bank Details</h3>
 
                     <div class="space-y-3">
                         @if(isset($agent->bank_details['bank_name']))
@@ -169,9 +169,9 @@ new class extends Component {
             @endif
 
             <!-- Warehouses -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Warehouses ({{ $agent->warehouses->count() }})</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Warehouses ({{ $agent->warehouses->count() }})</h3>
                     <flux:button href="{{ route('warehouses.create') }}" variant="primary" size="sm" icon="plus">
                         Add Warehouse
                     </flux:button>
@@ -180,15 +180,15 @@ new class extends Component {
                 @if($agent->warehouses->count() > 0)
                     <div class="space-y-3">
                         @foreach($agent->warehouses as $warehouse)
-                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-700/50 rounded-lg border border-gray-200 dark:border-zinc-700">
                                 <div class="flex-1">
                                     <div class="flex items-center gap-2">
-                                        <flux:text class="font-medium text-gray-900">{{ $warehouse->name }}</flux:text>
+                                        <flux:text class="font-medium text-gray-900 dark:text-gray-100">{{ $warehouse->name }}</flux:text>
                                         <flux:badge :variant="$warehouse->is_active ? 'success' : 'gray'" size="sm">
                                             {{ $warehouse->is_active ? 'Active' : 'Inactive' }}
                                         </flux:badge>
                                     </div>
-                                    <flux:text class="text-sm text-gray-500 mt-1">
+                                    <flux:text class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                         {{ $warehouse->code }} • {{ $warehouse->stock_levels_count ?? 0 }} items in stock
                                     </flux:text>
                                 </div>
@@ -200,8 +200,8 @@ new class extends Component {
                     </div>
                 @else
                     <div class="text-center py-8">
-                        <flux:icon name="building-office" class="mx-auto h-12 w-12 text-gray-400" />
-                        <flux:text class="mt-2 text-gray-500">No warehouses assigned yet</flux:text>
+                        <flux:icon name="building-office" class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
+                        <flux:text class="mt-2 text-gray-500 dark:text-gray-400">No warehouses assigned yet</flux:text>
                     </div>
                 @endif
             </div>
@@ -210,26 +210,26 @@ new class extends Component {
         <!-- Sidebar -->
         <div class="space-y-6">
             <!-- Payment Terms -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Payment Terms</h3>
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Payment Terms</h3>
 
-                <flux:text class="text-gray-900">
+                <flux:text class="text-gray-900 dark:text-gray-100">
                     {{ $agent->payment_terms ?: 'Not specified' }}
                 </flux:text>
             </div>
 
             <!-- Notes -->
             @if($agent->notes)
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Notes</h3>
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Notes</h3>
 
-                    <flux:text class="text-gray-900 whitespace-pre-wrap">{{ $agent->notes }}</flux:text>
+                    <flux:text class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{{ $agent->notes }}</flux:text>
                 </div>
             @endif
 
             <!-- Actions -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Actions</h3>
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Actions</h3>
 
                 <div class="flex flex-col gap-3">
                     <flux:button wire:click="toggleStatus" variant="outline" class="w-full">
@@ -250,8 +250,8 @@ new class extends Component {
             </div>
 
             <!-- Metadata -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Information</h3>
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Information</h3>
 
                 <div class="space-y-3">
                     <div>

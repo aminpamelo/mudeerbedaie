@@ -266,7 +266,7 @@ new class extends Component {
                         <flux:text class="text-blue-700  text-sm">
                             Configure your Stripe webhook endpoint with this URL:
                         </flux:text>
-                        <code class="block mt-2 p-2 bg-white  rounded text-sm font-mono">
+                        <code class="block mt-2 p-2 bg-white dark:bg-zinc-700 rounded text-sm font-mono">
                             {{ url('/stripe/webhook') }}
                         </code>
                         <flux:text class="text-blue-700  text-sm mt-2">

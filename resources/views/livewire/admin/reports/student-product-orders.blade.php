@@ -584,7 +584,7 @@ new class extends Component
                             <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Amount</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200 bg-white">
+                    <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-800">
                         @foreach ($recentOrders as $order)
                             <tr class="hover:bg-gray-50">
                                 <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">

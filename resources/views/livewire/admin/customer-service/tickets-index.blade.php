@@ -80,8 +80,8 @@ new class extends Component
     @php $counts = $this->getStatusCounts(); @endphp
 
     <!-- Status Tabs -->
-    <div class="mb-6 bg-white rounded-lg border border-gray-200">
-        <div class="border-b border-gray-200">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="border-b border-gray-200 dark:border-zinc-700">
             <nav class="flex gap-4 px-6">
                 <button wire:click="$set('statusFilter', '')"
                     class="py-4 px-1 border-b-2 font-medium text-sm {{ $statusFilter === '' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
@@ -112,7 +112,7 @@ new class extends Component
     </div>
 
     <!-- Filters -->
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div class="md:col-span-2">
                 <flux:input wire:model.live.debounce.300ms="search" placeholder="Search tickets, orders, customers..." />
@@ -154,9 +154,9 @@ new class extends Component
     </div>
 
     <!-- Tickets Table -->
-    <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
         <table class="min-w-full">
-            <thead class="bg-gray-50 border-b">
+            <thead class="bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-200 dark:border-zinc-700">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
@@ -169,9 +169,9 @@ new class extends Component
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
+            <tbody class="divide-y divide-gray-200 dark:divide-zinc-700">
                 @forelse($this->getTickets() as $ticket)
-                    <tr class="hover:bg-gray-50" wire:key="ticket-{{ $ticket->id }}">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50" wire:key="ticket-{{ $ticket->id }}">
                         <td class="px-6 py-4">
                             <div>
                                 <span class="font-semibold text-gray-900">{{ $ticket->ticket_number }}</span>
@@ -245,7 +245,7 @@ new class extends Component
         </table>
 
         @if($this->getTickets()->hasPages())
-            <div class="px-6 py-4 border-t bg-gray-50">
+            <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-700/50">
                 {{ $this->getTickets()->links() }}
             </div>
         @endif

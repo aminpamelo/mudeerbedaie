@@ -502,7 +502,7 @@ new class extends Component {
         </div>
     </flux:card>
 
-    <div class="bg-white shadow rounded-lg">
+    <div class="bg-white dark:bg-zinc-800 shadow rounded-lg border border-gray-200 dark:border-zinc-700">
         <form wire:submit="save" class="p-6 space-y-6">
             
             <!-- Basic Information -->

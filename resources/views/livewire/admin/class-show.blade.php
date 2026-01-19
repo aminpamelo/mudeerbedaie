@@ -3966,7 +3966,7 @@ new class extends Component
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white">
+                        <tbody class="bg-white dark:bg-zinc-800">
                             @php $hasAnySessions = count($this->sessions_by_month) > 0; @endphp
                             @if($hasAnySessions)
                                 @foreach($this->sessions_by_month as $monthData)
@@ -4389,7 +4389,7 @@ new class extends Component
                                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
+                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                     @forelse($this->filtered_enrolled_students as $classStudent)
                                         @php
                                             $student = $classStudent->student;
@@ -4428,7 +4428,7 @@ new class extends Component
                                                     type="text"
                                                     value="{{ $classStudent->order_id }}"
                                                     placeholder="-"
-                                                    class="w-28 px-2 py-1 text-xs font-mono border border-gray-200 rounded bg-white hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                                    class="w-28 px-2 py-1 text-xs font-mono border border-gray-200 rounded bg-white dark:bg-zinc-700 dark:text-white hover:border-gray-300 dark:hover:border-zinc-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
                                                     wire:blur="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
                                                     wire:keydown.enter="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
                                                 />
@@ -4585,7 +4585,7 @@ new class extends Component
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="bg-white divide-y divide-gray-200">
+                                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                         @forelse($this->eligible_enrollments as $enrollment)
                                             @php
                                                 $student = $enrollment->student;
@@ -4942,7 +4942,7 @@ new class extends Component
                                 </flux:button>
 
                                 <div x-show="open" @click.away="open = false" x-cloak
-                                     class="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                                     class="absolute right-0 mt-2 w-72 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50"
                                      x-transition:enter="transition ease-out duration-100"
                                      x-transition:enter-start="transform opacity-0 scale-95"
                                      x-transition:enter-end="transform opacity-100 scale-100"
@@ -5069,10 +5069,10 @@ new class extends Component
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="border-b border-gray-200">
-                                    <th class="text-left py-3 px-4 sticky left-0 bg-white z-10 min-w-[250px]">
+                                    <th class="text-left py-3 px-4 sticky left-0 bg-white dark:bg-zinc-800 z-10 min-w-[250px]">
                                         Student Name
                                     </th>
-                                    <th class="text-left py-3 px-4 bg-white min-w-[150px] border-l border-gray-100">
+                                    <th class="text-left py-3 px-4 bg-white dark:bg-zinc-800 min-w-[150px] border-l border-gray-100">
                                         PIC
                                     </th>
                                     @foreach($this->visible_payment_period_columns as $period)
@@ -5254,7 +5254,7 @@ new class extends Component
                                                                      x-transition:leave="transition ease-in duration-75"
                                                                      x-transition:leave-start="transform opacity-100 scale-100"
                                                                      x-transition:leave-end="transform opacity-0 scale-95"
-                                                                     class="absolute left-0 top-6 z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                                                                     class="absolute left-0 top-6 z-50 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 py-1">
                                                                     <button @click="copyLink(); showMenu = false"
                                                                             class="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
                                                                         <flux:icon name="clipboard-document" class="w-4 h-4" />
@@ -6407,7 +6407,7 @@ new class extends Component
                                 </div>
 
                                 <!-- Student Status Distribution -->
-                                <div class="px-6 py-4 bg-white border-b border-gray-200">
+                                <div class="px-6 py-4 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
                                     <flux:text class="text-sm font-medium text-gray-700 mb-3">Student Status Distribution</flux:text>
                                     <div class="flex flex-wrap gap-2">
                                         @if($picData['status_distribution']['enrolled'] > 0)
@@ -6496,7 +6496,7 @@ new class extends Component
                                                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody class="bg-white divide-y divide-gray-200">
+                                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                                     @foreach($students as $student)
                                                         <tr class="hover:bg-gray-50 transition-colors">
                                                             <td class="px-4 py-3 whitespace-nowrap">
@@ -6799,7 +6799,7 @@ new class extends Component
                                                         </th>
                                                     </tr>
                                                 </thead>
-                                                <tbody class="bg-white divide-y divide-gray-200">
+                                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                             @foreach($shipments as $shipment)
                                                         <tr class="hover:bg-gray-50">
                                                             <!-- Period -->
@@ -7044,7 +7044,7 @@ new class extends Component
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                                                 </tr>
                                                             </thead>
-                                                            <tbody class="bg-white divide-y divide-gray-200">
+                                                            <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                                                 @foreach($filteredItems as $item)
                                                                     <tr class="{{ in_array($item->id, $selectedShipmentItemIds) ? 'bg-blue-50' : '' }}">
                                                                         <td class="px-4 py-3 whitespace-nowrap">
@@ -7863,7 +7863,7 @@ new class extends Component
                                 type="text"
                                 wire:model="enrollOrderIds.{{ $student->id }}"
                                 placeholder="Order ID"
-                                class="w-28 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded bg-white hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors flex-shrink-0"
+                                class="w-28 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded bg-white dark:bg-zinc-700 dark:text-white hover:border-gray-300 dark:hover:border-zinc-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors flex-shrink-0"
                             />
 
                             <flux:button
@@ -7891,7 +7891,7 @@ new class extends Component
 
                         <div class="flex flex-wrap gap-2">
                             @foreach($this->available_students->whereIn('id', $selectedStudents) as $student)
-                                <div class="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-green-200">
+                                <div class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-800 rounded-full border border-green-200 dark:border-green-800">
                                     <flux:avatar size="xs" :name="$student->user?->name ?? 'N/A'" />
                                     <span class="text-sm text-gray-700">{{ $student->user?->name ?? 'N/A' }}</span>
                                 </div>

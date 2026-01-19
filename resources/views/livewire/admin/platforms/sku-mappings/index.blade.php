@@ -89,45 +89,45 @@ new class extends Component {
     </div>
 
     <!-- Mappings Table -->
-    <div class="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+    <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-zinc-200">
-                <thead class="bg-zinc-50">
+            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                <thead class="bg-zinc-50 dark:bg-zinc-700/50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                             Platform SKU
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                             Platform
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                             Product
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                             Status
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                             Last Updated
                         </th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 bg-white">
+                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-800">
                     @forelse($this->mappings as $mapping)
-                        <tr class="hover:bg-zinc-50">
+                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-zinc-900">{{ $mapping->platform_sku }}</div>
+                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $mapping->platform_sku }}</div>
                                 @if($mapping->platform_product_name)
-                                    <div class="text-sm text-zinc-500">{{ $mapping->platform_product_name }}</div>
+                                    <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ $mapping->platform_product_name }}</div>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-zinc-900">{{ $mapping->platform->name }}</div>
+                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $mapping->platform->name }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 @if($mapping->product)
-                                    <div class="text-sm font-medium text-zinc-900">{{ $mapping->product->name }}</div>
+                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $mapping->product->name }}</div>
                                 @else
-                                    <span class="text-zinc-400">No product linked</span>
+                                    <span class="text-zinc-400 dark:text-zinc-500">No product linked</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -135,14 +135,14 @@ new class extends Component {
                                     {{ $mapping->is_active ? 'Active' : 'Inactive' }}
                                 </flux:badge>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-500">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
                                 {{ $mapping->updated_at->diffForHumans() }}
                             </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="5" class="px-6 py-12 text-center">
-                                <div class="text-zinc-500">No SKU mappings found.</div>
+                                <div class="text-zinc-500 dark:text-zinc-400">No SKU mappings found.</div>
                             </td>
                         </tr>
                     @endforelse

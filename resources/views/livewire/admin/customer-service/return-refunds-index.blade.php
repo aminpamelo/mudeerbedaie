@@ -195,8 +195,8 @@ new class extends Component
     </div>
 
     <!-- Action Tabs -->
-    <div class="mb-6 bg-white rounded-lg border border-gray-200">
-        <div class="border-b border-gray-200">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="border-b border-gray-200 dark:border-zinc-700">
             <nav class="flex gap-4 px-6" aria-label="Tabs">
                 <button
                     wire:click="$set('actionFilter', '')"
@@ -234,7 +234,7 @@ new class extends Component
     </div>
 
     <!-- Filters -->
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Search -->
             <div class="md:col-span-2">
@@ -312,10 +312,10 @@ new class extends Component
     </div>
 
     <!-- Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
-                <thead class="bg-gray-50 border-b border-gray-200">
+                <thead class="bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-200 dark:border-zinc-700">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <button wire:click="sortBy('refund_number')" class="flex items-center space-x-1 hover:text-gray-700">
@@ -361,9 +361,9 @@ new class extends Component
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white">
+                <tbody class="bg-white dark:bg-zinc-800">
                     @forelse($this->getRefunds() as $refund)
-                        <tr class="border-b border-gray-200 hover:bg-gray-50" wire:key="refund-{{ $refund->id }}">
+                        <tr class="border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50" wire:key="refund-{{ $refund->id }}">
                             <!-- Refund Number -->
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div>
@@ -464,7 +464,7 @@ new class extends Component
 
         <!-- Pagination -->
         @if($this->getRefunds()->hasPages())
-            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-700/50">
                 {{ $this->getRefunds()->links() }}
             </div>
         @endif
@@ -479,22 +479,22 @@ new class extends Component
             $completedRefunds = ReturnRefund::where('status', 'refund_completed')->count();
         @endphp
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <flux:text size="sm" class="text-gray-600">Total Requests</flux:text>
             <flux:text class="text-2xl font-bold">{{ number_format($totalRefunds) }}</flux:text>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <flux:text size="sm" class="text-gray-600">Pending Review</flux:text>
             <flux:text class="text-2xl font-bold text-yellow-600">{{ number_format($pendingRefunds) }}</flux:text>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <flux:text size="sm" class="text-gray-600">Completed Refunds</flux:text>
             <flux:text class="text-2xl font-bold text-green-600">{{ number_format($completedRefunds) }}</flux:text>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <flux:text size="sm" class="text-gray-600">Total Approved Amount</flux:text>
             <flux:text class="text-2xl font-bold text-blue-600">RM {{ number_format($totalApprovedAmount, 2) }}</flux:text>
         </div>

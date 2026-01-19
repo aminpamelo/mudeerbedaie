@@ -111,25 +111,25 @@ new class extends Component
     </div>
 
     <form wire:submit="create">
-        <div class="bg-white rounded-lg border">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
             <!-- Order Selection Section -->
             <div class="px-6 py-5 border-b">
                 <div class="flex items-center gap-2 mb-1">
                     <flux:icon name="shopping-bag" class="w-5 h-5 text-gray-400" />
-                    <h3 class="text-base font-semibold text-gray-900">Link to Order</h3>
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Link to Order</h3>
                     <span class="text-xs text-gray-500">(Optional)</span>
                 </div>
                 <p class="text-sm text-gray-500 ml-7">Associate this ticket with an existing order</p>
             </div>
             <div class="px-6 py-5 border-b bg-gray-50">
                 @if($selectedOrder = $this->getSelectedOrder())
-                    <div class="bg-white rounded-lg border p-4 flex items-center justify-between">
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4 flex items-center justify-between">
                         <div class="flex items-center gap-4">
                             <div class="w-10 h-10 bg-cyan-100 rounded-full flex items-center justify-center">
                                 <flux:icon name="document-text" class="w-5 h-5 text-cyan-600" />
                             </div>
                             <div>
-                                <p class="font-semibold text-gray-900">{{ $selectedOrder->order_number }}</p>
+                                <p class="font-semibold text-gray-900 dark:text-gray-100">{{ $selectedOrder->order_number }}</p>
                                 <p class="text-sm text-gray-500">
                                     {{ $selectedOrder->getCustomerName() }} &bull; RM {{ number_format($selectedOrder->total_amount, 2) }}
                                 </p>
@@ -142,17 +142,17 @@ new class extends Component
                 @else
                     <div class="space-y-3">
                         <flux:input wire:model.live.debounce.300ms="orderSearch" placeholder="Search by order number or customer name..." icon="magnifying-glass" />
-                        <div class="max-h-48 overflow-y-auto bg-white border rounded-lg divide-y">
+                        <div class="max-h-48 overflow-y-auto bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg divide-y dark:divide-zinc-700">
                             @forelse($this->getOrders() as $order)
                                 <button type="button" wire:click="selectOrder({{ $order->id }})"
-                                    class="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors">
+                                    class="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
                                     <div class="flex items-center justify-between">
                                         <div>
-                                            <p class="font-medium text-gray-900">{{ $order->order_number }}</p>
+                                            <p class="font-medium text-gray-900 dark:text-gray-100">{{ $order->order_number }}</p>
                                             <p class="text-sm text-gray-500">{{ $order->getCustomerName() }}</p>
                                         </div>
                                         <div class="text-right">
-                                            <p class="font-semibold text-gray-900">RM {{ number_format($order->total_amount, 2) }}</p>
+                                            <p class="font-semibold text-gray-900 dark:text-gray-100">RM {{ number_format($order->total_amount, 2) }}</p>
                                             <p class="text-xs text-gray-500">{{ $order->created_at->format('M j, Y') }}</p>
                                         </div>
                                     </div>
@@ -172,7 +172,7 @@ new class extends Component
             <div class="px-6 py-5 border-b">
                 <div class="flex items-center gap-2 mb-1">
                     <flux:icon name="document-text" class="w-5 h-5 text-gray-400" />
-                    <h3 class="text-base font-semibold text-gray-900">Ticket Details</h3>
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Ticket Details</h3>
                 </div>
                 <p class="text-sm text-gray-500 ml-7">Describe the issue or request</p>
             </div>

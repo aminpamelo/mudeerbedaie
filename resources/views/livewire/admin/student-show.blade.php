@@ -363,7 +363,7 @@ new class extends Component
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
+                            <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                 @foreach($student->orders as $order)
                                     <tr>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -445,7 +445,7 @@ new class extends Component
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
+                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                     @foreach($student->activeEnrollments as $enrollment)
                                         <tr>
                                             <td class="px-6 py-4">
@@ -489,7 +489,7 @@ new class extends Component
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Date</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
+                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                     @foreach($student->enrollments->reject(fn($enrollment) => $enrollment->isActive()) as $enrollment)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap">
@@ -586,7 +586,7 @@ new class extends Component
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
+                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                     @foreach($student->classAttendances as $attendance)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap">

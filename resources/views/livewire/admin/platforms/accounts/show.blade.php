@@ -98,7 +98,7 @@ new class extends Component {
     </div>
 
     {{-- Platform Info Card --}}
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         <div class="flex items-center space-x-4">
             @if($platform->logo_url)
                 <img src="{{ $platform->logo_url }}" alt="{{ $platform->name }}" class="w-12 h-12 rounded-lg">
@@ -132,7 +132,7 @@ new class extends Component {
         {{-- Main Account Information --}}
         <div class="lg:col-span-2 space-y-6">
             {{-- Basic Information --}}
-            <div class="bg-white rounded-lg border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Account Information</flux:heading>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -202,7 +202,7 @@ new class extends Component {
             </div>
 
             {{-- Sync Information --}}
-            <div class="bg-white rounded-lg border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Sync Information</flux:heading>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -259,7 +259,7 @@ new class extends Component {
         {{-- Sidebar --}}
         <div class="space-y-6">
             {{-- Quick Actions --}}
-            <div class="bg-white rounded-lg border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Quick Actions</flux:heading>
 
                 <div class="space-y-3">
@@ -298,7 +298,7 @@ new class extends Component {
             </div>
 
             {{-- Account Stats --}}
-            <div class="bg-white rounded-lg border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Account Stats</flux:heading>
 
                 <div class="space-y-4">
@@ -325,7 +325,7 @@ new class extends Component {
             </div>
 
             {{-- Danger Zone --}}
-            <div class="bg-white rounded-lg border border-red-200 p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-red-200 dark:border-red-700 p-6">
                 <flux:heading size="lg" class="mb-4 text-red-600">Danger Zone</flux:heading>
 
                 <flux:button

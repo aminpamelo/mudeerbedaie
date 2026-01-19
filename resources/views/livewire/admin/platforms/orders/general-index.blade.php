@@ -176,7 +176,7 @@ new class extends Component {
 
     {{-- Stats Cards --}}
     <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -190,7 +190,7 @@ new class extends Component {
                 </div>
             </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
@@ -204,7 +204,7 @@ new class extends Component {
                 </div>
             </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -218,7 +218,7 @@ new class extends Component {
                 </div>
             </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
@@ -234,7 +234,7 @@ new class extends Component {
         </div>
 
     {{-- Filters --}}
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <div>
                     <flux:field>
@@ -307,7 +307,7 @@ new class extends Component {
         </div>
 
     {{-- Orders Table --}}
-    <div class="bg-white rounded-lg border overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
             @if($orders->count() > 0)
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -322,7 +322,7 @@ new class extends Component {
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                         @foreach($orders as $order)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">

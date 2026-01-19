@@ -198,16 +198,16 @@ HTML;
     {{-- Preview Modal (Livewire handled) --}}
     @if($showPreview)
         <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[300] flex items-center justify-center" wire:click.self="closePreview">
-            <div class="bg-white rounded-xl shadow-2xl w-[90%] max-w-[700px] max-h-[90vh] flex flex-col">
-                <div class="flex items-center justify-between p-4 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-900">Pratonton E-mel</h2>
-                    <button type="button" wire:click="closePreview" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-2xl w-[90%] max-w-[700px] max-h-[90vh] flex flex-col">
+                <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-zinc-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Pratonton E-mel</h2>
+                    <button type="button" wire:click="closePreview" class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-lg transition-colors">
                         <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
-                <div class="flex-1 overflow-auto p-6 bg-gray-100">
+                <div class="flex-1 overflow-auto p-6 bg-gray-100 dark:bg-zinc-700">
                     <div class="flex justify-center">
                         <iframe
                             srcdoc="{{ $previewHtml }}"
@@ -216,8 +216,8 @@ HTML;
                         ></iframe>
                     </div>
                 </div>
-                <div class="flex justify-end p-4 border-t border-gray-200">
-                    <button type="button" wire:click="closePreview" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                <div class="flex justify-end p-4 border-t border-gray-200 dark:border-zinc-700">
+                    <button type="button" wire:click="closePreview" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-zinc-700 border border-gray-300 dark:border-zinc-600 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-600">
                         Tutup
                     </button>
                 </div>

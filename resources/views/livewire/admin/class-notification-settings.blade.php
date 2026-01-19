@@ -1789,7 +1789,7 @@ new class extends Component
                                 @endif
                             </div>
                         </div>
-                        <div class="bg-white p-4 space-y-4">
+                        <div class="bg-white dark:bg-zinc-800 p-4 space-y-4">
                             <flux:select wire:model.live="selectedTemplateId" class="w-full">
                                 <option value="">-- Pilih Templat --</option>
                                 @foreach($this->templates as $type => $templateGroup)
@@ -1868,7 +1868,7 @@ new class extends Component
                             </div>
                             <p class="text-xs text-amber-700 mt-1">Templat ini akan digunakan khusus untuk kelas ini sahaja</p>
                         </div>
-                        <div class="bg-white p-4 space-y-4">
+                        <div class="bg-white dark:bg-zinc-800 p-4 space-y-4">
                             <!-- Editor Type Selection -->
                             <div>
                                 <flux:label class="mb-2">Jenis Editor</flux:label>
@@ -1983,7 +1983,7 @@ new class extends Component
                             <span class="text-xs text-gray-500">(Pilihan)</span>
                         </div>
                     </div>
-                    <div class="bg-white p-4 space-y-4">
+                    <div class="bg-white dark:bg-zinc-800 p-4 space-y-4">
                         <!-- Upload Area -->
                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
                             <input type="file" wire:model="newAttachments" multiple class="hidden" id="attachment-upload-{{ $editingSettingId }}">
