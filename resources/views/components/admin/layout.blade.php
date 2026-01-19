@@ -197,6 +197,15 @@
                     </flux:navlist.item>
 
                     <flux:navlist.item
+                        icon="currency-dollar"
+                        :href="route('admin.settings.pricing')"
+                        :current="request()->routeIs('admin.settings.pricing')"
+                        wire:navigate
+                    >
+                        {{ __('Pricing') }}
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
                         icon="envelope"
                         :href="route('admin.settings.email')"
                         :current="request()->routeIs('admin.settings.email')"
