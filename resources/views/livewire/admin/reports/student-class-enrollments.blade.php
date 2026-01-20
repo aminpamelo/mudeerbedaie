@@ -358,7 +358,7 @@ new class extends Component
                         </th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-800">
+                <tbody class="divide-y divide-gray-200 bg-white">
                     @forelse ($this->students as $student)
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-3">

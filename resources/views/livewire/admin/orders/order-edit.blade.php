@@ -444,7 +444,7 @@ new class extends Component
         <div class="lg:col-span-2 space-y-6">
 
             <!-- Customer Information -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg shadow-sm border p-6">
                 <flux:heading size="lg" class="mb-4">Customer Information</flux:heading>
 
                 <div class="space-y-4">
@@ -511,7 +511,7 @@ new class extends Component
             </div>
 
             <!-- Order Items -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg shadow-sm border p-6">
                 <div class="flex items-center justify-between mb-4">
                     <flux:heading size="lg">Order Items</flux:heading>
                     <flux:button variant="outline" wire:click="addItem">
@@ -655,7 +655,7 @@ new class extends Component
             </div>
 
             <!-- Billing Address -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg shadow-sm border p-6">
                 <flux:heading size="lg" class="mb-4">Billing Address</flux:heading>
 
                 <div class="space-y-4">
@@ -713,7 +713,7 @@ new class extends Component
             </div>
 
             <!-- Order Notes -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg shadow-sm border p-6">
                 <flux:heading size="lg" class="mb-4">Order Notes</flux:heading>
                 <flux:textarea
                     wire:model.live="form.notes"
@@ -725,7 +725,7 @@ new class extends Component
 
         <!-- Right Column - Order Summary -->
         <div class="lg:col-span-1">
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6 sticky top-6">
+            <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
                 <flux:heading size="lg" class="mb-4">Order Summary</flux:heading>
 
                 <!-- Order Status -->

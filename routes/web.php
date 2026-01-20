@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
-use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
 use Illuminate\Support\Facades\Route;
@@ -31,10 +30,6 @@ Route::get('dashboard', function () {
         return redirect()->route('live-host.dashboard');
     }
 
-    if ($user->isClassAdmin()) {
-        return redirect()->route('class-admin.dashboard');
-    }
-
     return view('dashboard');
 })
     ->middleware(['auth', 'verified'])
@@ -46,9 +41,6 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
-
-    // Stop impersonation route (accessible when impersonating any role)
-    Route::post('stop-impersonation', [ImpersonationController::class, 'stop'])->name('impersonation.stop');
 });
 
 // Product Cart routes - accessible by authenticated and guest users
@@ -87,11 +79,6 @@ Route::middleware(['auth', 'role:student'])->prefix('my')->group(function () {
 
     // Payment method management for students
     Volt::route('payment-methods', 'student.payment-methods')->name('student.payment-methods');
-
-    // Refund requests for students
-    Volt::route('refund-requests', 'student.refund-requests')->name('student.refund-requests');
-    Volt::route('refund-requests/create', 'student.refund-request-create')->name('student.refund-requests.create');
-    Volt::route('refund-requests/{refund}', 'student.refund-request-show')->name('student.refund-requests.show');
 
     // Legacy invoice routes (will be removed later)
     Volt::route('invoices', 'student.invoice-list')->name('student.invoices');
@@ -138,7 +125,6 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
 Route::middleware(['auth', 'role:live_host'])->prefix('live-host')->name('live-host.')->group(function () {
     Volt::route('dashboard', 'live-host.dashboard')->name('dashboard');
     Volt::route('schedule', 'live-host.schedule')->name('schedule');
-    Volt::route('session-slots', 'live-host.session-upload')->name('session-slots');
     Volt::route('sessions', 'live-host.sessions-index')->name('sessions.index');
     Volt::route('sessions/{session}', 'live-host.sessions-show')->name('sessions.show');
 });
@@ -146,15 +132,8 @@ Route::middleware(['auth', 'role:live_host'])->prefix('live-host')->name('live-h
 // Public Live Schedule - accessible by everyone
 Volt::route('live/schedule', 'live.schedule-public')->name('live.schedule');
 
-// Class Admin Dashboard - only class_admin (entry point for class_admin users)
-Route::middleware(['auth', 'role:class_admin'])->prefix('class-admin')->name('class-admin.')->group(function () {
-    Volt::route('dashboard', 'class-admin.dashboard')->name('dashboard');
-});
-
-// ============================================================================
-// SHARED ADMIN ROUTES - Accessible by both admin and class_admin roles
-// ============================================================================
-Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(function () {
+// Admin routes for course management
+Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Course routes
     Route::get('courses', [CourseController::class, 'index'])->name('courses.index');
     Route::get('courses/create', [CourseController::class, 'create'])->name('courses.create');
@@ -170,6 +149,12 @@ Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(fu
     Route::get('students/{student}', [StudentController::class, 'show'])->name('students.show');
     Route::get('students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
 
+    // User management routes
+    Volt::route('users', 'admin.user-list')->name('users.index');
+    Volt::route('users/create', 'admin.user-create')->name('users.create');
+    Volt::route('users/{user}', 'admin.user-show')->name('users.show');
+    Volt::route('users/{user}/edit', 'admin.user-edit')->name('users.edit');
+
     // Teacher routes
     Volt::route('teachers', 'admin.teacher-list')->name('teachers.index');
     Volt::route('teachers/create', 'admin.teacher-create')->name('teachers.create');
@@ -184,19 +169,15 @@ Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(fu
     Volt::route('classes/create', 'admin.class-create')->name('classes.create');
     Volt::route('classes/{class}', 'admin.class-show')->name('classes.show');
     Volt::route('classes/{class}/edit', 'admin.class-edit')->name('classes.edit');
-    Volt::route('classes/notification-builder/{settingId}', 'admin.class-notification-builder')->name('admin.class-notification-builder');
 
     // Class Category routes
     Volt::route('class-categories', 'admin.class-category-list')->name('class-categories.index');
-
-    // Master Timetable route
-    Volt::route('master-timetable', 'admin.master-timetable')->name('admin.master-timetable');
 
     // Session routes
     Volt::route('sessions', 'admin.sessions-index')->name('admin.sessions.index');
     Volt::route('sessions/{session}', 'admin.sessions-show')->name('admin.sessions.show');
 
-    // Student payment method management
+    // Student payment method management (admin-only)
     Volt::route('students/{student}/payment-methods', 'admin.student-payment-methods')->name('admin.students.payment-methods');
 
     // Enrollment routes
@@ -226,21 +207,6 @@ Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(fu
     Volt::route('payslips/generate', 'admin.payslips-generate')->name('admin.payslips.generate');
     Volt::route('payslips/{payslip}', 'admin.payslips-show')->name('admin.payslips.show');
     Volt::route('payslips/{payslip}/edit', 'admin.payslips-edit')->name('admin.payslips.edit');
-});
-
-// ============================================================================
-// ADMIN-ONLY ROUTES - Accessible only by admin role
-// ============================================================================
-Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
-    // User management routes
-    Volt::route('users', 'admin.user-list')->name('users.index');
-    Volt::route('users/create', 'admin.user-create')->name('users.create');
-    Volt::route('users/{user}', 'admin.user-show')->name('users.show');
-    Volt::route('users/{user}/edit', 'admin.user-edit')->name('users.edit');
-
-    // Impersonation routes
-    Route::post('impersonate/{user}', [ImpersonationController::class, 'start'])->name('impersonation.start');
-    Volt::route('impersonation-logs', 'admin.impersonation-logs')->name('admin.impersonation-logs');
 
     // Reports routes
     Volt::route('reports/subscriptions', 'admin.subscription-reports')->name('admin.reports.subscriptions');
@@ -285,6 +251,29 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('agents/create', 'admin.agents.agent-create')->name('agents.create');
     Volt::route('agents/{agent}', 'admin.agents.agent-show')->name('agents.show');
     Volt::route('agents/{agent}/edit', 'admin.agents.agent-edit')->name('agents.edit');
+
+    // Agent Orders routes
+    Volt::route('agent-orders', 'admin.agent-orders.agent-orders-index')->name('agent-orders.index');
+    Volt::route('agent-orders/create', 'admin.agent-orders.agent-orders-create')->name('agent-orders.create');
+    Volt::route('agent-orders/report', 'admin.agent-orders.agent-performance-report')->name('agent-orders.report');
+    Volt::route('agent-orders/{order}', 'admin.agent-orders.agent-orders-show')->name('agent-orders.show');
+    Volt::route('agent-orders/{order}/edit', 'admin.agent-orders.agent-orders-edit')->name('agent-orders.edit');
+
+    // Agent Kedai Buku (Bookstore Agent) Management routes
+    Volt::route('agents-kedai-buku', 'admin.kedai-buku.kedai-buku-list')->name('agents-kedai-buku.index');
+    Volt::route('agents-kedai-buku/create', 'admin.kedai-buku.kedai-buku-create')->name('agents-kedai-buku.create');
+    Volt::route('agents-kedai-buku/{kedaiBuku}', 'admin.kedai-buku.kedai-buku-show')->name('agents-kedai-buku.show');
+    Volt::route('agents-kedai-buku/{kedaiBuku}/edit', 'admin.kedai-buku.kedai-buku-edit')->name('agents-kedai-buku.edit');
+    Volt::route('agents-kedai-buku/{kedaiBuku}/pricing', 'admin.kedai-buku.kedai-buku-pricing')->name('agents-kedai-buku.pricing');
+    Volt::route('agents-kedai-buku/{kedaiBuku}/orders', 'admin.kedai-buku.orders.kedai-buku-orders')->name('agents-kedai-buku.orders');
+
+    // Agent Kedai Buku Orders routes
+    Volt::route('agents-kedai-buku-orders', 'admin.kedai-buku.orders.kedai-buku-orders-index')->name('agents-kedai-buku.orders.index');
+    Volt::route('agents-kedai-buku-orders/create', 'admin.kedai-buku.orders.kedai-buku-orders-create')->name('agents-kedai-buku.orders.create');
+    Volt::route('agents-kedai-buku-orders/{order}', 'admin.kedai-buku.orders.kedai-buku-orders-show')->name('agents-kedai-buku.orders.show');
+    Volt::route('agents-kedai-buku-orders/{order}/edit', 'admin.kedai-buku.orders.kedai-buku-orders-edit')->name('agents-kedai-buku.orders.edit');
+    Volt::route('agents-kedai-buku-orders/{order}/invoice', 'admin.kedai-buku.orders.kedai-buku-orders-invoice')->name('agents-kedai-buku.orders.invoice');
+    Volt::route('agents-kedai-buku-orders/{order}/delivery-note', 'admin.kedai-buku.orders.kedai-buku-orders-delivery-note')->name('agents-kedai-buku.orders.delivery-note');
 
     // Product Order Management routes
     Volt::route('product-orders', 'admin.orders.order-list')->name('admin.orders.index');
@@ -369,52 +358,22 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/general', 'admin.settings-general')->name('admin.settings.general');
     Volt::route('settings/appearance', 'admin.settings-appearance')->name('admin.settings.appearance');
     Volt::route('settings/payment', 'admin.settings-payment')->name('admin.settings.payment');
+    Volt::route('settings/pricing', 'admin.settings-pricing')->name('admin.settings.pricing');
     Volt::route('settings/email', 'admin.settings-email')->name('admin.settings.email');
     Volt::route('settings/notifications', 'admin.settings-notifications')->name('admin.settings.notifications');
-    Volt::route('settings/notifications/{template}/builder', 'admin.react-template-builder')->name('admin.settings.notifications.builder');
-    Volt::route('settings/whatsapp', 'admin.settings-whatsapp')->name('admin.settings.whatsapp');
-
-    // Customer Service routes
-    Volt::route('customer-service', 'admin.customer-service.dashboard')->name('admin.customer-service.dashboard');
-    Volt::route('customer-service/return-refunds', 'admin.customer-service.return-refunds-index')->name('admin.customer-service.return-refunds.index');
-    Volt::route('customer-service/return-refunds/create', 'admin.customer-service.return-refunds-create')->name('admin.customer-service.return-refunds.create');
-    Volt::route('customer-service/return-refunds/{refund}', 'admin.customer-service.return-refunds-show')->name('admin.customer-service.return-refunds.show');
-
-    // Customer Service - Tickets
-    Volt::route('customer-service/tickets', 'admin.customer-service.tickets-index')->name('admin.customer-service.tickets.index');
-    Volt::route('customer-service/tickets/create', 'admin.customer-service.tickets-create')->name('admin.customer-service.tickets.create');
-    Volt::route('customer-service/tickets/{ticket}', 'admin.customer-service.tickets-show')->name('admin.customer-service.tickets.show');
-
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)
 Route::middleware(['auth', 'role:admin,admin_livehost'])->prefix('admin')->name('admin.')->group(function () {
-    // Live Host CRUD
     Volt::route('live-hosts', 'admin.live-hosts-list')->name('live-hosts');
     Volt::route('live-hosts/create', 'admin.live-hosts-create')->name('live-hosts.create');
     Volt::route('live-hosts/{host}', 'admin.live-hosts-show')->name('live-hosts.show');
     Volt::route('live-hosts/{host}/edit', 'admin.live-hosts-edit')->name('live-hosts.edit');
-
-    // Schedule Calendar (Main schedule management - spreadsheet style)
-    Volt::route('live-schedule-calendar', 'admin.live-schedule-calendar')->name('live-schedule-calendar');
-
-    // Time Slot Configuration
-    Volt::route('live-time-slots', 'admin.live-time-slots')->name('live-time-slots');
-
-    // Schedule Reports
-    Volt::route('live-schedule-reports', 'admin.live-schedule-reports')->name('live-schedule-reports');
-
-    // Legacy schedule routes (keeping for backward compatibility)
     Volt::route('live-schedules', 'admin.live-schedules-index')->name('live-schedules.index');
     Volt::route('live-schedules/create', 'admin.live-schedules-create')->name('live-schedules.create');
     Volt::route('live-schedules/{schedule}/edit', 'admin.live-schedules-edit')->name('live-schedules.edit');
-
-    // Live Sessions
     Volt::route('live-sessions', 'admin.live-sessions-index')->name('live-sessions.index');
     Volt::route('live-sessions/{session}', 'admin.live-sessions-show')->name('live-sessions.show');
-
-    // Uploaded Sessions (Session Slots)
-    Volt::route('session-slots', 'admin.uploaded-sessions')->name('session-slots');
 });
 
 // Stripe webhook route - no auth middleware needed
@@ -431,8 +390,8 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('payment-methods/{paymentMethod}', [App\Http\Controllers\PaymentController::class, 'deletePaymentMethod'])->name('payment-methods.delete');
     Route::patch('payment-methods/{paymentMethod}/default', [App\Http\Controllers\PaymentController::class, 'setDefaultPaymentMethod'])->name('payment-methods.default');
 
-    // Admin payment method management (for managing student payment methods) - accessible by admin and class_admin
-    Route::middleware(['role:admin,class_admin'])->group(function () {
+    // Admin payment method management (for managing student payment methods)
+    Route::middleware(['role:admin'])->group(function () {
         Route::post('admin/students/{student}/payment-methods', [App\Http\Controllers\PaymentController::class, 'adminStorePaymentMethod'])->name('admin.students.payment-methods.store');
         Route::delete('admin/students/{student}/payment-methods/{paymentMethod}', [App\Http\Controllers\PaymentController::class, 'adminDeletePaymentMethod'])->name('admin.students.payment-methods.delete');
         Route::patch('admin/students/{student}/payment-methods/{paymentMethod}/default', [App\Http\Controllers\PaymentController::class, 'adminSetDefaultPaymentMethod'])->name('admin.students.payment-methods.default');

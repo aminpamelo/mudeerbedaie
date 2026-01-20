@@ -120,32 +120,32 @@ new class extends Component
 
     <!-- Package Stats -->
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <flux:icon name="cube" class="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                        <flux:icon name="cube" class="h-6 w-6 text-blue-600" />
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Packages</dt>
-                            <dd class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ $packages->total() }}</dd>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Packages</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ $packages->total() }}</dd>
                         </dl>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <flux:icon name="check-circle" class="h-6 w-6 text-green-600 dark:text-green-400" />
+                        <flux:icon name="check-circle" class="h-6 w-6 text-green-600" />
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Active Packages</dt>
-                            <dd class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                            <dt class="text-sm font-medium text-gray-500 truncate">Active Packages</dt>
+                            <dd class="text-lg font-medium text-gray-900">
                                 {{ Package::active()->count() }}
                             </dd>
                         </dl>
@@ -154,16 +154,16 @@ new class extends Component
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <flux:icon name="shopping-cart" class="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                        <flux:icon name="shopping-cart" class="h-6 w-6 text-purple-600" />
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Sales</dt>
-                            <dd class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Sales</dt>
+                            <dd class="text-lg font-medium text-gray-900">
                                 {{ Package::sum('purchased_count') }}
                             </dd>
                         </dl>
@@ -172,16 +172,16 @@ new class extends Component
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <flux:icon name="banknotes" class="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                        <flux:icon name="banknotes" class="h-6 w-6 text-yellow-600" />
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</dt>
-                            <dd class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                            <dd class="text-lg font-medium text-gray-900">
                                 RM {{ number_format(\App\Models\PackagePurchase::completed()->sum('amount_paid'), 2) }}
                             </dd>
                         </dl>
@@ -192,24 +192,24 @@ new class extends Component
     </div>
 
     <!-- Packages Table -->
-    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
-                <thead class="bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-200 dark:border-zinc-700">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Package</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Items</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Savings</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sales</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Savings</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white dark:bg-zinc-800">
+                <tbody class="bg-white">
                 @forelse($packages as $package)
-                    <tr wire:key="package-{{ $package->id }}" class="border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50">
+                    <tr wire:key="package-{{ $package->id }}" class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                             <div class="flex items-center space-x-3">
                                 @if($package->featured_image)
@@ -222,12 +222,12 @@ new class extends Component
                                     </div>
                                 @endif
                                 <div>
-                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $package->name }}</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ $package->short_description }}</div>
+                                    <div class="font-medium text-gray-900">{{ $package->name }}</div>
+                                    <div class="text-sm text-gray-500">{{ $package->short_description }}</div>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-4 text-sm text-gray-900">
                             <div class="flex space-x-1">
                                 @if($package->getProductCount() > 0)
                                     <flux:badge variant="outline" size="sm">
@@ -241,39 +241,39 @@ new class extends Component
                                 @endif
                             </div>
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-4 text-sm text-gray-900">
                             <div>
                                 <div class="font-medium">{{ $package->formatted_price }}</div>
                                 @if($package->calculateOriginalPrice() > $package->price)
-                                    <div class="text-xs text-gray-500 dark:text-gray-400 line-through">
+                                    <div class="text-xs text-gray-500 line-through">
                                         {{ $package->formatted_original_price }}
                                     </div>
                                 @endif
                             </div>
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-4 text-sm text-gray-900">
                             @if($package->calculateSavings() > 0)
                                 <div class="text-green-600 font-medium">
                                     {{ $package->formatted_savings }}
                                 </div>
-                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                <div class="text-xs text-gray-500">
                                     ({{ $package->getSavingsPercentage() }}% off)
                                 </div>
                             @else
-                                <span class="text-gray-400 dark:text-gray-500">No discount</span>
+                                <span class="text-gray-400">No discount</span>
                             @endif
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-4 text-sm text-gray-900">
                             <div class="text-sm">
                                 <div class="font-medium">{{ $package->purchased_count }}</div>
                                 @if($package->max_purchases)
-                                    <div class="text-gray-500 dark:text-gray-400">
+                                    <div class="text-gray-500">
                                         / {{ $package->max_purchases }} limit
                                     </div>
                                 @endif
                             </div>
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-4 text-sm text-gray-900">
                             <flux:badge :variant="match($package->status) {
                                 'active' => $package->isActive() ? 'success' : 'warning',
                                 'inactive' => 'gray',
@@ -287,7 +287,7 @@ new class extends Component
                                 @endif
                             </flux:badge>
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        <td class="px-3 py-4 text-sm text-gray-500">
                             {{ $package->creator->name }}
                         </td>
                         <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
@@ -337,9 +337,9 @@ new class extends Component
                     <tr>
                         <td colspan="8" class="px-6 py-12 text-center">
                             <div>
-                                <flux:icon name="gift" class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-                                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No packages found</h3>
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating your first package.</p>
+                                <flux:icon name="gift" class="mx-auto h-12 w-12 text-gray-400" />
+                                <h3 class="mt-2 text-sm font-medium text-gray-900">No packages found</h3>
+                                <p class="mt-1 text-sm text-gray-500">Get started by creating your first package.</p>
                                 <div class="mt-6">
                                     <flux:button variant="primary" href="{{ route('packages.create') }}" icon="plus">
                                         Create Package

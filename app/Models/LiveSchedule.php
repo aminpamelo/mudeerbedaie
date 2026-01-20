@@ -20,9 +20,6 @@ class LiveSchedule extends Model
         'end_time',
         'is_recurring',
         'is_active',
-        'live_host_id',
-        'remarks',
-        'created_by',
     ];
 
     protected function casts(): array
@@ -36,16 +33,6 @@ class LiveSchedule extends Model
     public function platformAccount(): BelongsTo
     {
         return $this->belongsTo(PlatformAccount::class);
-    }
-
-    public function liveHost(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'live_host_id');
-    }
-
-    public function createdBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function liveSessions(): HasMany
@@ -84,43 +71,6 @@ class LiveSchedule extends Model
 
     public function getTimeRangeAttribute(): string
     {
-        $start = \Carbon\Carbon::parse($this->start_time)->format('g:ia');
-        $end = \Carbon\Carbon::parse($this->end_time)->format('g:ia');
-
-        return "{$start} - {$end}";
-    }
-
-    public function getDayNameMsAttribute(): string
-    {
-        return match ($this->day_of_week) {
-            0 => 'Ahad',
-            1 => 'Isnin',
-            2 => 'Selasa',
-            3 => 'Rabu',
-            4 => 'Khamis',
-            5 => 'Jumaat',
-            6 => 'Sabtu',
-            default => 'Unknown',
-        };
-    }
-
-    public function scopeForPlatform(Builder $query, int $platformAccountId): Builder
-    {
-        return $query->where('platform_account_id', $platformAccountId);
-    }
-
-    public function scopeAssigned(Builder $query): Builder
-    {
-        return $query->whereNotNull('live_host_id');
-    }
-
-    public function scopeUnassigned(Builder $query): Builder
-    {
-        return $query->whereNull('live_host_id');
-    }
-
-    public function isAssigned(): bool
-    {
-        return $this->live_host_id !== null;
+        return "{$this->start_time} - {$this->end_time}";
     }
 }

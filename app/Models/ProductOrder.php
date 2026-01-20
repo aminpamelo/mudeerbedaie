@@ -145,11 +145,6 @@ class ProductOrder extends Model
         return $this->hasMany(ProductOrderItem::class, 'order_id');
     }
 
-    public function returnRefunds(): HasMany
-    {
-        return $this->hasMany(ReturnRefund::class, 'order_id');
-    }
-
     public function addresses(): HasMany
     {
         return $this->hasMany(ProductOrderAddress::class, 'order_id');

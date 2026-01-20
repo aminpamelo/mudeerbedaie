@@ -95,7 +95,7 @@ new class extends Component {
     </div>
 
     <!-- Import History Table -->
-    <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+    <div class="overflow-hidden rounded-lg border border-zinc-200 bg-white">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-zinc-200">
                 <thead class="bg-zinc-50">
@@ -117,7 +117,7 @@ new class extends Component {
                         </th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-800">
+                <tbody class="divide-y divide-zinc-200 bg-white">
                     @forelse($imports as $import)
                         <tr class="hover:bg-zinc-50">
                             <td class="px-6 py-4 whitespace-nowrap">

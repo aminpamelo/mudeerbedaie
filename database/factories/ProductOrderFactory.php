@@ -33,6 +33,7 @@ class ProductOrderFactory extends Factory
             'tax_amount' => 0,
             'total_amount' => $subtotal + $shipping,
             'discount_amount' => 0,
+            'agent_id' => null,
         ];
     }
 }

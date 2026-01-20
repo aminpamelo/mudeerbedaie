@@ -276,57 +276,57 @@ new class extends Component {
 
     {{-- Stats Cards --}}
     <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+        <div class="bg-white rounded-lg border p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                        <flux:icon name="shopping-bag" class="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <flux:icon name="shopping-bag" class="w-4 h-4 text-blue-600" />
                     </div>
                 </div>
                 <div class="ml-3">
-                    <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">Total Orders</flux:text>
+                    <flux:text size="sm" class="text-zinc-600">Total Orders</flux:text>
                     <flux:text class="font-semibold">{{ number_format($totalOrders) }}</flux:text>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+        <div class="bg-white rounded-lg border p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                        <flux:icon name="currency-dollar" class="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <flux:icon name="currency-dollar" class="w-4 h-4 text-green-600" />
                     </div>
                 </div>
                 <div class="ml-3">
-                    <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">Total Value</flux:text>
+                    <flux:text size="sm" class="text-zinc-600">Total Value</flux:text>
                     <flux:text class="font-semibold">${{ number_format($totalValue, 2) }}</flux:text>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+        <div class="bg-white rounded-lg border p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                        <flux:icon name="check-circle" class="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <flux:icon name="check-circle" class="w-4 h-4 text-green-600" />
                     </div>
                 </div>
                 <div class="ml-3">
-                    <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">Completed</flux:text>
+                    <flux:text size="sm" class="text-zinc-600">Completed</flux:text>
                     <flux:text class="font-semibold">{{ $statusCounts['completed'] ?? 0 }}</flux:text>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+        <div class="bg-white rounded-lg border p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
-                    <div class="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
-                        <flux:icon name="clock" class="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                        <flux:icon name="clock" class="w-4 h-4 text-amber-600" />
                     </div>
                 </div>
                 <div class="ml-3">
-                    <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">Pending</flux:text>
+                    <flux:text size="sm" class="text-zinc-600">Pending</flux:text>
                     <flux:text class="font-semibold">{{ $statusCounts['pending'] ?? 0 }}</flux:text>
                 </div>
             </div>
@@ -334,7 +334,7 @@ new class extends Component {
     </div>
 
     {{-- Filters --}}
-    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+    <div class="mb-6 bg-white rounded-lg border p-4">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
                 <flux:field>
@@ -392,24 +392,24 @@ new class extends Component {
     </div>
 
     {{-- Orders Table --}}
-    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
+    <div class="bg-white rounded-lg border overflow-hidden">
         @if($orders->count() > 0)
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                    <thead class="bg-gray-50 dark:bg-zinc-700/50">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Order</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Account</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
+                    <tbody class="bg-white divide-y divide-gray-200">
                         @foreach($orders as $order)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50">
+                            <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div>
                                         <flux:text class="font-medium">{{ $order->platform_order_id }}</flux:text>
@@ -463,12 +463,12 @@ new class extends Component {
             </div>
 
             {{-- Pagination --}}
-            <div class="px-6 py-3 border-t border-gray-200 dark:border-zinc-700">
+            <div class="px-6 py-3 border-t border-gray-200">
                 {{ $orders->links() }}
             </div>
         @else
             <div class="p-12 text-center">
-                <div class="mx-auto w-12 h-12 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center mb-4">
+                <div class="mx-auto w-12 h-12 bg-zinc-100 rounded-lg flex items-center justify-center mb-4">
                     <flux:icon name="shopping-bag" class="w-6 h-6 text-zinc-400" />
                 </div>
                 <flux:heading size="lg" class="mb-2">No Orders Found</flux:heading>

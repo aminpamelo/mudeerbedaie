@@ -92,7 +92,6 @@ class NotificationService
                         'model' => $student,
                         'email' => $student->user->email,
                         'name' => $student->user->name,
-                        'phone' => $student->phone_number, // Include phone for WhatsApp
                     ]);
                 }
             }
@@ -106,7 +105,6 @@ class NotificationService
                     'model' => $teacher,
                     'email' => $teacher->user->email,
                     'name' => $teacher->user->name,
-                    'phone' => $teacher->phone_number, // Include phone for WhatsApp
                 ]);
             }
         }
@@ -375,16 +373,8 @@ class NotificationService
 
     private function calculateFollowupTime(ClassSession $session, ClassNotificationSetting $setting): ?\Carbon\Carbon
     {
-        // For followups, calculate based on when the session ends
-        if ($session->completed_at) {
-            // If session is completed, use the actual completion time
-            $baseTime = $session->completed_at;
-        } else {
-            // Otherwise, calculate expected end time: session start + duration
-            $sessionStart = $session->getSessionDateTime();
-            $durationMinutes = $session->duration_minutes ?? $session->class?->timetable?->duration_minutes ?? 60;
-            $baseTime = $sessionStart->copy()->addMinutes($durationMinutes);
-        }
+        // For followups, use the completed_at time if available, otherwise session datetime
+        $baseTime = $session->completed_at ?? $session->getSessionDateTime();
 
         return $baseTime->copy()->addMinutes($setting->getMinutesAfter());
     }

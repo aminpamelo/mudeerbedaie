@@ -27,7 +27,6 @@
                     <flux:navlist.item icon="user-group" :href="route('teachers.index')" :current="request()->routeIs('teachers.*')" wire:navigate>{{ __('Teachers') }}</flux:navlist.item>
                     <flux:navlist.item icon="clipboard-document-list" :href="route('classes.index')" :current="request()->routeIs('classes.*')" wire:navigate>{{ __('Classes') }}</flux:navlist.item>
                     <flux:navlist.item icon="clock" :href="route('admin.sessions.index')" :current="request()->routeIs('admin.sessions.*')" wire:navigate>{{ __('Sessions') }}</flux:navlist.item>
-                    <flux:navlist.item icon="calendar-days" :href="route('admin.master-timetable')" :current="request()->routeIs('admin.master-timetable')" wire:navigate>{{ __('Master Timetable') }}</flux:navlist.item>
                     <flux:navlist.item icon="banknotes" :href="route('admin.payslips.index')" :current="request()->routeIs('admin.payslips.*')" wire:navigate>{{ __('Payslips') }}</flux:navlist.item>
                     <flux:navlist.item icon="clipboard" :href="route('enrollments.index')" :current="request()->routeIs('enrollments.*')" wire:navigate>{{ __('Enrollments') }}</flux:navlist.item>
                 </flux:navlist.group>
@@ -195,6 +194,15 @@
                         wire:navigate
                     >
                         {{ __('Payment') }}
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="currency-dollar"
+                        :href="route('admin.settings.pricing')"
+                        :current="request()->routeIs('admin.settings.pricing')"
+                        wire:navigate
+                    >
+                        {{ __('Pricing') }}
                     </flux:navlist.item>
 
                     <flux:navlist.item

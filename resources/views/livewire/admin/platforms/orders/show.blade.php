@@ -122,7 +122,7 @@ new class extends Component {
     </div>
 
     {{-- Order Summary Card --}}
-    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
+    <div class="mb-6 bg-white rounded-lg border overflow-hidden">
         <div class="p-6" style="background: linear-gradient(135deg, {{ $platform->color_primary ?? '#6b7280' }}15 0%, {{ $platform->color_secondary ?? '#9ca3af' }}15 100%);">
             <div class="flex items-center space-x-6">
                 @if($platform->logo_url)
@@ -172,7 +172,7 @@ new class extends Component {
         {{-- Main Content --}}
         <div class="lg:col-span-2 space-y-6">
             {{-- Order Details --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Order Information</flux:heading>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -228,7 +228,7 @@ new class extends Component {
 
             {{-- Customer Information --}}
             @if($order->customer_name || $order->customer_email || $order->shipping_address)
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Customer Information</flux:heading>
 
                 <div class="space-y-4">
@@ -258,7 +258,7 @@ new class extends Component {
 
             {{-- Raw Import Data --}}
             @if($order->metadata && isset($order->metadata['raw_data']))
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Raw Import Data</flux:heading>
 
                 <div class="bg-zinc-50 rounded-lg p-4 overflow-x-auto">
@@ -271,7 +271,7 @@ new class extends Component {
         {{-- Sidebar --}}
         <div class="space-y-6">
             {{-- Quick Actions --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Quick Actions</flux:heading>
 
                 <div class="space-y-3">
@@ -303,7 +303,7 @@ new class extends Component {
             </div>
 
             {{-- Platform Account Info --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Platform Account</flux:heading>
 
                 <div class="space-y-3">
@@ -338,7 +338,7 @@ new class extends Component {
             </div>
 
             {{-- Import Information --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Import Information</flux:heading>
 
                 <div class="space-y-3">
@@ -375,7 +375,7 @@ new class extends Component {
             </div>
 
             {{-- Order Timeline --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Order Timeline</flux:heading>
 
                 <div class="space-y-4">

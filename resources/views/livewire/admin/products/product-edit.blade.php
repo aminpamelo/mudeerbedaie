@@ -705,7 +705,7 @@ new class extends Component {
                 @endif
 
                 <!-- Attribute Selection -->
-                <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+                <div class="rounded-lg border border-gray-200 bg-white p-6">
                     <flux:heading size="md" class="mb-4">Product Attributes</flux:heading>
 
                     <flux:field>
@@ -760,7 +760,7 @@ new class extends Component {
 
                 <!-- Variant Management -->
                 @if(!empty($variants))
-                    <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+                    <div class="rounded-lg border border-gray-200 bg-white p-6">
                         <div class="mb-4 flex items-center justify-between">
                             <flux:heading size="md">Product Variants ({{ count($variants) }})</flux:heading>
                             <flux:text class="text-sm text-gray-500">Configure pricing and stock for each variant</flux:text>

@@ -40,7 +40,6 @@ class ClassModel extends Model
         'shipment_warehouse_id',
         'shipment_quantity_per_student',
         'shipment_notes',
-        'auto_schedule_notifications',
     ];
 
     protected function casts(): array
@@ -51,7 +50,6 @@ class ClassModel extends Model
             'commission_value' => 'decimal:2',
             'enable_document_shipment' => 'boolean',
             'shipment_start_date' => 'date',
-            'auto_schedule_notifications' => 'boolean',
         ];
     }
 
@@ -412,13 +410,8 @@ class ClassModel extends Model
             return 0;
         }
 
-        // Use upsert to handle existing sessions (avoid duplicate constraint violations)
-        // Only insert new sessions, don't update existing ones (preserve their status/notes)
-        ClassSession::upsert(
-            $sessionsData,
-            ['class_id', 'session_date', 'session_time'], // Unique key columns
-            ['duration_minutes'] // Only update duration if session exists
-        );
+        // Insert sessions in bulk for better performance
+        ClassSession::insert($sessionsData);
 
         return count($sessionsData);
     }

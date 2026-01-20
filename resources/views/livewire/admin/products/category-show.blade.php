@@ -61,7 +61,7 @@ new class extends Component {
         <!-- Main Information -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Basic Information -->
-            <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+            <div class="rounded-lg border border-gray-200 bg-white p-6">
                 <div class="flex items-center justify-between mb-4">
                     <flux:heading size="lg">Category Information</flux:heading>
                     <flux:button wire:click="toggleStatus" variant="outline" size="sm">
@@ -71,47 +71,47 @@ new class extends Component {
 
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
-                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $category->name }}</dd>
+                        <dt class="text-sm font-medium text-gray-500">Name</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $category->name }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Slug</dt>
-                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                        <dt class="text-sm font-medium text-gray-500">Slug</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
                             <code class="text-sm">{{ $category->slug }}</code>
                         </dd>
                     </div>
                     @if($category->parent)
                         <div>
-                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Parent Category</dt>
-                            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                            <dt class="text-sm font-medium text-gray-500">Parent Category</dt>
+                            <dd class="mt-1 text-sm text-gray-900">
                                 <flux:badge variant="outline" size="sm">{{ $category->parent->name }}</flux:badge>
                             </dd>
                         </div>
                     @endif
                     <div>
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Created</dt>
-                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $category->created_at->format('M j, Y g:i A') }}</dd>
+                        <dt class="text-sm font-medium text-gray-500">Created</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ $category->created_at->format('M j, Y g:i A') }}</dd>
                     </div>
                 </dl>
 
                 @if($category->description)
                     <div class="mt-6">
-                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Description</dt>
-                        <dd class="mt-2 text-sm text-gray-900 dark:text-gray-100">{{ $category->description }}</dd>
+                        <dt class="text-sm font-medium text-gray-500">Description</dt>
+                        <dd class="mt-2 text-sm text-gray-900">{{ $category->description }}</dd>
                     </div>
                 @endif
             </div>
 
             <!-- Products in this Category -->
             @if($category->products->count() > 0)
-                <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+                <div class="rounded-lg border border-gray-200 bg-white p-6">
                     <flux:heading size="lg" class="mb-4">Products ({{ $category->products->count() }})</flux:heading>
                     <div class="space-y-4">
                         @foreach($category->products->take(10) as $product)
-                            <div class="flex items-center justify-between border-b border-gray-100 dark:border-zinc-700 pb-3 last:border-b-0 last:pb-0">
+                            <div class="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
                                 <div>
-                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $product->name }}</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">SKU: {{ $product->sku }}</div>
+                                    <div class="font-medium text-gray-900">{{ $product->name }}</div>
+                                    <div class="text-sm text-gray-500">SKU: {{ $product->sku }}</div>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <flux:badge :variant="match($product->status) {
@@ -141,19 +141,19 @@ new class extends Component {
 
             <!-- Subcategories -->
             @if($category->children->count() > 0)
-                <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+                <div class="rounded-lg border border-gray-200 bg-white p-6">
                     <flux:heading size="lg" class="mb-4">Subcategories ({{ $category->children->count() }})</flux:heading>
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         @foreach($category->children as $child)
-                            <div class="border border-gray-200 dark:border-zinc-700 rounded-lg p-4">
+                            <div class="border border-gray-200 rounded-lg p-4">
                                 <div class="flex items-center justify-between mb-2">
-                                    <h4 class="font-medium text-gray-900 dark:text-gray-100">{{ $child->name }}</h4>
+                                    <h4 class="font-medium text-gray-900">{{ $child->name }}</h4>
                                     <flux:badge :variant="$child->is_active ? 'success' : 'gray'" size="sm">
                                         {{ $child->is_active ? 'Active' : 'Inactive' }}
                                     </flux:badge>
                                 </div>
                                 @if($child->description)
-                                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{{ Str::limit($child->description, 100) }}</p>
+                                    <p class="text-sm text-gray-600 mb-3">{{ Str::limit($child->description, 100) }}</p>
                                 @endif
                                 <flux:button href="{{ route('product-categories.show', $child) }}" variant="outline" size="sm">
                                     View Category
@@ -168,26 +168,26 @@ new class extends Component {
         <!-- Sidebar Information -->
         <div class="space-y-6">
             <!-- Quick Stats -->
-            <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+            <div class="rounded-lg border border-gray-200 bg-white p-6">
                 <flux:heading size="lg" class="mb-4">Quick Stats</flux:heading>
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">Products</span>
-                        <span class="font-semibold text-gray-900 dark:text-gray-100">{{ $category->products->count() }}</span>
+                        <span class="text-sm text-gray-500">Products</span>
+                        <span class="font-semibold text-gray-900">{{ $category->products->count() }}</span>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">Subcategories</span>
-                        <span class="font-semibold text-gray-900 dark:text-gray-100">{{ $category->children->count() }}</span>
+                        <span class="text-sm text-gray-500">Subcategories</span>
+                        <span class="font-semibold text-gray-900">{{ $category->children->count() }}</span>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">Active Products</span>
-                        <span class="font-semibold text-gray-900 dark:text-gray-100">{{ $category->products->where('status', 'active')->count() }}</span>
+                        <span class="text-sm text-gray-500">Active Products</span>
+                        <span class="font-semibold text-gray-900">{{ $category->products->where('status', 'active')->count() }}</span>
                     </div>
                 </div>
             </div>
 
             <!-- Actions -->
-            <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+            <div class="rounded-lg border border-gray-200 bg-white p-6">
                 <flux:heading size="lg" class="mb-4">Actions</flux:heading>
                 <div class="space-y-3">
                     <flux:button href="{{ route('product-categories.edit', $category) }}" variant="primary" class="w-full" icon="pencil">

@@ -259,7 +259,7 @@ new class extends Component {
 
     {{-- Key Metrics --}}
     <div class="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+        <div class="bg-white rounded-lg border p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -273,7 +273,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+        <div class="bg-white rounded-lg border p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
@@ -287,7 +287,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+        <div class="bg-white rounded-lg border p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -301,7 +301,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+        <div class="bg-white rounded-lg border p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
@@ -321,7 +321,7 @@ new class extends Component {
         {{-- Platform Overview --}}
         <div class="lg:col-span-2 space-y-6">
             {{-- Platform Summaries --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+            <div class="bg-white rounded-lg border">
                 <div class="p-6 border-b border-gray-200">
                     <div class="flex items-center justify-between">
                         <flux:heading size="lg">Platform Overview</flux:heading>
@@ -412,7 +412,7 @@ new class extends Component {
             </div>
 
             {{-- Recent Orders --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+            <div class="bg-white rounded-lg border">
                 <div class="p-6 border-b border-gray-200">
                     <flux:heading size="lg">Recent Orders</flux:heading>
                 </div>
@@ -458,7 +458,7 @@ new class extends Component {
         {{-- Sidebar --}}
         <div class="space-y-6">
             {{-- Quick Actions --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Quick Actions</flux:heading>
 
                 <div class="space-y-3">
@@ -498,7 +498,7 @@ new class extends Component {
             </div>
 
             {{-- Recent Import Activity --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Recent Imports</flux:heading>
 
                 @if($recentImports->count() > 0)
@@ -523,7 +523,7 @@ new class extends Component {
             </div>
 
             {{-- System Health --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">System Health</flux:heading>
 
                 <div class="space-y-3">

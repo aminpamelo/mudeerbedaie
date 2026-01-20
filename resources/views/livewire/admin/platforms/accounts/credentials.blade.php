@@ -283,7 +283,7 @@ new class extends Component {
 
     {{-- Create Credential Form --}}
     @if($showCreateForm)
-    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+    <div class="mb-6 bg-white rounded-lg border p-6">
         <flux:heading size="lg" class="mb-4">Add New Credential</flux:heading>
 
         <form wire:submit="create" class="space-y-6">
@@ -377,7 +377,7 @@ new class extends Component {
     @endif
 
     {{-- Credentials List --}}
-    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+    <div class="bg-white rounded-lg border">
         @if($credentials->count() > 0)
             <div class="p-6">
                 <flux:heading size="lg" class="mb-4">Credentials</flux:heading>

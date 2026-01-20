@@ -5,7 +5,7 @@
         [
             'route' => 'live-host.dashboard',
             'icon' => 'home',
-            'label' => 'Home',
+            'label' => 'Dashboard',
             'active' => $currentRoute === 'live-host.dashboard'
         ],
         [
@@ -13,12 +13,6 @@
             'icon' => 'calendar',
             'label' => 'Schedule',
             'active' => $currentRoute === 'live-host.schedule'
-        ],
-        [
-            'route' => 'live-host.session-slots',
-            'icon' => 'arrow-up-tray',
-            'label' => 'Upload',
-            'active' => $currentRoute === 'live-host.session-slots'
         ],
         [
             'route' => 'live-host.sessions.index',
@@ -36,7 +30,7 @@
 @endphp
 
 <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 lg:hidden">
-    <div class="grid grid-cols-5 h-16">
+    <div class="grid grid-cols-4 h-16">
         @foreach ($navItems as $item)
             <a href="{{ route($item['route']) }}"
                wire:navigate
@@ -49,10 +43,6 @@
                     @elseif ($item['icon'] === 'calendar')
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                        </svg>
-                    @elseif ($item['icon'] === 'arrow-up-tray')
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
                         </svg>
                     @elseif ($item['icon'] === 'video-camera')
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

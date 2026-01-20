@@ -140,7 +140,7 @@ new class extends Component {
 
     <!-- Purchase Stats -->
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -148,15 +148,15 @@ new class extends Component {
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Sales</dt>
-                            <dd class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ $purchases->total() }}</dd>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Sales</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ $purchases->total() }}</dd>
                         </dl>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -164,8 +164,8 @@ new class extends Component {
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Completed</dt>
-                            <dd class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                            <dt class="text-sm font-medium text-gray-500 truncate">Completed</dt>
+                            <dd class="text-lg font-medium text-gray-900">
                                 {{ PackagePurchase::completed()->count() }}
                             </dd>
                         </dl>
@@ -174,7 +174,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -182,8 +182,8 @@ new class extends Component {
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Pending</dt>
-                            <dd class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                            <dt class="text-sm font-medium text-gray-500 truncate">Pending</dt>
+                            <dd class="text-lg font-medium text-gray-900">
                                 {{ PackagePurchase::pending()->count() }}
                             </dd>
                         </dl>
@@ -192,7 +192,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="bg-white dark:bg-zinc-800 overflow-hidden shadow rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -200,8 +200,8 @@ new class extends Component {
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Total Revenue</dt>
-                            <dd class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                            <dd class="text-lg font-medium text-gray-900">
                                 RM {{ number_format(PackagePurchase::completed()->sum('amount_paid'), 2) }}
                             </dd>
                         </dl>
@@ -212,30 +212,30 @@ new class extends Component {
     </div>
 
     <!-- Purchases Table -->
-    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
-                <thead class="bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-200 dark:border-zinc-700">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 sm:pl-6">Purchase</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Customer</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Package</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Amount</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Status</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Date</th>
+                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Purchase</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Customer</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Package</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Amount</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Date</th>
                         <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
                             <span class="sr-only">Actions</span>
-                            <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">Actions</span>
+                            <span class="text-sm font-semibold text-gray-900">Actions</span>
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white dark:bg-zinc-800">
+                <tbody class="bg-white">
                     @forelse($purchases as $purchase)
-                        <tr wire:key="purchase-{{ $purchase->id }}" class="border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50">
+                        <tr wire:key="purchase-{{ $purchase->id }}" class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                             <div>
-                                <div class="font-medium text-gray-900 dark:text-gray-100">#{{ $purchase->purchase_number }}</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">
+                                <div class="font-medium text-gray-900">#{{ $purchase->purchase_number }}</div>
+                                <div class="text-sm text-gray-500">
                                     @if($purchase->productOrder)
                                         <span class="inline-flex items-center">
                                             <flux:icon name="cube" class="w-3 h-3 mr-1" />
@@ -251,13 +251,13 @@ new class extends Component {
                                 </div>
                             </div>
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-4 text-sm text-gray-900">
                             <div>
                                 <div class="font-medium">{{ $purchase->customer->name }}</div>
-                                <div class="text-gray-500 dark:text-gray-400">{{ $purchase->customer->email }}</div>
+                                <div class="text-gray-500">{{ $purchase->customer->email }}</div>
                             </div>
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-4 text-sm text-gray-900">
                             <div class="flex items-center space-x-3">
                                 @if($purchase->package->featured_image)
                                     <img src="{{ $purchase->package->featured_image }}"
@@ -270,13 +270,13 @@ new class extends Component {
                                 @endif
                                 <div>
                                     <div class="font-medium">{{ $purchase->package->name }}</div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                                    <div class="text-xs text-gray-500">
                                         {{ $purchase->package->getProductCount() }} Products, {{ $purchase->package->getCourseCount() }} Courses
                                     </div>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-4 text-sm text-gray-900">
                             <div class="font-medium">RM {{ number_format($purchase->amount_paid, 2) }}</div>
                             @if($purchase->discount_amount > 0)
                                 <div class="text-xs text-green-600">
@@ -284,7 +284,7 @@ new class extends Component {
                                 </div>
                             @endif
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <td class="px-3 py-4 text-sm text-gray-900">
                             <flux:badge :variant="match($purchase->status) {
                                 'completed' => 'success',
                                 'processing' => 'warning',
@@ -296,7 +296,7 @@ new class extends Component {
                                 {{ ucfirst($purchase->status) }}
                             </flux:badge>
                         </td>
-                        <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        <td class="px-3 py-4 text-sm text-gray-500">
                             <div>{{ $purchase->created_at->format('M j, Y') }}</div>
                             <div class="text-xs">{{ $purchase->created_at->format('g:i A') }}</div>
                         </td>
@@ -362,9 +362,9 @@ new class extends Component {
                     <tr>
                         <td colspan="7" class="px-6 py-12 text-center">
                             <div>
-                                <flux:icon name="shopping-cart" class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-                                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No package purchases found</h3>
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Package sales will appear here once customers start purchasing.</p>
+                                <flux:icon name="shopping-cart" class="mx-auto h-12 w-12 text-gray-400" />
+                                <h3 class="mt-2 text-sm font-medium text-gray-900">No package purchases found</h3>
+                                <p class="mt-1 text-sm text-gray-500">Package sales will appear here once customers start purchasing.</p>
                             </div>
                         </td>
                     </tr>

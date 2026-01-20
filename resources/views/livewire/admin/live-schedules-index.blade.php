@@ -71,7 +71,7 @@ new class extends Component
     public function getSchedulesByDayProperty()
     {
         $schedules = LiveSchedule::query()
-            ->with(['platformAccount.platform', 'platformAccount.user', 'liveHost'])
+            ->with(['platformAccount.platform', 'platformAccount.user'])
             ->when($this->search, function ($query) {
                 $query->whereHas('platformAccount', function ($q) {
                     $q->where('name', 'like', '%'.$this->search.'%')
@@ -114,7 +114,7 @@ new class extends Component
     public function getSchedulesProperty()
     {
         return LiveSchedule::query()
-            ->with(['platformAccount.platform', 'platformAccount.user', 'liveHost'])
+            ->with(['platformAccount.platform', 'platformAccount.user'])
             ->when($this->search, function ($query) {
                 $query->whereHas('platformAccount', function ($q) {
                     $q->where('name', 'like', '%'.$this->search.'%')
@@ -355,18 +355,9 @@ new class extends Component
                                 </div>
 
                                 <!-- Host Name -->
-                                @if($schedule->liveHost)
-                                    <span
-                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mb-1"
-                                        style="background-color: {{ $schedule->liveHost->host_color }}; color: {{ $schedule->liveHost->host_text_color }};"
-                                    >
-                                        {{ $schedule->liveHost->name }}
-                                    </span>
-                                @else
-                                    <p class="text-sm text-gray-400 dark:text-gray-500 mb-1 italic truncate">
-                                        Not assigned
-                                    </p>
-                                @endif
+                                <p class="text-sm text-gray-700 dark:text-gray-300 mb-1 font-medium truncate">
+                                    {{ $schedule->platformAccount->user->name }}
+                                </p>
 
                                 <!-- Platform - Minimal -->
                                 <p class="text-xs {{ $platformColor['text'] }} dark:text-gray-400">
@@ -467,16 +458,9 @@ new class extends Component
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                @if($schedule->liveHost)
-                                    <span
-                                        class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium"
-                                        style="background-color: {{ $schedule->liveHost->host_color }}; color: {{ $schedule->liveHost->host_text_color }};"
-                                    >
-                                        {{ $schedule->liveHost->name }}
-                                    </span>
-                                @else
-                                    <span class="text-gray-400 dark:text-gray-500 text-sm">Not assigned</span>
-                                @endif
+                                <div class="text-sm text-gray-900 dark:text-white">
+                                    {{ $schedule->platformAccount->user->name }}
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 @if($schedule->is_recurring)
