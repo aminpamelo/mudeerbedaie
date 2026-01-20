@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class NotificationLog extends Model
 {
@@ -18,9 +19,14 @@ class NotificationLog extends Model
         'destination',
         'status',
         'message_id',
+        'tracking_id',
         'error_message',
         'sent_at',
         'delivered_at',
+        'opened_at',
+        'open_count',
+        'clicked_at',
+        'click_count',
     ];
 
     protected function casts(): array
@@ -28,7 +34,22 @@ class NotificationLog extends Model
         return [
             'sent_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'opened_at' => 'datetime',
+            'clicked_at' => 'datetime',
+            'open_count' => 'integer',
+            'click_count' => 'integer',
         ];
+    }
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->tracking_id)) {
+                $model->tracking_id = Str::uuid()->toString();
+            }
+        });
     }
 
     public function scheduledNotification(): BelongsTo
@@ -98,6 +119,60 @@ class NotificationLog extends Model
             'status' => 'delivered',
             'delivered_at' => now(),
         ]);
+    }
+
+    public function markAsOpened(): void
+    {
+        $this->increment('open_count');
+
+        if (!$this->opened_at) {
+            $this->update(['opened_at' => now()]);
+        }
+    }
+
+    public function markAsClicked(): void
+    {
+        $this->increment('click_count');
+
+        if (!$this->clicked_at) {
+            $this->update(['clicked_at' => now()]);
+        }
+
+        // Also mark as opened if not already
+        if (!$this->opened_at) {
+            $this->update(['opened_at' => now()]);
+            $this->increment('open_count');
+        }
+    }
+
+    public function isOpened(): bool
+    {
+        return $this->opened_at !== null;
+    }
+
+    public function isClicked(): bool
+    {
+        return $this->clicked_at !== null;
+    }
+
+    public function scopeOpened($query)
+    {
+        return $query->whereNotNull('opened_at');
+    }
+
+    public function scopeNotOpened($query)
+    {
+        return $query->whereNull('opened_at');
+    }
+
+    public function scopeClicked($query)
+    {
+        return $query->whereNotNull('clicked_at');
+    }
+
+    public static function findByTrackingId(string $trackingId): ?self
+    {
+        return static::where('tracking_id', $trackingId)->first();
     }
 
     public function scopePending($query)

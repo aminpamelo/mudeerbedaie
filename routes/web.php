@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\EmailTrackingController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\StudentController;
@@ -248,6 +249,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('reports/packages-orders', 'admin.reports.packages-orders')->name('admin.reports.packages-orders');
     Volt::route('reports/student-product-orders', 'admin.reports.student-product-orders')->name('admin.reports.student-product-orders');
     Volt::route('reports/student-class-enrollments', 'admin.reports.student-class-enrollments')->name('admin.reports.student-class-enrollments');
+    Volt::route('reports/notifications', 'admin.reports.notification-report')->name('admin.reports.notifications');
 
     // Product Management routes
     Volt::route('products', 'admin.products.product-list')->name('products.index');
@@ -416,6 +418,14 @@ Route::middleware(['auth', 'role:admin,admin_livehost'])->prefix('admin')->name(
     // Uploaded Sessions (Session Slots)
     Volt::route('session-slots', 'admin.uploaded-sessions')->name('session-slots');
 });
+
+// Email tracking routes - no auth needed (public tracking pixels/links)
+Route::get('track/open/{trackingId}/{type?}', [EmailTrackingController::class, 'trackOpen'])
+    ->name('email.track.open')
+    ->where('type', 'notification|broadcast');
+Route::get('track/click/{trackingId}/{type?}', [EmailTrackingController::class, 'trackClick'])
+    ->name('email.track.click')
+    ->where('type', 'notification|broadcast');
 
 // Stripe webhook route - no auth middleware needed
 Route::post('stripe/webhook', [App\Http\Controllers\StripeWebhookController::class, 'handle'])->name('stripe.webhook');
