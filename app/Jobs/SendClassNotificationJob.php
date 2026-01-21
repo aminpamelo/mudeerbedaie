@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\NotificationLog;
 use App\Models\ScheduledNotification;
 use App\Services\EmailTemplateCompiler;
+use App\Services\EmailTrackingService;
 use App\Services\NotificationService;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
@@ -186,11 +187,18 @@ class SendClassNotificationJob implements ShouldQueue
                     'status' => 'pending',
                 ]);
 
+                // Inject email tracking pixel and track links
+                $trackedHtmlContent = EmailTrackingService::applyTracking(
+                    $htmlContent,
+                    $log->tracking_id,
+                    'notification'
+                );
+
                 // Send email with attachments
-                Mail::send([], [], function ($message) use ($recipient, $personalizedSubject, $htmlContent, $fileAttachments) {
+                Mail::send([], [], function ($message) use ($recipient, $personalizedSubject, $trackedHtmlContent, $fileAttachments) {
                     $message->to($recipient['email'], $recipient['name'])
                         ->subject($personalizedSubject)
-                        ->html($htmlContent);
+                        ->html($trackedHtmlContent);
 
                     // Attach files (PDFs, documents, non-embedded images)
                     foreach ($fileAttachments as $file) {

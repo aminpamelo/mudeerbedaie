@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Broadcast;
 use App\Models\BroadcastLog;
 use App\Models\Student;
+use App\Services\EmailTrackingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Mail;
@@ -51,8 +52,15 @@ class SendBroadcastEmail implements ShouldQueue
                     $content = $this->replaceMergeTags($this->broadcast->content, $student);
                     $subject = $this->replaceMergeTags($this->broadcast->subject, $student);
 
+                    // Inject email tracking pixel and track links
+                    $trackedContent = EmailTrackingService::applyTracking(
+                        $content,
+                        $log->tracking_id,
+                        'broadcast'
+                    );
+
                     // Send email
-                    Mail::html($content, function ($message) use ($student, $subject) {
+                    Mail::html($trackedContent, function ($message) use ($student, $subject) {
                         $message->to($student->user->email, $student->user->name)
                             ->subject($subject)
                             ->from($this->broadcast->from_email, $this->broadcast->from_name);
