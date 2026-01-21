@@ -16,7 +16,7 @@
                     'crm': ['crm.*'],
                     'commerce': ['admin.orders.*', 'packages.*'],
                     'certificates': ['certificates.*'],
-                    'inventory': ['inventory.*', 'stock.*', 'warehouses.*', 'agents.*'],
+                    'inventory': ['inventory.*', 'stock.*', 'warehouses.*'],
                     'agentCompany': ['agent-orders.*', 'agents.*'],
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedules.*', 'admin.live-sessions.*'],
@@ -182,7 +182,6 @@
                     <flux:navlist.item icon="squares-2x2" :href="route('stock.levels')" :current="request()->routeIs('stock.levels*')" wire:navigate>{{ __('Stock Levels') }}</flux:navlist.item>
                     <flux:navlist.item icon="exclamation-triangle" :href="route('stock.alerts')" :current="request()->routeIs('stock.alerts*')" wire:navigate>{{ __('Stock Alerts') }}</flux:navlist.item>
                     <flux:navlist.item icon="building-storefront" :href="route('warehouses.index')" :current="request()->routeIs('warehouses.*')" wire:navigate>{{ __('Warehouses') }}</flux:navlist.item>
-                    <flux:navlist.item icon="building-office" :href="route('agents.index')" :current="request()->routeIs('agents.*')" wire:navigate>{{ __('Agent & Companies') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
