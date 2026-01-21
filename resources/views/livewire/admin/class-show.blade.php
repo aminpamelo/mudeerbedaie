@@ -34,6 +34,53 @@ new class extends Component
         if (request()->query('expandedShipment')) {
             $this->selectedShipmentId = (int) request()->query('expandedShipment');
         }
+
+        // Check for any pending/processing student imports for this class
+        $this->checkForPendingStudentImports();
+    }
+
+    protected function checkForPendingStudentImports(): void
+    {
+        // First check for pending/processing imports
+        $pendingImport = \App\Models\StudentImportProgress::where('class_id', $this->class->id)
+            ->where('user_id', auth()->id())
+            ->whereIn('status', ['pending', 'processing'])
+            ->latest()
+            ->first();
+
+        if ($pendingImport) {
+            $this->currentStudentImportId = $pendingImport->id;
+            $this->importStudentProcessing = true;
+            // Initialize progress display immediately
+            $this->studentImportProgress = [
+                'status' => $pendingImport->status,
+                'total_rows' => $pendingImport->total_rows,
+                'processed_rows' => $pendingImport->processed_rows,
+                'matched_count' => $pendingImport->matched_count,
+                'created_count' => $pendingImport->created_count,
+                'enrolled_count' => $pendingImport->enrolled_count,
+                'skipped_count' => $pendingImport->skipped_count,
+                'error_count' => $pendingImport->error_count,
+                'progress_percentage' => $pendingImport->progress_percentage,
+            ];
+            $this->dispatch('start-student-import-polling');
+            return;
+        }
+
+        // Check for recently completed imports (within last 5 minutes) that haven't been viewed
+        $recentImport = \App\Models\StudentImportProgress::where('class_id', $this->class->id)
+            ->where('user_id', auth()->id())
+            ->where('status', 'completed')
+            ->where('completed_at', '>=', now()->subMinutes(5))
+            ->latest()
+            ->first();
+
+        if ($recentImport && request()->query('showImportResult') !== 'false') {
+            $this->importStudentResult = $recentImport->result ?? [];
+            if (! empty($this->importStudentResult)) {
+                $this->showImportStudentResultModal = true;
+            }
+        }
     }
 
     public function getEnrolledStudentsCountProperty()
@@ -189,6 +236,11 @@ new class extends Component
     public $autoEnrollImported = true;
 
     public $importStudentPassword = 'password123';
+
+    // Student import progress tracking
+    public $currentStudentImportId = null;
+
+    public $studentImportProgress = null;
 
     // Student shipment details modal
     public $showStudentShipmentModal = false;
@@ -2807,173 +2859,115 @@ new class extends Component
             'importStudentPassword.min' => 'Password must be at least 8 characters.',
         ]);
 
-        $this->importStudentProcessing = true;
-
         try {
-            $fileContents = file_get_contents($this->importStudentFile->getRealPath());
+            // Read file content from Livewire's temporary upload
+            $tempPath = $this->importStudentFile->getRealPath();
 
-            if ($fileContents === false) {
+            if (! $tempPath || ! file_exists($tempPath)) {
+                throw new \Exception('Uploaded file not found. Please try uploading again.');
+            }
+
+            $fileContents = file_get_contents($tempPath);
+
+            if ($fileContents === false || empty($fileContents)) {
                 throw new \Exception('Failed to read uploaded file');
             }
 
-            // Parse CSV
+            // Validate CSV has phone column before creating record
             $lines = preg_split('/\r\n|\r|\n/', $fileContents);
             $header = str_getcsv(array_shift($lines));
-
-            // Normalize headers (lowercase and trim)
             $header = array_map(fn ($h) => strtolower(trim($h)), $header);
 
-            // Find required columns
-            $phoneIndex = array_search('phone', $header);
-            $nameIndex = array_search('name', $header);
-            $emailIndex = array_search('email', $header);
-            $orderIdIndex = array_search('order_id', $header);
-
-            if ($phoneIndex === false) {
+            if (array_search('phone', $header) === false) {
                 throw new \Exception('CSV must contain a "phone" column.');
             }
 
-            $result = [
-                'matched' => [],
-                'created' => [],
-                'skipped' => [],
-                'enrolled' => [],
-                'already_enrolled' => [],
-                'errors' => [],
+            // Create import progress record with file content stored in database
+            $importProgress = \App\Models\StudentImportProgress::create([
+                'class_id' => $this->class->id,
+                'user_id' => auth()->id(),
+                'file_path' => 'database_storage',
+                'file_content' => $fileContents,
+                'status' => 'pending',
+                'total_rows' => 0,
+                'processed_rows' => 0,
+                'matched_count' => 0,
+                'created_count' => 0,
+                'enrolled_count' => 0,
+                'skipped_count' => 0,
+                'error_count' => 0,
+                'auto_enroll' => $this->autoEnrollImported,
+                'create_missing' => $this->createMissingStudents,
+                'default_password' => $this->importStudentPassword,
+            ]);
+
+            // Dispatch the job
+            \App\Jobs\ProcessStudentImportToClass::dispatch($importProgress->id);
+
+            $this->currentStudentImportId = $importProgress->id;
+            $this->importStudentProcessing = true;
+            $this->closeImportStudentModal();
+
+            // Initialize progress display immediately
+            $this->studentImportProgress = [
+                'status' => 'pending',
+                'total_rows' => 0,
+                'processed_rows' => 0,
+                'matched_count' => 0,
+                'created_count' => 0,
+                'enrolled_count' => 0,
+                'skipped_count' => 0,
+                'error_count' => 0,
+                'progress_percentage' => 0,
             ];
 
-            // Get existing students in this class
-            $classStudentIds = $this->class->activeStudents()
-                ->pluck('student_id')
-                ->toArray();
+            // Start polling for progress
+            $this->dispatch('start-student-import-polling');
 
-            foreach ($lines as $lineNumber => $line) {
-                if (empty(trim($line))) {
-                    continue;
-                }
+        } catch (\Exception $e) {
+            session()->flash('error', 'Import failed: ' . $e->getMessage());
+            $this->importStudentProcessing = false;
+        }
+    }
 
-                $row = str_getcsv($line);
-                $phone = isset($row[$phoneIndex]) ? trim($row[$phoneIndex]) : null;
-                $name = $nameIndex !== false && isset($row[$nameIndex]) ? trim($row[$nameIndex]) : null;
-                $email = $emailIndex !== false && isset($row[$emailIndex]) ? trim($row[$emailIndex]) : null;
-                $orderId = $orderIdIndex !== false && isset($row[$orderIdIndex]) ? trim($row[$orderIdIndex]) : null;
-
-                if (empty($phone)) {
-                    $result['errors'][] = "Row " . ($lineNumber + 2) . ": Phone number is required.";
-                    continue;
-                }
-
-                // Normalize phone number (remove spaces, dashes, and leading zeros after country code)
-                $normalizedPhone = preg_replace('/[^0-9+]/', '', $phone);
-                // Remove leading + if present for comparison
-                $phoneVariants = [
-                    $normalizedPhone,
-                    ltrim($normalizedPhone, '+'),
-                    '60' . ltrim(ltrim($normalizedPhone, '+'), '0'),
-                    ltrim(ltrim($normalizedPhone, '+'), '60'),
-                ];
-
-                // Try to find student by phone
-                $student = \App\Models\Student::where(function ($query) use ($phoneVariants) {
-                    foreach ($phoneVariants as $variant) {
-                        $query->orWhere('phone', 'like', '%' . $variant)
-                              ->orWhere('phone', $variant);
-                    }
-                })->first();
-
-                if ($student) {
-                    $result['matched'][] = [
-                        'phone' => $phone,
-                        'name' => $student->user->name,
-                        'student_id' => $student->student_id,
-                    ];
-
-                    // Check if already enrolled
-                    if (in_array($student->id, $classStudentIds)) {
-                        $result['already_enrolled'][] = [
-                            'phone' => $phone,
-                            'name' => $student->user->name,
-                        ];
-                        continue;
-                    }
-
-                    // Enroll if auto-enroll is enabled
-                    if ($this->autoEnrollImported) {
-                        // Check capacity
-                        if ($this->class->max_capacity) {
-                            $currentCount = count($classStudentIds) + count($result['enrolled']);
-                            if ($currentCount >= $this->class->max_capacity) {
-                                $result['errors'][] = "Skipped {$student->user->name}: Class is at maximum capacity.";
-                                continue;
-                            }
-                        }
-
-                        $this->class->addStudent($student, $orderId);
-                        $result['enrolled'][] = [
-                            'phone' => $phone,
-                            'name' => $student->user->name,
-                            'order_id' => $orderId,
-                        ];
-                    }
-                } else {
-                    // Student not found
-                    if ($this->createMissingStudents && $name) {
-                        try {
-                            // Create user first
-                            $user = \App\Models\User::create([
-                                'name' => $name,
-                                'email' => $email ?: null,
-                                'password' => bcrypt($this->importStudentPassword),
-                                'role' => 'student',
-                            ]);
-
-                            // Create student profile
-                            $newStudent = \App\Models\Student::create([
-                                'user_id' => $user->id,
-                                'phone' => $normalizedPhone,
-                                'status' => 'active',
-                            ]);
-
-                            $result['created'][] = [
-                                'phone' => $phone,
-                                'name' => $name,
-                                'student_id' => $newStudent->student_id,
-                            ];
-
-                            // Enroll if auto-enroll is enabled
-                            if ($this->autoEnrollImported) {
-                                // Check capacity
-                                if ($this->class->max_capacity) {
-                                    $currentCount = count($classStudentIds) + count($result['enrolled']);
-                                    if ($currentCount >= $this->class->max_capacity) {
-                                        $result['errors'][] = "Skipped enrolling {$name}: Class is at maximum capacity.";
-                                        continue;
-                                    }
-                                }
-
-                                $this->class->addStudent($newStudent, $orderId);
-                                $result['enrolled'][] = [
-                                    'phone' => $phone,
-                                    'name' => $name,
-                                    'order_id' => $orderId,
-                                ];
-                            }
-                        } catch (\Exception $e) {
-                            $result['errors'][] = "Row " . ($lineNumber + 2) . ": Failed to create student - " . $e->getMessage();
-                        }
-                    } else {
-                        $result['skipped'][] = [
-                            'phone' => $phone,
-                            'name' => $name ?? 'Unknown',
-                            'reason' => $this->createMissingStudents ? 'Name is required to create student' : 'Student not found',
-                        ];
-                    }
-                }
+    public function checkStudentImportProgress(): void
+    {
+        if (! $this->currentStudentImportId) {
+            // If processing flag is true but no import ID, reset the state
+            if ($this->importStudentProcessing) {
+                $this->dismissStudentImportProgress();
             }
+            return;
+        }
 
-            $this->importStudentResult = $result;
+        $importProgress = \App\Models\StudentImportProgress::find($this->currentStudentImportId);
+
+        if (! $importProgress) {
+            $this->importStudentProcessing = false;
+            $this->currentStudentImportId = null;
+            $this->dispatch('stop-student-import-polling');
+            return;
+        }
+
+        $this->studentImportProgress = [
+            'status' => $importProgress->status,
+            'total_rows' => $importProgress->total_rows,
+            'processed_rows' => $importProgress->processed_rows,
+            'matched_count' => $importProgress->matched_count,
+            'created_count' => $importProgress->created_count,
+            'enrolled_count' => $importProgress->enrolled_count,
+            'skipped_count' => $importProgress->skipped_count,
+            'error_count' => $importProgress->error_count,
+            'progress_percentage' => $importProgress->progress_percentage,
+        ];
+
+        if ($importProgress->isCompleted()) {
+            $this->importStudentProcessing = false;
+            $this->importStudentResult = $importProgress->result ?? [];
             $this->showImportStudentResultModal = true;
-            $this->closeImportStudentModal();
+            $this->currentStudentImportId = null;
+            $this->studentImportProgress = null;
+            $this->dispatch('stop-student-import-polling');
 
             // Refresh the class data
             $this->class->refresh();
@@ -2983,12 +2977,21 @@ new class extends Component
                 'sessions.attendances.student.user',
                 'activeStudents.student.user',
             ]);
-
-        } catch (\Exception $e) {
-            session()->flash('error', 'Import failed: ' . $e->getMessage());
-        } finally {
+        } elseif ($importProgress->isFailed()) {
             $this->importStudentProcessing = false;
+            $this->currentStudentImportId = null;
+            $this->studentImportProgress = null;
+            $this->dispatch('stop-student-import-polling');
+            session()->flash('error', 'Import failed: ' . ($importProgress->error_message ?? 'Unknown error'));
         }
+    }
+
+    public function dismissStudentImportProgress(): void
+    {
+        $this->importStudentProcessing = false;
+        $this->currentStudentImportId = null;
+        $this->studentImportProgress = null;
+        $this->dispatch('stop-student-import-polling');
     }
 
     public function viewStudentShipmentDetails($itemId): void
@@ -4383,6 +4386,89 @@ new class extends Component
                             <div class="mx-6 mt-4">
                                 <flux:card class="p-4 bg-red-50 border-red-200">
                                     <flux:text class="text-red-800">{{ session('error') }}</flux:text>
+                                </flux:card>
+                            </div>
+                        @endif
+
+                        <!-- Student Import Progress Indicator -->
+                        @if($importStudentProcessing)
+                            <div class="mx-6 mt-4" wire:poll.1s="checkStudentImportProgress">
+                                <flux:card class="p-4 bg-blue-50 border-blue-200">
+                                    <div class="flex items-start gap-3">
+                                        <div class="flex-shrink-0 mt-0.5">
+                                            @if(($studentImportProgress['status'] ?? 'pending') === 'pending')
+                                                <div class="animate-pulse rounded-full h-5 w-5 bg-blue-400"></div>
+                                            @else
+                                                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                            @endif
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between">
+                                                <flux:text class="font-medium text-blue-900">
+                                                    @if(($studentImportProgress['status'] ?? 'pending') === 'pending')
+                                                        Preparing student import...
+                                                    @else
+                                                        Processing student import...
+                                                    @endif
+                                                </flux:text>
+                                                <flux:button variant="ghost" size="xs" wire:click="dismissStudentImportProgress" title="Dismiss" class="flex-shrink-0">
+                                                    <flux:icon name="x-mark" class="w-4 h-4" />
+                                                </flux:button>
+                                            </div>
+
+                                            @if($studentImportProgress)
+                                                @php
+                                                    $progressPercentage = $studentImportProgress['progress_percentage'] ?? 0;
+                                                    $totalRows = $studentImportProgress['total_rows'] ?? 0;
+                                                    $processedRows = $studentImportProgress['processed_rows'] ?? 0;
+                                                @endphp
+
+                                                <!-- Progress Bar -->
+                                                <div class="mt-2">
+                                                    <div class="flex items-center justify-between text-xs text-blue-700 mb-1">
+                                                        <span>
+                                                            @if($totalRows > 0)
+                                                                {{ $processedRows }} of {{ $totalRows }} rows
+                                                            @else
+                                                                Waiting to start...
+                                                            @endif
+                                                        </span>
+                                                        <span class="font-medium">{{ $progressPercentage }}%</span>
+                                                    </div>
+                                                    <div class="w-full bg-blue-200 rounded-full h-2 overflow-hidden">
+                                                        <div
+                                                            class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                                                            style="width: {{ $progressPercentage }}%"
+                                                        ></div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Stats -->
+                                                @if($totalRows > 0)
+                                                    <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                                        <div class="flex items-center gap-1.5 text-green-700 bg-green-50 px-2 py-1 rounded">
+                                                            <flux:icon name="check-circle" class="w-3.5 h-3.5" />
+                                                            <span>Matched: {{ $studentImportProgress['matched_count'] ?? 0 }}</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-1.5 text-blue-700 bg-blue-100 px-2 py-1 rounded">
+                                                            <flux:icon name="user-plus" class="w-3.5 h-3.5" />
+                                                            <span>Created: {{ $studentImportProgress['created_count'] ?? 0 }}</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-1.5 text-purple-700 bg-purple-50 px-2 py-1 rounded">
+                                                            <flux:icon name="academic-cap" class="w-3.5 h-3.5" />
+                                                            <span>Enrolled: {{ $studentImportProgress['enrolled_count'] ?? 0 }}</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-1.5 text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                                                            <flux:icon name="forward" class="w-3.5 h-3.5" />
+                                                            <span>Skipped: {{ $studentImportProgress['skipped_count'] ?? 0 }}</span>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            @else
+                                                <flux:text class="text-sm text-blue-700 mt-1">Initializing...</flux:text>
+                                            @endif
+                                        </div>
+                                    </div>
                                 </flux:card>
                             </div>
                         @endif
@@ -8526,27 +8612,31 @@ new class extends Component
     </flux:modal>
 
     <!-- Import Students Result Modal -->
-    <flux:modal name="import-students-result" :show="$showImportStudentResultModal" wire:model="showImportStudentResultModal">
+    <flux:modal name="import-students-result" :show="$showImportStudentResultModal" wire:model="showImportStudentResultModal" class="max-w-3xl">
         <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
-            <flux:heading size="lg">Import Results</flux:heading>
+            <flux:heading size="xl">Import Results</flux:heading>
             <flux:text class="mt-2">Summary of the student import process</flux:text>
         </div>
 
-        <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+        <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
             @if(!empty($importStudentResult))
                 <!-- Summary Stats -->
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="bg-green-50 rounded-lg p-3 text-center">
-                        <div class="text-2xl font-bold text-green-600">{{ count($importStudentResult['enrolled'] ?? []) }}</div>
-                        <div class="text-xs text-green-700">Enrolled</div>
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-green-600">{{ count($importStudentResult['enrolled'] ?? []) }}</div>
+                        <div class="text-sm text-green-700 font-medium mt-1">Enrolled</div>
                     </div>
-                    <div class="bg-blue-50 rounded-lg p-3 text-center">
-                        <div class="text-2xl font-bold text-blue-600">{{ count($importStudentResult['created'] ?? []) }}</div>
-                        <div class="text-xs text-blue-700">Created</div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-blue-600">{{ count($importStudentResult['created'] ?? []) }}</div>
+                        <div class="text-sm text-blue-700 font-medium mt-1">Created</div>
                     </div>
-                    <div class="bg-yellow-50 rounded-lg p-3 text-center">
-                        <div class="text-2xl font-bold text-yellow-600">{{ count($importStudentResult['skipped'] ?? []) }}</div>
-                        <div class="text-xs text-yellow-700">Skipped</div>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-yellow-600">{{ count($importStudentResult['skipped'] ?? []) }}</div>
+                        <div class="text-sm text-yellow-700 font-medium mt-1">Skipped</div>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-gray-600">{{ count($importStudentResult['already_enrolled'] ?? []) }}</div>
+                        <div class="text-sm text-gray-700 font-medium mt-1">Already Enrolled</div>
                     </div>
                 </div>
 
@@ -8892,6 +8982,27 @@ document.addEventListener('livewire:init', () => {
         if (importPollingInterval) {
             clearInterval(importPollingInterval);
             importPollingInterval = null;
+        }
+    });
+
+    // Student import progress polling
+    let studentImportPollingInterval = null;
+
+    Livewire.on('start-student-import-polling', () => {
+        if (studentImportPollingInterval) {
+            clearInterval(studentImportPollingInterval);
+        }
+
+        // Poll every 1.5 seconds (backup for wire:poll)
+        studentImportPollingInterval = setInterval(() => {
+            Livewire.dispatch('checkStudentImportProgress');
+        }, 1500);
+    });
+
+    Livewire.on('stop-student-import-polling', () => {
+        if (studentImportPollingInterval) {
+            clearInterval(studentImportPollingInterval);
+            studentImportPollingInterval = null;
         }
     });
 });

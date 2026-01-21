@@ -109,7 +109,6 @@ new class extends Component
                 'by_type' => [
                     'agent' => ['orders' => 0, 'revenue' => 0],
                     'company' => ['orders' => 0, 'revenue' => 0],
-                    'bookstore' => ['orders' => 0, 'revenue' => 0],
                 ],
             ];
         }
@@ -235,7 +234,6 @@ new class extends Component
         $this->agentTypeBreakdown = [
             'agent' => ['orders' => 0, 'revenue' => 0],
             'company' => ['orders' => 0, 'revenue' => 0],
-            'bookstore' => ['orders' => 0, 'revenue' => 0],
         ];
 
         foreach ($breakdown as $data) {
@@ -252,10 +250,9 @@ new class extends Component
     public function getAgentTypes(): array
     {
         return [
-            '' => 'Semua Jenis',
+            '' => 'All Types',
             'agent' => 'Agent',
             'company' => 'Company',
-            'bookstore' => 'Kedai Buku',
         ];
     }
 
@@ -284,8 +281,6 @@ new class extends Component
                 'Agent Revenue',
                 'Company Orders',
                 'Company Revenue',
-                'Bookstore Orders',
-                'Bookstore Revenue',
             ]);
 
             // Data rows
@@ -302,8 +297,6 @@ new class extends Component
                     number_format($data['by_type']['agent']['revenue'], 2),
                     $data['by_type']['company']['orders'],
                     number_format($data['by_type']['company']['revenue'], 2),
-                    $data['by_type']['bookstore']['orders'],
-                    number_format($data['by_type']['bookstore']['revenue'], 2),
                 ]);
             }
 
@@ -405,7 +398,7 @@ new class extends Component
         </div>
 
         {{-- Agent Type Breakdown Cards --}}
-        <div class="grid gap-4 sm:grid-cols-3">
+        <div class="grid gap-4 sm:grid-cols-2">
             <flux:card class="border-l-4 border-l-blue-500">
                 <div class="flex items-center justify-between">
                     <div>
@@ -425,17 +418,6 @@ new class extends Component
                         <flux:text class="text-sm text-green-600 dark:text-green-400">RM {{ number_format($agentTypeBreakdown['company']['revenue'] ?? 0, 2) }}</flux:text>
                     </div>
                     <flux:icon name="building-office" class="h-8 w-8 text-purple-500" />
-                </div>
-            </flux:card>
-
-            <flux:card class="border-l-4 border-l-orange-500">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <flux:text class="text-sm font-medium text-gray-500 dark:text-zinc-400">Bookstore</flux:text>
-                        <flux:heading size="lg" class="mt-1">{{ number_format($agentTypeBreakdown['bookstore']['orders'] ?? 0) }} orders</flux:heading>
-                        <flux:text class="text-sm text-green-600 dark:text-green-400">RM {{ number_format($agentTypeBreakdown['bookstore']['revenue'] ?? 0, 2) }}</flux:text>
-                    </div>
-                    <flux:icon name="building-storefront" class="h-8 w-8 text-orange-500" />
                 </div>
             </flux:card>
         </div>

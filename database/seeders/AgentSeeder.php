@@ -170,157 +170,8 @@ class AgentSeeder extends Seeder
             ],
         ];
 
-        // Create Bookstores (type: bookstore)
-        $bookstores = [
-            [
-                'agent_code' => 'KB0001',
-                'name' => 'Kedai Buku Harmoni',
-                'type' => 'bookstore',
-                'pricing_tier' => 'standard',
-                'commission_rate' => 10.00,
-                'credit_limit' => 10000.00,
-                'consignment_enabled' => true,
-                'company_name' => 'Harmoni Books Enterprise',
-                'registration_number' => 'KL0789012-B',
-                'contact_person' => 'Nurul Huda binti Razak',
-                'email' => 'harmoni.books@example.com',
-                'phone' => '03-21234567',
-                'address' => [
-                    'street' => 'No. 45, Jalan Tuanku Abdul Rahman',
-                    'city' => 'Kuala Lumpur',
-                    'state' => 'Wilayah Persekutuan',
-                    'postal_code' => '50100',
-                    'country' => 'Malaysia',
-                ],
-                'payment_terms' => 'Net 30 days',
-                'bank_details' => [
-                    'bank_name' => 'Maybank',
-                    'account_number' => '5678901234',
-                    'account_name' => 'Harmoni Books Enterprise',
-                ],
-                'is_active' => true,
-                'notes' => 'Standard tier bookstore - 10% discount',
-            ],
-            [
-                'agent_code' => 'KB0002',
-                'name' => 'Pustaka Gemilang',
-                'type' => 'bookstore',
-                'pricing_tier' => 'premium',
-                'commission_rate' => 15.00,
-                'credit_limit' => 20000.00,
-                'consignment_enabled' => true,
-                'company_name' => 'Pustaka Gemilang Sdn Bhd',
-                'registration_number' => '202001045678 (1456789-P)',
-                'contact_person' => 'Muhammad Hafiz bin Yusof',
-                'email' => 'gemilang@example.com',
-                'phone' => '03-55678901',
-                'address' => [
-                    'street' => 'Lot 12, Kompleks PKNS',
-                    'city' => 'Shah Alam',
-                    'state' => 'Selangor',
-                    'postal_code' => '40000',
-                    'country' => 'Malaysia',
-                ],
-                'payment_terms' => 'Net 14 days',
-                'bank_details' => [
-                    'bank_name' => 'Bank Rakyat',
-                    'account_number' => '2101234567',
-                    'account_name' => 'Pustaka Gemilang Sdn Bhd',
-                ],
-                'is_active' => true,
-                'notes' => 'Premium tier bookstore - 15% discount - High volume buyer',
-            ],
-            [
-                'agent_code' => 'KB0003',
-                'name' => 'Kedai Buku Bestari',
-                'type' => 'bookstore',
-                'pricing_tier' => 'vip',
-                'commission_rate' => 20.00,
-                'credit_limit' => 50000.00,
-                'consignment_enabled' => true,
-                'company_name' => 'Bestari Books Sdn Bhd',
-                'registration_number' => '201501067890 (1167890-M)',
-                'contact_person' => 'Dr. Zainal Abidin',
-                'email' => 'bestari.books@example.com',
-                'phone' => '03-89012345',
-                'address' => [
-                    'street' => 'No. 100, Jalan Universiti',
-                    'city' => 'Petaling Jaya',
-                    'state' => 'Selangor',
-                    'postal_code' => '46200',
-                    'country' => 'Malaysia',
-                ],
-                'payment_terms' => 'Net 45 days',
-                'bank_details' => [
-                    'bank_name' => 'CIMB Bank',
-                    'account_number' => '7612345678',
-                    'account_name' => 'Bestari Books Sdn Bhd',
-                ],
-                'is_active' => true,
-                'notes' => 'VIP tier bookstore - 20% discount - Top performer',
-            ],
-            [
-                'agent_code' => 'KB0004',
-                'name' => 'Kedai Buku Ilham',
-                'type' => 'bookstore',
-                'pricing_tier' => 'standard',
-                'commission_rate' => 10.00,
-                'credit_limit' => 8000.00,
-                'consignment_enabled' => false,
-                'company_name' => 'Ilham Enterprise',
-                'registration_number' => 'PG0345678-C',
-                'contact_person' => 'Lee Mei Fong',
-                'email' => 'ilham.books@example.com',
-                'phone' => '04-2567890',
-                'address' => [
-                    'street' => 'No. 23, Jalan Burma',
-                    'city' => 'Georgetown',
-                    'state' => 'Pulau Pinang',
-                    'postal_code' => '10050',
-                    'country' => 'Malaysia',
-                ],
-                'payment_terms' => 'COD',
-                'bank_details' => [
-                    'bank_name' => 'Public Bank',
-                    'account_number' => '3234567890',
-                    'account_name' => 'Ilham Enterprise',
-                ],
-                'is_active' => true,
-                'notes' => 'Penang area bookstore',
-            ],
-            [
-                'agent_code' => 'KB0005',
-                'name' => 'Kedai Buku Wawasan',
-                'type' => 'bookstore',
-                'pricing_tier' => 'premium',
-                'commission_rate' => 15.00,
-                'credit_limit' => 15000.00,
-                'consignment_enabled' => true,
-                'company_name' => 'Wawasan Bookstore Sdn Bhd',
-                'registration_number' => '201801089012 (1289012-X)',
-                'contact_person' => 'Amirah binti Kamal',
-                'email' => 'wawasan@example.com',
-                'phone' => '09-7456789',
-                'address' => [
-                    'street' => 'No. 56, Jalan Sultan Mahmud',
-                    'city' => 'Kuala Terengganu',
-                    'state' => 'Terengganu',
-                    'postal_code' => '20400',
-                    'country' => 'Malaysia',
-                ],
-                'payment_terms' => 'Net 21 days',
-                'bank_details' => [
-                    'bank_name' => 'Bank Islam',
-                    'account_number' => '1456789012',
-                    'account_name' => 'Wawasan Bookstore Sdn Bhd',
-                ],
-                'is_active' => true,
-                'notes' => 'East coast premium bookstore',
-            ],
-        ];
-
         // Create all agents
-        $allAgents = array_merge($agents, $companies, $bookstores);
+        $allAgents = array_merge($agents, $companies);
         $createdAgents = [];
 
         foreach ($allAgents as $agentData) {
@@ -330,7 +181,7 @@ class AgentSeeder extends Seeder
             );
         }
 
-        $this->command->info('Created '.count($allAgents).' agents (agents, companies, bookstores)');
+        $this->command->info('Created '.count($allAgents).' agents (agents and companies)');
 
         // Create orders for agents
         $this->createAgentOrders($createdAgents);
@@ -385,10 +236,8 @@ class AgentSeeder extends Seeder
                     $quantity = rand(1, 10);
                     $unitPrice = $product->base_price ?? rand(20, 100);
 
-                    // Apply tier discount for bookstores
-                    if ($agent->isBookstore()) {
-                        $unitPrice = $agent->calculateTierPrice($unitPrice);
-                    }
+                    // Apply tier discount
+                    $unitPrice = $agent->calculateTierPrice($unitPrice);
 
                     $itemTotal = $quantity * $unitPrice;
                     $subtotal += $itemTotal;

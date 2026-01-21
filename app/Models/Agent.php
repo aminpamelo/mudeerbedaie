@@ -15,8 +15,6 @@ class Agent extends Model
 
     public const TYPE_COMPANY = 'company';
 
-    public const TYPE_BOOKSTORE = 'bookstore';
-
     // Pricing tier constants
     public const PRICING_TIER_STANDARD = 'standard';
 
@@ -108,11 +106,6 @@ class Agent extends Model
     public function isCompany(): bool
     {
         return $this->type === 'company';
-    }
-
-    public function isBookstore(): bool
-    {
-        return $this->type === self::TYPE_BOOKSTORE;
     }
 
     /**
@@ -239,11 +232,6 @@ class Agent extends Model
         return $query->where('type', 'company');
     }
 
-    public function scopeBookstores($query)
-    {
-        return $query->where('type', self::TYPE_BOOKSTORE);
-    }
-
     public function scopeSearch($query, $search)
     {
         return $query->where(function ($q) use ($search) {
@@ -263,26 +251,6 @@ class Agent extends Model
 
         if ($lastAgent) {
             $lastNumber = (int) substr($lastAgent->agent_code, strlen($prefix));
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
-        }
-
-        return $prefix.str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Generate a unique bookstore code (KB prefix).
-     */
-    public static function generateBookstoreCode(): string
-    {
-        $prefix = 'KB';
-        $lastBookstore = self::where('agent_code', 'like', $prefix.'%')
-            ->orderBy('agent_code', 'desc')
-            ->first();
-
-        if ($lastBookstore) {
-            $lastNumber = (int) substr($lastBookstore->agent_code, strlen($prefix));
             $nextNumber = $lastNumber + 1;
         } else {
             $nextNumber = 1;

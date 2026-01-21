@@ -12,10 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // First, update the type enum to include 'bookstore'
-        // For SQLite, we need to recreate the table or use a workaround
-        // For MySQL, we can use ALTER TABLE to modify enum
-
+        // Add pricing tier and related columns
         // Check database driver
         $driver = DB::getDriverName();
 
@@ -31,8 +28,6 @@ return new class extends Migration
             });
         } else {
             // For MySQL/PostgreSQL
-            DB::statement("ALTER TABLE agents MODIFY COLUMN type ENUM('agent', 'company', 'bookstore') NOT NULL DEFAULT 'agent'");
-
             Schema::table('agents', function (Blueprint $table) {
                 $table->string('pricing_tier', 20)->default('standard')->after('type');
                 $table->decimal('commission_rate', 5, 2)->nullable()->after('pricing_tier');
@@ -41,7 +36,7 @@ return new class extends Migration
             });
         }
 
-        // Add index for bookstore type queries
+        // Add index for pricing tier queries
         Schema::table('agents', function (Blueprint $table) {
             $table->index('pricing_tier');
         });

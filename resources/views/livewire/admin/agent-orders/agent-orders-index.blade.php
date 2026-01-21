@@ -216,7 +216,7 @@ new class extends Component
     <div class="mb-6 flex items-center justify-between">
         <div>
             <flux:heading size="xl">All Agent's Order</flux:heading>
-            <flux:text class="mt-2">Manage orders from all agents (agent, company, kedai buku)</flux:text>
+            <flux:text class="mt-2">Manage orders from all agents and companies</flux:text>
         </div>
 
         <div class="flex gap-3">
