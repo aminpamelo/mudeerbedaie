@@ -19,8 +19,16 @@ class ClassNotificationSetting extends Model
         'custom_minutes_before',
         'send_to_students',
         'send_to_teacher',
+        'whatsapp_enabled',
+        'whatsapp_content',
+        'whatsapp_image_path',
+        'sms_content',
+        'use_custom_whatsapp_template',
         'custom_subject',
         'custom_content',
+        'design_json',
+        'html_content',
+        'editor_type',
     ];
 
     protected function casts(): array
@@ -29,6 +37,9 @@ class ClassNotificationSetting extends Model
             'is_enabled' => 'boolean',
             'send_to_students' => 'boolean',
             'send_to_teacher' => 'boolean',
+            'whatsapp_enabled' => 'boolean',
+            'use_custom_whatsapp_template' => 'boolean',
+            'design_json' => 'array',
         ];
     }
 
@@ -47,6 +58,108 @@ class ClassNotificationSetting extends Model
         return $this->hasMany(ScheduledNotification::class, 'class_notification_setting_id');
     }
 
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(ClassNotificationAttachment::class);
+    }
+
+    public function isVisualEditor(): bool
+    {
+        return $this->editor_type === 'visual';
+    }
+
+    public function isTextEditor(): bool
+    {
+        return $this->editor_type === 'text' || empty($this->editor_type);
+    }
+
+    public function hasCustomTemplate(): bool
+    {
+        return $this->isVisualEditor()
+            ? ! empty($this->html_content)
+            : ! empty($this->custom_content);
+    }
+
+    /**
+     * Check if this notification setting has valid template configuration.
+     * A setting is ready when it has both subject and content available.
+     */
+    public function isTemplateReady(): bool
+    {
+        // Check for subject
+        $hasSubject = ! empty($this->custom_subject) || ! empty($this->template?->subject);
+
+        // Check for content (priority order matches SendClassNotificationJob)
+        $hasContent = ! empty($this->html_content)  // Custom visual template
+            || ! empty($this->custom_content)       // Custom text template
+            || ! empty($this->template?->html_content)  // System visual template
+            || ! empty($this->template?->content);      // System text template
+
+        return $hasSubject && $hasContent;
+    }
+
+    /**
+     * Get the template readiness status with details.
+     */
+    public function getTemplateReadinessAttribute(): array
+    {
+        $hasSubject = ! empty($this->custom_subject) || ! empty($this->template?->subject);
+        $hasContent = ! empty($this->html_content)
+            || ! empty($this->custom_content)
+            || ! empty($this->template?->html_content)
+            || ! empty($this->template?->content);
+
+        $isReady = $hasSubject && $hasContent;
+
+        $issues = [];
+        if (! $hasSubject) {
+            $issues[] = 'Tiada subjek';
+        }
+        if (! $hasContent) {
+            $issues[] = 'Tiada kandungan';
+        }
+
+        return [
+            'ready' => $isReady,
+            'has_subject' => $hasSubject,
+            'has_content' => $hasContent,
+            'issues' => $issues,
+            'source' => $this->getTemplateSource(),
+        ];
+    }
+
+    /**
+     * Get the source of the template content.
+     */
+    public function getTemplateSource(): string
+    {
+        if (! empty($this->html_content)) {
+            return 'custom_visual';
+        }
+        if (! empty($this->custom_content)) {
+            return 'custom_text';
+        }
+        if ($this->template) {
+            if (! empty($this->template->html_content)) {
+                return 'system_visual';
+            }
+            if (! empty($this->template->content)) {
+                return 'system_text';
+            }
+        }
+
+        return 'none';
+    }
+
+    public function getEffectiveHtmlContent(): ?string
+    {
+        if ($this->isVisualEditor() && $this->html_content) {
+            return $this->html_content;
+        }
+
+        return null;
+    }
+
     public function getEffectiveSubject(): ?string
     {
         return $this->custom_subject ?? $this->template?->subject;
@@ -55,6 +168,78 @@ class ClassNotificationSetting extends Model
     public function getEffectiveContent(): ?string
     {
         return $this->custom_content ?? $this->template?->content;
+    }
+
+    /**
+     * Check if this setting has a custom WhatsApp template.
+     */
+    public function hasCustomWhatsAppTemplate(): bool
+    {
+        return $this->use_custom_whatsapp_template && ! empty($this->whatsapp_content);
+    }
+
+    /**
+     * Get the effective WhatsApp content.
+     * Returns custom WhatsApp content if set, otherwise returns null (caller should convert from email).
+     */
+    public function getEffectiveWhatsAppContent(): ?string
+    {
+        if ($this->hasCustomWhatsAppTemplate()) {
+            return $this->whatsapp_content;
+        }
+
+        return null;
+    }
+
+    /**
+     * Get WhatsApp formatting guide for UI display.
+     */
+    public static function getWhatsAppFormattingGuide(): array
+    {
+        return [
+            '*bold*' => 'Teks tebal',
+            '_italic_' => 'Teks condong',
+            '~strikethrough~' => 'Teks bergaris',
+            '```code```' => 'Kod/monospace',
+        ];
+    }
+
+    /**
+     * Check if this setting has a WhatsApp image.
+     */
+    public function hasWhatsAppImage(): bool
+    {
+        return ! empty($this->whatsapp_image_path);
+    }
+
+    /**
+     * Get the full URL for the WhatsApp image.
+     */
+    public function getWhatsAppImageUrl(): ?string
+    {
+        if (! $this->hasWhatsAppImage()) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->url($this->whatsapp_image_path);
+    }
+
+    /**
+     * Delete the WhatsApp image file.
+     */
+    public function deleteWhatsAppImage(): bool
+    {
+        if (! $this->hasWhatsAppImage()) {
+            return false;
+        }
+
+        $deleted = \Illuminate\Support\Facades\Storage::disk('public')->delete($this->whatsapp_image_path);
+
+        if ($deleted) {
+            $this->update(['whatsapp_image_path' => null]);
+        }
+
+        return $deleted;
     }
 
     public function getMinutesBefore(): int

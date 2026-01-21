@@ -446,7 +446,7 @@ new class extends Component {
 
     {{-- Import Results --}}
     @if($import_results)
-    <div class="mb-6 bg-white rounded-lg border p-6">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
         <flux:heading size="lg" class="mb-4">Import Results</flux:heading>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -482,7 +482,7 @@ new class extends Component {
         <div class="lg:col-span-2">
             <form wire:submit="import" class="space-y-6">
                 {{-- File Upload --}}
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Step 1: Select CSV File</flux:heading>
 
                     <div class="space-y-4">
@@ -522,7 +522,7 @@ new class extends Component {
 
                 {{-- CSV Preview and Mapping --}}
                 @if($show_preview)
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Step 2: Map CSV Fields</flux:heading>
 
                     {{-- CSV Sample Preview --}}
@@ -591,7 +591,7 @@ new class extends Component {
 
                 {{-- Import Progress --}}
                 @if($importing)
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Importing Orders...</flux:heading>
 
                     <div class="space-y-4">
@@ -629,7 +629,7 @@ new class extends Component {
         {{-- Sidebar --}}
         <div class="space-y-6">
             {{-- Import Guidelines --}}
-            <div class="bg-white rounded-lg border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Import Guidelines</flux:heading>
 
                 <div class="space-y-4">

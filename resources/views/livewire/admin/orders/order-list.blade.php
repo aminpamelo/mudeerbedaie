@@ -262,50 +262,50 @@ new class extends Component
     @endphp
 
     @if($totalActionNeeded > 0)
-        <div class="mb-6 bg-gradient-to-r from-cyan-50 to-blue-50 border-2 border-cyan-400 rounded-lg p-6">
+        <div class="mb-6 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950 dark:to-blue-950 border-2 border-cyan-400 dark:border-cyan-600 rounded-lg p-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
-                    <flux:icon name="exclamation-triangle" class="w-5 h-5 text-cyan-600" />
-                    <flux:heading size="lg" class="text-cyan-900">Action Needed</flux:heading>
+                    <flux:icon name="exclamation-triangle" class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                    <flux:heading size="lg" class="text-cyan-900 dark:text-cyan-100">Action Needed</flux:heading>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 @if($actionStats['pending_confirmation'] > 0)
-                    <button wire:click="$set('activeTab', 'pending')" class="bg-white rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200">
-                        <flux:text size="sm" class="text-gray-600">Pending Confirmation</flux:text>
+                    <button wire:click="$set('activeTab', 'pending')" class="bg-white dark:bg-zinc-800 rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200 dark:border-zinc-700">
+                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Pending Confirmation</flux:text>
                         <div class="flex items-center justify-between mt-2">
-                            <flux:text class="text-2xl font-bold text-yellow-600">{{ $actionStats['pending_confirmation'] }}</flux:text>
+                            <flux:text class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ $actionStats['pending_confirmation'] }}</flux:text>
                             <flux:badge color="yellow" size="sm">Action Required</flux:badge>
                         </div>
                     </button>
                 @endif
 
                 @if($actionStats['unpaid_orders'] > 0)
-                    <div class="bg-white rounded-lg p-4 border border-gray-200">
-                        <flux:text size="sm" class="text-gray-600">Unpaid Orders</flux:text>
+                    <div class="bg-white dark:bg-zinc-800 rounded-lg p-4 border border-gray-200 dark:border-zinc-700">
+                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Unpaid Orders</flux:text>
                         <div class="flex items-center justify-between mt-2">
-                            <flux:text class="text-2xl font-bold text-red-600">{{ $actionStats['unpaid_orders'] }}</flux:text>
+                            <flux:text class="text-2xl font-bold text-red-600 dark:text-red-400">{{ $actionStats['unpaid_orders'] }}</flux:text>
                             <flux:badge color="red" size="sm">Payment Due</flux:badge>
                         </div>
                     </div>
                 @endif
 
                 @if($actionStats['processing'] > 0)
-                    <button wire:click="$set('activeTab', 'processing')" class="bg-white rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200">
-                        <flux:text size="sm" class="text-gray-600">Processing</flux:text>
+                    <button wire:click="$set('activeTab', 'processing')" class="bg-white dark:bg-zinc-800 rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200 dark:border-zinc-700">
+                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Processing</flux:text>
                         <div class="flex items-center justify-between mt-2">
-                            <flux:text class="text-2xl font-bold text-purple-600">{{ $actionStats['processing'] }}</flux:text>
+                            <flux:text class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $actionStats['processing'] }}</flux:text>
                             <flux:badge color="purple" size="sm">In Progress</flux:badge>
                         </div>
                     </button>
                 @endif
 
                 @if($actionStats['ready_to_ship'] > 0)
-                    <button wire:click="$set('activeTab', 'confirmed')" class="bg-white rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200">
-                        <flux:text size="sm" class="text-gray-600">Ready to Ship</flux:text>
+                    <button wire:click="$set('activeTab', 'confirmed')" class="bg-white dark:bg-zinc-800 rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200 dark:border-zinc-700">
+                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Ready to Ship</flux:text>
                         <div class="flex items-center justify-between mt-2">
-                            <flux:text class="text-2xl font-bold text-blue-600">{{ $actionStats['ready_to_ship'] }}</flux:text>
+                            <flux:text class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $actionStats['ready_to_ship'] }}</flux:text>
                             <flux:badge color="blue" size="sm">Ready</flux:badge>
                         </div>
                     </button>
@@ -315,12 +315,12 @@ new class extends Component
     @endif
 
     <!-- Status Tabs -->
-    <div class="mb-6 bg-white rounded-lg border border-gray-200">
-        <div class="border-b border-gray-200">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="border-b border-gray-200 dark:border-zinc-700">
             <nav class="flex gap-4 px-6" aria-label="Tabs">
                 <button
                     wire:click="$set('activeTab', 'all')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'all' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'all' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     All
                     <flux:badge size="sm" class="ml-2">{{ $this->getStatusCount('all') }}</flux:badge>
@@ -328,7 +328,7 @@ new class extends Component
 
                 <button
                     wire:click="$set('activeTab', 'pending')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'pending' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'pending' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     Pending
                     <flux:badge size="sm" color="yellow" class="ml-2">{{ $this->getStatusCount('pending') }}</flux:badge>
@@ -336,7 +336,7 @@ new class extends Component
 
                 <button
                     wire:click="$set('activeTab', 'confirmed')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'confirmed' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'confirmed' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     Confirmed
                     <flux:badge size="sm" color="blue" class="ml-2">{{ $this->getStatusCount('confirmed') }}</flux:badge>
@@ -344,7 +344,7 @@ new class extends Component
 
                 <button
                     wire:click="$set('activeTab', 'processing')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'processing' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'processing' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     Processing
                     <flux:badge size="sm" color="purple" class="ml-2">{{ $this->getStatusCount('processing') }}</flux:badge>
@@ -352,7 +352,7 @@ new class extends Component
 
                 <button
                     wire:click="$set('activeTab', 'shipped')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'shipped' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'shipped' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     Shipped
                     <flux:badge size="sm" color="cyan" class="ml-2">{{ $this->getStatusCount('shipped') }}</flux:badge>
@@ -360,7 +360,7 @@ new class extends Component
 
                 <button
                     wire:click="$set('activeTab', 'delivered')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'delivered' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'delivered' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     Delivered
                     <flux:badge size="sm" color="green" class="ml-2">{{ $this->getStatusCount('delivered') }}</flux:badge>
@@ -368,7 +368,7 @@ new class extends Component
 
                 <button
                     wire:click="$set('activeTab', 'cancelled')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'cancelled' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'cancelled' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
                 >
                     Cancelled
                     <flux:badge size="sm" color="red" class="ml-2">{{ $this->getStatusCount('cancelled') }}</flux:badge>
@@ -378,7 +378,7 @@ new class extends Component
     </div>
 
     <!-- Filters -->
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <!-- Search -->
             <div class="md:col-span-2">
@@ -427,10 +427,10 @@ new class extends Component
         </div>
 
         <!-- Filter Actions -->
-        <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+        <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
             <div class="flex items-center gap-2">
                 @if($search || $orderTypeFilter || $productFilter || $dateFilter)
-                    <flux:text size="sm" class="text-gray-600">
+                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
                         Active filters:
                     </flux:text>
                     @if($search)
@@ -481,55 +481,55 @@ new class extends Component
     </div>
 
     <!-- Orders Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
-                <thead class="bg-gray-50 border-b border-gray-200">
+                <thead class="bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-200 dark:border-zinc-700">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <button wire:click="sortBy('order_number')" class="flex items-center space-x-1 hover:text-gray-700">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <button wire:click="sortBy('order_number')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300">
                                 <span>Order</span>
                                 @if($sortBy === 'order_number')
                                     <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Customer
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Items
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <button wire:click="sortBy('total_amount')" class="flex items-center space-x-1 hover:text-gray-700">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <button wire:click="sortBy('total_amount')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300">
                                 <span>Total</span>
                                 @if($sortBy === 'total_amount')
                                     <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Status
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Payment
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-gray-700">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300">
                                 <span>Date</span>
                                 @if($sortBy === 'created_at')
                                     <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Actions
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white">
+                <tbody class="bg-white dark:bg-zinc-800">
                     @forelse($this->getOrders() as $order)
-                        <tr class="border-b border-gray-200 hover:bg-gray-50" wire:key="order-{{ $order->id }}">
+                        <tr class="border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50" wire:key="order-{{ $order->id }}">
                             <!-- Order Number -->
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div>
@@ -650,8 +650,8 @@ new class extends Component
                     @empty
                         <tr>
                             <td colspan="8" class="px-6 py-12 text-center">
-                                <div class="text-gray-500">
-                                    <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                                <div class="text-gray-500 dark:text-gray-400">
+                                    <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                                     <flux:text>No orders found</flux:text>
                                     @if($search || $activeTab !== 'all' || $dateFilter || $orderTypeFilter || $productFilter)
                                         <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('orderTypeFilter', ''); $set('productFilter', '')" class="mt-2">
@@ -668,7 +668,7 @@ new class extends Component
 
         <!-- Pagination -->
         @if($this->getOrders()->hasPages())
-            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-700/50">
                 {{ $this->getOrders()->links() }}
             </div>
         @endif
@@ -683,24 +683,24 @@ new class extends Component
             $totalRevenue = ProductOrder::whereNotIn('status', ['cancelled', 'refunded'])->sum('total_amount');
         @endphp
 
-        <div class="bg-white rounded-lg border p-4">
-            <flux:text size="sm" class="text-gray-600">Total Orders</flux:text>
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Total Orders</flux:text>
             <flux:text class="text-2xl font-bold">{{ number_format($totalOrders) }}</flux:text>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
-            <flux:text size="sm" class="text-gray-600">Pending Orders</flux:text>
-            <flux:text class="text-2xl font-bold text-yellow-600">{{ number_format($pendingOrders) }}</flux:text>
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Pending Orders</flux:text>
+            <flux:text class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ number_format($pendingOrders) }}</flux:text>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
-            <flux:text size="sm" class="text-gray-600">Today's Orders</flux:text>
-            <flux:text class="text-2xl font-bold text-blue-600">{{ number_format($todayOrders) }}</flux:text>
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Today's Orders</flux:text>
+            <flux:text class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ number_format($todayOrders) }}</flux:text>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
-            <flux:text size="sm" class="text-gray-600">Total Revenue</flux:text>
-            <flux:text class="text-2xl font-bold text-green-600">MYR {{ number_format($totalRevenue, 2) }}</flux:text>
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Total Revenue</flux:text>
+            <flux:text class="text-2xl font-bold text-green-600 dark:text-green-400">MYR {{ number_format($totalRevenue, 2) }}</flux:text>
         </div>
     </div>
 </div>

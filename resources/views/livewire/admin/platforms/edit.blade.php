@@ -156,7 +156,7 @@ new class extends Component {
     </div>
 
     {{-- Platform Preview Card --}}
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         <div class="flex items-center space-x-4">
             @if($logo_url)
                 <img src="{{ $logo_url }}" alt="{{ $name }}" class="w-12 h-12 rounded-lg" onerror="this.style.display='none'">
@@ -179,7 +179,7 @@ new class extends Component {
         <div class="lg:col-span-3">
             <form wire:submit="update" class="space-y-6">
                 {{-- Basic Information --}}
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Basic Information</flux:heading>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -234,7 +234,7 @@ new class extends Component {
                 </div>
 
                 {{-- Visual & Branding --}}
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Visual & Branding</flux:heading>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -277,7 +277,7 @@ new class extends Component {
                 </div>
 
                 {{-- External Links --}}
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">External Links</flux:heading>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -311,7 +311,7 @@ new class extends Component {
                 </div>
 
                 {{-- Features & Settings --}}
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Features & Settings</flux:heading>
 
                     <div class="space-y-6">
@@ -370,7 +370,7 @@ new class extends Component {
         {{-- Sidebar --}}
         <div class="space-y-6">
             {{-- Live Preview --}}
-            <div class="bg-white rounded-lg border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Live Preview</flux:heading>
 
                 <div class="border rounded-lg p-4" style="background: linear-gradient(135deg, {{ $color_primary }}15 0%, {{ $color_secondary }}15 100%);">
@@ -392,7 +392,7 @@ new class extends Component {
             </div>
 
             {{-- Update History --}}
-            <div class="bg-white rounded-lg border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Platform Info</flux:heading>
 
                 <div class="space-y-3">
@@ -422,7 +422,7 @@ new class extends Component {
             </div>
 
             {{-- Quick Actions --}}
-            <div class="bg-white rounded-lg border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Quick Actions</flux:heading>
 
                 <div class="space-y-3">

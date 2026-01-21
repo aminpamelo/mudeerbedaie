@@ -2,6 +2,7 @@
 
 use App\Models\ClassModel;
 use App\Services\StripeService;
+use Livewire\Attributes\On;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -189,6 +190,10 @@ new class extends Component
     public $autoEnrollImported = true;
 
     public $importStudentPassword = 'password123';
+
+    public ?int $currentStudentImportProgressId = null;
+
+    public ?array $studentImportProgress = null;
 
     // Student shipment details modal
     public $showStudentShipmentModal = false;
@@ -623,7 +628,7 @@ new class extends Component
                 $student = $enrollment->student;
 
                 return str_contains(strtolower($student->fullName ?? ''), $searchTerm) ||
-                    str_contains(strtolower($student->student_id ?? ''), $searchTerm) ||
+                    str_contains(strtolower($student->phone ?? ''), $searchTerm) ||
                     str_contains(strtolower($student->user->email ?? ''), $searchTerm);
             });
         }
@@ -1319,6 +1324,15 @@ new class extends Component
             ->whereYear('period_start', $this->paymentYear)
             ->get();
 
+        // Query first paid order date for each student (across all years) to determine billing start
+        $firstPaidOrders = \App\Models\Order::whereIn('student_id', $studentIds)
+            ->where('course_id', $course->id)
+            ->where('status', \App\Models\Order::STATUS_PAID)
+            ->selectRaw('student_id, MIN(period_start) as first_payment_date')
+            ->groupBy('student_id')
+            ->pluck('first_payment_date', 'student_id')
+            ->map(fn ($date) => $date ? \Carbon\Carbon::parse($date) : null);
+
         // Query all document shipments for this class in the selected year
         $shipments = \App\Models\ClassDocumentShipment::where('class_id', $this->class->id)
             ->whereYear('period_start_date', $this->paymentYear)
@@ -1334,6 +1348,9 @@ new class extends Component
             $studentOrders = $orders->where('student_id', $student->id);
 
             $paymentData[$student->id] = [];
+
+            // Get first payment date for this student
+            $firstPaymentDate = $firstPaidOrders[$student->id] ?? null;
 
             foreach ($periodColumns as $period) {
                 $periodOrders = $studentOrders->filter(function ($order) use ($period) {
@@ -1351,15 +1368,12 @@ new class extends Component
                     ->whereIn('status', ['enrolled', 'active'])
                     ->first();
 
-                // Use class_students.enrolled_at as the billing start date
-                $classEnrolledAt = $classStudent->enrolled_at;
-
-                $expectedAmount = $this->calculateExpectedAmountForStudent($enrollment, $period, $course, $classEnrolledAt);
+                $expectedAmount = $this->calculateExpectedAmountForStudent($enrollment, $period, $course, $firstPaymentDate);
                 $paidAmount = $paidOrders->sum('amount');
                 $pendingAmount = $pendingOrders->sum('amount');
                 $unpaidAmount = max(0, $expectedAmount - $paidAmount);
 
-                $status = $this->determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $classEnrolledAt);
+                $status = $this->determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $firstPaymentDate);
 
                 // Find document shipment for this period and student
                 $shipmentItem = null;
@@ -1395,19 +1409,29 @@ new class extends Component
         return $paymentData;
     }
 
-    private function calculateExpectedAmountForStudent($enrollment, $period, $course, $classEnrolledAt = null)
+    private function calculateExpectedAmountForStudent($enrollment, $period, $course, $firstPaymentDate = null)
     {
         if (! $enrollment) {
             return 0;
         }
 
-        // Use class enrolled_at date as the primary billing start date
-        // Fall back to enrollment dates if class enrolled_at is not available
-        $enrollmentStart = $classEnrolledAt ?: ($enrollment->start_date ?: $enrollment->enrollment_date);
+        // Get enrollment date from the enrollment record
+        $enrollmentDate = $enrollment->start_date ?: $enrollment->enrollment_date;
+
+        // Use the OLDER date between enrollment date and first payment date
+        // This handles cases where payment might exist before enrollment (data migration, pre-payments)
+        // or enrollment happens before first payment (normal case)
+        $billingStartDate = $enrollmentDate;
+        if ($firstPaymentDate && $enrollmentDate) {
+            $billingStartDate = $firstPaymentDate < $enrollmentDate ? $firstPaymentDate : $enrollmentDate;
+        } elseif ($firstPaymentDate) {
+            $billingStartDate = $firstPaymentDate;
+        }
+
         $periodStart = $period['period_start'];
         $periodEnd = $period['period_end'];
 
-        if ($enrollmentStart && $enrollmentStart > $periodEnd) {
+        if ($billingStartDate && $billingStartDate > $periodEnd) {
             return 0;
         }
 
@@ -1433,19 +1457,29 @@ new class extends Component
         return 0;
     }
 
-    private function determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $classEnrolledAt = null)
+    private function determinePaymentStatusForStudent($enrollment, $period, $paidAmount, $expectedAmount, $firstPaymentDate = null)
     {
         if (! $enrollment) {
             return 'no_enrollment';
         }
 
-        // Use class enrolled_at date as the primary billing start date
-        // Fall back to enrollment dates if class enrolled_at is not available
-        $enrollmentStart = $classEnrolledAt ?: ($enrollment->start_date ?: $enrollment->enrollment_date);
+        // Get enrollment date from the enrollment record
+        $enrollmentDate = $enrollment->start_date ?: $enrollment->enrollment_date;
+
+        // Use the OLDER date between enrollment date and first payment date
+        // This handles cases where payment might exist before enrollment (data migration, pre-payments)
+        // or enrollment happens before first payment (normal case)
+        $billingStartDate = $enrollmentDate;
+        if ($firstPaymentDate && $enrollmentDate) {
+            $billingStartDate = $firstPaymentDate < $enrollmentDate ? $firstPaymentDate : $enrollmentDate;
+        } elseif ($firstPaymentDate) {
+            $billingStartDate = $firstPaymentDate;
+        }
+
         $periodStart = $period['period_start'];
         $periodEnd = $period['period_end'];
 
-        if ($enrollmentStart && $enrollmentStart > $periodEnd) {
+        if ($billingStartDate && $billingStartDate > $periodEnd) {
             return 'not_started';
         }
 
@@ -2168,7 +2202,7 @@ new class extends Component
                     $userQuery->where('name', 'like', '%'.$this->enrolledStudentSearch.'%')
                         ->orWhere('email', 'like', '%'.$this->enrolledStudentSearch.'%');
                 })
-                    ->orWhere('student_id', 'like', '%'.$this->enrolledStudentSearch.'%');
+                    ->orWhere('phone', 'like', '%'.$this->enrolledStudentSearch.'%');
             });
         }
 
@@ -2810,170 +2844,82 @@ new class extends Component
         $this->importStudentProcessing = true;
 
         try {
-            $fileContents = file_get_contents($this->importStudentFile->getRealPath());
+            // Save the uploaded file to storage
+            $fileName = 'student_import_' . time() . '_' . uniqid() . '.csv';
+            $filePath = storage_path('app/temp/' . $fileName);
 
-            if ($fileContents === false) {
-                throw new \Exception('Failed to read uploaded file');
+            // Ensure temp directory exists
+            if (! file_exists(storage_path('app/temp'))) {
+                mkdir(storage_path('app/temp'), 0755, true);
             }
 
-            // Parse CSV
-            $lines = preg_split('/\r\n|\r|\n/', $fileContents);
-            $header = str_getcsv(array_shift($lines));
+            // Copy file to temp location
+            copy($this->importStudentFile->getRealPath(), $filePath);
 
-            // Normalize headers (lowercase and trim)
-            $header = array_map(fn ($h) => strtolower(trim($h)), $header);
+            // Create import progress record
+            $importProgress = \App\Models\StudentImportProgress::create([
+                'class_id' => $this->class->id,
+                'user_id' => auth()->id(),
+                'file_path' => $filePath,
+                'status' => 'pending',
+                'auto_enroll' => $this->autoEnrollImported,
+                'create_missing' => $this->createMissingStudents,
+                'default_password' => $this->createMissingStudents ? $this->importStudentPassword : null,
+            ]);
 
-            // Find required columns
-            $phoneIndex = array_search('phone', $header);
-            $nameIndex = array_search('name', $header);
-            $emailIndex = array_search('email', $header);
-            $orderIdIndex = array_search('order_id', $header);
+            $this->currentStudentImportProgressId = $importProgress->id;
 
-            if ($phoneIndex === false) {
-                throw new \Exception('CSV must contain a "phone" column.');
-            }
+            // Dispatch the job
+            \App\Jobs\ProcessStudentImportToClass::dispatch($importProgress->id);
 
-            $result = [
-                'matched' => [],
-                'created' => [],
-                'skipped' => [],
-                'enrolled' => [],
-                'already_enrolled' => [],
-                'errors' => [],
-            ];
-
-            // Get existing students in this class
-            $classStudentIds = $this->class->activeStudents()
-                ->pluck('student_id')
-                ->toArray();
-
-            foreach ($lines as $lineNumber => $line) {
-                if (empty(trim($line))) {
-                    continue;
-                }
-
-                $row = str_getcsv($line);
-                $phone = isset($row[$phoneIndex]) ? trim($row[$phoneIndex]) : null;
-                $name = $nameIndex !== false && isset($row[$nameIndex]) ? trim($row[$nameIndex]) : null;
-                $email = $emailIndex !== false && isset($row[$emailIndex]) ? trim($row[$emailIndex]) : null;
-                $orderId = $orderIdIndex !== false && isset($row[$orderIdIndex]) ? trim($row[$orderIdIndex]) : null;
-
-                if (empty($phone)) {
-                    $result['errors'][] = "Row " . ($lineNumber + 2) . ": Phone number is required.";
-                    continue;
-                }
-
-                // Normalize phone number (remove spaces, dashes, and leading zeros after country code)
-                $normalizedPhone = preg_replace('/[^0-9+]/', '', $phone);
-                // Remove leading + if present for comparison
-                $phoneVariants = [
-                    $normalizedPhone,
-                    ltrim($normalizedPhone, '+'),
-                    '60' . ltrim(ltrim($normalizedPhone, '+'), '0'),
-                    ltrim(ltrim($normalizedPhone, '+'), '60'),
-                ];
-
-                // Try to find student by phone
-                $student = \App\Models\Student::where(function ($query) use ($phoneVariants) {
-                    foreach ($phoneVariants as $variant) {
-                        $query->orWhere('phone', 'like', '%' . $variant)
-                              ->orWhere('phone', $variant);
-                    }
-                })->first();
-
-                if ($student) {
-                    $result['matched'][] = [
-                        'phone' => $phone,
-                        'name' => $student->user->name,
-                        'student_id' => $student->student_id,
-                    ];
-
-                    // Check if already enrolled
-                    if (in_array($student->id, $classStudentIds)) {
-                        $result['already_enrolled'][] = [
-                            'phone' => $phone,
-                            'name' => $student->user->name,
-                        ];
-                        continue;
-                    }
-
-                    // Enroll if auto-enroll is enabled
-                    if ($this->autoEnrollImported) {
-                        // Check capacity
-                        if ($this->class->max_capacity) {
-                            $currentCount = count($classStudentIds) + count($result['enrolled']);
-                            if ($currentCount >= $this->class->max_capacity) {
-                                $result['errors'][] = "Skipped {$student->user->name}: Class is at maximum capacity.";
-                                continue;
-                            }
-                        }
-
-                        $this->class->addStudent($student, $orderId);
-                        $result['enrolled'][] = [
-                            'phone' => $phone,
-                            'name' => $student->user->name,
-                            'order_id' => $orderId,
-                        ];
-                    }
-                } else {
-                    // Student not found
-                    if ($this->createMissingStudents && $name) {
-                        try {
-                            // Create user first
-                            $user = \App\Models\User::create([
-                                'name' => $name,
-                                'email' => $email ?: null,
-                                'password' => bcrypt($this->importStudentPassword),
-                                'role' => 'student',
-                            ]);
-
-                            // Create student profile
-                            $newStudent = \App\Models\Student::create([
-                                'user_id' => $user->id,
-                                'phone' => $normalizedPhone,
-                                'status' => 'active',
-                            ]);
-
-                            $result['created'][] = [
-                                'phone' => $phone,
-                                'name' => $name,
-                                'student_id' => $newStudent->student_id,
-                            ];
-
-                            // Enroll if auto-enroll is enabled
-                            if ($this->autoEnrollImported) {
-                                // Check capacity
-                                if ($this->class->max_capacity) {
-                                    $currentCount = count($classStudentIds) + count($result['enrolled']);
-                                    if ($currentCount >= $this->class->max_capacity) {
-                                        $result['errors'][] = "Skipped enrolling {$name}: Class is at maximum capacity.";
-                                        continue;
-                                    }
-                                }
-
-                                $this->class->addStudent($newStudent, $orderId);
-                                $result['enrolled'][] = [
-                                    'phone' => $phone,
-                                    'name' => $name,
-                                    'order_id' => $orderId,
-                                ];
-                            }
-                        } catch (\Exception $e) {
-                            $result['errors'][] = "Row " . ($lineNumber + 2) . ": Failed to create student - " . $e->getMessage();
-                        }
-                    } else {
-                        $result['skipped'][] = [
-                            'phone' => $phone,
-                            'name' => $name ?? 'Unknown',
-                            'reason' => $this->createMissingStudents ? 'Name is required to create student' : 'Student not found',
-                        ];
-                    }
-                }
-            }
-
-            $this->importStudentResult = $result;
-            $this->showImportStudentResultModal = true;
+            // Close the import modal and show progress
             $this->closeImportStudentModal();
+
+            // Start polling for progress
+            $this->dispatch('start-student-import-polling');
+
+        } catch (\Exception $e) {
+            session()->flash('error', 'Import failed: ' . $e->getMessage());
+            $this->importStudentProcessing = false;
+        }
+    }
+
+    #[On('checkStudentImportProgress')]
+    public function checkStudentImportProgress(): void
+    {
+        if (! $this->currentStudentImportProgressId) {
+            $this->importStudentProcessing = false;
+            return;
+        }
+
+        $progress = \App\Models\StudentImportProgress::find($this->currentStudentImportProgressId);
+
+        if (! $progress) {
+            $this->importStudentProcessing = false;
+            $this->currentStudentImportProgressId = null;
+            $this->dispatch('stop-student-import-polling');
+            return;
+        }
+
+        $this->studentImportProgress = [
+            'status' => $progress->status,
+            'total_rows' => $progress->total_rows,
+            'processed_rows' => $progress->processed_rows,
+            'matched_count' => $progress->matched_count,
+            'created_count' => $progress->created_count,
+            'enrolled_count' => $progress->enrolled_count,
+            'skipped_count' => $progress->skipped_count,
+            'error_count' => $progress->error_count,
+            'progress_percentage' => $progress->progress_percentage,
+        ];
+
+        if ($progress->isCompleted()) {
+            $this->importStudentProcessing = false;
+            $this->importStudentResult = $progress->result ?? [];
+            $this->showImportStudentResultModal = true;
+            $this->currentStudentImportProgressId = null;
+            $this->studentImportProgress = null;
+            $this->dispatch('stop-student-import-polling');
 
             // Refresh the class data
             $this->class->refresh();
@@ -2983,12 +2929,31 @@ new class extends Component
                 'sessions.attendances.student.user',
                 'activeStudents.student.user',
             ]);
-
-        } catch (\Exception $e) {
-            session()->flash('error', 'Import failed: ' . $e->getMessage());
-        } finally {
+        } elseif ($progress->isFailed()) {
             $this->importStudentProcessing = false;
+            $this->currentStudentImportProgressId = null;
+            $this->studentImportProgress = null;
+            $this->dispatch('stop-student-import-polling');
+            session()->flash('error', 'Import failed: ' . ($progress->error_message ?? 'Unknown error'));
         }
+    }
+
+    public function cancelStudentImport(): void
+    {
+        if ($this->currentStudentImportProgressId) {
+            $progress = \App\Models\StudentImportProgress::find($this->currentStudentImportProgressId);
+            if ($progress && $progress->isPending()) {
+                $progress->update(['status' => 'failed', 'error_message' => 'Cancelled by user']);
+                if (file_exists($progress->file_path)) {
+                    unlink($progress->file_path);
+                }
+            }
+        }
+
+        $this->importStudentProcessing = false;
+        $this->currentStudentImportProgressId = null;
+        $this->studentImportProgress = null;
+        $this->dispatch('stop-student-import-polling');
     }
 
     public function viewStudentShipmentDetails($itemId): void
@@ -3158,6 +3123,7 @@ new class extends Component
         }
     }
 
+    #[On('checkImportProgress')]
     public function checkImportProgress(): void
     {
         $userId = auth()->id();
@@ -4000,7 +3966,7 @@ new class extends Component
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500  uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white">
+                        <tbody class="bg-white dark:bg-zinc-800">
                             @php $hasAnySessions = count($this->sessions_by_month) > 0; @endphp
                             @if($hasAnySessions)
                                 @foreach($this->sessions_by_month as $monthData)
@@ -4393,7 +4359,7 @@ new class extends Component
                                 <div class="flex-1">
                                     <flux:input
                                         wire:model.live.debounce.300ms="enrolledStudentSearch"
-                                        placeholder="Search enrolled students by name, email or ID..."
+                                        placeholder="Search enrolled students by name, email or phone..."
                                         icon="magnifying-glass"
                                     />
                                 </div>
@@ -4423,7 +4389,7 @@ new class extends Component
                                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
+                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                     @forelse($this->filtered_enrolled_students as $classStudent)
                                         @php
                                             $student = $classStudent->student;
@@ -4448,7 +4414,7 @@ new class extends Component
                                                     <flux:avatar size="sm" :name="$student->fullName" />
                                                     <div>
                                                         <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
-                                                        <div class="text-sm text-gray-500">{{ $student->student_id }}</div>
+                                                        <div class="text-sm text-gray-500">{{ $student->phone ?? '-' }}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -4462,7 +4428,7 @@ new class extends Component
                                                     type="text"
                                                     value="{{ $classStudent->order_id }}"
                                                     placeholder="-"
-                                                    class="w-28 px-2 py-1 text-xs font-mono border border-gray-200 rounded bg-white hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                                    class="w-28 px-2 py-1 text-xs font-mono border border-gray-200 rounded bg-white dark:bg-zinc-700 dark:text-white hover:border-gray-300 dark:hover:border-zinc-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
                                                     wire:blur="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
                                                     wire:keydown.enter="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
                                                 />
@@ -4595,7 +4561,7 @@ new class extends Component
                                 <!-- Search Bar -->
                                 <flux:input
                                     wire:model.live.debounce.300ms="eligibleStudentSearch"
-                                    placeholder="Search students by name, email or ID..."
+                                    placeholder="Search students by name, email or phone..."
                                     icon="magnifying-glass"
                                     class="w-full"
                                 />
@@ -4619,7 +4585,7 @@ new class extends Component
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="bg-white divide-y divide-gray-200">
+                                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                         @forelse($this->eligible_enrollments as $enrollment)
                                             @php
                                                 $student = $enrollment->student;
@@ -4638,7 +4604,7 @@ new class extends Component
                                                         <flux:avatar size="sm" :name="$student->fullName" />
                                                         <div>
                                                             <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
-                                                            <div class="text-sm text-gray-500">{{ $student->student_id }}</div>
+                                                            <div class="text-sm text-gray-500">{{ $student->phone ?? '-' }}</div>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -4976,7 +4942,7 @@ new class extends Component
                                 </flux:button>
 
                                 <div x-show="open" @click.away="open = false" x-cloak
-                                     class="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                                     class="absolute right-0 mt-2 w-72 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50"
                                      x-transition:enter="transition ease-out duration-100"
                                      x-transition:enter-start="transform opacity-0 scale-95"
                                      x-transition:enter-end="transform opacity-100 scale-100"
@@ -5103,10 +5069,10 @@ new class extends Component
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="border-b border-gray-200">
-                                    <th class="text-left py-3 px-4 sticky left-0 bg-white z-10 min-w-[250px]">
+                                    <th class="text-left py-3 px-4 sticky left-0 bg-white dark:bg-zinc-800 z-10 min-w-[250px]">
                                         Student Name
                                     </th>
-                                    <th class="text-left py-3 px-4 bg-white min-w-[150px] border-l border-gray-100">
+                                    <th class="text-left py-3 px-4 bg-white dark:bg-zinc-800 min-w-[150px] border-l border-gray-100">
                                         PIC
                                     </th>
                                     @foreach($this->visible_payment_period_columns as $period)
@@ -5288,7 +5254,7 @@ new class extends Component
                                                                      x-transition:leave="transition ease-in duration-75"
                                                                      x-transition:leave-start="transform opacity-100 scale-100"
                                                                      x-transition:leave-end="transform opacity-0 scale-95"
-                                                                     class="absolute left-0 top-6 z-50 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                                                                     class="absolute left-0 top-6 z-50 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 py-1">
                                                                     <button @click="copyLink(); showMenu = false"
                                                                             class="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
                                                                         <flux:icon name="clipboard-document" class="w-4 h-4" />
@@ -6441,7 +6407,7 @@ new class extends Component
                                 </div>
 
                                 <!-- Student Status Distribution -->
-                                <div class="px-6 py-4 bg-white border-b border-gray-200">
+                                <div class="px-6 py-4 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
                                     <flux:text class="text-sm font-medium text-gray-700 mb-3">Student Status Distribution</flux:text>
                                     <div class="flex flex-wrap gap-2">
                                         @if($picData['status_distribution']['enrolled'] > 0)
@@ -6530,7 +6496,7 @@ new class extends Component
                                                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody class="bg-white divide-y divide-gray-200">
+                                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                                     @foreach($students as $student)
                                                         <tr class="hover:bg-gray-50 transition-colors">
                                                             <td class="px-4 py-3 whitespace-nowrap">
@@ -6833,7 +6799,7 @@ new class extends Component
                                                         </th>
                                                     </tr>
                                                 </thead>
-                                                <tbody class="bg-white divide-y divide-gray-200">
+                                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                             @foreach($shipments as $shipment)
                                                         <tr class="hover:bg-gray-50">
                                                             <!-- Period -->
@@ -7078,7 +7044,7 @@ new class extends Component
                                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                                                 </tr>
                                                             </thead>
-                                                            <tbody class="bg-white divide-y divide-gray-200">
+                                                            <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                                                                 @foreach($filteredItems as $item)
                                                                     <tr class="{{ in_array($item->id, $selectedShipmentItemIds) ? 'bg-blue-50' : '' }}">
                                                                         <td class="px-4 py-3 whitespace-nowrap">
@@ -7897,7 +7863,7 @@ new class extends Component
                                 type="text"
                                 wire:model="enrollOrderIds.{{ $student->id }}"
                                 placeholder="Order ID"
-                                class="w-28 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded bg-white hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors flex-shrink-0"
+                                class="w-28 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded bg-white dark:bg-zinc-700 dark:text-white hover:border-gray-300 dark:hover:border-zinc-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors flex-shrink-0"
                             />
 
                             <flux:button
@@ -7925,7 +7891,7 @@ new class extends Component
 
                         <div class="flex flex-wrap gap-2">
                             @foreach($this->available_students->whereIn('id', $selectedStudents) as $student)
-                                <div class="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-green-200">
+                                <div class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-800 rounded-full border border-green-200 dark:border-green-800">
                                     <flux:avatar size="xs" :name="$student->user?->name ?? 'N/A'" />
                                     <span class="text-sm text-gray-700">{{ $student->user?->name ?? 'N/A' }}</span>
                                 </div>
@@ -8632,6 +8598,83 @@ new class extends Component
         </div>
     </flux:modal>
 
+    <!-- Student Import Progress Modal -->
+    <flux:modal name="student-import-progress" :show="$importStudentProcessing" wire:model="importStudentProcessing">
+        <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
+            <flux:heading size="lg">Importing Students</flux:heading>
+            <flux:text class="mt-2">Please wait while students are being imported...</flux:text>
+        </div>
+
+        <div class="space-y-4">
+            @if($studentImportProgress)
+                <!-- Progress Bar -->
+                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div class="bg-blue-600 h-4 rounded-full transition-all duration-300 flex items-center justify-center"
+                         style="width: {{ $studentImportProgress['progress_percentage'] ?? 0 }}%">
+                        @if(($studentImportProgress['progress_percentage'] ?? 0) > 15)
+                            <span class="text-xs text-white font-medium">{{ $studentImportProgress['progress_percentage'] ?? 0 }}%</span>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="text-center text-sm text-gray-600">
+                    Processing {{ $studentImportProgress['processed_rows'] ?? 0 }} of {{ $studentImportProgress['total_rows'] ?? 0 }} rows
+                </div>
+
+                <!-- Live Stats -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                    <div class="bg-blue-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-blue-600">{{ $studentImportProgress['matched_count'] ?? 0 }}</div>
+                        <div class="text-xs text-blue-700">Matched</div>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-green-600">{{ $studentImportProgress['created_count'] ?? 0 }}</div>
+                        <div class="text-xs text-green-700">Created</div>
+                    </div>
+                    <div class="bg-purple-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-purple-600">{{ $studentImportProgress['enrolled_count'] ?? 0 }}</div>
+                        <div class="text-xs text-purple-700">Enrolled</div>
+                    </div>
+                    <div class="bg-yellow-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-yellow-600">{{ $studentImportProgress['skipped_count'] ?? 0 }}</div>
+                        <div class="text-xs text-yellow-700">Skipped</div>
+                    </div>
+                </div>
+
+                @if(($studentImportProgress['error_count'] ?? 0) > 0)
+                    <div class="bg-red-50 rounded-lg p-3 text-center">
+                        <div class="text-xl font-bold text-red-600">{{ $studentImportProgress['error_count'] }}</div>
+                        <div class="text-xs text-red-700">Errors</div>
+                    </div>
+                @endif
+
+                <!-- Animated Loading Indicator -->
+                <div class="flex items-center justify-center gap-2 text-gray-500">
+                    <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-sm">Processing in background...</span>
+                </div>
+            @else
+                <!-- Initial Loading State -->
+                <div class="flex flex-col items-center justify-center py-8">
+                    <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-gray-600">Starting import process...</p>
+                </div>
+            @endif
+        </div>
+
+        <div class="flex justify-end gap-2 mt-6">
+            <flux:button variant="ghost" wire:click="cancelStudentImport" :disabled="($studentImportProgress['status'] ?? 'pending') === 'processing'">
+                Cancel
+            </flux:button>
+        </div>
+    </flux:modal>
+
     <!-- Create Student Modal -->
     <flux:modal name="create-student" :show="$showCreateStudentModal" wire:model="showCreateStudentModal">
         <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
@@ -8892,6 +8935,27 @@ document.addEventListener('livewire:init', () => {
         if (importPollingInterval) {
             clearInterval(importPollingInterval);
             importPollingInterval = null;
+        }
+    });
+
+    // Student import progress polling
+    let studentImportPollingInterval = null;
+
+    Livewire.on('start-student-import-polling', () => {
+        if (studentImportPollingInterval) {
+            clearInterval(studentImportPollingInterval);
+        }
+
+        // Poll every 2 seconds
+        studentImportPollingInterval = setInterval(() => {
+            Livewire.dispatch('checkStudentImportProgress');
+        }, 2000);
+    });
+
+    Livewire.on('stop-student-import-polling', () => {
+        if (studentImportPollingInterval) {
+            clearInterval(studentImportPollingInterval);
+            studentImportPollingInterval = null;
         }
     });
 });

@@ -110,45 +110,45 @@ new class extends Component {
 
     {{-- Stats Cards --}}
     <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text size="sm" class="text-zinc-600">Total Platforms</flux:text>
+                    <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">Total Platforms</flux:text>
                     <flux:heading size="lg">{{ $totalPlatforms }}</flux:heading>
                 </div>
-                <div class="p-2 bg-blue-100 rounded-lg">
-                    <flux:icon name="squares-2x2" class="w-6 h-6 text-blue-600" />
+                <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <flux:icon name="squares-2x2" class="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text size="sm" class="text-zinc-600">Active Platforms</flux:text>
+                    <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">Active Platforms</flux:text>
                     <flux:heading size="lg">{{ $activePlatforms }}</flux:heading>
                 </div>
-                <div class="p-2 bg-green-100 rounded-lg">
-                    <flux:icon name="check-circle" class="w-6 h-6 text-green-600" />
+                <div class="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <flux:icon name="check-circle" class="w-6 h-6 text-green-600 dark:text-green-400" />
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text size="sm" class="text-zinc-600">Connected Accounts</flux:text>
+                    <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">Connected Accounts</flux:text>
                     <flux:heading size="lg">{{ $connectedPlatforms }}</flux:heading>
                 </div>
-                <div class="p-2 bg-purple-100 rounded-lg">
-                    <flux:icon name="link" class="w-6 h-6 text-purple-600" />
+                <div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                    <flux:icon name="link" class="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
             </div>
         </div>
     </div>
 
     {{-- Filters & Search --}}
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         <div class="flex flex-col lg:flex-row gap-4">
             <div class="flex-1">
                 <flux:input
@@ -189,7 +189,7 @@ new class extends Component {
     {{-- Platforms Grid --}}
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         @forelse($platforms as $platform)
-            <div class="bg-white rounded-lg border overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden hover:shadow-lg transition-shadow">
                 {{-- Platform Header --}}
                 <div class="p-4 border-b" style="background: linear-gradient(135deg, {{ $platform->color_primary ?? '#6b7280' }}15 0%, {{ $platform->color_secondary ?? '#9ca3af' }}15 100%);">
                     <div class="flex items-start justify-between">
@@ -266,7 +266,7 @@ new class extends Component {
                 </div>
 
                 {{-- Actions --}}
-                <div class="px-4 py-3 bg-gray-50 border-t">
+                <div class="px-4 py-3 bg-gray-50 dark:bg-zinc-700/50 border-t border-gray-200 dark:border-zinc-700">
                     <div class="flex items-center justify-between">
                         <div class="flex space-x-2">
                             <flux:button

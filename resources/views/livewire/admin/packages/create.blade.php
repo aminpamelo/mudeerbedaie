@@ -211,9 +211,9 @@ new class extends Component {
 
     <form wire:submit="save" class="space-y-8">
         <!-- Basic Information -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Basic Information</h3>
+                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Basic Information</h3>
 
                 <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <flux:field>
@@ -248,9 +248,9 @@ new class extends Component {
         </div>
 
         <!-- Pricing -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Pricing</h3>
+                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Pricing</h3>
 
                 <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
                     <flux:field>
@@ -294,10 +294,10 @@ new class extends Component {
         </div>
 
         <!-- Package Items -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-medium leading-6 text-gray-900">Package Items</h3>
+                    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">Package Items</h3>
                     <div class="text-sm text-gray-500">
                         Total Items: {{ count($selectedProducts) + count($selectedCourses) }}
                     </div>
@@ -474,9 +474,9 @@ new class extends Component {
         </div>
 
         <!-- Settings -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Settings</h3>
+                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Settings</h3>
 
                 <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <flux:field>
@@ -527,9 +527,9 @@ new class extends Component {
         </div>
 
         <!-- SEO -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">SEO</h3>
+                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">SEO</h3>
 
                 <div class="grid grid-cols-1 gap-6">
                     <flux:field>

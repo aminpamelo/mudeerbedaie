@@ -111,7 +111,7 @@ new class extends Component
         <!-- Main Information -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Basic Information -->
-            <div class="rounded-lg border border-gray-200 bg-white p-6">
+            <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
                 <div class="flex items-center justify-between mb-4">
                     <flux:heading size="lg">Warehouse Information</flux:heading>
                     <flux:button wire:click="toggleStatus" variant="outline" size="sm">
@@ -121,18 +121,18 @@ new class extends Component
 
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Name</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $warehouse->name }}</dd>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">{{ $warehouse->name }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Code</dt>
-                        <dd class="mt-1 text-sm text-gray-900">
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Code</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">
                             <code class="text-sm">{{ $warehouse->code }}</code>
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Type</dt>
-                        <dd class="mt-1 text-sm text-gray-900">
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Type</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">
                             {{ match($warehouse->warehouse_type) {
                                 'own' => 'Own Warehouse',
                                 'agent' => 'Agent Location (Consignment)',
@@ -143,8 +143,8 @@ new class extends Component
                     </div>
                     @if($warehouse->warehouse_type !== 'own' && $warehouse->agent)
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">{{ $warehouse->warehouse_type === 'agent' ? 'Agent' : 'Company' }}</dt>
-                            <dd class="mt-1 text-sm text-gray-900">
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $warehouse->warehouse_type === 'agent' ? 'Agent' : 'Company' }}</dt>
+                            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">
                                 <a href="{{ route('agents.show', $warehouse->agent) }}" class="text-blue-600 hover:text-blue-800">
                                     {{ $warehouse->agent->name }} ({{ $warehouse->agent->agent_code }})
                                 </a>
@@ -152,19 +152,19 @@ new class extends Component
                         </div>
                     @endif
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Created</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $warehouse->created_at->format('M j, Y g:i A') }}</dd>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Created</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">{{ $warehouse->created_at->format('M j, Y g:i A') }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Last Updated</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ $warehouse->updated_at->format('M j, Y g:i A') }}</dd>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Last Updated</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">{{ $warehouse->updated_at->format('M j, Y g:i A') }}</dd>
                     </div>
                 </dl>
 
                 @if($warehouse->description)
                     <div class="mt-6">
-                        <dt class="text-sm font-medium text-gray-500">Description</dt>
-                        <dd class="mt-2 text-sm text-gray-900">{{ $warehouse->description }}</dd>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Description</dt>
+                        <dd class="mt-2 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">{{ $warehouse->description }}</dd>
                     </div>
                 @endif
             </div>
@@ -180,17 +180,17 @@ new class extends Component
                         <div>
                             <dt class="text-sm font-medium text-gray-600">Total Stock at Location</dt>
                             <dd class="mt-1 text-2xl font-bold text-gray-900">{{ number_format($warehouse->stockLevels->sum('quantity')) }}</dd>
-                            <dd class="text-xs text-gray-500">units on consignment</dd>
+                            <dd class="text-xs text-gray-500 dark:text-gray-400">units on consignment</dd>
                         </div>
                         <div>
                             <dt class="text-sm font-medium text-gray-600">Available for Sale</dt>
                             <dd class="mt-1 text-2xl font-bold text-green-600">{{ number_format($warehouse->stockLevels->sum(fn($level) => $level->quantity - $level->reserved_quantity)) }}</dd>
-                            <dd class="text-xs text-gray-500">units available</dd>
+                            <dd class="text-xs text-gray-500 dark:text-gray-400">units available</dd>
                         </div>
                         <div>
                             <dt class="text-sm font-medium text-gray-600">Reserved/Committed</dt>
                             <dd class="mt-1 text-2xl font-bold text-orange-600">{{ number_format($warehouse->stockLevels->sum('reserved_quantity')) }}</dd>
-                            <dd class="text-xs text-gray-500">units reserved</dd>
+                            <dd class="text-xs text-gray-500 dark:text-gray-400">units reserved</dd>
                         </div>
                     </div>
                     <div class="mt-4 p-3 bg-yellow-100 rounded-lg">
@@ -204,19 +204,19 @@ new class extends Component
 
             <!-- Manager Information -->
             @if($warehouse->manager_name || $warehouse->manager_email || $warehouse->manager_phone)
-                <div class="rounded-lg border border-gray-200 bg-white p-6">
+                <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
                     <flux:heading size="lg" class="mb-4">Manager Information</flux:heading>
                     <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         @if($warehouse->manager_name)
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Name</dt>
-                                <dd class="mt-1 text-sm text-gray-900">{{ $warehouse->manager_name }}</dd>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
+                                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">{{ $warehouse->manager_name }}</dd>
                             </div>
                         @endif
                         @if($warehouse->manager_email)
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Email</dt>
-                                <dd class="mt-1 text-sm text-gray-900">
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Email</dt>
+                                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">
                                     <a href="mailto:{{ $warehouse->manager_email }}" class="text-blue-600 hover:text-blue-800">
                                         {{ $warehouse->manager_email }}
                                     </a>
@@ -225,8 +225,8 @@ new class extends Component
                         @endif
                         @if($warehouse->manager_phone)
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Phone</dt>
-                                <dd class="mt-1 text-sm text-gray-900">
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</dt>
+                                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 dark:text-gray-100">
                                     <a href="tel:{{ $warehouse->manager_phone }}" class="text-blue-600 hover:text-blue-800">
                                         {{ $warehouse->manager_phone }}
                                     </a>
@@ -239,9 +239,9 @@ new class extends Component
 
             <!-- Address Information -->
             @if($warehouse->address && is_array($warehouse->address) && count(array_filter($warehouse->address)) > 0)
-                <div class="rounded-lg border border-gray-200 bg-white p-6">
+                <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
                     <flux:heading size="lg" class="mb-4">Address</flux:heading>
-                    <div class="text-sm text-gray-900">
+                    <div class="text-sm text-gray-900 dark:text-gray-100">
                         @if(!empty($warehouse->address['street']))
                             <div>{{ $warehouse->address['street'] }}</div>
                         @endif
@@ -263,9 +263,9 @@ new class extends Component
             @endif
 
             <!-- Inventory Tabs -->
-            <div class="rounded-lg border border-gray-200 bg-white">
+            <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
                 <!-- Tab Navigation -->
-                <div class="border-b border-gray-200">
+                <div class="border-b border-gray-200 dark:border-zinc-700">
                     <nav class="-mb-px flex space-x-8 px-6 py-4" aria-label="Tabs">
                         <button
                             wire:click="setActiveTab('stock-items')"
@@ -291,16 +291,16 @@ new class extends Component
                         @if($warehouse->stockLevels->count() > 0)
                             <div class="space-y-4">
                                 @foreach($warehouse->stockLevels->take(10) as $stockLevel)
-                                    <div class="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
+                                    <div class="flex items-center justify-between border-b border-gray-100 dark:border-zinc-700 pb-3 last:border-b-0 last:pb-0">
                                         <div>
-                                            <div class="font-medium text-gray-900">{{ $stockLevel->product->name }}</div>
-                                            <div class="text-sm text-gray-500">SKU: {{ $stockLevel->product->sku }}</div>
+                                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ $stockLevel->product->name }}</div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400">SKU: {{ $stockLevel->product->sku }}</div>
                                         </div>
                                         <div class="text-right">
                                             <div class="text-sm font-medium {{ $stockLevel->quantity <= 0 ? 'text-red-600' : ($stockLevel->quantity <= $stockLevel->product->min_quantity ? 'text-yellow-600' : 'text-gray-900') }}">
                                                 {{ number_format($stockLevel->quantity) }} units
                                             </div>
-                                            <div class="text-xs text-gray-500">
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">
                                                 Available: {{ number_format($stockLevel->quantity - $stockLevel->reserved_quantity) }}
                                             </div>
                                         </div>
@@ -317,8 +317,8 @@ new class extends Component
                         @else
                             <div class="text-center py-12">
                                 <flux:icon name="cube" class="mx-auto h-12 w-12 text-gray-400" />
-                                <h3 class="mt-2 text-sm font-medium text-gray-900">No stock items</h3>
-                                <p class="mt-1 text-sm text-gray-500">This warehouse doesn't have any stock items yet.</p>
+                                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No stock items</h3>
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">This warehouse doesn't have any stock items yet.</p>
                             </div>
                         @endif
 
@@ -327,12 +327,12 @@ new class extends Component
                         @if(isset($stockMovements) && $stockMovements->count() > 0)
                             <div class="space-y-4">
                                 @foreach($stockMovements as $movement)
-                                    <div class="flex items-center justify-between border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
+                                    <div class="flex items-center justify-between border-b border-gray-100 dark:border-zinc-700 pb-4 last:border-b-0 last:pb-0">
                                         <div class="flex-1">
                                             <div class="flex items-center justify-between">
                                                 <div>
-                                                    <div class="font-medium text-gray-900">{{ $movement->product->name }}</div>
-                                                    <div class="text-sm text-gray-500">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $movement->product->name }}</div>
+                                                    <div class="text-sm text-gray-500 dark:text-gray-400">
                                                         SKU: {{ $movement->product->sku }}
                                                         @if($movement->productVariant)
                                                             • {{ $movement->productVariant->name }}
@@ -340,8 +340,8 @@ new class extends Component
                                                     </div>
                                                 </div>
                                                 <div class="text-right">
-                                                    <div class="text-sm text-gray-500">{{ $movement->created_at->format('M j, Y g:i A') }}</div>
-                                                    <div class="text-xs text-gray-400">{{ $movement->createdBy?->name ?? 'System' }}</div>
+                                                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ $movement->created_at->format('M j, Y g:i A') }}</div>
+                                                    <div class="text-xs text-gray-400 dark:text-gray-500">{{ $movement->createdBy?->name ?? 'System' }}</div>
                                                 </div>
                                             </div>
                                             <div class="mt-2 flex items-center justify-between">
@@ -386,7 +386,7 @@ new class extends Component
                                                     <div class="text-sm font-medium {{ $movement->quantity >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                                         {{ $movement->display_quantity }}
                                                     </div>
-                                                    <div class="text-xs text-gray-500">
+                                                    <div class="text-xs text-gray-500 dark:text-gray-400">
                                                         {{ number_format($movement->quantity_before) }} → {{ number_format($movement->quantity_after) }}
                                                     </div>
                                                 </div>
@@ -408,8 +408,8 @@ new class extends Component
                         @else
                             <div class="text-center py-12">
                                 <flux:icon name="arrow-path" class="mx-auto h-12 w-12 text-gray-400" />
-                                <h3 class="mt-2 text-sm font-medium text-gray-900">No stock movements</h3>
-                                <p class="mt-1 text-sm text-gray-500">No inventory transactions have been recorded for this warehouse yet.</p>
+                                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No stock movements</h3>
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No inventory transactions have been recorded for this warehouse yet.</p>
                                 <div class="mt-6">
                                     <flux:button variant="primary" href="{{ route('stock.movements.create') }}?warehouse={{ $warehouse->id }}" icon="plus">
                                         Add Stock Movement
@@ -425,30 +425,30 @@ new class extends Component
         <!-- Sidebar Information -->
         <div class="space-y-6">
             <!-- Quick Stats -->
-            <div class="rounded-lg border border-gray-200 bg-white p-6">
+            <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
                 <flux:heading size="lg" class="mb-4">Quick Stats</flux:heading>
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-500">Total Items</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Total Items</span>
                         <span class="font-semibold text-gray-900">{{ $warehouse->stockLevels->count() }}</span>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-500">Total Stock</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Total Stock</span>
                         <span class="font-semibold text-gray-900">{{ number_format($warehouse->stockLevels->sum('quantity')) }}</span>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-500">Available Stock</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Available Stock</span>
                         <span class="font-semibold text-gray-900">{{ number_format($warehouse->stockLevels->sum(fn($level) => $level->quantity - $level->reserved_quantity)) }}</span>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-500">Reserved Stock</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Reserved Stock</span>
                         <span class="font-semibold text-gray-900">{{ number_format($warehouse->stockLevels->sum('reserved_quantity')) }}</span>
                     </div>
                 </div>
             </div>
 
             <!-- Actions -->
-            <div class="rounded-lg border border-gray-200 bg-white p-6">
+            <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
                 <flux:heading size="lg" class="mb-4">Actions</flux:heading>
                 <div class="space-y-3">
                     <flux:button href="{{ route('warehouses.edit', $warehouse) }}" variant="primary" class="w-full" icon="pencil">

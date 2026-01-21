@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    @php
+        $settingsService = app(\App\Services\SettingsService::class);
+        $dynamicSiteName = $settingsService->get('site_name', config('app.name'));
+        $dynamicFavicon = $settingsService->getFavicon();
+    @endphp
+
+    <title>{{ $title ?? 'Email Builder' }} - {{ $dynamicSiteName }}</title>
+
+    @if($dynamicFavicon)
+        <link rel="icon" href="{{ $dynamicFavicon }}" sizes="any">
+        <link rel="apple-touch-icon" href="{{ $dynamicFavicon }}">
+    @else
+        <link rel="icon" href="/favicon.ico" sizes="any">
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    @endif
+
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
+
+    @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/css/email-builder.css'])
+    @stack('styles')
+
+    @livewireStyles
+</head>
+<body class="h-screen overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+    {{ $slot }}
+
+    {{-- Load email-builder.js BEFORE livewireScripts so Alpine component is registered before Alpine starts --}}
+    {{-- Livewire 3 includes Alpine.js, so no need to load it separately --}}
+    @vite(['resources/js/email-builder.js'])
+
+    @livewireScripts
+    @stack('scripts')
+</body>
+</html>

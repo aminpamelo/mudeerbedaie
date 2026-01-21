@@ -30,18 +30,12 @@ new #[Layout('components.layouts.guest')] class extends Component
 
     public bool $showSuccess = false;
 
-    // Editable user information
+    // Editable user information (always editable in combined form)
     public string $editName = '';
 
     public string $editEmail = '';
 
     public string $editPhone = '';
-
-    public bool $isEditingInfo = false;
-
-    public bool $isSavingInfo = false;
-
-    public bool $infoUpdated = false;
 
     public function mount(string $token): void
     {
@@ -64,19 +58,7 @@ new #[Layout('components.layouts.guest')] class extends Component
         }
     }
 
-    public function startEditingInfo(): void
-    {
-        $this->isEditingInfo = true;
-        $this->infoUpdated = false;
-    }
-
-    public function cancelEditingInfo(): void
-    {
-        $this->isEditingInfo = false;
-        $this->loadUserInfo();
-    }
-
-    public function saveUserInfo(): void
+    protected function validateUserInfo(): bool
     {
         $this->validate([
             'editName' => 'required|string|min:2|max:255',
@@ -89,43 +71,30 @@ new #[Layout('components.layouts.guest')] class extends Component
             'editEmail.email' => 'Please enter a valid email / Sila masukkan e-mel yang sah',
         ]);
 
-        try {
-            $this->isSavingInfo = true;
+        return true;
+    }
 
-            // Update user name and email
-            $this->student->user->update([
-                'name' => $this->editName,
-                'email' => $this->editEmail,
-            ]);
+    protected function saveUserInfoInternal(): void
+    {
+        // Update user name and email
+        $this->student->user->update([
+            'name' => $this->editName,
+            'email' => $this->editEmail,
+        ]);
 
-            // Update student phone
-            $this->student->update([
-                'phone' => $this->editPhone,
-            ]);
+        // Update student phone
+        $this->student->update([
+            'phone' => $this->editPhone,
+        ]);
 
-            // Reload the student data
-            $this->student->refresh();
-            $this->student->load('user');
+        // Reload the student data
+        $this->student->refresh();
+        $this->student->load('user');
 
-            $this->isEditingInfo = false;
-            $this->infoUpdated = true;
-
-            \Log::info('Guest updated user info via magic link', [
-                'student_id' => $this->student->id,
-                'token_id' => $this->tokenModel->id,
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Guest failed to update user info', [
-                'student_id' => $this->student?->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            session()->flash('error', 'Failed to update information: '.$e->getMessage());
-            session()->flash('error_my', 'Gagal mengemaskini maklumat: '.$e->getMessage());
-        } finally {
-            $this->isSavingInfo = false;
-        }
+        \Log::info('Guest updated user info via magic link', [
+            'student_id' => $this->student->id,
+            'token_id' => $this->tokenModel->id,
+        ]);
     }
 
     protected function validateToken(): void
@@ -233,6 +202,10 @@ new #[Layout('components.layouts.guest')] class extends Component
         try {
             $this->isProcessing = true;
 
+            // Validate and save user info first
+            $this->validateUserInfo();
+            $this->saveUserInfoInternal();
+
             $stripeService = app(StripeService::class);
 
             // Create payment method from token (method handles customer creation internally)
@@ -258,12 +231,15 @@ new #[Layout('components.layouts.guest')] class extends Component
                 $this->showSuccess = true;
                 $this->loadPaymentMethods();
 
-                session()->flash('success', 'Payment method added successfully! You can close this page.');
-                session()->flash('success_my', 'Kaedah pembayaran berjaya ditambah! Anda boleh menutup halaman ini.');
+                session()->flash('success', 'Information saved and payment method added successfully! You can close this page.');
+                session()->flash('success_my', 'Maklumat berjaya disimpan dan kaedah pembayaran berjaya ditambah! Anda boleh menutup halaman ini.');
             } else {
                 session()->flash('error', 'Failed to add payment method. Please try again.');
                 session()->flash('error_my', 'Gagal menambah kaedah pembayaran. Sila cuba lagi.');
             }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Re-throw validation exceptions so they display properly
+            throw $e;
         } catch (\Exception $e) {
             \Log::error('Guest failed to add payment method via magic link', [
                 'student_id' => $this->student?->id,
@@ -316,11 +292,24 @@ new #[Layout('components.layouts.guest')] class extends Component
 
         <!-- Logo/Branding -->
         <div class="text-center mb-8">
-            @if($logoUrl)
-                <div class="flex justify-center mb-4">
-                    <img src="{{ $logoUrl }}" alt="{{ $siteName }}" class="h-16 w-auto object-contain">
-                </div>
-            @endif
+            <!-- Dual Logo Display -->
+            <div class="flex items-center justify-center gap-4 mb-2">
+                <!-- BeDaie Company Logo -->
+                <a href="https://bedaie.com" target="_blank" rel="noopener noreferrer" class="hover:opacity-80 transition-opacity">
+                    <img src="{{ asset('images/bedaie-brand.png') }}" alt="BeDaie" class="h-12 w-auto object-contain">
+                </a>
+                <!-- Separator -->
+                <div class="h-10 w-px bg-gray-300 dark:bg-zinc-600"></div>
+                <!-- Application Logo -->
+                @if($logoUrl)
+                    <img src="{{ $logoUrl }}" alt="{{ $siteName }}" class="h-12 w-auto object-contain">
+                @endif
+            </div>
+            <!-- Company Disclosure -->
+            <flux:text size="xs" class="text-gray-400 dark:text-zinc-500 mb-4">
+                <span x-show="lang === 'my'">Platform ini dibangunkan oleh <span class="font-medium">BeDaie Sdn. Bhd.</span></span>
+                <span x-show="lang === 'en'" x-cloak>This platform is developed by <span class="font-medium">BeDaie Sdn. Bhd.</span></span>
+            </flux:text>
             <flux:heading size="xl" class="text-gray-900 dark:text-white">
                 <span x-show="lang === 'my'">Kemaskini Kaedah Pembayaran</span>
                 <span x-show="lang === 'en'" x-cloak>Update Payment Method</span>
@@ -360,12 +349,12 @@ new #[Layout('components.layouts.guest')] class extends Component
                         <flux:icon icon="check-circle" class="w-8 h-8 text-green-600 dark:text-green-400" />
                     </div>
                     <flux:heading size="lg" class="text-gray-900 dark:text-white mb-2">
-                        <span x-show="lang === 'my'">Kaedah Pembayaran Ditambah!</span>
-                        <span x-show="lang === 'en'" x-cloak>Payment Method Added!</span>
+                        <span x-show="lang === 'my'">Berjaya Disimpan!</span>
+                        <span x-show="lang === 'en'" x-cloak>Successfully Saved!</span>
                     </flux:heading>
                     <flux:text class="text-gray-600 dark:text-zinc-400 mb-6">
-                        <span x-show="lang === 'my'">Kaedah pembayaran anda telah berjaya disimpan. Anda boleh menutup halaman ini sekarang.</span>
-                        <span x-show="lang === 'en'" x-cloak>Your payment method has been successfully saved. You can now close this page.</span>
+                        <span x-show="lang === 'my'">Maklumat peribadi dan kaedah pembayaran anda telah berjaya disimpan. Anda boleh menutup halaman ini sekarang.</span>
+                        <span x-show="lang === 'en'" x-cloak>Your personal information and payment method have been successfully saved. You can now close this page.</span>
                     </flux:text>
 
                     @if($hasPaymentMethods)
@@ -407,27 +396,16 @@ new #[Layout('components.layouts.guest')] class extends Component
                 </div>
             </flux:card>
         @else
-            <!-- Your Information Card -->
+            <!-- Combined Form Card - Your Information + Payment Method -->
             <flux:card class="mb-6 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
                 <div class="space-y-4">
-                    <!-- Header with Edit Button -->
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                                <flux:icon icon="user" class="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <flux:heading size="md" class="text-gray-900 dark:text-white">
-                                <span x-show="lang === 'my'">Maklumat Anda</span>
-                                <span x-show="lang === 'en'" x-cloak>Your Information</span>
-                            </flux:heading>
-                        </div>
-                        @if(!$isEditingInfo)
-                            <flux:button variant="ghost" size="sm" wire:click="startEditingInfo">
-                                <flux:icon icon="pencil" class="w-4 h-4 mr-1" />
-                                <span x-show="lang === 'my'">Kemaskini</span>
-                                <span x-show="lang === 'en'" x-cloak>Edit</span>
-                            </flux:button>
-                        @endif
+                    <!-- Step 1: Personal Information Header -->
+                    <div class="flex items-center space-x-3">
+                        <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm font-bold">1</div>
+                        <flux:heading size="md" class="text-gray-900 dark:text-white">
+                            <span x-show="lang === 'my'">Maklumat Anda</span>
+                            <span x-show="lang === 'en'" x-cloak>Your Information</span>
+                        </flux:heading>
                     </div>
 
                     <!-- Guidance Notice -->
@@ -437,156 +415,68 @@ new #[Layout('components.layouts.guest')] class extends Component
                             <div class="ml-3">
                                 <p class="text-sm text-blue-800 dark:text-blue-200">
                                     <span x-show="lang === 'my'">
-                                        Sila pastikan maklumat anda adalah tepat. Maklumat ini akan digunakan untuk menghubungi anda mengenai pembayaran dan notifikasi penting.
+                                        Sila lengkapkan maklumat anda dan tambah kaedah pembayaran untuk meneruskan.
                                     </span>
                                     <span x-show="lang === 'en'" x-cloak>
-                                        Please ensure your information is accurate. This information will be used to contact you regarding payments and important notifications.
+                                        Please complete your information and add a payment method to proceed.
                                     </span>
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Info Updated Success -->
-                    @if($infoUpdated)
-                        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                            <div class="flex items-center">
-                                <flux:icon icon="check-circle" class="w-5 h-5 text-green-500 dark:text-green-400 flex-shrink-0" />
-                                <p class="ml-3 text-sm font-medium text-green-800 dark:text-green-200">
-                                    <span x-show="lang === 'my'">Maklumat anda telah berjaya dikemaskini!</span>
-                                    <span x-show="lang === 'en'" x-cloak>Your information has been updated successfully!</span>
-                                </p>
-                            </div>
+                    <!-- Personal Information Fields (Always Editable) -->
+                    <div class="space-y-4">
+                        <!-- Name Field -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+                                <span x-show="lang === 'my'">Nama Penuh</span>
+                                <span x-show="lang === 'en'" x-cloak>Full Name</span>
+                                <span class="text-red-500">*</span>
+                            </label>
+                            <flux:input
+                                wire:model="editName"
+                                type="text"
+                                placeholder="{{ __('Enter your full name') }}"
+                            />
+                            @error('editName')
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
                         </div>
-                    @endif
 
-                    @if($isEditingInfo)
-                        <!-- Editable Form -->
-                        <div class="space-y-4">
-                            <!-- Name Field -->
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
-                                    <span x-show="lang === 'my'">Nama Penuh</span>
-                                    <span x-show="lang === 'en'" x-cloak>Full Name</span>
-                                    <span class="text-red-500">*</span>
-                                </label>
-                                <flux:input
-                                    wire:model="editName"
-                                    type="text"
-                                    placeholder="{{ __('Enter your full name') }}"
-                                />
-                                @error('editName')
-                                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <!-- Email Field -->
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
-                                    <span x-show="lang === 'my'">Alamat E-mel</span>
-                                    <span x-show="lang === 'en'" x-cloak>Email Address</span>
-                                    <span class="text-red-500">*</span>
-                                </label>
-                                <flux:input
-                                    wire:model="editEmail"
-                                    type="email"
-                                    placeholder="{{ __('Enter your email') }}"
-                                />
-                                @error('editEmail')
-                                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <!-- Phone Field -->
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
-                                    <span x-show="lang === 'my'">No. Telefon</span>
-                                    <span x-show="lang === 'en'" x-cloak>Phone Number</span>
-                                </label>
-                                <flux:input
-                                    wire:model="editPhone"
-                                    type="tel"
-                                    placeholder="e.g. 012-3456789"
-                                />
-                                @error('editPhone')
-                                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <!-- Action Buttons -->
-                            <div class="flex items-center justify-end space-x-3 pt-2">
-                                <flux:button variant="ghost" wire:click="cancelEditingInfo" :disabled="$isSavingInfo">
-                                    <span x-show="lang === 'my'">Batal</span>
-                                    <span x-show="lang === 'en'" x-cloak>Cancel</span>
-                                </flux:button>
-                                <flux:button variant="primary" wire:click="saveUserInfo" :disabled="$isSavingInfo">
-                                    @if($isSavingInfo)
-                                        <flux:icon icon="arrow-path" class="w-4 h-4 animate-spin mr-2" />
-                                        <span x-show="lang === 'my'">Menyimpan...</span>
-                                        <span x-show="lang === 'en'" x-cloak>Saving...</span>
-                                    @else
-                                        <flux:icon icon="check" class="w-4 h-4 mr-1" />
-                                        <span x-show="lang === 'my'">Simpan Maklumat</span>
-                                        <span x-show="lang === 'en'" x-cloak>Save Information</span>
-                                    @endif
-                                </flux:button>
-                            </div>
+                        <!-- Email Field -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+                                <span x-show="lang === 'my'">Alamat E-mel</span>
+                                <span x-show="lang === 'en'" x-cloak>Email Address</span>
+                                <span class="text-red-500">*</span>
+                            </label>
+                            <flux:input
+                                wire:model="editEmail"
+                                type="email"
+                                placeholder="{{ __('Enter your email') }}"
+                            />
+                            @error('editEmail')
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
                         </div>
-                    @else
-                        <!-- Display Mode -->
-                        <div class="space-y-3">
-                            <!-- Name -->
-                            <div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-zinc-700">
-                                <div class="flex items-center space-x-3">
-                                    <flux:icon icon="user" class="w-5 h-5 text-gray-400 dark:text-zinc-500" />
-                                    <div>
-                                        <p class="text-xs text-gray-500 dark:text-zinc-500">
-                                            <span x-show="lang === 'my'">Nama</span>
-                                            <span x-show="lang === 'en'" x-cloak>Name</span>
-                                        </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $student->user->name }}</p>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <!-- Email -->
-                            <div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-zinc-700">
-                                <div class="flex items-center space-x-3">
-                                    <flux:icon icon="envelope" class="w-5 h-5 text-gray-400 dark:text-zinc-500" />
-                                    <div>
-                                        <p class="text-xs text-gray-500 dark:text-zinc-500">
-                                            <span x-show="lang === 'my'">E-mel</span>
-                                            <span x-show="lang === 'en'" x-cloak>Email</span>
-                                        </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $student->user->email }}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Phone -->
-                            <div class="flex items-center justify-between py-2">
-                                <div class="flex items-center space-x-3">
-                                    <flux:icon icon="phone" class="w-5 h-5 text-gray-400 dark:text-zinc-500" />
-                                    <div>
-                                        <p class="text-xs text-gray-500 dark:text-zinc-500">
-                                            <span x-show="lang === 'my'">No. Telefon</span>
-                                            <span x-show="lang === 'en'" x-cloak>Phone Number</span>
-                                        </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                            @if($student->phone_number)
-                                                {{ $student->phone_number }}
-                                            @else
-                                                <span class="text-gray-400 dark:text-zinc-500 italic">
-                                                    <span x-show="lang === 'my'">Tidak ditetapkan</span>
-                                                    <span x-show="lang === 'en'" x-cloak>Not set</span>
-                                                </span>
-                                            @endif
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Phone Field -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+                                <span x-show="lang === 'my'">No. Telefon</span>
+                                <span x-show="lang === 'en'" x-cloak>Phone Number</span>
+                            </label>
+                            <flux:input
+                                wire:model="editPhone"
+                                type="tel"
+                                placeholder="e.g. 012-3456789"
+                            />
+                            @error('editPhone')
+                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
                         </div>
-                    @endif
+                    </div>
                 </div>
             </flux:card>
 
@@ -663,18 +553,40 @@ new #[Layout('components.layouts.guest')] class extends Component
                 </flux:card>
             @endif
 
-            <!-- Add New Payment Method -->
+            <!-- Step 2: Add Payment Method -->
             @if($canAddPaymentMethods)
                 <flux:card class="bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700">
-                    <flux:heading size="md" class="mb-4 text-gray-900 dark:text-white">
-                        @if($hasPaymentMethods)
-                            <span x-show="lang === 'my'">Tambah Kaedah Pembayaran Baharu</span>
-                            <span x-show="lang === 'en'" x-cloak>Add New Payment Method</span>
-                        @else
-                            <span x-show="lang === 'my'">Tambah Kaedah Pembayaran</span>
-                            <span x-show="lang === 'en'" x-cloak>Add Payment Method</span>
-                        @endif
-                    </flux:heading>
+                    <!-- Step 2 Header -->
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm font-bold">2</div>
+                        <flux:heading size="md" class="text-gray-900 dark:text-white">
+                            @if($hasPaymentMethods)
+                                <span x-show="lang === 'my'">Tambah Kaedah Pembayaran Baharu</span>
+                                <span x-show="lang === 'en'" x-cloak>Add New Payment Method</span>
+                            @else
+                                <span x-show="lang === 'my'">Kaedah Pembayaran</span>
+                                <span x-show="lang === 'en'" x-cloak>Payment Method</span>
+                            @endif
+                        </flux:heading>
+                        <span class="text-red-500 text-sm">*</span>
+                    </div>
+
+                    <!-- Required Notice -->
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-4">
+                        <div class="flex items-start">
+                            <flux:icon icon="exclamation-triangle" class="w-5 h-5 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                            <div class="ml-3">
+                                <p class="text-sm text-amber-800 dark:text-amber-200">
+                                    <span x-show="lang === 'my'">
+                                        <strong>Wajib:</strong> Sila masukkan maklumat kad untuk meneruskan.
+                                    </span>
+                                    <span x-show="lang === 'en'" x-cloak>
+                                        <strong>Required:</strong> Please enter your card information to proceed.
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="space-y-6">
                         <!-- Stripe Elements Card Input -->
@@ -722,32 +634,38 @@ new #[Layout('components.layouts.guest')] class extends Component
                             </div>
                         </div>
 
-                        <!-- Submit Button -->
+                        <!-- Submit Button - Saves BOTH personal info AND payment method -->
                         <flux:button
                             id="submit-payment-method"
                             variant="primary"
-                            class="w-full"
+                            class="w-full py-3"
                             :disabled="$isSubmitting || $isProcessing"
                         >
                             @if($isSubmitting || $isProcessing)
                                 <div class="flex items-center justify-center">
-                                    <flux:icon icon="arrow-path" class="w-4 h-4 animate-spin mr-2" />
+                                    <flux:icon icon="arrow-path" class="w-5 h-5 animate-spin mr-2" />
                                     @if($isSubmitting && !$isProcessing)
-                                        <span x-show="lang === 'my'">Memproses Kad...</span>
-                                        <span x-show="lang === 'en'" x-cloak>Processing Card...</span>
+                                        <span x-show="lang === 'my'">Memproses...</span>
+                                        <span x-show="lang === 'en'" x-cloak>Processing...</span>
                                     @else
-                                        <span x-show="lang === 'my'">Menambah Kaedah Pembayaran...</span>
-                                        <span x-show="lang === 'en'" x-cloak>Adding Payment Method...</span>
+                                        <span x-show="lang === 'my'">Menyimpan Maklumat...</span>
+                                        <span x-show="lang === 'en'" x-cloak>Saving Information...</span>
                                     @endif
                                 </div>
                             @else
                                 <div class="flex items-center justify-center">
-                                    <flux:icon icon="credit-card" class="w-4 h-4 mr-2" />
-                                    <span x-show="lang === 'my'">Tambah Kaedah Pembayaran</span>
-                                    <span x-show="lang === 'en'" x-cloak>Add Payment Method</span>
+                                    <flux:icon icon="check-circle" class="w-5 h-5 mr-2" />
+                                    <span x-show="lang === 'my'">Simpan Semua & Hantar</span>
+                                    <span x-show="lang === 'en'" x-cloak>Save All & Submit</span>
                                 </div>
                             @endif
                         </flux:button>
+
+                        <!-- What will be saved notice -->
+                        <p class="text-center text-xs text-gray-500 dark:text-zinc-500 mt-2">
+                            <span x-show="lang === 'my'">Butang ini akan menyimpan maklumat peribadi dan kaedah pembayaran anda</span>
+                            <span x-show="lang === 'en'" x-cloak>This button will save your personal information and payment method</span>
+                        </p>
                     </div>
                 </flux:card>
             @else
@@ -776,6 +694,24 @@ new #[Layout('components.layouts.guest')] class extends Component
                 </div>
             @endif
         @endif
+
+        <!-- Powered by BeDaie Branding -->
+        <div class="mt-10 pt-6 border-t border-gray-200 dark:border-zinc-700">
+            <div class="flex flex-col items-center justify-center space-y-3">
+                <a href="https://bedaie.com" target="_blank" rel="noopener noreferrer" class="flex items-center hover:opacity-80 transition-opacity">
+                    <img src="{{ asset('images/bedaie-brand.png') }}" alt="BeDaie" class="h-10 w-auto">
+                </a>
+                <div class="text-center">
+                    <flux:text size="sm" class="text-gray-400 dark:text-zinc-500">
+                        <span x-show="lang === 'my'">Platform ini dibangunkan oleh</span>
+                        <span x-show="lang === 'en'" x-cloak>This platform is developed by</span>
+                    </flux:text>
+                    <flux:text size="sm" class="font-medium text-gray-500 dark:text-zinc-400">
+                        BeDaie Sdn. Bhd.
+                    </flux:text>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

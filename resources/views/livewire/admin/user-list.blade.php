@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\ImpersonationService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -86,7 +87,31 @@ new class extends Component {
             session()->flash('success', 'User deleted successfully.');
         }
     }
-    
+
+    public function impersonateUser($userId)
+    {
+        $user = User::find($userId);
+        if (! $user) {
+            session()->flash('error', 'User not found.');
+
+            return;
+        }
+
+        $impersonationService = app(ImpersonationService::class);
+        $admin = auth()->user();
+
+        if (! $impersonationService->canBeImpersonated($user, $admin)) {
+            session()->flash('error', 'You cannot impersonate this user.');
+
+            return;
+        }
+
+        $impersonationService->start($admin, $user);
+        $dashboardRoute = $impersonationService->getDashboardRoute($user);
+
+        return $this->redirect(route($dashboardRoute), navigate: true);
+    }
+
     public function getUsersProperty()
     {
         return User::query()
@@ -182,84 +207,84 @@ new class extends Component {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-blue-50 p-3">
-                        <flux:icon.users class="h-6 w-6 text-blue-600" />
+                    <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-3">
+                        <flux:icon.users class="h-6 w-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $this->totalUsers }}</p>
-                        <p class="text-sm text-gray-500">Total Users</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->totalUsers }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Users</p>
                     </div>
                 </div>
             </flux:card>
             
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-green-50 p-3">
-                        <flux:icon.check-circle class="h-6 w-6 text-green-600" />
+                    <div class="rounded-md bg-green-50 dark:bg-green-900/30 p-3">
+                        <flux:icon.check-circle class="h-6 w-6 text-green-600 dark:text-green-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $this->activeUsers }}</p>
-                        <p class="text-sm text-gray-500">Active Users</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->activeUsers }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Active Users</p>
                     </div>
                 </div>
             </flux:card>
             
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-purple-50 p-3">
-                        <flux:icon.shield-check class="h-6 w-6 text-purple-600" />
+                    <div class="rounded-md bg-purple-50 dark:bg-purple-900/30 p-3">
+                        <flux:icon.shield-check class="h-6 w-6 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $this->adminsCount }}</p>
-                        <p class="text-sm text-gray-500">Admins</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->adminsCount }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Admins</p>
                     </div>
                 </div>
             </flux:card>
             
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-orange-50 p-3">
-                        <flux:icon.user-group class="h-6 w-6 text-orange-600" />
+                    <div class="rounded-md bg-orange-50 dark:bg-orange-900/30 p-3">
+                        <flux:icon.user-group class="h-6 w-6 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $this->teachersCount }}</p>
-                        <p class="text-sm text-gray-500">Teachers</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->teachersCount }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Teachers</p>
                     </div>
                 </div>
             </flux:card>
             
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-indigo-50 p-3">
-                        <flux:icon.academic-cap class="h-6 w-6 text-indigo-600" />
+                    <div class="rounded-md bg-indigo-50 dark:bg-indigo-900/30 p-3">
+                        <flux:icon.academic-cap class="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $this->studentsCount }}</p>
-                        <p class="text-sm text-gray-500">Students</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->studentsCount }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Students</p>
                     </div>
                 </div>
             </flux:card>
 
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-pink-50 p-3">
-                        <flux:icon.video-camera class="h-6 w-6 text-pink-600" />
+                    <div class="rounded-md bg-pink-50 dark:bg-pink-900/30 p-3">
+                        <flux:icon.video-camera class="h-6 w-6 text-pink-600 dark:text-pink-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $this->liveHostsCount }}</p>
-                        <p class="text-sm text-gray-500">Live Hosts</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->liveHostsCount }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Live Hosts</p>
                     </div>
                 </div>
             </flux:card>
 
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-teal-50 p-3">
-                        <flux:icon.shield-check class="h-6 w-6 text-teal-600" />
+                    <div class="rounded-md bg-teal-50 dark:bg-teal-900/30 p-3">
+                        <flux:icon.shield-check class="h-6 w-6 text-teal-600 dark:text-teal-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900">{{ $this->adminLivehostsCount }}</p>
-                        <p class="text-sm text-gray-500">Admin Livehosts</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->adminLivehostsCount }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Admin Livehosts</p>
                     </div>
                 </div>
             </flux:card>
@@ -330,8 +355,8 @@ new class extends Component {
         <!-- Users Table -->
         <flux:card>
             <div class="overflow-hidden">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                    <thead class="bg-gray-50 dark:bg-zinc-700/50">
                         <tr>
                             <th class="px-6 py-3 text-left">
                                 <flux:checkbox 
@@ -339,29 +364,29 @@ new class extends Component {
                                     class="rounded border-gray-300"
                                 />
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 User
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Role
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Status
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Last Login
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Created
                             </th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Actions
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                         @forelse ($this->users as $user)
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50">
                                 <td class="px-6 py-4">
                                     <flux:checkbox 
                                         wire:model.live="selected" 
@@ -372,15 +397,15 @@ new class extends Component {
                                 <td class="px-6 py-4">
                                     <div class="flex items-center">
                                         <div class="h-10 w-10 flex-shrink-0">
-                                            <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                                                <span class="text-sm font-medium text-gray-700">
+                                            <div class="h-10 w-10 rounded-full bg-gray-300 dark:bg-zinc-600 flex items-center justify-center">
+                                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                     {{ $user->initials() }}
                                                 </span>
                                             </div>
                                         </div>
                                         <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">{{ $user->name }}</div>
-                                            <div class="text-sm text-gray-500">{{ $user->email }}</div>
+                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $user->name }}</div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ $user->email }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -403,10 +428,10 @@ new class extends Component {
                                         {{ ucfirst($user->status) }}
                                     </flux:badge>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-gray-500">
+                                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                     {{ $user->last_login_at ? $user->last_login_at->diffForHumans() : 'Never' }}
                                 </td>
-                                <td class="px-6 py-4 text-sm text-gray-500">
+                                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                     {{ $user->created_at->format('M d, Y') }}
                                 </td>
                                 <td class="px-6 py-4 text-right">
@@ -428,8 +453,17 @@ new class extends Component {
                                             Edit
                                         </flux:button>
                                         @if ($user->id !== auth()->id())
-                                            <flux:button 
-                                                size="sm" 
+                                            <flux:button
+                                                size="sm"
+                                                variant="ghost"
+                                                wire:click="impersonateUser({{ $user->id }})"
+                                                wire:confirm="Are you sure you want to impersonate {{ $user->name }}?"
+                                                title="Impersonate User"
+                                            >
+                                                <flux:icon name="eye" class="w-4 h-4" />
+                                            </flux:button>
+                                            <flux:button
+                                                size="sm"
                                                 variant="ghost"
                                                 wire:click="deleteUser({{ $user->id }})"
                                                 wire:confirm="Are you sure you want to delete this user? This action cannot be undone."
@@ -443,9 +477,9 @@ new class extends Component {
                         @empty
                             <tr>
                                 <td colspan="7" class="px-6 py-12 text-center">
-                                    <div class="text-gray-500">
-                                        <flux:icon.users class="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                                        <p class="text-lg font-medium">No users found</p>
+                                    <div class="text-gray-500 dark:text-gray-400">
+                                        <flux:icon.users class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
+                                        <p class="text-lg font-medium text-gray-900 dark:text-gray-100">No users found</p>
                                         <p class="text-sm">Try adjusting your search criteria</p>
                                     </div>
                                 </td>
@@ -456,7 +490,7 @@ new class extends Component {
             </div>
 
             @if ($this->users->hasPages())
-                <div class="px-6 py-3 border-t border-gray-200">
+                <div class="px-6 py-3 border-t border-gray-200 dark:border-zinc-700">
                     {{ $this->users->links() }}
                 </div>
             @endif

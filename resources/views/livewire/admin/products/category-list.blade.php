@@ -89,7 +89,7 @@ new class extends Component {
 
     <!-- Category Summary -->
     <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
-        <div class="rounded-lg border border-gray-200 bg-white p-4">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="squares-2x2" class="h-8 w-8 text-blue-600" />
@@ -101,7 +101,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-white p-4">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="folder" class="h-8 w-8 text-purple-600" />
@@ -113,7 +113,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-white p-4">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="document" class="h-8 w-8 text-indigo-600" />
@@ -125,7 +125,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-white p-4">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="check-circle" class="h-8 w-8 text-green-600" />
@@ -137,7 +137,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-white p-4">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="pause-circle" class="h-8 w-8 text-gray-600" />
@@ -170,7 +170,7 @@ new class extends Component {
     </div>
 
     <!-- Categories Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
                 <thead class="bg-gray-50 border-b border-gray-200">
@@ -190,7 +190,7 @@ new class extends Component {
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white">
+                <tbody class="bg-white dark:bg-zinc-800">
                     @forelse($categories as $category)
                         <tr wire:key="category-{{ $category->id }}" class="border-b border-gray-200 hover:bg-gray-50 {{ $category->hasParent() ? 'bg-blue-25' : '' }}">
                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">

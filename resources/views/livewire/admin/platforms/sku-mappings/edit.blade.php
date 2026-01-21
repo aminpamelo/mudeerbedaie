@@ -159,7 +159,7 @@ new class extends Component {
 
     <form wire:submit="save" class="space-y-8">
         <!-- Platform Information -->
-        <div class="rounded-lg border border-zinc-200 bg-white p-6">
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <flux:heading size="lg" class="mb-4">Platform Information</flux:heading>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -219,7 +219,7 @@ new class extends Component {
         </div>
 
         <!-- Product Information -->
-        <div class="rounded-lg border border-zinc-200 bg-white p-6">
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <flux:heading size="lg" class="mb-4">Product Information</flux:heading>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -254,7 +254,7 @@ new class extends Component {
         </div>
 
         <!-- Additional Settings -->
-        <div class="rounded-lg border border-zinc-200 bg-white p-6">
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <flux:heading size="lg" class="mb-4">Additional Settings</flux:heading>
 
             <div class="space-y-4">
@@ -280,7 +280,7 @@ new class extends Component {
         </div>
 
         <!-- Usage Statistics -->
-        <div class="rounded-lg border border-zinc-200 bg-white p-6">
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <flux:heading size="lg" class="mb-4">Usage Statistics</flux:heading>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
