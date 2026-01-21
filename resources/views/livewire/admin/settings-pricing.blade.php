@@ -61,7 +61,7 @@ new class extends Component {
     <div class="mb-6 flex items-center justify-between">
         <div>
             <flux:heading size="xl">Pricing Tier Settings</flux:heading>
-            <flux:text class="mt-2">Configure discount percentages for each pricing tier applied to agents and bookstores</flux:text>
+            <flux:text class="mt-2">Configure discount percentages for each pricing tier applied to agents and companies</flux:text>
         </div>
     </div>
 
@@ -76,7 +76,7 @@ new class extends Component {
             <div class="p-6 space-y-6">
                 <div>
                     <flux:heading size="lg" class="mb-2">Tier Discount Percentages</flux:heading>
-                    <flux:text class="text-sm text-gray-600 mb-4">Set the discount percentage for each pricing tier. These discounts will be applied to product prices for agents and bookstores based on their assigned tier.</flux:text>
+                    <flux:text class="text-sm text-gray-600 mb-4">Set the discount percentage for each pricing tier. These discounts will be applied to product prices for agents and companies based on their assigned tier.</flux:text>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
@@ -137,9 +137,9 @@ new class extends Component {
                         <div class="flex items-start gap-3">
                             <flux:icon name="information-circle" class="h-6 w-6 text-blue-500 flex-shrink-0 mt-0.5" />
                             <div class="text-sm text-blue-700 dark:text-blue-300">
-                                <p class="mb-2"><strong>Tier discounts</strong> are applied to product prices when creating orders for agents or bookstores.</p>
+                                <p class="mb-2"><strong>Tier discounts</strong> are applied to product prices when creating orders for agents or companies.</p>
                                 <ul class="list-disc list-inside space-y-1">
-                                    <li>Each agent/bookstore is assigned a pricing tier</li>
+                                    <li>Each agent/company is assigned a pricing tier</li>
                                     <li>The discount percentage reduces the product price automatically</li>
                                     <li>Custom pricing can override tier discounts for specific products</li>
                                 </ul>

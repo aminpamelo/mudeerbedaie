@@ -582,7 +582,7 @@ new class extends Component
     <div class="mb-6 flex items-center justify-between">
         <div>
             <flux:heading size="xl">Create Agent Order</flux:heading>
-            <flux:text class="mt-2">Create a new order for agent or bookstore</flux:text>
+            <flux:text class="mt-2">Create a new order for agent or company</flux:text>
         </div>
         <flux:button variant="outline" :href="route('agent-orders.index')" wire:navigate>
             <div class="flex items-center">
@@ -613,7 +613,7 @@ new class extends Component
                     <div class="space-y-4">
                         <!-- Searchable Agent Selection -->
                         <div class="space-y-2" x-data="agentSearchComponent()">
-                            <flux:label>Select Agent / Bookstore</flux:label>
+                            <flux:label>Select Agent / Company</flux:label>
                             <div class="relative">
                                 <input
                                     type="text"

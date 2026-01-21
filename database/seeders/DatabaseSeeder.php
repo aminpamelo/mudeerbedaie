@@ -34,7 +34,7 @@ class DatabaseSeeder extends Seeder
             // 5. Products and Orders
             ProductsAndOrdersSeeder::class,
 
-            // 5.5 Agents, Bookstores and Agent Orders
+            // 5.5 Agents, Companies and Agent Orders
             AgentSeeder::class,
 
             // 6. Certificates

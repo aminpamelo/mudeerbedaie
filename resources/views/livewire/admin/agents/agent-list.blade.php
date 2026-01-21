@@ -56,7 +56,7 @@ new class extends Component {
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">Agents & Companies</flux:heading>
+            <flux:heading size="xl">Agent & Companies</flux:heading>
             <flux:text class="mt-2">Manage agents and companies for consignment stock tracking</flux:text>
         </div>
         <flux:button variant="primary" href="{{ route('agents.create') }}" icon="plus">

@@ -394,7 +394,6 @@ export function initAgentOrdersByTypeChart(monthlyData) {
     const months = Object.values(monthlyData).map(item => item.month_name);
     const agentOrders = Object.values(monthlyData).map(item => item.by_type.agent.orders);
     const companyOrders = Object.values(monthlyData).map(item => item.by_type.company.orders);
-    const bookstoreOrders = Object.values(monthlyData).map(item => item.by_type.bookstore.orders);
 
     const ctx = document.getElementById('agentOrdersByTypeChart');
     if (!ctx) return null;
@@ -422,13 +421,6 @@ export function initAgentOrdersByTypeChart(monthlyData) {
                     data: companyOrders,
                     backgroundColor: 'rgba(168, 85, 247, 0.8)',
                     borderColor: 'rgb(168, 85, 247)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Bookstore',
-                    data: bookstoreOrders,
-                    backgroundColor: 'rgba(249, 115, 22, 0.8)',
-                    borderColor: 'rgb(249, 115, 22)',
                     borderWidth: 1
                 }
             ]
