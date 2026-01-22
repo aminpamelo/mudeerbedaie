@@ -8492,7 +8492,7 @@ new class extends Component
     </flux:modal>
 
     <!-- Import Students Result Modal -->
-    <flux:modal name="import-students-result" :show="$showImportStudentResultModal" wire:model="showImportStudentResultModal">
+    <flux:modal name="import-students-result" :show="$showImportStudentResultModal" wire:model="showImportStudentResultModal" class="max-w-2xl">
         <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
             <flux:heading size="lg">Import Results</flux:heading>
             <flux:text class="mt-2">Summary of the student import process</flux:text>
@@ -8501,7 +8501,7 @@ new class extends Component
         <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             @if(!empty($importStudentResult))
                 <!-- Summary Stats -->
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-4 gap-4">
                     <div class="bg-green-50 rounded-lg p-3 text-center">
                         <div class="text-2xl font-bold text-green-600">{{ count($importStudentResult['enrolled'] ?? []) }}</div>
                         <div class="text-xs text-green-700">Enrolled</div>
@@ -8509,6 +8509,10 @@ new class extends Component
                     <div class="bg-blue-50 rounded-lg p-3 text-center">
                         <div class="text-2xl font-bold text-blue-600">{{ count($importStudentResult['created'] ?? []) }}</div>
                         <div class="text-xs text-blue-700">Created</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                        <div class="text-2xl font-bold text-gray-600">{{ count($importStudentResult['already_enrolled'] ?? []) }}</div>
+                        <div class="text-xs text-gray-700">Already Enrolled</div>
                     </div>
                     <div class="bg-yellow-50 rounded-lg p-3 text-center">
                         <div class="text-2xl font-bold text-yellow-600">{{ count($importStudentResult['skipped'] ?? []) }}</div>
