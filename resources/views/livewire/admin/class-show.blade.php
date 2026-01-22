@@ -2844,16 +2844,17 @@ new class extends Component
         $this->importStudentProcessing = true;
 
         try {
-            // Save the uploaded file to storage
+            // Save the uploaded file to storage (use imports/students instead of temp to avoid cleanup issues)
             $fileName = 'student_import_' . time() . '_' . uniqid() . '.csv';
-            $filePath = storage_path('app/temp/' . $fileName);
+            $importDir = storage_path('app/imports/students');
+            $filePath = $importDir . '/' . $fileName;
 
-            // Ensure temp directory exists
-            if (! file_exists(storage_path('app/temp'))) {
-                mkdir(storage_path('app/temp'), 0755, true);
+            // Ensure imports/students directory exists
+            if (! file_exists($importDir)) {
+                mkdir($importDir, 0755, true);
             }
 
-            // Copy file to temp location
+            // Copy file to imports location (persists until job processes it)
             copy($this->importStudentFile->getRealPath(), $filePath);
 
             // Create import progress record
