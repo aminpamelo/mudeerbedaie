@@ -99,9 +99,27 @@ new class extends Component
         ];
     }
 
+    public function messages()
+    {
+        return [
+            'csv_file.required' => 'Please select a CSV file to upload. Wait for the upload to complete before clicking "Process CSV File".',
+            'csv_file.file' => 'The selected file is invalid. Please select a valid CSV file.',
+            'csv_file.mimes' => 'The file must be a CSV or TXT file.',
+            'csv_file.max' => 'The file size must not exceed 20MB.',
+            'selected_account_id.required' => 'Please select a TikTok account.',
+            'selected_account_id.exists' => 'The selected account is invalid.',
+        ];
+    }
+
     // Step 1: File Upload and Initial Processing
     public function uploadAndProcess()
     {
+        // Check if file is still uploading (common user error - clicking submit too fast)
+        if (!$this->csv_file) {
+            $this->addError('csv_file', 'Please wait for the file to finish uploading before clicking "Process CSV File".');
+            return;
+        }
+
         $this->validate();
 
         try {
@@ -1082,6 +1100,26 @@ new class extends Component
                     <flux:label>TikTok CSV File *</flux:label>
                     <input type="file" wire:model="csv_file" accept=".csv,.txt"
                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+
+                    {{-- File Upload Progress Indicator --}}
+                    <div wire:loading wire:target="csv_file" class="mt-2">
+                        <div class="flex items-center gap-2 text-blue-600">
+                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-sm font-medium">Uploading file...</span>
+                        </div>
+                    </div>
+
+                    {{-- File Uploaded Success Indicator --}}
+                    @if($csv_file)
+                        <div class="mt-2 flex items-center gap-2 text-green-600">
+                            <flux:icon name="check-circle" class="w-4 h-4" />
+                            <span class="text-sm font-medium">File ready: {{ $csv_file->getClientOriginalName() }}</span>
+                        </div>
+                    @endif
+
                     <flux:description>Upload the CSV file exported from TikTok Seller Center (Max: 20MB)</flux:description>
                     <flux:error name="csv_file" />
                 </flux:field>
@@ -1111,12 +1149,16 @@ new class extends Component
             </div>
 
             <div class="flex justify-end">
-                <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
+                <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="csv_file,uploadAndProcess">
                     <div class="flex items-center justify-center">
-                        <flux:icon name="arrow-up-tray" class="w-4 h-4 mr-1" wire:loading.remove />
-                        <flux:icon name="loading" class="w-4 h-4 mr-1 animate-spin" wire:loading />
-                        <span wire:loading.remove>Process CSV File</span>
-                        <span wire:loading>Processing...</span>
+                        <flux:icon name="arrow-up-tray" class="w-4 h-4 mr-1" wire:loading.remove wire:target="csv_file,uploadAndProcess" />
+                        <svg class="animate-spin h-4 w-4 mr-1" wire:loading wire:target="csv_file,uploadAndProcess" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span wire:loading.remove wire:target="csv_file,uploadAndProcess">Process CSV File</span>
+                        <span wire:loading wire:target="csv_file">Uploading...</span>
+                        <span wire:loading wire:target="uploadAndProcess">Processing...</span>
                     </div>
                 </flux:button>
             </div>
