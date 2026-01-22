@@ -288,6 +288,13 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('agents/{agent}', 'admin.agents.agent-show')->name('agents.show');
     Volt::route('agents/{agent}/edit', 'admin.agents.agent-edit')->name('agents.edit');
 
+    // Agent Orders routes
+    Volt::route('agent-orders', 'admin.agent-orders.agent-orders-index')->name('agent-orders.index');
+    Volt::route('agent-orders/create', 'admin.agent-orders.agent-orders-create')->name('agent-orders.create');
+    Volt::route('agent-orders/report', 'admin.agent-orders.agent-performance-report')->name('agent-orders.report');
+    Volt::route('agent-orders/{order}', 'admin.agent-orders.agent-orders-show')->name('agent-orders.show');
+    Volt::route('agent-orders/{order}/edit', 'admin.agent-orders.agent-orders-edit')->name('agent-orders.edit');
+
     // Product Order Management routes
     Volt::route('product-orders', 'admin.orders.order-list')->name('admin.orders.index');
     Volt::route('product-orders/create', 'admin.orders.order-create')->name('admin.orders.create');
@@ -371,6 +378,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/general', 'admin.settings-general')->name('admin.settings.general');
     Volt::route('settings/appearance', 'admin.settings-appearance')->name('admin.settings.appearance');
     Volt::route('settings/payment', 'admin.settings-payment')->name('admin.settings.payment');
+    Volt::route('settings/pricing', 'admin.settings-pricing')->name('admin.settings.pricing');
     Volt::route('settings/email', 'admin.settings-email')->name('admin.settings.email');
     Volt::route('settings/notifications', 'admin.settings-notifications')->name('admin.settings.notifications');
     Volt::route('settings/notifications/{template}/builder', 'admin.react-template-builder')->name('admin.settings.notifications.builder');

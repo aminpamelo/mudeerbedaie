@@ -538,7 +538,7 @@ new class extends Component
             <div class="lg:col-span-2 space-y-6">
 
                 <!-- Customer Information -->
-                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="bg-white rounded-lg shadow-sm border p-6">
                     <flux:heading size="lg" class="mb-4">Buyer Information</flux:heading>
 
                     <div class="space-y-4">
@@ -611,7 +611,7 @@ new class extends Component
                                         x-show="showDropdown && search.length > 0"
                                         @click.away="showDropdown = false"
                                         x-transition
-                                        class="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
                                         style="display: none;"
                                     >
                                         @if($customers->count() > 0)
@@ -672,7 +672,7 @@ new class extends Component
                                         x-show="showDropdown && search.length > 0"
                                         @click.away="showDropdown = false"
                                         x-transition
-                                        class="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
                                         style="display: none;"
                                     >
                                         @if($agents->count() > 0)
@@ -736,7 +736,7 @@ new class extends Component
                 </div>
 
                 <!-- Order Items -->
-                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="bg-white rounded-lg shadow-sm border p-6">
                     <div class="flex items-center justify-between mb-4">
                         <flux:heading size="lg">Order Items</flux:heading>
                         <flux:button type="button" wire:click="addOrderItem" size="sm">
@@ -877,7 +877,7 @@ new class extends Component
                 </div>
 
                 <!-- Billing Address -->
-                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="bg-white rounded-lg shadow-sm border p-6">
                     <flux:heading size="lg" class="mb-4">Billing Address</flux:heading>
 
                     <div class="grid md:grid-cols-2 gap-4">
@@ -931,7 +931,7 @@ new class extends Component
                 </div>
 
                 <!-- Order Notes -->
-                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="bg-white rounded-lg shadow-sm border p-6">
                     <flux:heading size="lg" class="mb-4">Order Notes</flux:heading>
                     <flux:field>
                         <flux:textarea wire:model="form.notes" rows="4" placeholder="Any special instructions or notes for this order..." />
@@ -941,7 +941,7 @@ new class extends Component
 
             <!-- Right Column - Order Summary -->
             <div class="lg:col-span-1">
-                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6 sticky top-6">
+                <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
                     <flux:heading size="lg" class="mb-4">Order Summary</flux:heading>
 
                     <!-- Order Status Settings -->

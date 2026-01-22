@@ -7,6 +7,7 @@ use App\Models\Student;
 use App\Models\StudentImportProgress;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -52,14 +53,16 @@ class ProcessStudentImportToClass implements ShouldQueue
                 throw new \Exception('Class not found');
             }
 
-            if (! file_exists($importProgress->file_path)) {
-                throw new \Exception("CSV file not found at path: {$importProgress->file_path}");
-            }
-
-            $fileContents = file_get_contents($importProgress->file_path);
-
-            if ($fileContents === false) {
-                throw new \Exception('Failed to read uploaded file');
+            // Use file_content from database if available, otherwise fall back to file_path
+            if (! empty($importProgress->file_content)) {
+                $fileContents = $importProgress->file_content;
+            } elseif ($importProgress->file_path && file_exists($importProgress->file_path)) {
+                $fileContents = file_get_contents($importProgress->file_path);
+                if ($fileContents === false) {
+                    throw new \Exception('Failed to read uploaded file');
+                }
+            } else {
+                throw new \Exception('No file content available for import');
             }
 
             // Parse CSV
@@ -174,13 +177,21 @@ class ProcessStudentImportToClass implements ShouldQueue
                             }
                         }
 
-                        $class->addStudent($student, $orderId);
-                        $enrolledCount++;
-                        $result['enrolled'][] = [
-                            'phone' => $phone,
-                            'name' => $student->user->name,
-                            'order_id' => $orderId,
-                        ];
+                        try {
+                            $class->addStudent($student, $orderId);
+                            $enrolledCount++;
+                            $result['enrolled'][] = [
+                                'phone' => $phone,
+                                'name' => $student->user->name,
+                                'order_id' => $orderId,
+                            ];
+                        } catch (UniqueConstraintViolationException $e) {
+                            // Student already enrolled (possibly from a previous retry)
+                            $result['already_enrolled'][] = [
+                                'phone' => $phone,
+                                'name' => $student->user->name,
+                            ];
+                        }
                     }
                 } else {
                     // Student not found
@@ -227,13 +238,21 @@ class ProcessStudentImportToClass implements ShouldQueue
                                     }
                                 }
 
-                                $class->addStudent($newStudent, $orderId);
-                                $enrolledCount++;
-                                $result['enrolled'][] = [
-                                    'phone' => $phone,
-                                    'name' => $name,
-                                    'order_id' => $orderId,
-                                ];
+                                try {
+                                    $class->addStudent($newStudent, $orderId);
+                                    $enrolledCount++;
+                                    $result['enrolled'][] = [
+                                        'phone' => $phone,
+                                        'name' => $name,
+                                        'order_id' => $orderId,
+                                    ];
+                                } catch (UniqueConstraintViolationException $e) {
+                                    // Student already enrolled (possibly from a previous retry)
+                                    $result['already_enrolled'][] = [
+                                        'phone' => $phone,
+                                        'name' => $name,
+                                    ];
+                                }
                             }
                         } catch (\Exception $e) {
                             DB::rollBack();

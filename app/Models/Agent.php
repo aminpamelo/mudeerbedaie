@@ -10,10 +10,60 @@ class Agent extends Model
 {
     use HasFactory;
 
+    // Type constants
+    public const TYPE_AGENT = 'agent';
+
+    public const TYPE_COMPANY = 'company';
+
+    // Pricing tier constants
+    public const PRICING_TIER_STANDARD = 'standard';
+
+    public const PRICING_TIER_PREMIUM = 'premium';
+
+    public const PRICING_TIER_VIP = 'vip';
+
+    // Tier discount percentages
+    public const TIER_DISCOUNTS = [
+        self::PRICING_TIER_STANDARD => 10,
+        self::PRICING_TIER_PREMIUM => 15,
+        self::PRICING_TIER_VIP => 20,
+    ];
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(ProductOrder::class);
+    }
+
+    public function paidOrders(): HasMany
+    {
+        return $this->orders()->whereHas('payments', function ($query) {
+            $query->where('status', 'completed');
+        });
+    }
+
+    public function pendingOrders(): HasMany
+    {
+        return $this->orders()->where('status', 'pending');
+    }
+
+    public function completedOrders(): HasMany
+    {
+        return $this->orders()->where('status', 'delivered');
+    }
+
+    public function customPricing(): HasMany
+    {
+        return $this->hasMany(AgentPricing::class);
+    }
+
     protected $fillable = [
         'agent_code',
         'name',
         'type',
+        'pricing_tier',
+        'commission_rate',
+        'credit_limit',
+        'consignment_enabled',
         'company_name',
         'registration_number',
         'contact_person',
@@ -32,6 +82,9 @@ class Agent extends Model
             'address' => 'array',
             'bank_details' => 'array',
             'is_active' => 'boolean',
+            'consignment_enabled' => 'boolean',
+            'commission_rate' => 'decimal:2',
+            'credit_limit' => 'decimal:2',
         ];
     }
 
@@ -53,6 +106,68 @@ class Agent extends Model
     public function isCompany(): bool
     {
         return $this->type === 'company';
+    }
+
+    /**
+     * Get the tier discount percentage for this agent.
+     * Reads from settings if available, otherwise falls back to hardcoded defaults.
+     */
+    public function getTierDiscountPercentage(): int
+    {
+        $settingKey = 'pricing.tier_discount_'.$this->pricing_tier;
+        $discount = Setting::getValue($settingKey);
+
+        // Fallback to hardcoded defaults if setting not found
+        if ($discount === null) {
+            return self::TIER_DISCOUNTS[$this->pricing_tier] ?? self::TIER_DISCOUNTS[self::PRICING_TIER_STANDARD];
+        }
+
+        return (int) $discount;
+    }
+
+    /**
+     * Get all tier discounts from settings (for UI labels).
+     * Falls back to hardcoded defaults if settings not found.
+     */
+    public static function getTierDiscountsFromSettings(): array
+    {
+        return [
+            self::PRICING_TIER_STANDARD => (int) Setting::getValue('pricing.tier_discount_standard', self::TIER_DISCOUNTS[self::PRICING_TIER_STANDARD]),
+            self::PRICING_TIER_PREMIUM => (int) Setting::getValue('pricing.tier_discount_premium', self::TIER_DISCOUNTS[self::PRICING_TIER_PREMIUM]),
+            self::PRICING_TIER_VIP => (int) Setting::getValue('pricing.tier_discount_vip', self::TIER_DISCOUNTS[self::PRICING_TIER_VIP]),
+        ];
+    }
+
+    /**
+     * Get the price for a product, considering custom pricing and tier discount.
+     *
+     * @return float|null Returns custom price if available, otherwise null (use tier discount)
+     */
+    public function getPriceForProduct(int $productId, int $quantity = 1): ?float
+    {
+        // First check for custom pricing
+        $customPrice = $this->customPricing()
+            ->where('product_id', $productId)
+            ->where('is_active', true)
+            ->where('min_quantity', '<=', $quantity)
+            ->orderBy('min_quantity', 'desc')
+            ->first();
+
+        if ($customPrice) {
+            return (float) $customPrice->price;
+        }
+
+        return null; // Will use tier discount in calling code
+    }
+
+    /**
+     * Calculate the discounted price for a product using tier discount.
+     */
+    public function calculateTierPrice(float $originalPrice): float
+    {
+        $discountPercentage = $this->getTierDiscountPercentage();
+
+        return $originalPrice * (1 - ($discountPercentage / 100));
     }
 
     public function getFormattedAddressAttribute(): string
@@ -142,5 +257,61 @@ class Agent extends Model
         }
 
         return $prefix.str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Get total orders count.
+     */
+    public function getTotalOrdersAttribute(): int
+    {
+        return $this->orders()->count();
+    }
+
+    /**
+     * Get total revenue from completed orders.
+     */
+    public function getTotalRevenueAttribute(): float
+    {
+        return (float) $this->orders()
+            ->where('status', 'delivered')
+            ->sum('total_amount');
+    }
+
+    /**
+     * Get pending orders count.
+     */
+    public function getPendingOrdersCountAttribute(): int
+    {
+        return $this->orders()
+            ->whereIn('status', ['pending', 'processing'])
+            ->count();
+    }
+
+    /**
+     * Get outstanding balance (sum of orders without completed payments).
+     */
+    public function getOutstandingBalanceAttribute(): float
+    {
+        return (float) $this->orders()
+            ->whereDoesntHave('payments', function ($query) {
+                $query->where('status', 'completed');
+            })
+            ->sum('total_amount');
+    }
+
+    /**
+     * Get available credit (credit_limit - outstanding_balance).
+     */
+    public function getAvailableCreditAttribute(): float
+    {
+        return max(0, (float) $this->credit_limit - $this->outstanding_balance);
+    }
+
+    /**
+     * Check if order amount would exceed credit limit.
+     */
+    public function wouldExceedCreditLimit(float $orderAmount): bool
+    {
+        return ($this->outstanding_balance + $orderAmount) > $this->credit_limit;
     }
 }

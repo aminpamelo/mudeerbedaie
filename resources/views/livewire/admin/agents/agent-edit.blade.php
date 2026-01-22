@@ -9,8 +9,20 @@ new class extends Component {
     public $agent_code = '';
     public $name = '';
     public $type = 'agent';
+    public $pricing_tier = 'standard';
     public $company_name = '';
     public $registration_number = '';
+
+    public function getPricingTiers(): array
+    {
+        $discounts = Agent::getTierDiscountsFromSettings();
+
+        return [
+            'standard' => "Standard ({$discounts['standard']}% discount)",
+            'premium' => "Premium ({$discounts['premium']}% discount)",
+            'vip' => "VIP ({$discounts['vip']}% discount)",
+        ];
+    }
     public $contact_person = '';
     public $email = '';
     public $phone = '';
@@ -32,6 +44,7 @@ new class extends Component {
         $this->agent_code = $agent->agent_code;
         $this->name = $agent->name;
         $this->type = $agent->type;
+        $this->pricing_tier = $agent->pricing_tier ?? 'standard';
         $this->company_name = $agent->company_name;
         $this->registration_number = $agent->registration_number;
         $this->contact_person = $agent->contact_person;
@@ -62,6 +75,7 @@ new class extends Component {
             'agent_code' => 'required|string|max:50|unique:agents,agent_code,' . $this->agent->id,
             'name' => 'required|string|max:255',
             'type' => 'required|in:agent,company',
+            'pricing_tier' => 'required|in:standard,premium,vip',
             'company_name' => 'nullable|string|max:255',
             'registration_number' => 'nullable|string|max:100',
             'contact_person' => 'nullable|string|max:255',
@@ -104,6 +118,7 @@ new class extends Component {
             'agent_code' => $validated['agent_code'],
             'name' => $validated['name'],
             'type' => $validated['type'],
+            'pricing_tier' => $validated['pricing_tier'],
             'company_name' => $validated['company_name'],
             'registration_number' => $validated['registration_number'],
             'contact_person' => $validated['contact_person'],
@@ -141,7 +156,7 @@ new class extends Component {
             <!-- Main Information -->
             <div class="lg:col-span-2 space-y-6">
                 <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Basic Information</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Basic Information</h3>
 
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <flux:field>
@@ -157,6 +172,17 @@ new class extends Component {
                                 <flux:select.option value="company">Company</flux:select.option>
                             </flux:select>
                             <flux:error name="type" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Pricing Tier</flux:label>
+                            <flux:select wire:model="pricing_tier" required>
+                                @foreach($this->getPricingTiers() as $value => $label)
+                                    <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="pricing_tier" />
+                            <flux:description>Discount tier for this agent's orders</flux:description>
                         </flux:field>
 
                         <flux:field class="md:col-span-2">
@@ -183,7 +209,7 @@ new class extends Component {
 
                 <!-- Contact Information -->
                 <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Contact Information</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Contact Information</h3>
 
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <flux:field>
@@ -208,7 +234,7 @@ new class extends Component {
 
                 <!-- Address -->
                 <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Address</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Address</h3>
 
                     <div class="space-y-4">
                         <flux:field>
@@ -247,7 +273,7 @@ new class extends Component {
 
                 <!-- Bank Details -->
                 <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Bank Details</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Bank Details</h3>
 
                     <div class="grid grid-cols-1 gap-4">
                         <flux:field>
@@ -274,7 +300,7 @@ new class extends Component {
             <!-- Sidebar -->
             <div class="space-y-6">
                 <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Settings</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-4">Settings</h3>
 
                     <div class="space-y-4">
                         <flux:field>

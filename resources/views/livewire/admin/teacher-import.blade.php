@@ -254,22 +254,22 @@ new class extends Component {
 
                     <!-- Preview Table -->
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                            <thead class="bg-gray-50 dark:bg-zinc-700/50">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Row</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IC Number</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Phone</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Bank</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Issues</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">IC Number</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bank</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Issues</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
+                            <tbody class="bg-white divide-y divide-gray-200">
                                 @foreach($previewData as $row)
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50">
+                                    <tr class="hover:bg-gray-50">
                                         <td class="px-4 py-4 text-sm text-gray-900">{{ $row['data']['_row_number'] }}</td>
                                         <td class="px-4 py-4">
                                             <flux:badge :class="match($row['status']) {

@@ -163,25 +163,25 @@ new class extends Component {
         <!-- Categories List -->
         <flux:card>
             <div class="overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200">
                     <flux:heading size="lg">Categories</flux:heading>
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                        <thead class="bg-gray-50 dark:bg-zinc-700/50">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Classes</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Order</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Classes</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
+                        <tbody class="bg-white divide-y divide-gray-200">
                             @forelse ($this->categories as $category)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors duration-150">
+                                <tr class="hover:bg-gray-50 transition-colors duration-150">
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center gap-3">
                                             <div
@@ -189,14 +189,14 @@ new class extends Component {
                                                 style="background-color: {{ $category->color }}"
                                             ></div>
                                             <div>
-                                                <div class="font-medium text-gray-900 dark:text-gray-100">{{ $category->name }}</div>
-                                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ $category->slug }}</div>
+                                                <div class="font-medium text-gray-900">{{ $category->name }}</div>
+                                                <div class="text-xs text-gray-500">{{ $category->slug }}</div>
                                             </div>
                                         </div>
                                     </td>
 
                                     <td class="px-6 py-4">
-                                        <div class="text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                                        <div class="text-sm text-gray-500 max-w-xs truncate">
                                             {{ $category->description ?? '-' }}
                                         </div>
                                     </td>
@@ -208,7 +208,7 @@ new class extends Component {
                                     </td>
 
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="text-sm text-gray-500 dark:text-gray-400">{{ $category->sort_order }}</span>
+                                        <span class="text-sm text-gray-500">{{ $category->sort_order }}</span>
                                     </td>
 
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -241,9 +241,9 @@ new class extends Component {
                             @empty
                                 <tr>
                                     <td colspan="6" class="px-6 py-12 text-center">
-                                        <div class="text-gray-500 dark:text-gray-400">
-                                            <flux:icon.folder class="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-500" />
-                                            <p class="text-gray-600 dark:text-gray-400">No categories found</p>
+                                        <div class="text-gray-500">
+                                            <flux:icon.folder class="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                            <p class="text-gray-600">No categories found</p>
                                             <flux:button
                                                 wire:click="openCreateModal"
                                                 variant="ghost"
@@ -261,7 +261,7 @@ new class extends Component {
                 </div>
 
                 @if($this->categories->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-t border-gray-200">
                         {{ $this->categories->links() }}
                     </div>
                 @endif

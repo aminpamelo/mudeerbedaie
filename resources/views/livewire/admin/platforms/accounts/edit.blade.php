@@ -176,7 +176,7 @@ new class extends Component
     </div>
 
     {{-- Platform Info Card --}}
-    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
+    <div class="mb-6 bg-white rounded-lg border p-4">
         <div class="flex items-center space-x-4">
             @if($platform->logo_url)
                 <img src="{{ $platform->logo_url }}" alt="{{ $platform->name }}" class="w-12 h-12 rounded-lg">
@@ -198,7 +198,7 @@ new class extends Component
         <div class="lg:col-span-3">
             <form wire:submit="update" class="space-y-6">
                 {{-- Account Information --}}
-                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="bg-white rounded-lg border p-6">
                     <div class="flex items-center justify-between mb-4">
                         <flux:heading size="lg">Account Information</flux:heading>
                     </div>
@@ -310,7 +310,7 @@ new class extends Component
                 </div>
 
                 {{-- Account Settings --}}
-                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="bg-white rounded-lg border p-6">
                     <div class="flex items-center justify-between mb-4">
                         <flux:heading size="lg">Account Settings</flux:heading>
                         <flux:button variant="ghost" size="sm" wire:click="toggleAdvancedSettings">
@@ -373,7 +373,7 @@ new class extends Component
         {{-- Sidebar --}}
         <div class="space-y-6">
             {{-- Update Guide --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Update Guide</flux:heading>
 
                 <div class="space-y-4">
@@ -410,7 +410,7 @@ new class extends Component
             </div>
 
             {{-- Account Info --}}
-            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+            <div class="bg-white rounded-lg border p-6">
                 <flux:heading size="lg" class="mb-4">Account Info</flux:heading>
 
                 <div class="space-y-3">

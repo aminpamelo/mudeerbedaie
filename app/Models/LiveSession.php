@@ -17,18 +17,12 @@ class LiveSession extends Model
     protected $fillable = [
         'platform_account_id',
         'live_schedule_id',
-        'live_host_id',
         'title',
         'description',
         'status',
         'scheduled_start_at',
         'actual_start_at',
         'actual_end_at',
-        'duration_minutes',
-        'image_path',
-        'remarks',
-        'uploaded_at',
-        'uploaded_by',
     ];
 
     protected function casts(): array
@@ -37,7 +31,6 @@ class LiveSession extends Model
             'scheduled_start_at' => 'datetime',
             'actual_start_at' => 'datetime',
             'actual_end_at' => 'datetime',
-            'uploaded_at' => 'datetime',
         ];
     }
 
@@ -49,16 +42,6 @@ class LiveSession extends Model
     public function liveSchedule(): BelongsTo
     {
         return $this->belongsTo(LiveSchedule::class);
-    }
-
-    public function liveHost(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'live_host_id');
-    }
-
-    public function uploadedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'uploaded_by');
     }
 
     public function analytics(): HasOne
@@ -104,29 +87,6 @@ class LiveSession extends Model
             ->orderByDesc('scheduled_start_at');
     }
 
-    public function scopeUploaded(Builder $query): Builder
-    {
-        return $query->whereNotNull('uploaded_at');
-    }
-
-    public function scopeNotUploaded(Builder $query): Builder
-    {
-        return $query->whereNull('uploaded_at')
-            ->where('status', 'ended');
-    }
-
-    public function scopeForHost(Builder $query, int $hostId): Builder
-    {
-        return $query->where('live_host_id', $hostId);
-    }
-
-    public function scopeNeedsUpload(Builder $query): Builder
-    {
-        return $query->where('status', 'ended')
-            ->whereNull('uploaded_at')
-            ->where('scheduled_start_at', '<', now());
-    }
-
     public function startLive(): void
     {
         $this->update([
@@ -146,32 +106,6 @@ class LiveSession extends Model
     public function cancel(): void
     {
         $this->update(['status' => 'cancelled']);
-    }
-
-    public function uploadDetails(array $data): void
-    {
-        $actualStart = \Carbon\Carbon::parse($data['actual_start_at']);
-        $actualEnd = \Carbon\Carbon::parse($data['actual_end_at']);
-
-        $this->update([
-            'actual_start_at' => $actualStart,
-            'actual_end_at' => $actualEnd,
-            'duration_minutes' => $actualStart->diffInMinutes($actualEnd),
-            'image_path' => $data['image_path'] ?? null,
-            'remarks' => $data['remarks'] ?? null,
-            'uploaded_at' => now(),
-            'uploaded_by' => auth()->id(),
-        ]);
-    }
-
-    public function isUploaded(): bool
-    {
-        return $this->uploaded_at !== null;
-    }
-
-    public function canUpload(): bool
-    {
-        return $this->status === 'ended' && !$this->isUploaded();
     }
 
     public function isScheduled(): bool

@@ -92,7 +92,6 @@ class NotificationService
                         'model' => $student,
                         'email' => $student->user->email,
                         'name' => $student->user->name,
-                        'phone' => $student->phone_number, // Include phone for WhatsApp
                     ]);
                 }
             }
@@ -106,7 +105,6 @@ class NotificationService
                     'model' => $teacher,
                     'email' => $teacher->user->email,
                     'name' => $teacher->user->name,
-                    'phone' => $teacher->phone_number, // Include phone for WhatsApp
                 ]);
             }
         }

@@ -71,7 +71,7 @@ new class extends Component
     public function getSchedulesByDayProperty()
     {
         $schedules = LiveSchedule::query()
-            ->with(['platformAccount.platform', 'platformAccount.user', 'liveHost'])
+            ->with(['platformAccount.platform', 'platformAccount.user'])
             ->when($this->search, function ($query) {
                 $query->whereHas('platformAccount', function ($q) {
                     $q->where('name', 'like', '%'.$this->search.'%')
@@ -114,7 +114,7 @@ new class extends Component
     public function getSchedulesProperty()
     {
         return LiveSchedule::query()
-            ->with(['platformAccount.platform', 'platformAccount.user', 'liveHost'])
+            ->with(['platformAccount.platform', 'platformAccount.user'])
             ->when($this->search, function ($query) {
                 $query->whereHas('platformAccount', function ($q) {
                     $q->where('name', 'like', '%'.$this->search.'%')
@@ -218,7 +218,7 @@ new class extends Component
             <option value="">All Accounts</option>
             @foreach($this->accounts as $account)
                 <option value="{{ $account->id }}">
-                    {{ $account->name }} ({{ $account->platform->display_name }})
+                    {{ $account->name }} ({{ $account->platform?->display_name ?? 'N/A' }})
                 </option>
             @endforeach
         </flux:select>
@@ -330,7 +330,7 @@ new class extends Component
                                 'Facebook Shop' => ['dot' => 'bg-blue-600', 'border' => 'border-blue-300', 'text' => 'text-blue-700'],
                                 'Shopee' => ['dot' => 'bg-orange-500', 'border' => 'border-orange-300', 'text' => 'text-orange-700'],
                             ];
-                            $platformColor = $platformColors[$schedule->platformAccount->platform->display_name] ?? ['dot' => 'bg-gray-600', 'border' => 'border-gray-300', 'text' => 'text-gray-700'];
+                            $platformColor = $platformColors[$schedule->platformAccount?->platform?->display_name ?? ''] ?? ['dot' => 'bg-gray-600', 'border' => 'border-gray-300', 'text' => 'text-gray-700'];
                         @endphp
                         <div class="group">
                             <div class="relative bg-white dark:bg-gray-900 rounded-lg border {{ $schedule->is_active ? $platformColor['border'] : 'border-gray-200 dark:border-gray-700' }} hover:shadow-md transition-all p-3">
@@ -355,22 +355,13 @@ new class extends Component
                                 </div>
 
                                 <!-- Host Name -->
-                                @if($schedule->liveHost)
-                                    <span
-                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mb-1"
-                                        style="background-color: {{ $schedule->liveHost->host_color }}; color: {{ $schedule->liveHost->host_text_color }};"
-                                    >
-                                        {{ $schedule->liveHost->name }}
-                                    </span>
-                                @else
-                                    <p class="text-sm text-gray-400 dark:text-gray-500 mb-1 italic truncate">
-                                        Not assigned
-                                    </p>
-                                @endif
+                                <p class="text-sm text-gray-700 dark:text-gray-300 mb-1 font-medium truncate">
+                                    {{ $schedule->platformAccount?->user?->name ?? 'N/A' }}
+                                </p>
 
                                 <!-- Platform - Minimal -->
                                 <p class="text-xs {{ $platformColor['text'] }} dark:text-gray-400">
-                                    {{ $schedule->platformAccount->platform->display_name }}
+                                    {{ $schedule->platformAccount?->platform?->display_name ?? 'N/A' }}
                                 </p>
 
                                 <!-- Actions - Always visible but subtle -->
@@ -458,25 +449,18 @@ new class extends Component
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <flux:badge variant="outline" color="blue">
-                                    {{ $schedule->platformAccount->platform->display_name }}
+                                    {{ $schedule->platformAccount?->platform?->display_name ?? 'N/A' }}
                                 </flux:badge>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900 dark:text-white">
-                                    {{ $schedule->platformAccount->name }}
+                                    {{ $schedule->platformAccount?->name ?? 'N/A' }}
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                @if($schedule->liveHost)
-                                    <span
-                                        class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium"
-                                        style="background-color: {{ $schedule->liveHost->host_color }}; color: {{ $schedule->liveHost->host_text_color }};"
-                                    >
-                                        {{ $schedule->liveHost->name }}
-                                    </span>
-                                @else
-                                    <span class="text-gray-400 dark:text-gray-500 text-sm">Not assigned</span>
-                                @endif
+                                <div class="text-sm text-gray-900 dark:text-white">
+                                    {{ $schedule->platformAccount?->user?->name ?? 'N/A' }}
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 @if($schedule->is_recurring)

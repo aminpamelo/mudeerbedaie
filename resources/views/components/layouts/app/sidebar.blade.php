@@ -19,7 +19,8 @@
                     'commerce': ['admin.orders.*', 'packages.*'],
                     'customerService': ['admin.customer-service.*'],
                     'certificates': ['certificates.*'],
-                    'inventory': ['inventory.*', 'stock.*', 'warehouses.*', 'agents.*'],
+                    'inventory': ['inventory.*', 'stock.*', 'warehouses.*'],
+                    'agentCompany': ['agent-orders.*', 'agents.*'],
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
@@ -210,7 +211,18 @@
                     <flux:navlist.item icon="squares-2x2" :href="route('stock.levels')" :current="request()->routeIs('stock.levels*')" wire:navigate>{{ __('Stock Levels') }}</flux:navlist.item>
                     <flux:navlist.item icon="exclamation-triangle" :href="route('stock.alerts')" :current="request()->routeIs('stock.alerts*')" wire:navigate>{{ __('Stock Alerts') }}</flux:navlist.item>
                     <flux:navlist.item icon="building-storefront" :href="route('warehouses.index')" :current="request()->routeIs('warehouses.*')" wire:navigate>{{ __('Warehouses') }}</flux:navlist.item>
-                    <flux:navlist.item icon="building-office" :href="route('agents.index')" :current="request()->routeIs('agents.*')" wire:navigate>{{ __('Agents & Companies') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Agent & Companies')"
+                    data-section='agentCompany' x-init="if (!isExpanded('agentCompany')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('agentCompany', $event)"
+                >
+                    <flux:navlist.item icon="building-office" :href="route('agents.index')" :current="request()->routeIs('agents.index')" wire:navigate>{{ __('List of Agent & Companies') }}</flux:navlist.item>
+                    <flux:navlist.item icon="shopping-bag" :href="route('agent-orders.index')" :current="request()->routeIs('agent-orders.index')" wire:navigate>{{ __("Agent & Companies's Orders") }}</flux:navlist.item>
+                    <flux:navlist.item icon="plus-circle" :href="route('agent-orders.create')" :current="request()->routeIs('agent-orders.create')" wire:navigate>{{ __('Create Order') }}</flux:navlist.item>
+                    <flux:navlist.item icon="chart-bar" :href="route('agent-orders.report')" :current="request()->routeIs('agent-orders.report')" wire:navigate>{{ __('Monthly Report') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -281,15 +293,24 @@
                         {{ __('Appearance') }}
                     </flux:navlist.item>
                     
-                    <flux:navlist.item 
-                        icon="credit-card" 
-                        :href="route('admin.settings.payment')" 
-                        :current="request()->routeIs('admin.settings.payment')" 
+                    <flux:navlist.item
+                        icon="credit-card"
+                        :href="route('admin.settings.payment')"
+                        :current="request()->routeIs('admin.settings.payment')"
                         wire:navigate
                     >
                         {{ __('Payment') }}
                     </flux:navlist.item>
-                    
+
+                    <flux:navlist.item
+                        icon="currency-dollar"
+                        :href="route('admin.settings.pricing')"
+                        :current="request()->routeIs('admin.settings.pricing')"
+                        wire:navigate
+                    >
+                        {{ __('Pricing') }}
+                    </flux:navlist.item>
+
                     <flux:navlist.item
                         icon="envelope"
                         :href="route('admin.settings.email')"

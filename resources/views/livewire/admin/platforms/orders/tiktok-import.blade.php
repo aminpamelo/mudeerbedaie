@@ -1073,7 +1073,7 @@ new class extends Component
 
     {{-- Step 1: File Upload --}}
     @if($current_step === 1)
-    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+    <div class="bg-white rounded-lg border p-6">
         <flux:heading size="lg" class="mb-4">Step 1: Upload TikTok CSV File</flux:heading>
 
         <form wire:submit="uploadAndProcess" class="space-y-4">
@@ -1126,7 +1126,7 @@ new class extends Component
 
     {{-- Step 2: Field Mapping --}}
     @if($current_step === 2)
-    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+    <div class="bg-white rounded-lg border p-6">
         <flux:heading size="lg" class="mb-4">Step 2: Map CSV Fields</flux:heading>
         <flux:text class="mb-6">Found {{ count($csv_headers) }} columns and {{ $total_rows }} data rows. Map the TikTok CSV columns to system fields.</flux:text>
 
@@ -1192,7 +1192,7 @@ new class extends Component
 
     {{-- Step 3: Product & Package Mapping --}}
     @if($current_step === 3)
-    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+    <div class="bg-white rounded-lg border p-6">
         <flux:heading size="lg" class="mb-4">Step 3: Map Products & Packages</flux:heading>
         <flux:text class="mb-6">Map TikTok products to your system products (individual items) or packages (combo bundles) for accurate inventory tracking and sales management.</flux:text>
 
@@ -1354,7 +1354,7 @@ new class extends Component
 
     {{-- Step 4: Preview --}}
     @if($current_step === 4)
-    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+    <div class="bg-white rounded-lg border p-6">
         <flux:heading size="lg" class="mb-4">Step 4: Import Preview</flux:heading>
         <flux:text class="mb-6">Review the first 5 orders to validate field mapping and product assignments before processing all {{ $total_rows }} orders.</flux:text>
 
@@ -1403,7 +1403,7 @@ new class extends Component
                             <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Status</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <tbody class="bg-white divide-y divide-zinc-200">
                         @foreach($preview_data as $item)
                         <tr class="{{ count($item['validation_errors']) > 0 ? 'bg-red-50' : (count($item['warnings']) > 0 ? 'bg-yellow-50' : '') }}">
                             <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-900">

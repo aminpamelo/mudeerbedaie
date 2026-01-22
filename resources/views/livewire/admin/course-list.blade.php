@@ -49,41 +49,41 @@ new class extends Component {
     <div class="mt-6 space-y-6">
         <!-- Search -->
         <flux:card>
-            <div class="p-6 border-b border-gray-200 dark:border-zinc-700">
+            <div class="p-6 border-b border-gray-200">
                 <flux:input wire:model.live="search" placeholder="Search courses..." icon="magnifying-glass" />
             </div>
-
+            
             <!-- Courses Table -->
             <div class="overflow-x-auto">
                 <table class="min-w-full border-collapse border-0">
-                    <thead class="bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-200 dark:border-zinc-700">
+                    <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Course Name</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fee</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teaching Mode</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created By</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course Name</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fee</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teaching Mode</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white dark:bg-zinc-800">
+                    <tbody class="bg-white">
                         @forelse ($courses as $course)
-                            <tr class="border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50">
+                            <tr class="border-b border-gray-200 hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div>
-                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $course->name }}</div>
+                                    <div class="font-medium text-gray-900">{{ $course->name }}</div>
                                     @if($course->description)
-                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ Str::limit($course->description, 50) }}</div>
+                                        <div class="text-sm text-gray-500">{{ Str::limit($course->description, 50) }}</div>
                                     @endif
                                 </div>
                             </td>
                             
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 @if($course->feeSettings)
                                     <div>{{ $course->feeSettings->formatted_fee }}</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ $course->feeSettings->billing_cycle_label }}</div>
+                                    <div class="text-sm text-gray-500">{{ $course->feeSettings->billing_cycle_label }}</div>
                                 @else
-                                    <span class="text-gray-400 dark:text-gray-500">Not set</span>
+                                    <span class="text-gray-400">Not set</span>
                                 @endif
                             </td>
                             
@@ -93,17 +93,17 @@ new class extends Component {
                                         {{ $course->classSettings->teaching_mode_label }}
                                     </flux:badge>
                                 @else
-                                    <span class="text-gray-400 dark:text-gray-500">Not set</span>
+                                    <span class="text-gray-400">Not set</span>
                                 @endif
                             </td>
-
+                            
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <flux:badge size="sm" color="{{ $course->status === 'active' ? 'green' : 'red' }}">
                                     {{ ucfirst($course->status) }}
                                 </flux:badge>
                             </td>
-
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $course->creator->name }}</td>
+                            
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $course->creator->name }}</td>
                             
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div class="flex gap-2">
@@ -137,7 +137,7 @@ new class extends Component {
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                                 No courses found.
                             </td>
                         </tr>
@@ -147,7 +147,7 @@ new class extends Component {
             </div>
             
             @if($courses->hasPages())
-                <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-t border-gray-200">
                     {{ $courses->links() }}
                 </div>
             @endif

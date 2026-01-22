@@ -114,7 +114,7 @@ new class extends Component {
         <!-- Mapping Details -->
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <!-- Platform Information -->
-            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white p-6">
                 <flux:heading size="lg" class="mb-4">Platform Information</flux:heading>
 
                 <dl class="space-y-4">
@@ -171,7 +171,7 @@ new class extends Component {
             </div>
 
             <!-- Product Information -->
-            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white p-6">
                 <flux:heading size="lg" class="mb-4">Product Information</flux:heading>
 
                 <dl class="space-y-4">
@@ -218,7 +218,7 @@ new class extends Component {
             </div>
 
             <!-- Usage Statistics -->
-            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white p-6">
                 <flux:heading size="lg" class="mb-4">Usage Statistics</flux:heading>
 
                 <dl class="space-y-4">
@@ -247,7 +247,7 @@ new class extends Component {
             </div>
 
             <!-- Additional Information -->
-            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white p-6">
                 <flux:heading size="lg" class="mb-4">Additional Information</flux:heading>
 
                 <dl class="space-y-4">
@@ -282,7 +282,7 @@ new class extends Component {
 
     @if($activeTab === 'usage')
         <!-- Usage History -->
-        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+        <div class="rounded-lg border border-zinc-200 bg-white">
             <div class="px-6 py-4 border-b border-zinc-200">
                 <flux:heading size="lg">Usage History</flux:heading>
                 <flux:text class="mt-1">Recent orders that used this SKU mapping</flux:text>
@@ -302,7 +302,7 @@ new class extends Component {
                                 <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
+                        <tbody class="bg-white divide-y divide-zinc-200">
                             @foreach($orderItems as $item)
                                 <tr class="hover:bg-zinc-50">
                                     <td class="px-6 py-4 whitespace-nowrap">

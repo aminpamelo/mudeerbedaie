@@ -13,6 +13,7 @@ class StudentImportProgress extends Model
         'class_id',
         'user_id',
         'file_path',
+        'file_content',
         'status',
         'total_rows',
         'processed_rows',

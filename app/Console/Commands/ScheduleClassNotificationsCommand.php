@@ -16,10 +16,9 @@ class ScheduleClassNotificationsCommand extends Command
     {
         $days = (int) $this->option('days');
 
-        // Get all active classes with auto-schedule enabled, active timetables, and enabled notification settings
+        // Get all active classes with active timetables and enabled notification settings
         $classes = ClassModel::with(['timetable', 'enabledNotificationSettings'])
             ->where('status', 'active')
-            ->where('auto_schedule_notifications', true)
             ->whereHas('timetable', function ($query) {
                 $query->where('is_active', true);
             })

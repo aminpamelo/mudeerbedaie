@@ -124,24 +124,24 @@ new class extends Component
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-3">
-                        <flux:icon.users class="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    <div class="rounded-md bg-blue-50 p-3">
+                        <flux:icon.users class="h-6 w-6 text-blue-600" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $totalStudents }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Students</p>
+                        <p class="text-2xl font-semibold text-gray-900">{{ $totalStudents }}</p>
+                        <p class="text-sm text-gray-500">Total Students</p>
                     </div>
                 </div>
             </flux:card>
-
+            
             <flux:card class="p-6">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-green-50 dark:bg-green-900/30 p-3">
-                        <flux:icon.user-circle class="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <div class="rounded-md bg-green-50 p-3">
+                        <flux:icon.user-circle class="h-6 w-6 text-green-600" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $activeStudents }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Active Students</p>
+                        <p class="text-2xl font-semibold text-gray-900">{{ $activeStudents }}</p>
+                        <p class="text-sm text-gray-500">Active Students</p>
                     </div>
                 </div>
             </flux:card>
@@ -149,7 +149,7 @@ new class extends Component
 
         <!-- Search and Filters -->
         <flux:card>
-            <div class="p-6 border-b border-gray-200 dark:border-zinc-700">
+            <div class="p-6 border-b border-gray-200">
                 <div class="flex flex-col sm:flex-row gap-4">
                     <div class="flex-1">
                         <flux:input
@@ -182,29 +182,29 @@ new class extends Component
                 <!-- Active Filters Display -->
                 @if($search || $statusFilter)
                     <div class="mt-4 flex flex-wrap items-center gap-2">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">Active filters:</span>
+                        <span class="text-sm text-gray-500">Active filters:</span>
 
                         @if($search)
-                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300">
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
                                 <flux:icon name="magnifying-glass" class="w-3 h-3" />
                                 Search: "{{ $search }}"
-                                <button wire:click="$set('search', '')" class="ml-1 hover:text-blue-600 dark:hover:text-blue-400">
+                                <button wire:click="$set('search', '')" class="ml-1 hover:text-blue-600">
                                     <flux:icon name="x-mark" class="w-3 h-3" />
                                 </button>
                             </span>
                         @endif
 
                         @if($statusFilter)
-                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300">
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800">
                                 <flux:icon name="funnel" class="w-3 h-3" />
                                 Status: {{ ucfirst($statusFilter) }}
-                                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-purple-600 dark:hover:text-purple-400">
+                                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-purple-600">
                                     <flux:icon name="x-mark" class="w-3 h-3" />
                                 </button>
                             </span>
                         @endif
 
-                        <button wire:click="clearFilters" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline">
+                        <button wire:click="clearFilters" class="text-sm text-gray-500 hover:text-gray-700 underline">
                             Clear all
                         </button>
                     </div>
@@ -212,8 +212,8 @@ new class extends Component
             </div>
 
             <!-- Results Count -->
-            <div class="px-6 py-3 bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-200 dark:border-zinc-700">
-                <p class="text-sm text-gray-600 dark:text-gray-300">
+            <div class="px-6 py-3 bg-gray-50 border-b border-gray-200">
+                <p class="text-sm text-gray-600">
                     @if($search || $statusFilter)
                         Showing <span class="font-medium">{{ $students->total() }}</span> results
                         @if($students->total() !== $totalStudents)
@@ -227,43 +227,43 @@ new class extends Component
 
             <!-- Students Table -->
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                    <thead class="bg-gray-50 dark:bg-zinc-700/50">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Student</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Student ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">IC Number</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Contact</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Active Enrollments</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IC Number</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Enrollments</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
+                    <tbody class="bg-white divide-y divide-gray-200">
                         @forelse($students as $student)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50">
+                            <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         <flux:avatar size="sm" class="mr-3">
                                             {{ $student->user?->initials() ?? '?' }}
                                         </flux:avatar>
                                         <div>
-                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $student->user?->name ?? 'No User' }}</div>
-                                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ $student->user?->email ?? 'N/A' }}</div>
+                                            <div class="text-sm font-medium text-gray-900">{{ $student->user?->name ?? 'No User' }}</div>
+                                            <div class="text-sm text-gray-500">{{ $student->user?->email ?? 'N/A' }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $student->student_id }}</div>
+                                    <div class="text-sm font-medium text-gray-900">{{ $student->student_id }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900 dark:text-gray-100">{{ $student->ic_number ?? 'N/A' }}</div>
+                                    <div class="text-sm text-gray-900">{{ $student->ic_number ?? 'N/A' }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900 dark:text-gray-100">{{ $student->phone ?? 'N/A' }}</div>
+                                    <div class="text-sm text-gray-900">{{ $student->phone ?? 'N/A' }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $student->activeEnrollments->count() }}</div>
+                                    <div class="text-sm font-medium text-gray-900">{{ $student->activeEnrollments->count() }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <flux:badge :class="match($student->status) {
@@ -290,9 +290,9 @@ new class extends Component
                         @empty
                             <tr>
                                 <td colspan="7" class="px-6 py-12 text-center">
-                                    <flux:icon.users class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-                                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No students found</h3>
-                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    <flux:icon.users class="mx-auto h-12 w-12 text-gray-400" />
+                                    <h3 class="mt-2 text-sm font-medium text-gray-900">No students found</h3>
+                                    <p class="mt-1 text-sm text-gray-500">
                                         @if($search || $statusFilter)
                                             Try adjusting your search or filter criteria.
                                         @else
@@ -314,7 +314,7 @@ new class extends Component
             </div>
 
             @if($students->hasPages())
-                <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-t border-gray-200">
                     {{ $students->links() }}
                 </div>
             @endif

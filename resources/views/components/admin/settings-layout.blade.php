@@ -53,15 +53,24 @@
                         {{ __('Appearance') }}
                     </flux:navlist.item>
                     
-                    <flux:navlist.item 
-                        icon="credit-card" 
-                        :href="route('admin.settings.payment')" 
-                        :current="request()->routeIs('admin.settings.payment')" 
+                    <flux:navlist.item
+                        icon="credit-card"
+                        :href="route('admin.settings.payment')"
+                        :current="request()->routeIs('admin.settings.payment')"
                         wire:navigate
                     >
                         {{ __('Payment') }}
                     </flux:navlist.item>
-                    
+
+                    <flux:navlist.item
+                        icon="currency-dollar"
+                        :href="route('admin.settings.pricing')"
+                        :current="request()->routeIs('admin.settings.pricing')"
+                        wire:navigate
+                    >
+                        {{ __('Pricing') }}
+                    </flux:navlist.item>
+
                     <flux:navlist.item
                         icon="envelope"
                         :href="route('admin.settings.email')"
@@ -217,15 +226,24 @@
                         Appearance
                     </flux:navbar.item>
                     
-                    <flux:navbar.item 
-                        :href="route('admin.settings.payment')" 
+                    <flux:navbar.item
+                        :href="route('admin.settings.payment')"
                         wire:navigate
                         :current="$activeTab === 'payment'"
                         icon="credit-card"
                     >
                         Payment
                     </flux:navbar.item>
-                    
+
+                    <flux:navbar.item
+                        :href="route('admin.settings.pricing')"
+                        wire:navigate
+                        :current="$activeTab === 'pricing'"
+                        icon="currency-dollar"
+                    >
+                        Pricing
+                    </flux:navbar.item>
+
                     <flux:navbar.item
                         :href="route('admin.settings.email')"
                         wire:navigate

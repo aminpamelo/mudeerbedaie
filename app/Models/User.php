@@ -30,7 +30,6 @@ class User extends Authenticatable
         'role',
         'status',
         'locale',
-        'host_color',
     ];
 
     /**
@@ -115,36 +114,6 @@ class User extends Authenticatable
     public function isClassAdmin(): bool
     {
         return $this->role === 'class_admin';
-    }
-
-    /**
-     * Get assigned class IDs for this class admin (from PIC relationship)
-     *
-     * @return array<int>
-     */
-    public function getAssignedClassIds(): array
-    {
-        return $this->picClasses()->pluck('classes.id')->toArray();
-    }
-
-    /**
-     * Check if user can manage a specific class (admin, class_admin assigned, or teacher owner)
-     */
-    public function canManageClass(ClassModel $class): bool
-    {
-        if ($this->isAdmin()) {
-            return true;
-        }
-
-        if ($this->isClassAdmin()) {
-            return $this->isPicOf($class);
-        }
-
-        if ($this->isTeacher() && $this->teacher && $class->teacher_id === $this->teacher->id) {
-            return true;
-        }
-
-        return false;
     }
 
     /**
@@ -352,54 +321,6 @@ class User extends Authenticatable
     }
 
     /**
-     * Get schedule assignments for this live host
-     */
-    public function scheduleAssignments(): HasMany
-    {
-        return $this->hasMany(LiveScheduleAssignment::class, 'live_host_id');
-    }
-
-    /**
-     * Get the host color or generate a default one
-     */
-    public function getHostColorAttribute($value): string
-    {
-        if ($value) {
-            return $value;
-        }
-
-        // Generate a consistent color based on user ID
-        $colors = [
-            '#10B981', // green
-            '#F59E0B', // amber
-            '#3B82F6', // blue
-            '#EF4444', // red
-            '#8B5CF6', // purple
-            '#EC4899', // pink
-            '#14B8A6', // teal
-            '#F97316', // orange
-        ];
-
-        return $colors[$this->id % count($colors)];
-    }
-
-    /**
-     * Get contrasting text color for host color
-     */
-    public function getHostTextColorAttribute(): string
-    {
-        $hex = ltrim($this->host_color, '#');
-        $r = hexdec(substr($hex, 0, 2));
-        $g = hexdec(substr($hex, 2, 2));
-        $b = hexdec(substr($hex, 4, 2));
-
-        // Calculate luminance
-        $luminance = (0.299 * $r + 0.587 * $g + 0.114 * $b) / 255;
-
-        return $luminance > 0.5 ? '#000000' : '#FFFFFF';
-    }
-
-    /**
      * Get the user's preferred locale
      */
     public function getPreferredLocale(): string
@@ -415,21 +336,5 @@ class User extends Authenticatable
         if (in_array($locale, ['en', 'ms'])) {
             $this->update(['locale' => $locale]);
         }
-    }
-
-    /**
-     * Get impersonation logs where this user was the impersonator
-     */
-    public function impersonationLogsAsImpersonator(): HasMany
-    {
-        return $this->hasMany(ImpersonationLog::class, 'impersonator_id');
-    }
-
-    /**
-     * Get impersonation logs where this user was impersonated
-     */
-    public function impersonationLogsAsTarget(): HasMany
-    {
-        return $this->hasMany(ImpersonationLog::class, 'impersonated_id');
     }
 }

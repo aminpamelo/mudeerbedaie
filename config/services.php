@@ -35,33 +35,4 @@ return [
         ],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | OnSend.io WhatsApp API (Unofficial)
-    |--------------------------------------------------------------------------
-    |
-    | Configuration for the OnSend.io WhatsApp messaging service.
-    | WARNING: This is an unofficial API and may violate WhatsApp's ToS.
-    | Use at your own risk. Anti-ban measures are implemented to reduce
-    | the risk of account suspension.
-    |
-    */
-
-    'onsend' => [
-        'api_url' => env('ONSEND_API_URL', 'https://onsend.io/api/v1'),
-        'api_token' => env('ONSEND_API_TOKEN'),
-        'enabled' => env('ONSEND_ENABLED', false),
-
-        // Anti-ban settings
-        'min_delay_seconds' => env('ONSEND_MIN_DELAY', 10),
-        'max_delay_seconds' => env('ONSEND_MAX_DELAY', 30),
-        'batch_size' => env('ONSEND_BATCH_SIZE', 15),
-        'batch_pause_minutes' => env('ONSEND_BATCH_PAUSE', 1), // 1 minute pause between batches
-        'daily_limit' => env('ONSEND_DAILY_LIMIT', 0), // 0 = unlimited
-        'time_restriction_enabled' => env('ONSEND_TIME_RESTRICTION', false), // false = no time restriction
-        'send_hours_start' => env('ONSEND_HOURS_START', 8),
-        'send_hours_end' => env('ONSEND_HOURS_END', 22),
-        'message_variation_enabled' => env('ONSEND_MESSAGE_VARIATION', false), // false = disabled for safety
-    ],
-
 ];

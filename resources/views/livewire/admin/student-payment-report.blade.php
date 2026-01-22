@@ -658,7 +658,7 @@ new class extends Component
                 </flux:button>
 
                 <div x-show="open" @click.away="open = false" x-cloak
-                     class="absolute right-0 mt-2 w-72 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50"
+                     class="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
                      x-transition:enter="transition ease-out duration-100"
                      x-transition:enter-start="transform opacity-0 scale-95"
                      x-transition:enter-end="transform opacity-100 scale-100"
@@ -883,7 +883,7 @@ new class extends Component
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-gray-200">
-                            <th class="text-left py-3 px-4 sticky left-0 bg-white dark:bg-zinc-800 z-10 min-w-[200px]">
+                            <th class="text-left py-3 px-4 sticky left-0 bg-white z-10 min-w-[200px]">
                                 <button wire:click="sortBy('name')" class="flex items-center space-x-1 hover:text-blue-600">
                                     <span>Student Name</span>
                                     @if($sortBy === 'name')
@@ -918,7 +918,7 @@ new class extends Component
                     <tbody>
                         @foreach($students as $student)
                             <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                <td class="py-3 px-4 sticky left-0 bg-white dark:bg-zinc-800 z-10 border-r border-gray-100">
+                                <td class="py-3 px-4 sticky left-0 bg-white z-10 border-r border-gray-100">
                                     <div class="font-medium">{{ $student->user->name }}</div>
                                     <div class="text-xs text-gray-600">{{ $student->student_id }}</div>
                                     <div class="text-xs text-gray-500">{{ $student->user->email }}</div>
