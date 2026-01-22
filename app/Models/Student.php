@@ -203,11 +203,22 @@ class Student extends Model
 
     public static function generateStudentId(): string
     {
-        do {
-            $studentId = 'STU'.date('Y').str_pad(random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-        } while (self::where('student_id', $studentId)->exists());
+        $year = date('Y');
+        $prefix = 'STU' . $year;
 
-        return $studentId;
+        // Get the max existing ID for this year more efficiently
+        $maxId = self::where('student_id', 'like', $prefix . '%')
+            ->selectRaw('MAX(CAST(SUBSTRING(student_id, 8) AS UNSIGNED)) as max_num')
+            ->value('max_num');
+
+        $nextNum = ($maxId ?? 0) + 1;
+
+        // If we somehow exceed 9999, add random suffix to avoid collision
+        if ($nextNum > 9999) {
+            $nextNum = random_int(10000, 99999);
+        }
+
+        return $prefix . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
     }
 
     // Order-related utility methods
