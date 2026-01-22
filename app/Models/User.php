@@ -109,6 +109,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is class admin
+     */
+    public function isClassAdmin(): bool
+    {
+        return $this->role === 'class_admin';
+    }
+
+    /**
      * Check if user has specific role
      */
     public function hasRole(string $role): bool
