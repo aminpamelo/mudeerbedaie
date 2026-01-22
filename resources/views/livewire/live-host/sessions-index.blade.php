@@ -11,6 +11,7 @@ new class extends Component {
     public $statusFilter = '';
     public $platformFilter = '';
     public $dateFilter = '';
+    public $sourceFilter = '';
     public $perPage = 15;
 
     public function updatingSearch()
@@ -33,19 +34,25 @@ new class extends Component {
         $this->resetPage();
     }
 
+    public function updatingSourceFilter()
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters()
     {
         $this->search = '';
         $this->statusFilter = '';
         $this->platformFilter = '';
         $this->dateFilter = '';
+        $this->sourceFilter = '';
         $this->resetPage();
     }
 
     public function getSessionsProperty()
     {
-        return auth()->user()->liveSessions()
-            ->with(['platformAccount.platform', 'analytics'])
+        return auth()->user()->hostedSessions()
+            ->with(['platformAccount.platform', 'analytics', 'liveSchedule'])
             ->when($this->search, function ($query) {
                 $query->where('title', 'like', '%' . $this->search . '%')
                     ->orWhere('description', 'like', '%' . $this->search . '%');
@@ -68,34 +75,51 @@ new class extends Component {
                     default => null
                 };
             })
+            ->when($this->sourceFilter, function ($query) {
+                match($this->sourceFilter) {
+                    // Admin assigned = schedule exists and created by someone other than the host
+                    'admin' => $query->whereHas('liveSchedule', function ($q) {
+                        $q->where(function ($subQ) {
+                            $subQ->whereNull('created_by')
+                                ->orWhereColumn('created_by', '!=', 'live_schedules.live_host_id');
+                        });
+                    }),
+                    // Self = schedule exists and created by the host themselves
+                    'self' => $query->whereHas('liveSchedule', function ($q) {
+                        $q->whereNotNull('created_by')
+                            ->whereColumn('created_by', '=', 'live_schedules.live_host_id');
+                    }),
+                    default => null
+                };
+            })
             ->orderBy('scheduled_start_at', 'desc')
             ->paginate($this->perPage);
     }
 
     public function getTotalSessionsProperty()
     {
-        return auth()->user()->liveSessions()->count();
+        return auth()->user()->hostedSessions()->count();
     }
 
     public function getUpcomingSessionsProperty()
     {
-        return auth()->user()->liveSessions()->upcoming()->count();
+        return auth()->user()->hostedSessions()->upcoming()->count();
     }
 
     public function getLiveNowProperty()
     {
-        return auth()->user()->liveSessions()->live()->count();
+        return auth()->user()->hostedSessions()->live()->count();
     }
 
     public function getCompletedSessionsProperty()
     {
-        return auth()->user()->liveSessions()->ended()->count();
+        return auth()->user()->hostedSessions()->ended()->count();
     }
 
     public function getPlatformsProperty()
     {
         return auth()->user()
-            ->platformAccounts()
+            ->assignedPlatformAccounts()
             ->with('platform')
             ->get()
             ->pluck('platform')
@@ -171,7 +195,7 @@ new class extends Component {
     <!-- Filters -->
     <flux:card class="mb-6">
         <div class="p-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                 <div>
                     <flux:input
                         wire:model.live.debounce.300ms="search"
@@ -207,6 +231,14 @@ new class extends Component {
                         <option value="next_week">Next Week</option>
                         <option value="this_month">This Month</option>
                         <option value="past">Past Sessions</option>
+                    </flux:select>
+                </div>
+
+                <div>
+                    <flux:select wire:model.live="sourceFilter" placeholder="All Sources">
+                        <option value="">All Sources</option>
+                        <option value="admin">Admin Assigned</option>
+                        <option value="self">Self Schedule</option>
                     </flux:select>
                 </div>
 
@@ -252,7 +284,14 @@ new class extends Component {
                     @forelse ($this->sessions as $session)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4">
-                                <div class="text-sm font-medium text-gray-900">{{ $session->title }}</div>
+                                <div class="flex items-center gap-2">
+                                    <div class="text-sm font-medium text-gray-900">{{ $session->title }}</div>
+                                    @if ($session->isAdminAssigned())
+                                        <flux:badge variant="outline" color="blue" size="sm">Admin</flux:badge>
+                                    @else
+                                        <flux:badge variant="outline" color="purple" size="sm">Self</flux:badge>
+                                    @endif
+                                </div>
                                 <div class="text-sm text-gray-500">{{ Str::limit($session->description, 40) }}</div>
                             </td>
                             <td class="px-6 py-4">

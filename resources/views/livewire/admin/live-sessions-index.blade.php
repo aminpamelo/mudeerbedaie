@@ -20,6 +20,8 @@ new class extends Component
 
     public $dateFilter = '';
 
+    public $sourceFilter = '';
+
     public $perPage = 20;
 
     public function updatingSearch()
@@ -34,22 +36,23 @@ new class extends Component
         $this->platformFilter = '';
         $this->accountFilter = '';
         $this->dateFilter = '';
+        $this->sourceFilter = '';
         $this->resetPage();
     }
 
     public function getSessionsProperty()
     {
         return LiveSession::query()
-            ->with(['platformAccount.platform', 'platformAccount.user', 'analytics'])
+            ->with(['platformAccount.platform', 'liveHost', 'analytics', 'liveSchedule'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('title', 'like', '%'.$this->search.'%')
                         ->orWhere('description', 'like', '%'.$this->search.'%')
                         ->orWhereHas('platformAccount', function ($pa) {
-                            $pa->where('name', 'like', '%'.$this->search.'%')
-                                ->orWhereHas('user', function ($u) {
-                                    $u->where('name', 'like', '%'.$this->search.'%');
-                                });
+                            $pa->where('name', 'like', '%'.$this->search.'%');
+                        })
+                        ->orWhereHas('liveHost', function ($lh) {
+                            $lh->where('name', 'like', '%'.$this->search.'%');
                         });
                 });
             })
@@ -66,6 +69,25 @@ new class extends Component
             })
             ->when($this->dateFilter, function ($query) {
                 $query->whereDate('scheduled_start_at', $this->dateFilter);
+            })
+            ->when($this->sourceFilter, function ($query) {
+                match ($this->sourceFilter) {
+                    // Admin = no schedule OR schedule created by someone other than the host
+                    'admin' => $query->where(function ($q) {
+                        $q->whereNull('live_schedule_id')
+                            ->orWhereHas('liveSchedule', function ($ls) {
+                                $ls->where(function ($lsq) {
+                                    $lsq->whereNull('created_by')
+                                        ->orWhereColumn('created_by', '!=', 'live_host_id');
+                                });
+                            });
+                    }),
+                    // Self = schedule exists AND created by the same host
+                    'self' => $query->whereHas('liveSchedule', function ($ls) {
+                        $ls->whereColumn('created_by', '=', 'live_host_id');
+                    }),
+                    default => null
+                };
             })
             ->latest('scheduled_start_at')
             ->paginate($this->perPage);
@@ -143,7 +165,15 @@ new class extends Component
             />
         </div>
 
-        @if($search || $statusFilter || $platformFilter || $accountFilter || $dateFilter)
+        <div class="w-40">
+            <flux:select wire:model.live="sourceFilter" placeholder="All Sources">
+                <option value="">All Sources</option>
+                <option value="admin">Admin Assigned</option>
+                <option value="self">Self Schedule</option>
+            </flux:select>
+        </div>
+
+        @if($search || $statusFilter || $platformFilter || $accountFilter || $dateFilter || $sourceFilter)
             <flux:button variant="ghost" wire:click="clearFilters" size="sm">
                 Clear
             </flux:button>
@@ -212,8 +242,15 @@ new class extends Component
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <td class="px-6 py-4">
                                 <div>
-                                    <div class="font-medium text-gray-900 dark:text-white">
-                                        {{ $session->title }}
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium text-gray-900 dark:text-white">
+                                            {{ $session->title }}
+                                        </span>
+                                        @if($session->isAdminAssigned())
+                                            <flux:badge variant="outline" color="blue" size="sm">Admin</flux:badge>
+                                        @else
+                                            <flux:badge variant="outline" color="purple" size="sm">Self</flux:badge>
+                                        @endif
                                     </div>
                                     @if($session->description)
                                         <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
@@ -224,7 +261,7 @@ new class extends Component
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm">
-                                    <div class="text-gray-900 dark:text-white">{{ $session->platformAccount?->user?->name ?? 'N/A' }}</div>
+                                    <div class="text-gray-900 dark:text-white">{{ $session->liveHost?->name ?? 'N/A' }}</div>
                                     <div class="text-gray-500 dark:text-gray-400">{{ $session->platformAccount?->name ?? 'N/A' }}</div>
                                 </div>
                             </td>

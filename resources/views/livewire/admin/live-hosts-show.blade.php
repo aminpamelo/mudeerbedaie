@@ -15,9 +15,9 @@ new class extends Component
     public function mount(User $host): void
     {
         $this->host = $host->load([
-            'platformAccounts.platform',
-            'platformAccounts.liveSchedules',
-            'platformAccounts.liveSessions' => fn ($q) => $q->latest()->limit(10),
+            'assignedPlatformAccounts.platform',
+            'assignedPlatformAccounts.liveSchedules',
+            'assignedPlatformAccounts.liveSessions' => fn ($q) => $q->latest()->limit(10),
         ]);
     }
 
@@ -28,7 +28,7 @@ new class extends Component
 
     public function deleteHost(): void
     {
-        if ($this->host->platformAccounts()->count() > 0) {
+        if ($this->host->assignedPlatformAccounts()->count() > 0) {
             session()->flash('error', 'Cannot delete live host with connected platform accounts.');
 
             return;
@@ -43,7 +43,7 @@ new class extends Component
 
     public function getSchedulesByDayProperty()
     {
-        $schedules = $this->host->platformAccounts->flatMap->liveSchedules;
+        $schedules = $this->host->assignedPlatformAccounts->flatMap->liveSchedules;
 
         // Group schedules by day
         return collect([
@@ -60,7 +60,7 @@ new class extends Component
     public function getSessionsByDayProperty()
     {
         // Get all sessions for the host
-        $sessions = $this->host->liveSessions()
+        $sessions = $this->host->hostedSessions()
             ->with(['platformAccount.platform'])
             ->whereBetween('scheduled_start_at', [now()->startOfWeek(), now()->endOfWeek()])
             ->orderBy('scheduled_start_at')
@@ -81,12 +81,12 @@ new class extends Component
     public function with(): array
     {
         $stats = [
-            'platform_accounts' => $this->host->platformAccounts()->count(),
-            'active_accounts' => $this->host->platformAccounts()->where('is_active', true)->count(),
-            'schedules' => $this->host->platformAccounts()->withCount('liveSchedules')->get()->sum('live_schedules_count'),
-            'total_sessions' => $this->host->liveSessions()->count(),
-            'upcoming_sessions' => $this->host->liveSessions()->where('status', 'scheduled')->where('scheduled_start_at', '>', now())->count(),
-            'live_now' => $this->host->liveSessions()->where('status', 'live')->count(),
+            'platform_accounts' => $this->host->assignedPlatformAccounts()->count(),
+            'active_accounts' => $this->host->assignedPlatformAccounts()->where('is_active', true)->count(),
+            'schedules' => $this->host->assignedPlatformAccounts()->withCount('liveSchedules')->get()->sum('live_schedules_count'),
+            'total_sessions' => $this->host->hostedSessions()->count(),
+            'upcoming_sessions' => $this->host->hostedSessions()->where('status', 'scheduled')->where('scheduled_start_at', '>', now())->count(),
+            'live_now' => $this->host->hostedSessions()->where('status', 'live')->count(),
         ];
 
         return compact('stats');
@@ -129,7 +129,7 @@ new class extends Component
     <!-- Quick Stats -->
     <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Platform Accounts</div>
+            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Assigned Accounts</div>
             <div class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ $stats['platform_accounts'] }}</div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -230,7 +230,7 @@ new class extends Component
                 <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                     <flux:heading size="lg" class="mb-4">Recent Sessions</flux:heading>
                     <div class="space-y-3">
-                        @forelse($host->platformAccounts->flatMap->liveSessions->take(5) as $session)
+                        @forelse($host->hostedSessions()->latest('scheduled_start_at')->take(5)->get() as $session)
                             <div class="flex items-start justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
                                 <div class="flex-1 min-w-0">
                                     <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -255,9 +255,9 @@ new class extends Component
             <!-- Platform Accounts Tab -->
             <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 <div class="p-6">
-                    <flux:heading size="lg" class="mb-4">Platform Accounts</flux:heading>
+                    <flux:heading size="lg" class="mb-4">Assigned Platform Accounts</flux:heading>
                     <div class="space-y-4">
-                        @forelse($host->platformAccounts as $account)
+                        @forelse($host->assignedPlatformAccounts as $account)
                             <div class="flex items-start justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                                 <div class="flex-1">
                                     <div class="flex items-center gap-3 mb-2">

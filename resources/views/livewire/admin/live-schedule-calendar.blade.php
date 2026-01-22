@@ -183,7 +183,7 @@ new class extends Component
                 $this->sendNotifications($schedule, $oldHostId, $newHostId);
             }
         } else {
-            // Create new schedule
+            // Create new schedule (admin-created)
             $schedule = LiveSchedule::create([
                 'platform_account_id' => $this->editingPlatformId,
                 'day_of_week' => $this->editingDayOfWeek,
@@ -193,6 +193,7 @@ new class extends Component
                 'is_active' => true,
                 'live_host_id' => $newHostId,
                 'remarks' => $this->remarks,
+                'created_by' => auth()->id(), // Admin created - will be different from live_host_id
             ]);
 
             // Send notification to new host
@@ -442,7 +443,7 @@ new class extends Component
                 continue;
             }
 
-            // Find or create schedule
+            // Find or create schedule (admin-imported)
             $schedule = LiveSchedule::updateOrCreate(
                 [
                     'platform_account_id' => $row['platform_id'],
@@ -455,6 +456,7 @@ new class extends Component
                     'is_active' => true,
                     'live_host_id' => $row['host_id'],
                     'remarks' => $row['remarks'] ?: null,
+                    'created_by' => auth()->id(), // Admin imported
                 ]
             );
 

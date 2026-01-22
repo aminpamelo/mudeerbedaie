@@ -8,26 +8,26 @@ use Illuminate\Support\Facades\DB;
 new class extends Component {
     public function getTotalSessionsProperty()
     {
-        return auth()->user()->liveSessions()->count();
+        return auth()->user()->hostedSessions()->count();
     }
 
     public function getUpcomingSessionsProperty()
     {
-        return auth()->user()->liveSessions()
+        return auth()->user()->hostedSessions()
             ->upcoming()
             ->count();
     }
 
     public function getLiveNowProperty()
     {
-        return auth()->user()->liveSessions()
+        return auth()->user()->hostedSessions()
             ->live()
             ->count();
     }
 
     public function getCompletedThisWeekProperty()
     {
-        return auth()->user()->liveSessions()
+        return auth()->user()->hostedSessions()
             ->ended()
             ->where('actual_end_at', '>=', now()->startOfWeek())
             ->count();
@@ -35,14 +35,14 @@ new class extends Component {
 
     public function getActivePlatformAccountsProperty()
     {
-        return auth()->user()->platformAccounts()
-            ->active()
+        return auth()->user()->assignedPlatformAccounts()
+            ->where('is_active', true)
             ->count();
     }
 
     public function getTotalViewersProperty()
     {
-        return auth()->user()->liveSessions()
+        return auth()->user()->hostedSessions()
             ->ended()
             ->join('live_analytics', 'live_sessions.id', '=', 'live_analytics.live_session_id')
             ->sum('live_analytics.viewers_peak') ?? 0;
@@ -50,8 +50,8 @@ new class extends Component {
 
     public function getTodaySessionsProperty()
     {
-        return auth()->user()->liveSessions()
-            ->with(['platformAccount.platform', 'analytics'])
+        return auth()->user()->hostedSessions()
+            ->with(['platformAccount.platform', 'analytics', 'liveSchedule'])
             ->whereDate('scheduled_start_at', today())
             ->orderBy('scheduled_start_at')
             ->get();
@@ -59,8 +59,8 @@ new class extends Component {
 
     public function getUpcomingSessionsListProperty()
     {
-        return auth()->user()->liveSessions()
-            ->with(['platformAccount.platform', 'analytics'])
+        return auth()->user()->hostedSessions()
+            ->with(['platformAccount.platform', 'analytics', 'liveSchedule'])
             ->upcoming()
             ->orderBy('scheduled_start_at')
             ->limit(5)
@@ -69,7 +69,7 @@ new class extends Component {
 
     public function getPlatformAccountsProperty()
     {
-        return auth()->user()->platformAccounts()
+        return auth()->user()->assignedPlatformAccounts()
             ->with(['platform', 'liveSchedules', 'liveSessions'])
             ->withCount(['liveSchedules', 'liveSessions'])
             ->get();
@@ -77,7 +77,7 @@ new class extends Component {
 
     public function getRecentAnalyticsProperty()
     {
-        return auth()->user()->liveSessions()
+        return auth()->user()->hostedSessions()
             ->ended()
             ->with('analytics')
             ->whereHas('analytics')
@@ -189,13 +189,18 @@ new class extends Component {
                                             <flux:badge variant="filled" :color="$session->status_color">
                                                 {{ ucfirst($session->status) }}
                                             </flux:badge>
+                                            @if ($session->isAdminAssigned())
+                                                <flux:badge variant="outline" color="blue" size="sm">Admin</flux:badge>
+                                            @else
+                                                <flux:badge variant="outline" color="purple" size="sm">Self</flux:badge>
+                                            @endif
                                             <span class="text-sm font-medium text-gray-900">
                                                 {{ $session->scheduled_start_at->format('h:i A') }}
                                             </span>
                                         </div>
                                         <p class="text-sm font-semibold text-gray-900">{{ $session->title }}</p>
                                         <p class="text-xs text-gray-500 mt-1">
-                                            {{ $session->platformAccount->platform->name }} - {{ $session->platformAccount->account_name }}
+                                            {{ $session->platformAccount->name }}
                                         </p>
                                     </div>
                                     <flux:icon.chevron-right class="w-5 h-5 text-gray-400" />
@@ -229,13 +234,13 @@ new class extends Component {
                             <div class="p-4 border border-gray-200 rounded-lg">
                                 <div class="flex items-start justify-between">
                                     <div class="flex-1">
-                                        <div class="flex items-center gap-2 mb-1">
-                                            <p class="font-semibold text-gray-900">{{ $account->account_name }}</p>
+                                        <div class="flex items-center gap-2 mb-2">
                                             <flux:badge variant="filled" :color="$account->is_active ? 'green' : 'gray'">
                                                 {{ $account->is_active ? 'Active' : 'Inactive' }}
                                             </flux:badge>
                                         </div>
-                                        <p class="text-sm text-gray-500">{{ $account->platform->name }}</p>
+                                        <p class="font-semibold text-gray-900">{{ $account->platform->name ?? 'Unknown Platform' }}</p>
+                                        <p class="text-sm text-gray-600 mt-1">{{ $account->name ?: 'No account name' }}</p>
                                         <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
                                             <span>{{ $account->live_schedules_count }} schedules</span>
                                             <span>•</span>
@@ -283,12 +288,18 @@ new class extends Component {
                             @foreach ($this->upcomingSessionsList as $session)
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-6 py-4">
-                                        <div class="text-sm font-medium text-gray-900">{{ $session->title }}</div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-sm font-medium text-gray-900">{{ $session->title }}</div>
+                                            @if ($session->isAdminAssigned())
+                                                <flux:badge variant="outline" color="blue" size="sm">Admin</flux:badge>
+                                            @else
+                                                <flux:badge variant="outline" color="purple" size="sm">Self</flux:badge>
+                                            @endif
+                                        </div>
                                         <div class="text-sm text-gray-500">{{ Str::limit($session->description, 50) }}</div>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <div class="text-sm text-gray-900">{{ $session->platformAccount->platform->name }}</div>
-                                        <div class="text-sm text-gray-500">{{ $session->platformAccount->account_name }}</div>
+                                        <div class="text-sm text-gray-900">{{ $session->platformAccount->name }}</div>
                                     </td>
                                     <td class="px-6 py-4">
                                         <div class="text-sm text-gray-900">{{ $session->scheduled_start_at->format('M d, Y') }}</div>

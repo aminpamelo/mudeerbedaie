@@ -17,12 +17,19 @@ class LiveSession extends Model
     protected $fillable = [
         'platform_account_id',
         'live_schedule_id',
+        'live_host_id',
         'title',
         'description',
         'status',
         'scheduled_start_at',
         'actual_start_at',
         'actual_end_at',
+        'duration_minutes',
+        'image_path',
+        'video_link',
+        'remarks',
+        'uploaded_at',
+        'uploaded_by',
     ];
 
     protected function casts(): array
@@ -31,6 +38,7 @@ class LiveSession extends Model
             'scheduled_start_at' => 'datetime',
             'actual_start_at' => 'datetime',
             'actual_end_at' => 'datetime',
+            'uploaded_at' => 'datetime',
         ];
     }
 
@@ -42,6 +50,16 @@ class LiveSession extends Model
     public function liveSchedule(): BelongsTo
     {
         return $this->belongsTo(LiveSchedule::class);
+    }
+
+    public function liveHost(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'live_host_id');
+    }
+
+    public function uploadedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
     }
 
     public function analytics(): HasOne
@@ -146,5 +164,56 @@ class LiveSession extends Model
             'cancelled' => 'red',
             default => 'gray',
         };
+    }
+
+    /**
+     * Check if session was created from an admin-assigned schedule
+     */
+    public function isAdminAssigned(): bool
+    {
+        // If no schedule, check if it was manually created (not admin)
+        if (! $this->live_schedule_id) {
+            return false; // No schedule = manually created by someone
+        }
+
+        // Load schedule if not loaded
+        $schedule = $this->liveSchedule ?? $this->load('liveSchedule')->liveSchedule;
+
+        if (! $schedule) {
+            return false;
+        }
+
+        return $schedule->isAdminAssigned();
+    }
+
+    public function isUploaded(): bool
+    {
+        return $this->uploaded_at !== null;
+    }
+
+    public function uploadDetails(array $data): void
+    {
+        $actualStart = isset($data['actual_start_at'])
+            ? \Carbon\Carbon::parse($data['actual_start_at'])
+            : $this->actual_start_at;
+
+        $actualEnd = isset($data['actual_end_at'])
+            ? \Carbon\Carbon::parse($data['actual_end_at'])
+            : $this->actual_end_at;
+
+        $durationMinutes = ($actualStart && $actualEnd)
+            ? $actualStart->diffInMinutes($actualEnd)
+            : null;
+
+        $this->update([
+            'actual_start_at' => $actualStart,
+            'actual_end_at' => $actualEnd,
+            'duration_minutes' => $durationMinutes,
+            'image_path' => $data['image_path'] ?? $this->image_path,
+            'video_link' => $data['video_link'] ?? $this->video_link,
+            'remarks' => $data['remarks'] ?? $this->remarks,
+            'uploaded_at' => now(),
+            'uploaded_by' => auth()->id(),
+        ]);
     }
 }

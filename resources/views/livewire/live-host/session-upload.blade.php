@@ -18,6 +18,7 @@ new class extends Component
     public string $actualStartTime = '';
     public string $actualEndTime = '';
     public $sessionImage = null;
+    public string $videoLink = '';
     public string $remarks = '';
 
     // Filters
@@ -89,6 +90,7 @@ new class extends Component
         $this->editingSessionId = $session->id;
         $this->actualStartTime = $session->actual_start_at?->format('H:i') ?? $session->scheduled_start_at->format('H:i');
         $this->actualEndTime = $session->actual_end_at?->format('H:i') ?? '';
+        $this->videoLink = $session->video_link ?? '';
         $this->remarks = $session->remarks ?? '';
         $this->sessionImage = null;
 
@@ -101,11 +103,14 @@ new class extends Component
             'actualStartTime' => 'required',
             'actualEndTime' => 'required|after:actualStartTime',
             'sessionImage' => 'required|image|max:5120', // 5MB max
+            'videoLink' => 'required|url|max:500',
             'remarks' => 'nullable|string|max:1000',
         ], [
             'actualEndTime.after' => 'End time must be after start time.',
             'sessionImage.required' => 'Please upload a screenshot of your live session.',
             'sessionImage.max' => 'Image must be less than 5MB.',
+            'videoLink.required' => 'Please enter the video link.',
+            'videoLink.url' => 'Please enter a valid URL for the video link.',
         ]);
 
         $session = LiveSession::find($this->editingSessionId);
@@ -125,6 +130,7 @@ new class extends Component
             'actual_start_at' => $sessionDate . ' ' . $this->actualStartTime,
             'actual_end_at' => $sessionDate . ' ' . $this->actualEndTime,
             'image_path' => $imagePath,
+            'video_link' => $this->videoLink ?: null,
             'remarks' => $this->remarks,
         ]);
 
@@ -139,6 +145,7 @@ new class extends Component
         $this->actualStartTime = '';
         $this->actualEndTime = '';
         $this->sessionImage = null;
+        $this->videoLink = '';
         $this->remarks = '';
         $this->resetValidation();
     }
@@ -286,9 +293,11 @@ new class extends Component
                                 </div>
                             </div>
                             <div class="flex-shrink-0">
-                                <flux:button variant="primary" wire:click="openUploadModal({{ $session->id }})">
-                                    <flux:icon.arrow-up-tray class="w-4 h-4 mr-2" />
-                                    Upload
+                                <flux:button variant="primary" wire:click="openUploadModal({{ $session->id }})" size="sm">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon.arrow-up-tray class="w-4 h-4 mr-1.5" />
+                                        <span>Upload</span>
+                                    </div>
                                 </flux:button>
                             </div>
                         </div>
@@ -360,6 +369,12 @@ new class extends Component
                                         <flux:icon.play class="w-4 h-4" />
                                         {{ $session->duration_minutes }} min
                                     </span>
+                                    @if($session->video_link)
+                                        <a href="{{ $session->video_link }}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
+                                            <flux:icon.link class="w-4 h-4" />
+                                            <span>View Video</span>
+                                        </a>
+                                    @endif
                                 </div>
                                 @if($session->remarks)
                                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-3 italic bg-gray-50 dark:bg-zinc-700/50 p-2 rounded-lg">"{{ Str::limit($session->remarks, 100) }}"</p>
@@ -478,6 +493,18 @@ new class extends Component
                 </flux:field>
 
                 <flux:field>
+                    <flux:label>Video Link *</flux:label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <flux:icon.link class="w-4 h-4 text-gray-400 dark:text-zinc-500" />
+                        </div>
+                        <flux:input type="url" wire:model="videoLink" placeholder="https://..." class="pl-10" />
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Link to recorded video (TikTok, Facebook, YouTube, etc.)</p>
+                    @error('videoLink') <flux:error>{{ $message }}</flux:error> @enderror
+                </flux:field>
+
+                <flux:field>
                     <flux:label>Remarks (Optional)</flux:label>
                     <flux:textarea wire:model="remarks" rows="3" placeholder="Any notes about this session..." />
                     @error('remarks') <flux:error>{{ $message }}</flux:error> @enderror
@@ -486,8 +513,10 @@ new class extends Component
 
             <div class="mt-8 flex gap-3">
                 <flux:button variant="primary" wire:click="uploadSession" class="flex-1">
-                    <flux:icon.arrow-up-tray class="w-4 h-4 mr-2" />
-                    Upload Session
+                    <div class="flex items-center justify-center">
+                        <flux:icon.arrow-up-tray class="w-4 h-4 mr-1.5" />
+                        <span>Upload Session</span>
+                    </div>
                 </flux:button>
                 <flux:button variant="ghost" wire:click="closeModal">
                     Cancel

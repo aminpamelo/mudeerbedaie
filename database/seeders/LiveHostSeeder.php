@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\LiveAnalytics;
 use App\Models\LiveSchedule;
-use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
 use App\Models\LiveTimeSlot;
 use App\Models\Platform;
@@ -35,20 +34,8 @@ class LiveHostSeeder extends Seeder
             return;
         }
 
-        // Step 3: Create live host users
-        $hosts = $this->createLiveHosts();
-
-        // Step 4: Create platform accounts and assign to hosts
-        $platformAccounts = $this->createPlatformAccounts($hosts, $platforms);
-
-        // Step 5: Create schedule assignments (new system)
-        $this->createScheduleAssignments($hosts, $platformAccounts);
-
-        // Step 6: Create legacy schedules (for backwards compatibility)
-        $this->createLegacySchedules($platformAccounts);
-
-        // Step 7: Create live sessions
-        $this->createLiveSessions($platformAccounts);
+        // Step 3: Create live host users with their own platform accounts
+        $this->createLiveHostsWithAccounts($platforms);
 
         $this->displaySummary();
     }
@@ -104,82 +91,90 @@ class LiveHostSeeder extends Seeder
     }
 
     /**
-     * Create live host users.
+     * Create live hosts with their own platform accounts, schedules, and sessions.
      */
-    private function createLiveHosts(): array
+    private function createLiveHostsWithAccounts($platforms): void
     {
-        $this->command->info('  → Creating live host users...');
+        $this->command->info('  → Creating live hosts with accounts...');
 
+        // Define hosts with their platform preferences
         $hostsData = [
+            [
+                'name' => 'Test Live Host',
+                'email' => 'test@example.com',
+                'phone' => '60100000000',
+                'platforms' => ['TikTok Shop', 'Facebook Shop'], // Will get accounts on these platforms
+            ],
             [
                 'name' => 'Sarah Chen',
                 'email' => 'sarah@livehost.com',
                 'phone' => '60123456789',
+                'platforms' => ['TikTok Shop', 'Shopee'],
             ],
             [
                 'name' => 'Ahmad Rahman',
                 'email' => 'ahmad@livehost.com',
                 'phone' => '60187654321',
+                'platforms' => ['Facebook Shop', 'Shopee'],
             ],
             [
                 'name' => 'Lisa Tan',
                 'email' => 'lisa@livehost.com',
                 'phone' => '60198765432',
+                'platforms' => ['TikTok Shop'],
             ],
             [
                 'name' => 'Muhammad Haziq',
                 'email' => 'haziq@livehost.com',
                 'phone' => '60112345678',
-            ],
-            [
-                'name' => 'Nurul Aisyah',
-                'email' => 'aisyah@livehost.com',
-                'phone' => '60176543210',
+                'platforms' => ['Shopee', 'Facebook Shop'],
             ],
         ];
 
-        $hosts = [];
+        $hostCount = 0;
+        $accountCount = 0;
+        $scheduleCount = 0;
+        $sessionCount = 0;
 
         foreach ($hostsData as $hostData) {
-            // Check if phone is already taken by different user
-            $existingUser = User::where('phone', $hostData['phone'])->first();
-            if ($existingUser && $existingUser->email !== $hostData['email']) {
+            // Create or update host user
+            $existingPhoneUser = User::where('phone', $hostData['phone'])->first();
+            if ($existingPhoneUser && $existingPhoneUser->email !== $hostData['email']) {
                 $hostData['phone'] = '601'.rand(10000000, 99999999);
             }
 
-            $hosts[] = User::firstOrCreate(
-                ['email' => $hostData['email']],
-                [
+            $host = User::where('email', $hostData['email'])->first();
+
+            if ($host) {
+                $host->update([
+                    'role' => 'live_host',
+                    'status' => 'active',
+                ]);
+            } else {
+                $host = User::create([
                     'name' => $hostData['name'],
+                    'email' => $hostData['email'],
                     'phone' => $hostData['phone'],
                     'password' => 'password',
                     'role' => 'live_host',
                     'status' => 'active',
-                ]
-            );
-        }
+                    'email_verified_at' => now(),
+                ]);
+            }
 
-        $this->command->info('    ✓ Created '.count($hosts).' live host users');
+            $hostCount++;
+            $this->command->info("    → Processing host: {$host->name} ({$host->email})");
 
-        return $hosts;
-    }
+            // Create platform accounts for this host
+            foreach ($hostData['platforms'] as $platformName) {
+                $platform = $platforms->firstWhere('name', $platformName);
+                if (! $platform) {
+                    continue;
+                }
 
-    /**
-     * Create platform accounts and assign to hosts via pivot table.
-     */
-    private function createPlatformAccounts(array $hosts, $platforms): array
-    {
-        $this->command->info('  → Creating platform accounts...');
-
-        $platformAccounts = [];
-        $pivotCount = 0;
-
-        foreach ($platforms as $platform) {
-            // Create 2-3 accounts per platform
-            $numAccounts = rand(2, 3);
-
-            for ($i = 1; $i <= $numAccounts; $i++) {
-                $accountName = $platform->display_name.' Store '.$i;
+                // Create unique account for this host on this platform
+                $accountName = $host->name.' - '.$platform->display_name;
+                $accountId = '@'.strtolower(str_replace([' ', '-'], '', $host->name)).'_'.strtolower(str_replace(' ', '', $platform->name));
 
                 $account = PlatformAccount::firstOrCreate(
                     [
@@ -187,264 +182,188 @@ class LiveHostSeeder extends Seeder
                         'name' => $accountName,
                     ],
                     [
-                        'account_id' => '@'.strtolower(str_replace(' ', '', $platform->name)).'store'.$i,
+                        'account_id' => $accountId,
                         'is_active' => true,
                         'currency' => 'MYR',
                         'country_code' => 'MY',
                     ]
                 );
 
-                $platformAccounts[] = $account;
+                $accountCount++;
 
-                // Assign 1-2 random hosts to this account via pivot table
-                $numHosts = rand(1, 2);
-                $assignedHosts = collect($hosts)->random($numHosts);
+                // Link host to account via pivot table
+                $pivotExists = DB::table('live_host_platform_account')
+                    ->where('user_id', $host->id)
+                    ->where('platform_account_id', $account->id)
+                    ->exists();
 
-                foreach ($assignedHosts as $host) {
-                    // Check if relationship already exists
-                    $exists = DB::table('live_host_platform_account')
-                        ->where('user_id', $host->id)
-                        ->where('platform_account_id', $account->id)
-                        ->exists();
-
-                    if (! $exists) {
-                        DB::table('live_host_platform_account')->insert([
-                            'user_id' => $host->id,
-                            'platform_account_id' => $account->id,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
-                        $pivotCount++;
-                    }
+                if (! $pivotExists) {
+                    DB::table('live_host_platform_account')->insert([
+                        'user_id' => $host->id,
+                        'platform_account_id' => $account->id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
                 }
+
+                // Create schedules for this account
+                $scheduleCount += $this->createSchedulesForAccount($account);
+
+                // Create sessions for this host on this account
+                $sessionCount += $this->createSessionsForHost($host, $account);
             }
         }
 
-        $this->command->info('    ✓ Created '.count($platformAccounts).' platform accounts');
-        $this->command->info('    ✓ Created '.$pivotCount.' host-account assignments');
-
-        return $platformAccounts;
+        $this->command->info("    ✓ Created {$hostCount} live hosts");
+        $this->command->info("    ✓ Created {$accountCount} platform accounts");
+        $this->command->info("    ✓ Created {$scheduleCount} schedules");
+        $this->command->info("    ✓ Created {$sessionCount} sessions");
     }
 
     /**
-     * Create schedule assignments (new system with time slots).
+     * Create legacy schedules for an account.
      */
-    private function createScheduleAssignments(array $hosts, array $platformAccounts): void
+    private function createSchedulesForAccount(PlatformAccount $account): int
     {
-        $this->command->info('  → Creating schedule assignments...');
+        $count = 0;
+        $daysOfWeek = [1, 2, 3, 4, 5]; // Monday to Friday
 
-        $timeSlots = LiveTimeSlot::where('is_active', true)->get();
-
-        if ($timeSlots->isEmpty()) {
-            $this->command->warn('    No time slots found. Skipping schedule assignments.');
-
-            return;
-        }
-
-        $assignmentCount = 0;
-        $statuses = ['scheduled', 'confirmed', 'in_progress', 'completed'];
-
-        foreach ($platformAccounts as $account) {
-            // Get hosts assigned to this account
-            $accountHosts = DB::table('live_host_platform_account')
-                ->where('platform_account_id', $account->id)
-                ->pluck('user_id')
-                ->toArray();
-
-            if (empty($accountHosts)) {
+        foreach ($daysOfWeek as $day) {
+            // Skip some days randomly
+            if (rand(0, 100) > 70) {
                 continue;
             }
 
-            // Create template assignments (recurring weekly) for each day
-            foreach (range(0, 6) as $dayOfWeek) {
-                // Skip some days randomly (60% chance of having schedule on each day)
-                if (rand(1, 100) > 60) {
+            $startHour = rand(10, 20);
+            $startTime = sprintf('%02d:00:00', $startHour);
+            $endTime = sprintf('%02d:00:00', min($startHour + 2, 23));
+
+            $schedule = LiveSchedule::firstOrCreate(
+                [
+                    'platform_account_id' => $account->id,
+                    'day_of_week' => $day,
+                    'start_time' => $startTime,
+                ],
+                [
+                    'end_time' => $endTime,
+                    'is_recurring' => true,
+                    'is_active' => true,
+                ]
+            );
+
+            if ($schedule->wasRecentlyCreated) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Create sessions for a host on a specific account.
+     */
+    private function createSessionsForHost(User $host, PlatformAccount $account): int
+    {
+        $count = 0;
+
+        $schedules = LiveSchedule::where('platform_account_id', $account->id)
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($schedules as $schedule) {
+            // Create past sessions (some pending upload, some completed)
+            $pastDates = [
+                now()->subWeeks(3)->next($schedule->day_of_week),
+                now()->subWeeks(2)->next($schedule->day_of_week),
+                now()->subWeeks(1)->next($schedule->day_of_week),
+            ];
+
+            foreach ($pastDates as $index => $date) {
+                $scheduledStart = $date->copy()->setTimeFromTimeString($schedule->start_time);
+
+                // Check if session already exists
+                $exists = LiveSession::where('platform_account_id', $account->id)
+                    ->where('live_host_id', $host->id)
+                    ->where('scheduled_start_at', $scheduledStart)
+                    ->exists();
+
+                if ($exists) {
                     continue;
                 }
 
-                // Select 1-3 time slots for this day
-                $numSlots = rand(1, min(3, $timeSlots->count()));
-                $selectedSlots = $timeSlots->random($numSlots);
+                $actualStart = $scheduledStart->copy();
+                $actualEnd = $scheduledStart->copy()->addHours(rand(1, 2));
+                $durationMinutes = $actualStart->diffInMinutes($actualEnd);
 
-                foreach ($selectedSlots as $slot) {
-                    // Pick a random host from those assigned to this account
-                    $hostId = $accountHosts[array_rand($accountHosts)];
+                // First 2 sessions are pending upload, third is uploaded
+                $isUploaded = ($index === 2);
 
-                    // Check if assignment already exists
-                    $exists = LiveScheduleAssignment::where('platform_account_id', $account->id)
-                        ->where('time_slot_id', $slot->id)
-                        ->where('day_of_week', $dayOfWeek)
-                        ->where('is_template', true)
-                        ->exists();
-
-                    if (! $exists) {
-                        LiveScheduleAssignment::create([
-                            'platform_account_id' => $account->id,
-                            'time_slot_id' => $slot->id,
-                            'live_host_id' => $hostId,
-                            'day_of_week' => $dayOfWeek,
-                            'is_template' => true,
-                            'status' => $statuses[rand(0, 2)], // scheduled, confirmed, or in_progress
-                            'remarks' => rand(0, 1) ? 'Regular weekly session' : null,
-                        ]);
-                        $assignmentCount++;
-                    }
-                }
-            }
-
-            // Create some specific date assignments (non-template) for past and future dates
-            for ($i = 0; $i < rand(2, 5); $i++) {
-                $slot = $timeSlots->random();
-                $hostId = $accountHosts[array_rand($accountHosts)];
-
-                // Random date within past 2 weeks or next 2 weeks
-                $isPast = rand(0, 1);
-                $date = $isPast
-                    ? Carbon::now()->subDays(rand(1, 14))
-                    : Carbon::now()->addDays(rand(1, 14));
-
-                $status = $isPast ? 'completed' : $statuses[rand(0, 1)];
-
-                LiveScheduleAssignment::create([
+                $session = LiveSession::create([
                     'platform_account_id' => $account->id,
-                    'time_slot_id' => $slot->id,
-                    'live_host_id' => $hostId,
-                    'day_of_week' => $date->dayOfWeek,
-                    'schedule_date' => $date->toDateString(),
-                    'is_template' => false,
-                    'status' => $status,
-                    'remarks' => $isPast ? 'Completed session' : 'Special event session',
+                    'live_schedule_id' => $schedule->id,
+                    'live_host_id' => $host->id,
+                    'title' => 'Live Stream - '.$account->name,
+                    'description' => 'Session on '.$date->format('l, F j'),
+                    'status' => 'ended',
+                    'scheduled_start_at' => $scheduledStart,
+                    'actual_start_at' => $actualStart,
+                    'actual_end_at' => $actualEnd,
+                    'duration_minutes' => $durationMinutes,
+                    'uploaded_at' => $isUploaded ? now() : null,
+                    'uploaded_by' => $isUploaded ? $host->id : null,
+                    'remarks' => $isUploaded ? 'Great session!' : null,
                 ]);
-                $assignmentCount++;
-            }
-        }
 
-        $this->command->info('    ✓ Created '.$assignmentCount.' schedule assignments');
-    }
+                $count++;
 
-    /**
-     * Create legacy schedules (for backwards compatibility).
-     */
-    private function createLegacySchedules(array $platformAccounts): void
-    {
-        $this->command->info('  → Creating legacy schedules...');
-
-        $scheduleCount = 0;
-
-        foreach ($platformAccounts as $account) {
-            // Create 2-4 schedules per account
-            $numSchedules = rand(2, 4);
-            $usedDays = [];
-
-            for ($i = 0; $i < $numSchedules; $i++) {
-                // Pick a random day that hasn't been used
-                do {
-                    $dayOfWeek = rand(0, 6);
-                } while (in_array($dayOfWeek, $usedDays));
-
-                $usedDays[] = $dayOfWeek;
-
-                // Random time between 10 AM and 10 PM
-                $startHour = rand(10, 21);
-                $startTime = sprintf('%02d:00:00', $startHour);
-                $endTime = sprintf('%02d:00:00', min($startHour + rand(1, 3), 23));
-
-                $schedule = LiveSchedule::firstOrCreate(
-                    [
-                        'platform_account_id' => $account->id,
-                        'day_of_week' => $dayOfWeek,
-                        'start_time' => $startTime,
-                    ],
-                    [
-                        'end_time' => $endTime,
-                        'is_recurring' => rand(0, 10) > 3, // 70% recurring
-                        'is_active' => rand(0, 10) > 2, // 80% active
-                    ]
-                );
-
-                if ($schedule->wasRecentlyCreated) {
-                    $scheduleCount++;
-                }
-            }
-        }
-
-        $this->command->info('    ✓ Created '.$scheduleCount.' legacy schedules');
-    }
-
-    /**
-     * Create live sessions with analytics.
-     */
-    private function createLiveSessions(array $platformAccounts): void
-    {
-        $this->command->info('  → Creating live sessions...');
-
-        $sessionCount = 0;
-        $analyticsCount = 0;
-
-        foreach ($platformAccounts as $account) {
-            $schedules = LiveSchedule::where('platform_account_id', $account->id)
-                ->where('is_recurring', true)
-                ->where('is_active', true)
-                ->get();
-
-            foreach ($schedules as $schedule) {
-                // Create 2 past sessions and 2 upcoming sessions
-                $dates = [
-                    now()->subWeeks(2)->next($schedule->day_of_week),
-                    now()->subWeeks(1)->next($schedule->day_of_week),
-                    now()->addWeeks(1)->next($schedule->day_of_week),
-                    now()->addWeeks(2)->next($schedule->day_of_week),
-                ];
-
-                foreach ($dates as $date) {
-                    $isPast = $date->isPast();
-                    $status = $isPast ? 'ended' : 'scheduled';
-
-                    $scheduledStart = $date->copy()->setTimeFromTimeString($schedule->start_time);
-
-                    // Check if session already exists
-                    $exists = LiveSession::where('platform_account_id', $account->id)
-                        ->where('live_schedule_id', $schedule->id)
-                        ->where('scheduled_start_at', $scheduledStart)
-                        ->exists();
-
-                    if ($exists) {
-                        continue;
-                    }
-
-                    $session = LiveSession::create([
-                        'platform_account_id' => $account->id,
-                        'live_schedule_id' => $schedule->id,
-                        'title' => 'Live Stream - '.$account->name,
-                        'description' => 'Regular streaming session on '.$date->format('l, F j'),
-                        'status' => $status,
-                        'scheduled_start_at' => $scheduledStart,
-                        'actual_start_at' => $isPast ? $scheduledStart : null,
-                        'actual_end_at' => $isPast ? $scheduledStart->copy()->addHours(rand(1, 3)) : null,
+                // Add analytics for uploaded sessions
+                if ($isUploaded) {
+                    LiveAnalytics::create([
+                        'live_session_id' => $session->id,
+                        'viewers_peak' => rand(100, 500),
+                        'viewers_avg' => rand(50, 300),
+                        'total_likes' => rand(200, 1000),
+                        'total_comments' => rand(50, 300),
+                        'total_shares' => rand(10, 50),
+                        'gifts_value' => rand(50, 500),
+                        'duration_minutes' => $durationMinutes,
                     ]);
-
-                    $sessionCount++;
-
-                    // Add analytics for completed sessions
-                    if ($isPast) {
-                        LiveAnalytics::create([
-                            'live_session_id' => $session->id,
-                            'viewers_peak' => rand(50, 500),
-                            'viewers_avg' => rand(30, 300),
-                            'total_likes' => rand(100, 1000),
-                            'total_comments' => rand(50, 500),
-                            'total_shares' => rand(10, 100),
-                            'gifts_value' => rand(0, 1000) / 10,
-                            'duration_minutes' => rand(60, 180),
-                        ]);
-                        $analyticsCount++;
-                    }
                 }
+            }
+
+            // Create upcoming sessions
+            $futureDates = [
+                now()->addWeeks(1)->next($schedule->day_of_week),
+                now()->addWeeks(2)->next($schedule->day_of_week),
+            ];
+
+            foreach ($futureDates as $date) {
+                $scheduledStart = $date->copy()->setTimeFromTimeString($schedule->start_time);
+
+                $exists = LiveSession::where('platform_account_id', $account->id)
+                    ->where('live_host_id', $host->id)
+                    ->where('scheduled_start_at', $scheduledStart)
+                    ->exists();
+
+                if ($exists) {
+                    continue;
+                }
+
+                LiveSession::create([
+                    'platform_account_id' => $account->id,
+                    'live_schedule_id' => $schedule->id,
+                    'live_host_id' => $host->id,
+                    'title' => 'Upcoming Stream - '.$account->name,
+                    'description' => 'Scheduled for '.$date->format('l, F j'),
+                    'status' => 'scheduled',
+                    'scheduled_start_at' => $scheduledStart,
+                ]);
+
+                $count++;
             }
         }
 
-        $this->command->info('    ✓ Created '.$sessionCount.' live sessions');
-        $this->command->info('    ✓ Created '.$analyticsCount.' analytics records');
+        return $count;
     }
 
     /**
@@ -463,11 +382,26 @@ class LiveHostSeeder extends Seeder
                 ['Time Slots', LiveTimeSlot::count()],
                 ['Platform Accounts', PlatformAccount::count()],
                 ['Host-Account Assignments', DB::table('live_host_platform_account')->count()],
-                ['Schedule Assignments (New)', LiveScheduleAssignment::count()],
                 ['Legacy Schedules', LiveSchedule::count()],
                 ['Live Sessions', LiveSession::count()],
+                ['- Pending Upload', LiveSession::where('status', 'ended')->whereNull('uploaded_at')->count()],
+                ['- Uploaded', LiveSession::whereNotNull('uploaded_at')->count()],
+                ['- Scheduled', LiveSession::where('status', 'scheduled')->count()],
                 ['Analytics Records', LiveAnalytics::count()],
             ]
         );
+
+        // Show test host specific info
+        $testHost = User::where('email', 'test@example.com')->first();
+        if ($testHost) {
+            $this->command->newLine();
+            $this->command->info('📧 Test Host (test@example.com):');
+            $pendingUpload = LiveSession::where('live_host_id', $testHost->id)
+                ->where('status', 'ended')
+                ->whereNull('uploaded_at')
+                ->count();
+            $this->command->info("   - Sessions pending upload: {$pendingUpload}");
+            $this->command->info('   - Login: test@example.com / password');
+        }
     }
 }

@@ -35,10 +35,10 @@ new class extends Component
     {
         $host = User::findOrFail($hostId);
 
-        if ($host->platformAccounts()->count() > 0) {
+        if ($host->assignedPlatformAccounts()->count() > 0) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Cannot delete live host with connected platform accounts.'
+                'message' => 'Cannot delete live host with assigned platform accounts.'
             ]);
             return;
         }
@@ -65,7 +65,7 @@ new class extends Component
             ->when($this->statusFilter, function ($query) {
                 $query->where('status', $this->statusFilter);
             })
-            ->withCount(['platformAccounts', 'liveSessions'])
+            ->withCount(['assignedPlatformAccounts', 'hostedSessions'])
             ->latest()
             ->paginate($this->perPage);
     }
@@ -127,9 +127,9 @@ new class extends Component
             </div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Platform Accounts</div>
+            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Assigned Platform Accounts</div>
             <div class="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                {{ \App\Models\PlatformAccount::whereHas('user', fn($q) => $q->where('role', 'live_host'))->count() }}
+                {{ \Illuminate\Support\Facades\DB::table('live_host_platform_account')->count() }}
             </div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -192,12 +192,12 @@ new class extends Component
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <flux:badge variant="outline" color="blue">
-                                    {{ $host->platform_accounts_count }} account{{ $host->platform_accounts_count != 1 ? 's' : '' }}
+                                    {{ $host->assigned_platform_accounts_count }} account{{ $host->assigned_platform_accounts_count != 1 ? 's' : '' }}
                                 </flux:badge>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                    {{ $host->live_sessions_count }}
+                                    {{ $host->hosted_sessions_count }}
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">

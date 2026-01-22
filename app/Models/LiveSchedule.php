@@ -23,11 +23,13 @@ class LiveSchedule extends Model
         'is_recurring',
         'is_active',
         'remarks',
+        'created_by',
     ];
 
     protected function casts(): array
     {
         return [
+            'day_of_week' => 'integer',
             'is_recurring' => 'boolean',
             'is_active' => 'boolean',
         ];
@@ -43,9 +45,28 @@ class LiveSchedule extends Model
         return $this->belongsTo(User::class, 'live_host_id');
     }
 
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function liveSessions(): HasMany
     {
         return $this->hasMany(LiveSession::class);
+    }
+
+    /**
+     * Check if schedule was created by admin (not by the live host themselves)
+     */
+    public function isAdminAssigned(): bool
+    {
+        // If created_by is set and is different from live_host_id, it's admin assigned
+        // Or if created_by is an admin user
+        if ($this->created_by === null) {
+            return true; // Assume admin if no creator (legacy data)
+        }
+
+        return $this->created_by !== $this->live_host_id;
     }
 
     public function scopeActive(Builder $query): Builder

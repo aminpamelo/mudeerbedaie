@@ -71,13 +71,14 @@ new class extends Component
     public function getSchedulesByDayProperty()
     {
         $schedules = LiveSchedule::query()
-            ->with(['platformAccount.platform', 'platformAccount.user'])
+            ->with(['platformAccount.platform', 'liveHost'])
             ->when($this->search, function ($query) {
-                $query->whereHas('platformAccount', function ($q) {
-                    $q->where('name', 'like', '%'.$this->search.'%')
-                        ->orWhereHas('user', function ($u) {
-                            $u->where('name', 'like', '%'.$this->search.'%');
-                        });
+                $query->where(function ($q) {
+                    $q->whereHas('platformAccount', function ($pa) {
+                        $pa->where('name', 'like', '%'.$this->search.'%');
+                    })->orWhereHas('liveHost', function ($lh) {
+                        $lh->where('name', 'like', '%'.$this->search.'%');
+                    });
                 });
             })
             ->when($this->platformFilter, function ($query) {
@@ -114,13 +115,14 @@ new class extends Component
     public function getSchedulesProperty()
     {
         return LiveSchedule::query()
-            ->with(['platformAccount.platform', 'platformAccount.user'])
+            ->with(['platformAccount.platform', 'liveHost'])
             ->when($this->search, function ($query) {
-                $query->whereHas('platformAccount', function ($q) {
-                    $q->where('name', 'like', '%'.$this->search.'%')
-                        ->orWhereHas('user', function ($u) {
-                            $u->where('name', 'like', '%'.$this->search.'%');
-                        });
+                $query->where(function ($q) {
+                    $q->whereHas('platformAccount', function ($pa) {
+                        $pa->where('name', 'like', '%'.$this->search.'%');
+                    })->orWhereHas('liveHost', function ($lh) {
+                        $lh->where('name', 'like', '%'.$this->search.'%');
+                    });
                 });
             })
             ->when($this->platformFilter, function ($query) {
@@ -356,12 +358,12 @@ new class extends Component
 
                                 <!-- Host Name -->
                                 <p class="text-sm text-gray-700 dark:text-gray-300 mb-1 font-medium truncate">
-                                    {{ $schedule->platformAccount?->user?->name ?? 'N/A' }}
+                                    {{ $schedule->liveHost?->name ?? 'Unassigned' }}
                                 </p>
 
-                                <!-- Platform - Minimal -->
-                                <p class="text-xs {{ $platformColor['text'] }} dark:text-gray-400">
-                                    {{ $schedule->platformAccount?->platform?->display_name ?? 'N/A' }}
+                                <!-- Platform & Account -->
+                                <p class="text-xs {{ $platformColor['text'] }} dark:text-gray-400 truncate">
+                                    {{ $schedule->platformAccount?->name ?? 'N/A' }} ({{ $schedule->platformAccount?->platform?->display_name ?? 'N/A' }})
                                 </p>
 
                                 <!-- Actions - Always visible but subtle -->
@@ -459,7 +461,7 @@ new class extends Component
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900 dark:text-white">
-                                    {{ $schedule->platformAccount?->user?->name ?? 'N/A' }}
+                                    {{ $schedule->liveHost?->name ?? 'Unassigned' }}
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">

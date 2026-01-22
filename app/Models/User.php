@@ -321,6 +321,51 @@ class User extends Authenticatable
     }
 
     /**
+     * Get live sessions where this user is assigned as host
+     */
+    public function hostedSessions(): HasMany
+    {
+        return $this->hasMany(LiveSession::class, 'live_host_id');
+    }
+
+    /**
+     * Get schedule assignments for this live host
+     */
+    public function scheduleAssignments(): HasMany
+    {
+        return $this->hasMany(LiveScheduleAssignment::class, 'live_host_id');
+    }
+
+    /**
+     * Get host color based on user ID for consistent coloring
+     */
+    public function getHostColorAttribute(): string
+    {
+        $colors = [
+            '#22c55e', // green-500
+            '#3b82f6', // blue-500
+            '#f59e0b', // amber-500
+            '#ef4444', // red-500
+            '#8b5cf6', // violet-500
+            '#ec4899', // pink-500
+            '#14b8a6', // teal-500
+            '#f97316', // orange-500
+            '#06b6d4', // cyan-500
+            '#84cc16', // lime-500
+        ];
+
+        return $colors[$this->id % count($colors)];
+    }
+
+    /**
+     * Get host text color for contrast
+     */
+    public function getHostTextColorAttribute(): string
+    {
+        return '#ffffff';
+    }
+
+    /**
      * Get the user's preferred locale
      */
     public function getPreferredLocale(): string

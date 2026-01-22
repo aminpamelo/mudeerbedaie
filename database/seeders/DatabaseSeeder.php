@@ -48,6 +48,7 @@ class DatabaseSeeder extends Seeder
 
             // 9. Platforms and Integrations
             PlatformSeeder::class,
+            LiveTimeSlotSeeder::class,
             LiveHostSeeder::class,
         ]);
 

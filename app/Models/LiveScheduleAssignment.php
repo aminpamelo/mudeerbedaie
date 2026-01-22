@@ -26,6 +26,7 @@ class LiveScheduleAssignment extends Model
     protected function casts(): array
     {
         return [
+            'day_of_week' => 'integer',
             'schedule_date' => 'date',
             'is_template' => 'boolean',
         ];

@@ -105,6 +105,8 @@
                 >
                     <flux:navlist.item icon="home" :href="route('class-admin.dashboard')" :current="request()->routeIs('class-admin.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                 </flux:navlist.group>
+                @elseif(auth()->user()->isLiveHost() && !auth()->user()->isAdmin())
+                {{-- Live Host only - no Platform Dashboard, they use Live Dashboard --}}
                 @else
                 <flux:navlist.group
                     expandable
@@ -365,8 +367,8 @@
                 >
                     <flux:navlist.item icon="video-camera" :href="route('live-host.dashboard')" :current="request()->routeIs('live-host.dashboard')" wire:navigate>{{ __('Live Dashboard') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar" :href="route('live-host.schedule')" :current="request()->routeIs('live-host.schedule')" wire:navigate>{{ __('My Schedule') }}</flux:navlist.item>
-                    <flux:navlist.item icon="arrow-up-tray" :href="route('live-host.session-slots')" :current="request()->routeIs('live-host.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
                     <flux:navlist.item icon="play-circle" :href="route('live-host.sessions.index')" :current="request()->routeIs('live-host.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="arrow-up-tray" :href="route('live-host.session-slots')" :current="request()->routeIs('live-host.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
