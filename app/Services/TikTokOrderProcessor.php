@@ -46,8 +46,12 @@ class TikTokOrderProcessor
      */
     public function processOrderRow(array $mappedData): array
     {
-        return DB::transaction(function () use ($mappedData) {
+        $orderId = $mappedData['order_id'] ?? 'unknown';
+        Log::debug('TikTok processOrderRow started', ['order_id' => $orderId]);
+
+        return DB::transaction(function () use ($mappedData, $orderId) {
             // Parse and clean the already-mapped data
+            Log::debug('TikTok: Parsing order data', ['order_id' => $orderId]);
             $mappedData = $this->parseOrderData($mappedData);
 
             // Apply package or product mapping
@@ -71,25 +75,38 @@ class TikTokOrderProcessor
             }
 
             // Validate required data
+            Log::debug('TikTok: Validating order data', ['order_id' => $orderId]);
             $this->validateOrderData($mappedData);
 
             // Find or create platform customer (still needed for reference)
+            Log::debug('TikTok: Finding/creating platform customer', ['order_id' => $orderId]);
             $platformCustomer = $this->findOrCreatePlatformCustomer($mappedData);
+            Log::debug('TikTok: Platform customer done', ['order_id' => $orderId, 'customer_id' => $platformCustomer->id]);
 
             // Create or update product order with platform data
+            Log::debug('TikTok: Creating/updating product order', ['order_id' => $orderId]);
             $productOrder = $this->createOrUpdateProductOrder($mappedData, $platformCustomer);
+            Log::debug('TikTok: Product order done', ['order_id' => $orderId, 'product_order_id' => $productOrder->id]);
 
             // Create product order items
+            Log::debug('TikTok: Creating order items', ['order_id' => $orderId]);
             $productOrderItems = $this->createProductOrderItems($productOrder, $mappedData);
+            Log::debug('TikTok: Order items done', ['order_id' => $orderId, 'items_count' => count($productOrderItems)]);
 
             // Check for package matches
+            Log::debug('TikTok: Detecting package purchase', ['order_id' => $orderId]);
             $packagePurchase = $this->detectAndCreatePackagePurchase($productOrder, $productOrderItems);
+            Log::debug('TikTok: Package detection done', ['order_id' => $orderId]);
 
             // Deduct stock if order is already shipped/delivered (imported orders)
+            Log::debug('TikTok: Deducting stock', ['order_id' => $orderId]);
             $this->deductStockForShippedOrder($productOrder);
+            Log::debug('TikTok: Stock deduction done', ['order_id' => $orderId]);
 
             // Update SKU mapping usage statistics
+            Log::debug('TikTok: Updating SKU mapping', ['order_id' => $orderId]);
             $this->updateSkuMappingUsage($mappedData);
+            Log::debug('TikTok: processOrderRow completed', ['order_id' => $orderId]);
 
             return [
                 'product_order' => $productOrder,
