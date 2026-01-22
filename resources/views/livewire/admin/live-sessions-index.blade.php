@@ -224,13 +224,13 @@ new class extends Component
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm">
-                                    <div class="text-gray-900 dark:text-white">{{ $session->platformAccount->user->name }}</div>
-                                    <div class="text-gray-500 dark:text-gray-400">{{ $session->platformAccount->name }}</div>
+                                    <div class="text-gray-900 dark:text-white">{{ $session->platformAccount?->user?->name ?? 'N/A' }}</div>
+                                    <div class="text-gray-500 dark:text-gray-400">{{ $session->platformAccount?->name ?? 'N/A' }}</div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <flux:badge variant="outline" color="blue">
-                                    {{ $session->platformAccount->platform->display_name }}
+                                    {{ $session->platformAccount?->platform?->display_name ?? 'N/A' }}
                                 </flux:badge>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">

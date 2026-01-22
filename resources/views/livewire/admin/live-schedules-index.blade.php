@@ -218,7 +218,7 @@ new class extends Component
             <option value="">All Accounts</option>
             @foreach($this->accounts as $account)
                 <option value="{{ $account->id }}">
-                    {{ $account->name }} ({{ $account->platform->display_name }})
+                    {{ $account->name }} ({{ $account->platform?->display_name ?? 'N/A' }})
                 </option>
             @endforeach
         </flux:select>
@@ -330,7 +330,7 @@ new class extends Component
                                 'Facebook Shop' => ['dot' => 'bg-blue-600', 'border' => 'border-blue-300', 'text' => 'text-blue-700'],
                                 'Shopee' => ['dot' => 'bg-orange-500', 'border' => 'border-orange-300', 'text' => 'text-orange-700'],
                             ];
-                            $platformColor = $platformColors[$schedule->platformAccount->platform->display_name] ?? ['dot' => 'bg-gray-600', 'border' => 'border-gray-300', 'text' => 'text-gray-700'];
+                            $platformColor = $platformColors[$schedule->platformAccount?->platform?->display_name ?? ''] ?? ['dot' => 'bg-gray-600', 'border' => 'border-gray-300', 'text' => 'text-gray-700'];
                         @endphp
                         <div class="group">
                             <div class="relative bg-white dark:bg-gray-900 rounded-lg border {{ $schedule->is_active ? $platformColor['border'] : 'border-gray-200 dark:border-gray-700' }} hover:shadow-md transition-all p-3">
@@ -356,12 +356,12 @@ new class extends Component
 
                                 <!-- Host Name -->
                                 <p class="text-sm text-gray-700 dark:text-gray-300 mb-1 font-medium truncate">
-                                    {{ $schedule->platformAccount->user->name }}
+                                    {{ $schedule->platformAccount?->user?->name ?? 'N/A' }}
                                 </p>
 
                                 <!-- Platform - Minimal -->
                                 <p class="text-xs {{ $platformColor['text'] }} dark:text-gray-400">
-                                    {{ $schedule->platformAccount->platform->display_name }}
+                                    {{ $schedule->platformAccount?->platform?->display_name ?? 'N/A' }}
                                 </p>
 
                                 <!-- Actions - Always visible but subtle -->
@@ -449,17 +449,17 @@ new class extends Component
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <flux:badge variant="outline" color="blue">
-                                    {{ $schedule->platformAccount->platform->display_name }}
+                                    {{ $schedule->platformAccount?->platform?->display_name ?? 'N/A' }}
                                 </flux:badge>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900 dark:text-white">
-                                    {{ $schedule->platformAccount->name }}
+                                    {{ $schedule->platformAccount?->name ?? 'N/A' }}
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900 dark:text-white">
-                                    {{ $schedule->platformAccount->user->name }}
+                                    {{ $schedule->platformAccount?->user?->name ?? 'N/A' }}
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\User;
 
 class LiveSchedule extends Model
 {
@@ -15,11 +16,13 @@ class LiveSchedule extends Model
 
     protected $fillable = [
         'platform_account_id',
+        'live_host_id',
         'day_of_week',
         'start_time',
         'end_time',
         'is_recurring',
         'is_active',
+        'remarks',
     ];
 
     protected function casts(): array
@@ -33,6 +36,11 @@ class LiveSchedule extends Model
     public function platformAccount(): BelongsTo
     {
         return $this->belongsTo(PlatformAccount::class);
+    }
+
+    public function liveHost(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'live_host_id');
     }
 
     public function liveSessions(): HasMany
