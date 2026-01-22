@@ -392,11 +392,14 @@ export function initAgentRevenueTrendChart(monthlyData) {
 
 export function initAgentOrdersByTypeChart(monthlyData) {
     const months = Object.values(monthlyData).map(item => item.month_name);
-    const agentOrders = Object.values(monthlyData).map(item => item.by_type.agent.orders);
-    const companyOrders = Object.values(monthlyData).map(item => item.by_type.company.orders);
+    const agentOrders = Object.values(monthlyData).map(item => item.by_type?.agent?.orders ?? 0);
+    const companyOrders = Object.values(monthlyData).map(item => item.by_type?.company?.orders ?? 0);
 
     const ctx = document.getElementById('agentOrdersByTypeChart');
     if (!ctx) return null;
+
+    // Debug log to check data
+    console.log('Agent Orders by Type Chart Data:', { months, agentOrders, companyOrders });
 
     // Destroy existing chart if exists
     if (agentOrdersChart) {

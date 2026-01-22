@@ -629,6 +629,9 @@ new class extends Component
         function initCharts(data, retryCount = 0) {
             const maxRetries = 10;
 
+            // Debug log
+            console.log('initCharts called, retryCount:', retryCount, 'function available:', typeof window.initializeAgentPerformanceCharts);
+
             if (typeof window.initializeAgentPerformanceCharts === 'function') {
                 // Destroy existing charts first
                 if (typeof window.destroyAgentPerformanceCharts === 'function') {
@@ -641,8 +644,11 @@ new class extends Component
                 // Hide skeletons after charts are rendered
                 setTimeout(hideSkeletonsAndShowCharts, 400);
             } else if (retryCount < maxRetries) {
+                console.log('Chart function not ready, retrying in 100ms...');
                 // If chart function not ready, retry after short delay
                 setTimeout(() => initCharts(data, retryCount + 1), 100);
+            } else {
+                console.error('Failed to initialize charts after max retries. Make sure reports-charts.js is loaded correctly.');
             }
         }
 
