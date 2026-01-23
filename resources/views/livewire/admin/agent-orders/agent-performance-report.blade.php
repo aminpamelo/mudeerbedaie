@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Agent;
 use App\Models\ProductOrder;
+use App\Models\ProductOrderItem;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
@@ -12,6 +12,8 @@ new class extends Component
 
     public string $agentType = '';
 
+    public int $topPerformersMonth = 0; // 0 = all months, 1-12 = specific month
+
     public array $availableYears = [];
 
     public array $monthlyData = [];
@@ -19,6 +21,12 @@ new class extends Component
     public array $summary = [];
 
     public array $agentTypeBreakdown = [];
+
+    public array $topAgents = [];
+
+    public array $topCompanies = [];
+
+    public array $topProducts = [];
 
     /**
      * Get the database driver name.
@@ -87,6 +95,41 @@ new class extends Component
     {
         $this->loadReportData();
         $this->dispatch('charts-data-updated', monthlyData: $this->monthlyData);
+    }
+
+    public function updatedTopPerformersMonth(): void
+    {
+        $this->calculateTopPerformers();
+    }
+
+    /**
+     * Get the date range for top performers based on selected month.
+     */
+    private function getTopPerformersDateRange(): array
+    {
+        if ($this->topPerformersMonth === 0) {
+            // Full year
+            return [
+                'start' => Carbon::createFromDate($this->selectedYear, 1, 1)->startOfYear(),
+                'end' => Carbon::createFromDate($this->selectedYear, 12, 31)->endOfYear(),
+            ];
+        }
+
+        // Specific month
+        return [
+            'start' => Carbon::createFromDate($this->selectedYear, $this->topPerformersMonth, 1)->startOfMonth(),
+            'end' => Carbon::createFromDate($this->selectedYear, $this->topPerformersMonth, 1)->endOfMonth(),
+        ];
+    }
+
+    public function getMonthOptions(): array
+    {
+        $options = [0 => 'All Months'];
+        for ($month = 1; $month <= 12; $month++) {
+            $options[$month] = Carbon::createFromDate($this->selectedYear, $month, 1)->format('F');
+        }
+
+        return $options;
     }
 
     private function loadReportData(): void
@@ -184,6 +227,9 @@ new class extends Component
 
         // Calculate agent type breakdown for the year
         $this->calculateAgentTypeBreakdown();
+
+        // Calculate top performers based on period filter
+        $this->calculateTopPerformers();
     }
 
     private function calculateSummary(): void
@@ -245,6 +291,90 @@ new class extends Component
                 ];
             }
         }
+    }
+
+    private function calculateTopPerformers(): void
+    {
+        $dateRange = $this->getTopPerformersDateRange();
+
+        // Top 10 Agents (type = 'agent')
+        $topAgentsQuery = ProductOrder::query()
+            ->whereNotNull('agent_id')
+            ->whereBetween('order_date', [$dateRange['start'], $dateRange['end']])
+            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
+            ->join('agents', 'product_orders.agent_id', '=', 'agents.id')
+            ->where('agents.type', 'agent')
+            ->selectRaw('
+                agents.id,
+                agents.name,
+                agents.agent_code,
+                COUNT(*) as total_orders,
+                SUM(product_orders.total_amount) as total_revenue
+            ')
+            ->groupBy('agents.id', 'agents.name', 'agents.agent_code')
+            ->orderByDesc('total_revenue')
+            ->limit(10)
+            ->get();
+
+        $this->topAgents = $topAgentsQuery->map(fn ($item) => [
+            'id' => $item->id,
+            'name' => $item->name,
+            'code' => $item->agent_code,
+            'orders' => (int) $item->total_orders,
+            'revenue' => (float) $item->total_revenue,
+        ])->toArray();
+
+        // Top 10 Companies (type = 'company')
+        $topCompaniesQuery = ProductOrder::query()
+            ->whereNotNull('agent_id')
+            ->whereBetween('order_date', [$dateRange['start'], $dateRange['end']])
+            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
+            ->join('agents', 'product_orders.agent_id', '=', 'agents.id')
+            ->where('agents.type', 'company')
+            ->selectRaw('
+                agents.id,
+                agents.name,
+                agents.company_name,
+                agents.agent_code,
+                COUNT(*) as total_orders,
+                SUM(product_orders.total_amount) as total_revenue
+            ')
+            ->groupBy('agents.id', 'agents.name', 'agents.company_name', 'agents.agent_code')
+            ->orderByDesc('total_revenue')
+            ->limit(10)
+            ->get();
+
+        $this->topCompanies = $topCompaniesQuery->map(fn ($item) => [
+            'id' => $item->id,
+            'name' => $item->company_name ?: $item->name,
+            'code' => $item->agent_code,
+            'orders' => (int) $item->total_orders,
+            'revenue' => (float) $item->total_revenue,
+        ])->toArray();
+
+        // Top 10 Products
+        $topProductsQuery = ProductOrderItem::query()
+            ->join('product_orders', 'product_order_items.order_id', '=', 'product_orders.id')
+            ->whereNotNull('product_orders.agent_id')
+            ->whereBetween('product_orders.order_date', [$dateRange['start'], $dateRange['end']])
+            ->whereNotIn('product_orders.status', ['cancelled', 'refunded', 'draft'])
+            ->selectRaw('
+                product_order_items.product_name,
+                product_order_items.product_id,
+                SUM(product_order_items.quantity_ordered) as total_quantity,
+                SUM(product_order_items.total_price) as total_revenue
+            ')
+            ->groupBy('product_order_items.product_id', 'product_order_items.product_name')
+            ->orderByDesc('total_quantity')
+            ->limit(10)
+            ->get();
+
+        $this->topProducts = $topProductsQuery->map(fn ($item) => [
+            'id' => $item->product_id,
+            'name' => $item->product_name,
+            'quantity' => (int) $item->total_quantity,
+            'revenue' => (float) $item->total_revenue,
+        ])->toArray();
     }
 
     public function getAgentTypes(): array
@@ -422,15 +552,140 @@ new class extends Component
             </flux:card>
         </div>
 
+        {{-- Top Performers Section --}}
+        <div>
+            <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+                <flux:heading size="lg">Top 10 Performers</flux:heading>
+                <div class="flex items-center gap-2">
+                    <div wire:loading wire:target="topPerformersMonth" class="flex items-center gap-1 text-sm text-gray-500 dark:text-zinc-400">
+                        <svg class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <flux:select wire:model.live="topPerformersMonth" class="w-full sm:w-48">
+                        @foreach($this->getMonthOptions() as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </flux:select>
+                </div>
+            </div>
+            <div class="grid gap-6 lg:grid-cols-3 relative">
+                {{-- Loading overlay for Top 10 only --}}
+                <div wire:loading wire:target="topPerformersMonth" class="absolute inset-0 bg-white/50 dark:bg-zinc-900/50 z-10 rounded-lg"></div>
+                {{-- Top 10 Agents --}}
+                <flux:card>
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                            <flux:icon name="trophy" class="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <flux:heading size="lg">Top Agents</flux:heading>
+                    </div>
+                    @if(count($topAgents) > 0)
+                        <div class="space-y-3">
+                            @foreach($topAgents as $index => $agent)
+                                <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors">
+                                    <div class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold
+                                        {{ $index === 0 ? 'bg-amber-500 text-white' : ($index === 1 ? 'bg-gray-400 text-white' : ($index === 2 ? 'bg-amber-700 text-white' : 'bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300')) }}">
+                                        {{ $index + 1 }}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ $agent['name'] }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-zinc-400">{{ $agent['code'] }} · {{ $agent['orders'] }} orders</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-semibold text-green-600 dark:text-green-400">RM {{ number_format($agent['revenue'], 2) }}</p>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="text-center py-8">
+                            <flux:icon name="user-group" class="h-12 w-12 mx-auto text-gray-300 dark:text-zinc-600" />
+                            <flux:text class="mt-2 text-gray-400 dark:text-zinc-500 italic">No agent data available</flux:text>
+                        </div>
+                    @endif
+                </flux:card>
+
+                {{-- Top 10 Companies --}}
+                <flux:card>
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                            <flux:icon name="building-office-2" class="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <flux:heading size="lg">Top Companies</flux:heading>
+                    </div>
+                    @if(count($topCompanies) > 0)
+                        <div class="space-y-3">
+                            @foreach($topCompanies as $index => $company)
+                                <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors">
+                                    <div class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold
+                                        {{ $index === 0 ? 'bg-indigo-500 text-white' : ($index === 1 ? 'bg-gray-400 text-white' : ($index === 2 ? 'bg-indigo-700 text-white' : 'bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300')) }}">
+                                        {{ $index + 1 }}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ $company['name'] }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-zinc-400">{{ $company['code'] }} · {{ $company['orders'] }} orders</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-semibold text-green-600 dark:text-green-400">RM {{ number_format($company['revenue'], 2) }}</p>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="text-center py-8">
+                            <flux:icon name="building-office" class="h-12 w-12 mx-auto text-gray-300 dark:text-zinc-600" />
+                            <flux:text class="mt-2 text-gray-400 dark:text-zinc-500 italic">No company data available</flux:text>
+                        </div>
+                    @endif
+                </flux:card>
+
+                {{-- Top 10 Products --}}
+                <flux:card>
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                            <flux:icon name="cube" class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <flux:heading size="lg">Top Products</flux:heading>
+                    </div>
+                    @if(count($topProducts) > 0)
+                        <div class="space-y-3">
+                            @foreach($topProducts as $index => $product)
+                                <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors">
+                                    <div class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold
+                                        {{ $index === 0 ? 'bg-emerald-500 text-white' : ($index === 1 ? 'bg-gray-400 text-white' : ($index === 2 ? 'bg-emerald-700 text-white' : 'bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300')) }}">
+                                        {{ $index + 1 }}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ $product['name'] }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-zinc-400">{{ number_format($product['quantity']) }} units sold</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-semibold text-green-600 dark:text-green-400">RM {{ number_format($product['revenue'], 2) }}</p>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="text-center py-8">
+                            <flux:icon name="cube" class="h-12 w-12 mx-auto text-gray-300 dark:text-zinc-600" />
+                            <flux:text class="mt-2 text-gray-400 dark:text-zinc-500 italic">No product data available</flux:text>
+                        </div>
+                    @endif
+                </flux:card>
+            </div>
+        </div>
+
         {{-- Charts Section --}}
-        <div class="grid gap-6 lg:grid-cols-2" wire:ignore.self>
+        <div class="grid gap-6 lg:grid-cols-2">
             {{-- Revenue Trend Chart --}}
             <flux:card>
                 <div class="mb-4">
                     <flux:heading size="lg">Monthly Revenue Trend</flux:heading>
                     <flux:text class="mt-1 text-sm text-gray-500 dark:text-zinc-400">Revenue and order count by month</flux:text>
                 </div>
-                <div class="relative h-80">
+                <div class="relative h-80" wire:ignore.self>
                     {{-- Skeleton Loader --}}
                     <div id="revenueTrendSkeleton" class="absolute inset-0 flex flex-col items-center justify-center">
                         <div class="w-full space-y-3">
@@ -475,7 +730,7 @@ new class extends Component
                     <flux:heading size="lg">Orders by Agent Type</flux:heading>
                     <flux:text class="mt-1 text-sm text-gray-500 dark:text-zinc-400">Order comparison between agent types</flux:text>
                 </div>
-                <div class="relative h-80">
+                <div class="relative h-80" wire:ignore.self>
                     {{-- Skeleton Loader --}}
                     <div id="ordersByTypeSkeleton" class="absolute inset-0 flex flex-col items-center justify-center">
                         <div class="w-full space-y-3">
