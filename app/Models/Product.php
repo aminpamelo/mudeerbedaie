@@ -26,6 +26,7 @@ class Product extends Model
         'type',
         'track_quantity',
         'min_quantity',
+        'weight',
         'dimensions',
     ];
 
@@ -36,6 +37,7 @@ class Product extends Model
             'cost_price' => 'decimal:2',
             'track_quantity' => 'boolean',
             'min_quantity' => 'integer',
+            'weight' => 'decimal:3',
             'dimensions' => 'array',
         ];
     }
@@ -158,6 +160,15 @@ class Product extends Model
     public function getFormattedCostPriceAttribute(): string
     {
         return 'RM '.number_format($this->cost_price, 2);
+    }
+
+    public function getFormattedWeightAttribute(): string
+    {
+        if (! $this->weight) {
+            return '-';
+        }
+
+        return number_format($this->weight, 3).' kg';
     }
 
     public function getStatusColorAttribute(): string

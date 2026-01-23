@@ -20,6 +20,7 @@ new class extends Component {
     public $barcode = '';
     public $base_price = '';
     public $cost_price = '';
+    public $weight = '';
     public $category_id = '';
     public $status = 'draft';
     public $type = 'simple';
@@ -56,6 +57,7 @@ new class extends Component {
         if ($this->type === 'simple') {
             $rules['base_price'] = 'required|numeric|min:0';
             $rules['cost_price'] = 'required|numeric|min:0';
+            $rules['weight'] = 'nullable|numeric|min:0';
         } else {
             $rules['selected_attributes'] = 'required_if:type,variable|array|min:1';
             $rules['variants'] = 'required_if:type,variable|array|min:1';
@@ -181,6 +183,7 @@ new class extends Component {
         if ($this->type === 'simple') {
             $productData['base_price'] = $this->base_price;
             $productData['cost_price'] = $this->cost_price;
+            $productData['weight'] = $this->weight ?: null;
         }
 
         $product = Product::create($productData);
@@ -318,6 +321,13 @@ new class extends Component {
                             <flux:error name="cost_price" />
                         </flux:field>
                     </div>
+
+                    <flux:field>
+                        <flux:label>Weight (kg)</flux:label>
+                        <flux:input type="number" step="0.001" wire:model="weight" placeholder="0.000" />
+                        <flux:error name="weight" />
+                        <flux:description>Product weight in kilograms (e.g., 0.500 for 500g)</flux:description>
+                    </flux:field>
                 @endif
 
                 <div class="grid grid-cols-2 gap-4">

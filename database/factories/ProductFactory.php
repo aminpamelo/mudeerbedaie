@@ -24,6 +24,7 @@ class ProductFactory extends Factory
             'status' => 'active',
             'base_price' => fake()->randomFloat(2, 10, 1000),
             'cost_price' => fake()->randomFloat(2, 5, 500),
+            'weight' => fake()->randomFloat(3, 0.1, 2.5), // Weight in kg (100g to 2.5kg)
             'track_quantity' => true,
             'min_quantity' => 0,
             'description' => fake()->paragraph(),

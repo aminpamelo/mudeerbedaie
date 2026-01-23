@@ -107,14 +107,15 @@ new class extends Component
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0 table-fixed">
                 <colgroup>
-                    <col class="w-[35%]"> <!-- Product name -->
-                    <col class="w-[12%]"> <!-- Category -->
+                    <col class="w-[30%]"> <!-- Product name -->
+                    <col class="w-[11%]"> <!-- Category -->
                     <col class="w-[10%]"> <!-- SKU -->
                     <col class="w-[8%]"> <!-- Price -->
-                    <col class="w-[10%]"> <!-- Stock -->
+                    <col class="w-[8%]"> <!-- Weight -->
+                    <col class="w-[9%]"> <!-- Stock -->
                     <col class="w-[8%]"> <!-- Status -->
                     <col class="w-[8%]"> <!-- Type -->
-                    <col class="w-[9%]"> <!-- Actions -->
+                    <col class="w-[8%]"> <!-- Actions -->
                 </colgroup>
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
@@ -122,6 +123,7 @@ new class extends Component
                         <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Category</th>
                         <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">SKU</th>
                         <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Price</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Weight</th>
                         <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Stock</th>
                         <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
                         <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
@@ -162,6 +164,7 @@ new class extends Component
                             <code class="text-sm">{{ $product->sku }}</code>
                         </td>
                         <td class="px-3 py-4 text-sm text-gray-900">{{ $product->formatted_price }}</td>
+                        <td class="px-3 py-4 text-sm text-gray-900">{{ $product->formatted_weight }}</td>
                         <td class="px-3 py-4 text-sm text-gray-900">
                             <div class="text-sm">
                                 <div class="font-medium">{{ $product->total_stock }}</div>
@@ -211,7 +214,7 @@ new class extends Component
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-12 text-center">
+                        <td colspan="9" class="px-6 py-12 text-center">
                             <div>
                                 <flux:icon name="cube" class="mx-auto h-12 w-12 text-gray-400" />
                                 <h3 class="mt-2 text-sm font-medium text-gray-900">No products found</h3>
