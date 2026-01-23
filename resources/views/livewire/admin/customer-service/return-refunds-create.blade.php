@@ -5,9 +5,12 @@ use App\Models\ProductOrder;
 use App\Models\Package;
 use App\Models\User;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 new class extends Component
 {
+    use WithFileUploads;
+
     public function layout()
     {
         return 'components.layouts.app.sidebar';
@@ -25,6 +28,9 @@ new class extends Component
     public string $accountHolderName = '';
     public string $bankName = '';
     public string $notes = '';
+
+    // File uploads
+    public $attachments = [];
 
     // Search fields
     public string $orderSearch = '';
@@ -140,6 +146,14 @@ new class extends Component
         $this->customerId = null;
     }
 
+    public function removeAttachment(int $index): void
+    {
+        if (isset($this->attachments[$index])) {
+            unset($this->attachments[$index]);
+            $this->attachments = array_values($this->attachments);
+        }
+    }
+
     public function getSelectedOrder()
     {
         return $this->orderId ? ProductOrder::with('customer')->find($this->orderId) : null;
@@ -157,7 +171,7 @@ new class extends Component
 
     public function create(): void
     {
-        $validated = $this->validate([
+        $this->validate([
             'orderId' => 'nullable|exists:product_orders,id',
             'packageId' => 'nullable|exists:packages,id',
             'customerId' => 'nullable|exists:users,id',
@@ -169,12 +183,28 @@ new class extends Component
             'accountHolderName' => 'nullable|string|max:100',
             'bankName' => 'nullable|string|max:100',
             'notes' => 'nullable|string|max:1000',
+            'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120', // 5MB max per file
         ]);
 
         // At least one of order or package should be selected
         if (!$this->orderId && !$this->packageId) {
             $this->addError('orderId', 'Please select either an order or a package.');
             return;
+        }
+
+        // Process attachments
+        $attachmentPaths = [];
+        if (!empty($this->attachments)) {
+            foreach ($this->attachments as $attachment) {
+                $path = $attachment->store('refund-attachments', 'public');
+                $attachmentPaths[] = [
+                    'path' => $path,
+                    'name' => $attachment->getClientOriginalName(),
+                    'size' => $attachment->getSize(),
+                    'type' => $attachment->getMimeType(),
+                    'uploaded_at' => now()->toISOString(),
+                ];
+            }
         }
 
         $refund = ReturnRefund::create([
@@ -190,7 +220,8 @@ new class extends Component
             'account_holder_name' => $this->accountHolderName ?: null,
             'bank_name' => $this->bankName ?: null,
             'notes' => $this->notes ?: null,
-            'action' => 'pending',
+            'attachments' => !empty($attachmentPaths) ? $attachmentPaths : null,
+            'decision' => 'pending',
             'status' => 'pending_review',
         ]);
 
@@ -374,6 +405,68 @@ new class extends Component
                                 <flux:textarea wire:model="notes" id="notes" rows="3" placeholder="Add any internal notes..." />
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Attachments / Evidence -->
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
+                        <flux:heading size="lg">Attachments / Evidence</flux:heading>
+                        <flux:text size="sm" class="text-gray-500">Upload proof of purchase, payment receipts, or other relevant documents (JPG, PNG, PDF - max 5MB each)</flux:text>
+                    </div>
+                    <div class="p-6">
+                        <!-- File Upload Area -->
+                        <div class="mb-4">
+                            <label for="attachments" class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-zinc-700 dark:bg-zinc-800 hover:bg-gray-100 dark:border-zinc-600 dark:hover:border-zinc-500 transition-colors">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <flux:icon name="cloud-arrow-up" class="w-8 h-8 mb-2 text-gray-400" />
+                                    <p class="mb-1 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">JPG, PNG or PDF (max 5MB per file)</p>
+                                </div>
+                                <input id="attachments" type="file" class="hidden" wire:model="attachments" multiple accept=".jpg,.jpeg,.png,.pdf" />
+                            </label>
+                            @error('attachments.*') <span class="text-red-500 text-sm mt-2 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        <!-- Upload Progress -->
+                        <div wire:loading wire:target="attachments" class="mb-4">
+                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Uploading files...
+                            </div>
+                        </div>
+
+                        <!-- Uploaded Files Preview -->
+                        @if(count($attachments) > 0)
+                            <div class="space-y-2">
+                                <flux:text size="sm" class="font-medium text-gray-700 dark:text-gray-300">Files to upload ({{ count($attachments) }})</flux:text>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    @foreach($attachments as $index => $attachment)
+                                        <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg border border-gray-200 dark:border-zinc-600">
+                                            @if(str_starts_with($attachment->getMimeType(), 'image/'))
+                                                <div class="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-gray-200">
+                                                    <img src="{{ $attachment->temporaryUrl() }}" alt="Preview" class="w-full h-full object-cover" />
+                                                </div>
+                                            @else
+                                                <div class="w-12 h-12 rounded flex items-center justify-center flex-shrink-0 bg-red-100 dark:bg-red-900/30">
+                                                    <flux:icon name="document" class="w-6 h-6 text-red-600" />
+                                                </div>
+                                            @endif
+                                            <div class="flex-1 min-w-0">
+                                                <flux:text size="sm" class="font-medium truncate">{{ $attachment->getClientOriginalName() }}</flux:text>
+                                                <flux:text size="xs" class="text-gray-500">{{ number_format($attachment->getSize() / 1024, 1) }} KB</flux:text>
+                                            </div>
+                                            <button type="button" wire:click="removeAttachment({{ $index }})" class="text-gray-400 hover:text-red-500 transition-colors">
+                                                <flux:icon name="x-mark" class="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>

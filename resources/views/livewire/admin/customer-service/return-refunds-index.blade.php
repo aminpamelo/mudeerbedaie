@@ -14,7 +14,7 @@ new class extends Component
     use WithPagination;
 
     public string $search = '';
-    public string $actionFilter = '';
+    public string $decisionFilter = '';
     public string $statusFilter = '';
     public string $dateFilter = '';
     public string $sortBy = 'created_at';
@@ -23,8 +23,8 @@ new class extends Component
     public function mount(): void
     {
         // Check for URL query parameters
-        if (request()->has('action')) {
-            $this->actionFilter = request()->get('action');
+        if (request()->has('decision')) {
+            $this->decisionFilter = request()->get('decision');
         }
         if (request()->has('status')) {
             $this->statusFilter = request()->get('status');
@@ -36,7 +36,7 @@ new class extends Component
         $this->resetPage();
     }
 
-    public function updatingActionFilter(): void
+    public function updatingDecisionFilter(): void
     {
         $this->resetPage();
     }
@@ -69,8 +69,8 @@ new class extends Component
             ->when($this->search, function ($query) {
                 $query->search($this->search);
             })
-            ->when($this->actionFilter, function ($query) {
-                $query->where('action', $this->actionFilter);
+            ->when($this->decisionFilter, function ($query) {
+                $query->where('decision', $this->decisionFilter);
             })
             ->when($this->statusFilter, function ($query) {
                 $query->where('status', $this->statusFilter);
@@ -96,15 +96,15 @@ new class extends Component
         return ReturnRefund::where('status', $status)->count();
     }
 
-    public function getActionCount(string $action): int
+    public function getDecisionCount(string $decision): int
     {
-        return ReturnRefund::where('action', $action)->count();
+        return ReturnRefund::where('decision', $decision)->count();
     }
 
     public function clearFilters(): void
     {
         $this->search = '';
-        $this->actionFilter = '';
+        $this->decisionFilter = '';
         $this->statusFilter = '';
         $this->dateFilter = '';
         $this->resetPage();
@@ -115,7 +115,7 @@ new class extends Component
         $refunds = ReturnRefund::query()
             ->with(['order', 'package', 'customer'])
             ->when($this->search, fn($q) => $q->search($this->search))
-            ->when($this->actionFilter, fn($q) => $q->where('action', $this->actionFilter))
+            ->when($this->decisionFilter, fn($q) => $q->where('decision', $this->decisionFilter))
             ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
             ->orderBy($this->sortBy, $this->sortDirection)
             ->get();
@@ -136,8 +136,8 @@ new class extends Component
                 'Return Date',
                 'Reason',
                 'Refund Amount',
-                'Action',
-                'Action Reason',
+                'Decision',
+                'Decision Reason',
                 'Tracking Number',
                 'Account Number',
                 'Bank Name',
@@ -154,8 +154,8 @@ new class extends Component
                     $refund->return_date->format('Y-m-d'),
                     $refund->reason,
                     $refund->refund_amount,
-                    $refund->getActionLabel(),
-                    $refund->action_reason,
+                    $refund->getDecisionLabel(),
+                    $refund->decision_reason,
                     $refund->tracking_number,
                     $refund->account_number,
                     $refund->bank_name,
@@ -194,40 +194,40 @@ new class extends Component
         </div>
     </div>
 
-    <!-- Action Tabs -->
+    <!-- Decision Tabs -->
     <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
         <div class="border-b border-gray-200 dark:border-zinc-700">
             <nav class="flex gap-4 px-6" aria-label="Tabs">
                 <button
-                    wire:click="$set('actionFilter', '')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $actionFilter === '' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    wire:click="$set('decisionFilter', '')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $decisionFilter === '' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
                 >
                     All
                     <flux:badge size="sm" class="ml-2">{{ number_format($this->getStatusCount('all')) }}</flux:badge>
                 </button>
 
                 <button
-                    wire:click="$set('actionFilter', 'pending')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $actionFilter === 'pending' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    wire:click="$set('decisionFilter', 'pending')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $decisionFilter === 'pending' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
                 >
                     Pending
-                    <flux:badge size="sm" color="yellow" class="ml-2">{{ number_format($this->getActionCount('pending')) }}</flux:badge>
+                    <flux:badge size="sm" color="yellow" class="ml-2">{{ number_format($this->getDecisionCount('pending')) }}</flux:badge>
                 </button>
 
                 <button
-                    wire:click="$set('actionFilter', 'approved')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $actionFilter === 'approved' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    wire:click="$set('decisionFilter', 'approved')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $decisionFilter === 'approved' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
                 >
                     Approved
-                    <flux:badge size="sm" color="green" class="ml-2">{{ number_format($this->getActionCount('approved')) }}</flux:badge>
+                    <flux:badge size="sm" color="green" class="ml-2">{{ number_format($this->getDecisionCount('approved')) }}</flux:badge>
                 </button>
 
                 <button
-                    wire:click="$set('actionFilter', 'rejected')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $actionFilter === 'rejected' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                    wire:click="$set('decisionFilter', 'rejected')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $decisionFilter === 'rejected' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
                 >
                     Rejected
-                    <flux:badge size="sm" color="red" class="ml-2">{{ number_format($this->getActionCount('rejected')) }}</flux:badge>
+                    <flux:badge size="sm" color="red" class="ml-2">{{ number_format($this->getDecisionCount('rejected')) }}</flux:badge>
                 </button>
             </nav>
         </div>
@@ -275,7 +275,7 @@ new class extends Component
         </div>
 
         <!-- Filter Actions -->
-        @if($search || $actionFilter || $statusFilter || $dateFilter)
+        @if($search || $decisionFilter || $statusFilter || $dateFilter)
             <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
                 <div class="flex items-center gap-2">
                     <flux:text size="sm" class="text-gray-600">Active filters:</flux:text>
@@ -285,10 +285,10 @@ new class extends Component
                             <button wire:click="$set('search', '')" class="ml-1 hover:text-red-600">&times;</button>
                         </flux:badge>
                     @endif
-                    @if($actionFilter)
+                    @if($decisionFilter)
                         <flux:badge color="gray">
-                            Action: {{ ucfirst($actionFilter) }}
-                            <button wire:click="$set('actionFilter', '')" class="ml-1 hover:text-red-600">&times;</button>
+                            Decision: {{ ucfirst($decisionFilter) }}
+                            <button wire:click="$set('decisionFilter', '')" class="ml-1 hover:text-red-600">&times;</button>
                         </flux:badge>
                     @endif
                     @if($statusFilter)
@@ -348,7 +348,7 @@ new class extends Component
                             </button>
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Action
+                            Decision
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Tracking
@@ -402,13 +402,21 @@ new class extends Component
                                 <flux:text class="font-semibold">RM {{ number_format($refund->refund_amount, 2) }}</flux:text>
                             </td>
 
-                            <!-- Action -->
+                            <!-- Decision -->
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <flux:badge size="sm" color="{{ $refund->getActionColor() }}">
-                                    {{ $refund->getActionLabel() }}
-                                </flux:badge>
-                                @if($refund->action_reason)
-                                    <flux:text size="xs" class="text-gray-500 mt-1 block max-w-xs truncate">{{ Str::limit($refund->action_reason, 30) }}</flux:text>
+                                <div class="flex items-center gap-2">
+                                    <flux:badge size="sm" color="{{ $refund->getDecisionColor() }}">
+                                        {{ $refund->getDecisionLabel() }}
+                                    </flux:badge>
+                                    @if($refund->attachments && count($refund->attachments) > 0)
+                                        <span class="inline-flex items-center text-gray-500" title="{{ count($refund->attachments) }} attachment(s)">
+                                            <flux:icon name="paper-clip" class="w-4 h-4" />
+                                            <span class="text-xs ml-0.5">{{ count($refund->attachments) }}</span>
+                                        </span>
+                                    @endif
+                                </div>
+                                @if($refund->decision_reason)
+                                    <flux:text size="xs" class="text-gray-500 mt-1 block max-w-xs truncate">{{ Str::limit($refund->decision_reason, 30) }}</flux:text>
                                 @endif
                             </td>
 
@@ -443,7 +451,7 @@ new class extends Component
                                 <div class="text-gray-500">
                                     <flux:icon name="arrow-path" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
                                     <flux:text>No return/refund requests found</flux:text>
-                                    @if($search || $actionFilter || $statusFilter || $dateFilter)
+                                    @if($search || $decisionFilter || $statusFilter || $dateFilter)
                                         <flux:button variant="ghost" wire:click="clearFilters" class="mt-2">
                                             Clear filters
                                         </flux:button>
@@ -474,8 +482,8 @@ new class extends Component
     <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         @php
             $totalRefunds = ReturnRefund::count();
-            $pendingRefunds = ReturnRefund::where('action', 'pending')->count();
-            $totalApprovedAmount = ReturnRefund::where('action', 'approved')->sum('refund_amount');
+            $pendingRefunds = ReturnRefund::where('decision', 'pending')->count();
+            $totalApprovedAmount = ReturnRefund::where('decision', 'approved')->sum('refund_amount');
             $completedRefunds = ReturnRefund::where('status', 'refund_completed')->count();
         @endphp
 

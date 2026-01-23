@@ -20,15 +20,16 @@ class ReturnRefund extends Model
         'return_date',
         'reason',
         'refund_amount',
-        'action',
-        'action_reason',
-        'action_date',
+        'decision',
+        'decision_reason',
+        'decision_date',
         'tracking_number',
         'account_number',
         'account_holder_name',
         'bank_name',
         'status',
         'notes',
+        'attachments',
         'metadata',
     ];
 
@@ -36,8 +37,9 @@ class ReturnRefund extends Model
     {
         return [
             'return_date' => 'date',
-            'action_date' => 'datetime',
+            'decision_date' => 'datetime',
             'refund_amount' => 'decimal:2',
+            'attachments' => 'array',
             'metadata' => 'array',
         ];
     }
@@ -63,20 +65,20 @@ class ReturnRefund extends Model
         return $this->belongsTo(User::class, 'processed_by');
     }
 
-    // Status helper methods
+    // Decision helper methods
     public function isPending(): bool
     {
-        return $this->action === 'pending';
+        return $this->decision === 'pending';
     }
 
     public function isApproved(): bool
     {
-        return $this->action === 'approved';
+        return $this->decision === 'approved';
     }
 
     public function isRejected(): bool
     {
-        return $this->action === 'rejected';
+        return $this->decision === 'rejected';
     }
 
     public function isRefundCompleted(): bool
@@ -84,13 +86,13 @@ class ReturnRefund extends Model
         return $this->status === 'refund_completed';
     }
 
-    // Action methods
-    public function approve(User $user, string $reason = null): void
+    // Decision methods
+    public function approve(User $user, ?string $reason = null): void
     {
         $this->update([
-            'action' => 'approved',
-            'action_reason' => $reason,
-            'action_date' => now(),
+            'decision' => 'approved',
+            'decision_reason' => $reason,
+            'decision_date' => now(),
             'processed_by' => $user->id,
             'status' => 'approved_pending_return',
         ]);
@@ -99,9 +101,9 @@ class ReturnRefund extends Model
     public function reject(User $user, string $reason): void
     {
         $this->update([
-            'action' => 'rejected',
-            'action_reason' => $reason,
-            'action_date' => now(),
+            'decision' => 'rejected',
+            'decision_reason' => $reason,
+            'decision_date' => now(),
             'processed_by' => $user->id,
             'status' => 'rejected',
         ]);
@@ -179,19 +181,19 @@ class ReturnRefund extends Model
         };
     }
 
-    public function getActionLabel(): string
+    public function getDecisionLabel(): string
     {
-        return match ($this->action) {
+        return match ($this->decision) {
             'pending' => 'Pending',
             'approved' => 'Approved',
             'rejected' => 'Rejected',
-            default => ucfirst($this->action),
+            default => ucfirst($this->decision ?? 'pending'),
         };
     }
 
-    public function getActionColor(): string
+    public function getDecisionColor(): string
     {
-        return match ($this->action) {
+        return match ($this->decision) {
             'pending' => 'yellow',
             'approved' => 'green',
             'rejected' => 'red',
@@ -212,17 +214,17 @@ class ReturnRefund extends Model
     // Scopes
     public function scopePending($query)
     {
-        return $query->where('action', 'pending');
+        return $query->where('decision', 'pending');
     }
 
     public function scopeApproved($query)
     {
-        return $query->where('action', 'approved');
+        return $query->where('decision', 'approved');
     }
 
     public function scopeRejected($query)
     {
-        return $query->where('action', 'rejected');
+        return $query->where('decision', 'rejected');
     }
 
     public function scopeSearch($query, string $search)

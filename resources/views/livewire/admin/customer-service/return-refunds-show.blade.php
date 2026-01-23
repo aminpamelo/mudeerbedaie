@@ -12,13 +12,13 @@ new class extends Component
 
     public ReturnRefund $refund;
 
-    // Action modal states
+    // Decision modal states
     public bool $showApproveModal = false;
     public bool $showRejectModal = false;
     public bool $showStatusModal = false;
 
     // Form fields
-    public string $actionReason = '';
+    public string $decisionReason = '';
     public string $newStatus = '';
     public string $trackingNumber = '';
     public string $accountNumber = '';
@@ -39,12 +39,12 @@ new class extends Component
     public function approveRefund(): void
     {
         $this->validate([
-            'actionReason' => 'nullable|string|max:500',
+            'decisionReason' => 'nullable|string|max:500',
         ]);
 
-        $this->refund->approve(auth()->user(), $this->actionReason ?: null);
+        $this->refund->approve(auth()->user(), $this->decisionReason ?: null);
         $this->showApproveModal = false;
-        $this->actionReason = '';
+        $this->decisionReason = '';
 
         $this->dispatch('refund-updated', message: 'Refund request approved successfully');
         $this->refund->refresh();
@@ -53,12 +53,12 @@ new class extends Component
     public function rejectRefund(): void
     {
         $this->validate([
-            'actionReason' => 'required|string|max:500',
+            'decisionReason' => 'required|string|max:500',
         ]);
 
-        $this->refund->reject(auth()->user(), $this->actionReason);
+        $this->refund->reject(auth()->user(), $this->decisionReason);
         $this->showRejectModal = false;
-        $this->actionReason = '';
+        $this->decisionReason = '';
 
         $this->dispatch('refund-updated', message: 'Refund request rejected');
         $this->refund->refresh();
@@ -127,8 +127,8 @@ new class extends Component
             <div>
                 <div class="flex items-center gap-3">
                     <flux:heading size="xl">{{ $refund->refund_number }}</flux:heading>
-                    <flux:badge size="lg" color="{{ $refund->getActionColor() }}">
-                        {{ $refund->getActionLabel() }}
+                    <flux:badge size="lg" color="{{ $refund->getDecisionColor() }}">
+                        {{ $refund->getDecisionLabel() }}
                     </flux:badge>
                     <flux:badge size="lg" color="{{ $refund->getStatusColor() }}">
                         {{ $refund->getStatusLabel() }}
@@ -185,16 +185,16 @@ new class extends Component
                             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Reason for Return</dt>
                             <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->reason ?? 'No reason provided' }}</dd>
                         </div>
-                        @if($refund->action_reason)
+                        @if($refund->decision_reason)
                             <div class="md:col-span-2">
-                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Action Reason ({{ $refund->getActionLabel() }})</dt>
-                                <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->action_reason }}</dd>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Decision Reason ({{ $refund->getDecisionLabel() }})</dt>
+                                <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->decision_reason }}</dd>
                             </div>
                         @endif
-                        @if($refund->action_date)
+                        @if($refund->decision_date)
                             <div>
-                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Action Date</dt>
-                                <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->action_date->format('M j, Y \a\t g:i A') }}</dd>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Decision Date</dt>
+                                <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->decision_date->format('M j, Y \a\t g:i A') }}</dd>
                             </div>
                         @endif
                         @if($refund->processedBy)
@@ -297,6 +297,53 @@ new class extends Component
                 </div>
             @endif
 
+            <!-- Attachments / Evidence -->
+            @if($refund->attachments && count($refund->attachments) > 0)
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
+                        <flux:heading size="lg">Attachments / Evidence</flux:heading>
+                        <flux:text size="sm" class="text-gray-500">{{ count($refund->attachments) }} file(s) attached</flux:text>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach($refund->attachments as $index => $attachment)
+                                <div class="border border-gray-200 dark:border-zinc-600 rounded-lg overflow-hidden bg-gray-50 dark:bg-zinc-700/50">
+                                    @if(str_starts_with($attachment['type'] ?? '', 'image/'))
+                                        <!-- Image Preview -->
+                                        <a href="{{ asset('storage/' . $attachment['path']) }}" target="_blank" class="block">
+                                            <div class="aspect-video bg-gray-200 dark:bg-zinc-600 overflow-hidden">
+                                                <img src="{{ asset('storage/' . $attachment['path']) }}" alt="{{ $attachment['name'] }}" class="w-full h-full object-cover hover:scale-105 transition-transform" />
+                                            </div>
+                                        </a>
+                                    @else
+                                        <!-- PDF/Document Preview -->
+                                        <a href="{{ asset('storage/' . $attachment['path']) }}" target="_blank" class="block">
+                                            <div class="aspect-video bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+                                                <div class="text-center">
+                                                    <flux:icon name="document" class="w-12 h-12 text-red-500 mx-auto mb-2" />
+                                                    <flux:text size="xs" class="text-red-600 dark:text-red-400">PDF Document</flux:text>
+                                                </div>
+                                            </div>
+                                        </a>
+                                    @endif
+                                    <div class="p-3">
+                                        <flux:text size="sm" class="font-medium truncate" title="{{ $attachment['name'] }}">{{ $attachment['name'] }}</flux:text>
+                                        <div class="flex items-center justify-between mt-1">
+                                            <flux:text size="xs" class="text-gray-500">
+                                                {{ isset($attachment['size']) ? number_format($attachment['size'] / 1024, 1) . ' KB' : 'N/A' }}
+                                            </flux:text>
+                                            <a href="{{ asset('storage/' . $attachment['path']) }}" target="_blank" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                                                <flux:icon name="arrow-down-tray" class="w-4 h-4" />
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <!-- Tracking & Bank Details Form -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
@@ -381,14 +428,14 @@ new class extends Component
                             </div>
                         </div>
 
-                        @if($refund->action !== 'pending')
+                        @if($refund->decision !== 'pending')
                             <div class="flex items-start gap-3">
                                 <div class="w-8 h-8 rounded-full {{ $refund->isApproved() ? 'bg-green-100' : 'bg-red-100' }} flex items-center justify-center flex-shrink-0">
                                     <flux:icon name="{{ $refund->isApproved() ? 'check' : 'x-mark' }}" class="w-4 h-4 {{ $refund->isApproved() ? 'text-green-600' : 'text-red-600' }}" />
                                 </div>
                                 <div>
-                                    <flux:text class="font-medium">{{ $refund->getActionLabel() }}</flux:text>
-                                    <flux:text size="sm" class="text-gray-500">{{ $refund->action_date?->format('M j, Y g:i A') }}</flux:text>
+                                    <flux:text class="font-medium">{{ $refund->getDecisionLabel() }}</flux:text>
+                                    <flux:text size="sm" class="text-gray-500">{{ $refund->decision_date?->format('M j, Y g:i A') }}</flux:text>
                                     @if($refund->processedBy)
                                         <flux:text size="sm" class="text-gray-500">by {{ $refund->processedBy->name }}</flux:text>
                                     @endif
@@ -448,7 +495,7 @@ new class extends Component
             </flux:text>
             <div class="mb-6">
                 <flux:label for="approveReason">Reason (Optional)</flux:label>
-                <flux:textarea wire:model="actionReason" id="approveReason" rows="3" placeholder="Add a note about why this was approved..." />
+                <flux:textarea wire:model="decisionReason" id="approveReason" rows="3" placeholder="Add a note about why this was approved..." />
             </div>
             <div class="flex justify-end gap-3">
                 <flux:button variant="ghost" wire:click="$set('showApproveModal', false)">Cancel</flux:button>
@@ -466,8 +513,8 @@ new class extends Component
             </flux:text>
             <div class="mb-6">
                 <flux:label for="rejectReason">Reason *</flux:label>
-                <flux:textarea wire:model="actionReason" id="rejectReason" rows="3" placeholder="Explain why this refund is being rejected..." required />
-                @error('actionReason') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                <flux:textarea wire:model="decisionReason" id="rejectReason" rows="3" placeholder="Explain why this refund is being rejected..." required />
+                @error('decisionReason') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
             <div class="flex justify-end gap-3">
                 <flux:button variant="ghost" wire:click="$set('showRejectModal', false)">Cancel</flux:button>
