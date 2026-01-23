@@ -46,6 +46,8 @@ new class extends Component
 
     public float $total = 0;
 
+    public float $totalWeight = 0;
+
     public string $agentSearch = '';
 
     public ?Agent $selectedAgent = null;
@@ -70,6 +72,8 @@ new class extends Component
             'total_price' => 0,
             'pricing_type' => '', // 'custom', 'tier', or 'base'
             'discount_percent' => 0, // Discount percentage applied
+            'weight' => 0, // Product weight in kg
+            'total_weight' => 0, // Total weight for this item (weight * quantity)
         ];
     }
 
@@ -95,6 +99,8 @@ new class extends Component
         $this->orderItems[$index]['total_price'] = 0;
         $this->orderItems[$index]['pricing_type'] = '';
         $this->orderItems[$index]['discount_percent'] = 0;
+        $this->orderItems[$index]['weight'] = 0;
+        $this->orderItems[$index]['total_weight'] = 0;
         $this->calculateTotals();
     }
 
@@ -115,6 +121,11 @@ new class extends Component
         // Store the base price
         $this->orderItems[$index]['base_price'] = $basePrice;
 
+        // Store the weight
+        $weight = (float) ($product->weight ?? 0);
+        $this->orderItems[$index]['weight'] = $weight;
+        $this->orderItems[$index]['total_weight'] = $weight * $quantity;
+
         // Calculate the discounted price based on agent's pricing
         $priceInfo = $this->calculateAgentPrice($product->id, $basePrice, $quantity);
 
@@ -132,7 +143,7 @@ new class extends Component
             return;
         }
 
-        $package = Package::find($packageId);
+        $package = Package::with('products')->find($packageId);
         if (! $package) {
             return;
         }
@@ -142,6 +153,16 @@ new class extends Component
 
         // Store the base price
         $this->orderItems[$index]['base_price'] = $basePrice;
+
+        // Calculate total weight from all products in the package
+        $packageWeight = 0;
+        foreach ($package->products as $product) {
+            $productWeight = (float) ($product->weight ?? 0);
+            $productQuantity = $product->pivot->quantity ?? 1;
+            $packageWeight += $productWeight * $productQuantity;
+        }
+        $this->orderItems[$index]['weight'] = $packageWeight;
+        $this->orderItems[$index]['total_weight'] = $packageWeight * $quantity;
 
         // For packages, apply tier discount only (no custom pricing for packages)
         $priceInfo = $this->calculateAgentTierPrice($basePrice);
@@ -213,6 +234,7 @@ new class extends Component
         $quantity = (int) ($this->orderItems[$index]['quantity'] ?? 1);
         $productId = $this->orderItems[$index]['product_id'] ?? null;
         $basePrice = $this->orderItems[$index]['base_price'] ?? 0;
+        $weight = $this->orderItems[$index]['weight'] ?? 0;
 
         // Recalculate price if product selected (quantity-based custom pricing may change)
         if ($this->orderItems[$index]['item_type'] === 'product' && $productId && $basePrice > 0) {
@@ -224,6 +246,7 @@ new class extends Component
 
         $unitPrice = $this->orderItems[$index]['unit_price'];
         $this->orderItems[$index]['total_price'] = $quantity * $unitPrice;
+        $this->orderItems[$index]['total_weight'] = $quantity * $weight;
         $this->calculateTotals();
     }
 
@@ -238,6 +261,7 @@ new class extends Component
     public function calculateTotals(): void
     {
         $this->subtotal = array_sum(array_column($this->orderItems, 'total_price'));
+        $this->totalWeight = array_sum(array_column($this->orderItems, 'total_weight'));
         $taxRate = $this->taxRate ?? 0;
         $shippingCost = $this->shippingCost ?? 0;
         $this->taxAmount = $this->subtotal * ($taxRate / 100);
@@ -621,18 +645,18 @@ new class extends Component
                                     @input.debounce.300ms="$wire.set('agentSearch', search)"
                                     @focus="showDropdown = true"
                                     placeholder="Search by name, code, company, or email..."
-                                    class="w-full rounded-lg border-gray-300 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-400 pr-10"
+                                    class="w-full pr-10 py-3 text-base rounded-lg border-gray-300 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
                                 />
                                 <template x-if="!$wire.form.agent_id">
-                                    <flux:icon name="magnifying-glass" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                    <flux:icon name="magnifying-glass" class="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-zinc-500 pointer-events-none" />
                                 </template>
                                 <template x-if="$wire.form.agent_id">
                                     <button
                                         type="button"
                                         @click="clearSelection()"
-                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 z-10 transition-colors"
                                     >
-                                        <flux:icon name="x-mark" class="w-4 h-4" />
+                                        <flux:icon name="x-circle" class="w-5 h-5" />
                                     </button>
                                 </template>
 
@@ -845,6 +869,12 @@ new class extends Component
                                         <flux:input wire:model.live="orderItems.{{ $index }}.unit_price"
                                                    wire:change="unitPriceUpdated({{ $index }})"
                                                    type="number" step="0.01" min="0" />
+                                        @if(($item['weight'] ?? 0) > 0)
+                                            <div class="mt-1 text-xs text-gray-500 dark:text-zinc-400">
+                                                <flux:icon name="scale" class="w-3 h-3 inline mr-1" />
+                                                {{ number_format($item['weight'], 3) }} kg
+                                            </div>
+                                        @endif
                                     </flux:field>
                                 </div>
 
@@ -1045,6 +1075,17 @@ new class extends Component
                                 <option value="boost">Boost</option>
                                 <option value="credit">Credit (Agent Terms)</option>
                             </flux:select>
+                        </flux:field>
+                    </div>
+
+                    <!-- Total Weight -->
+                    <div class="border-t border-gray-200 dark:border-zinc-700 pt-4">
+                        <flux:field>
+                            <flux:label>Total Weight</flux:label>
+                            <div class="flex items-center gap-2 py-2">
+                                <flux:icon name="scale" class="w-4 h-4 text-gray-500 dark:text-zinc-400" />
+                                <flux:text class="text-gray-900 dark:text-zinc-100">{{ number_format($totalWeight, 3) }} kg</flux:text>
+                            </div>
                         </flux:field>
                     </div>
 
