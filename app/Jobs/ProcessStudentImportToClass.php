@@ -311,8 +311,8 @@ class ProcessStudentImportToClass implements ShouldQueue
                 'completed_at' => now(),
             ]);
 
-            // Clean up uploaded file
-            Storage::disk('local')->delete($importProgress->file_path);
+            // Don't delete file on failure - it might be needed for debugging or retry
+            // File will be cleaned up by a scheduled task or manually
 
             throw $e;
         }
