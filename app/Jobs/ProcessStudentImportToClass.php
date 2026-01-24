@@ -135,7 +135,7 @@ class ProcessStudentImportToClass implements ShouldQueue
                 // Check for cancellation every 10 rows for efficiency
                 if ($processedRows % 10 === 0) {
                     $importProgress->refresh();
-                    if ($importProgress->isCancelled()) {
+                    if ($importProgress->status === 'cancelled') {
                         Log::info("Student import cancelled by user at row {$processedRows}");
                         // Clean up uploaded file
                         Storage::disk('local')->delete($importProgress->file_path);
