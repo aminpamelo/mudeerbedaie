@@ -211,13 +211,26 @@ class ProcessStudentImportToClass implements ShouldQueue
                             }
                         }
 
-                        $class->addStudent($student, $orderId);
-                        $enrolledCount++;
-                        $result['enrolled'][] = [
-                            'phone' => $phone,
-                            'name' => $student->user->name,
-                            'order_id' => $orderId,
-                        ];
+                        try {
+                            $class->addStudent($student, $orderId);
+                            $classStudentIds[] = $student->id; // Track enrolled student to prevent duplicates
+                            $enrolledCount++;
+                            $result['enrolled'][] = [
+                                'phone' => $phone,
+                                'name' => $student->user->name,
+                                'order_id' => $orderId,
+                            ];
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            // Handle duplicate enrollment gracefully
+                            if (str_contains($e->getMessage(), 'UNIQUE constraint failed') || str_contains($e->getMessage(), 'Duplicate entry')) {
+                                $result['already_enrolled'][] = [
+                                    'phone' => $phone,
+                                    'name' => $student->user->name,
+                                ];
+                            } else {
+                                throw $e;
+                            }
+                        }
                     }
                 } else {
                     // Student not found
@@ -265,12 +278,25 @@ class ProcessStudentImportToClass implements ShouldQueue
                                 }
 
                                 $class->addStudent($newStudent, $orderId);
+                                $classStudentIds[] = $newStudent->id; // Track enrolled student
                                 $enrolledCount++;
                                 $result['enrolled'][] = [
                                     'phone' => $phone,
                                     'name' => $name,
                                     'order_id' => $orderId,
                                 ];
+                            }
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            DB::rollBack();
+                            // Handle duplicate enrollment gracefully
+                            if (str_contains($e->getMessage(), 'UNIQUE constraint failed') || str_contains($e->getMessage(), 'Duplicate entry')) {
+                                $result['already_enrolled'][] = [
+                                    'phone' => $phone,
+                                    'name' => $name,
+                                ];
+                            } else {
+                                $result['errors'][] = 'Row '.($lineNumber + 2).': Failed to create student - '.$e->getMessage();
+                                $errorCount++;
                             }
                         } catch (\Exception $e) {
                             DB::rollBack();
