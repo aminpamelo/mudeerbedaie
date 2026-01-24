@@ -2844,18 +2844,20 @@ new class extends Component
         $this->importStudentProcessing = true;
 
         try {
-            // Save the uploaded file to storage using Laravel's Storage facade for consistency
+            // Save the uploaded file using Livewire's storeAs method for reliable storage
             $fileName = 'student_import_' . time() . '_' . uniqid() . '.csv';
-            $relativePath = 'imports/students/' . $fileName;
+            $directory = 'imports/students';
 
-            // Store file using Storage facade (handles directory creation automatically)
-            $stored = \Illuminate\Support\Facades\Storage::disk('local')->put(
-                $relativePath,
-                file_get_contents($this->importStudentFile->getRealPath())
-            );
+            // Use Livewire's storeAs which properly handles temp files
+            $relativePath = $this->importStudentFile->storeAs($directory, $fileName, 'local');
 
-            if (! $stored) {
+            if (! $relativePath) {
                 throw new \Exception('Failed to store the uploaded CSV file.');
+            }
+
+            // Verify file was actually stored
+            if (! \Illuminate\Support\Facades\Storage::disk('local')->exists($relativePath)) {
+                throw new \Exception('File storage verification failed - file does not exist after upload.');
             }
 
             // Create import progress record with relative path
