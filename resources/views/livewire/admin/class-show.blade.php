@@ -2844,47 +2844,49 @@ new class extends Component
         $this->importStudentProcessing = true;
 
         try {
-            // Save the uploaded file using Livewire's storeAs method for reliable storage
             $fileName = 'student_import_' . time() . '_' . uniqid() . '.csv';
-            $directory = 'imports/students';
+            $relativePath = 'imports/students/' . $fileName;
 
-            // Log storage configuration for debugging
-            $storagePath = \Illuminate\Support\Facades\Storage::disk('local')->path('');
-            \Illuminate\Support\Facades\Log::info("Student import - Storage base path: {$storagePath}");
+            // CRITICAL: Read file contents IMMEDIATELY before temp file can be cleaned up
+            // On shared hosting, Livewire temp files may be deleted very quickly
+            $tempPath = $this->importStudentFile->getRealPath();
+            \Illuminate\Support\Facades\Log::info("Student import - Temp file path: {$tempPath}");
 
-            // Use Livewire's storeAs which properly handles temp files
-            $relativePath = $this->importStudentFile->storeAs($directory, $fileName, 'local');
+            if (! $tempPath || ! file_exists($tempPath)) {
+                throw new \Exception('Temporary upload file not found. Please try uploading again.');
+            }
 
-            \Illuminate\Support\Facades\Log::info("Student import - storeAs returned path: " . ($relativePath ?: 'FALSE/NULL'));
+            $fileContents = file_get_contents($tempPath);
+            \Illuminate\Support\Facades\Log::info("Student import - Read " . strlen($fileContents) . " bytes from temp file");
 
-            if (! $relativePath) {
+            if ($fileContents === false || empty($fileContents)) {
+                throw new \Exception('Failed to read uploaded file contents.');
+            }
+
+            // Store using Storage facade with the contents we already read
+            $stored = \Illuminate\Support\Facades\Storage::disk('local')->put($relativePath, $fileContents);
+            \Illuminate\Support\Facades\Log::info("Student import - Storage put result: " . ($stored ? 'SUCCESS' : 'FAILED'));
+
+            if (! $stored) {
                 throw new \Exception('Failed to store the uploaded CSV file.');
             }
 
-            // Get full path for logging
-            $fullPath = \Illuminate\Support\Facades\Storage::disk('local')->path($relativePath);
-            \Illuminate\Support\Facades\Log::info("Student import - Full file path: {$fullPath}");
-
             // Verify file was actually stored
             $fileExists = \Illuminate\Support\Facades\Storage::disk('local')->exists($relativePath);
-            \Illuminate\Support\Facades\Log::info("Student import - File exists check: " . ($fileExists ? 'YES' : 'NO'));
+            \Illuminate\Support\Facades\Log::info("Student import - File exists after storage: " . ($fileExists ? 'YES' : 'NO'));
 
             if (! $fileExists) {
-                // Also check with file_exists for debugging
-                $rawExists = file_exists($fullPath);
-                \Illuminate\Support\Facades\Log::error("Student import - Storage says file doesn't exist. Raw file_exists: " . ($rawExists ? 'YES' : 'NO'));
                 throw new \Exception('File storage verification failed - file does not exist after upload.');
             }
 
-            // Log file size for confirmation
-            $fileSize = \Illuminate\Support\Facades\Storage::disk('local')->size($relativePath);
-            \Illuminate\Support\Facades\Log::info("Student import - File size: {$fileSize} bytes");
+            $storedSize = \Illuminate\Support\Facades\Storage::disk('local')->size($relativePath);
+            \Illuminate\Support\Facades\Log::info("Student import - Stored file size: {$storedSize} bytes");
 
             // Create import progress record with relative path
             $importProgress = \App\Models\StudentImportProgress::create([
                 'class_id' => $this->class->id,
                 'user_id' => auth()->id(),
-                'file_path' => $relativePath, // Store relative path, not absolute
+                'file_path' => $relativePath,
                 'status' => 'pending',
                 'auto_enroll' => $this->autoEnrollImported,
                 'create_missing' => $this->createMissingStudents,
