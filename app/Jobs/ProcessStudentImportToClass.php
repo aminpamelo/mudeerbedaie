@@ -11,6 +11,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ProcessStudentImportToClass implements ShouldQueue
 {
@@ -52,13 +53,14 @@ class ProcessStudentImportToClass implements ShouldQueue
                 throw new \Exception('Class not found');
             }
 
-            if (! file_exists($importProgress->file_path)) {
+            // Use Storage facade for consistent file access across environments
+            if (! Storage::disk('local')->exists($importProgress->file_path)) {
                 throw new \Exception("CSV file not found at path: {$importProgress->file_path}");
             }
 
-            $fileContents = file_get_contents($importProgress->file_path);
+            $fileContents = Storage::disk('local')->get($importProgress->file_path);
 
-            if ($fileContents === false) {
+            if ($fileContents === false || $fileContents === null) {
                 throw new \Exception('Failed to read uploaded file');
             }
 
@@ -107,6 +109,18 @@ class ProcessStudentImportToClass implements ShouldQueue
             $errorCount = 0;
 
             foreach ($lines as $lineNumber => $line) {
+                // Check for cancellation every 10 rows for efficiency
+                if ($processedRows % 10 === 0) {
+                    $importProgress->refresh();
+                    if ($importProgress->isCancelled()) {
+                        Log::info("Student import cancelled by user at row {$processedRows}");
+                        // Clean up uploaded file
+                        Storage::disk('local')->delete($importProgress->file_path);
+
+                        return;
+                    }
+                }
+
                 $row = str_getcsv($line);
                 $phone = isset($row[$phoneIndex]) ? trim($row[$phoneIndex]) : null;
                 $name = $nameIndex !== false && isset($row[$nameIndex]) ? trim($row[$nameIndex]) : null;
@@ -262,9 +276,7 @@ class ProcessStudentImportToClass implements ShouldQueue
             ]);
 
             // Clean up uploaded file
-            if (file_exists($importProgress->file_path)) {
-                unlink($importProgress->file_path);
-            }
+            Storage::disk('local')->delete($importProgress->file_path);
 
             Log::info("Student import to class completed: {$processedRows} rows processed, {$matchedCount} matched, {$createdCount} created, {$enrolledCount} enrolled");
         } catch (\Exception $e) {
@@ -277,9 +289,7 @@ class ProcessStudentImportToClass implements ShouldQueue
             ]);
 
             // Clean up uploaded file
-            if (file_exists($importProgress->file_path)) {
-                unlink($importProgress->file_path);
-            }
+            Storage::disk('local')->delete($importProgress->file_path);
 
             throw $e;
         }
