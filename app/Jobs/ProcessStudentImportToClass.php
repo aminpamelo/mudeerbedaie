@@ -53,8 +53,31 @@ class ProcessStudentImportToClass implements ShouldQueue
                 throw new \Exception('Class not found');
             }
 
+            // Debug logging for production troubleshooting
+            $storagePath = Storage::disk('local')->path('');
+            $fullPath = Storage::disk('local')->path($importProgress->file_path);
+            Log::info("Student import job - Storage base path: {$storagePath}");
+            Log::info("Student import job - Looking for file: {$importProgress->file_path}");
+            Log::info("Student import job - Full path would be: {$fullPath}");
+
             // Use Storage facade for consistent file access across environments
-            if (! Storage::disk('local')->exists($importProgress->file_path)) {
+            $fileExists = Storage::disk('local')->exists($importProgress->file_path);
+            Log::info('Student import job - Storage exists check: '.($fileExists ? 'YES' : 'NO'));
+
+            if (! $fileExists) {
+                // Additional debug: check with raw file_exists
+                $rawExists = file_exists($fullPath);
+                Log::error('Student import job - File not found via Storage. Raw file_exists: '.($rawExists ? 'YES' : 'NO'));
+
+                // List files in directory for debugging
+                $directory = dirname($importProgress->file_path);
+                if (Storage::disk('local')->exists($directory)) {
+                    $files = Storage::disk('local')->files($directory);
+                    Log::info("Student import job - Files in {$directory}: ".json_encode($files));
+                } else {
+                    Log::error("Student import job - Directory does not exist: {$directory}");
+                }
+
                 throw new \Exception("CSV file not found at path: {$importProgress->file_path}");
             }
 

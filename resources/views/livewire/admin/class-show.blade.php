@@ -2848,17 +2848,37 @@ new class extends Component
             $fileName = 'student_import_' . time() . '_' . uniqid() . '.csv';
             $directory = 'imports/students';
 
+            // Log storage configuration for debugging
+            $storagePath = \Illuminate\Support\Facades\Storage::disk('local')->path('');
+            \Illuminate\Support\Facades\Log::info("Student import - Storage base path: {$storagePath}");
+
             // Use Livewire's storeAs which properly handles temp files
             $relativePath = $this->importStudentFile->storeAs($directory, $fileName, 'local');
+
+            \Illuminate\Support\Facades\Log::info("Student import - storeAs returned path: " . ($relativePath ?: 'FALSE/NULL'));
 
             if (! $relativePath) {
                 throw new \Exception('Failed to store the uploaded CSV file.');
             }
 
+            // Get full path for logging
+            $fullPath = \Illuminate\Support\Facades\Storage::disk('local')->path($relativePath);
+            \Illuminate\Support\Facades\Log::info("Student import - Full file path: {$fullPath}");
+
             // Verify file was actually stored
-            if (! \Illuminate\Support\Facades\Storage::disk('local')->exists($relativePath)) {
+            $fileExists = \Illuminate\Support\Facades\Storage::disk('local')->exists($relativePath);
+            \Illuminate\Support\Facades\Log::info("Student import - File exists check: " . ($fileExists ? 'YES' : 'NO'));
+
+            if (! $fileExists) {
+                // Also check with file_exists for debugging
+                $rawExists = file_exists($fullPath);
+                \Illuminate\Support\Facades\Log::error("Student import - Storage says file doesn't exist. Raw file_exists: " . ($rawExists ? 'YES' : 'NO'));
                 throw new \Exception('File storage verification failed - file does not exist after upload.');
             }
+
+            // Log file size for confirmation
+            $fileSize = \Illuminate\Support\Facades\Storage::disk('local')->size($relativePath);
+            \Illuminate\Support\Facades\Log::info("Student import - File size: {$fileSize} bytes");
 
             // Create import progress record with relative path
             $importProgress = \App\Models\StudentImportProgress::create([
@@ -2870,6 +2890,8 @@ new class extends Component
                 'create_missing' => $this->createMissingStudents,
                 'default_password' => $this->createMissingStudents ? $this->importStudentPassword : null,
             ]);
+
+            \Illuminate\Support\Facades\Log::info("Student import - Created progress record ID: {$importProgress->id} with file_path: {$importProgress->file_path}");
 
             $this->currentStudentImportProgressId = $importProgress->id;
 
