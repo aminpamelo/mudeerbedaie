@@ -3,6 +3,8 @@
 use App\Models\ProductCart;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderPayment;
+use App\Services\BayarcashService;
+use App\Services\SettingsService;
 use Livewire\Volt\Component;
 
 new class extends Component
@@ -156,6 +158,9 @@ new class extends Component
                 addresses: $addresses
             );
 
+            // Update order with payment method
+            $order->update(['payment_method' => $this->paymentMethod]);
+
             // Create payment record
             $payment = $order->payments()->create([
                 'payment_method' => $this->paymentMethod,
@@ -165,6 +170,12 @@ new class extends Component
                 'status' => 'pending',
                 'transaction_id' => $this->generateTransactionId(),
             ]);
+
+            // Handle FPX payments via Bayarcash
+            if ($this->paymentMethod === 'fpx' && $this->isBayarcashEnabled()) {
+                $this->processBayarcashPayment($order);
+                return; // Will redirect to Bayarcash
+            }
 
             // For demo purposes, we'll mark cash payments as completed
             if ($this->paymentMethod === 'cash') {
@@ -187,11 +198,45 @@ new class extends Component
         }
     }
 
+    /**
+     * Check if Bayarcash is enabled for FPX payments.
+     */
+    private function isBayarcashEnabled(): bool
+    {
+        return app(SettingsService::class)->isBayarcashEnabled();
+    }
+
+    /**
+     * Process payment via Bayarcash and redirect to payment page.
+     */
+    private function processBayarcashPayment(ProductOrder $order): void
+    {
+        $bayarcashService = app(BayarcashService::class);
+
+        $payerName = trim($this->billingAddress['first_name'] . ' ' . $this->billingAddress['last_name']);
+        $payerEmail = $this->customerData['email'];
+        $payerPhone = $this->customerData['phone'] ?? '';
+
+        $response = $bayarcashService->createPaymentIntent([
+            'order_number' => $order->order_number,
+            'amount' => $order->total_amount,
+            'payer_name' => $payerName,
+            'payer_email' => $payerEmail,
+            'payer_phone' => $payerPhone,
+        ]);
+
+        // Clear the cart before redirecting
+        $this->cart->clear();
+
+        // Redirect to Bayarcash payment page
+        $this->redirect($response->url);
+    }
+
     private function getPaymentProvider(): ?string
     {
         return match($this->paymentMethod) {
             'credit_card', 'debit_card' => 'stripe',
-            'fpx' => 'fpx',
+            'fpx' => 'bayarcash',
             'grabpay' => 'grabpay',
             'boost' => 'boost',
             default => null,

@@ -108,6 +108,25 @@ class SendClassNotificationJob implements ShouldQueue
             $sessionTime = $matches[1];
         }
 
+        // Check channel settings upfront
+        $shouldSendEmail = $notificationService->shouldSendEmail($class, $setting);
+        $shouldSendWhatsApp = $notificationService->shouldSendWhatsApp($class, $setting);
+
+        // If both channels are disabled, skip processing
+        if (! $shouldSendEmail && ! $shouldSendWhatsApp) {
+            $notification->update([
+                'total_sent' => 0,
+                'total_failed' => 0,
+            ]);
+            $notification->markAsSent();
+            Log::info('Notification skipped - both channels disabled', [
+                'notification_id' => $notification->id,
+                'class_id' => $class->id,
+            ]);
+
+            return;
+        }
+
         foreach ($recipients as $recipient) {
             try {
                 $student = $recipient['type'] === 'student' ? $recipient['model'] : null;
@@ -176,48 +195,53 @@ class SendClassNotificationJob implements ShouldQueue
                     ? $personalizedContent
                     : $this->convertMarkdownToHtml($personalizedContent);
 
-                // Create log entry
-                $log = NotificationLog::create([
-                    'scheduled_notification_id' => $notification->id,
-                    'recipient_type' => $recipient['type'],
-                    'recipient_id' => $recipient['model']->id,
-                    'channel' => 'email',
-                    'destination' => $recipient['email'],
-                    'status' => 'pending',
-                ]);
+                // Send email if enabled AND recipient has email address
+                if ($shouldSendEmail && ! empty($recipient['email'])) {
+                    // Create log entry
+                    $log = NotificationLog::create([
+                        'scheduled_notification_id' => $notification->id,
+                        'recipient_type' => $recipient['type'],
+                        'recipient_id' => $recipient['model']->id,
+                        'channel' => 'email',
+                        'destination' => $recipient['email'],
+                        'status' => 'pending',
+                    ]);
 
-                // Send email with attachments
-                Mail::send([], [], function ($message) use ($recipient, $personalizedSubject, $htmlContent, $fileAttachments) {
-                    $message->to($recipient['email'], $recipient['name'])
-                        ->subject($personalizedSubject)
-                        ->html($htmlContent);
+                    // Send email with attachments
+                    Mail::send([], [], function ($message) use ($recipient, $personalizedSubject, $htmlContent, $fileAttachments) {
+                        $message->to($recipient['email'], $recipient['name'])
+                            ->subject($personalizedSubject)
+                            ->html($htmlContent);
 
-                    // Attach files (PDFs, documents, non-embedded images)
-                    foreach ($fileAttachments as $file) {
-                        if (Storage::disk($file->disk)->exists($file->file_path)) {
-                            $message->attach($file->full_path, [
-                                'as' => $file->file_name,
-                                'mime' => $file->file_type,
-                            ]);
+                        // Attach files (PDFs, documents, non-embedded images)
+                        foreach ($fileAttachments as $file) {
+                            if (Storage::disk($file->disk)->exists($file->file_path)) {
+                                $message->attach($file->full_path, [
+                                    'as' => $file->file_name,
+                                    'mime' => $file->file_type,
+                                ]);
+                            }
                         }
-                    }
 
-                    // Note: For embedded images in HTML emails, they should be referenced
-                    // in the HTML content using absolute URLs from the storage
-                });
+                        // Note: For embedded images in HTML emails, they should be referenced
+                        // in the HTML content using absolute URLs from the storage
+                    });
 
-                $log->markAsSent();
-                $totalSent++;
+                    $log->markAsSent();
+                    $totalSent++;
+                }
 
                 // Send WhatsApp notification if enabled and phone number available
-                $this->dispatchWhatsAppNotification(
-                    $notification,
-                    $setting,
-                    $recipient,
-                    $personalizedContent,
-                    $isVisualTemplate,
-                    $notificationService
-                );
+                if ($shouldSendWhatsApp) {
+                    $this->dispatchWhatsAppNotification(
+                        $notification,
+                        $setting,
+                        $recipient,
+                        $personalizedContent,
+                        $isVisualTemplate,
+                        $notificationService
+                    );
+                }
 
             } catch (\Exception $e) {
                 Log::error('Failed to send class notification', [
@@ -307,7 +331,8 @@ class SendClassNotificationJob implements ShouldQueue
     }
 
     /**
-     * Dispatch WhatsApp notification job if enabled and phone available.
+     * Dispatch WhatsApp notification job if phone available.
+     * Note: Channel settings are already checked before calling this method.
      */
     private function dispatchWhatsAppNotification(
         ScheduledNotification $notification,
@@ -317,12 +342,7 @@ class SendClassNotificationJob implements ShouldQueue
         bool $isVisualTemplate,
         ?NotificationService $notificationService = null
     ): void {
-        // Check if WhatsApp is enabled for this notification setting
-        if (! $setting->whatsapp_enabled) {
-            return;
-        }
-
-        // Check if WhatsApp service is globally enabled
+        // Check if WhatsApp service is globally enabled (API level)
         $whatsApp = app(WhatsAppService::class);
         if (! $whatsApp->isEnabled()) {
             return;

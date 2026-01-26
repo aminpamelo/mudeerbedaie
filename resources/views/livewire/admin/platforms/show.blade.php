@@ -297,50 +297,105 @@ new class extends Component {
                 </flux:text>
             </div>
 
-            {{-- API Integration (Coming Soon) --}}
-            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <flux:heading size="lg" class="text-blue-900">API Integration</flux:heading>
-                    <flux:badge size="sm" color="blue">Coming Soon</flux:badge>
-                </div>
-
-                <flux:text size="sm" class="text-blue-800 mb-4">
-                    Advanced API features will be available in future updates to automate platform operations.
-                </flux:text>
-
-                <div class="space-y-3">
-                    <div class="flex items-center space-x-3 opacity-60">
-                        <flux:icon name="arrow-path" class="w-4 h-4 text-blue-600" />
-                        <flux:text size="sm" class="text-blue-800">Auto-sync orders and products</flux:text>
+            {{-- API Integration --}}
+            @if($platform->slug === 'tiktok-shop')
+                {{-- TikTok Shop API Integration --}}
+                <div class="bg-gradient-to-br from-pink-50 to-red-50 dark:from-pink-900/20 dark:to-red-900/20 rounded-lg border border-pink-200 dark:border-pink-700 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43V7.56a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.19z"/>
+                                </svg>
+                            </div>
+                            <flux:heading size="lg" class="text-pink-900 dark:text-pink-100">TikTok API</flux:heading>
+                        </div>
+                        <flux:badge size="sm" color="green">Ready</flux:badge>
                     </div>
 
-                    <div class="flex items-center space-x-3 opacity-60">
-                        <flux:icon name="globe-alt" class="w-4 h-4 text-blue-600" />
-                        <flux:text size="sm" class="text-blue-800">Real-time webhook notifications</flux:text>
+                    <flux:text size="sm" class="text-pink-800 dark:text-pink-200 mb-4">
+                        Connect your TikTok Shop account via OAuth to enable automatic order sync, product management, and real-time updates.
+                    </flux:text>
+
+                    <div class="space-y-3 mb-4">
+                        <div class="flex items-center space-x-3">
+                            <flux:icon name="arrow-path" class="w-4 h-4 text-pink-600" />
+                            <flux:text size="sm" class="text-pink-800 dark:text-pink-200">Auto-sync orders every 15 minutes</flux:text>
+                        </div>
+
+                        <div class="flex items-center space-x-3">
+                            <flux:icon name="cube" class="w-4 h-4 text-pink-600" />
+                            <flux:text size="sm" class="text-pink-800 dark:text-pink-200">Product catalog synchronization</flux:text>
+                        </div>
+
+                        <div class="flex items-center space-x-3">
+                            <flux:icon name="chart-bar-square" class="w-4 h-4 text-pink-600" />
+                            <flux:text size="sm" class="text-pink-800 dark:text-pink-200">Real-time inventory updates</flux:text>
+                        </div>
+
+                        <div class="flex items-center space-x-3">
+                            <flux:icon name="bell" class="w-4 h-4 text-pink-600" />
+                            <flux:text size="sm" class="text-pink-800 dark:text-pink-200">Webhook notifications for new orders</flux:text>
+                        </div>
                     </div>
 
-                    <div class="flex items-center space-x-3 opacity-60">
-                        <flux:icon name="chart-bar" class="w-4 h-4 text-blue-600" />
-                        <flux:text size="sm" class="text-blue-800">Live analytics and reporting</flux:text>
-                    </div>
+                    <flux:button href="{{ route('tiktok.connect') }}" class="w-full bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="link" class="w-4 h-4 mr-2" />
+                            Connect TikTok Shop
+                        </div>
+                    </flux:button>
 
-                    <div class="flex items-center space-x-3 opacity-60">
-                        <flux:icon name="bolt" class="w-4 h-4 text-blue-600" />
-                        <flux:text size="sm" class="text-blue-800">Automated inventory management</flux:text>
-                    </div>
-
-                    <div class="flex items-center space-x-3 opacity-60">
-                        <flux:icon name="shield-check" class="w-4 h-4 text-blue-600" />
-                        <flux:text size="sm" class="text-blue-800">API health monitoring</flux:text>
-                    </div>
-                </div>
-
-                <div class="mt-4 pt-4 border-t border-blue-200">
-                    <flux:text size="xs" class="text-blue-700">
-                        🚀 These features will provide seamless automation once API integrations are implemented.
+                    <flux:text size="xs" class="text-pink-700 dark:text-pink-300 mt-3 text-center">
+                        You'll be redirected to TikTok to authorize the connection
                     </flux:text>
                 </div>
-            </div>
+            @else
+                {{-- Generic API Integration (Coming Soon) --}}
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <flux:heading size="lg" class="text-blue-900">API Integration</flux:heading>
+                        <flux:badge size="sm" color="blue">Coming Soon</flux:badge>
+                    </div>
+
+                    <flux:text size="sm" class="text-blue-800 mb-4">
+                        Advanced API features will be available in future updates to automate platform operations.
+                    </flux:text>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-3 opacity-60">
+                            <flux:icon name="arrow-path" class="w-4 h-4 text-blue-600" />
+                            <flux:text size="sm" class="text-blue-800">Auto-sync orders and products</flux:text>
+                        </div>
+
+                        <div class="flex items-center space-x-3 opacity-60">
+                            <flux:icon name="globe-alt" class="w-4 h-4 text-blue-600" />
+                            <flux:text size="sm" class="text-blue-800">Real-time webhook notifications</flux:text>
+                        </div>
+
+                        <div class="flex items-center space-x-3 opacity-60">
+                            <flux:icon name="chart-bar" class="w-4 h-4 text-blue-600" />
+                            <flux:text size="sm" class="text-blue-800">Live analytics and reporting</flux:text>
+                        </div>
+
+                        <div class="flex items-center space-x-3 opacity-60">
+                            <flux:icon name="bolt" class="w-4 h-4 text-blue-600" />
+                            <flux:text size="sm" class="text-blue-800">Automated inventory management</flux:text>
+                        </div>
+
+                        <div class="flex items-center space-x-3 opacity-60">
+                            <flux:icon name="shield-check" class="w-4 h-4 text-blue-600" />
+                            <flux:text size="sm" class="text-blue-800">API health monitoring</flux:text>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-blue-200">
+                        <flux:text size="xs" class="text-blue-700">
+                            These features will provide seamless automation once API integrations are implemented.
+                        </flux:text>
+                    </div>
+                </div>
+            @endif
 
             {{-- Platform Statistics --}}
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">

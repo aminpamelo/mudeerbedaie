@@ -1,14 +1,26 @@
 <?php
+use App\Services\BayarcashService;
 use App\Services\SettingsService;
+use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
+
 new class extends Component {
+    // Stripe settings
     public $stripe_publishable_key = '';
     public $stripe_secret_key = '';
     public $stripe_webhook_secret = '';
     public $payment_mode = 'test';
     public $currency = 'MYR';
     public $enable_stripe_payments = true;
-    
+
+    // Bayarcash settings
+    public $bayarcash_api_token = '';
+    public $bayarcash_api_secret_key = '';
+    public $bayarcash_portal_key = '';
+    public string $bayarcash_sandbox = '1'; // '1' = sandbox, '0' = production
+    public $enable_bayarcash_payments = false;
+
+    #[Url(as: 'tab')]
     public $activeTab = 'stripe';
 
     private function getSettingsService(): SettingsService
@@ -18,13 +30,22 @@ new class extends Component {
 
     public function mount(): void
     {
-        // Load current settings values
+        // Load Stripe settings
         $this->stripe_publishable_key = $this->getSettingsService()->get('stripe_publishable_key', '');
         $this->stripe_secret_key = $this->getSettingsService()->get('stripe_secret_key', '');
         $this->stripe_webhook_secret = $this->getSettingsService()->get('stripe_webhook_secret', '');
         $this->payment_mode = $this->getSettingsService()->get('payment_mode', 'test');
         $this->currency = $this->getSettingsService()->get('currency', 'MYR');
         $this->enable_stripe_payments = (bool) $this->getSettingsService()->get('enable_stripe_payments', true);
+
+        // Load Bayarcash settings
+        $this->bayarcash_api_token = $this->getSettingsService()->get('bayarcash_api_token', '');
+        $this->bayarcash_api_secret_key = $this->getSettingsService()->get('bayarcash_api_secret_key', '');
+        $this->bayarcash_portal_key = $this->getSettingsService()->get('bayarcash_portal_key', '');
+        // Convert boolean to string for radio button binding
+        $sandboxValue = $this->getSettingsService()->get('bayarcash_sandbox', true);
+        $this->bayarcash_sandbox = $sandboxValue ? '1' : '0';
+        $this->enable_bayarcash_payments = (bool) $this->getSettingsService()->get('enable_bayarcash_payments', false);
     }
 
     public function save(): void
@@ -49,6 +70,27 @@ new class extends Component {
         $this->dispatch('settings-saved');
     }
 
+    public function saveBayarcash(): void
+    {
+        $this->validate([
+            'bayarcash_api_token' => 'nullable|string|max:2000', // JWT tokens are longer than 255 chars
+            'bayarcash_api_secret_key' => 'nullable|string|max:500',
+            'bayarcash_portal_key' => 'nullable|string|max:255',
+            'bayarcash_sandbox' => 'required|in:0,1',
+            'enable_bayarcash_payments' => 'boolean',
+        ]);
+
+        // Save Bayarcash settings (encrypted)
+        $this->getSettingsService()->set('bayarcash_api_token', $this->bayarcash_api_token, 'encrypted', 'payment');
+        $this->getSettingsService()->set('bayarcash_api_secret_key', $this->bayarcash_api_secret_key, 'encrypted', 'payment');
+        $this->getSettingsService()->set('bayarcash_portal_key', $this->bayarcash_portal_key, 'string', 'payment');
+        // Convert string '1'/'0' to boolean for storage
+        $this->getSettingsService()->set('bayarcash_sandbox', $this->bayarcash_sandbox === '1', 'boolean', 'payment');
+        $this->getSettingsService()->set('enable_bayarcash_payments', $this->enable_bayarcash_payments, 'boolean', 'payment');
+
+        $this->dispatch('settings-saved');
+    }
+
     public function testStripeConnection(): void
     {
         if (empty($this->stripe_secret_key)) {
@@ -62,6 +104,30 @@ new class extends Component {
             $this->dispatch('stripe-test-success');
         } catch (\Exception $e) {
             $this->dispatch('stripe-test-failed', message: $e->getMessage());
+        }
+    }
+
+    public function testBayarcashConnection(): void
+    {
+        if (empty($this->bayarcash_api_token)) {
+            $this->dispatch('bayarcash-test-failed', message: 'Please enter Bayarcash API token first.');
+            return;
+        }
+
+        try {
+            // Save settings temporarily to test
+            $this->saveBayarcash();
+
+            $bayarcashService = app(BayarcashService::class);
+            $portals = $bayarcashService->getPortals();
+
+            if (!empty($portals)) {
+                $this->dispatch('bayarcash-test-success');
+            } else {
+                $this->dispatch('bayarcash-test-failed', message: 'No portals found. Check your API token.');
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('bayarcash-test-failed', message: $e->getMessage());
         }
     }
 
@@ -104,7 +170,7 @@ new class extends Component {
     <!-- Payment Methods Tabs -->
     <div class="mb-6">
         <nav class="flex space-x-8" role="tablist">
-            <button 
+            <button
                 type="button"
                 wire:click="switchTab('stripe')"
                 class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'stripe') border-indigo-500 text-indigo-600  @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300  :text-gray-300 @endif"
@@ -116,8 +182,8 @@ new class extends Component {
                     Stripe Payments
                 </div>
             </button>
-            
-            <button 
+
+            <button
                 type="button"
                 wire:click="switchTab('manual')"
                 class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'manual') border-indigo-500 text-indigo-600  @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300  :text-gray-300 @endif opacity-50 cursor-not-allowed"
@@ -131,19 +197,20 @@ new class extends Component {
                     <flux:badge size="sm" color="gray" class="ml-2">Coming Soon</flux:badge>
                 </div>
             </button>
-            
-            <button 
+
+            <button
                 type="button"
-                wire:click="switchTab('fpx')"
-                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'fpx') border-indigo-500 text-indigo-600  @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300  :text-gray-300 @endif opacity-50 cursor-not-allowed"
+                wire:click="switchTab('bayarcash')"
+                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'bayarcash') border-indigo-500 text-indigo-600 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 @endif"
                 role="tab"
-                aria-selected="{{ $activeTab === 'fpx' ? 'true' : 'false' }}"
-                disabled
+                aria-selected="{{ $activeTab === 'bayarcash' ? 'true' : 'false' }}"
             >
                 <div class="flex items-center">
                     <flux:icon name="building-library" class="w-4 h-4 mr-2" />
                     FPX
-                    <flux:badge size="sm" color="gray" class="ml-2">Coming Soon</flux:badge>
+                    @if($enable_bayarcash_payments)
+                        <flux:badge size="sm" color="emerald" class="ml-2">Active</flux:badge>
+                    @endif
                 </div>
             </button>
         </nav>
@@ -164,14 +231,14 @@ new class extends Component {
                         </flux:text>
                     </div>
                     <div class="flex items-center gap-3">
-                        <flux:badge 
+                        <flux:badge
                             color="{{ $enable_stripe_payments ? 'emerald' : 'gray' }}"
                         >
                             {{ $enable_stripe_payments ? 'Enabled' : 'Disabled' }}
                         </flux:badge>
-                        <flux:button 
-                            type="button" 
-                            variant="outline" 
+                        <flux:button
+                            type="button"
+                            variant="outline"
                             size="sm"
                             wire:click="testStripeConnection"
                         >
@@ -223,8 +290,8 @@ new class extends Component {
                             <flux:description>
                                 Your Stripe publishable key (starts with pk_test_ or pk_live_)
                             </flux:description>
-                            <flux:input 
-                                wire:model="stripe_publishable_key" 
+                            <flux:input
+                                wire:model="stripe_publishable_key"
                                 placeholder="pk_test_..."
                                 type="password"
                             />
@@ -236,8 +303,8 @@ new class extends Component {
                             <flux:description>
                                 Your Stripe secret key (starts with sk_test_ or sk_live_). This will be encrypted.
                             </flux:description>
-                            <flux:input 
-                                wire:model="stripe_secret_key" 
+                            <flux:input
+                                wire:model="stripe_secret_key"
                                 placeholder="sk_test_..."
                                 type="password"
                             />
@@ -249,8 +316,8 @@ new class extends Component {
                             <flux:description>
                                 Your Stripe webhook endpoint secret (starts with whsec_). This will be encrypted.
                             </flux:description>
-                            <flux:input 
-                                wire:model="stripe_webhook_secret" 
+                            <flux:input
+                                wire:model="stripe_webhook_secret"
                                 placeholder="whsec_..."
                                 type="password"
                             />
@@ -309,43 +376,171 @@ new class extends Component {
         </div>
         @endif
 
-        <!-- FPX Tab (Coming Soon) -->
-        @if($activeTab === 'fpx')
+        <!-- Bayarcash FPX Tab -->
+        @if($activeTab === 'bayarcash')
         <div role="tabpanel" class="space-y-6">
+            <!-- Payment Method Status -->
             <flux:card>
-                <div class="text-center py-12">
-                    <flux:icon name="building-library" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <flux:heading size="lg" class="text-gray-600  mb-2">
-                        FPX Online Banking
-                    </flux:heading>
-                    <flux:text class="text-gray-500">
-                        This payment method will be available soon. Students will be able to pay directly from their Malaysian bank accounts.
-                    </flux:text>
-                    <div class="mt-6">
-                        <flux:badge size="lg" color="gray">Coming Soon</flux:badge>
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <flux:heading size="lg">Bayarcash FPX Configuration</flux:heading>
+                        <flux:text class="text-gray-600 text-sm mt-1">
+                            Configure Bayarcash to accept FPX online banking payments
+                        </flux:text>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <flux:badge
+                            color="{{ $enable_bayarcash_payments ? 'emerald' : 'gray' }}"
+                        >
+                            {{ $enable_bayarcash_payments ? 'Enabled' : 'Disabled' }}
+                        </flux:badge>
+                        <flux:button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            wire:click="testBayarcashConnection"
+                        >
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="wifi" class="w-4 h-4 mr-1" />
+                                Test Connection
+                            </div>
+                        </flux:button>
                     </div>
                 </div>
+
+                <div class="space-y-4">
+                    <flux:checkbox wire:model="enable_bayarcash_payments">
+                        Enable FPX Online Banking Payments
+                    </flux:checkbox>
+                    <flux:description>
+                        Allow customers to pay directly from their Malaysian bank accounts using FPX through Bayarcash.
+                    </flux:description>
+                    <flux:error name="enable_bayarcash_payments" />
+                </div>
             </flux:card>
+
+            @if($enable_bayarcash_payments)
+            <!-- Bayarcash Settings Form -->
+            <flux:card>
+                <form wire:submit="saveBayarcash" class="space-y-6">
+                    <div class="grid grid-cols-1 gap-6">
+                        <flux:field>
+                            <flux:label>Environment Mode</flux:label>
+                            <flux:radio.group wire:model.live="bayarcash_sandbox">
+                                <flux:radio value="1" label="Sandbox Mode (for testing)" />
+                                <flux:radio value="0" label="Production Mode (live payments)" />
+                            </flux:radio.group>
+                            <flux:description>
+                                Use Sandbox mode for testing with test credentials before going live.
+                            </flux:description>
+                            <flux:error name="bayarcash_sandbox" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Bayarcash API Token</flux:label>
+                            <flux:description>
+                                Your Bayarcash API token from the console. Get it from
+                                <a href="{{ $bayarcash_sandbox ? 'https://console.bayarcash-sandbox.com' : 'https://console.bayar.cash' }}" target="_blank" class="text-indigo-600 hover:text-indigo-500">
+                                    {{ $bayarcash_sandbox ? 'console.bayarcash-sandbox.com' : 'console.bayar.cash' }}
+                                </a>
+                            </flux:description>
+                            <flux:input
+                                wire:model="bayarcash_api_token"
+                                placeholder="Your API token..."
+                                type="password"
+                            />
+                            <flux:error name="bayarcash_api_token" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Bayarcash API Secret Key</flux:label>
+                            <flux:description>
+                                Your Bayarcash API secret key for checksum generation and callback verification. This will be encrypted.
+                            </flux:description>
+                            <flux:input
+                                wire:model="bayarcash_api_secret_key"
+                                placeholder="Your API secret key..."
+                                type="password"
+                            />
+                            <flux:error name="bayarcash_api_secret_key" />
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Portal Key</flux:label>
+                            <flux:description>
+                                Your Bayarcash portal key. Each portal can have different payment channels enabled.
+                            </flux:description>
+                            <flux:input
+                                wire:model="bayarcash_portal_key"
+                                placeholder="Your portal key..."
+                            />
+                            <flux:error name="bayarcash_portal_key" />
+                        </flux:field>
+                    </div>
+
+                    <!-- Webhook Configuration Info -->
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <flux:heading size="sm" class="text-green-800 mb-2">
+                            Callback URL Configuration
+                        </flux:heading>
+                        <flux:text class="text-green-700 text-sm">
+                            Configure your Bayarcash callback URL in your portal settings:
+                        </flux:text>
+                        <code class="block mt-2 p-2 bg-white dark:bg-zinc-700 rounded text-sm font-mono break-all">
+                            {{ url('/bayarcash/callback') }}
+                        </code>
+                        <flux:text class="text-green-700 text-sm mt-3">
+                            Return URL (users are redirected here after payment):
+                        </flux:text>
+                        <code class="block mt-2 p-2 bg-white dark:bg-zinc-700 rounded text-sm font-mono break-all">
+                            {{ url('/bayarcash/return') }}
+                        </code>
+                    </div>
+
+                    <!-- Supported Payment Methods Info -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <flux:heading size="sm" class="text-gray-800 mb-2">
+                            Supported Payment Methods
+                        </flux:heading>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <flux:badge color="blue">FPX Online Banking</flux:badge>
+                        </div>
+                        <flux:text class="text-gray-600 text-sm mt-2">
+                            Customers will be redirected to Bayarcash's secure payment page to select their bank and complete the payment.
+                        </flux:text>
+                    </div>
+                </form>
+            </flux:card>
+            @endif
+
+            <!-- Save Button -->
+            <div class="flex justify-end">
+                <flux:button wire:click="saveBayarcash" variant="primary">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="check" class="w-4 h-4 mr-2" />
+                        Save Bayarcash Settings
+                    </div>
+                </flux:button>
+            </div>
         </div>
         @endif
     </div>
 
     <!-- Success/Error Messages -->
-    <div 
-        x-data="{ show: false, message: '' }"
-        x-on:settings-saved.window="show = true; setTimeout(() => show = false, 3000)"
-        x-on:stripe-test-success.window="show = true; message = 'Stripe connection successful!'; setTimeout(() => show = false, 3000)"
-        x-on:stripe-test-failed.window="show = true; message = $event.detail.message || 'Stripe connection failed!'; setTimeout(() => show = false, 5000)"
+    <div
+        x-data="{ show: false, message: '', type: 'success' }"
+        x-on:settings-saved.window="show = true; message = 'Settings saved successfully!'; type = 'success'; setTimeout(() => show = false, 3000)"
+        x-on:stripe-test-success.window="show = true; message = 'Stripe connection successful!'; type = 'success'; setTimeout(() => show = false, 3000)"
+        x-on:stripe-test-failed.window="show = true; message = $event.detail.message || 'Stripe connection failed!'; type = 'error'; setTimeout(() => show = false, 5000)"
+        x-on:bayarcash-test-success.window="show = true; message = 'Bayarcash connection successful!'; type = 'success'; setTimeout(() => show = false, 3000)"
+        x-on:bayarcash-test-failed.window="show = true; message = $event.detail.message || 'Bayarcash connection failed!'; type = 'error'; setTimeout(() => show = false, 5000)"
         x-show="show"
         x-transition
         class="fixed top-4 right-4 z-50"
     >
-        <flux:badge color="emerald" size="lg" x-show="message === '' || message.includes('successful')">
-            <flux:icon icon="check-circle" class="w-4 h-4 mr-2" />
-            <span x-text="message || 'Settings saved successfully!'"></span>
-        </flux:badge>
-        <flux:badge color="red" size="lg" x-show="message !== '' && !message.includes('successful')">
-            <flux:icon icon="exclamation-circle" class="w-4 h-4 mr-2" />
+        <flux:badge x-bind:color="type === 'success' ? 'emerald' : 'red'" size="lg">
+            <flux:icon x-show="type === 'success'" name="check-circle" class="w-4 h-4 mr-2" />
+            <flux:icon x-show="type !== 'success'" name="exclamation-circle" class="w-4 h-4 mr-2" />
             <span x-text="message"></span>
         </flux:badge>
     </div>

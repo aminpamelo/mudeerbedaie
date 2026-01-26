@@ -16,6 +16,7 @@
                     'subscription': ['orders.*', 'admin.payments*'],
                     'products': ['products.*', 'product-categories.*', 'product-attributes.*'],
                     'crm': ['crm.*'],
+                    'funnels': ['admin.funnels*', 'workflows.*', 'funnel-builder.*'],
                     'commerce': ['admin.orders.*', 'packages.*'],
                     'customerService': ['admin.customer-service.*'],
                     'certificates': ['certificates.*'],
@@ -165,6 +166,17 @@
                     <flux:navlist.item icon="table-cells" :href="route('crm.all-database')" :current="request()->routeIs('crm.all-database')" wire:navigate>{{ __('All Database') }}</flux:navlist.item>
                     <flux:navlist.item icon="user-group" :href="route('crm.audiences.index')" :current="request()->routeIs('crm.audiences.*')" wire:navigate>{{ __('Audiences') }}</flux:navlist.item>
                     <flux:navlist.item icon="envelope" :href="route('crm.broadcasts.index')" :current="request()->routeIs('crm.broadcasts.*')" wire:navigate>{{ __('Broadcasts') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Sales Funnels')"
+                    data-section='funnels' x-init="if (!isExpanded('funnels')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('funnels', $event)"
+                >
+                    <flux:navlist.item icon="funnel" :href="route('admin.funnels')" :current="request()->routeIs('admin.funnels*')" wire:navigate>{{ __('All Funnels') }}</flux:navlist.item>
+                    <flux:navlist.item icon="plus-circle" :href="route('funnel-builder.index')" :current="request()->routeIs('funnel-builder.*')" wire:navigate>{{ __('Create Funnel') }}</flux:navlist.item>
+                    <flux:navlist.item icon="bolt" :href="route('workflows.index')" :current="request()->routeIs('workflows.*')" wire:navigate>{{ __('Workflows') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group

@@ -4,9 +4,8 @@ use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
-use App\Models\PlatformOrder;
-use App\Models\PlatformOrderItem;
-use App\Models\PlatformCustomer;
+use App\Models\ProductOrder;
+use App\Models\ProductOrderItem;
 use App\Models\PlatformSkuMapping;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -262,7 +261,7 @@ new class extends Component {
         }
 
         // Check if order already exists
-        $existingOrder = PlatformOrder::where('platform_account_id', $account->id)
+        $existingOrder = ProductOrder::where('platform_account_id', $account->id)
             ->where('platform_order_id', $orderData['order_id'])
             ->first();
 
@@ -270,31 +269,31 @@ new class extends Component {
             throw new \Exception("Order {$orderData['order_id']} already exists");
         }
 
-        // Create platform order
-        $platformOrder = PlatformOrder::create([
+        // Create product order
+        $productOrder = ProductOrder::create([
+            'order_number' => ProductOrder::generateOrderNumber(),
             'platform_id' => $this->platform->id,
             'platform_account_id' => $account->id,
             'platform_order_id' => $orderData['order_id'],
+            'platform_order_number' => $orderData['order_id'],
             'status' => $this->normalizeOrderStatus($orderData['status']),
             'order_date' => $this->parseDate($orderData['order_date']),
             'total_amount' => $this->parseAmount($orderData['total_amount']),
+            'subtotal' => $this->parseAmount($orderData['total_amount']),
             'currency' => strtoupper($orderData['currency']),
             'customer_name' => $orderData['customer_name'] ?? null,
-            'customer_email' => $orderData['customer_email'] ?? null,
+            'guest_email' => $orderData['customer_email'] ?? null,
             'shipping_address' => $orderData['shipping_address'] ?? null,
-            'items_count' => $this->parseInt($orderData['items_count'] ?? 1),
-            'platform_fees' => $this->parseAmount($orderData['platform_fees'] ?? 0),
-            'tracking_number' => $orderData['tracking_number'] ?? null,
+            'tracking_id' => $orderData['tracking_number'] ?? null,
+            'source' => 'platform_import',
             'metadata' => [
                 'imported_at' => now()->toISOString(),
                 'import_notes' => $this->import_notes,
                 'raw_data' => $orderData,
             ],
-            'is_imported' => true,
-            'imported_at' => now(),
         ]);
 
-        return $platformOrder;
+        return $productOrder;
     }
 
     private function normalizeOrderStatus(string $status): string

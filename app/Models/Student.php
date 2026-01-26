@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use App\Observers\StudentObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
+#[ObservedBy(StudentObserver::class)]
 class Student extends Model
 {
     use HasFactory;
@@ -156,6 +161,43 @@ class Student extends Model
         return $this->hasMany(ProductOrder::class)->where('status', 'cancelled');
     }
 
+    // CRM & Workflow relationships
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class, 'student_tags')
+            ->withPivot(['applied_by', 'source', 'workflow_id', 'created_at']);
+    }
+
+    public function leadScore(): HasOne
+    {
+        return $this->hasOne(StudentLeadScore::class);
+    }
+
+    public function customFieldValues(): HasMany
+    {
+        return $this->hasMany(StudentCustomField::class);
+    }
+
+    public function contactActivities(): HasMany
+    {
+        return $this->hasMany(ContactActivity::class);
+    }
+
+    public function communicationLogs(): HasMany
+    {
+        return $this->hasMany(CommunicationLog::class);
+    }
+
+    public function workflowEnrollments(): HasMany
+    {
+        return $this->hasMany(WorkflowEnrollment::class);
+    }
+
+    public function activeWorkflowEnrollments(): HasMany
+    {
+        return $this->hasMany(WorkflowEnrollment::class)->where('status', 'active');
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';
@@ -204,10 +246,10 @@ class Student extends Model
     public static function generateStudentId(): string
     {
         $year = date('Y');
-        $prefix = 'STU' . $year;
+        $prefix = 'STU'.$year;
 
         // Get the max existing ID for this year more efficiently
-        $maxId = self::where('student_id', 'like', $prefix . '%')
+        $maxId = self::where('student_id', 'like', $prefix.'%')
             ->selectRaw('MAX(CAST(SUBSTRING(student_id, 8) AS UNSIGNED)) as max_num')
             ->value('max_num');
 
@@ -218,7 +260,7 @@ class Student extends Model
             $nextNum = random_int(10000, 99999);
         }
 
-        return $prefix . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad($nextNum, 4, '0', STR_PAD_LEFT);
     }
 
     // Order-related utility methods

@@ -130,10 +130,15 @@ new class extends Component
             <flux:text class="mt-2">Manage seller accounts, shop IDs, and business manager connections for {{ $platform->display_name }}</flux:text>
         </div>
         <div class="flex gap-3">
+            @if($platform->slug === 'tiktok-shop')
+                <flux:button variant="primary" icon="link" :href="route('tiktok.connect')">
+                    Connect TikTok Shop
+                </flux:button>
+            @endif
             <flux:button variant="outline" icon="plus" :href="route('platforms.accounts.create', $platform)" wire:navigate>
-                Add Account
+                Add Account Manually
             </flux:button>
-            <flux:button variant="primary" icon="arrow-down-tray">
+            <flux:button variant="ghost" icon="arrow-down-tray">
                 Export Accounts
             </flux:button>
         </div>

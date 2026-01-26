@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Observers\ProductOrderObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+#[ObservedBy(ProductOrderObserver::class)]
 class ProductOrder extends Model
 {
     use HasFactory;
@@ -297,6 +300,30 @@ class ProductOrder extends Model
         }
 
         return 'Guest Customer';
+    }
+
+    public function getCustomerPhone(): string
+    {
+        // Check if customer_phone field is set (platform orders)
+        if ($this->customer_phone) {
+            return $this->customer_phone;
+        }
+
+        if ($this->customer?->phone) {
+            return $this->customer->phone;
+        }
+
+        $shipping = $this->shippingAddress();
+        if ($shipping?->phone) {
+            return $shipping->phone;
+        }
+
+        $billing = $this->billingAddress();
+        if ($billing?->phone) {
+            return $billing->phone;
+        }
+
+        return 'No phone provided';
     }
 
     // Platform order helper methods

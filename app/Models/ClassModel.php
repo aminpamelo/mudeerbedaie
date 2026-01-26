@@ -41,6 +41,8 @@ class ClassModel extends Model
         'shipment_quantity_per_student',
         'shipment_notes',
         'auto_schedule_notifications',
+        'email_channel_enabled',
+        'whatsapp_channel_enabled',
     ];
 
     protected function casts(): array
@@ -52,6 +54,8 @@ class ClassModel extends Model
             'enable_document_shipment' => 'boolean',
             'shipment_start_date' => 'date',
             'auto_schedule_notifications' => 'boolean',
+            'email_channel_enabled' => 'boolean',
+            'whatsapp_channel_enabled' => 'boolean',
         ];
     }
 

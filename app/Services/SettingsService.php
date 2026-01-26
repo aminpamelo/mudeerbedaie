@@ -238,6 +238,41 @@ class SettingsService
     }
 
     /**
+     * Get Bayarcash configuration
+     */
+    public function getBayarcashConfig(): array
+    {
+        return [
+            'api_token' => $this->get('bayarcash_api_token'),
+            'api_secret_key' => $this->get('bayarcash_api_secret_key'),
+            'portal_key' => $this->get('bayarcash_portal_key'),
+            'sandbox' => (bool) $this->get('bayarcash_sandbox', true),
+            'enabled' => (bool) $this->get('enable_bayarcash_payments', false),
+        ];
+    }
+
+    /**
+     * Check if Bayarcash is configured
+     */
+    public function isBayarcashConfigured(): bool
+    {
+        $config = $this->getBayarcashConfig();
+
+        return ! empty($config['api_token'])
+            && ! empty($config['api_secret_key'])
+            && ! empty($config['portal_key']);
+    }
+
+    /**
+     * Check if Bayarcash is enabled
+     */
+    public function isBayarcashEnabled(): bool
+    {
+        return $this->isBayarcashConfigured()
+            && (bool) $this->get('enable_bayarcash_payments', false);
+    }
+
+    /**
      * Get site configuration
      */
     public function getSiteConfig(): array

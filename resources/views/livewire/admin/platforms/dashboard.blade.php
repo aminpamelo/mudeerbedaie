@@ -3,7 +3,7 @@
 use Livewire\Volt\Component;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
-use App\Models\PlatformOrder;
+use App\Models\ProductOrder;
 use App\Models\PlatformApiCredential;
 use Carbon\Carbon;
 
@@ -35,10 +35,10 @@ new class extends Component {
             'active_platforms' => Platform::where('is_active', true)->count(),
             'total_accounts' => PlatformAccount::count(),
             'active_accounts' => PlatformAccount::where('is_active', true)->count(),
-            'total_orders' => PlatformOrder::count(),
-            'orders_this_month' => PlatformOrder::whereMonth('platform_created_at', now()->month)->count(),
-            'total_revenue' => PlatformOrder::sum('total_amount'),
-            'revenue_this_month' => PlatformOrder::whereMonth('platform_created_at', now()->month)->sum('total_amount'),
+            'total_orders' => ProductOrder::whereNotNull('platform_id')->count(),
+            'orders_this_month' => ProductOrder::whereNotNull('platform_id')->whereMonth('order_date', now()->month)->count(),
+            'total_revenue' => ProductOrder::whereNotNull('platform_id')->sum('total_amount'),
+            'revenue_this_month' => ProductOrder::whereNotNull('platform_id')->whereMonth('order_date', now()->month)->sum('total_amount'),
             'total_credentials' => PlatformApiCredential::count(),
             'active_credentials' => PlatformApiCredential::where('is_active', true)->count(),
         ];
@@ -67,7 +67,8 @@ new class extends Component {
 
     public function loadRecentOrders()
     {
-        $this->recentOrders = PlatformOrder::with(['platform', 'platformAccount'])
+        $this->recentOrders = ProductOrder::with(['platform', 'platformAccount'])
+            ->whereNotNull('platform_id')
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
@@ -76,7 +77,7 @@ new class extends Component {
     public function loadRecentImports()
     {
         // Group recent orders by import batch (same created_at time)
-        $imports = PlatformOrder::selectRaw('
+        $imports = ProductOrder::selectRaw('
             platform_id,
             platform_account_id,
             created_at as imported_at,
@@ -85,6 +86,7 @@ new class extends Component {
             MIN(created_at) as created_at
         ')
         ->with(['platform', 'platformAccount'])
+        ->whereNotNull('platform_id')
         ->whereNotNull('created_at')
         ->groupBy(['platform_id', 'platform_account_id', 'created_at'])
         ->orderBy('created_at', 'desc')
