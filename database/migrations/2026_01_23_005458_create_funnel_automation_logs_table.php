@@ -21,7 +21,7 @@ return new class extends Migration
             $table->json('result')->nullable();
             $table->timestamp('scheduled_at')->nullable();
             $table->timestamp('executed_at')->nullable();
-            $table->timestamp('created_at');
+            $table->timestamp('created_at')->useCurrent();
 
             $table->index(['automation_id', 'status']);
             $table->index('scheduled_at');

@@ -17,7 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('step_id')->nullable();
             $table->string('event_type', 50);
             $table->json('event_data')->nullable();
-            $table->timestamp('created_at');
+            $table->timestamp('created_at')->useCurrent();
 
             $table->index('event_type');
             $table->index('created_at');

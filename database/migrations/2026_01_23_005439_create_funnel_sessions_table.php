@@ -35,8 +35,8 @@ return new class extends Migration
             $table->unsignedBigInteger('current_step_id')->nullable();
             $table->enum('status', ['active', 'converted', 'abandoned'])->default('active');
             // Timestamps
-            $table->timestamp('started_at');
-            $table->timestamp('last_activity_at');
+            $table->timestamp('started_at')->useCurrent();
+            $table->timestamp('last_activity_at')->useCurrent();
             $table->timestamp('converted_at')->nullable();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
