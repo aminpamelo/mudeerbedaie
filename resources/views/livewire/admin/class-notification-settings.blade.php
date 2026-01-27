@@ -2,8 +2,11 @@
 
 use App\Models\ClassModel;
 use App\Models\ClassNotificationSetting;
+use App\Models\NotificationLog;
 use App\Models\NotificationTemplate;
 use App\Models\ScheduledNotification;
+use App\Models\Student;
+use App\Models\Teacher;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -477,6 +480,70 @@ new class extends Component {
         $personalizedSubject = str_replace(array_keys($placeholders), array_values($placeholders), $subject);
         $personalizedContent = str_replace(array_keys($placeholders), array_values($placeholders), $content);
 
+        // Count recipients based on settings
+        $recipientCount = 0;
+        $notificationLogs = [];
+        $warnings = [];
+
+        // Get student if send_to_students is enabled
+        $student = null;
+        if ($setting->send_to_students) {
+            $student = $this->class->students()->first() ?? Student::first();
+            if ($student) {
+                $recipientCount++;
+            } else {
+                $warnings[] = 'Tiada pelajar dalam kelas ini';
+            }
+        }
+
+        // Get teacher if send_to_teacher is enabled
+        $teacher = null;
+        if ($setting->send_to_teacher) {
+            $teacher = $this->class->teacher;
+            if ($teacher) {
+                $recipientCount++;
+            } else {
+                $warnings[] = 'Tiada guru ditetapkan untuk kelas ini';
+            }
+        }
+
+        // Create a scheduled notification for logging purposes
+        $scheduledNotification = ScheduledNotification::create([
+            'class_id' => $this->class->id,
+            'class_notification_setting_id' => $setting->id,
+            'session_id' => null,
+            'status' => 'sent',
+            'scheduled_at' => now(),
+            'sent_at' => now(),
+            'total_recipients' => $recipientCount,
+            'total_sent' => 0,
+            'total_failed' => 0,
+        ]);
+
+        // Create notification log for student if applicable
+        if ($setting->send_to_students && $student) {
+            $notificationLogs[] = NotificationLog::create([
+                'scheduled_notification_id' => $scheduledNotification->id,
+                'recipient_type' => 'student',
+                'recipient_id' => $student->id,
+                'channel' => 'email',
+                'destination' => $student->user?->email ?? $user->email,
+                'status' => 'pending',
+            ]);
+        }
+
+        // Create notification log for teacher if applicable
+        if ($setting->send_to_teacher && $teacher) {
+            $notificationLogs[] = NotificationLog::create([
+                'scheduled_notification_id' => $scheduledNotification->id,
+                'recipient_type' => 'teacher',
+                'recipient_id' => $teacher->id,
+                'channel' => 'email',
+                'destination' => $teacher->user?->email ?? $user->email,
+                'status' => 'pending',
+            ]);
+        }
+
         try {
             \Illuminate\Support\Facades\Mail::html(
                 '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333;">' .
@@ -488,11 +555,43 @@ new class extends Component {
                 }
             );
 
+            // Update all logs as sent
+            foreach ($notificationLogs as $log) {
+                $log->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                ]);
+            }
+
+            // Update scheduled notification stats
+            $scheduledNotification->update([
+                'total_sent' => count($notificationLogs),
+            ]);
+
+            // Build success message with warnings if any
+            $successMessage = 'E-mel ujian telah dihantar ke ' . $user->email;
+            if (!empty($warnings)) {
+                $successMessage .= '. Amaran: ' . implode(', ', $warnings);
+            }
+
             $this->dispatch('notify',
-                type: 'success',
-                message: 'E-mel ujian telah dihantar ke ' . $user->email,
+                type: !empty($warnings) ? 'warning' : 'success',
+                message: $successMessage,
             );
         } catch (\Exception $e) {
+            // Update all logs as failed
+            foreach ($notificationLogs as $log) {
+                $log->update([
+                    'status' => 'failed',
+                    'error_message' => $e->getMessage(),
+                ]);
+            }
+
+            // Update scheduled notification stats
+            $scheduledNotification->update([
+                'total_failed' => count($notificationLogs),
+            ]);
+
             $this->dispatch('notify',
                 type: 'error',
                 message: 'Gagal menghantar e-mel ujian: ' . $e->getMessage(),
