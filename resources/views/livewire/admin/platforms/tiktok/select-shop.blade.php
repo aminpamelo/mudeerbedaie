@@ -39,12 +39,26 @@
                 <div class="space-y-4 mb-8">
                     @foreach($shops as $index => $shop)
                         @php
-                            $isRecommended = isset($linkingAccount) && $linkingAccount && $index === ($bestMatchIndex ?? 0);
-                            $isChecked = isset($bestMatchIndex) ? $index === $bestMatchIndex : $index === 0;
+                            $shopId = $shop['shop_id'] ?? '';
+                            $isLinkedToOther = isset($linkedShops[$shopId]);
+                            $linkedToAccountName = $linkedShops[$shopId] ?? null;
+                            $isRecommended = isset($linkingAccount) && $linkingAccount && $index === ($bestMatchIndex ?? 0) && !$isLinkedToOther;
+                            $isChecked = !$isLinkedToOther && (isset($bestMatchIndex) ? $index === $bestMatchIndex : $index === 0);
                         @endphp
-                        <label class="block cursor-pointer">
-                            <input type="radio" name="shop_index" value="{{ $index }}" class="sr-only peer" {{ $isChecked ? 'checked' : '' }}>
-                            <div class="p-4 border-2 border-gray-200 dark:border-zinc-700 rounded-lg peer-checked:border-pink-500 peer-checked:bg-pink-50 dark:peer-checked:bg-pink-900/20 transition-all {{ $isRecommended ? 'ring-2 ring-blue-300 dark:ring-blue-700' : '' }}">
+                        <label class="block {{ $isLinkedToOther ? 'cursor-not-allowed' : 'cursor-pointer' }}">
+                            <input
+                                type="radio"
+                                name="shop_index"
+                                value="{{ $index }}"
+                                class="sr-only peer"
+                                {{ $isChecked ? 'checked' : '' }}
+                                {{ $isLinkedToOther ? 'disabled' : '' }}
+                            >
+                            <div class="p-4 border-2 rounded-lg transition-all
+                                {{ $isLinkedToOther
+                                    ? 'border-gray-300 dark:border-zinc-600 bg-gray-100 dark:bg-zinc-700/50 opacity-60'
+                                    : 'border-gray-200 dark:border-zinc-700 peer-checked:border-pink-500 peer-checked:bg-pink-50 dark:peer-checked:bg-pink-900/20' }}
+                                {{ $isRecommended && !$isLinkedToOther ? 'ring-2 ring-blue-300 dark:ring-blue-700' : '' }}">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center space-x-4">
                                         <div class="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-zinc-700 dark:to-zinc-600 rounded-lg flex items-center justify-center">
@@ -53,9 +67,13 @@
                                             </span>
                                         </div>
                                         <div>
-                                            <div class="flex items-center gap-2">
-                                                <flux:heading size="sm">{{ $shop['shop_name'] ?: 'Unnamed Shop' }}</flux:heading>
-                                                @if($isRecommended)
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <flux:heading size="sm" class="{{ $isLinkedToOther ? 'text-gray-500' : '' }}">
+                                                    {{ $shop['shop_name'] ?: 'Unnamed Shop' }}
+                                                </flux:heading>
+                                                @if($isLinkedToOther)
+                                                    <flux:badge size="sm" color="amber">Already Linked</flux:badge>
+                                                @elseif($isRecommended)
                                                     <flux:badge size="sm" color="blue">Recommended</flux:badge>
                                                 @endif
                                             </div>
@@ -65,11 +83,23 @@
                                                     | ID: {{ $shop['shop_id'] }}
                                                 @endif
                                             </flux:text>
+                                            @if($isLinkedToOther)
+                                                <flux:text size="xs" class="text-amber-600 dark:text-amber-400 mt-1">
+                                                    <flux:icon name="link" class="w-3 h-3 inline mr-1" />
+                                                    Linked to: "{{ $linkedToAccountName }}"
+                                                </flux:text>
+                                            @endif
                                         </div>
                                     </div>
-                                    <div class="hidden peer-checked:block text-pink-500">
-                                        <flux:icon name="check-circle" class="w-6 h-6" />
-                                    </div>
+                                    @if(!$isLinkedToOther)
+                                        <div class="hidden peer-checked:block text-pink-500">
+                                            <flux:icon name="check-circle" class="w-6 h-6" />
+                                        </div>
+                                    @else
+                                        <div class="text-gray-400">
+                                            <flux:icon name="x-circle" class="w-6 h-6" />
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </label>

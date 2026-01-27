@@ -164,6 +164,47 @@ class TikTokAuthService
             throw new Exception('Account does not belong to TikTok Shop platform');
         }
 
+        // Check if this TikTok shop is already linked to another account
+        $existingAccount = PlatformAccount::where('platform_id', $account->platform_id)
+            ->where('shop_id', $shopData['shop_id'])
+            ->where('id', '!=', $accountId)
+            ->first();
+
+        if ($existingAccount) {
+            Log::warning('[TikTok] Shop already linked to another account', [
+                'shop_id' => $shopData['shop_id'],
+                'shop_name' => $shopData['shop_name'],
+                'existing_account_id' => $existingAccount->id,
+                'existing_account_name' => $existingAccount->name,
+                'requested_account_id' => $accountId,
+                'requested_account_name' => $account->name,
+            ]);
+
+            throw new Exception(
+                "This TikTok Shop '{$shopData['shop_name']}' is already linked to account '{$existingAccount->name}'. ".
+                'Please unlink it from that account first, or select a different shop.'
+            );
+        }
+
+        // Also check by account_id (which stores shop_id) for the unique constraint
+        $existingByAccountId = PlatformAccount::where('platform_id', $account->platform_id)
+            ->where('account_id', $shopData['shop_id'])
+            ->where('id', '!=', $accountId)
+            ->first();
+
+        if ($existingByAccountId) {
+            Log::warning('[TikTok] Shop already linked to another account (by account_id)', [
+                'shop_id' => $shopData['shop_id'],
+                'existing_account_id' => $existingByAccountId->id,
+                'existing_account_name' => $existingByAccountId->name,
+            ]);
+
+            throw new Exception(
+                "This TikTok Shop '{$shopData['shop_name']}' is already linked to account '{$existingByAccountId->name}'. ".
+                'Please unlink it from that account first, or select a different shop.'
+            );
+        }
+
         return DB::transaction(function () use ($account, $tokenData, $shopData) {
             // Update the account with OAuth data
             $account->update([

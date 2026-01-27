@@ -279,10 +279,31 @@ class TikTokAuthController extends Controller
                 ->with('error', 'Session expired. Please try connecting again.');
         }
 
+        // Get the TikTok platform
+        $platform = \App\Models\Platform::where('slug', 'tiktok-shop')->first();
+
         // Get the linking account info if we're linking an existing account
         $linkAccountId = session('tiktok_link_account_id');
         $linkingAccount = null;
         $bestMatchIndex = 0;
+        $linkedShops = [];
+
+        // Check which shops are already linked to accounts
+        if ($platform) {
+            $shopIds = array_column($shops, 'shop_id');
+            $existingAccounts = \App\Models\PlatformAccount::where('platform_id', $platform->id)
+                ->whereIn('shop_id', $shopIds)
+                ->when($linkAccountId, function ($query) use ($linkAccountId) {
+                    // Exclude the account being linked (it's OK to re-link to itself)
+                    return $query->where('id', '!=', $linkAccountId);
+                })
+                ->get()
+                ->keyBy('shop_id');
+
+            foreach ($existingAccounts as $shopId => $account) {
+                $linkedShops[$shopId] = $account->name;
+            }
+        }
 
         if ($linkAccountId) {
             $linkingAccount = \App\Models\PlatformAccount::find($linkAccountId);
@@ -293,6 +314,11 @@ class TikTokAuthController extends Controller
                 $highestSimilarity = 0;
 
                 foreach ($shops as $index => $shop) {
+                    // Skip shops that are already linked to other accounts
+                    if (isset($linkedShops[$shop['shop_id'] ?? ''])) {
+                        continue;
+                    }
+
                     $shopName = strtolower(trim($shop['shop_name'] ?? ''));
 
                     // Calculate similarity
@@ -322,6 +348,7 @@ class TikTokAuthController extends Controller
             'shops' => $shops,
             'linkingAccount' => $linkingAccount,
             'bestMatchIndex' => $bestMatchIndex,
+            'linkedShops' => $linkedShops,
         ]);
     }
 
