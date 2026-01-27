@@ -240,7 +240,7 @@ class TikTokAuthService
             // Update the credential with new tokens
             $credential->setValue($tokenResponse['access_token']);
             $credential->setRefreshToken($tokenResponse['refresh_token'] ?? $refreshToken);
-            $credential->expires_at = now()->addSeconds(
+            $credential->expires_at = $this->calculateExpiryDate(
                 $tokenResponse['access_token_expire_in'] ?? 86400
             );
             $credential->metadata = array_merge($credential->metadata ?? [], [
@@ -333,7 +333,7 @@ class TikTokAuthService
                 'api_version' => $this->clientFactory->getApiVersion(),
             ],
             'scopes' => $tokenData['scopes'] ?? [],
-            'expires_at' => now()->addSeconds($tokenData['expires_in'] ?? 86400),
+            'expires_at' => $this->calculateExpiryDate($tokenData['expires_in'] ?? 86400),
             'is_active' => true,
             'auto_refresh' => true,
         ]);
@@ -367,5 +367,35 @@ class TikTokAuthService
         ];
 
         return $regionCurrencies[strtoupper($region)] ?? 'USD';
+    }
+
+    /**
+     * Calculate expiry date from TikTok's expires_in value.
+     *
+     * TikTok sometimes returns a UNIX timestamp instead of seconds until expiry.
+     * This method handles both cases.
+     */
+    private function calculateExpiryDate(int $expiresIn): \Carbon\Carbon
+    {
+        $oneYearInSeconds = 31536000;
+
+        if ($expiresIn > $oneYearInSeconds) {
+            // This is likely a UNIX timestamp, convert to Carbon
+            $expiresAt = \Carbon\Carbon::createFromTimestamp($expiresIn);
+
+            // Safety check: if in the past or too far in future, use default
+            if ($expiresAt->isPast() || $expiresAt->isAfter(now()->addYears(2))) {
+                Log::warning('[TikTok] Invalid expires_in value, using default', [
+                    'original_value' => $expiresIn,
+                    'interpreted_as' => $expiresAt->toIso8601String(),
+                ]);
+
+                return now()->addDay(); // Default to 1 day
+            }
+
+            return $expiresAt;
+        }
+
+        return now()->addSeconds($expiresIn);
     }
 }
