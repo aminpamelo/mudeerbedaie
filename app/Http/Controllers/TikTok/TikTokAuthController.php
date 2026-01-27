@@ -36,36 +36,43 @@ class TikTokAuthController extends Controller
                 ->with('error', 'TikTok API is not configured. Please set TIKTOK_APP_KEY and TIKTOK_APP_SECRET in your .env file.');
         }
 
-        // Generate a unique state with user ID embedded (for cross-domain OAuth via Expose/ngrok)
-        // The state contains: random CSRF token + encrypted user ID
+        // Generate a unique state with user ID and link_account_id embedded
+        // This is necessary for cross-domain OAuth (via Expose/ngrok) where sessions don't persist
         $csrfToken = Str::random(40);
         $userId = auth()->id();
+        $linkAccountId = null;
 
-        // Encode state as: csrfToken.encryptedUserId
-        $encryptedUserId = Crypt::encryptString((string) $userId);
-        $state = $csrfToken.'.'.base64_encode($encryptedUserId);
-
-        // Store CSRF token in session for validation (user ID is in state for cross-domain support)
-        $sessionData = [
-            'tiktok_oauth_state' => $csrfToken,
-            'tiktok_oauth_user_id' => $userId,
-        ];
-
-        // If linking an existing account, store the account ID
+        // If linking an existing account, validate and store the account ID
         if ($request->has('link_account')) {
             $linkAccountId = (int) $request->get('link_account');
             $existingAccount = \App\Models\PlatformAccount::find($linkAccountId);
 
             if ($existingAccount && $existingAccount->platform->slug === 'tiktok-shop') {
-                $sessionData['tiktok_link_account_id'] = $linkAccountId;
                 Log::info('[TikTok OAuth] Linking existing account', [
                     'account_id' => $linkAccountId,
                     'account_name' => $existingAccount->name,
                 ]);
+            } else {
+                // Invalid account, don't include in state
+                $linkAccountId = null;
             }
         }
 
-        session($sessionData);
+        // Encode state as: csrfToken.base64(encryptedPayload)
+        // Payload contains both user_id and link_account_id to survive cross-domain redirect
+        $payload = json_encode([
+            'user_id' => $userId,
+            'link_account_id' => $linkAccountId,
+        ]);
+        $encryptedPayload = Crypt::encryptString($payload);
+        $state = $csrfToken.'.'.base64_encode($encryptedPayload);
+
+        // Store CSRF token in session for validation (as backup if session persists)
+        session([
+            'tiktok_oauth_state' => $csrfToken,
+            'tiktok_oauth_user_id' => $userId,
+            'tiktok_link_account_id' => $linkAccountId,
+        ]);
 
         // Get the authorization URL
         try {
@@ -74,7 +81,7 @@ class TikTokAuthController extends Controller
             Log::info('[TikTok OAuth] Redirecting to authorization', [
                 'csrf_token' => $csrfToken,
                 'user_id' => $userId,
-                'linking_account' => session('tiktok_link_account_id'),
+                'link_account_id' => $linkAccountId,
             ]);
 
             return redirect()->away($authUrl);
@@ -114,26 +121,45 @@ class TikTokAuthController extends Controller
                 ->with('error', 'No authorization code received from TikTok.');
         }
 
-        // Parse state to extract CSRF token and user ID
-        // State format: csrfToken.base64(encryptedUserId)
+        // Parse state to extract CSRF token, user ID, and link_account_id
+        // State format: csrfToken.base64(encryptedPayload)
+        // Payload: {user_id: int, link_account_id: int|null}
         $state = $request->get('state');
         $user = null;
+        $linkAccountId = null;
 
         if ($state && str_contains($state, '.')) {
-            [$csrfToken, $encodedUserId] = explode('.', $state, 2);
+            [$csrfToken, $encodedPayload] = explode('.', $state, 2);
 
-            // Try to extract user ID from state (for cross-domain OAuth via Expose/ngrok)
+            // Try to extract payload from state (for cross-domain OAuth via Expose/ngrok)
             try {
-                $encryptedUserId = base64_decode($encodedUserId);
-                $userId = (int) Crypt::decryptString($encryptedUserId);
-                $user = User::find($userId);
+                $encryptedPayload = base64_decode($encodedPayload);
+                $payloadJson = Crypt::decryptString($encryptedPayload);
+                $payload = json_decode($payloadJson, true);
 
-                Log::info('[TikTok OAuth] Extracted user from state', [
-                    'user_id' => $userId,
-                    'user_found' => $user !== null,
-                ]);
+                if (is_array($payload)) {
+                    // New format with JSON payload
+                    $userId = (int) ($payload['user_id'] ?? 0);
+                    $linkAccountId = $payload['link_account_id'] ?? null;
+                    $user = User::find($userId);
+
+                    Log::info('[TikTok OAuth] Extracted payload from state', [
+                        'user_id' => $userId,
+                        'user_found' => $user !== null,
+                        'link_account_id' => $linkAccountId,
+                    ]);
+                } else {
+                    // Legacy format - payload was just the user ID string
+                    $userId = (int) $payloadJson;
+                    $user = User::find($userId);
+
+                    Log::info('[TikTok OAuth] Extracted user from legacy state format', [
+                        'user_id' => $userId,
+                        'user_found' => $user !== null,
+                    ]);
+                }
             } catch (Exception $e) {
-                Log::warning('[TikTok OAuth] Failed to decrypt user ID from state', [
+                Log::warning('[TikTok OAuth] Failed to decrypt payload from state', [
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -162,17 +188,21 @@ class TikTokAuthController extends Controller
             }
         }
 
-        // Fall back to authenticated user if state decryption failed
+        // Fall back to session values if state decryption failed
         if (! $user) {
             $user = auth()->user();
         }
 
-        // If still no user, try from session
         if (! $user) {
             $sessionUserId = session('tiktok_oauth_user_id');
             if ($sessionUserId) {
                 $user = User::find($sessionUserId);
             }
+        }
+
+        // Fall back to session for link_account_id if not in state
+        if ($linkAccountId === null) {
+            $linkAccountId = session('tiktok_link_account_id');
         }
 
         if (! $user) {
@@ -184,17 +214,23 @@ class TikTokAuthController extends Controller
         }
 
         // Clear the state from session
-        session()->forget(['tiktok_oauth_state', 'tiktok_oauth_user_id']);
+        session()->forget(['tiktok_oauth_state', 'tiktok_oauth_user_id', 'tiktok_link_account_id']);
 
         try {
             // Exchange code for tokens
             $tokenData = $this->authService->handleCallback($code);
 
-            // Store tokens and user temporarily in session for shop selection
+            // Store tokens, user, and link_account_id temporarily in session for shop selection
             session([
                 'tiktok_token_data' => $tokenData,
                 'tiktok_auth_timestamp' => now()->timestamp,
                 'tiktok_auth_user_id' => $user->id,
+                'tiktok_link_account_id' => $linkAccountId,
+            ]);
+
+            Log::info('[TikTok OAuth] Tokens stored in session', [
+                'user_id' => $user->id,
+                'link_account_id' => $linkAccountId,
             ]);
 
             // Get authorized shops
@@ -210,7 +246,7 @@ class TikTokAuthController extends Controller
 
             // If only one shop, connect it directly
             if (count($shops) === 1) {
-                return $this->connectShop($shops[0], $user);
+                return $this->connectShop($shops[0], $user, $linkAccountId);
             }
 
             // Multiple shops - store in session and redirect to selection page
@@ -272,8 +308,12 @@ class TikTokAuthController extends Controller
 
     /**
      * Connect a shop and create the platform account.
+     *
+     * @param  array  $shopData  Shop data from TikTok API
+     * @param  User|null  $user  User to associate with the account
+     * @param  int|null  $linkAccountId  Existing account ID to link (if linking instead of creating)
      */
-    private function connectShop(array $shopData, ?User $user = null): RedirectResponse
+    private function connectShop(array $shopData, ?User $user = null, ?int $linkAccountId = null): RedirectResponse
     {
         $tokenData = session('tiktok_token_data');
 
@@ -295,8 +335,10 @@ class TikTokAuthController extends Controller
                 ->with('error', 'Session expired. Please log in and try again.');
         }
 
-        // Check if we're linking an existing account
-        $linkAccountId = session('tiktok_link_account_id');
+        // Fall back to session for linkAccountId if not passed as parameter
+        if ($linkAccountId === null) {
+            $linkAccountId = session('tiktok_link_account_id');
+        }
 
         try {
             if ($linkAccountId) {
