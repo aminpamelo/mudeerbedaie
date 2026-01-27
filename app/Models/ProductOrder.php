@@ -358,10 +358,18 @@ class ProductOrder extends Model
 
     public function isPaid(): bool
     {
+        // For platform orders (TikTok, etc.), check paid_time
         if ($this->isPlatformOrder()) {
             return ! is_null($this->paid_time);
         }
 
+        // For funnel orders paid via Bayarcash/FPX, check paid_time
+        // Bayarcash sets paid_time when payment is successful
+        if ($this->source === 'funnel' && ! is_null($this->paid_time)) {
+            return true;
+        }
+
+        // For other orders, check payment records in the payments table
         return $this->payments()->where('status', 'completed')->sum('amount') >= $this->total_amount;
     }
 
