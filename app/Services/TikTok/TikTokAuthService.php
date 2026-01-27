@@ -300,10 +300,14 @@ class TikTokAuthService
             $this->clientFactory->logError('Token refresh failed', [
                 'account_id' => $account->id,
                 'error' => $e->getMessage(),
+                'credential_id' => $credential->id,
+                'expires_at' => $credential->expires_at?->toIso8601String(),
             ]);
 
-            // Mark credential as inactive if refresh fails
-            $credential->update(['is_active' => false]);
+            // Don't mark credential as inactive on refresh failure
+            // The credential might still be valid, and marking it inactive
+            // would prevent all future sync attempts until re-authentication.
+            // Only mark inactive if the refresh token itself is expired/revoked.
 
             return false;
         }
@@ -311,6 +315,10 @@ class TikTokAuthService
 
     /**
      * Check if an account needs token refresh.
+     *
+     * TikTok access tokens typically expire in ~24 hours.
+     * We only refresh when the token is close to expiring (within 1 hour)
+     * or already expired, not days in advance.
      */
     public function needsTokenRefresh(PlatformAccount $account): bool
     {
@@ -323,9 +331,16 @@ class TikTokAuthService
             return true;
         }
 
-        $daysBeforeExpiry = config('services.tiktok.token_refresh_days_before_expiry', 7);
+        // Check if token is already expired
+        if ($credential->isExpired()) {
+            return true;
+        }
 
-        return $credential->isExpiringSoon($daysBeforeExpiry);
+        // Only refresh if expiring within 1 hour (access tokens last ~24 hours)
+        // Don't use the 7-day config - that's for refresh tokens, not access tokens
+        $hoursBeforeExpiry = config('services.tiktok.token_refresh_hours_before_expiry', 1);
+
+        return $credential->expires_at->isBefore(now()->addHours($hoursBeforeExpiry));
     }
 
     /**

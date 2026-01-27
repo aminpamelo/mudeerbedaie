@@ -125,16 +125,32 @@ class TikTokOrderSyncService
             'errors' => [],
         ];
 
-        // Check if token needs refresh
+        // Check if token needs refresh (only if expiring within 1 hour)
         if ($this->authService->needsTokenRefresh($account)) {
             Log::info('[TikTok Order Sync] Refreshing token before sync', [
                 'account_id' => $account->id,
             ]);
 
             if (! $this->authService->refreshToken($account)) {
-                $result['errors'][] = 'Failed to refresh access token';
+                // Token refresh failed, but the current token might still be valid
+                // Check if we have a credential that's not yet expired
+                $credential = $account->credentials()
+                    ->where('credential_type', 'oauth_token')
+                    ->where('is_active', true)
+                    ->first();
 
-                return $result;
+                if (! $credential || $credential->isExpired()) {
+                    // No valid credential - can't proceed
+                    $result['errors'][] = 'Failed to refresh access token and no valid token available';
+
+                    return $result;
+                }
+
+                // Token not expired yet, try to proceed with existing token
+                Log::warning('[TikTok Order Sync] Token refresh failed but existing token still valid, proceeding', [
+                    'account_id' => $account->id,
+                    'expires_at' => $credential->expires_at?->toIso8601String(),
+                ]);
             }
         }
 
