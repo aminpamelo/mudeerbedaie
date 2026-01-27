@@ -25,6 +25,17 @@ new class extends Component
         $this->resetPage();
     }
 
+    /**
+     * Check if an account has active OAuth credentials.
+     */
+    public function hasOAuthCredentials(PlatformAccount $account): bool
+    {
+        return $account->credentials()
+            ->where('credential_type', 'oauth_token')
+            ->where('is_active', true)
+            ->exists();
+    }
+
     public function updatedSearch()
     {
         $this->resetPage();
@@ -69,7 +80,7 @@ new class extends Component
 
     public function with()
     {
-        $query = $this->platform->accounts()->with('liveHosts');
+        $query = $this->platform->accounts()->with(['liveHosts', 'credentials']);
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -258,11 +269,18 @@ new class extends Component
                                 Created {{ $account->created_at->format('M j, Y') }}
                             </flux:text>
                         </div>
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center space-x-2 flex-wrap gap-1">
                             @if($account->is_active)
                                 <flux:badge size="sm" color="green">Active</flux:badge>
                             @else
                                 <flux:badge size="sm" color="red">Inactive</flux:badge>
+                            @endif
+                            @if($platform->slug === 'tiktok-shop')
+                                @if($this->hasOAuthCredentials($account))
+                                    <flux:badge size="sm" color="blue">API Connected</flux:badge>
+                                @else
+                                    <flux:badge size="sm" color="amber">Not Linked</flux:badge>
+                                @endif
                             @endif
                         </div>
                     </div>
@@ -332,6 +350,23 @@ new class extends Component
 
                 {{-- Actions --}}
                 <div class="px-4 py-3 bg-gray-50 dark:bg-zinc-700/50 border-t border-gray-200 dark:border-zinc-700">
+                    {{-- Link to TikTok Shop button for accounts without OAuth --}}
+                    @if($platform->slug === 'tiktok-shop' && !$this->hasOAuthCredentials($account))
+                        <div class="mb-3 pb-3 border-b border-gray-200 dark:border-zinc-600">
+                            <flux:button
+                                size="sm"
+                                variant="primary"
+                                class="w-full"
+                                :href="route('tiktok.connect', ['link_account' => $account->id])"
+                            >
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="link" class="w-4 h-4 mr-2" />
+                                    Link to TikTok Shop
+                                </div>
+                            </flux:button>
+                        </div>
+                    @endif
+
                     <div class="flex items-center justify-between">
                         <div class="flex space-x-2">
                             <flux:button

@@ -150,6 +150,57 @@ class TikTokAuthService
     }
 
     /**
+     * Link an existing platform account with OAuth credentials.
+     */
+    public function linkExistingAccount(
+        int $accountId,
+        array $tokenData,
+        array $shopData
+    ): PlatformAccount {
+        $account = PlatformAccount::findOrFail($accountId);
+
+        // Verify the account belongs to TikTok Shop platform
+        if ($account->platform->slug !== 'tiktok-shop') {
+            throw new Exception('Account does not belong to TikTok Shop platform');
+        }
+
+        return DB::transaction(function () use ($account, $tokenData, $shopData) {
+            // Update the account with OAuth data
+            $account->update([
+                'shop_id' => $shopData['shop_id'],
+                'account_id' => $shopData['shop_id'],
+                'seller_center_id' => $shopData['seller_base_region'] ?? $account->seller_center_id,
+                'country_code' => $shopData['region'] ?? $account->country_code,
+                'currency' => $this->getCurrencyForRegion($shopData['region'] ?? ''),
+                'metadata' => array_merge($account->metadata ?? [], [
+                    'shop_cipher' => $shopData['shop_cipher'],
+                    'region' => $shopData['region'],
+                    'seller_base_region' => $shopData['seller_base_region'] ?? null,
+                    'connected_via' => 'oauth',
+                    'linked_at' => now()->toIso8601String(),
+                    'api_version' => $this->clientFactory->getApiVersion(),
+                ]),
+                'permissions' => $tokenData['scopes'] ?? [],
+                'connected_at' => now(),
+                'is_active' => true,
+                'auto_sync_orders' => true,
+            ]);
+
+            // Store the API credentials
+            $this->storeCredentials($account, $tokenData);
+
+            Log::info('[TikTok] Existing account linked successfully', [
+                'account_id' => $account->id,
+                'account_name' => $account->name,
+                'shop_id' => $shopData['shop_id'],
+                'shop_name' => $shopData['shop_name'],
+            ]);
+
+            return $account;
+        });
+    }
+
+    /**
      * Refresh the access token for an account.
      */
     public function refreshToken(PlatformAccount $account): bool

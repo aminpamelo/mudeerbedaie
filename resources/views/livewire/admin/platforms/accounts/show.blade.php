@@ -441,6 +441,17 @@ new class extends Component
             default => 'zinc',
         };
     }
+
+    /**
+     * Check if the account has active OAuth credentials.
+     */
+    public function hasOAuthCredentials(): bool
+    {
+        return $this->account->credentials()
+            ->where('credential_type', 'oauth_token')
+            ->where('is_active', true)
+            ->exists();
+    }
 }; ?>
 
 <div>
@@ -665,6 +676,30 @@ new class extends Component
                     <flux:heading size="lg" class="mb-4">Quick Actions</flux:heading>
 
                     <div class="space-y-3">
+                        {{-- Link to TikTok Shop button for accounts without OAuth --}}
+                        @if($account->isTikTokShop() && !$this->hasOAuthCredentials())
+                            <div class="mb-4 pb-4 border-b border-gray-200 dark:border-zinc-600">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <flux:icon name="exclamation-triangle" class="w-5 h-5 text-amber-500" />
+                                    <flux:text size="sm" class="text-amber-600 dark:text-amber-400 font-medium">API Not Connected</flux:text>
+                                </div>
+                                <flux:text size="xs" class="text-zinc-500 mb-3">
+                                    Connect this account to TikTok Shop API to enable automatic order sync and other features.
+                                </flux:text>
+                                <flux:button
+                                    variant="primary"
+                                    size="sm"
+                                    class="w-full"
+                                    :href="route('tiktok.connect', ['link_account' => $account->id])"
+                                >
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="link" class="w-4 h-4 mr-2" />
+                                        Link to TikTok Shop
+                                    </div>
+                                </flux:button>
+                            </div>
+                        @endif
+
                         @if($account->isTikTokShop())
                             <flux:button
                                 variant="primary"

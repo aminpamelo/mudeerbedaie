@@ -24,6 +24,8 @@ class TikTokAuthController extends Controller
 
     /**
      * Initiate the OAuth flow - redirect to TikTok authorization.
+     *
+     * @param  Request  $request  Accepts optional 'link_account' query param to link existing account
      */
     public function redirect(Request $request): RedirectResponse
     {
@@ -44,10 +46,26 @@ class TikTokAuthController extends Controller
         $state = $csrfToken.'.'.base64_encode($encryptedUserId);
 
         // Store CSRF token in session for validation (user ID is in state for cross-domain support)
-        session([
+        $sessionData = [
             'tiktok_oauth_state' => $csrfToken,
             'tiktok_oauth_user_id' => $userId,
-        ]);
+        ];
+
+        // If linking an existing account, store the account ID
+        if ($request->has('link_account')) {
+            $linkAccountId = (int) $request->get('link_account');
+            $existingAccount = \App\Models\PlatformAccount::find($linkAccountId);
+
+            if ($existingAccount && $existingAccount->platform->slug === 'tiktok-shop') {
+                $sessionData['tiktok_link_account_id'] = $linkAccountId;
+                Log::info('[TikTok OAuth] Linking existing account', [
+                    'account_id' => $linkAccountId,
+                    'account_name' => $existingAccount->name,
+                ]);
+            }
+        }
+
+        session($sessionData);
 
         // Get the authorization URL
         try {
@@ -56,6 +74,7 @@ class TikTokAuthController extends Controller
             Log::info('[TikTok OAuth] Redirecting to authorization', [
                 'csrf_token' => $csrfToken,
                 'user_id' => $userId,
+                'linking_account' => session('tiktok_link_account_id'),
             ]);
 
             return redirect()->away($authUrl);
@@ -276,12 +295,27 @@ class TikTokAuthController extends Controller
                 ->with('error', 'Session expired. Please log in and try again.');
         }
 
+        // Check if we're linking an existing account
+        $linkAccountId = session('tiktok_link_account_id');
+
         try {
-            $account = $this->authService->createOrUpdateAccount(
-                $user,
-                $tokenData,
-                $shopData
-            );
+            if ($linkAccountId) {
+                // Link existing account
+                $account = $this->authService->linkExistingAccount(
+                    $linkAccountId,
+                    $tokenData,
+                    $shopData
+                );
+                $successMessage = "TikTok Shop '{$shopData['shop_name']}' has been linked to your existing account successfully!";
+            } else {
+                // Create new account
+                $account = $this->authService->createOrUpdateAccount(
+                    $user,
+                    $tokenData,
+                    $shopData
+                );
+                $successMessage = "TikTok Shop '{$shopData['shop_name']}' connected successfully!";
+            }
 
             // Clear session data
             session()->forget([
@@ -289,20 +323,23 @@ class TikTokAuthController extends Controller
                 'tiktok_available_shops',
                 'tiktok_auth_timestamp',
                 'tiktok_auth_user_id',
+                'tiktok_link_account_id',
             ]);
 
             Log::info('[TikTok OAuth] Account connected successfully', [
                 'account_id' => $account->id,
                 'shop_name' => $shopData['shop_name'],
+                'linked_existing' => $linkAccountId !== null,
             ]);
 
             return redirect()
                 ->route('platforms.accounts.show', ['platform' => 'tiktok-shop', 'account' => $account->id])
-                ->with('success', "TikTok Shop '{$shopData['shop_name']}' connected successfully!");
+                ->with('success', $successMessage);
         } catch (Exception $e) {
             Log::error('[TikTok OAuth] Failed to create account', [
                 'error' => $e->getMessage(),
                 'shop_data' => $shopData,
+                'linking_account' => $linkAccountId,
             ]);
 
             return redirect()
