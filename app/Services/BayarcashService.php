@@ -94,6 +94,13 @@ class BayarcashService
             $this->initializeBayarcash();
 
             return $this->bayarcash->getPortals();
+        } catch (\TypeError $e) {
+            // The Bayarcash SDK has a bug where it expects string but API returns null
+            Log::warning('Bayarcash SDK TypeError - API returned null for expected string field', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
         } catch (\Exception $e) {
             Log::error('Failed to get Bayarcash portals', [
                 'error' => $e->getMessage(),
