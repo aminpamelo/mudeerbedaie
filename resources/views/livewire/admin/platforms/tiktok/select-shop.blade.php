@@ -14,15 +14,37 @@
                 </flux:text>
             </div>
 
+            {{-- Linking Account Notice --}}
+            @if(isset($linkingAccount) && $linkingAccount)
+                <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <div class="flex items-start">
+                        <flux:icon name="information-circle" class="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+                        <div>
+                            <flux:heading size="sm" class="text-blue-800 dark:text-blue-200">Linking to Existing Account</flux:heading>
+                            <flux:text size="sm" class="text-blue-700 dark:text-blue-300 mt-1">
+                                You are linking to your existing account: <strong>"{{ $linkingAccount->name }}"</strong>
+                            </flux:text>
+                            <flux:text size="xs" class="text-blue-600 dark:text-blue-400 mt-1">
+                                Please select the TikTok Shop that corresponds to this account. The best match has been pre-selected for you.
+                            </flux:text>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             {{-- Shop Selection --}}
             <form action="{{ route('tiktok.confirm-shop') }}" method="POST">
                 @csrf
 
                 <div class="space-y-4 mb-8">
                     @foreach($shops as $index => $shop)
+                        @php
+                            $isRecommended = isset($linkingAccount) && $linkingAccount && $index === ($bestMatchIndex ?? 0);
+                            $isChecked = isset($bestMatchIndex) ? $index === $bestMatchIndex : $index === 0;
+                        @endphp
                         <label class="block cursor-pointer">
-                            <input type="radio" name="shop_index" value="{{ $index }}" class="sr-only peer" {{ $index === 0 ? 'checked' : '' }}>
-                            <div class="p-4 border-2 border-gray-200 dark:border-zinc-700 rounded-lg peer-checked:border-pink-500 peer-checked:bg-pink-50 dark:peer-checked:bg-pink-900/20 transition-all">
+                            <input type="radio" name="shop_index" value="{{ $index }}" class="sr-only peer" {{ $isChecked ? 'checked' : '' }}>
+                            <div class="p-4 border-2 border-gray-200 dark:border-zinc-700 rounded-lg peer-checked:border-pink-500 peer-checked:bg-pink-50 dark:peer-checked:bg-pink-900/20 transition-all {{ $isRecommended ? 'ring-2 ring-blue-300 dark:ring-blue-700' : '' }}">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center space-x-4">
                                         <div class="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-zinc-700 dark:to-zinc-600 rounded-lg flex items-center justify-center">
@@ -31,7 +53,12 @@
                                             </span>
                                         </div>
                                         <div>
-                                            <flux:heading size="sm">{{ $shop['shop_name'] ?: 'Unnamed Shop' }}</flux:heading>
+                                            <div class="flex items-center gap-2">
+                                                <flux:heading size="sm">{{ $shop['shop_name'] ?: 'Unnamed Shop' }}</flux:heading>
+                                                @if($isRecommended)
+                                                    <flux:badge size="sm" color="blue">Recommended</flux:badge>
+                                                @endif
+                                            </div>
                                             <flux:text size="sm" class="text-zinc-500">
                                                 Region: {{ $shop['region'] ?? 'Unknown' }}
                                                 @if(!empty($shop['shop_id']))
@@ -49,13 +76,29 @@
                     @endforeach
                 </div>
 
+                {{-- Warning for linking mode --}}
+                @if(isset($linkingAccount) && $linkingAccount)
+                    <div class="mb-6 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <div class="flex items-center">
+                            <flux:icon name="exclamation-triangle" class="w-5 h-5 text-amber-500 mr-2 flex-shrink-0" />
+                            <flux:text size="sm" class="text-amber-700 dark:text-amber-300">
+                                Make sure you select the correct TikTok Shop. The selected shop will be linked to "{{ $linkingAccount->name }}".
+                            </flux:text>
+                        </div>
+                    </div>
+                @endif
+
                 {{-- Actions --}}
                 <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-zinc-700">
                     <flux:button variant="ghost" :href="route('platforms.index')" wire:navigate>
                         Cancel
                     </flux:button>
                     <flux:button type="submit" variant="primary">
-                        Connect Selected Shop
+                        @if(isset($linkingAccount) && $linkingAccount)
+                            Link Selected Shop
+                        @else
+                            Connect Selected Shop
+                        @endif
                     </flux:button>
                 </div>
             </form>
@@ -64,7 +107,11 @@
         {{-- Help Text --}}
         <div class="mt-6 text-center">
             <flux:text size="sm" class="text-zinc-500">
-                You can connect additional shops later from the Platform Management page.
+                @if(isset($linkingAccount) && $linkingAccount)
+                    Selecting the wrong shop? <a href="{{ route('platforms.accounts.index', ['platform' => 'tiktok-shop']) }}" class="text-pink-600 hover:underline">Go back to accounts list</a> and try again.
+                @else
+                    You can connect additional shops later from the Platform Management page.
+                @endif
             </flux:text>
         </div>
     </div>

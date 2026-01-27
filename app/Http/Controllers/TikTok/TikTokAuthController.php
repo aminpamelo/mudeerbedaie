@@ -279,9 +279,49 @@ class TikTokAuthController extends Controller
                 ->with('error', 'Session expired. Please try connecting again.');
         }
 
-        // Return view with shops data - will be created as Volt component
+        // Get the linking account info if we're linking an existing account
+        $linkAccountId = session('tiktok_link_account_id');
+        $linkingAccount = null;
+        $bestMatchIndex = 0;
+
+        if ($linkAccountId) {
+            $linkingAccount = \App\Models\PlatformAccount::find($linkAccountId);
+
+            // Try to find the best matching shop based on name similarity
+            if ($linkingAccount) {
+                $accountName = strtolower(trim($linkingAccount->name));
+                $highestSimilarity = 0;
+
+                foreach ($shops as $index => $shop) {
+                    $shopName = strtolower(trim($shop['shop_name'] ?? ''));
+
+                    // Calculate similarity
+                    similar_text($accountName, $shopName, $similarity);
+
+                    // Also check for substring matches
+                    if (str_contains($shopName, $accountName) || str_contains($accountName, $shopName)) {
+                        $similarity = max($similarity, 70); // Boost for substring match
+                    }
+
+                    if ($similarity > $highestSimilarity) {
+                        $highestSimilarity = $similarity;
+                        $bestMatchIndex = $index;
+                    }
+                }
+
+                Log::info('[TikTok OAuth] Shop selection - best match found', [
+                    'account_name' => $linkingAccount->name,
+                    'best_match_index' => $bestMatchIndex,
+                    'best_match_shop' => $shops[$bestMatchIndex]['shop_name'] ?? 'Unknown',
+                    'similarity' => $highestSimilarity,
+                ]);
+            }
+        }
+
         return view('livewire.admin.platforms.tiktok.select-shop', [
             'shops' => $shops,
+            'linkingAccount' => $linkingAccount,
+            'bestMatchIndex' => $bestMatchIndex,
         ]);
     }
 
