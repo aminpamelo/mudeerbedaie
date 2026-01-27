@@ -201,12 +201,16 @@ new class extends Component
         </div>
         <div class="flex space-x-3">
             <flux:button variant="outline" :href="route('agent-orders.edit', $order)" wire:navigate>
-                <flux:icon name="pencil" class="w-4 h-4 mr-2" />
-                Edit Order
+                <div class="flex items-center justify-center">
+                    <flux:icon name="pencil" class="w-4 h-4 mr-2" />
+                    Edit Order
+                </div>
             </flux:button>
             <flux:button variant="outline" :href="route('agent-orders.index')" wire:navigate>
-                <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
-                Back to List
+                <div class="flex items-center justify-center">
+                    <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
+                    Back to List
+                </div>
             </flux:button>
         </div>
     </div>
@@ -527,28 +531,43 @@ new class extends Component
                 <div class="mt-6 space-y-2">
                     @if($order->status === 'pending')
                         <flux:button variant="primary" class="w-full" wire:click="updateStatus('processing')">
-                            <flux:icon name="play" class="w-4 h-4 mr-2" />
-                            Start Processing
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="play" class="w-4 h-4 mr-2" />
+                                Start Processing
+                            </div>
                         </flux:button>
                     @endif
 
                     @if($order->status === 'processing')
                         <flux:button variant="primary" class="w-full" wire:click="updateStatus('shipped')">
-                            <flux:icon name="truck" class="w-4 h-4 mr-2" />
-                            Mark as Shipped
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="truck" class="w-4 h-4 mr-2" />
+                                Mark as Shipped
+                            </div>
                         </flux:button>
                     @endif
 
                     @if($order->status === 'shipped')
                         <flux:button variant="primary" class="w-full" wire:click="updateStatus('delivered')">
-                            <flux:icon name="check-circle" class="w-4 h-4 mr-2" />
-                            Mark as Delivered
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="check-circle" class="w-4 h-4 mr-2" />
+                                Mark as Delivered
+                            </div>
                         </flux:button>
                     @endif
 
+                    <flux:button variant="outline" class="w-full" :href="route('agent-orders.receipt', $order)" wire:navigate>
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="document-text" class="w-4 h-4 mr-2" />
+                            View Receipt
+                        </div>
+                    </flux:button>
+
                     <flux:button variant="outline" class="w-full" :href="route('agents.show', $order->agent)" wire:navigate>
-                        <flux:icon name="building-storefront" class="w-4 h-4 mr-2" />
-                        View Agent
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="building-storefront" class="w-4 h-4 mr-2" />
+                            View Agent
+                        </div>
                     </flux:button>
                 </div>
 
