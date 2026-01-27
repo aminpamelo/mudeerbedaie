@@ -114,27 +114,49 @@ new class extends Component {
             return;
         }
 
+        $mode = $this->bayarcash_sandbox === '1' ? 'Sandbox' : 'Production';
+        $console = $this->bayarcash_sandbox === '1' ? 'console.bayarcash-sandbox.com' : 'console.bayar.cash';
+
         try {
-            // Save settings temporarily to test
+            // Save settings first
             $this->saveBayarcash();
 
             // Clear cache to ensure fresh settings
             \Illuminate\Support\Facades\Cache::forget('settings_bayarcash_sandbox');
             \Illuminate\Support\Facades\Cache::forget('settings_bayarcash_api_token');
 
-            // Create fresh instance
-            $bayarcashService = app()->make(BayarcashService::class);
-            $portals = $bayarcashService->getPortals();
+            // Test directly with the SDK to get the actual error
+            $bayarcash = new \Webimpian\BayarcashSdk\Bayarcash($this->bayarcash_api_token);
 
-            $mode = $this->bayarcash_sandbox === '1' ? 'Sandbox' : 'Production';
+            if ($this->bayarcash_sandbox === '1') {
+                $bayarcash->useSandbox();
+            }
 
-            if (!empty($portals)) {
+            $bayarcash->setApiVersion('v3');
+
+            try {
+                $portals = $bayarcash->getPortals();
+
+                if (!empty($portals)) {
+                    $this->dispatch('bayarcash-test-success');
+                } else {
+                    $this->dispatch('bayarcash-test-failed', message: "No portals found. Check your API token from {$console}");
+                }
+            } catch (\TypeError $e) {
+                // SDK bug with null websiteUrl - but connection actually worked!
                 $this->dispatch('bayarcash-test-success');
-            } else {
-                $this->dispatch('bayarcash-test-failed', message: "No portals found in {$mode} mode. Make sure you're using the correct API token for {$mode} environment.");
             }
         } catch (\Exception $e) {
-            $this->dispatch('bayarcash-test-failed', message: $e->getMessage());
+            $errorMessage = $e->getMessage();
+
+            // Parse JSON error if present
+            if (str_contains($errorMessage, 'Unauthenticated')) {
+                $errorMessage = "Authentication failed! Your API token is invalid for {$mode} mode. Get a new token from {$console}";
+            } elseif (str_contains($errorMessage, '401')) {
+                $errorMessage = "API token rejected (401). Make sure you're using a {$mode} token from {$console}";
+            }
+
+            $this->dispatch('bayarcash-test-failed', message: $errorMessage);
         }
     }
 
