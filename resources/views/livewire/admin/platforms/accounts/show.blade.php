@@ -372,6 +372,41 @@ new class extends Component
         }
     }
 
+    /**
+     * Disconnect this TikTok Shop account from the API.
+     * This deactivates credentials and clears the shop_id/account_id fields.
+     */
+    public function disconnectTikTokShop(): void
+    {
+        if (! $this->account->isTikTokShop()) {
+            return;
+        }
+
+        try {
+            $authService = app(\App\Services\TikTok\TikTokAuthService::class);
+            $authService->disconnectAccount($this->account);
+
+            // Also clear the shop_id and account_id so this shop can be linked to another account
+            $this->account->update([
+                'shop_id' => null,
+                'account_id' => null,
+            ]);
+
+            // Refresh the account model
+            $this->account->refresh();
+
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'message' => 'TikTok Shop has been disconnected. You can now link this account to a different shop, or link this shop to a different account.',
+            ]);
+        } catch (\Exception $e) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Failed to disconnect: '.$e->getMessage(),
+            ]);
+        }
+    }
+
     public function syncProductsNow(): void
     {
         if (! $this->account->isTikTokShop()) {
@@ -741,6 +776,23 @@ new class extends Component
                                     Refresh API Tokens
                                 </div>
                             </flux:button>
+
+                            {{-- Disconnect TikTok Shop - only show if OAuth credentials exist --}}
+                            @if($this->hasOAuthCredentials())
+                                <flux:button
+                                    variant="outline"
+                                    size="sm"
+                                    class="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-800"
+                                    wire:click="disconnectTikTokShop"
+                                    wire:confirm="Are you sure you want to disconnect this TikTok Shop? This will deactivate the API credentials and allow you to link this account to a different shop."
+                                    wire:loading.attr="disabled"
+                                >
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="link-slash" class="w-4 h-4 mr-2" />
+                                        Disconnect TikTok Shop
+                                    </div>
+                                </flux:button>
+                            @endif
                         @endif
 
                         <flux:button variant="outline" size="sm" class="w-full" :href="route('platforms.accounts.credentials', [$platform, $account])" wire:navigate>
