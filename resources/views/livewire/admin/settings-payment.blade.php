@@ -118,13 +118,20 @@ new class extends Component {
             // Save settings temporarily to test
             $this->saveBayarcash();
 
-            $bayarcashService = app(BayarcashService::class);
+            // Clear cache to ensure fresh settings
+            \Illuminate\Support\Facades\Cache::forget('settings_bayarcash_sandbox');
+            \Illuminate\Support\Facades\Cache::forget('settings_bayarcash_api_token');
+
+            // Create fresh instance
+            $bayarcashService = app()->make(BayarcashService::class);
             $portals = $bayarcashService->getPortals();
+
+            $mode = $this->bayarcash_sandbox === '1' ? 'Sandbox' : 'Production';
 
             if (!empty($portals)) {
                 $this->dispatch('bayarcash-test-success');
             } else {
-                $this->dispatch('bayarcash-test-failed', message: 'No portals found. Check your API token.');
+                $this->dispatch('bayarcash-test-failed', message: "No portals found in {$mode} mode. Make sure you're using the correct API token for {$mode} environment.");
             }
         } catch (\Exception $e) {
             $this->dispatch('bayarcash-test-failed', message: $e->getMessage());

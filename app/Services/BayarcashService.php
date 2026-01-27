@@ -91,6 +91,8 @@ class BayarcashService
     public function getPortals(): array
     {
         try {
+            // Force re-initialization to get fresh settings
+            $this->bayarcash = null;
             $this->initializeBayarcash();
 
             return $this->bayarcash->getPortals();
@@ -104,6 +106,7 @@ class BayarcashService
         } catch (\Exception $e) {
             Log::error('Failed to get Bayarcash portals', [
                 'error' => $e->getMessage(),
+                'sandbox_mode' => $this->isSandbox(),
             ]);
 
             return [];
