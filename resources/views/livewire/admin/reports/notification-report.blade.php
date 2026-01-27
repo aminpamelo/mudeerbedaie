@@ -124,6 +124,11 @@ new class extends Component {
         $this->resetPage();
     }
 
+    public function gotoPage(int $page): void
+    {
+        $this->setPage($page);
+    }
+
     private function setLogPeriodDates(): void
     {
         switch ($this->logPeriod) {
@@ -546,7 +551,7 @@ new class extends Component {
 
             if ($this->logType === 'all' || $this->logType === 'notification') {
                 $notificationLogs = NotificationLog::query()
-                    ->with(['scheduledNotification.class', 'student.user', 'teacher.user'])
+                    ->with(['scheduledNotification.class', 'scheduledNotification.setting', 'student.user', 'teacher.user'])
                     ->whereBetween('created_at', [$startDate, $endDate])
                     ->when($this->logClass, function($q) {
                         $q->whereHas('scheduledNotification', fn($q) => $q->where('class_id', $this->logClass));
@@ -563,25 +568,33 @@ new class extends Component {
                     ->latest()
                     ->limit(500)
                     ->get()
-                    ->map(fn($log) => [
-                        'id' => $log->id,
-                        'type' => 'notification',
-                        'channel' => $log->channel,
-                        'destination' => $log->destination,
-                        'recipient_name' => $log->recipient_name,
-                        'recipient_type' => $log->recipient_type,
-                        'status' => $log->status,
-                        'status_label' => $log->status_label,
-                        'status_color' => $log->status_badge_color,
-                        'error_message' => $log->error_message,
-                        'sent_at' => $log->sent_at,
-                        'opened_at' => $log->opened_at,
-                        'open_count' => $log->open_count,
-                        'clicked_at' => $log->clicked_at,
-                        'click_count' => $log->click_count,
-                        'created_at' => $log->created_at,
-                        'source' => $log->scheduledNotification?->class?->title ?? 'Notifikasi Kelas',
-                    ]);
+                    ->map(function($log) {
+                        // Get notification type label from setting
+                        $notificationType = $log->scheduledNotification?->setting?->notification_type;
+                        $typeLabels = \App\Models\ClassNotificationSetting::getNotificationTypeLabels();
+                        $notificationTypeLabel = $typeLabels[$notificationType]['name'] ?? $notificationType ?? '-';
+
+                        return [
+                            'id' => $log->id,
+                            'type' => 'notification',
+                            'channel' => $log->channel,
+                            'destination' => $log->destination,
+                            'recipient_name' => $log->recipient_name,
+                            'recipient_type' => $log->recipient_type,
+                            'status' => $log->status,
+                            'status_label' => $log->status_label,
+                            'status_color' => $log->status_badge_color,
+                            'error_message' => $log->error_message,
+                            'sent_at' => $log->sent_at,
+                            'opened_at' => $log->opened_at,
+                            'open_count' => $log->open_count,
+                            'clicked_at' => $log->clicked_at,
+                            'click_count' => $log->click_count,
+                            'created_at' => $log->created_at,
+                            'source' => $log->scheduledNotification?->class?->title ?? 'Notifikasi Kelas',
+                            'notification_type_label' => $notificationTypeLabel,
+                        ];
+                    });
 
                 $logs = $logs->merge($notificationLogs);
             }
@@ -623,6 +636,7 @@ new class extends Component {
                         'click_count' => $log->click_count,
                         'created_at' => $log->created_at,
                         'source' => $log->broadcast?->name ?? 'Broadcast',
+                        'notification_type_label' => 'Broadcast',
                     ]);
 
                 $logs = $logs->merge($broadcastLogs);
@@ -1018,6 +1032,7 @@ new class extends Component {
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Penerima</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sumber</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tetapan</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jenis</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saluran</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
@@ -1037,6 +1052,11 @@ new class extends Component {
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         <div class="text-sm text-gray-900 dark:text-gray-100 max-w-[150px] truncate" title="{{ $log['source'] }}">
                                             {{ $log['source'] }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900 dark:text-gray-100 max-w-[180px] truncate" title="{{ $log['notification_type_label'] }}">
+                                            {{ $log['notification_type_label'] }}
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap">
@@ -1095,7 +1115,7 @@ new class extends Component {
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="9" class="px-4 py-12 text-center">
+                                    <td colspan="10" class="px-4 py-12 text-center">
                                         <flux:icon.inbox class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
                                         <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">Tiada log ditemui</h3>
                                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -1113,7 +1133,7 @@ new class extends Component {
                         <flux:text class="text-sm text-gray-600 dark:text-gray-400">
                             Menunjukkan {{ ($currentPage - 1) * 20 + 1 }} - {{ min($currentPage * 20, $totalLogs) }} daripada {{ $totalLogs }} rekod
                         </flux:text>
-                        <div class="flex gap-2">
+                        <div class="flex items-center gap-1">
                             <flux:button
                                 size="sm"
                                 variant="ghost"
@@ -1122,6 +1142,46 @@ new class extends Component {
                             >
                                 Sebelum
                             </flux:button>
+
+                            @php
+                                $startPage = max(1, $currentPage - 2);
+                                $endPage = min($lastPage, $currentPage + 2);
+
+                                // Adjust if near start
+                                if ($currentPage <= 3) {
+                                    $endPage = min($lastPage, 5);
+                                }
+
+                                // Adjust if near end
+                                if ($currentPage >= $lastPage - 2) {
+                                    $startPage = max(1, $lastPage - 4);
+                                }
+                            @endphp
+
+                            @if($startPage > 1)
+                                <flux:button size="sm" variant="ghost" wire:click="gotoPage(1)">1</flux:button>
+                                @if($startPage > 2)
+                                    <span class="px-2 text-gray-400 dark:text-gray-500">...</span>
+                                @endif
+                            @endif
+
+                            @for($page = $startPage; $page <= $endPage; $page++)
+                                <flux:button
+                                    size="sm"
+                                    variant="{{ $page === $currentPage ? 'primary' : 'ghost' }}"
+                                    wire:click="gotoPage({{ $page }})"
+                                >
+                                    {{ $page }}
+                                </flux:button>
+                            @endfor
+
+                            @if($endPage < $lastPage)
+                                @if($endPage < $lastPage - 1)
+                                    <span class="px-2 text-gray-400 dark:text-gray-500">...</span>
+                                @endif
+                                <flux:button size="sm" variant="ghost" wire:click="gotoPage({{ $lastPage }})">{{ $lastPage }}</flux:button>
+                            @endif
+
                             <flux:button
                                 size="sm"
                                 variant="ghost"
