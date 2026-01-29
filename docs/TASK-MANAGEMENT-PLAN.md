@@ -352,3 +352,160 @@ Based on TaskFlow screenshots:
 - Drag & drop menggunakan Alpine.js dengan SortableJS
 - Real-time updates menggunakan Livewire events
 - Admin boleh view semua tapi READ-ONLY (tidak boleh create/edit/delete)
+
+---
+
+## Potential Improvements (Future Phases)
+
+### Department Correlation & Workflow
+
+4 department (Affiliate, Editor, Content Creator, Designer) membentuk **content production pipeline**:
+
+```
+Affiliate (Campaign/Goal) → Content Creator (Raw Content) → Editor (Polish/Refine) → Designer (Visual Assets)
+```
+
+Setiap campaign biasanya memerlukan task dari multiple departments. Contoh: campaign marketing memerlukan content dibuat, diedit, dan design assets disediakan.
+
+---
+
+### Phase 2: Cross-Department Projects
+
+**Problem**: Tasks sekarang siloed - tiada cara link tasks antara departments.
+
+**Solution**: Tambah `projects` table sebagai parent entity yang group tasks across departments.
+
+```
+projects
+├── id, name, slug, description
+├── status (draft, active, completed, archived)
+├── start_date, end_date
+├── created_by
+└── timestamps
+
+project_tasks (pivot)
+├── project_id, task_id
+└── sort_order
+```
+
+**Features**:
+- Project dashboard yang show semua related tasks dari semua departments
+- Progress tracking across departments (e.g., "Campaign X: 3/8 tasks done")
+- Timeline view spanning all departments
+- Project-level comments dan discussions
+
+---
+
+### Phase 3: Task Dependencies
+
+**Problem**: Tiada cara track dependencies antara tasks (e.g., Editor tak boleh start edit sebelum Content Creator siap).
+
+**Solution**: Tambah `task_dependencies` table.
+
+```
+task_dependencies
+├── id
+├── task_id (the dependent task)
+├── depends_on_task_id (the blocking task)
+├── dependency_type (blocks, relates_to, duplicates)
+└── timestamps
+```
+
+**Features**:
+- "Blocked by" dan "Blocks" indicators pada task cards
+- Auto-notification bila blocking task completed ("Task X is now unblocked")
+- Visual dependency chain dalam task detail view
+- Warning bila try start task yang masih blocked
+- Gantt chart view (optional)
+
+---
+
+### Phase 4: Task Templates & Recurring Tasks
+
+**Problem**: Banyak tasks yang repetitive (e.g., weekly content, monthly reports).
+
+**Solution**: Tambah template dan scheduling system.
+
+```
+task_templates
+├── id, department_id, title, description
+├── task_type, priority, estimated_hours
+├── checklist (json), metadata (json)
+└── timestamps
+
+recurring_tasks
+├── id, task_template_id, department_id
+├── frequency (daily, weekly, biweekly, monthly)
+├── next_run_at, last_run_at
+├── assigned_to, is_active
+└── timestamps
+```
+
+**Features**:
+- One-click task creation from templates
+- Auto-create recurring tasks based on schedule
+- Template library per department
+- Checklist items within tasks (subtasks)
+
+---
+
+### Phase 5: Advanced Analytics & Reporting
+
+**Problem**: Tiada visibility on team performance dan bottlenecks.
+
+**Features**:
+- **Department KPIs**: Tasks completed vs target, average completion time
+- **Member Performance**: Tasks completed, on-time rate, average time per task
+- **Bottleneck Detection**: Which department/stage delays projects most
+- **Workload Distribution**: Visualize who's overloaded vs underutilized
+- **Trend Charts**: Weekly/monthly task completion trends
+- **Export Reports**: PDF/CSV exports for management review
+
+---
+
+### Phase 6: Enhanced Collaboration
+
+**Features**:
+- **@Mentions** dalam comments (notify specific users)
+- **File Attachments** pada tasks (upload designs, videos, documents)
+- **Task Watchers** - subscribe to task updates tanpa being assignee
+- **Real-time presence** - show who's viewing a task
+- **Slack/Telegram integration** - send notifications to team channels
+- **Task approval workflow** - PIC approval sebelum task marked complete
+
+---
+
+### Phase 7: Time Tracking
+
+**Problem**: `estimated_hours` dan `actual_hours` ada tapi tiada tracking mechanism.
+
+```
+time_entries
+├── id, task_id, user_id
+├── started_at, ended_at
+├── duration_minutes, description
+├── is_manual (bool)
+└── timestamps
+```
+
+**Features**:
+- Start/stop timer pada task detail page
+- Manual time entry
+- Time comparison: estimated vs actual
+- Timesheet report per member per week
+- Billable hours tracking (if needed)
+
+---
+
+### Implementation Priority
+
+| Phase | Effort | Impact | Priority |
+|-------|--------|--------|----------|
+| Phase 2: Cross-Department Projects | Medium | High | ★★★★★ |
+| Phase 3: Task Dependencies | Medium | High | ★★★★☆ |
+| Phase 4: Templates & Recurring | Low | Medium | ★★★☆☆ |
+| Phase 5: Analytics & Reporting | Medium | High | ★★★★☆ |
+| Phase 6: Enhanced Collaboration | High | Medium | ★★★☆☆ |
+| Phase 7: Time Tracking | Low | Medium | ★★☆☆☆ |
+
+**Recommended next phase**: Phase 2 (Cross-Department Projects) kerana ia solve masalah utama correlation antara 4 departments.
