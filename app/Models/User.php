@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\DepartmentRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -115,6 +116,30 @@ class User extends Authenticatable
     public function isClassAdmin(): bool
     {
         return $this->role === 'class_admin';
+    }
+
+    /**
+     * Check if user is a PIC Department (users.role = 'pic_department')
+     */
+    public function isPicDepartmentRole(): bool
+    {
+        return $this->role === 'pic_department';
+    }
+
+    /**
+     * Check if user is a Member Department (users.role = 'member_department')
+     */
+    public function isMemberDepartmentRole(): bool
+    {
+        return $this->role === 'member_department';
+    }
+
+    /**
+     * Check if user is department staff (either PIC or member)
+     */
+    public function isDepartmentStaff(): bool
+    {
+        return $this->isPicDepartmentRole() || $this->isMemberDepartmentRole();
     }
 
     /**
@@ -431,5 +456,110 @@ class User extends Authenticatable
     public function impersonationLogsAsTarget(): HasMany
     {
         return $this->hasMany(ImpersonationLog::class, 'impersonated_id');
+    }
+
+    // =========================================================================
+    // TASK MANAGEMENT - Department Relationships
+    // =========================================================================
+
+    /**
+     * Get all departments this user belongs to
+     */
+    public function departments(): BelongsToMany
+    {
+        return $this->belongsToMany(Department::class, 'department_users')
+            ->withPivot('role', 'assigned_by')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get departments where user is PIC (Person in Charge)
+     */
+    public function picDepartments(): BelongsToMany
+    {
+        return $this->belongsToMany(Department::class, 'department_users')
+            ->withPivot('role', 'assigned_by')
+            ->withTimestamps()
+            ->wherePivot('role', DepartmentRole::DEPARTMENT_PIC->value);
+    }
+
+    /**
+     * Get tasks assigned to this user
+     */
+    public function assignedTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'assigned_to');
+    }
+
+    /**
+     * Get tasks created by this user
+     */
+    public function createdTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'created_by');
+    }
+
+    /**
+     * Check if user is a PIC of any department
+     */
+    public function isDepartmentPic(): bool
+    {
+        return $this->picDepartments()->exists();
+    }
+
+    /**
+     * Check if user is PIC of a specific department
+     */
+    public function isPicOfDepartment(Department $department): bool
+    {
+        return $this->picDepartments()->where('department_id', $department->id)->exists();
+    }
+
+    /**
+     * Check if user can manage tasks in a department (PIC only - full control including settings)
+     */
+    public function canManageTasks(Department $department): bool
+    {
+        return $this->isPicOfDepartment($department);
+    }
+
+    /**
+     * Check if user can create tasks in a department (PIC only)
+     */
+    public function canCreateTasks(Department $department): bool
+    {
+        // Only PICs can create tasks
+        return $this->isPicOfDepartment($department);
+    }
+
+    /**
+     * Check if user can edit/update tasks in a department (PIC and Members)
+     */
+    public function canEditTasks(Department $department): bool
+    {
+        // Both PIC and members can edit tasks
+        return $this->departments->contains('id', $department->id);
+    }
+
+    /**
+     * Check if user can view tasks in a department
+     */
+    public function canViewTasks(Department $department): bool
+    {
+        // Admin can view all departments (read-only)
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        // Department members can view
+        return $this->departments->contains('id', $department->id);
+    }
+
+    /**
+     * Check if user has access to task management module
+     */
+    public function hasTaskManagementAccess(): bool
+    {
+        return $this->isAdmin() || $this->departments()->exists();
     }
 }

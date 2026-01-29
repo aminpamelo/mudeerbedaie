@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\ClassModel;
+use App\Models\Task;
 use App\Models\User;
+use App\Observers\TaskObserver;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register Task Observer
+        Task::observe(TaskObserver::class);
+
         Gate::define('manage-class', function (User $user, ClassModel $class) {
             // Admin can manage any class
             if ($user->isAdmin()) {
