@@ -37,6 +37,8 @@ class Task extends Model
         'actual_hours',
         'sort_order',
         'metadata',
+        'reminder_sent_at',
+        'overdue_notified_at',
     ];
 
     protected function casts(): array
@@ -49,6 +51,8 @@ class Task extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
+            'overdue_notified_at' => 'datetime',
             'metadata' => 'array',
             'estimated_hours' => 'decimal:2',
             'actual_hours' => 'decimal:2',
@@ -120,6 +124,14 @@ class Task extends Model
     }
 
     /**
+     * Get all attachments for this task
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(TaskAttachment::class)->orderByDesc('created_at');
+    }
+
+    /**
      * Get all activity logs for this task
      */
     public function activityLogs(): HasMany
@@ -141,6 +153,30 @@ class Task extends Model
         }
 
         return $this->due_date->isPast();
+    }
+
+    /**
+     * Check if task is due within the next 24 hours
+     */
+    public function isDueSoon(): bool
+    {
+        if (! $this->due_date) {
+            return false;
+        }
+
+        if (in_array($this->status, [TaskStatus::COMPLETED, TaskStatus::CANCELLED])) {
+            return false;
+        }
+
+        return $this->due_date->isBetween(now(), now()->addHours(24));
+    }
+
+    /**
+     * Check if task is due today
+     */
+    public function isDueToday(): bool
+    {
+        return $this->due_date?->isToday() ?? false;
     }
 
     /**

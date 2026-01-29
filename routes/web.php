@@ -35,6 +35,10 @@ Route::get('dashboard', function () {
         return redirect()->route('class-admin.dashboard');
     }
 
+    if ($user->isDepartmentStaff()) {
+        return redirect()->route('tasks.dashboard');
+    }
+
     return view('dashboard');
 })
     ->middleware(['auth', 'verified'])
