@@ -202,8 +202,8 @@ new class extends Component {
 
     {{-- Filters --}}
     <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
-        <div class="flex flex-wrap items-center gap-4">
-            <div class="flex-1 min-w-[200px]">
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div class="md:col-span-2">
                 <flux:input
                     wire:model.live.debounce.300ms="search"
                     placeholder="{{ __('Search tasks...') }}"
@@ -211,21 +211,21 @@ new class extends Component {
                 />
             </div>
 
-            <flux:select wire:model.live="filterType" class="w-40">
+            <flux:select wire:model.live="filterType">
                 <flux:select.option value="">{{ __('All Types') }}</flux:select.option>
                 @foreach(TaskType::cases() as $type)
                 <flux:select.option value="{{ $type->value }}">{{ $type->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="filterPriority" class="w-40">
+            <flux:select wire:model.live="filterPriority">
                 <flux:select.option value="">{{ __('All Priority') }}</flux:select.option>
                 @foreach(TaskPriority::cases() as $priority)
                 <flux:select.option value="{{ $priority->value }}">{{ $priority->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="filterAssignee" class="w-48">
+            <flux:select wire:model.live="filterAssignee">
                 <flux:select.option value="">{{ __('All Assignees') }}</flux:select.option>
                 <flux:select.option value="unassigned">{{ __('Unassigned') }}</flux:select.option>
                 @foreach($this->getDepartmentUsers() as $user)
@@ -233,17 +233,21 @@ new class extends Component {
                 @endforeach
             </flux:select>
 
-            @if($search || $filterType || $filterAssignee || $filterPriority)
-            <flux:button variant="ghost" size="sm" wire:click="clearFilters">
-                <flux:icon name="x-mark" class="w-4 h-4 mr-1" />
-                {{ __('Clear') }}
-            </flux:button>
-            @endif
+            <div class="flex items-center gap-3">
+                @if($search || $filterType || $filterAssignee || $filterPriority)
+                <flux:button variant="ghost" size="sm" wire:click="clearFilters">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="x-mark" class="w-4 h-4 mr-1" />
+                        {{ __('Clear') }}
+                    </div>
+                </flux:button>
+                @endif
 
-            <a href="{{ route('tasks.department.list', $department->slug) }}" class="text-sm text-violet-600 hover:underline">
-                <flux:icon name="list-bullet" class="w-4 h-4 inline mr-1" />
-                {{ __('List View') }}
-            </a>
+                <a href="{{ route('tasks.department.list', $department->slug) }}" class="text-sm text-violet-600 hover:underline whitespace-nowrap">
+                    <flux:icon name="list-bullet" class="w-4 h-4 inline mr-1" />
+                    {{ __('List View') }}
+                </a>
+            </div>
         </div>
     </div>
 

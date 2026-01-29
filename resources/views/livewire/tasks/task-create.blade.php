@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Department;
 use App\Models\Task;
+use App\Models\TaskTemplate;
 use App\Models\User;
 use App\Enums\TaskStatus;
 use App\Enums\TaskPriority;
@@ -23,6 +24,7 @@ new class extends Component {
     public ?string $due_time = null;
     public ?float $estimated_hours = null;
     public int $department_id = 0;
+    public int $template_id = 0;
 
     public function mount(): void
     {
@@ -70,7 +72,42 @@ new class extends Component {
     public function updatedDepartmentId(): void
     {
         $this->department = Department::find($this->department_id);
-        $this->assigned_to = null; // Reset assignee when department changes
+        $this->assigned_to = null;
+        $this->template_id = 0;
+    }
+
+    public function getTemplates()
+    {
+        if (! $this->department_id) {
+            return collect();
+        }
+
+        return TaskTemplate::where('department_id', $this->department_id)
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function updatedTemplateId(): void
+    {
+        if (! $this->template_id) {
+            return;
+        }
+
+        $template = TaskTemplate::find($this->template_id);
+        if (! $template) {
+            return;
+        }
+
+        $this->task_type = $template->task_type->value;
+        $this->priority = $template->priority->value;
+        $this->estimated_hours = $template->estimated_hours ? (float) $template->estimated_hours : null;
+
+        if (! empty($template->template_data['title'])) {
+            $this->title = $template->template_data['title'];
+        }
+        if (! empty($template->template_data['description'])) {
+            $this->description = $template->template_data['description'];
+        }
     }
 
     public function create(): void
@@ -148,6 +185,23 @@ new class extends Component {
                     </flux:select>
                     <flux:error name="department_id" />
                 </flux:field>
+
+                {{-- Template Selection --}}
+                @if($department_id)
+                @php $templates = $this->getTemplates(); @endphp
+                @if($templates->count() > 0)
+                <flux:field>
+                    <flux:label>{{ __('Load from Template') }}</flux:label>
+                    <flux:select wire:model.live="template_id">
+                        <flux:select.option value="0">{{ __('— No template —') }}</flux:select.option>
+                        @foreach($templates as $template)
+                        <flux:select.option value="{{ $template->id }}">{{ $template->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:description>{{ __('Select a template to pre-fill the form fields') }}</flux:description>
+                </flux:field>
+                @endif
+                @endif
 
                 {{-- Title --}}
                 <flux:field>

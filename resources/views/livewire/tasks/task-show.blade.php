@@ -4,21 +4,32 @@ declare(strict_types=1);
 
 use App\Models\Task;
 use App\Models\TaskComment;
+use App\Models\TaskAttachment;
+use App\Models\TaskTemplate;
 use App\Enums\TaskStatus;
 use App\Enums\TaskPriority;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 new class extends Component {
+    use WithFileUploads;
+
     public Task $task;
     public bool $isReadOnly = false;
     public bool $canManage = false;
 
     public string $newComment = '';
-    public bool $showActivityLog = false;
+    public bool $showActivityLog = true;
+
+    public $attachments = [];
+
+    public bool $showSaveTemplate = false;
+    public string $templateName = '';
+    public string $templateDescription = '';
 
     public function mount(Task $task): void
     {
-        $this->task = $task->load(['department', 'assignee', 'creator', 'comments.user', 'comments.replies.user', 'activityLogs.user']);
+        $this->task = $task->load(['department', 'assignee', 'creator', 'comments.user', 'comments.replies.user', 'activityLogs.user', 'attachments.user']);
 
         $user = auth()->user();
 
@@ -48,6 +59,54 @@ new class extends Component {
         $this->task->refresh();
     }
 
+    public function uploadAttachments(): void
+    {
+        if ($this->isReadOnly) {
+            return;
+        }
+
+        $this->validate([
+            'attachments.*' => 'file|max:10240',
+        ]);
+
+        foreach ($this->attachments as $file) {
+            $path = $file->store('task-attachments/' . $this->task->id, 'public');
+
+            $this->task->attachments()->create([
+                'user_id' => auth()->id(),
+                'filename' => basename($path),
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'disk' => 'public',
+                'path' => $path,
+            ]);
+        }
+
+        $this->task->logActivity('attachment_added', null, null, 'Added ' . count($this->attachments) . ' attachment(s)');
+        $this->attachments = [];
+        $this->task->refresh();
+    }
+
+    public function deleteAttachment(int $attachmentId): void
+    {
+        if (! $this->canManage) {
+            return;
+        }
+
+        $attachment = TaskAttachment::findOrFail($attachmentId);
+
+        if ($attachment->task_id !== $this->task->id) {
+            return;
+        }
+
+        $name = $attachment->original_name;
+        $attachment->delete();
+
+        $this->task->logActivity('attachment_deleted', null, null, "Deleted attachment: {$name}");
+        $this->task->refresh();
+    }
+
     public function changeStatus(string $newStatus): void
     {
         if (! $this->canManage) {
@@ -65,6 +124,38 @@ new class extends Component {
         );
 
         $this->task->refresh();
+    }
+
+    public function saveAsTemplate(): void
+    {
+        if (! $this->canManage) {
+            return;
+        }
+
+        $this->validate([
+            'templateName' => 'required|string|max:255',
+            'templateDescription' => 'nullable|string|max:1000',
+        ]);
+
+        TaskTemplate::create([
+            'department_id' => $this->task->department_id,
+            'created_by' => auth()->id(),
+            'name' => $this->templateName,
+            'description' => $this->templateDescription,
+            'task_type' => $this->task->task_type->value,
+            'priority' => $this->task->priority->value,
+            'estimated_hours' => $this->task->estimated_hours,
+            'template_data' => [
+                'title' => $this->task->title,
+                'description' => $this->task->description,
+            ],
+        ]);
+
+        $this->showSaveTemplate = false;
+        $this->templateName = '';
+        $this->templateDescription = '';
+
+        session()->flash('message', __('Template saved successfully!'));
     }
 
     public function deleteTask(): void
@@ -94,6 +185,12 @@ new class extends Component {
             </div>
             <div class="flex items-center gap-2">
                 @if($canManage)
+                <flux:button variant="ghost" size="sm" wire:click="$set('showSaveTemplate', true)">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="bookmark" class="w-4 h-4 mr-1" />
+                        {{ __('Save as Template') }}
+                    </div>
+                </flux:button>
                 <flux:button variant="outline" :href="route('tasks.edit', $task)">
                     <flux:icon name="pencil" class="w-4 h-4 mr-1" />
                     {{ __('Edit') }}
@@ -107,6 +204,14 @@ new class extends Component {
         </div>
     </x-slot>
 
+    @if(session('message'))
+    <div class="mb-6">
+        <flux:callout type="success" icon="check-circle">
+            <flux:callout.text>{{ session('message') }}</flux:callout.text>
+        </flux:callout>
+    </div>
+    @endif
+
     @if($isReadOnly)
     <div class="mb-6">
         <flux:callout type="info" icon="eye">
@@ -119,6 +224,17 @@ new class extends Component {
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Main Content --}}
         <div class="lg:col-span-2 space-y-6">
+            {{-- Title --}}
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                <div class="flex items-center gap-3 mb-3">
+                    <flux:badge size="sm" :color="$task->status->color()">{{ $task->status->label() }}</flux:badge>
+                    <flux:badge size="sm" :color="$task->priority->color()">{{ $task->priority->label() }}</flux:badge>
+                    <flux:badge size="sm" variant="outline" :color="$task->task_type->color()">{{ $task->task_type->label() }}</flux:badge>
+                </div>
+                <flux:heading size="xl">{{ $task->title }}</flux:heading>
+                <flux:text class="mt-1">{{ $task->task_number }} &bull; {{ $task->department->name }}</flux:text>
+            </div>
+
             {{-- Description --}}
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">{{ __('Description') }}</flux:heading>
@@ -129,6 +245,95 @@ new class extends Component {
                 @else
                 <flux:text class="text-zinc-500 italic">{{ __('No description provided.') }}</flux:text>
                 @endif
+            </div>
+
+            {{-- Attachments --}}
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <div class="p-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                    <flux:heading size="lg">{{ __('Attachments') }} ({{ $task->attachments->count() }})</flux:heading>
+                </div>
+
+                <div class="p-4">
+                    {{-- Attachment List --}}
+                    @if($task->attachments->count() > 0)
+                    <div class="space-y-3 mb-4">
+                        @foreach($task->attachments as $attachment)
+                        <div class="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded-lg" wire:key="attachment-{{ $attachment->id }}">
+                            <div class="flex items-center gap-3 min-w-0">
+                                {{-- File Icon --}}
+                                <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0
+                                    {{ $attachment->isImage() ? 'bg-blue-100 dark:bg-blue-900/30' : ($attachment->isPdf() ? 'bg-red-100 dark:bg-red-900/30' : 'bg-zinc-100 dark:bg-zinc-600') }}">
+                                    @if($attachment->isImage())
+                                    <flux:icon name="photo" class="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                    @elseif($attachment->isPdf())
+                                    <flux:icon name="document-text" class="w-5 h-5 text-red-600 dark:text-red-400" />
+                                    @else
+                                    <flux:icon name="paper-clip" class="w-5 h-5 text-zinc-500" />
+                                    @endif
+                                </div>
+
+                                <div class="min-w-0">
+                                    <a href="{{ $attachment->getUrl() }}" target="_blank" class="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-violet-600 truncate block">
+                                        {{ $attachment->original_name }}
+                                    </a>
+                                    <p class="text-xs text-zinc-500">
+                                        {{ $attachment->getHumanSize() }} &bull; {{ $attachment->user->name }} &bull; {{ $attachment->created_at->diffForHumans() }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-1 shrink-0">
+                                <a href="{{ $attachment->getUrl() }}" target="_blank" class="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 rounded">
+                                    <flux:icon name="arrow-down-tray" class="w-4 h-4" />
+                                </a>
+                                @if($canManage)
+                                <button wire:click="deleteAttachment({{ $attachment->id }})" wire:confirm="{{ __('Delete this attachment?') }}" class="p-1.5 text-zinc-400 hover:text-red-600 rounded">
+                                    <flux:icon name="trash" class="w-4 h-4" />
+                                </button>
+                                @endif
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                    @else
+                    <flux:text class="text-center py-4 text-zinc-500">{{ __('No attachments yet.') }}</flux:text>
+                    @endif
+
+                    {{-- Upload Form --}}
+                    @if(! $isReadOnly)
+                    <form wire:submit="uploadAttachments" class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                        <div>
+                            <input type="file" wire:model="attachments" multiple class="block w-full text-sm text-zinc-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-lg file:border-0
+                                file:text-sm file:font-medium
+                                file:bg-violet-50 file:text-violet-700
+                                hover:file:bg-violet-100
+                                dark:file:bg-violet-900/30 dark:file:text-violet-300
+                                dark:hover:file:bg-violet-900/50" />
+                            <p class="mt-1 text-xs text-zinc-400">{{ __('Max 10MB per file. Images, PDFs, documents supported.') }}</p>
+                        </div>
+
+                        @error('attachments.*')
+                        <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+
+                        @if(count($attachments) > 0)
+                        <div class="mt-3 flex items-center gap-2">
+                            <flux:button type="submit" variant="primary" size="sm">
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="arrow-up-tray" class="w-4 h-4 mr-1" />
+                                    {{ __('Upload :count file(s)', ['count' => count($attachments)]) }}
+                                </div>
+                            </flux:button>
+                            <div wire:loading wire:target="attachments">
+                                <flux:text class="text-sm text-zinc-500">{{ __('Processing...') }}</flux:text>
+                            </div>
+                        </div>
+                        @endif
+                    </form>
+                    @endif
+                </div>
             </div>
 
             {{-- Comments --}}
@@ -237,9 +442,9 @@ new class extends Component {
                         <dt class="text-sm font-medium text-zinc-500 mb-1">{{ __('Status') }}</dt>
                         <dd>
                             @if($canManage)
-                            <flux:select wire:model.live="task.status" wire:change="changeStatus($event.target.value)">
+                            <flux:select wire:change="changeStatus($event.target.value)">
                                 @foreach(TaskStatus::cases() as $status)
-                                <flux:select.option value="{{ $status->value }}" {{ $task->status === $status ? 'selected' : '' }}>{{ $status->label() }}</flux:select.option>
+                                <flux:select.option value="{{ $status->value }}" :selected="$task->status === $status">{{ $status->label() }}</flux:select.option>
                                 @endforeach
                             </flux:select>
                             @else
@@ -337,13 +542,57 @@ new class extends Component {
             {{-- Danger Zone --}}
             @if($canManage)
             <div class="bg-white dark:bg-zinc-800 rounded-lg border border-red-200 dark:border-red-800 p-6">
-                <flux:heading size="lg" class="mb-4 text-red-600">{{ __('Danger Zone') }}</flux:heading>
+                <flux:heading size="lg" class="mb-2 text-red-600">{{ __('Danger Zone') }}</flux:heading>
+                <flux:text class="mb-4 text-sm text-zinc-500">{{ __('This action cannot be undone.') }}</flux:text>
                 <flux:button variant="danger" wire:click="deleteTask" wire:confirm="{{ __('Are you sure you want to delete this task?') }}">
-                    <flux:icon name="trash" class="w-4 h-4 mr-1" />
-                    {{ __('Delete Task') }}
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="trash" class="w-4 h-4 mr-1" />
+                        {{ __('Delete Task') }}
+                    </div>
                 </flux:button>
             </div>
             @endif
         </div>
     </div>
+
+    {{-- Save as Template Modal --}}
+    @if($canManage)
+    <flux:modal wire:model="showSaveTemplate" class="max-w-md">
+        <div class="p-6">
+            <flux:heading size="lg" class="mb-4">{{ __('Save Task as Template') }}</flux:heading>
+            <flux:text class="mb-4 text-sm">{{ __('Save this task configuration as a reusable template for your department.') }}</flux:text>
+
+            <form wire:submit="saveAsTemplate" class="space-y-4">
+                <flux:field>
+                    <flux:label>{{ __('Template Name') }}</flux:label>
+                    <flux:input wire:model="templateName" placeholder="{{ __('e.g. Weekly Report Task') }}" />
+                    <flux:error name="templateName" />
+                </flux:field>
+
+                <flux:field>
+                    <flux:label>{{ __('Description') }}</flux:label>
+                    <flux:textarea wire:model="templateDescription" rows="3" placeholder="{{ __('Brief description of when to use this template...') }}" />
+                    <flux:error name="templateDescription" />
+                </flux:field>
+
+                <div class="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-3">
+                    <p class="text-xs font-medium text-zinc-500 mb-2">{{ __('Template will include:') }}</p>
+                    <ul class="text-xs text-zinc-500 space-y-1">
+                        <li>&bull; {{ __('Title') }}: {{ $task->title }}</li>
+                        <li>&bull; {{ __('Type') }}: {{ $task->task_type->label() }}</li>
+                        <li>&bull; {{ __('Priority') }}: {{ $task->priority->label() }}</li>
+                        @if($task->estimated_hours)
+                        <li>&bull; {{ __('Estimated Hours') }}: {{ $task->estimated_hours }}</li>
+                        @endif
+                    </ul>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-4">
+                    <flux:button variant="ghost" wire:click="$set('showSaveTemplate', false)">{{ __('Cancel') }}</flux:button>
+                    <flux:button type="submit" variant="primary">{{ __('Save Template') }}</flux:button>
+                </div>
+            </form>
+        </div>
+    </flux:modal>
+    @endif
 </div>

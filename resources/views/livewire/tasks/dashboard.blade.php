@@ -151,17 +151,9 @@ new class extends Component {
 
     {{-- Hero Section with Welcome & Quick Actions --}}
     <div class="mb-8 bg-gradient-to-br from-violet-600 to-indigo-700 rounded-2xl p-6 md:p-8 text-white relative overflow-hidden">
-        {{-- Background Pattern --}}
-        <div class="absolute inset-0 opacity-10">
-            <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <defs>
-                    <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                        <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5"/>
-                    </pattern>
-                </defs>
-                <rect width="100" height="100" fill="url(#grid)"/>
-            </svg>
-        </div>
+        {{-- Background Decorative Elements --}}
+        <div class="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-white/5 rounded-full blur-2xl"></div>
+        <div class="absolute bottom-0 left-0 -mb-12 -ml-12 w-48 h-48 bg-white/5 rounded-full blur-2xl"></div>
 
         <div class="relative z-10">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -180,69 +172,74 @@ new class extends Component {
 
                 {{-- Quick Actions for PIC --}}
                 @if($canCreate)
-                <div class="flex flex-wrap gap-2">
+                <div class="flex flex-wrap justify-end gap-2 shrink-0 md:ml-auto">
                     <flux:button variant="filled" class="!bg-white !text-violet-700 hover:!bg-violet-50" :href="route('tasks.create')">
-                        <flux:icon name="plus" class="w-4 h-4 mr-1" />
-                        {{ __('New Task') }}
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                            {{ __('New Task') }}
+                        </div>
                     </flux:button>
                     @if($picDepartments->count() === 1)
                     <flux:button variant="ghost" class="!text-white !border-white/30 hover:!bg-white/10" :href="route('tasks.department.board', $picDepartments->first()->slug)">
-                        <flux:icon name="view-columns" class="w-4 h-4 mr-1" />
-                        {{ __('Kanban Board') }}
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="view-columns" class="w-4 h-4 mr-1" />
+                            {{ __('Kanban Board') }}
+                        </div>
                     </flux:button>
                     @endif
                 </div>
                 @endif
             </div>
 
-            {{-- Quick Stats Row --}}
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                            <flux:icon name="clipboard-document-list" class="w-4 h-4" />
-                        </div>
-                        <div>
-                            <p class="text-2xl font-bold">{{ $stats['total'] }}</p>
-                            <p class="text-xs text-violet-200">{{ __('Total Tasks') }}</p>
-                        </div>
-                    </div>
-                </div>
+        </div>
+    </div>
 
-                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg bg-blue-500/30 flex items-center justify-center">
-                            <flux:icon name="play-circle" class="w-4 h-4" />
-                        </div>
-                        <div>
-                            <p class="text-2xl font-bold">{{ $stats['in_progress'] }}</p>
-                            <p class="text-xs text-violet-200">{{ __('In Progress') }}</p>
-                        </div>
-                    </div>
+    {{-- Stats Cards --}}
+    <div class="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Total Tasks') }}</p>
+                    <p class="text-3xl font-bold text-zinc-900 dark:text-white mt-1">{{ $stats['total'] }}</p>
                 </div>
-
-                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg bg-green-500/30 flex items-center justify-center">
-                            <flux:icon name="check-circle" class="w-4 h-4" />
-                        </div>
-                        <div>
-                            <p class="text-2xl font-bold">{{ $stats['completed'] }}</p>
-                            <p class="text-xs text-violet-200">{{ __('Completed') }}</p>
-                        </div>
-                    </div>
+                <div class="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                    <flux:icon name="clipboard-document-list" class="w-5 h-5 text-violet-600 dark:text-violet-400" />
                 </div>
+            </div>
+        </div>
 
-                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 {{ $stats['overdue'] > 0 ? 'ring-2 ring-red-400' : '' }}">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg {{ $stats['overdue'] > 0 ? 'bg-red-500/50' : 'bg-white/20' }} flex items-center justify-center">
-                            <flux:icon name="exclamation-triangle" class="w-4 h-4" />
-                        </div>
-                        <div>
-                            <p class="text-2xl font-bold">{{ $stats['overdue'] }}</p>
-                            <p class="text-xs text-violet-200">{{ __('Overdue') }}</p>
-                        </div>
-                    </div>
+        <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('In Progress') }}</p>
+                    <p class="text-3xl font-bold text-zinc-900 dark:text-white mt-1">{{ $stats['in_progress'] }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <flux:icon name="play-circle" class="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Completed') }}</p>
+                    <p class="text-3xl font-bold text-zinc-900 dark:text-white mt-1">{{ $stats['completed'] }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <flux:icon name="check-circle" class="w-5 h-5 text-green-600 dark:text-green-400" />
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-zinc-800 rounded-xl border {{ $stats['overdue'] > 0 ? 'border-red-300 dark:border-red-700' : 'border-zinc-200 dark:border-zinc-700' }} p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Overdue') }}</p>
+                    <p class="text-3xl font-bold {{ $stats['overdue'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-white' }} mt-1">{{ $stats['overdue'] }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg {{ $stats['overdue'] > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-zinc-100 dark:bg-zinc-700' }} flex items-center justify-center">
+                    <flux:icon name="exclamation-triangle" class="w-5 h-5 {{ $stats['overdue'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-500 dark:text-zinc-400' }}" />
                 </div>
             </div>
         </div>
