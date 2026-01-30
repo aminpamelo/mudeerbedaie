@@ -117,20 +117,21 @@ class FunnelAnalytics extends Model
     // Static helper to get or create today's analytics
     public static function getOrCreateForToday(int $funnelId, ?int $stepId = null): self
     {
-        $date = now()->toDateString();
-        $now = now();
-
-        // Use INSERT OR IGNORE for SQLite to handle race conditions atomically
-        \DB::statement(
-            'INSERT OR IGNORE INTO funnel_analytics (funnel_id, funnel_step_id, date, unique_visitors, pageviews, conversions, revenue, avg_time_seconds, bounce_count, created_at, updated_at) VALUES (?, ?, ?, 0, 0, 0, 0, 0, 0, ?, ?)',
-            [$funnelId, $stepId, $date, $now, $now]
+        return self::firstOrCreate(
+            [
+                'funnel_id' => $funnelId,
+                'funnel_step_id' => $stepId,
+                'date' => now()->toDateString(),
+            ],
+            [
+                'unique_visitors' => 0,
+                'pageviews' => 0,
+                'conversions' => 0,
+                'revenue' => 0,
+                'avg_time_seconds' => 0,
+                'bounce_count' => 0,
+            ]
         );
-
-        // Now fetch the record (either existing or just created)
-        return self::where('funnel_id', $funnelId)
-            ->where('funnel_step_id', $stepId)
-            ->where('date', $date)
-            ->first();
     }
 
     // Scopes
