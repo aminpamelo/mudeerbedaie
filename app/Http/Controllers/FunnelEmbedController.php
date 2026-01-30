@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\ResolvesAffiliateId;
 use App\Models\Funnel;
 use App\Models\FunnelSession;
 use App\Models\FunnelStep;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
 
 class FunnelEmbedController extends Controller
 {
+    use ResolvesAffiliateId;
+
     public function __construct(
         protected FacebookPixelService $pixelService
     ) {}
@@ -67,10 +70,13 @@ class FunnelEmbedController extends Controller
         }
 
         if (! $session) {
+            $affiliateId = $this->resolveAffiliateId($request, $funnel);
+
             $session = FunnelSession::create([
                 'funnel_id' => $funnel->id,
                 'uuid' => Str::uuid()->toString(),
                 'visitor_id' => $visitorId,
+                'affiliate_id' => $affiliateId,
                 'entry_step_id' => $step->id,
                 'current_step_id' => $step->id,
                 'ip_address' => $request->ip(),

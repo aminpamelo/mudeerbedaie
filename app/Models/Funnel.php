@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -26,6 +27,9 @@ class Funnel extends Model
         'embed_settings',
         'embed_enabled',
         'embed_key',
+        'affiliate_enabled',
+        'affiliate_custom_url',
+        'show_orders_in_admin',
         'payment_settings',
         'published_at',
     ];
@@ -36,6 +40,8 @@ class Funnel extends Model
             'settings' => 'array',
             'embed_settings' => 'array',
             'embed_enabled' => 'boolean',
+            'affiliate_enabled' => 'boolean',
+            'show_orders_in_admin' => 'boolean',
             'payment_settings' => 'array',
             'published_at' => 'datetime',
         ];
@@ -98,6 +104,23 @@ class Funnel extends Model
     public function coupons(): HasMany
     {
         return $this->hasMany(FunnelCoupon::class);
+    }
+
+    public function affiliates(): BelongsToMany
+    {
+        return $this->belongsToMany(FunnelAffiliate::class, 'funnel_affiliate_funnels', 'funnel_id', 'affiliate_id')
+            ->withPivot('status', 'joined_at')
+            ->withTimestamps();
+    }
+
+    public function affiliateCommissions(): HasMany
+    {
+        return $this->hasMany(FunnelAffiliateCommission::class);
+    }
+
+    public function affiliateCommissionRules(): HasMany
+    {
+        return $this->hasMany(FunnelAffiliateCommissionRule::class);
     }
 
     // Status helpers
@@ -254,5 +277,20 @@ class Funnel extends Model
     public function scopeForUser($query, int $userId)
     {
         return $query->where('user_id', $userId);
+    }
+
+    public function scopeAffiliateEnabled($query)
+    {
+        return $query->where('affiliate_enabled', true);
+    }
+
+    public function isAffiliateEnabled(): bool
+    {
+        return $this->affiliate_enabled;
+    }
+
+    public function shouldShowOrdersInAdmin(): bool
+    {
+        return $this->show_orders_in_admin;
     }
 }

@@ -8,6 +8,7 @@ use App\Http\Requests\Funnel\UpdateFunnelRequest;
 use App\Http\Resources\FunnelResource;
 use App\Models\Funnel;
 use App\Models\FunnelTemplate;
+use App\Models\ProductOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -124,7 +125,16 @@ class FunnelController extends Controller
         $funnel = Funnel::where('uuid', $uuid)->firstOrFail();
         $data = $request->validated();
 
+        $previousShowOrders = $funnel->show_orders_in_admin;
+
         $funnel->update($data);
+
+        if (array_key_exists('show_orders_in_admin', $data) && $data['show_orders_in_admin'] !== $previousShowOrders) {
+            $hiddenFromAdmin = ! $funnel->shouldShowOrdersInAdmin();
+
+            ProductOrder::whereIn('id', $funnel->orders()->pluck('product_order_id'))
+                ->update(['hidden_from_admin' => $hiddenFromAdmin]);
+        }
 
         return response()->json([
             'message' => 'Funnel updated successfully',

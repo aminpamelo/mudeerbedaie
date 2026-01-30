@@ -11,6 +11,8 @@ import ProductsTab from './ProductsTab';
 import AutomationsTab from './AutomationsTab';
 import OrdersTab from './OrdersTab';
 import PaymentTab from './PaymentTab';
+import AffiliatesTab from './AffiliatesTab';
+import SettingsTab from './SettingsTab';
 
 // Toast notification component
 function Toast({ message, type = 'success', onClose }) {
@@ -44,7 +46,7 @@ function Toast({ message, type = 'success', onClose }) {
 const getTabFromUrl = () => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
-    const validTabs = ['steps', 'products', 'automations', 'analytics', 'orders', 'payment', 'tracking', 'embed'];
+    const validTabs = ['steps', 'products', 'automations', 'analytics', 'orders', 'payment', 'tracking', 'embed', 'affiliates', 'settings'];
     return validTabs.includes(tab) ? tab : 'steps';
 };
 
@@ -65,7 +67,6 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState(getTabFromUrl);
-    const [showSettings, setShowSettings] = useState(false);
     const [toast, setToast] = useState(null);
 
     // Handle tab change with URL update
@@ -218,16 +219,6 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
                             </svg>
                             Preview
                         </a>
-                        <button
-                            onClick={() => setShowSettings(true)}
-                            className="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-sm font-medium flex items-center gap-2"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            Settings
-                        </button>
                         {funnel.status === 'draft' ? (
                             <button
                                 onClick={handlePublish}
@@ -289,7 +280,7 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
             <div className="px-6">
                 <div className="border-b border-gray-200">
                     <nav className="flex gap-8">
-                        {['steps', 'products', 'automations', 'analytics', 'orders', 'payment', 'tracking', 'embed'].map((tab) => (
+                        {['steps', 'products', 'automations', 'analytics', 'orders', 'payment', 'tracking', 'embed', 'affiliates', 'settings'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => handleTabChange(tab)}
@@ -345,16 +336,15 @@ export default function FunnelDetail({ funnelUuid, onBack, onEditStep }) {
                 {activeTab === 'embed' && (
                     <EmbedTab funnel={funnel} onRefresh={loadFunnel} showToast={showToast} />
                 )}
-            </div>
 
-            {/* Settings Modal */}
-            {showSettings && (
-                <FunnelSettingsModal
-                    funnel={funnel}
-                    onClose={() => setShowSettings(false)}
-                    onSave={handleUpdate}
-                />
-            )}
+                {activeTab === 'affiliates' && (
+                    <AffiliatesTab funnelUuid={funnelUuid} showToast={showToast} />
+                )}
+
+                {activeTab === 'settings' && (
+                    <SettingsTab funnelUuid={funnelUuid} funnel={funnel} onRefresh={loadFunnel} showToast={showToast} />
+                )}
+            </div>
 
             {/* Toast Notification */}
             {toast && (
@@ -1432,133 +1422,3 @@ function TrackingTab({ funnelUuid, funnel, onRefresh, showToast }) {
     );
 }
 
-// Funnel Settings Modal
-function FunnelSettingsModal({ funnel, onClose, onSave }) {
-    const [form, setForm] = useState({
-        name: funnel.name || '',
-        slug: funnel.slug || '',
-        description: funnel.description || '',
-        meta_title: funnel.settings?.meta_title || '',
-        meta_description: funnel.settings?.meta_description || '',
-    });
-    const [saving, setSaving] = useState(false);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setSaving(true);
-        try {
-            await onSave({
-                name: form.name,
-                slug: form.slug,
-                description: form.description,
-                settings: {
-                    ...funnel.settings,
-                    meta_title: form.meta_title,
-                    meta_description: form.meta_description,
-                },
-            });
-            onClose();
-        } catch (err) {
-            console.error('Failed to save settings:', err);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-                <div className="p-6">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4">Funnel Settings</h2>
-                    <form onSubmit={handleSubmit}>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Funnel Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={form.name}
-                                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    URL Slug
-                                </label>
-                                <div className="flex items-center">
-                                    <span className="text-gray-500 text-sm mr-2">/f/</span>
-                                    <input
-                                        type="text"
-                                        value={form.slug}
-                                        onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Description
-                                </label>
-                                <textarea
-                                    value={form.description}
-                                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                                    rows={3}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                            </div>
-
-                            <hr className="my-4" />
-
-                            <h3 className="font-medium text-gray-900">SEO Settings</h3>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Meta Title
-                                </label>
-                                <input
-                                    type="text"
-                                    value={form.meta_title}
-                                    onChange={(e) => setForm({ ...form, meta_title: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Meta Description
-                                </label>
-                                <textarea
-                                    value={form.meta_description}
-                                    onChange={(e) => setForm({ ...form, meta_description: e.target.value })}
-                                    rows={2}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
-                            >
-                                {saving ? 'Saving...' : 'Save Settings'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    );
-}

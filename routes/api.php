@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\ContactActivityController;
 use App\Http\Controllers\Api\StudentTagController;
 use App\Http\Controllers\Api\TagController;
+use App\Http\Controllers\Api\V1\AffiliateDashboardController;
+use App\Http\Controllers\Api\V1\FunnelAffiliateController;
 use App\Http\Controllers\Api\V1\FunnelAutomationController;
 use App\Http\Controllers\Api\V1\FunnelCheckoutController;
 use App\Http\Controllers\Api\V1\FunnelController;
@@ -154,6 +156,40 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::put('media/{id}', [FunnelMediaController::class, 'update'])->name('api.media.update');
     Route::delete('media/{id}', [FunnelMediaController::class, 'destroy'])->name('api.media.destroy');
     Route::post('media/bulk-delete', [FunnelMediaController::class, 'bulkDestroy'])->name('api.media.bulk-destroy');
+
+    // Funnel Affiliate Management (Admin)
+    Route::get('funnels/{uuid}/affiliates', [FunnelAffiliateController::class, 'index'])->name('api.funnels.affiliates.index');
+    Route::get('funnels/{uuid}/affiliates/{affiliateId}/stats', [FunnelAffiliateController::class, 'affiliateStats'])->name('api.funnels.affiliates.stats');
+    Route::get('funnels/{uuid}/affiliate-settings', [FunnelAffiliateController::class, 'settings'])->name('api.funnels.affiliate-settings');
+    Route::put('funnels/{uuid}/affiliate-settings', [FunnelAffiliateController::class, 'updateSettings'])->name('api.funnels.affiliate-settings.update');
+    Route::get('funnels/{uuid}/commissions', [FunnelAffiliateController::class, 'commissions'])->name('api.funnels.commissions.index');
+    Route::post('funnels/{uuid}/commissions/{commissionId}/approve', [FunnelAffiliateController::class, 'approveCommission'])->name('api.funnels.commissions.approve');
+    Route::post('funnels/{uuid}/commissions/{commissionId}/reject', [FunnelAffiliateController::class, 'rejectCommission'])->name('api.funnels.commissions.reject');
+    Route::post('funnels/{uuid}/commissions/bulk-approve', [FunnelAffiliateController::class, 'bulkApprove'])->name('api.funnels.commissions.bulk-approve');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Affiliate Dashboard API Routes
+|--------------------------------------------------------------------------
+*/
+Route::prefix('v1/affiliate')->middleware(\App\Http\Middleware\AffiliateSessionLifetime::class)->group(function () {
+    // Public (no auth)
+    Route::post('login', [AffiliateDashboardController::class, 'login'])->name('api.affiliate.login');
+    Route::post('register', [AffiliateDashboardController::class, 'register'])->name('api.affiliate.register');
+
+    // Protected (affiliate middleware)
+    Route::middleware('affiliate')->group(function () {
+        Route::post('logout', [AffiliateDashboardController::class, 'logout'])->name('api.affiliate.logout');
+        Route::get('me', [AffiliateDashboardController::class, 'me'])->name('api.affiliate.me');
+        Route::put('me', [AffiliateDashboardController::class, 'update'])->name('api.affiliate.update');
+        Route::get('dashboard', [AffiliateDashboardController::class, 'dashboard'])->name('api.affiliate.dashboard');
+        Route::get('funnels', [AffiliateDashboardController::class, 'joinedFunnels'])->name('api.affiliate.funnels');
+        Route::get('funnels/discover', [AffiliateDashboardController::class, 'discoverFunnels'])->name('api.affiliate.funnels.discover');
+        Route::post('funnels/{funnel}/join', [AffiliateDashboardController::class, 'joinFunnel'])->name('api.affiliate.funnels.join');
+        Route::get('funnels/{funnel}/stats', [AffiliateDashboardController::class, 'funnelStats'])->name('api.affiliate.funnels.stats');
+        Route::get('leaderboard', [AffiliateDashboardController::class, 'leaderboard'])->name('api.affiliate.leaderboard');
+    });
 });
 
 /*

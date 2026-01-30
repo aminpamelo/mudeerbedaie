@@ -454,9 +454,21 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 });
 
 // ============================================================================
+// AFFILIATE DASHBOARD - React SPA for affiliate portal
+// ============================================================================
+Route::get('affiliate/{any?}', fn () => view('affiliate-dashboard.index'))
+    ->where('any', '.*')
+    ->middleware(\App\Http\Middleware\AffiliateSessionLifetime::class)
+    ->name('affiliate.spa');
+
+// ============================================================================
 // PUBLIC FUNNEL PAGES - No auth required, visitors can view published funnels
 // ============================================================================
 Route::prefix('f')->name('funnel.')->group(function () {
+    // Affiliate ref tracking (path-based)
+    Route::get('{slug}/ref/{refCode}', [App\Http\Controllers\PublicFunnelController::class, 'showWithRef'])->name('showWithRef');
+    Route::get('{slug}/{stepSlug}/ref/{refCode}', [App\Http\Controllers\PublicFunnelController::class, 'showStepWithRef'])->name('stepWithRef');
+
     // Funnel landing page (first step)
     Route::get('{slug}', [App\Http\Controllers\PublicFunnelController::class, 'show'])->name('show');
 

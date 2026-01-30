@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Traits\ResolvesAffiliateId;
 use App\Models\Funnel;
+use App\Models\FunnelAffiliate;
 use App\Models\FunnelSession;
 use App\Models\FunnelStep;
 use App\Services\Funnel\FacebookPixelService;
@@ -13,10 +15,57 @@ use Illuminate\View\View;
 
 class PublicFunnelController extends Controller
 {
+    use ResolvesAffiliateId;
+
     public function __construct(
         protected PuckRenderer $renderer,
         protected FacebookPixelService $pixelService
     ) {}
+
+    /**
+     * Show funnel landing page with affiliate ref code (path-based).
+     */
+    public function showWithRef(Request $request, string $slug, string $refCode): View
+    {
+        $this->storeAffiliateRef($request, $slug, $refCode);
+
+        return $this->show($request, $slug);
+    }
+
+    /**
+     * Show specific funnel step with affiliate ref code (path-based).
+     */
+    public function showStepWithRef(Request $request, string $slug, string $stepSlug, string $refCode): View
+    {
+        $this->storeAffiliateRef($request, $slug, $refCode);
+
+        return $this->showStep($request, $slug, $stepSlug);
+    }
+
+    /**
+     * Store affiliate ref code in cookie and session.
+     */
+    protected function storeAffiliateRef(Request $request, string $slug, string $refCode): void
+    {
+        $affiliate = FunnelAffiliate::where('ref_code', $refCode)->active()->first();
+        if (! $affiliate) {
+            return;
+        }
+
+        $funnel = Funnel::where('slug', $slug)->first();
+        if (! $funnel) {
+            return;
+        }
+
+        // Verify affiliate has joined this funnel
+        if (! $affiliate->funnels()->where('funnels.id', $funnel->id)->wherePivot('status', 'approved')->exists()) {
+            return;
+        }
+
+        $cookieKey = "affiliate_ref_{$funnel->id}";
+        cookie()->queue($cookieKey, $affiliate->id, 60 * 24 * 30);
+        session([$cookieKey => $affiliate->id]);
+    }
 
     /**
      * Show funnel landing page (first step).
@@ -83,6 +132,14 @@ class PublicFunnelController extends Controller
                 'session_uuid' => $session->uuid,
             ];
             $renderedContent = $this->renderer->render($content->content, $context);
+
+            // Replace content placeholders
+            $orderNumber = $request->query('order');
+            if ($orderNumber) {
+                $renderedContent = new \Illuminate\Support\HtmlString(
+                    str_replace('[ORDER_NUMBER]', e($orderNumber), (string) $renderedContent)
+                );
+            }
         }
 
         // Get products for this step
@@ -157,10 +214,14 @@ class PublicFunnelController extends Controller
             }
         }
 
+        // Resolve affiliate ID from query param or cookie
+        $affiliateId = $this->resolveAffiliateId($request, $funnel);
+
         // Create new session
         $session = FunnelSession::create([
             'funnel_id' => $funnel->id,
             'visitor_id' => $this->getVisitorId($request),
+            'affiliate_id' => $affiliateId,
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'referrer' => $request->header('referer'),

@@ -113,6 +113,7 @@ new class extends Component
     public function getOrders()
     {
         return ProductOrder::query()
+            ->visibleInAdmin()
             ->with([
                 'customer',
                 'student',
@@ -293,7 +294,7 @@ new class extends Component
 
     public function getStatusCount(string $status): int
     {
-        $query = ProductOrder::query();
+        $query = ProductOrder::query()->visibleInAdmin();
 
         // Apply source filter based on current sourceTab
         if ($this->sourceTab !== 'all') {
@@ -319,18 +320,18 @@ new class extends Component
     public function getActionNeededStats(): array
     {
         return [
-            'pending_confirmation' => ProductOrder::where('status', 'pending')->count(),
-            'unpaid_orders' => ProductOrder::whereHas('payments', function ($query) {
+            'pending_confirmation' => ProductOrder::visibleInAdmin()->where('status', 'pending')->count(),
+            'unpaid_orders' => ProductOrder::visibleInAdmin()->whereHas('payments', function ($query) {
                 $query->where('status', '!=', 'paid');
             })->whereNotIn('status', ['cancelled', 'refunded'])->count(),
-            'processing' => ProductOrder::where('status', 'processing')->count(),
-            'ready_to_ship' => ProductOrder::where('status', 'confirmed')->count(),
+            'processing' => ProductOrder::visibleInAdmin()->where('status', 'processing')->count(),
+            'ready_to_ship' => ProductOrder::visibleInAdmin()->where('status', 'confirmed')->count(),
         ];
     }
 
     public function getSourceCounts(): array
     {
-        $counts = ProductOrder::selectRaw("
+        $counts = ProductOrder::visibleInAdmin()->selectRaw("
             COUNT(*) as total,
             SUM(CASE WHEN platform_id IS NOT NULL THEN 1 ELSE 0 END) as platform,
             SUM(CASE WHEN source = 'funnel' THEN 1 ELSE 0 END) as funnel,

@@ -355,6 +355,48 @@ export const mediaApi = {
     }),
 };
 
+/**
+ * Affiliate API
+ */
+export const affiliateApi = {
+    // Get affiliate settings for a funnel
+    settings: (funnelUuid) => request(`/funnels/${funnelUuid}/affiliate-settings`),
+
+    // Update affiliate settings
+    updateSettings: (funnelUuid, data) => request(`/funnels/${funnelUuid}/affiliate-settings`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    // List affiliates for a funnel
+    affiliates: (funnelUuid) => request(`/funnels/${funnelUuid}/affiliates`),
+
+    // Get affiliate stats
+    affiliateStats: (funnelUuid, affiliateId) => request(`/funnels/${funnelUuid}/affiliates/${affiliateId}/stats`),
+
+    // List commissions
+    commissions: (funnelUuid, params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return request(`/funnels/${funnelUuid}/commissions${query ? `?${query}` : ''}`);
+    },
+
+    // Approve commission
+    approveCommission: (funnelUuid, commissionId) => request(`/funnels/${funnelUuid}/commissions/${commissionId}/approve`, {
+        method: 'POST',
+    }),
+
+    // Reject commission
+    rejectCommission: (funnelUuid, commissionId, notes = '') => request(`/funnels/${funnelUuid}/commissions/${commissionId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ notes }),
+    }),
+
+    // Bulk approve commissions
+    bulkApprove: (funnelUuid) => request(`/funnels/${funnelUuid}/commissions/bulk-approve`, {
+        method: 'POST',
+    }),
+};
+
 export default {
     funnel: funnelApi,
     step: stepApi,
@@ -365,4 +407,5 @@ export default {
     automation: automationApi,
     template: templateApi,
     media: mediaApi,
+    affiliate: affiliateApi,
 };

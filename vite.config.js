@@ -20,6 +20,7 @@ export default defineConfig({
                 'resources/js/funnel-builder/styles/funnel-builder.css',
                 'resources/js/workflow-builder/index.jsx',
                 'resources/js/workflow-builder/styles/workflow-builder.css',
+                'resources/js/affiliate-dashboard/index.jsx',
             ],
             refresh: true,
         }),

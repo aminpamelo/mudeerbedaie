@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'affiliate' => \App\Http\Middleware\AffiliateAuth::class,
         ]);
 
         // Add SetLocale middleware to web group

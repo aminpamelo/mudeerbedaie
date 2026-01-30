@@ -17,7 +17,45 @@ class FunnelFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'user_id' => \App\Models\User::factory(),
+            'name' => fake()->sentence(3),
+            'type' => 'sales',
+            'status' => 'published',
+            'settings' => [],
+            'embed_settings' => [],
+            'embed_enabled' => false,
+            'affiliate_enabled' => false,
+            'show_orders_in_admin' => true,
+            'payment_settings' => [],
         ];
+    }
+
+    public function affiliateEnabled(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'affiliate_enabled' => true,
+        ]);
+    }
+
+    public function hideOrdersFromAdmin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'show_orders_in_admin' => false,
+        ]);
+    }
+
+    public function published(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+    }
+
+    public function draft(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'draft',
+        ]);
     }
 }

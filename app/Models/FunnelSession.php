@@ -18,6 +18,7 @@ class FunnelSession extends Model
         'funnel_id',
         'user_id',
         'student_id',
+        'affiliate_id',
         'visitor_id',
         'email',
         'phone',
@@ -73,6 +74,11 @@ class FunnelSession extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    public function affiliate(): BelongsTo
+    {
+        return $this->belongsTo(FunnelAffiliate::class, 'affiliate_id');
     }
 
     public function entryStep(): BelongsTo

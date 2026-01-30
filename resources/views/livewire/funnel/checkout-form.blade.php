@@ -414,6 +414,12 @@ new class extends Component
                 'bumps_accepted' => count($this->selectedBumps),
             ]);
 
+            // Track form submission event (for affiliate checkout fill stats)
+            $this->funnelSession?->trackEvent('form_submit', [
+                'order_id' => $productOrder->id,
+                'order_number' => $productOrder->order_number,
+            ], $this->step);
+
             // Track checkout initiated event (payment not yet completed)
             $this->funnelSession?->trackEvent('checkout_initiated', [
                 'order_id' => $productOrder->id,

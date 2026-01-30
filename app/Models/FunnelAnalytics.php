@@ -117,21 +117,35 @@ class FunnelAnalytics extends Model
     // Static helper to get or create today's analytics
     public static function getOrCreateForToday(int $funnelId, ?int $stepId = null): self
     {
-        return self::firstOrCreate(
-            [
+        $date = now()->toDateString();
+
+        $record = self::where('funnel_id', $funnelId)
+            ->where('funnel_step_id', $stepId)
+            ->whereDate('date', $date)
+            ->first();
+
+        if ($record) {
+            return $record;
+        }
+
+        try {
+            return self::create([
                 'funnel_id' => $funnelId,
                 'funnel_step_id' => $stepId,
-                'date' => now()->toDateString(),
-            ],
-            [
+                'date' => $date,
                 'unique_visitors' => 0,
                 'pageviews' => 0,
                 'conversions' => 0,
                 'revenue' => 0,
                 'avg_time_seconds' => 0,
                 'bounce_count' => 0,
-            ]
-        );
+            ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            return self::where('funnel_id', $funnelId)
+                ->where('funnel_step_id', $stepId)
+                ->whereDate('date', $date)
+                ->first();
+        }
     }
 
     // Scopes

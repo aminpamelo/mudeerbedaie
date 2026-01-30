@@ -403,6 +403,12 @@ new class extends Component
                 $this->cart->markAsRecovered($productOrder);
             }
 
+            // Track form submission event (for affiliate checkout fill stats)
+            $this->funnelSession?->trackEvent('form_submit', [
+                'order_id' => $productOrder->id,
+                'order_number' => $productOrder->order_number,
+            ], $this->step);
+
             // Track checkout initiated event
             $this->funnelSession?->trackEvent('checkout_initiated', [
                 'order_id' => $productOrder->id,

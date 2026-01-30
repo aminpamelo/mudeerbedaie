@@ -50,6 +50,7 @@ class ProductOrder extends Model
         'reference_number',
         'source',
         'source_reference',
+        'hidden_from_admin',
         // Platform discount breakdown
         'sku_platform_discount',
         'sku_seller_discount',
@@ -114,6 +115,7 @@ class ProductOrder extends Model
             // Platform data
             'shipping_address' => 'array',
             'platform_data' => 'array',
+            'hidden_from_admin' => 'boolean',
         ];
     }
 
@@ -486,6 +488,11 @@ class ProductOrder extends Model
     public function getDisplayOrderIdAttribute(): string
     {
         return $this->platform_order_number ?: $this->platform_order_id ?: $this->order_number;
+    }
+
+    public function scopeVisibleInAdmin($query)
+    {
+        return $query->where('hidden_from_admin', false);
     }
 
     // Static methods

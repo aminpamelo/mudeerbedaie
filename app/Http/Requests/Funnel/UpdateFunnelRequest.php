@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Funnel;
 
+use App\Models\Funnel;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +15,7 @@ class UpdateFunnelRequest extends FormRequest
 
     public function rules(): array
     {
-        $funnel = $this->route('funnel');
+        $funnel = Funnel::where('uuid', $this->route('uuid'))->first();
 
         return [
             'name' => ['sometimes', 'string', 'max:255'],
@@ -22,7 +23,7 @@ class UpdateFunnelRequest extends FormRequest
                 'sometimes',
                 'string',
                 'max:255',
-                Rule::unique('funnels', 'slug')->ignore($funnel),
+                Rule::unique('funnels', 'slug')->ignore($funnel?->id),
             ],
             'description' => ['nullable', 'string', 'max:1000'],
             'type' => ['sometimes', Rule::in(['sales', 'lead', 'webinar', 'course'])],
@@ -42,6 +43,7 @@ class UpdateFunnelRequest extends FormRequest
             'settings.pixel_settings.facebook.test_event_code' => ['nullable', 'string', 'max:50'],
             'settings.pixel_settings.facebook.events' => ['nullable', 'array'],
             'settings.pixel_settings.tiktok' => ['nullable', 'array'],
+            'show_orders_in_admin' => ['sometimes', 'boolean'],
             'payment_settings' => ['nullable', 'array'],
             'payment_settings.enabled_methods' => ['nullable', 'array'],
             'payment_settings.enabled_methods.*' => ['string', 'in:stripe,bayarcash_fpx'],

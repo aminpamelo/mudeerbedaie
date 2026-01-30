@@ -197,6 +197,7 @@ class FunnelCheckoutService
             'payment_method' => 'credit_card',
             'source' => 'funnel',
             'source_reference' => $session->funnel->slug,
+            'hidden_from_admin' => ! $session->funnel->shouldShowOrdersInAdmin(),
             'notes' => 'Funnel purchase: '.$session->funnel->name,
             'metadata' => [
                 'funnel_id' => $session->funnel_id,
@@ -376,6 +377,10 @@ class FunnelCheckoutService
                         null, // Will generate new event ID
                         url("/f/{$funnel->slug}/thank-you")
                     );
+
+                    // Calculate affiliate commission if applicable
+                    $affiliateCommissionService = app(AffiliateCommissionService::class);
+                    $affiliateCommissionService->calculateCommission($funnelOrder, $funnelOrder->session);
                 }
             }
 
@@ -447,6 +452,7 @@ class FunnelCheckoutService
                     'payment_method' => 'credit_card',
                     'source' => 'funnel',
                     'source_reference' => $session->funnel->slug,
+                    'hidden_from_admin' => ! $session->funnel->shouldShowOrdersInAdmin(),
                     'notes' => 'Funnel upsell: '.$upsellProduct->name,
                     'metadata' => [
                         'funnel_id' => $session->funnel_id,
