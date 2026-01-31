@@ -33,6 +33,9 @@ class FunnelResource extends JsonResource
             // Order settings
             'show_orders_in_admin' => $this->show_orders_in_admin ?? true,
 
+            // Checkout settings
+            'disable_shipping' => $this->disable_shipping ?? false,
+
             // Payment settings
             'payment_settings' => $this->payment_settings,
             'created_at' => $this->created_at?->toIso8601String(),

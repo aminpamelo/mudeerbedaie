@@ -51,11 +51,16 @@ new class extends Component
 
     public array $availablePaymentMethods = [];
 
+    public bool $disableShipping = false;
+
+    public string $countryCode = '+60';
+
     public function mount(Funnel $funnel, FunnelStep $step, ?FunnelSession $session = null): void
     {
         $this->funnel = $funnel;
         $this->step = $step->load(['products.product', 'products.course', 'orderBumps.product']);
         $this->funnelSession = $session;
+        $this->disableShipping = (bool) $funnel->disable_shipping;
 
         $this->loadCart();
         $this->prefillFromSession();
@@ -159,7 +164,10 @@ new class extends Component
     {
         if ($this->funnelSession) {
             $this->customerData['email'] = $this->funnelSession->email ?? '';
-            $this->customerData['phone'] = $this->funnelSession->phone ?? '';
+            $rawPhone = $this->funnelSession->phone ?? '';
+            if ($rawPhone) {
+                $this->parsePhoneWithCountryCode($rawPhone);
+            }
         }
 
         if (auth()->check()) {
@@ -168,6 +176,29 @@ new class extends Component
             $this->customerData['name'] = $user->name ?? '';
             $this->billingAddress['first_name'] = $user->name ?? '';
         }
+    }
+
+    private function parsePhoneWithCountryCode(string $phone): void
+    {
+        $countryCodes = ['+856', '+855', '+886', '+852', '+971', '+966', '+974', '+673', '+60', '+65', '+62', '+66', '+63', '+84', '+95', '+91', '+86', '+81', '+82', '+61', '+64', '+44', '+49', '+33', '+1'];
+
+        foreach ($countryCodes as $code) {
+            if (str_starts_with($phone, $code)) {
+                $this->countryCode = $code;
+                $this->customerData['phone'] = substr($phone, strlen($code));
+
+                return;
+            }
+        }
+
+        $this->customerData['phone'] = $phone;
+    }
+
+    public function getFullPhone(): string
+    {
+        $phone = $this->customerData['phone'] ?? '';
+
+        return $phone ? $this->countryCode . $phone : '';
     }
 
     public function toggleProduct(int $productId): void
@@ -211,7 +242,7 @@ new class extends Component
                 'session_id' => $this->funnelSession->id,
                 'step_id' => $this->step->id,
                 'email' => $this->customerData['email'] ?: null,
-                'phone' => $this->customerData['phone'] ?: null,
+                'phone' => $this->getFullPhone() ?: null,
                 'cart_data' => $cartData,
                 'total_amount' => $totalAmount,
                 'recovery_status' => 'pending',
@@ -265,7 +296,7 @@ new class extends Component
     public function proceedToInformation(): void
     {
         if (empty($this->selectedProducts)) {
-            $this->addError('products', 'Please select at least one product.');
+            $this->addError('products', 'Sila pilih sekurang-kurangnya satu produk.');
 
             return;
         }
@@ -276,22 +307,28 @@ new class extends Component
 
     public function proceedToPayment(): void
     {
-        $this->validate([
+        $rules = [
             'customerData.email' => 'required|email',
             'customerData.name' => 'required|min:2',
-            'billingAddress.first_name' => 'required|min:2',
-            'billingAddress.last_name' => 'required|min:2',
-            'billingAddress.address_line_1' => 'required|min:5',
-            'billingAddress.city' => 'required|min:2',
-            'billingAddress.state' => 'required|min:2',
-            'billingAddress.postal_code' => 'required|min:5',
-        ]);
+        ];
+
+        if (! $this->disableShipping) {
+            $rules['billingAddress.first_name'] = 'required|min:2';
+            $rules['billingAddress.last_name'] = 'required|min:2';
+            $rules['billingAddress.address_line_1'] = 'required|min:5';
+            $rules['billingAddress.city'] = 'required|min:2';
+            $rules['billingAddress.state'] = 'required|min:2';
+            $rules['billingAddress.postal_code'] = 'required|min:5';
+        }
+
+        $this->validate($rules);
 
         // Update session with contact info
+        $fullPhone = $this->getFullPhone();
         if ($this->funnelSession) {
             $this->funnelSession->update([
                 'email' => $this->customerData['email'],
-                'phone' => $this->customerData['phone'] ?? null,
+                'phone' => $fullPhone ?: null,
             ]);
         }
 
@@ -299,7 +336,7 @@ new class extends Component
         if ($this->cart) {
             $this->cart->update([
                 'email' => $this->customerData['email'],
-                'phone' => $this->customerData['phone'] ?? null,
+                'phone' => $fullPhone ?: null,
             ]);
         }
 
@@ -335,6 +372,17 @@ new class extends Component
             // Create the order using existing ProductOrder system
             $orderData = $this->prepareOrderData();
 
+            // Prepare billing address (use fallback when shipping is disabled)
+            $billingAddress = $this->disableShipping ? [
+                'first_name' => explode(' ', $this->customerData['name'])[0] ?? $this->customerData['name'],
+                'last_name' => explode(' ', $this->customerData['name'])[1] ?? '',
+                'address_line_1' => '',
+                'city' => '',
+                'state' => '',
+                'postal_code' => '',
+                'country' => 'Malaysia',
+            ] : $this->billingAddress;
+
             // Create ProductOrder
             $productOrder = \App\Models\ProductOrder::create([
                 'order_number' => \App\Models\ProductOrder::generateOrderNumber(),
@@ -342,9 +390,9 @@ new class extends Component
                 'student_id' => auth()->user()?->student?->id,
                 'guest_email' => $this->customerData['email'],
                 'customer_name' => $this->customerData['name'],
-                'customer_phone' => $this->customerData['phone'] ?? null,
-                'billing_address' => $this->billingAddress,
-                'shipping_address' => $this->billingAddress,
+                'customer_phone' => $this->getFullPhone() ?: null,
+                'billing_address' => $billingAddress,
+                'shipping_address' => $billingAddress,
                 'subtotal' => $this->calculateSubtotal(),
                 'discount_amount' => 0,
                 'tax_amount' => 0,
@@ -464,7 +512,7 @@ new class extends Component
                 'amount' => $order->total_amount,
                 'payer_name' => $this->customerData['name'],
                 'payer_email' => $this->customerData['email'],
-                'payer_phone' => $this->customerData['phone'] ?? '',
+                'payer_phone' => $this->getFullPhone(),
             ]);
 
             // Store Bayarcash transaction info
@@ -553,7 +601,7 @@ new class extends Component
                 <div class="w-8 h-8 rounded-full {{ $currentStep === 'cart' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold text-sm">
                     1
                 </div>
-                <span class="ml-2 text-sm {{ $currentStep === 'cart' ? 'font-semibold' : '' }}">Cart</span>
+                <span class="ml-2 text-sm {{ $currentStep === 'cart' ? 'font-semibold' : '' }}">Troli</span>
             </div>
 
             <div class="flex-1 h-px bg-gray-200 max-w-16"></div>
@@ -562,7 +610,7 @@ new class extends Component
                 <div class="w-8 h-8 rounded-full {{ $currentStep === 'information' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold text-sm">
                     2
                 </div>
-                <span class="ml-2 text-sm {{ $currentStep === 'information' ? 'font-semibold' : '' }}">Information</span>
+                <span class="ml-2 text-sm {{ $currentStep === 'information' ? 'font-semibold' : '' }}">Maklumat</span>
             </div>
 
             <div class="flex-1 h-px bg-gray-200 max-w-16"></div>
@@ -571,7 +619,7 @@ new class extends Component
                 <div class="w-8 h-8 rounded-full {{ $currentStep === 'payment' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold text-sm">
                     3
                 </div>
-                <span class="ml-2 text-sm {{ $currentStep === 'payment' ? 'font-semibold' : '' }}">Payment</span>
+                <span class="ml-2 text-sm {{ $currentStep === 'payment' ? 'font-semibold' : '' }}">Pembayaran</span>
             </div>
         </div>
     </div>
@@ -582,7 +630,7 @@ new class extends Component
             <div class="lg:col-span-2 space-y-6">
                 {{-- Products Selection --}}
                 <div class="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 class="text-lg font-semibold mb-4">Select Your Package</h3>
+                    <h3 class="text-lg font-semibold mb-4">Pilih Pakej Anda</h3>
 
                     @error('products')
                         <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
@@ -630,7 +678,7 @@ new class extends Component
 
                                         @if($product->is_recurring)
                                             <span class="inline-block mt-2 px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded">
-                                                {{ ucfirst($product->billing_interval) }} Subscription
+                                                Langganan {{ ucfirst($product->billing_interval) }}
                                             </span>
                                         @endif
                                     </div>
@@ -644,8 +692,8 @@ new class extends Component
                 @if($step->orderBumps->isNotEmpty())
                     <div class="bg-yellow-50 border-2 border-yellow-400 border-dashed rounded-lg p-6">
                         <div class="flex items-center mb-4">
-                            <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded mr-2">WAIT!</span>
-                            <h3 class="text-lg font-semibold text-yellow-900">Special One-Time Offers</h3>
+                            <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded mr-2">TUNGGU!</span>
+                            <h3 class="text-lg font-semibold text-yellow-900">Tawaran Istimewa Sekali Sahaja</h3>
                         </div>
 
                         <div class="space-y-4">
@@ -668,7 +716,7 @@ new class extends Component
                                             <div class="flex items-start justify-between">
                                                 <div>
                                                     <span class="text-sm font-bold text-green-700 uppercase">
-                                                        {{ $bump->headline ?? 'Add This To Your Order' }}
+                                                        {{ $bump->headline ?? 'Tambah Ini Ke Pesanan Anda' }}
                                                     </span>
                                                     <h4 class="font-semibold text-gray-900 mt-1">{{ $bump->name }}</h4>
                                                     @if($bump->description)
@@ -699,7 +747,7 @@ new class extends Component
             {{-- Order Summary Sidebar --}}
             <div class="lg:col-span-1">
                 <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
-                    <h3 class="text-lg font-semibold mb-4">Order Summary</h3>
+                    <h3 class="text-lg font-semibold mb-4">Ringkasan Pesanan</h3>
 
                     <div class="space-y-3 mb-6">
                         @foreach($step->products as $product)
@@ -723,19 +771,19 @@ new class extends Component
 
                     <div class="border-t pt-4">
                         <div class="flex justify-between mb-2">
-                            <span class="text-gray-600">Subtotal</span>
+                            <span class="text-gray-600">Jumlah kecil</span>
                             <span class="font-medium">RM {{ number_format($this->calculateSubtotal(), 2) }}</span>
                         </div>
 
                         @if($this->calculateBumpsTotal() > 0)
                             <div class="flex justify-between mb-2 text-green-700">
-                                <span>Order Bumps</span>
+                                <span>Tambahan Pesanan</span>
                                 <span class="font-medium">RM {{ number_format($this->calculateBumpsTotal(), 2) }}</span>
                             </div>
                         @endif
 
                         <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2">
-                            <span>Total</span>
+                            <span>Jumlah</span>
                             <span>RM {{ number_format($this->calculateTotal(), 2) }}</span>
                         </div>
                     </div>
@@ -744,7 +792,7 @@ new class extends Component
                         wire:click="proceedToInformation"
                         class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
                     >
-                        Continue to Checkout
+                        Teruskan ke Pembayaran
                         <svg class="inline-block w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
@@ -754,7 +802,7 @@ new class extends Component
                         <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
                         </svg>
-                        Secure Checkout
+                        Pembayaran Selamat
                     </div>
                 </div>
             </div>
@@ -765,15 +813,15 @@ new class extends Component
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="lg:col-span-2">
                 <div class="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 class="text-lg font-semibold mb-6">Customer Information</h3>
+                    <h3 class="text-lg font-semibold mb-6">Maklumat Pelanggan</h3>
 
                     <div class="space-y-6">
                         {{-- Contact Information --}}
                         <div>
-                            <h4 class="font-medium text-gray-900 mb-4">Contact Details</h4>
+                            <h4 class="font-medium text-gray-900 mb-4">Maklumat Perhubungan</h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Emel *</label>
                                     <input
                                         type="email"
                                         wire:model="customerData.email"
@@ -784,7 +832,7 @@ new class extends Component
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Penuh *</label>
                                     <input
                                         type="text"
                                         wire:model="customerData.name"
@@ -795,24 +843,120 @@ new class extends Component
                                 </div>
 
                                 <div class="md:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Phone (Optional)</label>
-                                    <input
-                                        type="text"
-                                        wire:model="customerData.phone"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="+60123456789"
-                                    >
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefon (Pilihan)</label>
+                                    <div class="flex" x-data="{
+                                        open: false,
+                                        search: '',
+                                        codes: [
+                                            { code: '+60', flag: '🇲🇾', name: 'Malaysia' },
+                                            { code: '+65', flag: '🇸🇬', name: 'Singapore' },
+                                            { code: '+62', flag: '🇮🇩', name: 'Indonesia' },
+                                            { code: '+66', flag: '🇹🇭', name: 'Thailand' },
+                                            { code: '+63', flag: '🇵🇭', name: 'Philippines' },
+                                            { code: '+84', flag: '🇻🇳', name: 'Vietnam' },
+                                            { code: '+673', flag: '🇧🇳', name: 'Brunei' },
+                                            { code: '+95', flag: '🇲🇲', name: 'Myanmar' },
+                                            { code: '+856', flag: '🇱🇦', name: 'Laos' },
+                                            { code: '+855', flag: '🇰🇭', name: 'Cambodia' },
+                                            { code: '+91', flag: '🇮🇳', name: 'India' },
+                                            { code: '+86', flag: '🇨🇳', name: 'China' },
+                                            { code: '+81', flag: '🇯🇵', name: 'Japan' },
+                                            { code: '+82', flag: '🇰🇷', name: 'South Korea' },
+                                            { code: '+886', flag: '🇹🇼', name: 'Taiwan' },
+                                            { code: '+852', flag: '🇭🇰', name: 'Hong Kong' },
+                                            { code: '+61', flag: '🇦🇺', name: 'Australia' },
+                                            { code: '+64', flag: '🇳🇿', name: 'New Zealand' },
+                                            { code: '+44', flag: '🇬🇧', name: 'United Kingdom' },
+                                            { code: '+1', flag: '🇺🇸', name: 'United States' },
+                                            { code: '+971', flag: '🇦🇪', name: 'UAE' },
+                                            { code: '+966', flag: '🇸🇦', name: 'Saudi Arabia' },
+                                            { code: '+974', flag: '🇶🇦', name: 'Qatar' },
+                                            { code: '+49', flag: '🇩🇪', name: 'Germany' },
+                                            { code: '+33', flag: '🇫🇷', name: 'France' },
+                                        ],
+                                        get filtered() {
+                                            if (!this.search) return this.codes;
+                                            const s = this.search.toLowerCase();
+                                            return this.codes.filter(c => c.name.toLowerCase().includes(s) || c.code.includes(s));
+                                        },
+                                        get selected() {
+                                            return this.codes.find(c => c.code === $wire.countryCode) || this.codes[0];
+                                        },
+                                        select(code) {
+                                            $wire.countryCode = code;
+                                            this.open = false;
+                                            this.search = '';
+                                        }
+                                    }" @click.outside="open = false; search = ''">
+                                        <div class="relative">
+                                            <button
+                                                type="button"
+                                                @click="open = !open"
+                                                class="flex items-center gap-1.5 px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 hover:bg-gray-100 transition-colors text-sm whitespace-nowrap"
+                                            >
+                                                <span x-text="selected.flag"></span>
+                                                <span class="text-gray-700" x-text="selected.code"></span>
+                                                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                </svg>
+                                            </button>
+
+                                            <div
+                                                x-show="open"
+                                                x-transition:enter="transition ease-out duration-100"
+                                                x-transition:enter-start="opacity-0 scale-95"
+                                                x-transition:enter-end="opacity-100 scale-100"
+                                                x-transition:leave="transition ease-in duration-75"
+                                                x-transition:leave-start="opacity-100 scale-100"
+                                                x-transition:leave-end="opacity-0 scale-95"
+                                                class="absolute z-50 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
+                                                x-cloak
+                                            >
+                                                <div class="p-2 border-b border-gray-100">
+                                                    <input
+                                                        type="text"
+                                                        x-model="search"
+                                                        placeholder="Cari negara..."
+                                                        class="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        @click.stop
+                                                    >
+                                                </div>
+                                                <div class="max-h-48 overflow-y-auto">
+                                                    <template x-for="item in filtered" :key="item.code">
+                                                        <button
+                                                            type="button"
+                                                            @click="select(item.code)"
+                                                            class="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 transition-colors"
+                                                            :class="item.code === $wire.countryCode && 'bg-blue-50 text-blue-700'"
+                                                        >
+                                                            <span x-text="item.flag"></span>
+                                                            <span class="flex-1 text-left" x-text="item.name"></span>
+                                                            <span class="text-gray-500" x-text="item.code"></span>
+                                                        </button>
+                                                    </template>
+                                                    <div x-show="filtered.length === 0" class="px-3 py-2 text-sm text-gray-500">Tiada hasil ditemui</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="tel"
+                                            wire:model="customerData.phone"
+                                            class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="12 345 6789"
+                                        >
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         {{-- Billing Address --}}
+                        @if(!$disableShipping)
                         <div>
-                            <h4 class="font-medium text-gray-900 mb-4">Billing Address</h4>
+                            <h4 class="font-medium text-gray-900 mb-4">Alamat Pengebilan</h4>
                             <div class="space-y-4">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Pertama *</label>
                                         <input
                                             type="text"
                                             wire:model="billingAddress.first_name"
@@ -822,7 +966,7 @@ new class extends Component
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Akhir *</label>
                                         <input
                                             type="text"
                                             wire:model="billingAddress.last_name"
@@ -833,12 +977,12 @@ new class extends Component
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Alamat *</label>
                                     <input
                                         type="text"
                                         wire:model="billingAddress.address_line_1"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Street address"
+                                        placeholder="Alamat jalan"
                                     >
                                     @error('billingAddress.address_line_1') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                                 </div>
@@ -848,13 +992,13 @@ new class extends Component
                                         type="text"
                                         wire:model="billingAddress.address_line_2"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Apartment, suite, etc. (optional)"
+                                        placeholder="Apartmen, suite, dll. (pilihan)"
                                     >
                                 </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Bandar *</label>
                                         <input
                                             type="text"
                                             wire:model="billingAddress.city"
@@ -864,7 +1008,7 @@ new class extends Component
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Negeri *</label>
                                         <input
                                             type="text"
                                             wire:model="billingAddress.state"
@@ -874,7 +1018,7 @@ new class extends Component
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Postal Code *</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Poskod *</label>
                                         <input
                                             type="text"
                                             wire:model="billingAddress.postal_code"
@@ -885,6 +1029,7 @@ new class extends Component
                                 </div>
                             </div>
                         </div>
+                        @endif
                     </div>
 
                     <div class="mt-8 flex justify-between">
@@ -895,14 +1040,14 @@ new class extends Component
                             <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                             </svg>
-                            Back
+                            Kembali
                         </button>
 
                         <button
                             wire:click="proceedToPayment"
                             class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors"
                         >
-                            Continue to Payment
+                            Teruskan ke Pembayaran
                             <svg class="inline-block w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                             </svg>
@@ -922,7 +1067,7 @@ new class extends Component
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="lg:col-span-2">
                 <div class="bg-white rounded-lg shadow-sm border p-6">
-                    <h3 class="text-lg font-semibold mb-6">Payment Method</h3>
+                    <h3 class="text-lg font-semibold mb-6">Kaedah Pembayaran</h3>
 
                     @error('payment')
                         <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
@@ -936,7 +1081,7 @@ new class extends Component
                                 <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
                                 </svg>
-                                <span class="text-sm font-medium">No payment methods are currently available. Please contact support.</span>
+                                <span class="text-sm font-medium">Tiada kaedah pembayaran tersedia buat masa ini. Sila hubungi sokongan.</span>
                             </div>
                         </div>
                     @else
@@ -978,7 +1123,7 @@ new class extends Component
                                 <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                                 </svg>
-                                <span class="text-sm">You will be redirected to a secure payment gateway to complete your payment.</span>
+                                <span class="text-sm">Anda akan dialihkan ke gerbang pembayaran selamat untuk melengkapkan pembayaran anda.</span>
                             </div>
                         </div>
                     @elseif($paymentMethod === 'fpx')
@@ -987,7 +1132,7 @@ new class extends Component
                                 <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
                                 </svg>
-                                <span class="text-sm">You will be redirected to your bank's secure online banking to complete the payment via FPX.</span>
+                                <span class="text-sm">Anda akan dialihkan ke perbankan dalam talian bank anda untuk melengkapkan pembayaran melalui FPX.</span>
                             </div>
                         </div>
                     @endif
@@ -1000,7 +1145,7 @@ new class extends Component
                             <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                             </svg>
-                            Back
+                            Kembali
                         </button>
 
                         <button
@@ -1011,10 +1156,10 @@ new class extends Component
                             {{ $isProcessing ? 'disabled' : '' }}
                         >
                             <span wire:loading.remove wire:target="processOrder">
-                                Complete Purchase - RM {{ number_format($this->calculateTotal(), 2) }}
+                                Lengkapkan Pembelian - RM {{ number_format($this->calculateTotal(), 2) }}
                             </span>
                             <span wire:loading wire:target="processOrder">
-                                Processing...
+                                Memproses...
                             </span>
                         </button>
                     </div>
@@ -1026,14 +1171,14 @@ new class extends Component
                         <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
                         </svg>
-                        <span class="text-sm">SSL Secure</span>
+                        <span class="text-sm">SSL Selamat</span>
                     </div>
 
                     <div class="flex items-center">
                         <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                         </svg>
-                        <span class="text-sm">Money Back Guarantee</span>
+                        <span class="text-sm">Jaminan Wang Dikembalikan</span>
                     </div>
                 </div>
             </div>

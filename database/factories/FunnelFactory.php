@@ -26,6 +26,7 @@ class FunnelFactory extends Factory
             'embed_enabled' => false,
             'affiliate_enabled' => false,
             'show_orders_in_admin' => true,
+            'disable_shipping' => false,
             'payment_settings' => [],
         ];
     }
@@ -34,6 +35,13 @@ class FunnelFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'affiliate_enabled' => true,
+        ]);
+    }
+
+    public function shippingDisabled(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'disable_shipping' => true,
         ]);
     }
 

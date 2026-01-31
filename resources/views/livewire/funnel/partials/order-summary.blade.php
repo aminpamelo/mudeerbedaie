@@ -1,5 +1,5 @@
 <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
-    <h3 class="text-lg font-semibold mb-4">Order Summary</h3>
+    <h3 class="text-lg font-semibold mb-4">Ringkasan Pesanan</h3>
 
     <div class="space-y-3 mb-6">
         @foreach($step->products as $product)
@@ -35,19 +35,19 @@
 
     <div class="border-t pt-4">
         <div class="flex justify-between mb-2">
-            <span class="text-gray-600">Subtotal</span>
+            <span class="text-gray-600">Jumlah kecil</span>
             <span class="font-medium">RM {{ number_format($subtotal, 2) }}</span>
         </div>
 
         @if($bumpsTotal > 0)
             <div class="flex justify-between mb-2 text-green-700">
-                <span>Order Bumps</span>
+                <span>Tambahan Pesanan</span>
                 <span class="font-medium">RM {{ number_format($bumpsTotal, 2) }}</span>
             </div>
         @endif
 
         <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2">
-            <span>Total</span>
+            <span>Jumlah</span>
             <span>RM {{ number_format($total, 2) }}</span>
         </div>
     </div>
@@ -57,7 +57,7 @@
             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
             </svg>
-            Secure Checkout
+            Pembayaran Selamat
         </div>
     </div>
 </div>

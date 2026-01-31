@@ -44,6 +44,7 @@ class UpdateFunnelRequest extends FormRequest
             'settings.pixel_settings.facebook.events' => ['nullable', 'array'],
             'settings.pixel_settings.tiktok' => ['nullable', 'array'],
             'show_orders_in_admin' => ['sometimes', 'boolean'],
+            'disable_shipping' => ['sometimes', 'boolean'],
             'payment_settings' => ['nullable', 'array'],
             'payment_settings.enabled_methods' => ['nullable', 'array'],
             'payment_settings.enabled_methods.*' => ['string', 'in:stripe,bayarcash_fpx'],

@@ -29,6 +29,8 @@ new class extends Component
 
     public string $phone = '';
 
+    public string $countryCode = '+60';
+
     public array $billingAddress = [
         'address_line_1' => '',
         'city' => '',
@@ -45,6 +47,8 @@ new class extends Component
 
     public bool $isEmbedded = false;
 
+    public bool $disableShipping = false;
+
     public array $availablePaymentMethods = [];
 
     public function mount(Funnel $funnel, FunnelStep $step, ?FunnelSession $session = null, bool $embedded = false): void
@@ -53,6 +57,7 @@ new class extends Component
         $this->step = $step->load(['products.product', 'products.course', 'orderBumps.product']);
         $this->funnelSession = $session;
         $this->isEmbedded = $embedded;
+        $this->disableShipping = (bool) $funnel->disable_shipping;
 
         $this->loadCart();
         $this->prefillFromSession();
@@ -157,7 +162,10 @@ new class extends Component
     {
         if ($this->funnelSession) {
             $this->email = $this->funnelSession->email ?? '';
-            $this->phone = $this->funnelSession->phone ?? '';
+            $rawPhone = $this->funnelSession->phone ?? '';
+            if ($rawPhone) {
+                $this->parsePhoneWithCountryCode($rawPhone);
+            }
         }
 
         if (auth()->check()) {
@@ -165,6 +173,27 @@ new class extends Component
             $this->email = $this->email ?: $user->email;
             $this->name = $user->name ?? '';
         }
+    }
+
+    private function parsePhoneWithCountryCode(string $phone): void
+    {
+        $countryCodes = ['+856', '+855', '+886', '+852', '+971', '+966', '+974', '+673', '+60', '+65', '+62', '+66', '+63', '+84', '+95', '+91', '+86', '+81', '+82', '+61', '+64', '+44', '+49', '+33', '+1'];
+
+        foreach ($countryCodes as $code) {
+            if (str_starts_with($phone, $code)) {
+                $this->countryCode = $code;
+                $this->phone = substr($phone, strlen($code));
+
+                return;
+            }
+        }
+
+        $this->phone = $phone;
+    }
+
+    public function getFullPhone(): string
+    {
+        return $this->phone ? $this->countryCode . $this->phone : '';
     }
 
     public function toggleProduct(int $productId): void
@@ -208,7 +237,7 @@ new class extends Component
                 'session_id' => $this->funnelSession->id,
                 'step_id' => $this->step->id,
                 'email' => $this->email ?: null,
-                'phone' => $this->phone ?: null,
+                'phone' => $this->getFullPhone() ?: null,
                 'cart_data' => $cartData,
                 'total_amount' => $totalAmount,
                 'recovery_status' => 'pending',
@@ -286,7 +315,7 @@ new class extends Component
             $this->validate($rules);
 
             if (empty($this->selectedProducts)) {
-                $this->addError('products', 'Please select at least one product.');
+                $this->addError('products', 'Sila pilih sekurang-kurangnya satu produk.');
 
                 return;
             }
@@ -303,10 +332,11 @@ new class extends Component
             ];
 
             // Update session with contact info
+            $fullPhone = $this->getFullPhone();
             if ($this->funnelSession) {
                 $this->funnelSession->update([
                     'email' => $this->email,
-                    'phone' => $this->phone ?? null,
+                    'phone' => $fullPhone ?: null,
                 ]);
             }
 
@@ -314,7 +344,7 @@ new class extends Component
             if ($this->cart) {
                 $this->cart->update([
                     'email' => $this->email,
-                    'phone' => $this->phone ?? null,
+                    'phone' => $fullPhone ?: null,
                 ]);
             }
 
@@ -325,7 +355,7 @@ new class extends Component
                 'student_id' => auth()->user()?->student?->id,
                 'guest_email' => $this->email,
                 'customer_name' => $this->name,
-                'customer_phone' => $this->phone,
+                'customer_phone' => $fullPhone,
                 'billing_address' => $billingAddress,
                 'shipping_address' => $billingAddress,
                 'subtotal' => $this->calculateSubtotal(),
@@ -491,7 +521,7 @@ new class extends Component
                 'amount' => $order->total_amount,
                 'payer_name' => $this->name,
                 'payer_email' => $this->email ?: '',
-                'payer_phone' => $this->phone,
+                'payer_phone' => $fullPhone,
             ]);
 
             // Store Bayarcash transaction info
@@ -527,14 +557,13 @@ new class extends Component
     <div class="max-w-lg mx-auto">
         {{-- Header --}}
         <div class="text-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-900">Complete Your Purchase</h2>
-            <p class="text-gray-500 mt-1">Secure checkout powered by Stripe</p>
+            <h2 class="text-2xl font-bold text-gray-900">Lengkapkan Pembelian Anda</h2>
         </div>
 
         {{-- Product Selection --}}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-4">
             <div class="px-5 py-4 bg-gray-50 border-b border-gray-200">
-                <h3 class="font-semibold text-gray-900">Select Package</h3>
+                <h3 class="font-semibold text-gray-900">Pilih Pakej</h3>
             </div>
 
             <div class="p-4 space-y-3">
@@ -575,14 +604,14 @@ new class extends Component
                                 @if($product->compare_at_price && $product->compare_at_price > $product->funnel_price)
                                     <span class="text-sm text-gray-400 line-through">RM {{ number_format($product->compare_at_price, 2) }}</span>
                                     <span class="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                                        SAVE {{ round((1 - $product->funnel_price / $product->compare_at_price) * 100) }}%
+                                        JIMAT {{ round((1 - $product->funnel_price / $product->compare_at_price) * 100) }}%
                                     </span>
                                 @endif
                             </div>
 
                             @if($product->is_recurring)
                                 <span class="inline-block mt-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                                    {{ ucfirst($product->billing_interval) }} subscription
+                                    Langganan {{ ucfirst($product->billing_interval) }}
                                 </span>
                             @endif
                         </div>
@@ -597,7 +626,7 @@ new class extends Component
                 <div class="px-5 py-3 bg-amber-100/50">
                     <div class="flex items-center gap-2">
                         <span class="inline-flex items-center justify-center w-5 h-5 bg-amber-500 text-white text-xs font-bold rounded">!</span>
-                        <span class="font-semibold text-amber-800">Special One-Time Offer</span>
+                        <span class="font-semibold text-amber-800">Tawaran Istimewa Sekali Sahaja</span>
                     </div>
                 </div>
 
@@ -644,23 +673,118 @@ new class extends Component
         {{-- Contact Information --}}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-4">
             <div class="px-5 py-4 bg-gray-50 border-b border-gray-200">
-                <h3 class="font-semibold text-gray-900">Your Information</h3>
+                <h3 class="font-semibold text-gray-900">Maklumat Anda</h3>
             </div>
 
             <div class="p-5 space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone number</label>
-                    <input
-                        type="tel"
-                        wire:model.blur="phone"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        placeholder="+60 12 345 6789"
-                    >
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Nombor telefon</label>
+                    <div class="flex" x-data="{
+                        open: false,
+                        search: '',
+                        codes: [
+                            { code: '+60', flag: '🇲🇾', name: 'Malaysia' },
+                            { code: '+65', flag: '🇸🇬', name: 'Singapore' },
+                            { code: '+62', flag: '🇮🇩', name: 'Indonesia' },
+                            { code: '+66', flag: '🇹🇭', name: 'Thailand' },
+                            { code: '+63', flag: '🇵🇭', name: 'Philippines' },
+                            { code: '+84', flag: '🇻🇳', name: 'Vietnam' },
+                            { code: '+673', flag: '🇧🇳', name: 'Brunei' },
+                            { code: '+95', flag: '🇲🇲', name: 'Myanmar' },
+                            { code: '+856', flag: '🇱🇦', name: 'Laos' },
+                            { code: '+855', flag: '🇰🇭', name: 'Cambodia' },
+                            { code: '+91', flag: '🇮🇳', name: 'India' },
+                            { code: '+86', flag: '🇨🇳', name: 'China' },
+                            { code: '+81', flag: '🇯🇵', name: 'Japan' },
+                            { code: '+82', flag: '🇰🇷', name: 'South Korea' },
+                            { code: '+886', flag: '🇹🇼', name: 'Taiwan' },
+                            { code: '+852', flag: '🇭🇰', name: 'Hong Kong' },
+                            { code: '+61', flag: '🇦🇺', name: 'Australia' },
+                            { code: '+64', flag: '🇳🇿', name: 'New Zealand' },
+                            { code: '+44', flag: '🇬🇧', name: 'United Kingdom' },
+                            { code: '+1', flag: '🇺🇸', name: 'United States' },
+                            { code: '+971', flag: '🇦🇪', name: 'UAE' },
+                            { code: '+966', flag: '🇸🇦', name: 'Saudi Arabia' },
+                            { code: '+974', flag: '🇶🇦', name: 'Qatar' },
+                            { code: '+49', flag: '🇩🇪', name: 'Germany' },
+                            { code: '+33', flag: '🇫🇷', name: 'France' },
+                        ],
+                        get filtered() {
+                            if (!this.search) return this.codes;
+                            const s = this.search.toLowerCase();
+                            return this.codes.filter(c => c.name.toLowerCase().includes(s) || c.code.includes(s));
+                        },
+                        get selected() {
+                            return this.codes.find(c => c.code === $wire.countryCode) || this.codes[0];
+                        },
+                        select(code) {
+                            $wire.countryCode = code;
+                            this.open = false;
+                            this.search = '';
+                        }
+                    }" @click.outside="open = false; search = ''">
+                        <div class="relative">
+                            <button
+                                type="button"
+                                @click="open = !open"
+                                class="flex items-center gap-1.5 px-3 py-3 border border-r-0 border-gray-300 rounded-l-xl bg-gray-50 hover:bg-gray-100 transition-colors text-sm whitespace-nowrap"
+                            >
+                                <span x-text="selected.flag"></span>
+                                <span class="text-gray-700" x-text="selected.code"></span>
+                                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+
+                            <div
+                                x-show="open"
+                                x-transition:enter="transition ease-out duration-100"
+                                x-transition:enter-start="opacity-0 scale-95"
+                                x-transition:enter-end="opacity-100 scale-100"
+                                x-transition:leave="transition ease-in duration-75"
+                                x-transition:leave-start="opacity-100 scale-100"
+                                x-transition:leave-end="opacity-0 scale-95"
+                                class="absolute z-50 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+                                x-cloak
+                            >
+                                <div class="p-2 border-b border-gray-100">
+                                    <input
+                                        type="text"
+                                        x-model="search"
+                                        placeholder="Cari negara..."
+                                        class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        @click.stop
+                                    >
+                                </div>
+                                <div class="max-h-48 overflow-y-auto">
+                                    <template x-for="item in filtered" :key="item.code">
+                                        <button
+                                            type="button"
+                                            @click="select(item.code)"
+                                            class="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 transition-colors"
+                                            :class="item.code === $wire.countryCode && 'bg-blue-50 text-blue-700'"
+                                        >
+                                            <span x-text="item.flag"></span>
+                                            <span class="flex-1 text-left" x-text="item.name"></span>
+                                            <span class="text-gray-500" x-text="item.code"></span>
+                                        </button>
+                                    </template>
+                                    <div x-show="filtered.length === 0" class="px-3 py-2 text-sm text-gray-500">Tiada hasil ditemui</div>
+                                </div>
+                            </div>
+                        </div>
+                        <input
+                            type="tel"
+                            wire:model.blur="phone"
+                            class="flex-1 min-w-0 px-4 py-3 border border-gray-300 rounded-r-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            placeholder="12 345 6789"
+                        >
+                    </div>
                     @error('phone') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Full name</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Nama penuh</label>
                     <input
                         type="text"
                         wire:model.blur="name"
@@ -671,7 +795,7 @@ new class extends Component
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Email address <span class="text-gray-400">(optional)</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Alamat emel <span class="text-gray-400">(pilihan)</span></label>
                     <input
                         type="email"
                         wire:model.blur="email"
@@ -682,6 +806,7 @@ new class extends Component
                 </div>
 
                 {{-- Billing Address Toggle --}}
+                @if(!$disableShipping)
                 <div class="pt-2">
                     <button
                         type="button"
@@ -691,7 +816,7 @@ new class extends Component
                         <svg class="w-4 h-4 mr-1.5 transition-transform {{ $showBillingAddress ? 'rotate-90' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
-                        {{ $showBillingAddress ? 'Hide' : 'Add' }} billing address
+                        {{ $showBillingAddress ? 'Sembunyikan' : 'Tambah' }} alamat pengebilan
                     </button>
                 </div>
 
@@ -699,19 +824,19 @@ new class extends Component
                 @if($showBillingAddress)
                     <div class="pt-4 border-t border-gray-100 space-y-4" wire:transition>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Street address</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Alamat jalan</label>
                             <input
                                 type="text"
                                 wire:model.blur="billingAddress.address_line_1"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                placeholder="123 Main Street"
+                                placeholder="123 Jalan Utama"
                             >
                             @error('billingAddress.address_line_1') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">City</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Bandar</label>
                                 <input
                                     type="text"
                                     wire:model.blur="billingAddress.city"
@@ -721,7 +846,7 @@ new class extends Component
                                 @error('billingAddress.city') <span class="text-red-500 text-sm mt-1">{{ $message }}</span> @enderror
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">State</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Negeri</label>
                                 <input
                                     type="text"
                                     wire:model.blur="billingAddress.state"
@@ -733,7 +858,7 @@ new class extends Component
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Postal code</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Poskod</label>
                             <input
                                 type="text"
                                 wire:model.blur="billingAddress.postal_code"
@@ -744,6 +869,7 @@ new class extends Component
                         </div>
                     </div>
                 @endif
+                @endif
             </div>
         </div>
 
@@ -751,7 +877,7 @@ new class extends Component
         @if(count($availablePaymentMethods) > 0)
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-4">
             <div class="px-5 py-4 bg-gray-50 border-b border-gray-200">
-                <h3 class="font-semibold text-gray-900">Payment Method</h3>
+                <h3 class="font-semibold text-gray-900">Kaedah Pembayaran</h3>
             </div>
 
             <div class="p-5">
@@ -796,7 +922,7 @@ new class extends Component
                 <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <p class="text-sm text-yellow-700">No payment methods available. Please contact support.</p>
+                <p class="text-sm text-yellow-700">Tiada kaedah pembayaran tersedia. Sila hubungi sokongan.</p>
             </div>
         </div>
         @endif
@@ -808,7 +934,7 @@ new class extends Component
                 @click="showDetails = !showDetails"
                 class="w-full px-5 py-4 flex items-center justify-between text-left"
             >
-                <span class="font-semibold text-gray-900">Order Summary</span>
+                <span class="font-semibold text-gray-900">Ringkasan Pesanan</span>
                 <div class="flex items-center gap-2">
                     <span class="font-bold text-gray-900">RM {{ number_format($this->calculateTotal(), 2) }}</span>
                     <svg class="w-5 h-5 text-gray-500 transition-transform" :class="{ 'rotate-180': showDetails }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -838,7 +964,7 @@ new class extends Component
                     @endforeach
 
                     <div class="pt-3 mt-3 border-t border-gray-200 flex justify-between">
-                        <span class="font-semibold text-gray-900">Total</span>
+                        <span class="font-semibold text-gray-900">Jumlah</span>
                         <span class="font-bold text-gray-900">RM {{ number_format($this->calculateTotal(), 2) }}</span>
                     </div>
                 </div>
@@ -854,14 +980,14 @@ new class extends Component
             {{ $isProcessing ? 'disabled' : '' }}
         >
             <span wire:loading.remove wire:target="processOrder">
-                Pay RM {{ number_format($this->calculateTotal(), 2) }}
+                Bayar RM {{ number_format($this->calculateTotal(), 2) }}
             </span>
             <span wire:loading wire:target="processOrder" class="flex items-center gap-2">
                 <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Processing...
+                Memproses...
             </span>
         </button>
 
@@ -871,14 +997,14 @@ new class extends Component
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
                 </svg>
-                <span class="text-xs">SSL Secure</span>
+                <span class="text-xs">SSL Selamat</span>
             </div>
 
             <div class="flex items-center gap-1.5">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                 </svg>
-                <span class="text-xs">Money-back guarantee</span>
+                <span class="text-xs">Jaminan wang dikembalikan</span>
             </div>
         </div>
 
@@ -886,7 +1012,7 @@ new class extends Component
         @if($isEmbedded)
             <div class="mt-6 text-center">
                 <a href="{{ url('/') }}" target="_blank" class="text-xs text-gray-400 hover:text-gray-500 transition-colors">
-                    Powered by {{ config('app.name') }}
+                    Dikuasakan oleh {{ config('app.name') }}
                 </a>
             </div>
         @endif

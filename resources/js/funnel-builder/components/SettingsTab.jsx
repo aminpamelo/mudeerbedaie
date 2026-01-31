@@ -14,6 +14,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
         meta_title: '',
         meta_description: '',
         show_orders_in_admin: true,
+        disable_shipping: false,
     });
     const [saving, setSaving] = useState(false);
 
@@ -26,6 +27,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                 meta_title: funnel.settings?.meta_title || '',
                 meta_description: funnel.settings?.meta_description || '',
                 show_orders_in_admin: funnel.show_orders_in_admin ?? true,
+                disable_shipping: funnel.disable_shipping ?? false,
             });
         }
     }, [funnel]);
@@ -38,6 +40,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                 slug: form.slug,
                 description: form.description,
                 show_orders_in_admin: form.show_orders_in_admin,
+                disable_shipping: form.disable_shipping,
                 settings: {
                     ...funnel.settings,
                     meta_title: form.meta_title,
@@ -163,6 +166,37 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                         <span
                             className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                                 form.show_orders_in_admin ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                        />
+                    </button>
+                </div>
+            </div>
+
+            {/* Checkout Settings */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Checkout Settings</h3>
+                <p className="text-sm text-gray-500 mb-4">Configure checkout form behavior for this funnel.</p>
+
+                <div className="flex items-start justify-between">
+                    <div className="flex-1 mr-4">
+                        <p className="text-sm font-medium text-gray-900">Disable shipping/billing address fields</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                            When enabled, the shipping and billing address fields will be hidden from the checkout form.
+                            Use this for digital products or services that don't require a physical delivery address.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setForm({ ...form, disable_shipping: !form.disable_shipping })}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                            form.disable_shipping ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                        role="switch"
+                        aria-checked={form.disable_shipping}
+                    >
+                        <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                form.disable_shipping ? 'translate-x-5' : 'translate-x-0'
                             }`}
                         />
                     </button>
