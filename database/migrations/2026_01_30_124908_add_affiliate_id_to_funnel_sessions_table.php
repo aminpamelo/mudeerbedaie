@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('funnel_sessions', 'affiliate_id')) {
+            return;
+        }
+
         Schema::table('funnel_sessions', function (Blueprint $table) {
             $table->unsignedBigInteger('affiliate_id')->nullable()->after('student_id');
             $table->index('affiliate_id');

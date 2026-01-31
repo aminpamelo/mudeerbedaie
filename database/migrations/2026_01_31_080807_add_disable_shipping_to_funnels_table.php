@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('funnels', 'disable_shipping')) {
+            return;
+        }
+
         Schema::table('funnels', function (Blueprint $table) {
             $table->boolean('disable_shipping')->default(false)->after('show_orders_in_admin');
         });

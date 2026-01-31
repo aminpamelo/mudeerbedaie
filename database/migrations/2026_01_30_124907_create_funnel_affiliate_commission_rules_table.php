@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('funnel_affiliate_commission_rules')) {
+            return;
+        }
+
         Schema::create('funnel_affiliate_commission_rules', function (Blueprint $table) {
             $table->id();
             $table->foreignId('funnel_id')->constrained()->cascadeOnDelete();

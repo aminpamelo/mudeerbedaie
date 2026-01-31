@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('funnels', 'show_orders_in_admin')) {
+            return;
+        }
+
         Schema::table('funnels', function (Blueprint $table) {
             $table->boolean('show_orders_in_admin')->default(true)->after('affiliate_custom_url');
         });

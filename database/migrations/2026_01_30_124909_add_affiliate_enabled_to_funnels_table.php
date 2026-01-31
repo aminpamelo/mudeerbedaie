@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('funnels', 'affiliate_enabled')) {
+            return;
+        }
+
         Schema::table('funnels', function (Blueprint $table) {
             $table->boolean('affiliate_enabled')->default(false)->after('embed_enabled');
         });
