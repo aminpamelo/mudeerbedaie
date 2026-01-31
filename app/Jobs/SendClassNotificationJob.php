@@ -11,8 +11,6 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 
 class SendClassNotificationJob implements ShouldQueue
 {
@@ -127,6 +125,11 @@ class SendClassNotificationJob implements ShouldQueue
             return;
         }
 
+        // Collect file attachment IDs for email jobs
+        $fileAttachmentIds = $fileAttachments->pluck('id')->toArray();
+
+        $totalDispatched = 0;
+
         foreach ($recipients as $recipient) {
             try {
                 $student = $recipient['type'] === 'student' ? $recipient['model'] : null;
@@ -195,7 +198,7 @@ class SendClassNotificationJob implements ShouldQueue
                     ? $personalizedContent
                     : $this->convertMarkdownToHtml($personalizedContent);
 
-                // Send email if enabled AND recipient has email address
+                // Dispatch individual email job if enabled AND recipient has email address
                 if ($shouldSendEmail && ! empty($recipient['email'])) {
                     // Create log entry
                     $log = NotificationLog::create([
@@ -207,28 +210,17 @@ class SendClassNotificationJob implements ShouldQueue
                         'status' => 'pending',
                     ]);
 
-                    // Send email with attachments
-                    Mail::send([], [], function ($message) use ($recipient, $personalizedSubject, $htmlContent, $fileAttachments) {
-                        $message->to($recipient['email'], $recipient['name'])
-                            ->subject($personalizedSubject)
-                            ->html($htmlContent);
+                    // Dispatch individual email job instead of sending synchronously
+                    SendClassNotificationEmailJob::dispatch(
+                        $log->id,
+                        $recipient['email'],
+                        $recipient['name'],
+                        $personalizedSubject,
+                        $htmlContent,
+                        $fileAttachmentIds,
+                    );
 
-                        // Attach files (PDFs, documents, non-embedded images)
-                        foreach ($fileAttachments as $file) {
-                            if (Storage::disk($file->disk)->exists($file->file_path)) {
-                                $message->attach($file->full_path, [
-                                    'as' => $file->file_name,
-                                    'mime' => $file->file_type,
-                                ]);
-                            }
-                        }
-
-                        // Note: For embedded images in HTML emails, they should be referenced
-                        // in the HTML content using absolute URLs from the storage
-                    });
-
-                    $log->markAsSent();
-                    $totalSent++;
+                    $totalDispatched++;
                 }
 
                 // Send WhatsApp notification if enabled and phone number available
@@ -244,9 +236,9 @@ class SendClassNotificationJob implements ShouldQueue
                 }
 
             } catch (\Exception $e) {
-                Log::error('Failed to send class notification', [
+                Log::error('Failed to dispatch class notification', [
                     'notification_id' => $notification->id,
-                    'recipient' => $recipient['email'],
+                    'recipient' => $recipient['email'] ?? 'unknown',
                     'error' => $e->getMessage(),
                 ]);
 
@@ -257,18 +249,26 @@ class SendClassNotificationJob implements ShouldQueue
             }
         }
 
-        // Update notification stats
+        // Initialize counters - individual email jobs will increment these as they complete
         $notification->update([
-            'total_sent' => $totalSent,
+            'total_sent' => 0,
             'total_failed' => $totalFailed,
         ]);
 
-        // Determine final status
-        if ($totalFailed === $recipients->count()) {
-            $notification->markAsFailed('All recipients failed');
+        // Mark as sent (dispatched) - individual jobs handle their own success/failure
+        if ($totalDispatched > 0 || $shouldSendWhatsApp) {
+            $notification->markAsSent();
+        } elseif ($totalFailed > 0) {
+            $notification->markAsFailed('All recipients failed during dispatch');
         } else {
             $notification->markAsSent();
         }
+
+        Log::info('Class notification dispatched', [
+            'notification_id' => $notification->id,
+            'total_email_jobs_dispatched' => $totalDispatched,
+            'total_failed_during_dispatch' => $totalFailed,
+        ]);
     }
 
     private function convertMarkdownToHtml(string $markdown): string
