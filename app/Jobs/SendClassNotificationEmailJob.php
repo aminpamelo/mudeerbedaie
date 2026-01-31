@@ -28,6 +28,21 @@ class SendClassNotificationEmailJob implements ShouldQueue
 
     public function handle(): void
     {
+        // Skip @example.com addresses
+        if (str_ends_with(strtolower($this->recipientEmail), '@example.com')) {
+            $log = NotificationLog::find($this->notificationLogId);
+            if ($log) {
+                $log->markAsSkipped('Skipped @example.com address');
+            }
+
+            Log::info('Email skipped for @example.com address', [
+                'log_id' => $this->notificationLogId,
+                'email' => $this->recipientEmail,
+            ]);
+
+            return;
+        }
+
         $log = NotificationLog::find($this->notificationLogId);
 
         if (! $log) {

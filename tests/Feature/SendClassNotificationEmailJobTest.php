@@ -38,13 +38,13 @@ test('it sends email and marks log as sent', function () {
         'recipient_type' => 'student',
         'recipient_id' => 1,
         'channel' => 'email',
-        'destination' => 'test@example.com',
+        'destination' => 'test@gmail.com',
         'status' => 'pending',
     ]);
 
     $job = new SendClassNotificationEmailJob(
         notificationLogId: $log->id,
-        recipientEmail: 'test@example.com',
+        recipientEmail: 'test@gmail.com',
         recipientName: 'Test Student',
         subject: 'Test Subject',
         htmlContent: '<p>Test content</p>',
@@ -66,13 +66,13 @@ test('it increments total_failed on failure', function () {
         'recipient_type' => 'student',
         'recipient_id' => 1,
         'channel' => 'email',
-        'destination' => 'test@example.com',
+        'destination' => 'test@gmail.com',
         'status' => 'pending',
     ]);
 
     $job = new SendClassNotificationEmailJob(
         notificationLogId: $log->id,
-        recipientEmail: 'test@example.com',
+        recipientEmail: 'test@gmail.com',
         recipientName: 'Test Student',
         subject: 'Test Subject',
         htmlContent: '<p>Test content</p>',
@@ -91,7 +91,7 @@ test('it increments total_failed on failure', function () {
 test('it handles missing notification log gracefully', function () {
     $job = new SendClassNotificationEmailJob(
         notificationLogId: 99999,
-        recipientEmail: 'test@example.com',
+        recipientEmail: 'test@gmail.com',
         recipientName: 'Test Student',
         subject: 'Test Subject',
         htmlContent: '<p>Test content</p>',

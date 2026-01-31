@@ -198,8 +198,8 @@ class SendClassNotificationJob implements ShouldQueue
                     ? $personalizedContent
                     : $this->convertMarkdownToHtml($personalizedContent);
 
-                // Dispatch individual email job if enabled AND recipient has email address
-                if ($shouldSendEmail && ! empty($recipient['email'])) {
+                // Dispatch individual email job if enabled AND recipient has valid email address
+                if ($shouldSendEmail && ! empty($recipient['email']) && ! str_ends_with(strtolower($recipient['email']), '@example.com')) {
                     // Create log entry
                     $log = NotificationLog::create([
                         'scheduled_notification_id' => $notification->id,

@@ -75,6 +75,11 @@ class NotificationLog extends Model
         return $this->status === 'delivered';
     }
 
+    public function isSkipped(): bool
+    {
+        return $this->status === 'skipped';
+    }
+
     public function markAsSent(?string $messageId = null): void
     {
         $this->update([
@@ -89,6 +94,14 @@ class NotificationLog extends Model
         $this->update([
             'status' => 'failed',
             'error_message' => $errorMessage,
+        ]);
+    }
+
+    public function markAsSkipped(string $reason): void
+    {
+        $this->update([
+            'status' => 'skipped',
+            'error_message' => $reason,
         ]);
     }
 
@@ -138,6 +151,7 @@ class NotificationLog extends Model
             'delivered' => 'green',
             'failed' => 'red',
             'bounced' => 'yellow',
+            'skipped' => 'amber',
             default => 'zinc',
         };
     }
@@ -150,6 +164,7 @@ class NotificationLog extends Model
             'delivered' => 'Diterima',
             'failed' => 'Gagal',
             'bounced' => 'Ditolak',
+            'skipped' => 'Dilangkau',
             default => $this->status,
         };
     }
