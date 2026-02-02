@@ -177,10 +177,22 @@ class ProcessStudentImportToClass implements ShouldQueue
                 })->first();
 
                 if ($student) {
+                    // Skip students with no associated user account
+                    if (! $student->user) {
+                        $result['errors'][] = 'Row '.($lineNumber + 2).": Student found (phone: {$phone}) but has no associated user account.";
+                        $errorCount++;
+                        $processedRows++;
+                        $this->updateProgress($importProgress, $processedRows, $matchedCount, $createdCount, $enrolledCount, $skippedCount, $errorCount);
+
+                        continue;
+                    }
+
+                    $studentName = $student->user->name;
+
                     $matchedCount++;
                     $result['matched'][] = [
                         'phone' => $phone,
-                        'name' => $student->user->name,
+                        'name' => $studentName,
                         'student_id' => $student->student_id,
                     ];
 
@@ -188,7 +200,7 @@ class ProcessStudentImportToClass implements ShouldQueue
                     if (in_array($student->id, $classStudentIds)) {
                         $result['already_enrolled'][] = [
                             'phone' => $phone,
-                            'name' => $student->user->name,
+                            'name' => $studentName,
                         ];
                         $processedRows++;
                         $this->updateProgress($importProgress, $processedRows, $matchedCount, $createdCount, $enrolledCount, $skippedCount, $errorCount);
@@ -202,7 +214,7 @@ class ProcessStudentImportToClass implements ShouldQueue
                         if ($class->max_capacity) {
                             $currentCount = count($classStudentIds) + $enrolledCount;
                             if ($currentCount >= $class->max_capacity) {
-                                $result['errors'][] = "Skipped {$student->user->name}: Class is at maximum capacity.";
+                                $result['errors'][] = "Skipped {$studentName}: Class is at maximum capacity.";
                                 $errorCount++;
                                 $processedRows++;
                                 $this->updateProgress($importProgress, $processedRows, $matchedCount, $createdCount, $enrolledCount, $skippedCount, $errorCount);
@@ -217,7 +229,7 @@ class ProcessStudentImportToClass implements ShouldQueue
                             $enrolledCount++;
                             $result['enrolled'][] = [
                                 'phone' => $phone,
-                                'name' => $student->user->name,
+                                'name' => $studentName,
                                 'order_id' => $orderId,
                             ];
                         } catch (\Illuminate\Database\QueryException $e) {
@@ -225,7 +237,7 @@ class ProcessStudentImportToClass implements ShouldQueue
                             if (str_contains($e->getMessage(), 'UNIQUE constraint failed') || str_contains($e->getMessage(), 'Duplicate entry')) {
                                 $result['already_enrolled'][] = [
                                     'phone' => $phone,
-                                    'name' => $student->user->name,
+                                    'name' => $studentName,
                                 ];
                             } else {
                                 throw $e;
