@@ -3642,7 +3642,22 @@ new class extends Component
         <!-- Payment History -->
         @if($enrollment->orders->isNotEmpty())
             <flux:card>
-                <flux:heading size="lg">Payment History</flux:heading>
+                <div class="flex items-center justify-between">
+                    <flux:heading size="lg">Payment History</flux:heading>
+                    @if($enrollment->stripe_subscription_id && !$enrollment->isInternalSubscription())
+                        <flux:button
+                            size="sm"
+                            variant="outline"
+                            href="https://dashboard.stripe.com/subscriptions/{{ $enrollment->stripe_subscription_id }}"
+                            target="_blank"
+                        >
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="arrow-top-right-on-square" class="w-4 h-4 mr-1" />
+                                View in Stripe
+                            </div>
+                        </flux:button>
+                    @endif
+                </div>
                 
                 <div class="mt-6">
                     <div class="overflow-x-auto">
