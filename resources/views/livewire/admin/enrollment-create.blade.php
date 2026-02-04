@@ -38,22 +38,29 @@ new class extends Component
 
     public function with(): array
     {
-        $studentsQuery = Student::where('status', 'active')->with('user');
+        $students = collect();
 
-        // Search by name, phone, or student_id
         if ($this->studentSearch) {
             $search = $this->studentSearch;
-            $studentsQuery->where(function ($query) use ($search) {
-                $query->where('phone', 'like', "%{$search}%")
-                    ->orWhere('student_id', 'like', "%{$search}%")
-                    ->orWhereHas('user', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%");
-                    });
-            });
+            $students = Student::where('status', 'active')
+                ->with('user')
+                ->where(function ($query) use ($search) {
+                    $query->where('phone', 'like', "%{$search}%")
+                        ->orWhere('student_id', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%");
+                        });
+                })
+                ->limit(20)
+                ->get();
+        } elseif ($this->student_id) {
+            $students = Student::where('id', $this->student_id)
+                ->with('user')
+                ->get();
         }
 
         return [
-            'students' => $studentsQuery->get(),
+            'students' => $students,
             'courses' => Course::where('status', 'active')->get(),
             'pics' => \App\Models\User::whereIn('role', ['admin', 'staff'])
                 ->orderBy('name')
@@ -205,7 +212,7 @@ new class extends Component
                     placeholder="Search by name or phone number..."
                 />
 
-                <flux:select wire:model.live="student_id" label="Student" placeholder="Select a student" required>
+                <flux:select wire:model.live="student_id" label="Student" placeholder="{{ $studentSearch ? 'Select a student' : 'Search above to find students' }}" required>
                     @foreach($students as $student)
                         @if($student->user)
                             <flux:select.option value="{{ $student->id }}">
@@ -214,6 +221,12 @@ new class extends Component
                         @endif
                     @endforeach
                 </flux:select>
+
+                @if($studentSearch && $students->isEmpty())
+                    <flux:text class="text-sm text-gray-500">No students found matching "{{ $studentSearch }}"</flux:text>
+                @elseif(!$studentSearch && !$student_id)
+                    <flux:text class="text-sm text-gray-500">Type in the search box above to find students by name, phone, or student ID</flux:text>
+                @endif
 
                 <flux:select wire:model.live="course_id" label="Course" placeholder="Select a course" required>
                     @foreach($courses as $course)
@@ -330,10 +343,10 @@ new class extends Component
                 
                 <div class="mt-6">
                     @php
-                        $selectedStudent = $students->find($student_id);
+                        $selectedStudent = \App\Models\Student::with('user')->find($student_id);
                         $selectedCourse = $courses->find($course_id);
                     @endphp
-                    
+
                     @if($selectedStudent && $selectedCourse)
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
