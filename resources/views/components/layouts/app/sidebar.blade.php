@@ -9,7 +9,7 @@
         <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
             x-data="{
                 sections: {},
-                currentRoute: '{{ request()->route()->getName() }}',
+                currentRoute: '{{ request()->route()?->getName() }}',
                 sectionRoutes: {
                     'platform': ['dashboard'],
                     'administration': ['courses.*', 'users.*', 'students.*', 'teachers.*', 'classes.*', 'class-categories.*', 'admin.sessions.*', 'admin.payslips.*', 'enrollments.*'],

@@ -295,7 +295,7 @@ new class extends Component
                 @if($payment_method_type === 'manual')
                     <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                         <div class="flex items-start">
-                            <flux:icon icon="information-circle" class="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
+                            <flux:icon name="information-circle" class="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
                             <div>
                                 <flux:text class="text-amber-800 font-medium">Manual Payment Selected</flux:text>
                                 <ul class="mt-2 text-sm text-amber-700 space-y-1">
@@ -310,7 +310,7 @@ new class extends Component
                 @elseif($payment_method_type === 'automatic')
                     <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div class="flex items-start">
-                            <flux:icon icon="credit-card" class="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
+                            <flux:icon name="credit-card" class="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
                             <div>
                                 <flux:text class="text-blue-800 font-medium">Automatic Payment Selected</flux:text>
                                 <flux:text class="mt-2 text-sm text-blue-700">
