@@ -20,6 +20,10 @@ new class extends Component {
     public string $bayarcash_sandbox = '1'; // '1' = sandbox, '0' = production
     public $enable_bayarcash_payments = false;
 
+    // COD settings
+    public $enable_cod_payments = false;
+    public $cod_customer_instructions = '';
+
     #[Url(as: 'tab')]
     public $activeTab = 'stripe';
 
@@ -46,6 +50,10 @@ new class extends Component {
         $sandboxValue = $this->getSettingsService()->get('bayarcash_sandbox', true);
         $this->bayarcash_sandbox = $sandboxValue ? '1' : '0';
         $this->enable_bayarcash_payments = (bool) $this->getSettingsService()->get('enable_bayarcash_payments', false);
+
+        // Load COD settings
+        $this->enable_cod_payments = (bool) $this->getSettingsService()->get('enable_cod_payments', false);
+        $this->cod_customer_instructions = $this->getSettingsService()->get('cod_customer_instructions', '');
     }
 
     public function save(): void
@@ -87,6 +95,19 @@ new class extends Component {
         // Convert string '1'/'0' to boolean for storage
         $this->getSettingsService()->set('bayarcash_sandbox', $this->bayarcash_sandbox === '1', 'boolean', 'payment');
         $this->getSettingsService()->set('enable_bayarcash_payments', $this->enable_bayarcash_payments, 'boolean', 'payment');
+
+        $this->dispatch('settings-saved');
+    }
+
+    public function saveCod(): void
+    {
+        $this->validate([
+            'enable_cod_payments' => 'boolean',
+            'cod_customer_instructions' => 'nullable|string|max:1000',
+        ]);
+
+        $this->getSettingsService()->set('enable_cod_payments', $this->enable_cod_payments, 'boolean', 'payment');
+        $this->getSettingsService()->set('cod_customer_instructions', $this->cod_customer_instructions, 'string', 'payment');
 
         $this->dispatch('settings-saved');
     }
@@ -238,6 +259,22 @@ new class extends Component {
                     <flux:icon name="building-library" class="w-4 h-4 mr-2" />
                     FPX
                     @if($enable_bayarcash_payments)
+                        <flux:badge size="sm" color="emerald" class="ml-2">Active</flux:badge>
+                    @endif
+                </div>
+            </button>
+
+            <button
+                type="button"
+                wire:click="switchTab('cod')"
+                class="py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 @if($activeTab === 'cod') border-indigo-500 text-indigo-600 @else border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 @endif"
+                role="tab"
+                aria-selected="{{ $activeTab === 'cod' ? 'true' : 'false' }}"
+            >
+                <div class="flex items-center">
+                    <flux:icon name="truck" class="w-4 h-4 mr-2" />
+                    COD
+                    @if($enable_cod_payments)
                         <flux:badge size="sm" color="emerald" class="ml-2">Active</flux:badge>
                     @endif
                 </div>
@@ -548,6 +585,85 @@ new class extends Component {
                     <div class="flex items-center justify-center">
                         <flux:icon name="check" class="w-4 h-4 mr-2" />
                         Save Bayarcash Settings
+                    </div>
+                </flux:button>
+            </div>
+        </div>
+        @endif
+
+        <!-- COD Tab -->
+        @if($activeTab === 'cod')
+        <div role="tabpanel" class="space-y-6">
+            <!-- Payment Method Status -->
+            <flux:card>
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <flux:heading size="lg">Cash on Delivery (COD)</flux:heading>
+                        <flux:text class="text-gray-600 text-sm mt-1">
+                            Allow customers to pay cash upon delivery of their order
+                        </flux:text>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <flux:badge
+                            color="{{ $enable_cod_payments ? 'emerald' : 'gray' }}"
+                        >
+                            {{ $enable_cod_payments ? 'Enabled' : 'Disabled' }}
+                        </flux:badge>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <flux:checkbox wire:model="enable_cod_payments">
+                        Enable Cash on Delivery
+                    </flux:checkbox>
+                    <flux:description>
+                        Allow customers to select Cash on Delivery as a payment option during checkout. Payment will be collected upon delivery.
+                    </flux:description>
+                    <flux:error name="enable_cod_payments" />
+                </div>
+            </flux:card>
+
+            @if($enable_cod_payments)
+            <!-- COD Settings Form -->
+            <flux:card>
+                <form wire:submit="saveCod" class="space-y-6">
+                    <div class="grid grid-cols-1 gap-6">
+                        <flux:field>
+                            <flux:label>Customer Instructions</flux:label>
+                            <flux:description>
+                                Instructions displayed to the customer when they select Cash on Delivery at checkout (e.g., "Please prepare exact change").
+                            </flux:description>
+                            <flux:textarea
+                                wire:model="cod_customer_instructions"
+                                placeholder="e.g., Please prepare exact change. Our delivery agent will collect payment upon delivery."
+                                rows="3"
+                            />
+                            <flux:error name="cod_customer_instructions" />
+                        </flux:field>
+                    </div>
+
+                    <!-- How It Works Info -->
+                    <div class="bg-amber-50 p-4 rounded-lg">
+                        <flux:heading size="sm" class="text-amber-800 mb-2">
+                            How COD Works
+                        </flux:heading>
+                        <ul class="text-amber-700 text-sm space-y-1">
+                            <li>1. Customer selects "Cash on Delivery" at checkout</li>
+                            <li>2. Order is automatically confirmed with payment status "Pending"</li>
+                            <li>3. Payment is collected upon delivery</li>
+                            <li>4. Admin marks payment as received from the order management page</li>
+                        </ul>
+                    </div>
+                </form>
+            </flux:card>
+            @endif
+
+            <!-- Save Button -->
+            <div class="flex justify-end">
+                <flux:button wire:click="saveCod" variant="primary">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="check" class="w-4 h-4 mr-2" />
+                        Save COD Settings
                     </div>
                 </flux:button>
             </div>

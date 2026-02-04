@@ -129,7 +129,7 @@ new class extends Component
         try {
             // Validate payment method
             $this->validate([
-                'paymentMethod' => 'required|in:credit_card,debit_card,bank_transfer,cash,fpx,grabpay,boost',
+                'paymentMethod' => 'required|in:credit_card,debit_card,bank_transfer,cod,fpx,grabpay,boost',
             ]);
 
             // Final stock validation
@@ -177,10 +177,9 @@ new class extends Component
                 return; // Will redirect to Bayarcash
             }
 
-            // For demo purposes, we'll mark cash payments as completed
-            if ($this->paymentMethod === 'cash') {
-                $payment->markAsPaid();
-                $order->markAsConfirmed();
+            // COD: set order to processing, payment remains pending until delivery
+            if ($this->paymentMethod === 'cod') {
+                $order->markAsProcessing();
             }
 
             // Clear the cart
@@ -239,6 +238,7 @@ new class extends Component
             'fpx' => 'bayarcash',
             'grabpay' => 'grabpay',
             'boost' => 'boost',
+            'cod' => 'cod',
             default => null,
         };
     }
@@ -514,11 +514,27 @@ new class extends Component
                                     <flux:text size="sm" class="text-gray-600 mt-1">Digital Wallet</flux:text>
                                 </div>
 
-                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'cash' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <flux:radio wire:model.live="paymentMethod" value="cash" label="Cash on Delivery" />
+                                @if(app(\App\Services\SettingsService::class)->isCodEnabled())
+                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'cod' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
+                                    <flux:radio wire:model.live="paymentMethod" value="cod" label="Cash on Delivery" />
                                     <flux:text size="sm" class="text-gray-600 mt-1">Pay when you receive</flux:text>
                                 </div>
+                                @endif
                             </div>
+
+                            @if($paymentMethod === 'cod')
+                                @php
+                                    $codInstructions = app(\App\Services\SettingsService::class)->getCodInstructions();
+                                @endphp
+                                @if($codInstructions)
+                                    <div class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <flux:text size="sm" class="text-amber-800">
+                                            <flux:icon name="information-circle" class="w-4 h-4 inline mr-1" />
+                                            {{ $codInstructions }}
+                                        </flux:text>
+                                    </div>
+                                @endif
+                            @endif
 
                             @if(in_array($paymentMethod, ['credit_card', 'debit_card']))
                                 <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">

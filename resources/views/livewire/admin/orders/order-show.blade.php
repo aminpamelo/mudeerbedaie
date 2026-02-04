@@ -33,9 +33,15 @@ new class extends Component
             'notes.user',
         ]);
 
-        // Get payment status from payments table
+        // Get payment status from payments table, fallback to paid_time for POS orders
         $latestPayment = $this->order->payments()->latest()->first();
-        $this->paymentStatus = $latestPayment?->status ?? 'pending';
+        if ($latestPayment) {
+            $this->paymentStatus = $latestPayment->status;
+        } elseif ($this->order->paid_time) {
+            $this->paymentStatus = 'completed';
+        } else {
+            $this->paymentStatus = 'pending';
+        }
 
         // Set order status to component property
         $this->orderStatus = $this->order->status;
@@ -385,6 +391,8 @@ new class extends Component
                         <flux:text class="font-medium capitalize">
                             @if($order->payments->count() > 0)
                                 {{ str_replace('_', ' ', $order->payments->sortByDesc('created_at')->first()->payment_method) }}
+                            @elseif($order->payment_method)
+                                {{ str_replace('_', ' ', $order->payment_method) }}
                             @else
                                 Not Set
                             @endif
@@ -639,6 +647,23 @@ new class extends Component
                 </div>
             </div>
 
+            <!-- POS Sale Info -->
+            @if($order->source === 'pos' && ($order->metadata['salesperson_name'] ?? null))
+                <div class="bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800 p-6">
+                    <flux:heading size="lg" class="mb-4">POS Sale Information</flux:heading>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <flux:text class="text-sm text-orange-700 dark:text-orange-400">Salesperson</flux:text>
+                            <flux:text class="font-medium">{{ $order->metadata['salesperson_name'] }}</flux:text>
+                        </div>
+                        <div>
+                            <flux:text class="text-sm text-orange-700 dark:text-orange-400">Source</flux:text>
+                            <flux:badge size="sm" color="orange">POS - Point of Sale</flux:badge>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <!-- Addresses -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Addresses</flux:heading>
@@ -688,25 +713,58 @@ new class extends Component
                                 <div>{{ $shippingAddressModel->city }}, {{ $shippingAddressModel->state }} {{ $shippingAddressModel->postal_code }}</div>
                                 <div>{{ $shippingAddressModel->country }}</div>
                             @elseif($platformShipping && is_array($platformShipping))
-                                {{-- Platform order JSON address --}}
-                                @if(!empty($platformShipping['detail_address']))
-                                    <div>{{ $platformShipping['detail_address'] }}</div>
-                                @endif
-                                @if(!empty($platformShipping['additional_info']))
-                                    <div>{{ $platformShipping['additional_info'] }}</div>
-                                @endif
-                                @php
-                                    $cityState = implode(', ', array_filter([
-                                        $platformShipping['city'] ?? null,
-                                        $platformShipping['state'] ?? null,
-                                        $platformShipping['postal_code'] ?? null
-                                    ]));
-                                @endphp
-                                @if($cityState)
-                                    <div>{{ $cityState }}</div>
-                                @endif
-                                @if(!empty($platformShipping['country']))
-                                    <div>{{ $platformShipping['country'] }}</div>
+                                @if(!empty($platformShipping['full_address']))
+                                    {{-- POS or other flat address --}}
+                                    <div>{{ $platformShipping['full_address'] }}</div>
+                                @elseif(!empty($platformShipping['address_line_1']))
+                                    {{-- Funnel/website structured address --}}
+                                    @if(!empty($platformShipping['first_name']) || !empty($platformShipping['last_name']))
+                                        <div>{{ trim(($platformShipping['first_name'] ?? '') . ' ' . ($platformShipping['last_name'] ?? '')) }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['company']))
+                                        <div>{{ $platformShipping['company'] }}</div>
+                                    @endif
+                                    <div>{{ $platformShipping['address_line_1'] }}</div>
+                                    @if(!empty($platformShipping['address_line_2']))
+                                        <div>{{ $platformShipping['address_line_2'] }}</div>
+                                    @endif
+                                    @php
+                                        $cityState = implode(', ', array_filter([
+                                            $platformShipping['city'] ?? null,
+                                            $platformShipping['state'] ?? null,
+                                            $platformShipping['postal_code'] ?? null
+                                        ]));
+                                    @endphp
+                                    @if($cityState)
+                                        <div>{{ $cityState }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['country']))
+                                        <div>{{ $platformShipping['country'] }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['phone']))
+                                        <div>{{ $platformShipping['phone'] }}</div>
+                                    @endif
+                                @else
+                                    {{-- Platform order JSON address --}}
+                                    @if(!empty($platformShipping['detail_address']))
+                                        <div>{{ $platformShipping['detail_address'] }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['additional_info']))
+                                        <div>{{ $platformShipping['additional_info'] }}</div>
+                                    @endif
+                                    @php
+                                        $cityState = implode(', ', array_filter([
+                                            $platformShipping['city'] ?? null,
+                                            $platformShipping['state'] ?? null,
+                                            $platformShipping['postal_code'] ?? null
+                                        ]));
+                                    @endphp
+                                    @if($cityState)
+                                        <div>{{ $cityState }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['country']))
+                                        <div>{{ $platformShipping['country'] }}</div>
+                                    @endif
                                 @endif
                             @else
                                 <div class="text-zinc-500 dark:text-zinc-400 italic">No shipping address provided</div>

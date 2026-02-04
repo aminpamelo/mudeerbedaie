@@ -273,6 +273,22 @@ class SettingsService
     }
 
     /**
+     * Check if COD (Cash on Delivery) is enabled
+     */
+    public function isCodEnabled(): bool
+    {
+        return (bool) $this->get('enable_cod_payments', false);
+    }
+
+    /**
+     * Get COD customer instructions
+     */
+    public function getCodInstructions(): string
+    {
+        return (string) $this->get('cod_customer_instructions', '');
+    }
+
+    /**
      * Get site configuration
      */
     public function getSiteConfig(): array

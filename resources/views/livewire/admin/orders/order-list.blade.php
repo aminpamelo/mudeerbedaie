@@ -145,10 +145,11 @@ new class extends Component
                 match ($this->sourceTab) {
                     'platform' => $query->whereNotNull('platform_id'),
                     'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
-                        $q->where('source', '!=', 'funnel')
+                        $q->whereNotIn('source', ['funnel', 'pos'])
                           ->orWhereNull('source');
                     }),
                     'funnel' => $query->where('source', 'funnel'),
+                    'pos' => $query->where('source', 'pos'),
                     default => $query
                 };
             })
@@ -239,6 +240,15 @@ new class extends Component
             ];
         }
 
+        if ($order->source === 'pos') {
+            return [
+                'type' => 'pos',
+                'label' => 'POS',
+                'color' => 'orange',
+                'icon' => 'calculator',
+            ];
+        }
+
         return [
             'type' => 'company',
             'label' => 'Company',
@@ -301,10 +311,11 @@ new class extends Component
             match ($this->sourceTab) {
                 'platform' => $query->whereNotNull('platform_id'),
                 'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
-                    $q->where('source', '!=', 'funnel')
+                    $q->whereNotIn('source', ['funnel', 'pos'])
                       ->orWhereNull('source');
                 }),
                 'funnel' => $query->where('source', 'funnel'),
+                'pos' => $query->where('source', 'pos'),
                 default => $query
             };
         }
@@ -335,7 +346,8 @@ new class extends Component
             COUNT(*) as total,
             SUM(CASE WHEN platform_id IS NOT NULL THEN 1 ELSE 0 END) as platform,
             SUM(CASE WHEN source = 'funnel' THEN 1 ELSE 0 END) as funnel,
-            SUM(CASE WHEN platform_id IS NULL AND (source IS NULL OR source != 'funnel') THEN 1 ELSE 0 END) as agent_company
+            SUM(CASE WHEN source = 'pos' THEN 1 ELSE 0 END) as pos,
+            SUM(CASE WHEN platform_id IS NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos')) THEN 1 ELSE 0 END) as agent_company
         ")->first();
 
         return [
@@ -343,6 +355,7 @@ new class extends Component
             'platform' => $counts->platform ?? 0,
             'agent_company' => $counts->agent_company ?? 0,
             'funnel' => $counts->funnel ?? 0,
+            'pos' => $counts->pos ?? 0,
         ];
     }
 }; ?>
@@ -459,6 +472,15 @@ new class extends Component
                         <flux:icon name="funnel" class="w-4 h-4" />
                         Sales Funnel
                         <flux:badge size="sm" color="green">{{ $sourceCounts['funnel'] }}</flux:badge>
+                    </div>
+                </button>
+
+                <button wire:click="$set('sourceTab', 'pos')"
+                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'pos' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
+                    <div class="flex items-center gap-2">
+                        <flux:icon name="calculator" class="w-4 h-4" />
+                        POS
+                        <flux:badge size="sm" color="orange">{{ $sourceCounts['pos'] }}</flux:badge>
                     </div>
                 </button>
             </nav>
@@ -584,6 +606,7 @@ new class extends Component
                                 'platform' => 'Platform Orders',
                                 'agent_company' => 'Agent & Company',
                                 'funnel' => 'Sales Funnel',
+                                'pos' => 'POS',
                                 default => $sourceTab
                             } }}
                             <button wire:click="$set('sourceTab', 'all')" class="ml-1 hover:text-red-600">×</button>
@@ -738,6 +761,20 @@ new class extends Component
                                         </div>
                                         @if($order->source_reference)
                                             <flux:text size="xs" class="text-gray-500 mt-1">{{ $order->source_reference }}</flux:text>
+                                        @endif
+                                    </div>
+                                @elseif($order->source === 'pos')
+                                    <div>
+                                        <div class="flex items-center space-x-2">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                        </div>
+                                        @if($order->metadata['salesperson_name'] ?? null)
+                                            <flux:text size="xs" class="text-gray-500 mt-1">{{ $order->metadata['salesperson_name'] }}</flux:text>
                                         @endif
                                     </div>
                                 @else

@@ -16,9 +16,11 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
         show_method_selector: true,
         stripe_enabled: true,
         bayarcash_fpx_enabled: true,
+        cod_enabled: false,
         custom_labels: {
             stripe: 'Credit/Debit Card',
             bayarcash_fpx: 'FPX Online Banking',
+            cod: 'Cash on Delivery',
         },
     });
 
@@ -117,6 +119,9 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
         if (method === 'bayarcash_fpx') {
             return globalConfig.bayarcash_enabled === true;
         }
+        if (method === 'cod') {
+            return globalConfig.cod_enabled === true;
+        }
         return false;
     };
 
@@ -142,6 +147,17 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
                 </svg>
             ),
             color: 'emerald',
+        },
+        {
+            id: 'cod',
+            name: 'Cash on Delivery',
+            description: 'Collect payment upon delivery of the order',
+            icon: (
+                <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+                </svg>
+            ),
+            color: 'amber',
         },
     ];
 
@@ -187,7 +203,7 @@ export default function PaymentTab({ funnelUuid, funnel, onRefresh, showToast })
             </div>
 
             {/* Global Configuration Warning */}
-            {globalConfig && (!globalConfig.stripe_publishable_key && !globalConfig.bayarcash_enabled) && (
+            {globalConfig && (!globalConfig.stripe_publishable_key && !globalConfig.bayarcash_enabled && !globalConfig.cod_enabled) && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                         <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

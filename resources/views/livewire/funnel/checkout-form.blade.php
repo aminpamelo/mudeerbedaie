@@ -123,17 +123,36 @@ new class extends Component
             ];
         }
 
+        // Add COD if globally enabled and enabled for this funnel
+        if (app(SettingsService::class)->isCodEnabled() && in_array('cod', $enabledMethods)) {
+            $codLabel = $customLabels['cod'] ?? 'Cash on Delivery';
+            $methods[] = [
+                'id' => 'cod',
+                'name' => $codLabel,
+                'description' => 'Bayar semasa penghantaran',
+                'icon' => 'truck',
+            ];
+        }
+
         // If only one method available or show_method_selector is false, just use default
         if (! $showMethodSelector && count($methods) > 1) {
             // Find the default method
-            $defaultId = $defaultMethod === 'stripe' ? 'credit_card' : 'fpx';
+            $defaultId = match($defaultMethod) {
+                'stripe' => 'credit_card',
+                'cod' => 'cod',
+                default => 'fpx',
+            };
             $methods = array_filter($methods, fn ($m) => $m['id'] === $defaultId);
             $methods = array_values($methods);
         }
 
         // Reorder methods to put the default one first
         if (count($methods) > 1) {
-            $defaultId = $defaultMethod === 'stripe' ? 'credit_card' : 'fpx';
+            $defaultId = match($defaultMethod) {
+                'stripe' => 'credit_card',
+                'cod' => 'cod',
+                default => 'fpx',
+            };
             usort($methods, function ($a, $b) use ($defaultId) {
                 if ($a['id'] === $defaultId) {
                     return -1;
@@ -489,6 +508,22 @@ new class extends Component
                 $this->processBayarcashPayment($productOrder);
 
                 return; // Redirect happens in processBayarcashPayment
+            }
+
+            // COD: create payment record, set to processing, payment pending until delivery
+            if ($this->paymentMethod === 'cod') {
+                $productOrder->payments()->create([
+                    'payment_method' => 'cod',
+                    'payment_provider' => 'cod',
+                    'amount' => $productOrder->total_amount,
+                    'currency' => $productOrder->currency,
+                    'status' => 'pending',
+                    'transaction_id' => 'COD-'.date('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(8)),
+                ]);
+                $productOrder->markAsProcessing();
+                $this->redirectToNextStep($productOrder);
+
+                return;
             }
 
             // For Stripe payments (credit_card, debit_card)

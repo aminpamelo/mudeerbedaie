@@ -246,6 +246,8 @@ class FunnelCheckoutController extends Controller
                 'stripe_publishable_key' => $this->checkoutService->getPublishableKey(),
                 'stripe_enabled' => $this->checkoutService->isConfigured() && $settingsService->get('enable_stripe_payments', true),
                 'bayarcash_enabled' => $settingsService->isBayarcashEnabled(),
+                'cod_enabled' => $settingsService->isCodEnabled(),
+                'cod_instructions' => $settingsService->getCodInstructions(),
             ],
         ]);
     }

@@ -48,14 +48,16 @@ class UpdateFunnelRequest extends FormRequest
             'disable_shipping' => ['sometimes', 'boolean'],
             'payment_settings' => ['nullable', 'array'],
             'payment_settings.enabled_methods' => ['nullable', 'array'],
-            'payment_settings.enabled_methods.*' => ['string', 'in:stripe,bayarcash_fpx'],
-            'payment_settings.default_method' => ['nullable', 'string', 'in:stripe,bayarcash_fpx'],
+            'payment_settings.enabled_methods.*' => ['string', 'in:stripe,bayarcash_fpx,cod'],
+            'payment_settings.default_method' => ['nullable', 'string', 'in:stripe,bayarcash_fpx,cod'],
             'payment_settings.show_method_selector' => ['nullable', 'boolean'],
             'payment_settings.stripe_enabled' => ['nullable', 'boolean'],
             'payment_settings.bayarcash_fpx_enabled' => ['nullable', 'boolean'],
+            'payment_settings.cod_enabled' => ['nullable', 'boolean'],
             'payment_settings.custom_labels' => ['nullable', 'array'],
             'payment_settings.custom_labels.stripe' => ['nullable', 'string', 'max:100'],
             'payment_settings.custom_labels.bayarcash_fpx' => ['nullable', 'string', 'max:100'],
+            'payment_settings.custom_labels.cod' => ['nullable', 'string', 'max:100'],
         ];
     }
 

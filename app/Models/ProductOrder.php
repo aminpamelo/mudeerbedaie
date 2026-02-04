@@ -490,6 +490,18 @@ class ProductOrder extends Model
         return $this->platform_order_number ?: $this->platform_order_id ?: $this->order_number;
     }
 
+    public function getPaymentMethodLabelAttribute(): string
+    {
+        $methods = [
+            'stripe' => 'Stripe',
+            'cash' => 'Cash',
+            'bank_transfer' => 'Bank Transfer',
+            'manual' => 'Manual Payment',
+        ];
+
+        return $methods[$this->payment_method] ?? ucfirst(str_replace('_', ' ', $this->payment_method ?? 'Not Set'));
+    }
+
     public function scopeVisibleInAdmin($query)
     {
         return $query->where('hidden_from_admin', false);
