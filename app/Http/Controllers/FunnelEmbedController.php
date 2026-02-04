@@ -107,7 +107,7 @@ class FunnelEmbedController extends Controller
         $embedSettings = $funnel->embed_settings ?? [];
 
         // Get products for this step (for pixel tracking)
-        $products = $step->products()->where('is_active', true)->orderBy('sort_order')->get();
+        $products = $step->products()->with(['package.items'])->where('is_active', true)->orderBy('sort_order')->get();
 
         // Track Facebook Pixel events (server-side)
         $pixelData = $this->trackPixelEvents($request, $funnel, $step, $session, $products);

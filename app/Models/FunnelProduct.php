@@ -16,6 +16,7 @@ class FunnelProduct extends Model
         'product_id',
         'product_variant_id',
         'course_id',
+        'package_id',
         'type',
         'name',
         'description',
@@ -59,6 +60,11 @@ class FunnelProduct extends Model
         return $this->belongsTo(Course::class);
     }
 
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class);
+    }
+
     public function commissionRule(): HasOne
     {
         return $this->hasOne(FunnelAffiliateCommissionRule::class);
@@ -69,6 +75,10 @@ class FunnelProduct extends Model
     {
         if ($this->name) {
             return $this->name;
+        }
+
+        if ($this->package) {
+            return $this->package->name;
         }
 
         if ($this->course) {
@@ -88,6 +98,10 @@ class FunnelProduct extends Model
             return $this->description;
         }
 
+        if ($this->package) {
+            return $this->package->short_description ?? $this->package->description ?? '';
+        }
+
         if ($this->course) {
             return $this->course->description ?? '';
         }
@@ -99,6 +113,10 @@ class FunnelProduct extends Model
     {
         if ($this->image_url) {
             return $this->image_url;
+        }
+
+        if ($this->package) {
+            return $this->package->featured_image ?? null;
         }
 
         if ($this->course) {
@@ -144,6 +162,11 @@ class FunnelProduct extends Model
     public function isCourse(): bool
     {
         return $this->course_id !== null;
+    }
+
+    public function isPackage(): bool
+    {
+        return $this->package_id !== null;
     }
 
     public function isMain(): bool

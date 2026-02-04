@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\Funnel;
 use App\Models\FunnelOrderBump;
 use App\Models\FunnelProduct;
+use App\Models\Package;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class FunnelProductController extends Controller
         $products = FunnelProduct::whereHas('step', function ($query) use ($funnel) {
             $query->where('funnel_id', $funnel->id);
         })
-            ->with(['step:id,name,type,sort_order', 'product:id,name,base_price,status', 'course:id,name,status'])
+            ->with(['step:id,name,type,sort_order', 'product:id,name,base_price,status', 'course:id,name,status', 'package:id,name,price,status'])
             ->orderBy('funnel_step_id')
             ->orderBy('sort_order')
             ->get();
@@ -41,6 +42,7 @@ class FunnelProductController extends Controller
         $request->validate([
             'product_id' => ['nullable', 'integer', 'exists:products,id'],
             'course_id' => ['nullable', 'integer', 'exists:courses,id'],
+            'package_id' => ['nullable', 'integer', 'exists:packages,id'],
             'type' => ['required', 'string', 'in:main,upsell,downsell'],
             'name' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -51,16 +53,20 @@ class FunnelProductController extends Controller
             'billing_interval' => ['nullable', 'string', 'in:monthly,yearly,weekly'],
         ]);
 
-        // Validate that either product_id or course_id is provided, but not both
-        if (! $request->product_id && ! $request->course_id) {
+        // Validate that exactly one of product_id, course_id, or package_id is provided
+        $providedCount = collect(['product_id', 'course_id', 'package_id'])
+            ->filter(fn ($field) => $request->filled($field))
+            ->count();
+
+        if ($providedCount === 0) {
             return response()->json([
-                'message' => 'Either product_id or course_id must be provided',
+                'message' => 'One of product_id, course_id, or package_id must be provided',
             ], 422);
         }
 
-        if ($request->product_id && $request->course_id) {
+        if ($providedCount > 1) {
             return response()->json([
-                'message' => 'Only one of product_id or course_id should be provided',
+                'message' => 'Only one of product_id, course_id, or package_id should be provided',
             ], 422);
         }
 
@@ -79,12 +85,16 @@ class FunnelProductController extends Controller
             } elseif ($request->course_id) {
                 $course = Course::find($request->course_id);
                 $name = $course?->name;
+            } elseif ($request->package_id) {
+                $package = Package::find($request->package_id);
+                $name = $package?->name;
             }
         }
 
         $funnelProduct = $step->products()->create([
             'product_id' => $request->product_id,
             'course_id' => $request->course_id,
+            'package_id' => $request->package_id,
             'type' => $request->type,
             'name' => $name,
             'description' => $request->description,
@@ -98,7 +108,7 @@ class FunnelProductController extends Controller
 
         return response()->json([
             'message' => 'Product added to step successfully',
-            'data' => $this->formatProduct($funnelProduct->load(['step', 'product', 'course'])),
+            'data' => $this->formatProduct($funnelProduct->load(['step', 'product', 'course', 'package'])),
         ], 201);
     }
 
@@ -135,7 +145,7 @@ class FunnelProductController extends Controller
 
         return response()->json([
             'message' => 'Product updated successfully',
-            'data' => $this->formatProduct($funnelProduct->fresh(['step', 'product', 'course'])),
+            'data' => $this->formatProduct($funnelProduct->fresh(['step', 'product', 'course', 'package'])),
         ]);
     }
 
@@ -242,6 +252,45 @@ class FunnelProductController extends Controller
                 'formatted_price' => $c->formatted_fee,
                 'status' => $c->status,
                 'enrollment_count' => $c->enrollment_count,
+            ]),
+        ]);
+    }
+
+    /**
+     * Search available packages.
+     */
+    public function searchPackages(Request $request): JsonResponse
+    {
+        $search = $request->input('q', '');
+        $limit = min($request->input('limit', 20), 50);
+
+        $packages = Package::query()
+            ->active()
+            ->when($search, fn ($q) => $q->search($search))
+            ->with(['items'])
+            ->orderBy('name')
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'data' => $packages->map(fn ($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'description' => $p->short_description ?? $p->description,
+                'price' => $p->price,
+                'formatted_price' => $p->formatted_price,
+                'original_price' => $p->calculateOriginalPrice(),
+                'savings' => $p->calculateSavings(),
+                'image_url' => $p->featured_image,
+                'status' => $p->status,
+                'item_count' => $p->items->count(),
+                'track_stock' => $p->track_stock,
+                'items' => $p->items->map(fn ($item) => [
+                    'id' => $item->id,
+                    'name' => $item->getDisplayName(),
+                    'type' => $item->isProduct() ? 'product' : 'course',
+                    'quantity' => $item->quantity,
+                ]),
             ]),
         ]);
     }
@@ -404,6 +453,7 @@ class FunnelProductController extends Controller
             'sort_order' => $product->sort_order,
             'is_product' => $product->isProduct(),
             'is_course' => $product->isCourse(),
+            'is_package' => $product->isPackage(),
             'step' => $product->relationLoaded('step') ? [
                 'id' => $product->step->id,
                 'name' => $product->step->name,
@@ -420,6 +470,14 @@ class FunnelProductController extends Controller
                 'id' => $product->course->id,
                 'name' => $product->course->name,
                 'status' => $product->course->status,
+            ] : null,
+            'source_package' => $product->package ? [
+                'id' => $product->package->id,
+                'name' => $product->package->name,
+                'price' => $product->package->price,
+                'status' => $product->package->status,
+                'item_count' => $product->package->items()->count(),
+                'track_stock' => $product->package->track_stock,
             ] : null,
         ];
     }

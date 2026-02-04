@@ -632,14 +632,14 @@ class PuckRenderer
      */
     protected function renderCheckoutForm(array $props, array $context): string
     {
-        $headline = $props['headline'] ?? 'Complete Your Order';
+        $headline = $props['headline'] ?? 'Lengkapkan Pesanan Anda';
         $showOrderSummary = $props['showOrderSummary'] ?? true;
 
         // Note: The actual Livewire checkout component is rendered by the view (funnel/show.blade.php)
         // for checkout step types. This placeholder just shows the headline and a marker div.
         return sprintf(
             '<div class="puck-checkout">
-                <h2 style="font-size: 24px; font-weight: 600; color: #111827; margin-bottom: 24px;">%s</h2>
+                <h2 style="font-size: 24px; font-weight: 600; color: #111827; margin-bottom: 24px; text-align: center;">%s</h2>
                 <div id="funnel-checkout-form" data-funnel="%s" data-step="%s">
                     <!-- Checkout form will be rendered by Livewire component below -->
                 </div>

@@ -143,7 +143,7 @@ class PublicFunnelController extends Controller
         }
 
         // Get products for this step
-        $products = $step->products()->where('is_active', true)->orderBy('sort_order')->get();
+        $products = $step->products()->with(['package.items'])->where('is_active', true)->orderBy('sort_order')->get();
 
         // Get order bumps for this step
         $orderBumps = $step->orderBumps()->where('is_active', true)->orderBy('sort_order')->get();

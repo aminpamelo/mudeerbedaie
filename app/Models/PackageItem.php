@@ -66,6 +66,11 @@ class PackageItem extends Model
         return $this->itemable_type === Course::class;
     }
 
+    public function isClass(): bool
+    {
+        return $this->itemable_type === ClassModel::class;
+    }
+
     public function getEffectivePrice(): float
     {
         if ($this->custom_price) {
@@ -85,6 +90,12 @@ class PackageItem extends Model
             $course = $this->itemable;
 
             return $course->feeSettings->fee_amount ?? 0;
+        }
+
+        if ($this->isClass()) {
+            $class = $this->itemable;
+
+            return $class->course?->feeSettings->fee_amount ?? 0;
         }
 
         return 0;
@@ -110,6 +121,12 @@ class PackageItem extends Model
             return $this->itemable->name;
         }
 
+        if ($this->isClass()) {
+            $class = $this->itemable;
+
+            return $class->title.' ('.$class->course?->name.')';
+        }
+
         return 'Unknown Item';
     }
 
@@ -127,6 +144,10 @@ class PackageItem extends Model
             return $this->itemable->description ?? '';
         }
 
+        if ($this->isClass()) {
+            return $this->itemable->description ?? '';
+        }
+
         return '';
     }
 
@@ -135,7 +156,7 @@ class PackageItem extends Model
         if (! $this->isProduct()) {
             return [
                 'available' => true,
-                'message' => 'No stock check required for courses',
+                'message' => 'No stock check required for courses/classes',
             ];
         }
 
@@ -183,6 +204,11 @@ class PackageItem extends Model
     public function scopeCourses($query)
     {
         return $query->where('itemable_type', Course::class);
+    }
+
+    public function scopeClasses($query)
+    {
+        return $query->where('itemable_type', ClassModel::class);
     }
 
     public function scopeFeatured($query)

@@ -260,6 +260,9 @@ class PackagePurchase extends Model
         // Create course enrollments if there are courses
         $this->createCourseEnrollments();
 
+        // Create class enrollments if there are classes
+        $this->createClassEnrollments();
+
         // Update package purchase count
         $this->package->increment('purchased_count');
 
@@ -383,6 +386,7 @@ class PackagePurchase extends Model
             $enrollment = Enrollment::create([
                 'student_id' => $student->id,
                 'course_id' => $course->id,
+                'enrolled_by' => $this->user_id,
                 'status' => 'enrolled',
                 'enrollment_date' => now(),
                 'notes' => "Enrolled via package purchase: {$package->name} (#{$this->purchase_number})",
@@ -396,6 +400,69 @@ class PackagePurchase extends Model
                 'enrollment_status' => 'created',
                 'enrolled_at' => now(),
             ]);
+
+            $enrollments[] = $enrollment;
+        }
+
+        return $enrollments;
+    }
+
+    protected function createClassEnrollments(): array
+    {
+        $package = $this->package;
+        $classes = $package->classes;
+        $enrollments = [];
+
+        if ($classes->isEmpty() || ! $this->user_id) {
+            return $enrollments;
+        }
+
+        // Find or create student record
+        $student = Student::firstOrCreate(
+            ['user_id' => $this->user_id],
+            ['name' => $this->user->name, 'email' => $this->user->email]
+        );
+
+        foreach ($classes as $class) {
+            $course = $class->course;
+            if (! $course) {
+                continue;
+            }
+
+            // Check if student already has an active enrollment in this course
+            // (could have been created by a course item in the same package)
+            $existingEnrollment = Enrollment::where('student_id', $student->id)
+                ->where('course_id', $course->id)
+                ->whereIn('status', ['enrolled', 'active'])
+                ->first();
+
+            if ($existingEnrollment) {
+                $enrollment = $existingEnrollment;
+            } else {
+                // Create enrollment in the parent course
+                $enrollment = Enrollment::create([
+                    'student_id' => $student->id,
+                    'course_id' => $course->id,
+                    'enrolled_by' => $this->user_id,
+                    'status' => 'enrolled',
+                    'enrollment_date' => now(),
+                    'notes' => "Enrolled via package purchase (class): {$package->name} (#{$this->purchase_number})",
+                ]);
+
+                // Link to package purchase
+                $this->packagePurchaseEnrollments()->create([
+                    'enrollment_id' => $enrollment->id,
+                    'course_id' => $course->id,
+                    'student_id' => $student->id,
+                    'enrollment_status' => 'created',
+                    'enrolled_at' => now(),
+                ]);
+            }
+
+            // Assign student to the specific class
+            if ($class->canAddStudent()) {
+                $class->addStudent($student);
+            }
 
             $enrollments[] = $enrollment;
         }

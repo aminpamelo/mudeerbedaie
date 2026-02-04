@@ -243,8 +243,9 @@ class TikTokProductSyncService
                     'platform_sku' => $platformSku,
                 ],
                 [
-                    'product_id' => $match->product->id,
+                    'product_id' => $match->product?->id,
                     'product_variant_id' => $match->variant?->id,
+                    'package_id' => $match->package?->id,
                     'platform_product_name' => $tiktokProduct['product_name'] ?? $tiktokProduct['name'] ?? null,
                     'is_active' => true,
                     'mapping_metadata' => [
@@ -253,6 +254,7 @@ class TikTokProductSyncService
                         'linked_at' => now()->toIso8601String(),
                         'match_confidence' => $match->confidence,
                         'match_reason' => $match->matchReason,
+                        'linked_type' => $match->isPackageMatch() ? 'package' : 'product',
                     ],
                     'last_used_at' => now(),
                 ]
@@ -263,18 +265,24 @@ class TikTokProductSyncService
                 ->where('platform_product_id', $productId)
                 ->update([
                     'status' => 'linked',
-                    'suggested_product_id' => $match->product->id,
+                    'suggested_product_id' => $match->product?->id,
                     'suggested_variant_id' => $match->variant?->id,
+                    'suggested_package_id' => $match->package?->id,
                     'match_confidence' => $match->confidence,
                     'match_reason' => $match->matchReason,
                     'reviewed_at' => now(),
                 ]);
         });
 
+        $linkedName = $match->isPackageMatch()
+            ? $match->package->name
+            : $match->product->name;
+
         Log::info('[TikTok Product Sync] Auto-linked product', [
             'account_id' => $account->id,
             'platform_product_id' => $productId,
-            'internal_product_id' => $match->product->id,
+            'linked_to' => $linkedName,
+            'linked_type' => $match->isPackageMatch() ? 'package' : 'product',
             'confidence' => $match->confidence,
         ]);
 

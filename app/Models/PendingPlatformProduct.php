@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PendingPlatformProduct extends Model
 {
@@ -33,6 +34,7 @@ class PendingPlatformProduct extends Model
         'quantity',
         'suggested_product_id',
         'suggested_variant_id',
+        'suggested_package_id',
         'match_confidence',
         'match_reason',
         'status',
@@ -77,6 +79,11 @@ class PendingPlatformProduct extends Model
         return $this->belongsTo(ProductVariant::class, 'suggested_variant_id');
     }
 
+    public function suggestedPackage(): BelongsTo
+    {
+        return $this->belongsTo(Package::class, 'suggested_package_id');
+    }
+
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
@@ -110,12 +117,16 @@ class PendingPlatformProduct extends Model
 
     public function scopeWithSuggestions(Builder $query): Builder
     {
-        return $query->whereNotNull('suggested_product_id');
+        return $query->where(function (Builder $q) {
+            $q->whereNotNull('suggested_product_id')
+                ->orWhereNotNull('suggested_package_id');
+        });
     }
 
     public function scopeWithoutSuggestions(Builder $query): Builder
     {
-        return $query->whereNull('suggested_product_id');
+        return $query->whereNull('suggested_product_id')
+            ->whereNull('suggested_package_id');
     }
 
     public function scopeHighConfidence(Builder $query, float $threshold = 90): Builder
@@ -140,6 +151,16 @@ class PendingPlatformProduct extends Model
     }
 
     public function hasSuggestion(): bool
+    {
+        return $this->suggested_product_id !== null || $this->suggested_package_id !== null;
+    }
+
+    public function hasPackageSuggestion(): bool
+    {
+        return $this->suggested_package_id !== null;
+    }
+
+    public function hasProductSuggestion(): bool
     {
         return $this->suggested_product_id !== null;
     }
@@ -169,6 +190,30 @@ class PendingPlatformProduct extends Model
         return $this->getVariantCount() > 0;
     }
 
+    /**
+     * Get the TikTok SKU ID from raw_data for use in PlatformSkuMapping.
+     *
+     * TikTok orders reference items by SKU ID (skus[].id), not by seller_sku or product_id.
+     * This method extracts the correct identifier to ensure mappings match order items.
+     */
+    public function getTikTokSkuId(): string
+    {
+        $rawData = $this->raw_data;
+
+        // Extract sku.id from raw_data — this is what TikTok orders use as the SKU identifier
+        if (is_array($rawData) && ! empty($rawData['skus'][0]['id'])) {
+            return $rawData['skus'][0]['id'];
+        }
+
+        // Fallback: use seller_sku if not empty
+        if (! empty($this->platform_sku)) {
+            return $this->platform_sku;
+        }
+
+        // Last resort: use platform_product_id
+        return $this->platform_product_id;
+    }
+
     // Actions
 
     /**
@@ -177,12 +222,12 @@ class PendingPlatformProduct extends Model
     public function linkToProduct(Product $product, ?ProductVariant $variant = null, ?int $userId = null): PlatformSkuMapping
     {
         return DB::transaction(function () use ($product, $variant, $userId) {
-            // Create the platform SKU mapping
+            // Create the platform SKU mapping using TikTok SKU ID (matches order items)
             $mapping = PlatformSkuMapping::updateOrCreate(
                 [
                     'platform_id' => $this->platform_id,
                     'platform_account_id' => $this->platform_account_id,
-                    'platform_sku' => $this->platform_sku ?? $this->platform_product_id,
+                    'platform_sku' => $this->getTikTokSkuId(),
                 ],
                 [
                     'product_id' => $product->id,
@@ -203,12 +248,162 @@ class PendingPlatformProduct extends Model
             // Update this pending product status
             $this->update([
                 'status' => 'linked',
+                'suggested_product_id' => $product->id,
+                'suggested_variant_id' => $variant?->id,
+                'suggested_package_id' => null,
                 'reviewed_at' => now(),
                 'reviewed_by' => $userId,
             ]);
 
             return $mapping;
         });
+    }
+
+    /**
+     * Link this pending product to a package.
+     */
+    public function linkToPackage(Package $package, ?int $userId = null): PlatformSkuMapping
+    {
+        return DB::transaction(function () use ($package, $userId) {
+            $mapping = PlatformSkuMapping::updateOrCreate(
+                [
+                    'platform_id' => $this->platform_id,
+                    'platform_account_id' => $this->platform_account_id,
+                    'platform_sku' => $this->getTikTokSkuId(),
+                ],
+                [
+                    'product_id' => null,
+                    'product_variant_id' => null,
+                    'package_id' => $package->id,
+                    'platform_product_name' => $this->name,
+                    'is_active' => true,
+                    'mapping_metadata' => [
+                        'platform_product_id' => $this->platform_product_id,
+                        'linked_from_pending' => true,
+                        'linked_at' => now()->toIso8601String(),
+                        'linked_type' => 'package',
+                    ],
+                    'last_used_at' => now(),
+                ]
+            );
+
+            $this->update([
+                'status' => 'linked',
+                'suggested_product_id' => null,
+                'suggested_variant_id' => null,
+                'suggested_package_id' => $package->id,
+                'reviewed_at' => now(),
+                'reviewed_by' => $userId,
+            ]);
+
+            return $mapping;
+        });
+    }
+
+    /**
+     * Link a specific variant SKU to a product, variant, or package.
+     */
+    public function linkVariantSku(
+        string $variantSku,
+        ?Product $product = null,
+        ?ProductVariant $variant = null,
+        ?Package $package = null,
+        ?int $userId = null
+    ): PlatformSkuMapping {
+        return DB::transaction(function () use ($variantSku, $product, $variant, $package, $userId) {
+            $mapping = PlatformSkuMapping::updateOrCreate(
+                [
+                    'platform_id' => $this->platform_id,
+                    'platform_account_id' => $this->platform_account_id,
+                    'platform_sku' => $variantSku,
+                ],
+                [
+                    'product_id' => $product?->id,
+                    'product_variant_id' => $variant?->id,
+                    'package_id' => $package?->id,
+                    'platform_product_name' => $this->name,
+                    'is_active' => true,
+                    'mapping_metadata' => [
+                        'platform_product_id' => $this->platform_product_id,
+                        'linked_from_pending' => true,
+                        'variant_sku' => $variantSku,
+                        'linked_at' => now()->toIso8601String(),
+                        'linked_type' => $package ? 'package' : 'product',
+                    ],
+                    'last_used_at' => now(),
+                ]
+            );
+
+            // If all variants are mapped, mark the pending product as linked
+            if ($this->areAllVariantsMapped()) {
+                $this->update([
+                    'status' => 'linked',
+                    'reviewed_at' => now(),
+                    'reviewed_by' => $userId,
+                ]);
+            }
+
+            return $mapping;
+        });
+    }
+
+    /**
+     * Check if all variant SKUs have been mapped.
+     */
+    public function areAllVariantsMapped(): bool
+    {
+        if (! $this->hasVariants()) {
+            return false;
+        }
+
+        foreach ($this->variants as $variant) {
+            $sku = $variant['sku'] ?? null;
+            if (! $sku) {
+                continue;
+            }
+
+            $mapping = PlatformSkuMapping::findMapping(
+                $this->platform_id,
+                $this->platform_account_id,
+                $sku
+            );
+
+            if (! $mapping) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Get the count of mapped variants.
+     */
+    public function getMappedVariantCount(): int
+    {
+        if (! $this->hasVariants()) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($this->variants as $variant) {
+            $sku = $variant['sku'] ?? null;
+            if (! $sku) {
+                continue;
+            }
+
+            $mapping = PlatformSkuMapping::where('platform_id', $this->platform_id)
+                ->where('platform_account_id', $this->platform_account_id)
+                ->where('platform_sku', $sku)
+                ->where('is_active', true)
+                ->exists();
+
+            if ($mapping) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**
@@ -220,10 +415,11 @@ class PendingPlatformProduct extends Model
             // Create the new product
             $product = Product::create([
                 'name' => $this->name,
+                'slug' => Str::slug($this->name).'-'.Str::random(6),
                 'description' => $this->description,
                 'sku' => $this->generateInternalSku(),
                 'base_price' => $this->price ?? 0,
-                'cost_price' => null,
+                'cost_price' => 0,
                 'status' => 'draft', // Start as draft for review
                 'type' => $this->hasVariants() ? 'variable' : 'simple',
                 'track_quantity' => true,
@@ -244,25 +440,30 @@ class PendingPlatformProduct extends Model
                 }
             }
 
-            // Create the platform SKU mapping
-            PlatformSkuMapping::create([
-                'platform_id' => $this->platform_id,
-                'platform_account_id' => $this->platform_account_id,
-                'product_id' => $product->id,
-                'platform_sku' => $this->platform_sku ?? $this->platform_product_id,
-                'platform_product_name' => $this->name,
-                'is_active' => true,
-                'mapping_metadata' => [
-                    'platform_product_id' => $this->platform_product_id,
-                    'created_from_pending' => true,
-                    'created_at' => now()->toIso8601String(),
+            // Create or update the platform SKU mapping using TikTok SKU ID (matches order items)
+            PlatformSkuMapping::updateOrCreate(
+                [
+                    'platform_id' => $this->platform_id,
+                    'platform_account_id' => $this->platform_account_id,
+                    'platform_sku' => $this->getTikTokSkuId(),
                 ],
-                'last_used_at' => now(),
-            ]);
+                [
+                    'product_id' => $product->id,
+                    'platform_product_name' => $this->name,
+                    'is_active' => true,
+                    'mapping_metadata' => [
+                        'platform_product_id' => $this->platform_product_id,
+                        'created_from_pending' => true,
+                        'created_at' => now()->toIso8601String(),
+                    ],
+                    'last_used_at' => now(),
+                ]
+            );
 
-            // Update this pending product status
+            // Update this pending product status and link back to created product
             $this->update([
                 'status' => 'created',
+                'suggested_product_id' => $product->id,
                 'reviewed_at' => now(),
                 'reviewed_by' => $userId,
             ]);
@@ -298,11 +499,17 @@ class PendingPlatformProduct extends Model
     /**
      * Update the match suggestion.
      */
-    public function updateSuggestion(?Product $product, ?ProductVariant $variant, ?float $confidence, ?string $reason): void
-    {
+    public function updateSuggestion(
+        ?Product $product,
+        ?ProductVariant $variant,
+        ?float $confidence,
+        ?string $reason,
+        ?Package $package = null
+    ): void {
         $this->update([
             'suggested_product_id' => $product?->id,
             'suggested_variant_id' => $variant?->id,
+            'suggested_package_id' => $package?->id,
             'match_confidence' => $confidence,
             'match_reason' => $reason,
         ]);
@@ -343,6 +550,7 @@ class PendingPlatformProduct extends Model
         if ($suggestion) {
             $data['suggested_product_id'] = $suggestion['product_id'] ?? null;
             $data['suggested_variant_id'] = $suggestion['variant_id'] ?? null;
+            $data['suggested_package_id'] = $suggestion['package_id'] ?? null;
             $data['match_confidence'] = $suggestion['confidence'] ?? null;
             $data['match_reason'] = $suggestion['reason'] ?? null;
         }
@@ -454,10 +662,14 @@ class PendingPlatformProduct extends Model
         }
 
         return array_map(function ($sku) {
+            $sellerSku = ! empty($sku['seller_sku']) ? $sku['seller_sku'] : null;
+            $skuId = $sku['id'] ?? null;
+
             return [
-                'sku' => $sku['seller_sku'] ?? $sku['id'] ?? null,
+                'sku' => $sellerSku ?? $skuId,
+                'sku_id' => $skuId,
                 'name' => $sku['sales_attributes'][0]['value_name'] ?? null,
-                'price' => $sku['price']['sale_price'] ?? null,
+                'price' => $sku['price']['sale_price'] ?? $sku['price']['tax_exclusive_price'] ?? null,
                 'quantity' => $sku['inventory'][0]['quantity'] ?? 0,
                 'attributes' => array_map(
                     fn ($attr) => ['name' => $attr['name'] ?? '', 'value' => $attr['value_name'] ?? ''],

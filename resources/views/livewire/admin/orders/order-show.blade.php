@@ -3,6 +3,7 @@
 use App\Models\ProductOrder;
 use App\Models\StockLevel;
 use App\Models\StockMovement;
+use App\Services\TikTok\OrderItemLinker;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 
@@ -23,6 +24,7 @@ new class extends Component
     {
         $this->order = $order->load([
             'items.product',
+            'items.package',
             'items.warehouse',
             'user',
             'payments',
@@ -228,9 +230,80 @@ new class extends Component
             }
         }
     }
+
+    public function linkOrderItems(): void
+    {
+        if (! $this->order->platform_id || ! $this->order->platform_account_id) {
+            session()->flash('error', 'This order has no platform account linked.');
+
+            return;
+        }
+
+        $linker = app(OrderItemLinker::class);
+        $linked = 0;
+
+        foreach ($this->order->items as $item) {
+            if (! $item->product_id && ! $item->package_id) {
+                if ($linker->linkItemToMapping($item, $this->order->platform_id, $this->order->platform_account_id)) {
+                    $linked++;
+                }
+            }
+        }
+
+        if ($linked > 0) {
+            $this->order->addSystemNote("Manually linked {$linked} item(s) to internal products/packages");
+            session()->flash('success', "Linked {$linked} item(s) to internal products/packages.");
+        } else {
+            session()->flash('info', 'No items could be linked. Check that SKU mappings exist for this account.');
+        }
+
+        $this->order = $this->order->fresh([
+            'items.product',
+            'items.package',
+            'items.warehouse',
+            'user',
+            'payments',
+            'platform',
+            'platformAccount',
+            'notes.user',
+        ]);
+    }
+
+    public function deductOrderStock(): void
+    {
+        $linker = app(OrderItemLinker::class);
+        $result = $linker->deductStockForOrder($this->order);
+
+        if ($result['deducted'] > 0) {
+            $this->order->addSystemNote("Manually deducted stock for {$result['deducted']} item(s)");
+            session()->flash('success', "Stock deducted for {$result['deducted']} item(s).");
+        } else {
+            session()->flash('info', 'No stock was deducted. Items may already have been deducted or are missing warehouse assignments.');
+        }
+
+        $this->order->refresh();
+    }
 }; ?>
 
 <div>
+    @if (session()->has('success'))
+        <flux:callout variant="success" class="mb-6">
+            {{ session('success') }}
+        </flux:callout>
+    @endif
+
+    @if (session()->has('error'))
+        <flux:callout variant="danger" class="mb-6">
+            {{ session('error') }}
+        </flux:callout>
+    @endif
+
+    @if (session()->has('info'))
+        <flux:callout variant="warning" class="mb-6">
+            {{ session('info') }}
+        </flux:callout>
+    @endif
+
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
         <div>
@@ -453,18 +526,68 @@ new class extends Component
 
             <!-- Order Items -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                <flux:heading size="lg" class="mb-4">Order Items</flux:heading>
+                <div class="flex items-center justify-between mb-4">
+                    <flux:heading size="lg">Order Items</flux:heading>
+                    @if($order->platform_id && $order->platform_account_id)
+                        <div class="flex items-center gap-2">
+                            @if($order->items->contains(fn ($item) => !$item->product_id && !$item->package_id))
+                                <flux:button size="sm" variant="outline" wire:click="linkOrderItems" wire:loading.attr="disabled">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="link" class="w-4 h-4 mr-1" />
+                                        <span wire:loading.remove wire:target="linkOrderItems">Link to Products</span>
+                                        <span wire:loading wire:target="linkOrderItems">Linking...</span>
+                                    </div>
+                                </flux:button>
+                            @endif
+                            @if($order->items->contains(fn ($item) => ($item->product_id || $item->package_id) && $item->warehouse_id) && in_array($order->status, ['shipped', 'delivered']))
+                                <flux:button size="sm" variant="outline" wire:click="deductOrderStock" wire:loading.attr="disabled" wire:confirm="Deduct stock for all linked items in this order?">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="minus-circle" class="w-4 h-4 mr-1" />
+                                        <span wire:loading.remove wire:target="deductOrderStock">Deduct Stock</span>
+                                        <span wire:loading wire:target="deductOrderStock">Deducting...</span>
+                                    </div>
+                                </flux:button>
+                            @endif
+                        </div>
+                    @endif
+                </div>
 
                 <div class="space-y-4">
                     @foreach($order->items as $item)
                         <div class="flex items-center justify-between border-b pb-4">
                             <div class="flex items-center space-x-4">
                                 <div class="w-16 h-16 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
-                                    <flux:icon name="cube" class="w-8 h-8 text-zinc-400" />
+                                    @if($item->package_id)
+                                        <flux:icon name="archive-box" class="w-8 h-8 text-purple-400" />
+                                    @elseif($item->product_id)
+                                        <flux:icon name="cube" class="w-8 h-8 text-blue-400" />
+                                    @else
+                                        <flux:icon name="cube" class="w-8 h-8 text-zinc-400" />
+                                    @endif
                                 </div>
                                 <div>
-                                    <flux:heading class="font-medium">{{ $item->product?->name ?? $item->product_name ?? 'Unknown Product' }}</flux:heading>
-                                    @if($item->product)
+                                    <div class="flex items-center gap-2">
+                                        @if($item->package_id && $item->package)
+                                            <a href="{{ route('packages.show', $item->package_id) }}" wire:navigate class="font-medium text-gray-900 dark:text-zinc-100 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                                {{ $item->package->name }}
+                                            </a>
+                                            <flux:badge size="sm" color="purple">Package</flux:badge>
+                                        @elseif($item->product_id && $item->product)
+                                            <a href="{{ route('products.show', $item->product_id) }}" wire:navigate class="font-medium text-gray-900 dark:text-zinc-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                                {{ $item->product->name }}
+                                            </a>
+                                            <flux:badge size="sm" color="blue">Product</flux:badge>
+                                        @else
+                                            <flux:heading class="font-medium">{{ $item->product_name ?? 'Unknown Product' }}</flux:heading>
+                                            <flux:badge size="sm" color="zinc">Unmapped</flux:badge>
+                                        @endif
+                                    </div>
+                                    @if($item->platform_product_name && ($item->product_id || $item->package_id))
+                                        <flux:text class="text-xs text-zinc-400">
+                                            Platform: {{ $item->platform_product_name }}
+                                        </flux:text>
+                                    @endif
+                                    @if($item->product && $item->product->sku)
                                         <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">
                                             SKU: {{ $item->product->sku }}
                                         </flux:text>
@@ -479,7 +602,7 @@ new class extends Component
                                 </div>
                             </div>
                             <div class="text-right">
-                                <flux:text class="font-medium">{{ $item->quantity }} × MYR {{ number_format($item->unit_price, 2) }}</flux:text>
+                                <flux:text class="font-medium">{{ $item->quantity_ordered ?? $item->quantity }} × MYR {{ number_format($item->unit_price, 2) }}</flux:text>
                                 <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">MYR {{ number_format($item->total_price, 2) }}</flux:text>
                             </div>
                         </div>

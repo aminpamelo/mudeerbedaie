@@ -16,6 +16,7 @@ class PlatformSkuMapping extends Model
         'platform_account_id',
         'product_id',
         'product_variant_id',
+        'package_id',
         'platform_sku',
         'platform_product_name',
         'platform_variation_name',
@@ -56,15 +57,50 @@ class PlatformSkuMapping extends Model
         return $this->belongsTo(ProductVariant::class);
     }
 
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class);
+    }
+
     // Helper methods
+
+    /**
+     * Get the target entity (Product, ProductVariant, or Package).
+     */
+    public function getTarget(): Product|ProductVariant|Package
+    {
+        if ($this->package_id) {
+            return $this->package;
+        }
+
+        return $this->product_variant_id ? $this->productVariant : $this->product;
+    }
+
+    /**
+     * @deprecated Use getTarget() instead
+     */
     public function getTargetProduct(): Product|ProductVariant
     {
         return $this->product_variant_id ? $this->productVariant : $this->product;
     }
 
+    public function isPackageMapping(): bool
+    {
+        return $this->package_id !== null;
+    }
+
+    public function isProductMapping(): bool
+    {
+        return $this->product_id !== null && $this->package_id === null;
+    }
+
     public function getDisplayName(): string
     {
-        $productName = $this->platform_product_name ?: $this->product->name;
+        if ($this->isPackageMapping()) {
+            return $this->platform_product_name ?: ($this->package?->name ?? 'Unknown Package');
+        }
+
+        $productName = $this->platform_product_name ?: ($this->product?->name ?? 'Unknown Product');
         $variationName = $this->platform_variation_name;
 
         return $variationName ? "{$productName} - {$variationName}" : $productName;
@@ -102,6 +138,11 @@ class PlatformSkuMapping extends Model
         return $query->where('product_id', $productId);
     }
 
+    public function scopeByPackage(Builder $query, int $packageId): Builder
+    {
+        return $query->where('package_id', $packageId);
+    }
+
     public function scopeRecentlyUsed(Builder $query): Builder
     {
         return $query->orderBy('last_used_at', 'desc');
@@ -119,6 +160,7 @@ class PlatformSkuMapping extends Model
             ->when($platformAccountId, fn ($q) => $q->where('platform_account_id', $platformAccountId))
             ->where('platform_sku', $platformSku)
             ->where('is_active', true)
+            ->with(['product', 'productVariant', 'package'])
             ->first();
     }
 

@@ -54,17 +54,40 @@ class TikTokOrderProcessor
             Log::debug('TikTok: Parsing order data', ['order_id' => $orderId]);
             $mappedData = $this->parseOrderData($mappedData);
 
-            // Apply package or product mapping
-            if (isset($mappedData['product_name'])) {
+            // Apply mapping: PlatformSkuMapping first, then constructor-based fallbacks
+            $platformSku = $mappedData['sku'] ?? $mappedData['seller_sku'] ?? null;
+            $skuMapping = null;
+
+            if ($platformSku) {
+                $skuMapping = PlatformSkuMapping::findMapping(
+                    $this->platform->id,
+                    $this->account->id,
+                    $platformSku
+                );
+            }
+
+            if ($skuMapping) {
+                if ($skuMapping->isPackageMapping()) {
+                    $mappedData['internal_package_id'] = $skuMapping->package_id;
+                    $mappedData['internal_package_name'] = $skuMapping->package?->name;
+                    $skuMapping->markAsUsed();
+                } elseif ($skuMapping->isProductMapping()) {
+                    $mappedData['internal_product'] = $skuMapping->product;
+                    if ($skuMapping->product_variant_id) {
+                        $mappedData['internal_variant'] = $skuMapping->productVariant;
+                    }
+                    $skuMapping->markAsUsed();
+                }
+            } elseif (isset($mappedData['product_name'])) {
                 $productName = trim($mappedData['product_name']);
 
-                // Check for package mapping first (higher priority)
+                // Fallback: Check constructor-based package mapping
                 if (isset($this->packageMappings[$productName])) {
                     $mapping = $this->packageMappings[$productName];
                     $mappedData['internal_package_id'] = $mapping['package_id'];
                     $mappedData['internal_package_name'] = $mapping['package_name'];
                 }
-                // Then check for product mapping
+                // Fallback: Check constructor-based product mapping
                 elseif (isset($this->productMappings[$productName])) {
                     $mapping = $this->productMappings[$productName];
                     $mappedData['internal_product'] = Product::find($mapping['product_id']);

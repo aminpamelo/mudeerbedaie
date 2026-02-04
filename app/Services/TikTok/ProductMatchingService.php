@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\TikTok;
 
+use App\Models\Package;
 use App\Models\PlatformAccount;
 use App\Models\PlatformSkuMapping;
 use App\Models\Product;
@@ -45,15 +46,21 @@ class ProductMatchingService
             fn () => $this->matchByExistingMapping($tiktokProduct, $account),
             fn () => $this->matchBySku($tiktokProduct),
             fn () => $this->matchByBarcode($tiktokProduct),
+            fn () => $this->matchByPackageNameSimilarity($tiktokProduct),
             fn () => $this->matchByNameSimilarity($tiktokProduct),
         ];
 
         foreach ($strategies as $strategy) {
             $match = $strategy();
             if ($match !== null) {
+                $matchedName = $match->isPackageMatch()
+                    ? $match->package->name
+                    : $match->product->name;
+
                 Log::info('[ProductMatching] Match found', [
                     'product_id' => $tiktokProduct['id'] ?? $tiktokProduct['product_id'] ?? 'unknown',
-                    'matched_product' => $match->product->name,
+                    'matched_to' => $matchedName,
+                    'match_type' => $match->isPackageMatch() ? 'package' : 'product',
                     'confidence' => $match->confidence,
                     'reason' => $match->matchReason,
                 ]);
@@ -86,17 +93,30 @@ class ProductMatchingService
             $mapping = PlatformSkuMapping::where('platform_account_id', $account->id)
                 ->where('platform_sku', $platformSku)
                 ->where('is_active', true)
-                ->with(['product', 'productVariant'])
+                ->with(['product', 'productVariant', 'package'])
                 ->first();
 
-            if ($mapping && $mapping->product) {
-                return new MatchResult(
-                    product: $mapping->product,
-                    variant: $mapping->productVariant,
-                    confidence: 100.0,
-                    matchReason: 'Existing SKU mapping',
-                    autoLink: true
-                );
+            if ($mapping) {
+                if ($mapping->isPackageMapping()) {
+                    return new MatchResult(
+                        product: null,
+                        variant: null,
+                        package: $mapping->package,
+                        confidence: 100.0,
+                        matchReason: 'Existing SKU mapping (package)',
+                        autoLink: true
+                    );
+                }
+
+                if ($mapping->product) {
+                    return new MatchResult(
+                        product: $mapping->product,
+                        variant: $mapping->productVariant,
+                        confidence: 100.0,
+                        matchReason: 'Existing SKU mapping',
+                        autoLink: true
+                    );
+                }
             }
         }
 
@@ -105,17 +125,30 @@ class ProductMatchingService
             $mapping = PlatformSkuMapping::where('platform_account_id', $account->id)
                 ->where('is_active', true)
                 ->whereJsonContains('mapping_metadata->platform_product_id', $productId)
-                ->with(['product', 'productVariant'])
+                ->with(['product', 'productVariant', 'package'])
                 ->first();
 
-            if ($mapping && $mapping->product) {
-                return new MatchResult(
-                    product: $mapping->product,
-                    variant: $mapping->productVariant,
-                    confidence: 100.0,
-                    matchReason: 'Existing product ID mapping',
-                    autoLink: true
-                );
+            if ($mapping) {
+                if ($mapping->isPackageMapping()) {
+                    return new MatchResult(
+                        product: null,
+                        variant: null,
+                        package: $mapping->package,
+                        confidence: 100.0,
+                        matchReason: 'Existing product ID mapping (package)',
+                        autoLink: true
+                    );
+                }
+
+                if ($mapping->product) {
+                    return new MatchResult(
+                        product: $mapping->product,
+                        variant: $mapping->productVariant,
+                        confidence: 100.0,
+                        matchReason: 'Existing product ID mapping',
+                        autoLink: true
+                    );
+                }
             }
         }
 
@@ -202,6 +235,60 @@ class ProductMatchingService
         }
 
         return null;
+    }
+
+    /**
+     * Match by package name similarity.
+     */
+    public function matchByPackageNameSimilarity(array $tiktokProduct, float $threshold = self::NAME_SIMILARITY_THRESHOLD): ?MatchResult
+    {
+        $tiktokName = $tiktokProduct['title'] ?? $tiktokProduct['product_name'] ?? $tiktokProduct['name'] ?? null;
+        $tiktokPrice = $this->extractPrice($tiktokProduct);
+
+        if (! $tiktokName) {
+            return null;
+        }
+
+        $normalizedTiktokName = $this->normalizeProductName($tiktokName);
+        $bestMatch = null;
+        $bestSimilarity = 0;
+
+        $packages = Package::where('status', 'active')
+            ->select(['id', 'name', 'price', 'slug'])
+            ->limit(500)
+            ->get();
+
+        foreach ($packages as $package) {
+            $similarity = $this->calculateNameSimilarity($normalizedTiktokName, $this->normalizeProductName($package->name));
+
+            if ($similarity > $bestSimilarity && $similarity >= $threshold) {
+                $bestSimilarity = $similarity;
+                $bestMatch = $package;
+            }
+        }
+
+        if (! $bestMatch) {
+            return null;
+        }
+
+        $confidence = $bestSimilarity * 100;
+
+        // Boost confidence if prices match
+        if ($tiktokPrice !== null && $bestMatch->price !== null) {
+            $priceDiff = abs($tiktokPrice - (float) $bestMatch->price);
+            if ($priceDiff < 1.0) {
+                $confidence = min(90, $confidence + 10);
+            }
+        }
+
+        return new MatchResult(
+            product: null,
+            variant: null,
+            package: $bestMatch,
+            confidence: round($confidence, 2),
+            matchReason: sprintf('Package name similarity (%.0f%%)', $bestSimilarity * 100),
+            autoLink: false
+        );
     }
 
     /**
@@ -383,33 +470,5 @@ class ProductMatchingService
         }
 
         return null;
-    }
-}
-
-/**
- * Data class representing a match result.
- */
-class MatchResult
-{
-    public function __construct(
-        public Product $product,
-        public ?ProductVariant $variant,
-        public float $confidence,
-        public string $matchReason,
-        public bool $autoLink = false
-    ) {}
-
-    /**
-     * Convert to array for storage.
-     */
-    public function toArray(): array
-    {
-        return [
-            'product_id' => $this->product->id,
-            'variant_id' => $this->variant?->id,
-            'confidence' => $this->confidence,
-            'reason' => $this->matchReason,
-            'auto_link' => $this->autoLink,
-        ];
     }
 }

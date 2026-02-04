@@ -32,7 +32,6 @@ new class extends Component
 
     public array $billingAddress = [
         'first_name' => '',
-        'last_name' => '',
         'company' => '',
         'address_line_1' => '',
         'address_line_2' => '',
@@ -53,6 +52,8 @@ new class extends Component
 
     public bool $disableShipping = false;
 
+    public string $productSelectionMode = 'multi';
+
     public string $countryCode = '+60';
 
     public function mount(Funnel $funnel, FunnelStep $step, ?FunnelSession $session = null): void
@@ -61,6 +62,7 @@ new class extends Component
         $this->step = $step->load(['products.product', 'products.course', 'orderBumps.product']);
         $this->funnelSession = $session;
         $this->disableShipping = (bool) $funnel->disable_shipping;
+        $this->productSelectionMode = $funnel->settings['product_selection_mode'] ?? 'multi';
 
         $this->loadCart();
         $this->prefillFromSession();
@@ -203,10 +205,16 @@ new class extends Component
 
     public function toggleProduct(int $productId): void
     {
-        if (isset($this->selectedProducts[$productId])) {
-            unset($this->selectedProducts[$productId]);
+        if ($this->productSelectionMode === 'single') {
+            // Single-select: replace selection (don't allow deselect)
+            $this->selectedProducts = [$productId => true];
         } else {
-            $this->selectedProducts[$productId] = true;
+            // Multi-select: toggle
+            if (isset($this->selectedProducts[$productId])) {
+                unset($this->selectedProducts[$productId]);
+            } else {
+                $this->selectedProducts[$productId] = true;
+            }
         }
 
         $this->updateCart();
@@ -308,13 +316,13 @@ new class extends Component
     public function proceedToPayment(): void
     {
         $rules = [
-            'customerData.email' => 'required|email',
+            'customerData.email' => 'nullable|email',
             'customerData.name' => 'required|min:2',
+            'customerData.phone' => 'required|min:7',
         ];
 
         if (! $this->disableShipping) {
             $rules['billingAddress.first_name'] = 'required|min:2';
-            $rules['billingAddress.last_name'] = 'required|min:2';
             $rules['billingAddress.address_line_1'] = 'required|min:5';
             $rules['billingAddress.city'] = 'required|min:2';
             $rules['billingAddress.state'] = 'required|min:2';
@@ -595,7 +603,7 @@ new class extends Component
 
 <div class="funnel-checkout">
     {{-- Progress Steps --}}
-    <div class="mb-8">
+    <div class="mb-8 px-4">
         <div class="flex items-center justify-center space-x-4">
             <div class="flex items-center">
                 <div class="w-8 h-8 rounded-full {{ $currentStep === 'cart' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold text-sm">
@@ -646,13 +654,23 @@ new class extends Component
                             >
                                 <div class="flex items-start">
                                     <div class="flex-shrink-0">
-                                        <div class="w-5 h-5 rounded-full border-2 {{ isset($selectedProducts[$product->id]) ? 'border-blue-600 bg-blue-600' : 'border-gray-300' }} flex items-center justify-center">
-                                            @if(isset($selectedProducts[$product->id]))
-                                                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                                                </svg>
-                                            @endif
-                                        </div>
+                                        @if($productSelectionMode === 'single')
+                                            {{-- Radio button style for single select --}}
+                                            <div class="w-5 h-5 rounded-full border-2 {{ isset($selectedProducts[$product->id]) ? 'border-blue-600' : 'border-gray-300' }} flex items-center justify-center">
+                                                @if(isset($selectedProducts[$product->id]))
+                                                    <div class="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
+                                                @endif
+                                            </div>
+                                        @else
+                                            {{-- Checkbox style for multi select --}}
+                                            <div class="w-5 h-5 rounded-full border-2 {{ isset($selectedProducts[$product->id]) ? 'border-blue-600 bg-blue-600' : 'border-gray-300' }} flex items-center justify-center">
+                                                @if(isset($selectedProducts[$product->id]))
+                                                    <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                @endif
+                                            </div>
+                                        @endif
                                     </div>
 
                                     <div class="ml-4 flex-1">
@@ -680,6 +698,22 @@ new class extends Component
                                             <span class="inline-block mt-2 px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded">
                                                 Langganan {{ ucfirst($product->billing_interval) }}
                                             </span>
+                                        @endif
+
+                                        @if($product->isPackage() && $product->package)
+                                            <div class="mt-3 pt-3 border-t border-gray-200">
+                                                <p class="text-xs font-medium text-gray-500 mb-2">Termasuk dalam pakej:</p>
+                                                <div class="space-y-1">
+                                                    @foreach($product->package->items as $pkgItem)
+                                                        <div class="flex items-center gap-2 text-sm text-gray-600">
+                                                            <svg class="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                                            </svg>
+                                                            <span>{{ $pkgItem->quantity > 1 ? $pkgItem->quantity . 'x ' : '' }}{{ $pkgItem->getDisplayName() }}</span>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
                                         @endif
                                     </div>
                                 </div>
@@ -820,30 +854,8 @@ new class extends Component
                         <div>
                             <h4 class="font-medium text-gray-900 mb-4">Maklumat Perhubungan</h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Emel *</label>
-                                    <input
-                                        type="email"
-                                        wire:model="customerData.email"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="your@email.com"
-                                    >
-                                    @error('customerData.email') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Penuh *</label>
-                                    <input
-                                        type="text"
-                                        wire:model="customerData.name"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="John Doe"
-                                    >
-                                    @error('customerData.name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                                </div>
-
                                 <div class="md:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefon (Pilihan)</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefon *</label>
                                     <div class="flex" x-data="{
                                         open: false,
                                         search: '',
@@ -945,6 +957,29 @@ new class extends Component
                                             placeholder="12 345 6789"
                                         >
                                     </div>
+                                    @error('customerData.phone') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Penuh *</label>
+                                    <input
+                                        type="text"
+                                        wire:model="customerData.name"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="John Doe"
+                                    >
+                                    @error('customerData.name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Emel (Pilihan)</label>
+                                    <input
+                                        type="email"
+                                        wire:model="customerData.email"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="your@email.com"
+                                    >
+                                    @error('customerData.email') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                                 </div>
                             </div>
                         </div>
@@ -952,28 +987,16 @@ new class extends Component
                         {{-- Billing Address --}}
                         @if(!$disableShipping)
                         <div>
-                            <h4 class="font-medium text-gray-900 mb-4">Alamat Pengebilan</h4>
+                            <h4 class="font-medium text-gray-900 mb-4">Alamat Surat Menyurat</h4>
                             <div class="space-y-4">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Pertama *</label>
-                                        <input
-                                            type="text"
-                                            wire:model="billingAddress.first_name"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        >
-                                        @error('billingAddress.first_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Akhir *</label>
-                                        <input
-                                            type="text"
-                                            wire:model="billingAddress.last_name"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        >
-                                        @error('billingAddress.last_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                                    </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Penuh *</label>
+                                    <input
+                                        type="text"
+                                        wire:model="billingAddress.first_name"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                    @error('billingAddress.first_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                                 </div>
 
                                 <div>

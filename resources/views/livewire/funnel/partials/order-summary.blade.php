@@ -8,6 +8,16 @@
                     <span class="text-gray-600">{{ $product->name }}</span>
                     <span class="font-medium">RM {{ number_format($product->funnel_price, 2) }}</span>
                 </div>
+                @if($product->isPackage() && $product->package)
+                    <div class="ml-4 space-y-1">
+                        @foreach($product->package->items as $pkgItem)
+                            <div class="flex items-center gap-1.5 text-xs text-gray-400">
+                                <span class="w-1 h-1 rounded-full {{ $pkgItem->isProduct() ? 'bg-blue-400' : 'bg-purple-400' }}"></span>
+                                {{ $pkgItem->quantity > 1 ? $pkgItem->quantity . 'x ' : '' }}{{ $pkgItem->getDisplayName() }}
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             @endif
         @endforeach
 

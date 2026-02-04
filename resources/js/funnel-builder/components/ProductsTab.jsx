@@ -347,6 +347,11 @@ function ProductCard({ product, onEdit, onDelete }) {
                                 Course
                             </span>
                         )}
+                        {product.is_package && (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                Package
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-3 mt-1">
                         <span className="font-bold text-gray-900">{product.formatted_price}</span>
@@ -478,7 +483,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
         billing_interval: product?.billing_interval || 'monthly',
     });
 
-    // Search products/courses
+    // Search products/courses/packages
     const handleSearch = async () => {
         if (!searchQuery.trim()) {
             setSearchResults([]);
@@ -487,9 +492,14 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
 
         setSearching(true);
         try {
-            const response = searchTab === 'products'
-                ? await productApi.search(searchQuery)
-                : await productApi.searchCourses(searchQuery);
+            let response;
+            if (searchTab === 'products') {
+                response = await productApi.search(searchQuery);
+            } else if (searchTab === 'courses') {
+                response = await productApi.searchCourses(searchQuery);
+            } else {
+                response = await productApi.searchPackages(searchQuery);
+            }
             setSearchResults(response.data || []);
         } catch (err) {
             console.error('Search failed:', err);
@@ -515,7 +525,8 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
             ...prev,
             name: item.name,
             funnel_price: item.price || '',
-            compare_at_price: '',
+            compare_at_price: searchTab === 'packages' && item.original_price > item.price ? item.original_price : '',
+            is_recurring: searchTab === 'packages' ? false : prev.is_recurring,
         }));
     };
 
@@ -538,13 +549,16 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
             if (selectedItem) {
                 if (selectedItem.source === 'products') {
                     data.product_id = selectedItem.id;
-                } else {
+                } else if (selectedItem.source === 'courses') {
                     data.course_id = selectedItem.id;
+                } else if (selectedItem.source === 'packages') {
+                    data.package_id = selectedItem.id;
                 }
             } else if (product) {
-                // Keep existing product/course reference when editing
+                // Keep existing product/course/package reference when editing
                 data.product_id = product.product_id;
                 data.course_id = product.course_id;
+                data.package_id = product.source_package?.id || null;
             }
 
             if (product) {
@@ -596,7 +610,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                 <div className="flex gap-2 mb-3">
                                     <button
                                         type="button"
-                                        onClick={() => setSearchTab('products')}
+                                        onClick={() => { setSearchTab('products'); setSearchResults([]); setSelectedItem(null); }}
                                         className={`px-4 py-2 text-sm font-medium rounded-lg ${
                                             searchTab === 'products'
                                                 ? 'bg-blue-100 text-blue-700'
@@ -607,7 +621,7 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setSearchTab('courses')}
+                                        onClick={() => { setSearchTab('courses'); setSearchResults([]); setSelectedItem(null); }}
                                         className={`px-4 py-2 text-sm font-medium rounded-lg ${
                                             searchTab === 'courses'
                                                 ? 'bg-purple-100 text-purple-700'
@@ -615,6 +629,17 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                         }`}
                                     >
                                         Courses
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSearchTab('packages'); setSearchResults([]); setSelectedItem(null); }}
+                                        className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                                            searchTab === 'packages'
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        Packages
                                     </button>
                                 </div>
 
@@ -642,14 +667,26 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                                                 type="button"
                                                 onClick={() => handleSelectItem(item)}
                                                 className={`w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between ${
-                                                    selectedItem?.id === item.id ? 'bg-blue-50' : ''
+                                                    selectedItem?.id === item.id && selectedItem?.source === searchTab ? 'bg-blue-50' : ''
                                                 }`}
                                             >
                                                 <div>
                                                     <p className="font-medium text-gray-900">{item.name}</p>
-                                                    <p className="text-sm text-gray-500">{item.formatted_price}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-sm text-gray-500">{item.formatted_price}</p>
+                                                        {searchTab === 'packages' && item.item_count > 0 && (
+                                                            <span className="text-xs text-gray-400">
+                                                                ({item.item_count} item{item.item_count !== 1 ? 's' : ''})
+                                                            </span>
+                                                        )}
+                                                        {searchTab === 'packages' && item.savings > 0 && (
+                                                            <span className="text-xs text-green-600 font-medium">
+                                                                Save RM {parseFloat(item.savings).toFixed(2)}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                {selectedItem?.id === item.id && (
+                                                {selectedItem?.id === item.id && selectedItem?.source === searchTab && (
                                                     <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                                     </svg>
@@ -661,44 +698,62 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
 
                                 {/* Selected Item Display */}
                                 {selectedItem && (
-                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                selectedItem.source === 'courses' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                                            }`}>
-                                                {selectedItem.source === 'courses' ? 'Course' : 'Product'}
-                                            </span>
-                                            <span className="font-medium">{selectedItem.name}</span>
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                    selectedItem.source === 'courses' ? 'bg-purple-100 text-purple-700'
+                                                    : selectedItem.source === 'packages' ? 'bg-green-100 text-green-700'
+                                                    : 'bg-blue-100 text-blue-700'
+                                                }`}>
+                                                    {selectedItem.source === 'courses' ? 'Course' : selectedItem.source === 'packages' ? 'Package' : 'Product'}
+                                                </span>
+                                                <span className="font-medium">{selectedItem.name}</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedItem(null)}
+                                                className="text-gray-400 hover:text-gray-600"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelectedItem(null)}
-                                            className="text-gray-400 hover:text-gray-600"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
+                                        {/* Package items preview */}
+                                        {selectedItem.source === 'packages' && selectedItem.items && selectedItem.items.length > 0 && (
+                                            <div className="mt-2 pl-3 border-l-2 border-green-200">
+                                                <p className="text-xs text-gray-500 mb-1">Package contains:</p>
+                                                {selectedItem.items.map((pkgItem, idx) => (
+                                                    <div key={idx} className="text-xs text-gray-600 flex items-center gap-1">
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${pkgItem.type === 'course' ? 'bg-purple-400' : 'bg-blue-400'}`}></span>
+                                                        {pkgItem.quantity > 1 ? `${pkgItem.quantity}x ` : ''}{pkgItem.name}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* Product Type */}
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Product Type
-                            </label>
-                            <select
-                                value={form.type}
-                                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            >
-                                <option value="main">Main Product</option>
-                                <option value="upsell">Upsell</option>
-                                <option value="downsell">Downsell</option>
-                            </select>
-                        </div>
+                        {/* Product Type (hidden for packages - always main) */}
+                        {!(selectedItem?.source === 'packages') && (
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Product Type
+                                </label>
+                                <select
+                                    value={form.type}
+                                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                >
+                                    <option value="main">Main Product</option>
+                                    <option value="upsell">Upsell</option>
+                                    <option value="downsell">Downsell</option>
+                                </select>
+                            </div>
+                        )}
 
                         {/* Custom Name */}
                         <div className="mb-4">
@@ -744,35 +799,37 @@ function AddProductModal({ funnelUuid, step, product, onClose, onSaved, showToas
                             </div>
                         </div>
 
-                        {/* Recurring Option */}
-                        <div className="mb-6">
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={form.is_recurring}
-                                    onChange={(e) => setForm({ ...form, is_recurring: e.target.checked })}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                />
-                                <span className="text-sm text-gray-700">Recurring payment</span>
-                            </label>
+                        {/* Recurring Option (hidden for packages) */}
+                        {!(selectedItem?.source === 'packages') && (
+                            <div className="mb-6">
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.is_recurring}
+                                        onChange={(e) => setForm({ ...form, is_recurring: e.target.checked })}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-gray-700">Recurring payment</span>
+                                </label>
 
-                            {form.is_recurring && (
-                                <div className="mt-3 ml-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Billing Interval
-                                    </label>
-                                    <select
-                                        value={form.billing_interval}
-                                        onChange={(e) => setForm({ ...form, billing_interval: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    >
-                                        <option value="weekly">Weekly</option>
-                                        <option value="monthly">Monthly</option>
-                                        <option value="yearly">Yearly</option>
-                                    </select>
-                                </div>
-                            )}
-                        </div>
+                                {form.is_recurring && (
+                                    <div className="mt-3 ml-6">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Billing Interval
+                                        </label>
+                                        <select
+                                            value={form.billing_interval}
+                                            onChange={(e) => setForm({ ...form, billing_interval: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        >
+                                            <option value="weekly">Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                            <option value="yearly">Yearly</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Actions */}
                         <div className="flex justify-end gap-3">

@@ -45,7 +45,7 @@
         }
 
         .puck-page {
-            min-height: 100vh;
+            min-height: {{ $step->type === 'checkout' ? 'auto' : '100vh' }};
         }
 
         /* Responsive images */

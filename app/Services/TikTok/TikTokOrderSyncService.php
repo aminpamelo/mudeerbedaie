@@ -400,8 +400,8 @@ class TikTokOrderSyncService
                 ]);
             }
 
-            // Sync order items
-            $this->syncOrderItems($order, $orderData['line_items'] ?? []);
+            // Sync order items and link to internal products/packages
+            $this->syncOrderItems($order, $orderData['line_items'] ?? [], $account);
 
             // Add system note about sync
             if ($isNew) {
@@ -543,13 +543,14 @@ class TikTokOrderSyncService
     }
 
     /**
-     * Sync order items from TikTok data.
+     * Sync order items from TikTok data and link to internal products/packages.
      */
-    private function syncOrderItems(ProductOrder $order, array $lineItems): void
+    private function syncOrderItems(ProductOrder $order, array $lineItems, PlatformAccount $account): void
     {
         // Get existing item platform SKUs
         $existingSkus = $order->items->pluck('platform_sku')->filter()->toArray();
         $newSkus = [];
+        $linker = app(OrderItemLinker::class);
 
         foreach ($lineItems as $item) {
             $platformSku = $item['sku_id'] ?? $item['id'] ?? uniqid('tiktok_item_');
@@ -585,8 +586,14 @@ class TikTokOrderSyncService
 
             if ($existingItem) {
                 $existingItem->update($itemAttributes);
+                $orderItem = $existingItem;
             } else {
-                ProductOrderItem::create($itemAttributes);
+                $orderItem = ProductOrderItem::create($itemAttributes);
+            }
+
+            // Link to internal product/package if not already linked
+            if (! $orderItem->product_id && ! $orderItem->package_id) {
+                $linker->linkItemToMapping($orderItem, $account->platform_id, $account->id);
             }
         }
 
@@ -598,6 +605,10 @@ class TikTokOrderSyncService
                 $order->items()->whereIn('platform_sku', $skusToRemove)->delete();
             }
         }
+
+        // Deduct stock for shipped/delivered orders
+        $order->refresh();
+        $linker->deductStockForOrder($order);
     }
 
     /**

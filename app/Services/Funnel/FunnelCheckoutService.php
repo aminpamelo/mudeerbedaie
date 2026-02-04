@@ -9,7 +9,9 @@ use App\Models\FunnelSession;
 use App\Models\FunnelStep;
 use App\Models\FunnelStepOrderBump;
 use App\Models\FunnelStepProduct;
+use App\Models\PackagePurchase;
 use App\Models\ProductOrder;
+use App\Models\StockMovement;
 use App\Models\StripeCustomer;
 use App\Models\User;
 use App\Services\SettingsService;
@@ -64,6 +66,9 @@ class FunnelCheckoutService
                 throw new \Exception('Invalid order total');
             }
 
+            // Check and reserve stock for packages and products
+            $packagePurchases = $this->reserveStockForProducts($products, $customerData, $session);
+
             // Create or update cart
             $cart = $this->createOrUpdateCart($session, $step, $products, $bumps, $customerData, $total);
 
@@ -90,11 +95,13 @@ class FunnelCheckoutService
                 $session
             );
 
-            // Update order with payment intent
+            // Update order with payment intent and package purchase references
+            $packagePurchaseIds = $packagePurchases->pluck('id')->toArray();
             $productOrder->update([
                 'payment_provider' => 'stripe',
                 'metadata' => array_merge($productOrder->metadata ?? [], [
                     'stripe_payment_intent_id' => $paymentIntent->id,
+                    'package_purchase_ids' => $packagePurchaseIds,
                 ]),
             ]);
 
@@ -225,6 +232,7 @@ class FunnelCheckoutService
                     'type' => $product->type,
                     'is_recurring' => $product->is_recurring,
                     'billing_interval' => $product->billing_interval,
+                    'package_id' => $product->package_id,
                 ],
             ]);
         }
@@ -346,6 +354,12 @@ class FunnelCheckoutService
                     'payment_status' => 'paid',
                     'paid_at' => now(),
                 ]);
+
+                // Complete package purchases (deduct stock + create enrollments)
+                $this->completePackagePurchases($order, $paymentIntentId);
+
+                // Deduct stock for regular products
+                $this->deductStockForProducts($order);
 
                 // Update funnel session
                 $funnelOrder = FunnelOrder::where('product_order_id', $order->id)->first();
@@ -477,7 +491,20 @@ class FunnelCheckoutService
                         'funnel_product_id' => $upsellProduct->id,
                         'type' => $upsellProduct->type,
                         'is_upsell' => true,
+                        'package_id' => $upsellProduct->package_id,
                     ],
+                ]);
+
+                // Reserve stock for upsell packages/products
+                $upsellPackagePurchases = $this->reserveStockForProducts(
+                    collect([$upsellProduct]),
+                    ['email' => $session->email],
+                    $session
+                );
+                $order->update([
+                    'metadata' => array_merge($order->metadata ?? [], [
+                        'package_purchase_ids' => $upsellPackagePurchases->pluck('id')->toArray(),
+                    ]),
                 ]);
 
                 // Charge with saved payment method
@@ -505,6 +532,10 @@ class FunnelCheckoutService
                             'stripe_payment_intent_id' => $paymentIntent->id,
                         ]),
                     ]);
+
+                    // Complete package purchases and deduct stock for upsell
+                    $this->completePackagePurchases($order, $paymentIntent->id);
+                    $this->deductStockForProducts($order);
 
                     // Create FunnelOrder for upsell
                     $funnelOrder = FunnelOrder::create([
@@ -611,5 +642,187 @@ class FunnelCheckoutService
     public function isConfigured(): bool
     {
         return $this->stripeService->isConfigured();
+    }
+
+    /**
+     * Reserve stock for packages and trackable products during checkout.
+     *
+     * @return \Illuminate\Support\Collection<int, PackagePurchase>
+     */
+    protected function reserveStockForProducts($products, array $customerData, FunnelSession $session): \Illuminate\Support\Collection
+    {
+        $packagePurchases = collect();
+
+        foreach ($products as $product) {
+            if ($product->package_id) {
+                $package = $product->package;
+                if (! $package) {
+                    continue;
+                }
+
+                // Create a pending PackagePurchase to track stock
+                $purchase = PackagePurchase::create([
+                    'package_id' => $package->id,
+                    'user_id' => auth()->id(),
+                    'guest_email' => $customerData['email'] ?? null,
+                    'amount_paid' => $product->funnel_price,
+                    'original_amount' => $package->calculateOriginalPrice(),
+                    'discount_amount' => max(0, $package->calculateOriginalPrice() - $product->funnel_price),
+                    'currency' => $this->stripeService->getCurrency(),
+                    'status' => 'pending',
+                    'purchased_at' => now(),
+                    'package_snapshot' => $package->load('items')->toArray(),
+                    'metadata' => [
+                        'source' => 'funnel',
+                        'funnel_id' => $session->funnel_id,
+                        'funnel_product_id' => $product->id,
+                        'session_uuid' => $session->uuid,
+                    ],
+                ]);
+
+                // Allocate stock (reserve)
+                $purchase->allocateStock();
+
+                $packagePurchases->push($purchase);
+            } elseif ($product->product_id && $product->product?->track_quantity) {
+                // Reserve stock for regular products
+                $this->reserveProductStock($product->product, 1);
+            }
+        }
+
+        return $packagePurchases;
+    }
+
+    /**
+     * Reserve stock for a single product.
+     */
+    protected function reserveProductStock(\App\Models\Product $product, int $quantity): void
+    {
+        $stockLevel = $product->stockLevels()->first();
+
+        if ($stockLevel && $stockLevel->available_quantity >= $quantity) {
+            $stockLevel->increment('reserved_quantity', $quantity);
+            $stockLevel->decrement('available_quantity', $quantity);
+        }
+    }
+
+    /**
+     * Complete package purchases after payment confirmation.
+     */
+    protected function completePackagePurchases(ProductOrder $order, string $paymentIntentId): void
+    {
+        $packagePurchaseIds = $order->metadata['package_purchase_ids'] ?? [];
+
+        if (empty($packagePurchaseIds)) {
+            return;
+        }
+
+        foreach ($packagePurchaseIds as $purchaseId) {
+            $purchase = PackagePurchase::find($purchaseId);
+            if (! $purchase || $purchase->isCompleted()) {
+                continue;
+            }
+
+            $purchase->update([
+                'stripe_payment_intent_id' => $paymentIntentId,
+                'product_order_id' => $order->id,
+            ]);
+
+            $purchase->markAsCompleted();
+
+            Log::info('Package purchase completed via funnel', [
+                'purchase_id' => $purchase->id,
+                'package_id' => $purchase->package_id,
+                'order_id' => $order->id,
+            ]);
+        }
+    }
+
+    /**
+     * Deduct stock for regular (non-package) products after payment.
+     */
+    protected function deductStockForProducts(ProductOrder $order): void
+    {
+        foreach ($order->items as $item) {
+            // Skip package items (handled by PackagePurchase)
+            if (! empty($item->metadata['package_id'])) {
+                continue;
+            }
+
+            if (! $item->product_id) {
+                continue;
+            }
+
+            $product = \App\Models\Product::find($item->product_id);
+            if (! $product || ! $product->track_quantity) {
+                continue;
+            }
+
+            $stockLevel = $product->stockLevels()->first();
+            if (! $stockLevel) {
+                continue;
+            }
+
+            $quantity = $item->quantity ?? 1;
+
+            // Deduct from quantity and reserved
+            $stockLevel->decrement('quantity', $quantity);
+            $stockLevel->decrement('reserved_quantity', $quantity);
+
+            // Create stock movement record
+            StockMovement::create([
+                'product_id' => $product->id,
+                'warehouse_id' => $stockLevel->warehouse_id,
+                'type' => 'sale',
+                'quantity_change' => -$quantity,
+                'quantity_after' => $stockLevel->quantity,
+                'reference_type' => ProductOrder::class,
+                'reference_id' => $order->id,
+                'notes' => "Funnel sale: Order #{$order->order_number}",
+                'metadata' => [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'source' => 'funnel',
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Release reserved stock when a funnel order fails or is cancelled.
+     */
+    public function releaseOrderStock(ProductOrder $order): void
+    {
+        // Release package purchase stock
+        $packagePurchaseIds = $order->metadata['package_purchase_ids'] ?? [];
+        foreach ($packagePurchaseIds as $purchaseId) {
+            $purchase = PackagePurchase::find($purchaseId);
+            if ($purchase && ! $purchase->isCompleted()) {
+                $purchase->markAsFailed('Funnel payment failed');
+            }
+        }
+
+        // Release regular product stock
+        foreach ($order->items as $item) {
+            if (! empty($item->metadata['package_id'])) {
+                continue;
+            }
+
+            if (! $item->product_id) {
+                continue;
+            }
+
+            $product = \App\Models\Product::find($item->product_id);
+            if (! $product || ! $product->track_quantity) {
+                continue;
+            }
+
+            $stockLevel = $product->stockLevels()->first();
+            if ($stockLevel) {
+                $quantity = $item->quantity ?? 1;
+                $stockLevel->decrement('reserved_quantity', $quantity);
+                $stockLevel->increment('available_quantity', $quantity);
+            }
+        }
     }
 }

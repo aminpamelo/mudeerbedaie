@@ -1123,9 +1123,9 @@ new class extends Component
                             @forelse($this->orders as $order)
                                 <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900 dark:text-zinc-100">
+                                        <a href="{{ route('admin.orders.show', $order) }}" wire:navigate class="text-sm font-medium text-gray-900 dark:text-zinc-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                                             {{ $order->platform_order_number ?: $order->platform_order_id }}
-                                        </div>
+                                        </a>
                                         @if($order->tracking_id)
                                             <div class="text-xs text-gray-500 dark:text-zinc-400">
                                                 Track: {{ $order->tracking_id }}

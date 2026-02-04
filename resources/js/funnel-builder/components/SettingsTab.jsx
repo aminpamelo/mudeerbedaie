@@ -15,6 +15,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
         meta_description: '',
         show_orders_in_admin: true,
         disable_shipping: false,
+        product_selection_mode: 'multi',
     });
     const [saving, setSaving] = useState(false);
 
@@ -28,6 +29,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                 meta_description: funnel.settings?.meta_description || '',
                 show_orders_in_admin: funnel.show_orders_in_admin ?? true,
                 disable_shipping: funnel.disable_shipping ?? false,
+                product_selection_mode: funnel.settings?.product_selection_mode || 'multi',
             });
         }
     }, [funnel]);
@@ -45,6 +47,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                     ...funnel.settings,
                     meta_title: form.meta_title,
                     meta_description: form.meta_description,
+                    product_selection_mode: form.product_selection_mode,
                 },
             });
             await onRefresh();
@@ -200,6 +203,37 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                             }`}
                         />
                     </button>
+                </div>
+
+                <div className="border-t border-gray-200 mt-6 pt-6">
+                    <div className="flex items-start justify-between">
+                        <div className="flex-1 mr-4">
+                            <p className="text-sm font-medium text-gray-900">Product Selection Mode</p>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Choose whether customers can select multiple products or only one product at checkout.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setForm({ ...form, product_selection_mode: form.product_selection_mode === 'multi' ? 'single' : 'multi' })}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                form.product_selection_mode === 'single' ? 'bg-blue-600' : 'bg-gray-200'
+                            }`}
+                            role="switch"
+                            aria-checked={form.product_selection_mode === 'single'}
+                        >
+                            <span
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                    form.product_selection_mode === 'single' ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                            />
+                        </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                        {form.product_selection_mode === 'single'
+                            ? 'Single product only — customers can only select one product at a time.'
+                            : 'Multiple products — customers can select more than one product.'}
+                    </p>
                 </div>
             </div>
 

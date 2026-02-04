@@ -175,6 +175,9 @@ export const productApi = {
 
     // Search available courses
     searchCourses: (query) => request(`/courses/search?q=${encodeURIComponent(query)}`),
+
+    // Search available packages
+    searchPackages: (query) => request(`/packages/search?q=${encodeURIComponent(query)}`),
 };
 
 /**

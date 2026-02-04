@@ -33,6 +33,7 @@ class UpdateFunnelRequest extends FormRequest
             'settings.meta_description' => ['nullable', 'string', 'max:500'],
             'settings.favicon' => ['nullable', 'string', 'max:255'],
             'settings.custom_domain' => ['nullable', 'string', 'max:255'],
+            'settings.product_selection_mode' => ['nullable', 'string', 'in:single,multi'],
             'settings.tracking_codes' => ['nullable', 'array'],
             // Pixel tracking settings
             'settings.pixel_settings' => ['nullable', 'array'],

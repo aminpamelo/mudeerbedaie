@@ -129,6 +129,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     // Product/Course Search
     Route::get('products/search', [FunnelProductController::class, 'searchProducts'])->name('api.products.search');
     Route::get('courses/search', [FunnelProductController::class, 'searchCourses'])->name('api.courses.search');
+    Route::get('packages/search', [FunnelProductController::class, 'searchPackages'])->name('api.packages.search');
 
     // Templates
     Route::get('funnel-templates', function () {
