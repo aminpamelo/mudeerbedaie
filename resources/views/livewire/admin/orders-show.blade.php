@@ -351,16 +351,58 @@ new class extends Component {
                     </div>
                 </div>
 
-                @if($order->isFailed() && $order->failure_reason)
-                    <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <flux:text class="text-red-800 font-medium">Failure Reason</flux:text>
-                        <flux:text class="text-red-700 mt-1">
-                            {{ $order->failure_reason['failure_message'] ?? 'Payment failed' }}
-                        </flux:text>
-                        @if(isset($order->failure_reason['failure_code']))
-                            <flux:text size="sm" class="text-red-600 mt-1">
-                                Code: {{ $order->failure_reason['failure_code'] }}
-                            </flux:text>
+                @if($order->isFailed())
+                    @php $failureDetails = $order->getFailureDetails(); @endphp
+                    <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 mt-0.5">
+                                @if($failureDetails['severity'] === 'critical')
+                                    <flux:icon name="shield-exclamation" class="w-5 h-5 text-red-700" />
+                                @elseif($failureDetails['severity'] === 'high')
+                                    <flux:icon name="exclamation-triangle" class="w-5 h-5 text-red-600" />
+                                @else
+                                    <flux:icon name="exclamation-circle" class="w-5 h-5 text-red-500" />
+                                @endif
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <flux:text class="text-red-800 font-semibold">Payment Failed</flux:text>
+                                    @if($failureDetails['severity'] === 'critical')
+                                        <flux:badge variant="danger" size="sm">Critical</flux:badge>
+                                    @elseif($failureDetails['severity'] === 'high')
+                                        <flux:badge variant="danger" size="sm">High Risk</flux:badge>
+                                    @endif
+                                </div>
+                                <flux:text class="text-red-700 mt-1">
+                                    {{ $failureDetails['message'] }}
+                                </flux:text>
+                            </div>
+                        </div>
+
+                        @if($failureDetails['code'])
+                            <div class="flex items-center gap-2 text-sm">
+                                <flux:text class="text-red-600 font-medium">Error Code:</flux:text>
+                                <code class="px-2 py-0.5 bg-red-100 text-red-800 rounded text-xs font-mono">{{ $failureDetails['code'] }}</code>
+                            </div>
+                        @endif
+
+                        <div class="border-t border-red-200 pt-3 space-y-2">
+                            <div>
+                                <flux:text size="sm" class="text-red-800 font-medium">What happened?</flux:text>
+                                <flux:text size="sm" class="text-red-700 mt-0.5">{{ $failureDetails['explanation'] }}</flux:text>
+                            </div>
+                            <div>
+                                <flux:text size="sm" class="text-red-800 font-medium">Suggested action</flux:text>
+                                <flux:text size="sm" class="text-red-700 mt-0.5">{{ $failureDetails['next_steps'] }}</flux:text>
+                            </div>
+                        </div>
+
+                        @if($order->stripe_invoice_id)
+                            <div class="border-t border-red-200 pt-3">
+                                <flux:text size="xs" class="text-red-500">
+                                    Stripe Invoice: <span class="font-mono">{{ $order->stripe_invoice_id }}</span>
+                                </flux:text>
+                            </div>
                         @endif
                     </div>
                 @endif

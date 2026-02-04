@@ -311,6 +311,169 @@ class Order extends Model
         return 'RM '.number_format($this->getSubtotalBeforeDiscount(), 2);
     }
 
+    /**
+     * Get detailed failure information with human-readable explanations.
+     *
+     * @return array{code: ?string, message: string, explanation: string, next_steps: string, severity: string}
+     */
+    public function getFailureDetails(): array
+    {
+        $failureReason = $this->failure_reason;
+
+        if (empty($failureReason)) {
+            return [
+                'code' => null,
+                'message' => 'Payment failed',
+                'explanation' => 'The payment could not be processed.',
+                'next_steps' => 'Please contact the student to retry the payment.',
+                'severity' => 'unknown',
+            ];
+        }
+
+        $code = $failureReason['failure_code'] ?? $failureReason['code'] ?? null;
+        $message = $failureReason['failure_message'] ?? $failureReason['message'] ?? 'Payment failed';
+        $reason = $failureReason['reason'] ?? null;
+
+        $details = self::getStripeFailureCodeDetails($code, $reason);
+
+        return [
+            'code' => $code,
+            'message' => $message,
+            'explanation' => $details['explanation'],
+            'next_steps' => $details['next_steps'],
+            'severity' => $details['severity'],
+        ];
+    }
+
+    /**
+     * Map Stripe failure codes to human-readable explanations.
+     *
+     * @return array{explanation: string, next_steps: string, severity: string}
+     */
+    public static function getStripeFailureCodeDetails(?string $code, ?string $reason = null): array
+    {
+        $codeMap = [
+            'card_declined' => [
+                'explanation' => 'The card was declined by the issuing bank. This can happen for various reasons including insufficient funds, card restrictions, or fraud prevention.',
+                'next_steps' => 'Ask the student to contact their bank for details, or try a different payment method.',
+                'severity' => 'high',
+            ],
+            'insufficient_funds' => [
+                'explanation' => 'The card does not have enough funds to complete the payment.',
+                'next_steps' => 'Ask the student to add funds to their account or use a different card.',
+                'severity' => 'medium',
+            ],
+            'expired_card' => [
+                'explanation' => 'The card has expired and is no longer valid for transactions.',
+                'next_steps' => 'Ask the student to update their payment method with a valid, non-expired card.',
+                'severity' => 'medium',
+            ],
+            'incorrect_cvc' => [
+                'explanation' => 'The CVC/CVV security code entered was incorrect.',
+                'next_steps' => 'Ask the student to re-enter their card details with the correct CVC code.',
+                'severity' => 'low',
+            ],
+            'incorrect_number' => [
+                'explanation' => 'The card number entered is incorrect or invalid.',
+                'next_steps' => 'Ask the student to re-enter their card number carefully.',
+                'severity' => 'low',
+            ],
+            'processing_error' => [
+                'explanation' => 'A temporary error occurred while processing the payment. This is usually a transient issue with the payment processor.',
+                'next_steps' => 'The payment can be retried. If the issue persists, contact Stripe support.',
+                'severity' => 'low',
+            ],
+            'authentication_required' => [
+                'explanation' => 'The card requires 3D Secure authentication (SCA) but the authentication was not completed.',
+                'next_steps' => 'Ask the student to retry the payment and complete the authentication step when prompted.',
+                'severity' => 'medium',
+            ],
+            'card_not_supported' => [
+                'explanation' => 'The card type is not supported for this type of transaction.',
+                'next_steps' => 'Ask the student to use a different card (Visa, Mastercard, etc.).',
+                'severity' => 'medium',
+            ],
+            'currency_not_supported' => [
+                'explanation' => 'The card does not support the requested currency (MYR).',
+                'next_steps' => 'Ask the student to use a card that supports MYR transactions.',
+                'severity' => 'medium',
+            ],
+            'do_not_honor' => [
+                'explanation' => 'The card issuing bank declined the transaction without providing a specific reason.',
+                'next_steps' => 'Ask the student to contact their bank to authorize the transaction, or try a different card.',
+                'severity' => 'high',
+            ],
+            'fraudulent' => [
+                'explanation' => 'The payment was flagged as potentially fraudulent by Stripe\'s fraud detection system.',
+                'next_steps' => 'Review the transaction carefully. If legitimate, the student should contact their bank.',
+                'severity' => 'critical',
+            ],
+            'generic_decline' => [
+                'explanation' => 'The card was declined for an unspecified reason by the issuing bank.',
+                'next_steps' => 'Ask the student to contact their bank for more details or try a different payment method.',
+                'severity' => 'high',
+            ],
+            'invalid_account' => [
+                'explanation' => 'The card or account associated with the card is invalid.',
+                'next_steps' => 'Ask the student to use a different card or contact their bank.',
+                'severity' => 'high',
+            ],
+            'lost_card' => [
+                'explanation' => 'The card has been reported as lost and is no longer active.',
+                'next_steps' => 'Ask the student to use a different card.',
+                'severity' => 'critical',
+            ],
+            'stolen_card' => [
+                'explanation' => 'The card has been reported as stolen and is no longer active.',
+                'next_steps' => 'Ask the student to use a different card.',
+                'severity' => 'critical',
+            ],
+            'card_velocity_exceeded' => [
+                'explanation' => 'The card has exceeded its transaction limit (too many transactions in a short period).',
+                'next_steps' => 'Ask the student to wait and try again later, or use a different card.',
+                'severity' => 'medium',
+            ],
+            'withdrawal_count_limit_exceeded' => [
+                'explanation' => 'The card has exceeded the number of allowed transactions for the period.',
+                'next_steps' => 'Ask the student to try again later or use a different card.',
+                'severity' => 'medium',
+            ],
+            'manual_rejection' => [
+                'explanation' => 'The payment was manually rejected by an administrator.',
+                'next_steps' => 'Review the rejection notes for details.',
+                'severity' => 'medium',
+            ],
+        ];
+
+        // Check decline reason (from charge outcome)
+        $reasonMap = [
+            'highest_risk_level' => [
+                'explanation' => 'Stripe\'s fraud detection flagged this payment as the highest risk level.',
+                'next_steps' => 'Review carefully before allowing a retry. The student should verify their identity.',
+                'severity' => 'critical',
+            ],
+            'elevated_risk_level' => [
+                'explanation' => 'Stripe\'s fraud detection flagged this payment as elevated risk.',
+                'next_steps' => 'Proceed with caution. Ask the student to verify their identity if needed.',
+                'severity' => 'high',
+            ],
+        ];
+
+        if ($reason && isset($reasonMap[$reason])) {
+            return $reasonMap[$reason];
+        }
+
+        if ($code && isset($codeMap[$code])) {
+            return $codeMap[$code];
+        }
+
+        return [
+            'explanation' => 'The payment could not be processed. The payment processor returned an error.',
+            'next_steps' => 'Ask the student to try again or use a different payment method. Contact support if the issue persists.',
+            'severity' => 'unknown',
+        ];
+    }
+
     // Generate unique order number
     public static function generateOrderNumber(): string
     {
