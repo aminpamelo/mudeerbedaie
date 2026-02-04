@@ -30,10 +30,29 @@ new class extends Component
 
     public $studentSearch = '';
 
+    public $selectedStudentName = '';
+
     public function mount(): void
     {
         $this->enrollment_date = today()->format('Y-m-d');
         $this->enrolled_by = auth()->id(); // Default to current user
+    }
+
+    public function selectStudent($id): void
+    {
+        $this->student_id = $id;
+        $student = Student::with('user')->find($id);
+        if ($student && $student->user) {
+            $this->selectedStudentName = $student->user->name.' ('.($student->phone ?: $student->user->phone ?? 'No phone').')';
+        }
+        $this->studentSearch = '';
+    }
+
+    public function clearStudent(): void
+    {
+        $this->student_id = '';
+        $this->selectedStudentName = '';
+        $this->studentSearch = '';
     }
 
     public function with(): array
@@ -206,27 +225,48 @@ new class extends Component
             <flux:heading size="lg">Student and Course</flux:heading>
 
             <div class="mt-6 space-y-6">
-                <flux:input
-                    wire:model.live.debounce.300ms="studentSearch"
-                    label="Search Student"
-                    placeholder="Search by name or phone number..."
-                />
+                <div>
+                    <flux:field>
+                        <flux:label>Student <span class="text-red-500">*</span></flux:label>
 
-                <flux:select wire:model.live="student_id" label="Student" placeholder="{{ $studentSearch ? 'Select a student' : 'Search above to find students' }}" required>
-                    @foreach($students as $student)
-                        @if($student->user)
-                            <flux:select.option value="{{ $student->id }}">
-                                {{ $student->user->name }} ({{ $student->phone ?: $student->user->phone ?? 'No phone' }})
-                            </flux:select.option>
+                        @if($student_id && $selectedStudentName)
+                            <div class="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800">
+                                <span class="text-sm text-zinc-900 dark:text-zinc-100">{{ $selectedStudentName }}</span>
+                                <button type="button" wire:click="clearStudent" class="ml-2 text-zinc-400 hover:text-red-500 transition-colors">
+                                    <flux:icon name="x-mark" class="w-4 h-4" />
+                                </button>
+                            </div>
+                        @else
+                            <flux:input
+                                wire:model.live.debounce.300ms="studentSearch"
+                                placeholder="Search by name, phone, or student ID..."
+                                icon="magnifying-glass"
+                            />
+
+                            @if($studentSearch && $students->count() > 0)
+                                <div class="mt-1 rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-800 max-h-60 overflow-y-auto">
+                                    @foreach($students as $student)
+                                        @if($student->user)
+                                            <button
+                                                type="button"
+                                                wire:click="selectStudent({{ $student->id }})"
+                                                wire:key="student-{{ $student->id }}"
+                                                class="w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors border-b border-zinc-100 dark:border-zinc-700 last:border-b-0"
+                                            >
+                                                <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $student->user->name }}</span>
+                                                <span class="text-zinc-500 dark:text-zinc-400 ml-1">({{ $student->phone ?: $student->user->phone ?? 'No phone' }})</span>
+                                            </button>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @elseif($studentSearch && $students->isEmpty())
+                                <flux:text class="mt-1 text-sm text-zinc-500">No students found matching "{{ $studentSearch }}"</flux:text>
+                            @else
+                                <flux:text class="mt-1 text-sm text-zinc-500">Type to search students by name, phone, or student ID</flux:text>
+                            @endif
                         @endif
-                    @endforeach
-                </flux:select>
-
-                @if($studentSearch && $students->isEmpty())
-                    <flux:text class="text-sm text-gray-500">No students found matching "{{ $studentSearch }}"</flux:text>
-                @elseif(!$studentSearch && !$student_id)
-                    <flux:text class="text-sm text-gray-500">Type in the search box above to find students by name, phone, or student ID</flux:text>
-                @endif
+                    </flux:field>
+                </div>
 
                 <flux:select wire:model.live="course_id" label="Course" placeholder="Select a course" required>
                     @foreach($courses as $course)
