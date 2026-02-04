@@ -19,6 +19,39 @@ new class extends Component {
         $this->order->load(['student.user', 'course', 'enrollment', 'items']);
     }
 
+    public function fetchStripeFailureDetails()
+    {
+        if (!$this->order->isFailed()) {
+            session()->flash('error', 'This order is not in a failed state.');
+            return;
+        }
+
+        if ($this->order->payment_method !== 'stripe') {
+            session()->flash('error', 'This order was not processed through Stripe.');
+            return;
+        }
+
+        if (!$this->order->stripe_invoice_id && !$this->order->stripe_charge_id && !$this->order->stripe_payment_intent_id) {
+            session()->flash('error', 'No Stripe reference IDs found for this order.');
+            return;
+        }
+
+        try {
+            $stripeService = app(StripeService::class);
+            $failureDetails = $stripeService->fetchOrderFailureDetails($this->order);
+
+            if ($failureDetails) {
+                $this->order->update(['failure_reason' => $failureDetails]);
+                $this->order->refresh();
+                session()->flash('success', 'Failure details updated from Stripe successfully.');
+            } else {
+                session()->flash('info', 'No additional failure details found in Stripe for this order.');
+            }
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to fetch details from Stripe: ' . $e->getMessage());
+        }
+    }
+
     public function processRefund($amount = null)
     {
         try {
@@ -386,6 +419,34 @@ new class extends Component {
                             </div>
                         @endif
 
+                        {{-- Extra Stripe details when available --}}
+                        @if($order->failure_reason)
+                            @if(isset($order->failure_reason['seller_message']))
+                                <div class="flex items-center gap-2 text-sm">
+                                    <flux:text class="text-red-600 font-medium">Bank Response:</flux:text>
+                                    <flux:text size="sm" class="text-red-700">{{ $order->failure_reason['seller_message'] }}</flux:text>
+                                </div>
+                            @endif
+                            @if(isset($order->failure_reason['decline_code']))
+                                <div class="flex items-center gap-2 text-sm">
+                                    <flux:text class="text-red-600 font-medium">Decline Code:</flux:text>
+                                    <code class="px-2 py-0.5 bg-red-100 text-red-800 rounded text-xs font-mono">{{ $order->failure_reason['decline_code'] }}</code>
+                                </div>
+                            @endif
+                            @if(isset($order->failure_reason['risk_level']))
+                                <div class="flex items-center gap-2 text-sm">
+                                    <flux:text class="text-red-600 font-medium">Risk Level:</flux:text>
+                                    <flux:badge :variant="match($order->failure_reason['risk_level']) {
+                                        'highest' => 'danger',
+                                        'elevated' => 'warning',
+                                        default => 'outline'
+                                    }" size="sm">
+                                        {{ ucfirst($order->failure_reason['risk_level']) }}
+                                    </flux:badge>
+                                </div>
+                            @endif
+                        @endif
+
                         <div class="border-t border-red-200 pt-3 space-y-2">
                             <div>
                                 <flux:text size="sm" class="text-red-800 font-medium">What happened?</flux:text>
@@ -397,13 +458,30 @@ new class extends Component {
                             </div>
                         </div>
 
-                        @if($order->stripe_invoice_id)
-                            <div class="border-t border-red-200 pt-3">
+                        <div class="border-t border-red-200 pt-3 flex items-center justify-between flex-wrap gap-2">
+                            @if($order->stripe_invoice_id)
                                 <flux:text size="xs" class="text-red-500">
                                     Stripe Invoice: <span class="font-mono">{{ $order->stripe_invoice_id }}</span>
                                 </flux:text>
-                            </div>
-                        @endif
+                            @else
+                                <div></div>
+                            @endif
+                            @if($order->payment_method === 'stripe' && ($order->stripe_invoice_id || $order->stripe_charge_id || $order->stripe_payment_intent_id))
+                                <flux:button
+                                    size="xs"
+                                    variant="outline"
+                                    wire:click="fetchStripeFailureDetails"
+                                    wire:loading.attr="disabled"
+                                    wire:target="fetchStripeFailureDetails"
+                                >
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="arrow-path" class="w-3 h-3 mr-1" wire:loading.class="animate-spin" wire:target="fetchStripeFailureDetails" />
+                                        <span wire:loading.remove wire:target="fetchStripeFailureDetails">Fetch from Stripe</span>
+                                        <span wire:loading wire:target="fetchStripeFailureDetails">Fetching...</span>
+                                    </div>
+                                </flux:button>
+                            @endif
+                        </div>
                     </div>
                 @endif
             </flux:card>

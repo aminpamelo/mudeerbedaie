@@ -150,3 +150,36 @@ it('prioritizes outcome reason over failure code when available', function () {
     expect($details['severity'])->toBe('critical')
         ->and($details['explanation'])->toContain('highest risk level');
 });
+
+it('uses seller_message as the display message when available', function () {
+    $order = Order::factory()->make([
+        'status' => Order::STATUS_FAILED,
+        'failure_reason' => [
+            'failure_code' => 'card_declined',
+            'failure_message' => 'Your card was declined.',
+            'seller_message' => 'The bank returned the decline code `insufficient_funds`.',
+            'decline_code' => 'insufficient_funds',
+            'risk_level' => 'normal',
+        ],
+    ]);
+
+    $details = $order->getFailureDetails();
+
+    expect($details['message'])->toBe('The bank returned the decline code `insufficient_funds`.')
+        ->and($details['code'])->toBe('card_declined');
+});
+
+it('uses decline_code as reason when reason key is not present', function () {
+    $order = Order::factory()->make([
+        'status' => Order::STATUS_FAILED,
+        'failure_reason' => [
+            'failure_code' => 'card_declined',
+            'failure_message' => 'Your card was declined.',
+            'decline_code' => 'highest_risk_level',
+        ],
+    ]);
+
+    $details = $order->getFailureDetails();
+
+    expect($details['severity'])->toBe('critical');
+});

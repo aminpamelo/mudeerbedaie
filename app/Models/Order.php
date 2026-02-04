@@ -332,13 +332,16 @@ class Order extends Model
 
         $code = $failureReason['failure_code'] ?? $failureReason['code'] ?? null;
         $message = $failureReason['failure_message'] ?? $failureReason['message'] ?? 'Payment failed';
-        $reason = $failureReason['reason'] ?? null;
+        $reason = $failureReason['reason'] ?? $failureReason['decline_code'] ?? null;
+
+        // Use seller_message from Stripe if available (most human-readable)
+        $sellerMessage = $failureReason['seller_message'] ?? null;
 
         $details = self::getStripeFailureCodeDetails($code, $reason);
 
         return [
             'code' => $code,
-            'message' => $message,
+            'message' => $sellerMessage ?: $message,
             'explanation' => $details['explanation'],
             'next_steps' => $details['next_steps'],
             'severity' => $details['severity'],

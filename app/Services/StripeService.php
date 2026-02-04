@@ -1992,13 +1992,165 @@ class StripeService
         $order = $this->createOrderFromStripeInvoice((array) $stripeInvoice);
 
         if ($order) {
-            $failureReason = [
-                'failure_code' => $stripeInvoice->last_finalization_error->code ?? null,
-                'failure_message' => $stripeInvoice->last_finalization_error->message ?? 'Payment failed',
-            ];
+            $failureReason = $this->extractInvoiceFailureReason($stripeInvoice);
             $order->markAsFailed($failureReason);
-            Log::info('Order created and marked as failed', ['order_id' => $order->id]);
+            Log::info('Order created and marked as failed', ['order_id' => $order->id, 'failure_reason' => $failureReason]);
         }
+    }
+
+    /**
+     * Extract detailed failure reason from a Stripe invoice by checking the charge and payment intent.
+     */
+    public function extractInvoiceFailureReason($stripeInvoice): array
+    {
+        // Try to get failure details from the charge first (most detailed)
+        $chargeId = $stripeInvoice->charge ?? null;
+        if ($chargeId) {
+            try {
+                $charge = $this->getStripe()->charges->retrieve($chargeId);
+                if ($charge->failure_code || $charge->failure_message) {
+                    return [
+                        'failure_code' => $charge->failure_code,
+                        'failure_message' => $charge->failure_message ?? 'Payment failed',
+                        'decline_code' => $charge->outcome->reason ?? null,
+                        'network_decline_code' => $charge->outcome->network_decline_code ?? null,
+                        'risk_level' => $charge->outcome->risk_level ?? null,
+                        'seller_message' => $charge->outcome->seller_message ?? null,
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch charge for failure details', [
+                    'charge_id' => $chargeId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Try payment intent for failure details
+        $paymentIntentId = $stripeInvoice->payment_intent ?? null;
+        if ($paymentIntentId) {
+            try {
+                $paymentIntent = $this->getStripe()->paymentIntents->retrieve($paymentIntentId);
+                $lastError = $paymentIntent->last_payment_error;
+                if ($lastError) {
+                    return [
+                        'failure_code' => $lastError->code ?? null,
+                        'failure_message' => $lastError->message ?? 'Payment failed',
+                        'decline_code' => $lastError->decline_code ?? null,
+                        'type' => $lastError->type ?? null,
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch payment intent for failure details', [
+                    'payment_intent_id' => $paymentIntentId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Fall back to invoice finalization error
+        return [
+            'failure_code' => $stripeInvoice->last_finalization_error->code ?? null,
+            'failure_message' => $stripeInvoice->last_finalization_error->message ?? 'Payment failed',
+        ];
+    }
+
+    /**
+     * Fetch failure details from Stripe for a given order.
+     */
+    public function fetchOrderFailureDetails(Order $order): ?array
+    {
+        // Try charge first
+        if ($order->stripe_charge_id) {
+            try {
+                $charge = $this->getStripe()->charges->retrieve($order->stripe_charge_id);
+                if ($charge->failure_code || $charge->failure_message || ($charge->outcome->reason ?? null)) {
+                    return [
+                        'failure_code' => $charge->failure_code,
+                        'failure_message' => $charge->failure_message ?? 'Payment failed',
+                        'decline_code' => $charge->outcome->reason ?? null,
+                        'network_decline_code' => $charge->outcome->network_decline_code ?? null,
+                        'risk_level' => $charge->outcome->risk_level ?? null,
+                        'seller_message' => $charge->outcome->seller_message ?? null,
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch charge for order failure details', [
+                    'order_id' => $order->id,
+                    'charge_id' => $order->stripe_charge_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Try payment intent
+        if ($order->stripe_payment_intent_id) {
+            try {
+                $paymentIntent = $this->getStripe()->paymentIntents->retrieve($order->stripe_payment_intent_id);
+                $lastError = $paymentIntent->last_payment_error;
+                if ($lastError) {
+                    return [
+                        'failure_code' => $lastError->code ?? null,
+                        'failure_message' => $lastError->message ?? 'Payment failed',
+                        'decline_code' => $lastError->decline_code ?? null,
+                        'type' => $lastError->type ?? null,
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch payment intent for order failure details', [
+                    'order_id' => $order->id,
+                    'payment_intent_id' => $order->stripe_payment_intent_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Try invoice
+        if ($order->stripe_invoice_id) {
+            try {
+                $invoice = $this->getStripe()->invoices->retrieve($order->stripe_invoice_id, [
+                    'expand' => ['charge'],
+                ]);
+
+                // Check charge from the invoice
+                if ($invoice->charge && is_object($invoice->charge)) {
+                    $charge = $invoice->charge;
+                    if ($charge->failure_code || $charge->failure_message || ($charge->outcome->reason ?? null)) {
+                        return [
+                            'failure_code' => $charge->failure_code,
+                            'failure_message' => $charge->failure_message ?? 'Payment failed',
+                            'decline_code' => $charge->outcome->reason ?? null,
+                            'network_decline_code' => $charge->outcome->network_decline_code ?? null,
+                            'risk_level' => $charge->outcome->risk_level ?? null,
+                            'seller_message' => $charge->outcome->seller_message ?? null,
+                        ];
+                    }
+                }
+
+                // Fall back to payment intent from invoice
+                if ($invoice->payment_intent) {
+                    $piId = is_string($invoice->payment_intent) ? $invoice->payment_intent : $invoice->payment_intent->id;
+                    $paymentIntent = $this->getStripe()->paymentIntents->retrieve($piId);
+                    $lastError = $paymentIntent->last_payment_error;
+                    if ($lastError) {
+                        return [
+                            'failure_code' => $lastError->code ?? null,
+                            'failure_message' => $lastError->message ?? 'Payment failed',
+                            'decline_code' => $lastError->decline_code ?? null,
+                            'type' => $lastError->type ?? null,
+                        ];
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch invoice for order failure details', [
+                    'order_id' => $order->id,
+                    'invoice_id' => $order->stripe_invoice_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return null;
     }
 
     private function handleSubscriptionCreated($subscription): void
