@@ -22,17 +22,17 @@ new class extends Component {
     public function fetchStripeFailureDetails()
     {
         if (!$this->order->isFailed()) {
-            session()->flash('error', 'This order is not in a failed state.');
+            $this->dispatch('notify', message: 'This order is not in a failed state.', type: 'error');
             return;
         }
 
         if ($this->order->payment_method !== 'stripe') {
-            session()->flash('error', 'This order was not processed through Stripe.');
+            $this->dispatch('notify', message: 'This order was not processed through Stripe.', type: 'error');
             return;
         }
 
         if (!$this->order->stripe_invoice_id && !$this->order->stripe_charge_id && !$this->order->stripe_payment_intent_id) {
-            session()->flash('error', 'No Stripe reference IDs found for this order.');
+            $this->dispatch('notify', message: 'No Stripe reference IDs found for this order.', type: 'error');
             return;
         }
 
@@ -43,12 +43,12 @@ new class extends Component {
             if ($failureDetails) {
                 $this->order->update(['failure_reason' => $failureDetails]);
                 $this->order->refresh();
-                session()->flash('success', 'Failure details updated from Stripe successfully.');
+                $this->dispatch('notify', message: 'Failure details updated from Stripe successfully.', type: 'success');
             } else {
-                session()->flash('info', 'No additional failure details found in Stripe for this order.');
+                $this->dispatch('notify', message: 'No additional failure details found in Stripe for this order.', type: 'info');
             }
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to fetch details from Stripe: ' . $e->getMessage());
+            $this->dispatch('notify', message: 'Failed to fetch details from Stripe: ' . $e->getMessage(), type: 'error');
         }
     }
 
@@ -1078,4 +1078,37 @@ new class extends Component {
             </form>
         </div>
     </flux:modal>
+
+    <!-- Toast Notification -->
+    <div
+        x-data="{ show: false, message: '', type: 'success' }"
+        x-on:notify.window="
+            show = true;
+            message = $event.detail.message || 'Operation successful';
+            type = $event.detail.type || 'success';
+            setTimeout(() => show = false, 4000)
+        "
+        x-show="show"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 transform translate-y-2"
+        x-transition:enter-end="opacity-100 transform translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 transform translate-y-0"
+        x-transition:leave-end="opacity-0 transform translate-y-2"
+        class="fixed bottom-4 right-4 z-50"
+        style="display: none;"
+    >
+        <div x-show="type === 'success'" class="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg shadow-lg">
+            <flux:icon.check-circle class="w-5 h-5 text-green-600" />
+            <span x-text="message"></span>
+        </div>
+        <div x-show="type === 'error'" class="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 text-red-800 rounded-lg shadow-lg">
+            <flux:icon.exclamation-circle class="w-5 h-5 text-red-600" />
+            <span x-text="message"></span>
+        </div>
+        <div x-show="type === 'info'" class="flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg shadow-lg">
+            <flux:icon.information-circle class="w-5 h-5 text-blue-600" />
+            <span x-text="message"></span>
+        </div>
+    </div>
 </div>
