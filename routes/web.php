@@ -35,6 +35,10 @@ Route::get('dashboard', function () {
         return redirect()->route('class-admin.dashboard');
     }
 
+    if ($user->isSales()) {
+        return redirect()->route('pos.index');
+    }
+
     return view('dashboard');
 })
     ->middleware(['auth', 'verified'])
@@ -430,6 +434,14 @@ Route::middleware(['auth', 'role:admin,admin_livehost'])->prefix('admin')->name(
 
     // Uploaded Sessions (Session Slots)
     Volt::route('session-slots', 'admin.uploaded-sessions')->name('session-slots');
+});
+
+// ============================================================================
+// POS - Point of Sale React SPA
+// ============================================================================
+Route::middleware(['auth', 'role:admin,sales'])->group(function () {
+    Route::get('pos', fn () => view('pos.index'))->name('pos.index');
+    Route::get('pos/{any}', fn () => view('pos.index'))->where('any', '.*')->name('pos.catchall');
 });
 
 // ============================================================================

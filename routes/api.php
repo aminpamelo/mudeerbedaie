@@ -230,6 +230,23 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
+| POS (Point of Sale) API Routes
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum'])->prefix('pos')->group(function () {
+    Route::get('products', [\App\Http\Controllers\Api\PosController::class, 'products'])->name('api.pos.products');
+    Route::get('packages', [\App\Http\Controllers\Api\PosController::class, 'packages'])->name('api.pos.packages');
+    Route::get('courses', [\App\Http\Controllers\Api\PosController::class, 'courses'])->name('api.pos.courses');
+    Route::get('classes/{course}', [\App\Http\Controllers\Api\PosController::class, 'courseClasses'])->name('api.pos.classes');
+    Route::get('customers', [\App\Http\Controllers\Api\PosController::class, 'customers'])->name('api.pos.customers');
+    Route::post('sales', [\App\Http\Controllers\Api\PosController::class, 'createSale'])->name('api.pos.sales.store');
+    Route::get('sales', [\App\Http\Controllers\Api\PosController::class, 'salesHistory'])->name('api.pos.sales.index');
+    Route::get('sales/{sale}', [\App\Http\Controllers\Api\PosController::class, 'saleDetail'])->name('api.pos.sales.show');
+    Route::get('dashboard', [\App\Http\Controllers\Api\PosController::class, 'dashboard'])->name('api.pos.dashboard');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Workflow Builder API Routes
 |--------------------------------------------------------------------------
 */

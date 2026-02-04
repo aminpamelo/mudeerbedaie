@@ -21,6 +21,8 @@ export default defineConfig({
                 'resources/js/workflow-builder/index.jsx',
                 'resources/js/workflow-builder/styles/workflow-builder.css',
                 'resources/js/affiliate-dashboard/index.jsx',
+                'resources/js/pos/index.jsx',
+                'resources/js/pos/styles/pos.css',
             ],
             refresh: true,
         }),
