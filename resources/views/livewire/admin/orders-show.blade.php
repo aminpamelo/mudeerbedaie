@@ -599,7 +599,7 @@ new class extends Component {
                         <div class="md:col-span-2">
                             <flux:text class="text-gray-600">Payment Receipt</flux:text>
                             <div class="mt-2 flex items-center space-x-3">
-                                <flux:icon icon="document" class="w-5 h-5 text-green-600" />
+                                <flux:icon name="document" class="w-5 h-5 text-green-600" />
                                 <flux:text class="text-sm text-green-700">Receipt attachment available</flux:text>
                                 <flux:button
                                     wire:click="downloadReceipt"
@@ -650,10 +650,10 @@ new class extends Component {
                         <div class="md:col-span-2">
                             <flux:text class="text-gray-600">Stripe Receipt</flux:text>
                             <div class="mt-2 flex items-center space-x-3">
-                                <flux:icon icon="document" class="w-5 h-5 text-blue-600" />
+                                <flux:icon name="document" class="w-5 h-5 text-blue-600" />
                                 <flux:text class="text-sm text-blue-700">Official Stripe receipt available</flux:text>
                                 <a href="{{ $order->receipt_url }}" target="_blank">
-                                    <flux:button variant="outline" size="sm" icon="external-link">
+                                    <flux:button variant="outline" size="sm" icon="arrow-top-right-on-square">
                                         View Stripe Receipt
                                     </flux:button>
                                 </a>
