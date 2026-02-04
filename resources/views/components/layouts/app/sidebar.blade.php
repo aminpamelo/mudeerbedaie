@@ -21,6 +21,7 @@
                     'customerService': ['admin.customer-service.*'],
                     'certificates': ['certificates.*'],
                     'inventory': ['inventory.*', 'stock.*', 'warehouses.*', 'agents.*'],
+                    'salesDept': ['pos.*'],
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
@@ -225,6 +226,17 @@
                     <flux:navlist.item icon="building-office" :href="route('agents.index')" :current="request()->routeIs('agents.*')" wire:navigate>{{ __('Agents & Companies') }}</flux:navlist.item>
                 </flux:navlist.group>
 
+                @if(Route::has('pos.index'))
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Sales Department')"
+                    data-section='salesDept' x-init="if (!isExpanded('salesDept')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('salesDept', $event)"
+                >
+                    <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @endif
+
                 <flux:navlist.group
                     expandable
                     :heading="__('Platform Management')"
@@ -357,6 +369,17 @@
                     <flux:navlist.item icon="calendar" :href="route('live-host.schedule')" :current="request()->routeIs('live-host.schedule')" wire:navigate>{{ __('My Schedule') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-up-tray" :href="route('live-host.session-slots')" :current="request()->routeIs('live-host.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
                     <flux:navlist.item icon="play-circle" :href="route('live-host.sessions.index')" :current="request()->routeIs('live-host.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @endif
+
+                @if(auth()->user()->isSales() && Route::has('pos.index'))
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Sales Department')"
+                    data-section='salesDept' x-init="if (!isExpanded('salesDept')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('salesDept', $event)"
+                >
+                    <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 

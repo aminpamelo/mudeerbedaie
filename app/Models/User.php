@@ -118,6 +118,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is sales staff
+     */
+    public function isSales(): bool
+    {
+        return $this->role === 'sales';
+    }
+
+    /**
      * Get assigned class IDs for this class admin (from PIC relationship)
      *
      * @return array<int>
