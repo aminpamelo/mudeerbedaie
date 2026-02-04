@@ -334,6 +334,11 @@ new class extends Component
 
     public function proceedToPayment(): void
     {
+        // Auto-populate billing name from customer name
+        if (! $this->disableShipping) {
+            $this->billingAddress['first_name'] = $this->customerData['name'] ?? '';
+        }
+
         $rules = [
             'customerData.email' => 'nullable|email',
             'customerData.name' => 'required|min:2',
@@ -510,7 +515,7 @@ new class extends Component
                 return; // Redirect happens in processBayarcashPayment
             }
 
-            // COD: create payment record, set to processing, payment pending until delivery
+            // COD: create payment record, set order to confirmed, payment pending until delivery
             if ($this->paymentMethod === 'cod') {
                 $productOrder->payments()->create([
                     'payment_method' => 'cod',
@@ -520,7 +525,7 @@ new class extends Component
                     'status' => 'pending',
                     'transaction_id' => 'COD-'.date('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(8)),
                 ]);
-                $productOrder->markAsProcessing();
+                $productOrder->markAsConfirmed();
                 $this->redirectToNextStep($productOrder);
 
                 return;
@@ -1024,16 +1029,6 @@ new class extends Component
                         <div>
                             <h4 class="font-medium text-gray-900 mb-4">Alamat Surat Menyurat</h4>
                             <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Penuh *</label>
-                                    <input
-                                        type="text"
-                                        wire:model="billingAddress.first_name"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                    @error('billingAddress.first_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-                                </div>
-
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Alamat *</label>
                                     <input
