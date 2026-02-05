@@ -375,6 +375,38 @@
             // Find checkout step
             window.location.href = `/f/${window.funnelConfig.funnelSlug}/checkout`;
         }
+
+        // Track ANY link clicks on thank you pages
+        @if($step->type === 'thankyou')
+        let tyClickTracked = false; // Track only once per page session
+
+        document.addEventListener('click', (e) => {
+            // Find closest anchor tag (covers clicks on child elements like SVGs, spans, etc.)
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+
+            // Skip empty hrefs, javascript: links, and anchor-only links
+            const href = link.getAttribute('href');
+            if (!href || href === '#' || href.startsWith('javascript:')) return;
+
+            // Only track once per page session (first click counts)
+            if (tyClickTracked) return;
+            tyClickTracked = true;
+
+            const sessionUuid = link.dataset.sessionUuid || window.funnelConfig.sessionUuid;
+            const stepId = link.dataset.stepId || window.funnelConfig.stepId;
+
+            // Send tracking event via beacon with proper JSON content type
+            const data = JSON.stringify({
+                session_uuid: sessionUuid,
+                step_id: stepId,
+                button_url: href,
+                button_text: link.textContent?.trim().substring(0, 100) || '',
+            });
+            const blob = new Blob([data], { type: 'application/json' });
+            navigator.sendBeacon('/api/funnel-events/button-click', blob);
+        });
+        @endif
     </script>
 
     <!-- Custom JS -->

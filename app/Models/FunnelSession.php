@@ -158,6 +158,29 @@ class FunnelSession extends Model
         ]);
     }
 
+    /**
+     * Track event only once per session/step combination.
+     * Returns existing event if already tracked, or creates new one.
+     */
+    public function trackEventOnce(string $eventType, array $eventData = [], ?FunnelStep $step = null): FunnelSessionEvent
+    {
+        $stepId = $step?->id ?? $this->current_step_id;
+
+        // Check if this event type has already been tracked for this step
+        $existingEvent = $this->events()
+            ->where('event_type', $eventType)
+            ->where('step_id', $stepId)
+            ->first();
+
+        if ($existingEvent) {
+            $this->updateActivity($step);
+
+            return $existingEvent;
+        }
+
+        return $this->trackEvent($eventType, $eventData, $step);
+    }
+
     // UTM helpers
     public function hasUtmData(): bool
     {

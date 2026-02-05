@@ -266,11 +266,12 @@ class PublicFunnelController extends Controller
      */
     protected function trackPageView(FunnelSession $session, FunnelStep $step): void
     {
-        $session->trackEvent('page_view', [
+        // Use trackEventOnce to prevent duplicate page views on refresh
+        $session->trackEventOnce('page_view', [
             'step_id' => $step->id,
             'step_name' => $step->name,
             'step_type' => $step->type,
-        ]);
+        ], $step);
 
         // Check if this is the first visit to this step today
         $today = now()->toDateString();

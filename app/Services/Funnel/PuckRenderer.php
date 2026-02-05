@@ -339,12 +339,23 @@ class PuckRenderer
             default => '',
         };
 
+        // Add tracking data for thank you page button clicks
+        $trackingAttr = '';
+        if (! empty($context['session_uuid'])) {
+            $trackingAttr = sprintf(
+                'data-track-click="true" data-session-uuid="%s" data-step-id="%s"',
+                e($context['session_uuid']),
+                e($context['step_id'] ?? '')
+            );
+        }
+
         return sprintf(
             '<div class="puck-button-wrapper" style="text-align: center; margin: 10px 0;">
-                <a href="%s" class="puck-button" %s style="%s padding: %s; background-color: %s; color: %s; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: %s; text-align: center; cursor: pointer; transition: all 0.2s;">%s</a>
+                <a href="%s" class="puck-button" %s %s style="%s padding: %s; background-color: %s; color: %s; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: %s; text-align: center; cursor: pointer; transition: all 0.2s;">%s</a>
             </div>',
             e($url),
             $actionAttr,
+            $trackingAttr,
             $widthStyle,
             $padding,
             e($backgroundColor),

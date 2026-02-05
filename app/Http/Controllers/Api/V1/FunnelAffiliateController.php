@@ -31,11 +31,17 @@ class FunnelAffiliateController extends Controller
                     ->where('event_type', 'form_submit')
                     ->count();
 
-                $thankyouClicks = FunnelSessionEvent::whereIn('session_id', $sessionIds)
+                // TY Views: when thank you page is loaded
+                $thankyouViews = FunnelSessionEvent::whereIn('session_id', $sessionIds)
                     ->where('event_type', 'page_view')
                     ->whereHas('step', function ($q) {
                         $q->where('type', 'thankyou');
                     })
+                    ->count();
+
+                // TY Clicks: when button on thank you page is clicked
+                $thankyouClicks = FunnelSessionEvent::whereIn('session_id', $sessionIds)
+                    ->where('event_type', 'thankyou_button_click')
                     ->count();
 
                 $totalCommission = $affiliate->commissions()
@@ -59,6 +65,7 @@ class FunnelAffiliateController extends Controller
                     'stats' => [
                         'views' => $views,
                         'checkout_fills' => $checkoutFills,
+                        'thankyou_views' => $thankyouViews,
                         'thankyou_clicks' => $thankyouClicks,
                         'total_commission' => (float) $totalCommission,
                         'pending_commission' => (float) $pendingCommission,
@@ -84,11 +91,17 @@ class FunnelAffiliateController extends Controller
             ->where('event_type', 'form_submit')
             ->count();
 
-        $thankyouClicks = FunnelSessionEvent::whereIn('session_id', $sessionIds)
+        // TY Views: when thank you page is loaded
+        $thankyouViews = FunnelSessionEvent::whereIn('session_id', $sessionIds)
             ->where('event_type', 'page_view')
             ->whereHas('step', function ($q) {
                 $q->where('type', 'thankyou');
             })
+            ->count();
+
+        // TY Clicks: when button on thank you page is clicked
+        $thankyouClicks = FunnelSessionEvent::whereIn('session_id', $sessionIds)
+            ->where('event_type', 'thankyou_button_click')
             ->count();
 
         $commissions = $affiliate->commissions()
@@ -117,6 +130,7 @@ class FunnelAffiliateController extends Controller
             'stats' => [
                 'views' => $views,
                 'checkout_fills' => $checkoutFills,
+                'thankyou_views' => $thankyouViews,
                 'thankyou_clicks' => $thankyouClicks,
                 'total_commission' => (float) $affiliate->commissions()->where('funnel_id', $funnel->id)->whereIn('status', ['approved', 'paid'])->sum('commission_amount'),
                 'pending_commission' => (float) $affiliate->commissions()->where('funnel_id', $funnel->id)->pending()->sum('commission_amount'),

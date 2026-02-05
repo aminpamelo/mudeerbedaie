@@ -332,6 +332,7 @@ function AffiliatesSection({ affiliates, funnelUuid }) {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ref Code</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Views</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Checkout Fills</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">TY Views</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">TY Clicks</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Commission</th>
                         </tr>
@@ -355,6 +356,9 @@ function AffiliatesSection({ affiliates, funnelUuid }) {
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-900 text-right">
                                     {(affiliate.stats?.checkout_fills || 0).toLocaleString()}
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                                    {(affiliate.stats?.thankyou_views || 0).toLocaleString()}
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-900 text-right">
                                     {(affiliate.stats?.thankyou_clicks || 0).toLocaleString()}

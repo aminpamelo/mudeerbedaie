@@ -43,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // - Stripe webhook (external)
         // - TikTok webhook (external)
         // - Internal API routes (protected by auth middleware)
+        // - Funnel event tracking (public, no auth)
         $middleware->validateCsrfTokens(except: [
             'stripe/webhook',
             'webhooks/tiktok',
@@ -50,6 +51,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/workflows/*',
             'api/crm/*',
             'api/v1/*',
+            'api/funnel-events/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

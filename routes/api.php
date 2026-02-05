@@ -223,6 +223,14 @@ Route::prefix('v1/funnel')->group(function () {
     Route::post('{funnelUuid}/pixel-event', [FunnelPixelController::class, 'trackEvent'])->name('api.funnel.pixel-event');
 });
 
+/*
+|--------------------------------------------------------------------------
+| Funnel Event Tracking API Routes (Public - No Auth Required)
+|--------------------------------------------------------------------------
+*/
+Route::post('funnel-events/button-click', [\App\Http\Controllers\Api\FunnelEventController::class, 'trackButtonClick'])
+    ->name('api.funnel-events.button-click');
+
 // Pixel test connection (authenticated)
 Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::post('funnels/{uuid}/pixel/test', [FunnelPixelController::class, 'testConnection'])->name('api.funnels.pixel.test');
