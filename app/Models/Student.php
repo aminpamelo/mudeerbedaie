@@ -47,7 +47,7 @@ class Student extends Model
 
         static::creating(function ($student) {
             if (empty($student->student_id)) {
-                $student->student_id = self::generateStudentId();
+                $student->student_id = self::generateUniqueStudentId();
             }
         });
     }
@@ -261,6 +261,42 @@ class Student extends Model
         }
 
         return $prefix.str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Generate a unique student ID with retry mechanism to handle race conditions.
+     */
+    public static function generateUniqueStudentId(int $maxRetries = 5): string
+    {
+        $year = date('Y');
+        $prefix = 'STU'.$year;
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($prefix, $maxRetries) {
+            for ($attempt = 0; $attempt < $maxRetries; $attempt++) {
+                // Lock the table for reading to prevent race conditions
+                $maxId = self::where('student_id', 'like', $prefix.'%')
+                    ->lockForUpdate()
+                    ->selectRaw('MAX(CAST(SUBSTRING(student_id, 8) AS UNSIGNED)) as max_num')
+                    ->value('max_num');
+
+                $nextNum = ($maxId ?? 0) + 1;
+
+                // Add random offset on retry attempts to avoid collision
+                if ($attempt > 0) {
+                    $nextNum += random_int(1, 100);
+                }
+
+                $studentId = $prefix.str_pad((string) $nextNum, 4, '0', STR_PAD_LEFT);
+
+                // Check if this ID already exists (double-check)
+                if (! self::where('student_id', $studentId)->exists()) {
+                    return $studentId;
+                }
+            }
+
+            // Fallback: generate with timestamp-based suffix
+            return $prefix.date('His').random_int(10, 99);
+        });
     }
 
     // Order-related utility methods
