@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\DepartmentRole;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
 
 class Department extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'parent_id',
         'name',
         'slug',
         'description',
@@ -24,6 +26,46 @@ class Department extends Model
         'status',
         'sort_order',
     ];
+
+    /**
+     * Get the parent department
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'parent_id');
+    }
+
+    /**
+     * Get child departments
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(Department::class, 'parent_id')->ordered();
+    }
+
+    /**
+     * Check if this is a parent department
+     */
+    public function isParent(): bool
+    {
+        return $this->children()->exists();
+    }
+
+    /**
+     * Check if this is a child department
+     */
+    public function isChild(): bool
+    {
+        return $this->parent_id !== null;
+    }
+
+    /**
+     * Scope to get only top-level departments (no parent)
+     */
+    public function scopeTopLevel(Builder $query): Builder
+    {
+        return $query->whereNull('parent_id');
+    }
 
     /**
      * Get all users in this department

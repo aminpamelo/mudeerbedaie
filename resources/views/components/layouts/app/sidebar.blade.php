@@ -275,19 +275,39 @@
                     <flux:navlist.item icon="clipboard-document-list" :href="route('tasks.dashboard')" :current="request()->routeIs('tasks.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                     <flux:navlist.item icon="user" :href="route('tasks.my-tasks')" :current="request()->routeIs('tasks.my-tasks')" wire:navigate>{{ __('My Tasks') }}</flux:navlist.item>
 
-                    {{-- Department links - only show departments user has access to --}}
+                    {{-- Department links with parent-child hierarchy --}}
                     @php
                         $userDepartments = auth()->user()->isAdmin()
-                            ? \App\Models\Department::active()->ordered()->get()
+                            ? \App\Models\Department::active()->topLevel()->ordered()->with('children')->get()
                             : auth()->user()->departments()->where('status', 'active')->orderBy('sort_order')->get();
                     @endphp
                     @foreach($userDepartments as $dept)
-                    <flux:navlist.item
-                        icon="folder"
-                        :href="route('tasks.department.board', $dept->slug)"
-                        :current="request()->routeIs('tasks.department.board') && request()->route('department')?->slug === $dept->slug"
-                        wire:navigate
-                    >{{ $dept->name }}</flux:navlist.item>
+                        @if($dept->children->count() > 0)
+                            {{-- Parent department with children --}}
+                            <flux:navlist.item
+                                icon="folder"
+                                :href="route('tasks.department.board', $dept->slug)"
+                                :current="request()->routeIs('tasks.department.board') && request()->route('department')?->slug === $dept->slug"
+                                wire:navigate
+                            >{{ $dept->name }}</flux:navlist.item>
+                            @foreach($dept->children as $child)
+                            <flux:navlist.item
+                                icon="document"
+                                :href="route('tasks.department.board', $child->slug)"
+                                :current="request()->routeIs('tasks.department.board') && request()->route('department')?->slug === $child->slug"
+                                wire:navigate
+                                class="pl-4"
+                            >{{ $child->name }}</flux:navlist.item>
+                            @endforeach
+                        @else
+                            {{-- Standalone department --}}
+                            <flux:navlist.item
+                                icon="folder"
+                                :href="route('tasks.department.board', $dept->slug)"
+                                :current="request()->routeIs('tasks.department.board') && request()->route('department')?->slug === $dept->slug"
+                                wire:navigate
+                            >{{ $dept->name }}</flux:navlist.item>
+                        @endif
                     @endforeach
 
                     {{-- Manage Members link for Admin --}}

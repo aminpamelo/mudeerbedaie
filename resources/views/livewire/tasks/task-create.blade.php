@@ -25,14 +25,22 @@ new class extends Component {
     public ?float $estimated_hours = null;
     public int $department_id = 0;
     public int $template_id = 0;
+    public ?array $metadata = null;
 
     public function mount(): void
     {
         $user = auth()->user();
 
-        // Check if user is PIC of any department (only PICs can create tasks)
-        if (! $user->picDepartments()->exists()) {
+        // Check if user can create tasks (admin for personal tasks, or PIC of any department)
+        if (! $user->isAdmin() && ! $user->picDepartments()->exists()) {
             abort(403, 'Only PICs can create tasks.');
+        }
+
+        // Admin creates personal tasks (no department)
+        if ($user->isAdmin()) {
+            $this->assigned_to = $user->id;
+
+            return;
         }
 
         // If department is provided via query string
@@ -44,9 +52,10 @@ new class extends Component {
             }
         }
 
-        // Default to first PIC department if no specific one
+        // Default to first available department if no specific one
         if (! $this->department) {
-            $this->department = $user->picDepartments()->first();
+            $available = $this->getAvailableDepartments();
+            $this->department = $available->first();
             if ($this->department) {
                 $this->department_id = $this->department->id;
             }
@@ -55,8 +64,8 @@ new class extends Component {
 
     public function getAvailableDepartments()
     {
-        // Only return departments where user is PIC
-        return auth()->user()->picDepartments;
+        // PIC gets their departments + child sub-departments
+        return auth()->user()->getCreatableDepartments();
     }
 
     public function getDepartmentUsers()
@@ -66,7 +75,16 @@ new class extends Component {
         }
 
         $department = Department::find($this->department_id);
-        return $department ? $department->users : collect();
+        if (! $department) {
+            return collect();
+        }
+
+        // For child departments, return parent department's users
+        if ($department->parent_id) {
+            return $department->parent->users;
+        }
+
+        return $department->users;
     }
 
     public function updatedDepartmentId(): void
@@ -108,52 +126,89 @@ new class extends Component {
         if (! empty($template->template_data['description'])) {
             $this->description = $template->template_data['description'];
         }
+
+        // Copy metadata schema from template for workflow tracking
+        if (! empty($template->template_data['metadata_schema'])) {
+            $this->metadata = $template->template_data['metadata_schema'];
+        }
     }
 
     public function create(): void
     {
         $user = auth()->user();
 
-        // Validate
-        $this->validate([
-            'department_id' => 'required|exists:departments,id',
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'task_type' => 'required|in:kpi,adhoc',
-            'status' => 'required|in:todo,in_progress,review,completed,cancelled',
-            'priority' => 'required|in:low,medium,high,urgent',
-            'assigned_to' => 'nullable|exists:users,id',
-            'due_date' => 'nullable|date',
-            'due_time' => 'nullable|date_format:H:i',
-            'estimated_hours' => 'nullable|numeric|min:0',
-        ]);
+        if ($user->isAdmin()) {
+            // Admin creates personal tasks (no department)
+            $this->validate([
+                'title' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'task_type' => 'required|in:kpi,adhoc',
+                'status' => 'required|in:todo,in_progress,review,completed,cancelled',
+                'priority' => 'required|in:low,medium,high,urgent',
+                'due_date' => 'nullable|date',
+                'due_time' => 'nullable|date_format:H:i',
+                'estimated_hours' => 'nullable|numeric|min:0',
+            ]);
 
-        // Check permission for selected department (only PICs can create)
-        $department = Department::findOrFail($this->department_id);
-        if (! $user->canCreateTasks($department)) {
-            abort(403, 'You cannot create tasks in this department.');
+            $task = Task::create([
+                'department_id' => null,
+                'title' => $this->title,
+                'description' => $this->description,
+                'task_type' => $this->task_type,
+                'status' => $this->status,
+                'priority' => $this->priority,
+                'assigned_to' => $user->id,
+                'created_by' => $user->id,
+                'due_date' => $this->due_date,
+                'due_time' => $this->due_time,
+                'estimated_hours' => $this->estimated_hours,
+                'metadata' => $this->metadata,
+            ]);
+        } else {
+            // PIC creates department tasks
+            $this->validate([
+                'department_id' => 'required|exists:departments,id',
+                'title' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'task_type' => 'required|in:kpi,adhoc',
+                'status' => 'required|in:todo,in_progress,review,completed,cancelled',
+                'priority' => 'required|in:low,medium,high,urgent',
+                'assigned_to' => 'nullable|exists:users,id',
+                'due_date' => 'nullable|date',
+                'due_time' => 'nullable|date_format:H:i',
+                'estimated_hours' => 'nullable|numeric|min:0',
+            ]);
+
+            $department = Department::findOrFail($this->department_id);
+            if (! $user->canCreateTasks($department)) {
+                abort(403, 'You cannot create tasks in this department.');
+            }
+
+            $task = Task::create([
+                'department_id' => $this->department_id,
+                'title' => $this->title,
+                'description' => $this->description,
+                'task_type' => $this->task_type,
+                'status' => $this->status,
+                'priority' => $this->priority,
+                'assigned_to' => $this->assigned_to,
+                'created_by' => $user->id,
+                'due_date' => $this->due_date,
+                'due_time' => $this->due_time,
+                'estimated_hours' => $this->estimated_hours,
+                'metadata' => $this->metadata,
+            ]);
         }
-
-        // Create task
-        $task = Task::create([
-            'department_id' => $this->department_id,
-            'title' => $this->title,
-            'description' => $this->description,
-            'task_type' => $this->task_type,
-            'status' => $this->status,
-            'priority' => $this->priority,
-            'assigned_to' => $this->assigned_to,
-            'created_by' => $user->id,
-            'due_date' => $this->due_date,
-            'due_time' => $this->due_time,
-            'estimated_hours' => $this->estimated_hours,
-        ]);
 
         // Log activity
         $task->logActivity('created', null, null, 'Task created');
 
-        // Redirect to task detail
-        $this->redirect(route('tasks.show', $task), navigate: true);
+        // Redirect to task detail or my-tasks for admin
+        if ($user->isAdmin()) {
+            $this->redirect(route('tasks.my-tasks'), navigate: true);
+        } else {
+            $this->redirect(route('tasks.show', $task), navigate: true);
+        }
     }
 }; ?>
 
@@ -162,9 +217,9 @@ new class extends Component {
         <div class="flex items-center justify-between">
             <div>
                 <flux:heading size="xl">{{ __('Create New Task') }}</flux:heading>
-                <flux:text class="mt-2">{{ __('Add a new task to a department') }}</flux:text>
+                <flux:text class="mt-2">{{ auth()->user()->isAdmin() ? __('Add a personal task to your My Tasks') : __('Add a new task to a department') }}</flux:text>
             </div>
-            <flux:button variant="ghost" :href="$department ? route('tasks.department.board', $department->slug) : route('tasks.dashboard')">
+            <flux:button variant="ghost" :href="auth()->user()->isAdmin() ? route('tasks.my-tasks') : ($department ? route('tasks.department.board', $department->slug) : route('tasks.dashboard'))">
                 <flux:icon name="arrow-left" class="w-4 h-4 mr-1" />
                 {{ __('Back') }}
             </flux:button>
@@ -174,6 +229,7 @@ new class extends Component {
     <div class="max-w-3xl mx-auto">
         <form wire:submit="create" class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
             <div class="p-6 space-y-6">
+                @if(!auth()->user()->isAdmin())
                 {{-- Department Selection --}}
                 <flux:field>
                     <flux:label>{{ __('Department') }}</flux:label>
@@ -200,6 +256,7 @@ new class extends Component {
                     </flux:select>
                     <flux:description>{{ __('Select a template to pre-fill the form fields') }}</flux:description>
                 </flux:field>
+                @endif
                 @endif
                 @endif
 
@@ -250,7 +307,8 @@ new class extends Component {
                     </flux:field>
                 </div>
 
-                {{-- Assignee --}}
+                {{-- Assignee (not shown for admin - auto-assigned to self) --}}
+                @if(!auth()->user()->isAdmin())
                 <flux:field>
                     <flux:label>{{ __('Assign To') }}</flux:label>
                     <flux:select wire:model="assigned_to">
@@ -262,6 +320,7 @@ new class extends Component {
                     <flux:description>{{ __('Select a department member to assign this task to') }}</flux:description>
                     <flux:error name="assigned_to" />
                 </flux:field>
+                @endif
 
                 {{-- Due Date & Time --}}
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -287,7 +346,7 @@ new class extends Component {
 
             {{-- Actions --}}
             <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-700 rounded-b-lg flex justify-end gap-2">
-                <flux:button variant="ghost" :href="$department ? route('tasks.department.board', $department->slug) : route('tasks.dashboard')">
+                <flux:button variant="ghost" :href="auth()->user()->isAdmin() ? route('tasks.my-tasks') : ($department ? route('tasks.department.board', $department->slug) : route('tasks.dashboard'))">
                     {{ __('Cancel') }}
                 </flux:button>
                 <flux:button type="submit" variant="primary">

@@ -508,11 +508,21 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user is PIC of a specific department
+     * Check if user is PIC of a specific department (includes parent PIC for child departments)
      */
     public function isPicOfDepartment(Department $department): bool
     {
-        return $this->picDepartments()->where('department_id', $department->id)->exists();
+        // Direct PIC check
+        if ($this->picDepartments()->where('department_id', $department->id)->exists()) {
+            return true;
+        }
+
+        // If child department, check if user is PIC of parent
+        if ($department->parent_id) {
+            return $this->picDepartments()->where('department_id', $department->parent_id)->exists();
+        }
+
+        return false;
     }
 
     /**
@@ -528,7 +538,6 @@ class User extends Authenticatable
      */
     public function canCreateTasks(Department $department): bool
     {
-        // Only PICs can create tasks
         return $this->isPicOfDepartment($department);
     }
 
@@ -537,8 +546,17 @@ class User extends Authenticatable
      */
     public function canEditTasks(Department $department): bool
     {
-        // Both PIC and members can edit tasks
-        return $this->departments->contains('id', $department->id);
+        // Direct membership check
+        if ($this->departments->contains('id', $department->id)) {
+            return true;
+        }
+
+        // If child department, check parent membership
+        if ($department->parent_id) {
+            return $this->departments->contains('id', $department->parent_id);
+        }
+
+        return false;
     }
 
     /**
@@ -551,8 +569,58 @@ class User extends Authenticatable
             return true;
         }
 
-        // Department members can view
-        return $this->departments->contains('id', $department->id);
+        // Direct membership check
+        if ($this->departments->contains('id', $department->id)) {
+            return true;
+        }
+
+        // If child department, check parent membership
+        if ($department->parent_id) {
+            return $this->departments->contains('id', $department->parent_id);
+        }
+
+        return false;
+    }
+
+    /**
+     * Get all accessible department IDs (direct + child departments of PIC parents)
+     */
+    public function getAccessibleDepartmentIds(): \Illuminate\Support\Collection
+    {
+        $directIds = $this->departments->pluck('id');
+
+        // For PIC departments that have children, include child IDs
+        $picIds = $this->picDepartments->pluck('id');
+        $childIds = Department::whereIn('parent_id', $picIds)->pluck('id');
+
+        return $directIds->merge($childIds)->unique();
+    }
+
+    /**
+     * Get all departments accessible to this user (direct + children of PIC parents)
+     */
+    public function getAccessibleDepartments(): \Illuminate\Database\Eloquent\Collection
+    {
+        $ids = $this->getAccessibleDepartmentIds();
+
+        return Department::whereIn('id', $ids)
+            ->where('status', 'active')
+            ->orderBy('sort_order')
+            ->get();
+    }
+
+    /**
+     * Get all departments where user can create tasks (PIC departments + their children)
+     */
+    public function getCreatableDepartments(): \Illuminate\Database\Eloquent\Collection
+    {
+        $picIds = $this->picDepartments()->where('status', 'active')->pluck('departments.id');
+        $childIds = Department::whereIn('parent_id', $picIds)->where('status', 'active')->pluck('id');
+
+        return Department::whereIn('id', $picIds->merge($childIds))
+            ->where('status', 'active')
+            ->orderBy('sort_order')
+            ->get();
     }
 
     /**

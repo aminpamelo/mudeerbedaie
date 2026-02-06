@@ -184,9 +184,9 @@ class Task extends Model
      */
     public function canBeEditedBy(User $user): bool
     {
-        // Admin can't edit (read-only)
+        // Admin can only edit tasks they created (personal tasks via My Tasks)
         if ($user->isAdmin()) {
-            return false;
+            return (int) $this->created_by === (int) $user->id;
         }
 
         // Both PIC and members can edit tasks in their department

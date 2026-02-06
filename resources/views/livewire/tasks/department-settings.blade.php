@@ -27,7 +27,7 @@ new class extends Component {
 
     public function mount(Department $department): void
     {
-        $this->department = $department->load('users');
+        $this->department = $department->load(['users', 'children', 'parent']);
         $user = auth()->user();
 
         // Admin and PICs can access settings
@@ -205,6 +205,47 @@ new class extends Component {
         </div>
 
         {{-- Members --}}
+        @if($department->isChild())
+        {{-- Sub-department: members are inherited from parent --}}
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+            <flux:heading size="lg" class="mb-4">{{ __('Department Members') }}</flux:heading>
+            <flux:callout type="info">
+                <flux:callout.heading>{{ __('Managed by Parent Department') }}</flux:callout.heading>
+                <flux:callout.text>
+                    {{ __('Members for this sub-department are managed through the parent department') }}
+                    (<strong>{{ $department->parent->name }}</strong>).
+                    {{ __('PIC and members of the parent department automatically have access to this sub-department.') }}
+                </flux:callout.text>
+            </flux:callout>
+
+            @php
+                $parentMembers = $department->parent->users()->orderByRaw("CASE WHEN department_users.role = 'department_pic' THEN 0 ELSE 1 END")->get();
+            @endphp
+
+            @if($parentMembers->count() > 0)
+            <div class="mt-4">
+                <flux:text class="text-sm font-medium mb-3">{{ __('Inherited Members from :parent', ['parent' => $department->parent->name]) }}</flux:text>
+                <div class="space-y-2">
+                    @foreach($parentMembers as $member)
+                    <div class="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg" wire:key="inherited-{{ $member->id }}">
+                        <div class="flex items-center gap-3">
+                            <flux:avatar :name="$member->name" size="sm" />
+                            <div>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $member->name }}</p>
+                                <p class="text-xs text-zinc-500">{{ $member->email }}</p>
+                            </div>
+                        </div>
+                        <flux:badge size="sm" :color="$member->pivot->role === 'department_pic' ? 'violet' : 'zinc'">
+                            {{ $member->pivot->role === 'department_pic' ? __('PIC') : __('Member') }}
+                        </flux:badge>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+        </div>
+        @else
+        {{-- Top-level department: full member management --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
             <div class="p-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
                 <flux:heading size="lg">{{ __('Department Members') }}</flux:heading>
@@ -213,6 +254,17 @@ new class extends Component {
                     {{ __('Add Member') }}
                 </flux:button>
             </div>
+
+            @if($department->children->count() > 0)
+            <div class="p-4 border-b border-zinc-200 dark:border-zinc-700">
+                <flux:callout type="info">
+                    <flux:callout.text>
+                        {{ __('PIC and members here automatically manage all sub-departments:') }}
+                        <span class="font-medium">{{ $department->children->pluck('name')->join(', ') }}</span>
+                    </flux:callout.text>
+                </flux:callout>
+            </div>
+            @endif
 
             <div class="divide-y divide-zinc-200 dark:divide-zinc-700">
                 @forelse($department->users as $member)
@@ -256,6 +308,7 @@ new class extends Component {
                 @endforelse
             </div>
         </div>
+        @endif
 
         {{-- Task Templates --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">

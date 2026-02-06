@@ -14,7 +14,11 @@ class DepartmentSeeder extends Seeder
      */
     public function run(): void
     {
-        $departments = [
+        // Remove old departments that are no longer needed
+        Department::whereIn('slug', ['editor', 'content-creator', 'admin'])->delete();
+
+        // Top-level departments
+        $topLevel = [
             [
                 'name' => 'Affiliate',
                 'slug' => 'affiliate',
@@ -25,41 +29,63 @@ class DepartmentSeeder extends Seeder
                 'sort_order' => 1,
             ],
             [
-                'name' => 'Editor',
-                'slug' => 'editor',
-                'description' => 'Video and content editing department',
-                'color' => '#8b5cf6', // violet
-                'icon' => 'pencil-square',
-                'status' => 'active',
-                'sort_order' => 2,
-            ],
-            [
-                'name' => 'Content Creator',
-                'slug' => 'content-creator',
-                'description' => 'Content creation department',
-                'color' => '#ec4899', // pink
-                'icon' => 'camera',
-                'status' => 'active',
-                'sort_order' => 3,
-            ],
-            [
                 'name' => 'Designer',
                 'slug' => 'designer',
                 'description' => 'Graphic design department',
                 'color' => '#f59e0b', // amber
                 'icon' => 'paint-brush',
                 'status' => 'active',
-                'sort_order' => 4,
+                'sort_order' => 2,
             ],
         ];
 
-        foreach ($departments as $department) {
+        foreach ($topLevel as $department) {
             Department::updateOrCreate(
                 ['slug' => $department['slug']],
-                $department
+                array_merge($department, ['parent_id' => null])
             );
         }
 
-        $this->command->info('Created 4 departments: Affiliate, Editor, Content Creator, Designer');
+        // Affiliate sub-departments
+        $affiliate = Department::where('slug', 'affiliate')->first();
+
+        $affiliateChildren = [
+            [
+                'name' => 'Recruit Affiliate',
+                'slug' => 'recruit-affiliate',
+                'description' => 'Affiliate recruitment and onboarding',
+                'color' => '#06b6d4', // cyan
+                'icon' => 'user-plus',
+                'status' => 'active',
+                'sort_order' => 1,
+            ],
+            [
+                'name' => 'KPI Content Creator',
+                'slug' => 'kpi-content-creator',
+                'description' => 'Content creator KPI tracking and management',
+                'color' => '#8b5cf6', // violet
+                'icon' => 'chart-bar',
+                'status' => 'active',
+                'sort_order' => 2,
+            ],
+            [
+                'name' => 'Content Staff',
+                'slug' => 'content-staff',
+                'description' => 'Content staff operations and tasks',
+                'color' => '#ec4899', // pink
+                'icon' => 'document-text',
+                'status' => 'active',
+                'sort_order' => 3,
+            ],
+        ];
+
+        foreach ($affiliateChildren as $child) {
+            Department::updateOrCreate(
+                ['slug' => $child['slug']],
+                array_merge($child, ['parent_id' => $affiliate->id])
+            );
+        }
+
+        $this->command->info('Created departments: Affiliate (with 3 sub-departments), Designer');
     }
 }

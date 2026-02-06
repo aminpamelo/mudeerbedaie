@@ -1,42 +1,62 @@
 # Task Management Module - Development Phases
 
 ## Overview
-Module Task Management untuk Mudeer Bedaie platform dengan Kanban board, 4 departments (Affiliate, Editor, Content Creator, Designer), dan role-based access control.
+Module Task Management untuk Mudeer Bedaie platform dengan Kanban board, parent-child department hierarchy, dan role-based access control.
+
+### Department Structure
+```
+Affiliate (top-level, parent)
+├── Recruit Affiliate (sub-department)
+├── KPI Content Creator (sub-department)
+└── Content Staff (sub-department)
+Designer (top-level)
+```
+
+### Admin Role
+- Admin does NOT have a dedicated department
+- Admin uses "My Tasks" page for personal task management
+- Admin can only VIEW (read-only) all department tasks (Affiliate, sub-departments, Designer)
+- Admin CANNOT create, edit, or delete tasks in any department
+- Admin creates personal tasks (no department) via "New Task" button - displayed in My Tasks only
+- Admin manages department members via manage-members page
 
 ---
 
 ## Phase 1 - Foundation (COMPLETED)
 
 ### Features Implemented
-- **Database Schema**: departments, department_users, tasks, task_comments, task_activity_logs tables
+- **Database Schema**: departments (with parent_id), department_users, tasks, task_comments, task_activity_logs tables
 - **Enums**: TaskStatus (todo, in_progress, review, completed, cancelled), TaskType (kpi, adhoc), TaskPriority (low, medium, high, urgent), DepartmentRole (department_pic, member)
-- **Models**: Department, Task, TaskComment, TaskActivityLog
+- **Models**: Department (with parent-child hierarchy), Task, TaskComment, TaskActivityLog
 - **User Roles**: `pic_department` and `member_department` added to users.role enum
 - **Kanban Board**: Drag-and-drop task cards across 4 columns (TODO, In Progress, Review, Completed)
 - **Task CRUD**: Create, view, edit, delete tasks with full form fields
 - **Comments**: Threaded comments with reply support
 - **Activity Logs**: Full audit trail for all task changes
 - **Task List View**: Table view with sorting, search, and filters
-- **My Tasks**: Personal task view with filters
-- **Dashboard**: ClickUp-style dashboard with stats, workspaces, urgent/overdue tasks
+- **My Tasks**: Personal task view with filters, Add Task button for PICs
+- **Dashboard**: ClickUp-style dashboard with stats, workspaces (parent-child hierarchy), urgent/overdue tasks
 - **Department Settings**: Add/remove members, change roles
 - **Manage Members**: Admin-level member management across departments
 - **Notifications**: TaskAssignedNotification (email + database), TaskCommentNotification (database)
 - **Observer**: TaskObserver for auto-notifications on assignment
+- **Parent-Child Departments**: `parent_id` on departments table, sidebar and dashboard show hierarchy
+- **Parent PIC Inheritance**: PIC of parent department automatically manages all sub-departments
+- **Manage Members**: Only top-level departments shown; sub-departments inherit members from parent
 
 ### Access Control
-| Role | View | Create | Edit | Delete | Manage PIC |
-|------|------|--------|------|--------|------------|
-| Admin | All Depts (READ-ONLY) | No | No | No | Yes (via manage-members) |
-| PIC Department | Own Dept | Yes | Yes | Yes | Yes |
-| Member Department | Own Dept | No | No | No | No |
+| Role | View Depts | Create in Dept | Edit in Dept | Delete in Dept | Personal Tasks | Manage Members |
+|------|-----------|----------------|-------------|---------------|----------------|----------------|
+| Admin | All Depts (VIEW ONLY) | No | No | No | Yes (My Tasks) | Yes (manage-members) |
+| PIC Department | Own Dept + Sub-depts | Yes | Yes | Yes | No | Yes |
+| Member Department | Own Dept + Sub-depts | No | Yes | No | No | No |
 
 ### Files Created
 - `app/Models/Department.php`, `Task.php`, `TaskComment.php`, `TaskActivityLog.php`
 - `app/Enums/TaskStatus.php`, `TaskType.php`, `TaskPriority.php`, `DepartmentRole.php`
 - `app/Notifications/TaskAssignedNotification.php`, `TaskCommentNotification.php`
 - `app/Observers/TaskObserver.php`
-- `database/migrations/` - 5 migration files (departments, department_users, tasks, task_comments, task_activity_logs)
+- `database/migrations/` - 5 migration files (departments, department_users, tasks, task_comments, task_activity_logs) + `add_parent_id_to_departments_table`
 - `database/seeders/DepartmentSeeder.php`
 - `resources/views/livewire/tasks/` - dashboard, my-tasks, kanban-board, task-list, task-create, task-show, task-edit, department-settings, manage-members
 
@@ -195,9 +215,25 @@ Module Task Management untuk Mudeer Bedaie platform dengan Kanban board, 4 depar
 
 ## Technical Notes
 
+### Department Hierarchy
+- Departments support parent-child relationships via `parent_id` column
+- `Department::topLevel()` scope returns root departments (parent_id = null)
+- `Department::children()` relationship returns sub-departments ordered by sort_order
+- Sidebar and dashboard render hierarchy: parents show children indented below
+- Admin sees all top-level departments with children; non-admin sees only assigned departments
+
+### Department Structure (Current)
+| Department | Type | Parent | Color | Slug |
+|-----------|------|--------|-------|------|
+| Affiliate | Top-level (parent) | — | Blue | `affiliate` |
+| Recruit Affiliate | Sub-department | Affiliate | Cyan | `recruit-affiliate` |
+| KPI Content Creator | Sub-department | Affiliate | Violet | `kpi-content-creator` |
+| Content Staff | Sub-department | Affiliate | Pink | `content-staff` |
+| Designer | Top-level | — | Amber | `designer` |
+
 ### User Role System
 Two role systems work together:
-- `users.role` (account type): `pic_department`, `member_department`
+- `users.role` (account type): `admin`, `pic_department`, `member_department`
 - `department_users.role` (department role): `department_pic`, `member`
 
 ### Role Mapping
@@ -205,6 +241,14 @@ Two role systems work together:
 |------------------------|-------------------|
 | `department_pic` | `pic_department` |
 | `member` | `member_department` |
+
+### Admin Access
+- Admin does NOT have a dedicated department
+- Admin can only VIEW (read-only) tasks in all departments
+- Admin CANNOT create, edit, or delete tasks in any department
+- Admin creates personal tasks (department_id = null) via "New Task" button
+- Admin personal tasks are displayed in "My Tasks" page only
+- Admin can manage members across all departments via manage-members page
 
 ### Database
 - SQLite (development) - requires drop/recreate for enum changes
@@ -222,3 +266,9 @@ Two role systems work together:
 /tasks/{task}                       → Task detail
 /tasks/{task}/edit                  → Edit task
 ```
+
+### Bug Fixes Applied
+- Fixed `TaskStatus::InProgress` → `TaskStatus::IN_PROGRESS` (enum cases are uppercase)
+- Fixed admin dashboard hero text (shows overview message instead of personal task count)
+- Added "Add Task" button on My Tasks page for users who are PIC of any department
+- Added `metadata` property to task-create for workflow data from templates

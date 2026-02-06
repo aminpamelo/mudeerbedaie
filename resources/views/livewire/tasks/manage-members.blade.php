@@ -34,8 +34,8 @@ new class extends Component {
             abort(403, 'Only administrators can manage department members.');
         }
 
-        // Set first department as active tab
-        $firstDept = Department::active()->ordered()->first();
+        // Set first top-level department as active tab
+        $firstDept = Department::active()->topLevel()->ordered()->first();
         if ($firstDept) {
             $this->activeTab = $firstDept->slug;
             $this->selectedDepartmentId = $firstDept->id;
@@ -45,10 +45,13 @@ new class extends Component {
     public function getDepartments()
     {
         return Department::active()
+            ->topLevel()
             ->ordered()
             ->withCount('users')
             ->with(['users' => function ($query) {
                 $query->orderByRaw("CASE WHEN department_users.role = 'department_pic' THEN 0 ELSE 1 END");
+            }, 'children' => function ($query) {
+                $query->active()->ordered();
             }])
             ->get();
     }
@@ -294,6 +297,21 @@ new class extends Component {
                         {{ __('Add Member') }}
                     </flux:button>
                 </div>
+
+                {{-- Sub-departments note for parent departments --}}
+                @if($activeDepartment->children->count() > 0)
+                <div class="mb-6">
+                    <flux:callout type="info">
+                        <flux:callout.heading>{{ __('Parent Department') }}</flux:callout.heading>
+                        <flux:callout.text>
+                            {{ __('PIC and members of this department automatically manage all sub-departments:') }}
+                            <span class="font-medium">
+                                {{ $activeDepartment->children->pluck('name')->join(', ') }}
+                            </span>
+                        </flux:callout.text>
+                    </flux:callout>
+                </div>
+                @endif
 
                 {{-- Members List --}}
                 @if($activeDepartment->users->count() > 0)

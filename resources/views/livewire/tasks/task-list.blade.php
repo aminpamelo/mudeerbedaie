@@ -37,10 +37,11 @@ new class extends Component {
             abort(403, 'You do not have access to this department.');
         }
 
-        $this->isReadOnly = $user->isAdmin();
-        $this->canManage = $user->canManageTasks($department);
-        $this->canCreate = $user->canCreateTasks($department);
-        $this->canEdit = $user->canEditTasks($department);
+        // Admin is view-only for department tasks; PIC can manage; members can edit
+        $this->canManage = ! $user->isAdmin() && $user->canManageTasks($department);
+        $this->canCreate = ! $user->isAdmin() && $user->canCreateTasks($department);
+        $this->canEdit = ! $user->isAdmin() && $user->canEditTasks($department);
+        $this->isReadOnly = $user->isAdmin() || ! $this->canEdit;
     }
 
     public function updatingSearch(): void
@@ -50,6 +51,11 @@ new class extends Component {
 
     public function getDepartmentUsers()
     {
+        // For child departments, return parent department's users
+        if ($this->department->parent_id) {
+            return $this->department->parent->users;
+        }
+
         return $this->department->users;
     }
 

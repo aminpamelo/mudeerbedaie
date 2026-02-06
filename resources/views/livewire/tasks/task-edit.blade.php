@@ -48,7 +48,14 @@ new class extends Component {
 
     public function getDepartmentUsers()
     {
-        return $this->task->department->users;
+        $department = $this->task->department;
+
+        // For child departments, return parent department's users
+        if ($department->parent_id) {
+            return $department->parent->users;
+        }
+
+        return $department->users;
     }
 
     public function update(): void
@@ -142,7 +149,7 @@ new class extends Component {
         <div class="flex items-center justify-between">
             <div>
                 <flux:heading size="xl">{{ __('Edit Task') }}</flux:heading>
-                <flux:text class="mt-2">{{ $task->task_number }} &bull; {{ $task->department->name }}</flux:text>
+                <flux:text class="mt-2">{{ $task->task_number }} &bull; {{ $task->department?->name ?? __('Personal') }}</flux:text>
             </div>
             <flux:button variant="ghost" :href="route('tasks.show', $task)">
                 <flux:icon name="arrow-left" class="w-4 h-4 mr-1" />

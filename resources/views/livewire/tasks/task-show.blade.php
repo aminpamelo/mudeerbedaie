@@ -38,8 +38,17 @@ new class extends Component {
             abort(403, 'You do not have access to this task.');
         }
 
-        $this->isReadOnly = $user->isAdmin();
-        $this->canManage = $task->canBeEditedBy($user);
+        // Admin is view-only for department tasks (can only edit own created tasks)
+        if ($user->isAdmin()) {
+            $this->isReadOnly = ! $task->canBeEditedBy($user);
+            $this->canManage = (int) $task->created_by === (int) $user->id;
+        } elseif ($task->department) {
+            $this->isReadOnly = ! $user->canEditTasks($task->department);
+            $this->canManage = $user->canManageTasks($task->department);
+        } else {
+            $this->isReadOnly = true;
+            $this->canManage = false;
+        }
     }
 
     public function addComment(): void
@@ -181,7 +190,7 @@ new class extends Component {
                     <flux:badge size="sm" variant="outline" :color="$task->task_type->color()">{{ $task->task_type->label() }}</flux:badge>
                 </div>
                 <flux:heading size="xl">{{ $task->title }}</flux:heading>
-                <flux:text class="mt-2">{{ $task->task_number }} &bull; {{ $task->department->name }}</flux:text>
+                <flux:text class="mt-2">{{ $task->task_number }} &bull; {{ $task->department?->name ?? __('Personal') }}</flux:text>
             </div>
             <div class="flex items-center gap-2">
                 @if($canManage)
@@ -196,7 +205,7 @@ new class extends Component {
                     {{ __('Edit') }}
                 </flux:button>
                 @endif
-                <flux:button variant="ghost" :href="route('tasks.department.board', $task->department->slug)">
+                <flux:button variant="ghost" :href="$task->department ? route('tasks.department.board', $task->department->slug) : route('tasks.my-tasks')">
                     <flux:icon name="arrow-left" class="w-4 h-4 mr-1" />
                     {{ __('Back') }}
                 </flux:button>
@@ -232,7 +241,7 @@ new class extends Component {
                     <flux:badge size="sm" variant="outline" :color="$task->task_type->color()">{{ $task->task_type->label() }}</flux:badge>
                 </div>
                 <flux:heading size="xl">{{ $task->title }}</flux:heading>
-                <flux:text class="mt-1">{{ $task->task_number }} &bull; {{ $task->department->name }}</flux:text>
+                <flux:text class="mt-1">{{ $task->task_number }} &bull; {{ $task->department?->name ?? __('Personal') }}</flux:text>
             </div>
 
             {{-- Description --}}
@@ -538,6 +547,34 @@ new class extends Component {
                     @endif
                 </dl>
             </div>
+
+            {{-- Workflow Data --}}
+            @if($task->metadata && is_array($task->metadata) && count($task->metadata) > 0)
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                <flux:heading size="lg" class="mb-4">{{ __('Maklumat Workflow') }}</flux:heading>
+                <dl class="space-y-3">
+                    @foreach($task->metadata as $key => $value)
+                    <div>
+                        <dt class="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                            {{ str_replace('_', ' ', $key) }}
+                        </dt>
+                        <dd class="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100">
+                            @if(is_array($value))
+                                @foreach($value as $subKey => $subValue)
+                                <span class="block text-sm">
+                                    <span class="text-zinc-500">{{ str_replace('_', ' ', $subKey) }}:</span>
+                                    {{ $subValue !== '' && $subValue !== null ? $subValue : '—' }}
+                                </span>
+                                @endforeach
+                            @else
+                                {{ $value !== '' && $value !== null ? $value : '—' }}
+                            @endif
+                        </dd>
+                    </div>
+                    @endforeach
+                </dl>
+            </div>
+            @endif
 
             {{-- Danger Zone --}}
             @if($canManage)

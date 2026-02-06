@@ -20,6 +20,41 @@ new class extends Component {
     public string $sortBy = 'due_date';
     public string $sortDirection = 'asc';
 
+    public function moveTask(int $taskId, string $newStatus): void
+    {
+        $task = Task::where('id', $taskId)
+            ->where('assigned_to', auth()->id())
+            ->firstOrFail();
+
+        $oldStatus = $task->status;
+        $task->changeStatus(TaskStatus::from($newStatus));
+
+        if ($oldStatus !== TaskStatus::from($newStatus)) {
+            $task->logActivity(
+                'status_changed',
+                ['status' => $oldStatus->value],
+                ['status' => $newStatus],
+                "Status changed from {$oldStatus->label()} to " . TaskStatus::from($newStatus)->label()
+            );
+        }
+    }
+
+    public function getKanbanTasks(): array
+    {
+        $tasks = Task::with(['department', 'creator'])
+            ->where('assigned_to', auth()->id())
+            ->whereIn('status', ['todo', 'in_progress', 'review', 'completed'])
+            ->orderByRaw("CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END")
+            ->get();
+
+        return [
+            TaskStatus::TODO->value => $tasks->where('status', TaskStatus::TODO),
+            TaskStatus::IN_PROGRESS->value => $tasks->where('status', TaskStatus::IN_PROGRESS),
+            TaskStatus::REVIEW->value => $tasks->where('status', TaskStatus::REVIEW),
+            TaskStatus::COMPLETED->value => $tasks->where('status', TaskStatus::COMPLETED),
+        ];
+    }
+
     public function updatingSearch(): void
     {
         $this->resetPage();
@@ -99,9 +134,9 @@ new class extends Component {
             ->get();
 
         return [
-            'in_progress' => $tasks->where('status', TaskStatus::InProgress),
-            'todo' => $tasks->where('status', TaskStatus::Todo),
-            'review' => $tasks->where('status', TaskStatus::Review),
+            'in_progress' => $tasks->where('status', TaskStatus::IN_PROGRESS),
+            'todo' => $tasks->where('status', TaskStatus::TODO),
+            'review' => $tasks->where('status', TaskStatus::REVIEW),
         ];
     }
 
@@ -168,6 +203,14 @@ new class extends Component {
                 <flux:text class="mt-2">{{ __('Tasks assigned to you across all departments') }}</flux:text>
             </div>
             <div class="flex items-center gap-2">
+                @if(auth()->user()->isAdmin() || auth()->user()->picDepartments()->exists())
+                <flux:button variant="primary" size="sm" :href="route('tasks.create')">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                        {{ __('Add Task') }}
+                    </div>
+                </flux:button>
+                @endif
                 <flux:button variant="{{ $view === 'focus' ? 'primary' : 'ghost' }}" size="sm" wire:click="setView('focus')">
                     <div class="flex items-center justify-center">
                         <flux:icon name="squares-2x2" class="w-4 h-4 mr-1" />
@@ -249,13 +292,13 @@ new class extends Component {
                 <a href="{{ route('tasks.show', $task) }}" wire:key="today-{{ $task->id }}" class="block bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 hover:border-violet-300 dark:hover:border-violet-600 transition-colors">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3 min-w-0">
-                            <div class="w-2 h-2 rounded-full shrink-0" style="background-color: {{ $task->department->color }}"></div>
+                            <div class="w-2 h-2 rounded-full shrink-0" style="background-color: {{ $task->department?->color ?? '#6b7280' }}"></div>
                             <div class="min-w-0">
                                 <p class="font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ $task->title }}</p>
                                 <div class="flex items-center gap-2 mt-1">
                                     <span class="text-xs text-zinc-500">{{ $task->task_number }}</span>
                                     <span class="text-xs text-zinc-400">&middot;</span>
-                                    <span class="text-xs text-zinc-500">{{ $task->department->name }}</span>
+                                    <span class="text-xs text-zinc-500">{{ $task->department?->name ?? __('Personal') }}</span>
                                 </div>
                             </div>
                         </div>
@@ -295,7 +338,7 @@ new class extends Component {
                 <a href="{{ route('tasks.show', $task) }}" wire:key="upcoming-{{ $task->id }}" class="block bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 hover:border-violet-300 dark:hover:border-violet-600 transition-colors">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3 min-w-0">
-                            <div class="w-2 h-2 rounded-full shrink-0" style="background-color: {{ $task->department->color }}"></div>
+                            <div class="w-2 h-2 rounded-full shrink-0" style="background-color: {{ $task->department?->color ?? '#6b7280' }}"></div>
                             <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ $task->title }}</p>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
@@ -330,7 +373,7 @@ new class extends Component {
                         <a href="{{ route('tasks.show', $task) }}" wire:key="ip-{{ $task->id }}" class="block bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
                             <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ $task->title }}</p>
                             <div class="flex items-center justify-between mt-2">
-                                <span class="text-xs text-zinc-500">{{ $task->department->name }}</span>
+                                <span class="text-xs text-zinc-500">{{ $task->department?->name ?? __('Personal') }}</span>
                                 <flux:badge size="sm" :color="$task->priority->color()">{{ $task->priority->label() }}</flux:badge>
                             </div>
                             @if($task->due_date)
@@ -360,7 +403,7 @@ new class extends Component {
                         <a href="{{ route('tasks.show', $task) }}" wire:key="td-{{ $task->id }}" class="block bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors">
                             <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ $task->title }}</p>
                             <div class="flex items-center justify-between mt-2">
-                                <span class="text-xs text-zinc-500">{{ $task->department->name }}</span>
+                                <span class="text-xs text-zinc-500">{{ $task->department?->name ?? __('Personal') }}</span>
                                 <flux:badge size="sm" :color="$task->priority->color()">{{ $task->priority->label() }}</flux:badge>
                             </div>
                             @if($task->due_date)
@@ -390,7 +433,7 @@ new class extends Component {
                         <a href="{{ route('tasks.show', $task) }}" wire:key="rv-{{ $task->id }}" class="block bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 hover:border-amber-300 dark:hover:border-amber-600 transition-colors">
                             <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ $task->title }}</p>
                             <div class="flex items-center justify-between mt-2">
-                                <span class="text-xs text-zinc-500">{{ $task->department->name }}</span>
+                                <span class="text-xs text-zinc-500">{{ $task->department?->name ?? __('Personal') }}</span>
                                 <flux:badge size="sm" :color="$task->priority->color()">{{ $task->priority->label() }}</flux:badge>
                             </div>
                             @if($task->due_date)
@@ -407,6 +450,83 @@ new class extends Component {
                         @endforelse
                     </div>
                 </div>
+            </div>
+        </div>
+
+        {{-- Kanban Board --}}
+        @php $kanbanTasks = $this->getKanbanTasks(); @endphp
+        <div class="mt-6">
+            <div class="flex items-center gap-2 mb-3">
+                <flux:icon name="view-columns" class="w-5 h-5 text-blue-500" />
+                <flux:heading size="lg">{{ __('Kanban Board') }}</flux:heading>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+                 x-data="{
+                     dragging: null,
+                     dragOver: null
+                 }">
+                @foreach(TaskStatus::kanbanStatuses() as $status)
+                @php $statusTasks = $kanbanTasks[$status->value] ?? collect(); @endphp
+                <div class="bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 flex flex-col min-h-[300px]"
+                     x-on:dragover.prevent="dragOver = '{{ $status->value }}'"
+                     x-on:dragleave="dragOver = null"
+                     x-on:drop="
+                         if (dragging) {
+                             $wire.moveTask(dragging, '{{ $status->value }}');
+                             dragging = null;
+                             dragOver = null;
+                         }
+                     "
+                     :class="{ 'ring-2 ring-violet-500': dragOver === '{{ $status->value }}' }">
+                    {{-- Column Header --}}
+                    <div class="p-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full bg-{{ $status->color() }}-500"></div>
+                        <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ $status->label() }}</span>
+                        <flux:badge size="sm">{{ $statusTasks->count() }}</flux:badge>
+                    </div>
+
+                    {{-- Tasks --}}
+                    <div class="flex-1 p-2 space-y-2 overflow-y-auto">
+                        @forelse($statusTasks as $task)
+                        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 shadow-sm hover:shadow-md transition-shadow cursor-move"
+                             draggable="true"
+                             x-on:dragstart="dragging = {{ $task->id }}"
+                             x-on:dragend="dragging = null"
+                             wire:key="kanban-{{ $task->id }}">
+                            {{-- Badges --}}
+                            <div class="flex items-center justify-between mb-2">
+                                <flux:badge size="sm" :color="$task->priority->color()">{{ $task->priority->label() }}</flux:badge>
+                                <flux:badge size="sm" variant="outline" :color="$task->task_type->color()">{{ $task->task_type->label() }}</flux:badge>
+                            </div>
+
+                            {{-- Title --}}
+                            <a href="{{ route('tasks.show', $task) }}" class="font-medium text-sm text-zinc-900 dark:text-zinc-100 hover:text-violet-600 line-clamp-2 block">
+                                {{ $task->title }}
+                            </a>
+
+                            {{-- Department + Due Date --}}
+                            <div class="flex items-center justify-between mt-2">
+                                <div class="flex items-center gap-1">
+                                    <div class="w-2 h-2 rounded-full" style="background-color: {{ $task->department?->color ?? '#6b7280' }}"></div>
+                                    <span class="text-xs text-zinc-500">{{ $task->department?->name ?? __('Personal') }}</span>
+                                </div>
+                                @if($task->due_date)
+                                <span class="text-xs {{ $task->isOverdue() ? 'text-red-500 font-medium' : 'text-zinc-400' }}">
+                                    {{ $task->due_date->format('d M') }}
+                                    @if($task->isOverdue()) ! @endif
+                                </span>
+                                @endif
+                            </div>
+                        </div>
+                        @empty
+                        <div class="p-4 text-center">
+                            <p class="text-xs text-zinc-400">{{ __('No tasks') }}</p>
+                        </div>
+                        @endforelse
+                    </div>
+                </div>
+                @endforeach
             </div>
         </div>
 
@@ -520,8 +640,8 @@ new class extends Component {
                             </td>
                             <td class="px-4 py-4">
                                 <div class="flex items-center gap-2">
-                                    <div class="w-2 h-2 rounded-full" style="background-color: {{ $task->department->color }}"></div>
-                                    <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $task->department->name }}</span>
+                                    <div class="w-2 h-2 rounded-full" style="background-color: {{ $task->department?->color ?? '#6b7280' }}"></div>
+                                    <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $task->department?->name ?? __('Personal') }}</span>
                                 </div>
                             </td>
                             <td class="px-4 py-4">
