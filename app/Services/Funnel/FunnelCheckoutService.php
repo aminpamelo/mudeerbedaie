@@ -395,6 +395,9 @@ class FunnelCheckoutService
                     // Calculate affiliate commission if applicable
                     $affiliateCommissionService = app(AffiliateCommissionService::class);
                     $affiliateCommissionService->calculateCommission($funnelOrder, $funnelOrder->session);
+
+                    // Trigger funnel automations for purchase completed
+                    app(FunnelAutomationService::class)->triggerPurchaseCompleted($order, $funnelOrder->session);
                 }
             }
 

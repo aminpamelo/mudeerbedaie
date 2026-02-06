@@ -278,6 +278,12 @@ export const automationApi = {
     // Get automation logs
     logs: (funnelUuid, automationId, page = 1) =>
         request(`/funnels/${funnelUuid}/automations/${automationId}/logs?page=${page}`),
+
+    // Get all automation logs for a funnel (history)
+    allLogs: (funnelUuid, params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return request(`/funnels/${funnelUuid}/automation-logs${query ? `?${query}` : ''}`);
+    },
 };
 
 /**

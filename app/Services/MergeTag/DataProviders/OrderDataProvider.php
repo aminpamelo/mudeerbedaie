@@ -21,7 +21,7 @@ class OrderDataProvider implements DataProviderInterface
         }
 
         return match ($field) {
-            'number' => $this->getOrderNumber($order),
+            'number', 'order_number' => $this->getOrderNumber($order),
             'total' => $this->formatCurrency($this->getTotal($order), $this->getCurrency($order)),
             'total_raw' => $this->formatNumber($this->getTotal($order)),
             'subtotal' => $this->formatCurrency($this->getSubtotal($order), $this->getCurrency($order)),

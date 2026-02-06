@@ -15,10 +15,49 @@ class WhatsAppService
 
     protected int $messagesSentInBatch = 0;
 
+    protected array $config = [];
+
     public function __construct()
     {
-        $this->apiUrl = config('services.onsend.api_url');
-        $this->apiToken = config('services.onsend.api_token');
+        $this->apiUrl = config('services.onsend.api_url', 'https://onsend.io/api/v1');
+        $this->loadConfig();
+    }
+
+    /**
+     * Load configuration from database settings (with env fallback).
+     */
+    protected function loadConfig(): void
+    {
+        // Try to get settings from database first
+        $settingsService = app(SettingsService::class);
+        $dbConfig = $settingsService->getWhatsAppConfig();
+
+        // Use database token if available, otherwise fall back to env
+        $this->apiToken = ! empty($dbConfig['api_token'])
+            ? $dbConfig['api_token']
+            : config('services.onsend.api_token');
+
+        // Merge config: database settings take precedence over env defaults
+        $this->config = [
+            'enabled' => $dbConfig['enabled'] || config('services.onsend.enabled', false),
+            'min_delay_seconds' => $dbConfig['min_delay_seconds'] ?: config('services.onsend.min_delay_seconds', 10),
+            'max_delay_seconds' => $dbConfig['max_delay_seconds'] ?: config('services.onsend.max_delay_seconds', 30),
+            'batch_size' => $dbConfig['batch_size'] ?: config('services.onsend.batch_size', 15),
+            'batch_pause_minutes' => $dbConfig['batch_pause_minutes'] ?: config('services.onsend.batch_pause_minutes', 1),
+            'daily_limit' => $dbConfig['daily_limit'], // 0 means unlimited
+            'time_restriction_enabled' => $dbConfig['time_restriction_enabled'] || config('services.onsend.time_restriction_enabled', false),
+            'send_hours_start' => $dbConfig['send_hours_start'] ?: config('services.onsend.send_hours_start', 8),
+            'send_hours_end' => $dbConfig['send_hours_end'] ?: config('services.onsend.send_hours_end', 22),
+            'message_variation_enabled' => $dbConfig['message_variation_enabled'] || config('services.onsend.message_variation_enabled', false),
+        ];
+    }
+
+    /**
+     * Get a config value.
+     */
+    protected function getConfig(string $key, $default = null)
+    {
+        return $this->config[$key] ?? $default;
     }
 
     /**
@@ -26,7 +65,7 @@ class WhatsAppService
      */
     public function isEnabled(): bool
     {
-        return config('services.onsend.enabled', false) && ! empty($this->apiToken);
+        return $this->getConfig('enabled', false) && ! empty($this->apiToken);
     }
 
     /**
@@ -83,10 +122,10 @@ class WhatsAppService
         }
 
         // Check if within allowed hours (only if time restriction is enabled)
-        if (config('services.onsend.time_restriction_enabled', false)) {
+        if ($this->getConfig('time_restriction_enabled', false)) {
             $hour = now()->hour;
-            $startHour = config('services.onsend.send_hours_start', 8);
-            $endHour = config('services.onsend.send_hours_end', 22);
+            $startHour = $this->getConfig('send_hours_start', 8);
+            $endHour = $this->getConfig('send_hours_end', 22);
 
             if ($hour < $startHour || $hour >= $endHour) {
                 return false;
@@ -109,7 +148,7 @@ class WhatsAppService
      */
     public function isDailyLimitReached(): bool
     {
-        $dailyLimit = config('services.onsend.daily_limit', 0);
+        $dailyLimit = $this->getConfig('daily_limit', 0);
 
         // 0 means unlimited
         if ($dailyLimit <= 0) {
@@ -127,7 +166,7 @@ class WhatsAppService
      */
     public function getRemainingMessages(): int
     {
-        $dailyLimit = config('services.onsend.daily_limit', 0);
+        $dailyLimit = $this->getConfig('daily_limit', 0);
 
         // 0 means unlimited, return -1 to indicate unlimited
         if ($dailyLimit <= 0) {
@@ -145,7 +184,7 @@ class WhatsAppService
     public function getTodayStats(): array
     {
         $log = WhatsAppSendLog::where('send_date', today())->first();
-        $dailyLimit = config('services.onsend.daily_limit', 0);
+        $dailyLimit = $this->getConfig('daily_limit', 0);
         $remaining = $this->getRemainingMessages();
 
         return [
@@ -164,8 +203,8 @@ class WhatsAppService
     public function getRandomDelay(): int
     {
         return random_int(
-            config('services.onsend.min_delay_seconds', 10),
-            config('services.onsend.max_delay_seconds', 30)
+            $this->getConfig('min_delay_seconds', 10),
+            $this->getConfig('max_delay_seconds', 30)
         );
     }
 
@@ -175,7 +214,7 @@ class WhatsAppService
     public function shouldPauseBatch(): bool
     {
         $this->messagesSentInBatch++;
-        $batchSize = config('services.onsend.batch_size', 15);
+        $batchSize = $this->getConfig('batch_size', 15);
 
         if ($this->messagesSentInBatch >= $batchSize) {
             $this->messagesSentInBatch = 0;
@@ -191,7 +230,7 @@ class WhatsAppService
      */
     public function getBatchPauseDuration(): int
     {
-        return config('services.onsend.batch_pause_minutes', 3) * 60;
+        return $this->getConfig('batch_pause_minutes', 3) * 60;
     }
 
     /**
@@ -234,7 +273,7 @@ class WhatsAppService
     public function addMessageVariation(string $message): string
     {
         // Check if message variation is enabled (disabled by default for safety)
-        if (! config('services.onsend.message_variation_enabled', false)) {
+        if (! $this->getConfig('message_variation_enabled', false)) {
             return $message;
         }
 
@@ -460,13 +499,13 @@ class WhatsAppService
     public function getNextAllowedSendTime(): ?\Carbon\Carbon
     {
         // If time restriction is disabled, always return null (can send anytime)
-        if (! config('services.onsend.time_restriction_enabled', false)) {
+        if (! $this->getConfig('time_restriction_enabled', false)) {
             return null;
         }
 
         $hour = now()->hour;
-        $startHour = config('services.onsend.send_hours_start', 8);
-        $endHour = config('services.onsend.send_hours_end', 22);
+        $startHour = $this->getConfig('send_hours_start', 8);
+        $endHour = $this->getConfig('send_hours_end', 22);
 
         if ($hour < $startHour) {
             // Before start hour today

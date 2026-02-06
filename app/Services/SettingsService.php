@@ -289,6 +289,54 @@ class SettingsService
     }
 
     /**
+     * Get J&T Express shipping configuration (Malaysia Open Platform)
+     */
+    public function getJntConfig(): array
+    {
+        return [
+            'customer_code' => $this->get('jnt_customer_code'),    // apiAccount header
+            'private_key' => $this->get('jnt_private_key'),        // For digest calculation
+            'password' => $this->get('jnt_password'),              // Password in bizContent
+            'sandbox' => (bool) $this->get('jnt_sandbox', true),
+            'enabled' => (bool) $this->get('enable_jnt_shipping', false),
+            'default_service_type' => $this->get('jnt_default_service_type', 'EZ'),
+        ];
+    }
+
+    /**
+     * Check if J&T Express shipping is configured
+     */
+    public function isJntConfigured(): bool
+    {
+        return ! empty($this->get('jnt_customer_code'))
+            && ! empty($this->get('jnt_private_key'));
+    }
+
+    /**
+     * Check if J&T Express shipping is enabled
+     */
+    public function isJntEnabled(): bool
+    {
+        return $this->isJntConfigured()
+            && (bool) $this->get('enable_jnt_shipping', false);
+    }
+
+    /**
+     * Get default sender/origin address for shipping
+     */
+    public function getShippingSenderDefaults(): array
+    {
+        return [
+            'name' => $this->get('shipping_sender_name', ''),
+            'phone' => $this->get('shipping_sender_phone', ''),
+            'address' => $this->get('shipping_sender_address', ''),
+            'city' => $this->get('shipping_sender_city', ''),
+            'state' => $this->get('shipping_sender_state', ''),
+            'postal_code' => $this->get('shipping_sender_postal_code', ''),
+        ];
+    }
+
+    /**
      * Get site configuration
      */
     public function getSiteConfig(): array
@@ -379,5 +427,42 @@ class SettingsService
     public function exists(string $key): bool
     {
         return Setting::byKey($key)->exists();
+    }
+
+    /**
+     * Get WhatsApp/OnSend configuration
+     */
+    public function getWhatsAppConfig(): array
+    {
+        return [
+            'enabled' => (bool) $this->get('whatsapp_enabled', false),
+            'api_token' => $this->get('whatsapp_api_token', ''),
+            'min_delay_seconds' => (int) $this->get('whatsapp_min_delay', 10),
+            'max_delay_seconds' => (int) $this->get('whatsapp_max_delay', 30),
+            'batch_size' => (int) $this->get('whatsapp_batch_size', 15),
+            'batch_pause_minutes' => (int) $this->get('whatsapp_batch_pause', 1),
+            'daily_limit' => (int) $this->get('whatsapp_daily_limit', 0),
+            'time_restriction_enabled' => (bool) $this->get('whatsapp_time_restriction', false),
+            'send_hours_start' => (int) $this->get('whatsapp_send_hours_start', 8),
+            'send_hours_end' => (int) $this->get('whatsapp_send_hours_end', 22),
+            'message_variation_enabled' => (bool) $this->get('whatsapp_message_variation', false),
+        ];
+    }
+
+    /**
+     * Check if WhatsApp is configured
+     */
+    public function isWhatsAppConfigured(): bool
+    {
+        return ! empty($this->get('whatsapp_api_token'));
+    }
+
+    /**
+     * Check if WhatsApp is enabled
+     */
+    public function isWhatsAppEnabled(): bool
+    {
+        return $this->isWhatsAppConfigured()
+            && (bool) $this->get('whatsapp_enabled', false);
     }
 }

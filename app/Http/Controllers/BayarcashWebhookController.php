@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\ProductOrder;
 use App\Services\BayarcashService;
 use App\Services\Funnel\FacebookPixelService;
+use App\Services\Funnel\FunnelAutomationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -19,7 +20,8 @@ class BayarcashWebhookController extends Controller
 {
     public function __construct(
         private BayarcashService $bayarcashService,
-        private FacebookPixelService $pixelService
+        private FacebookPixelService $pixelService,
+        private FunnelAutomationService $automationService
     ) {}
 
     /**
@@ -178,6 +180,9 @@ class BayarcashWebhookController extends Controller
             $order->update([
                 'metadata' => array_merge($metadata, ['conversion_tracked' => true]),
             ]);
+
+            // Trigger funnel automations for purchase completed
+            $this->automationService->triggerPurchaseCompleted($order, $funnelOrder->session);
         }
 
         // Mark cart as recovered
@@ -508,6 +513,9 @@ class BayarcashWebhookController extends Controller
         $order->update([
             'metadata' => array_merge($metadata, ['conversion_tracked' => true]),
         ]);
+
+        // Trigger funnel automations for purchase completed
+        $this->automationService->triggerPurchaseCompleted($order, $funnelOrder->session);
 
         // Mark cart as recovered
         if (isset($metadata['session_uuid'])) {

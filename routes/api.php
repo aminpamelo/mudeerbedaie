@@ -94,6 +94,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::post('funnels/{funnelUuid}/automations/{automationId}/toggle', [FunnelAutomationController::class, 'toggleActive'])->name('api.funnels.automations.toggle');
     Route::post('funnels/{funnelUuid}/automations/{automationId}/duplicate', [FunnelAutomationController::class, 'duplicate'])->name('api.funnels.automations.duplicate');
     Route::get('funnels/{funnelUuid}/automations/{automationId}/logs', [FunnelAutomationController::class, 'logs'])->name('api.funnels.automations.logs');
+    Route::get('funnels/{funnelUuid}/automation-logs', [FunnelAutomationController::class, 'allLogs'])->name('api.funnels.automation-logs');
 
     // Automation Merge Tag Variables
     Route::get('funnel-builder/variables', [FunnelAutomationController::class, 'variables'])->name('api.funnel-builder.variables');

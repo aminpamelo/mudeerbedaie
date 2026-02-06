@@ -321,6 +321,36 @@ class FunnelAutomationController extends Controller
     }
 
     /**
+     * Get all automation logs for a funnel (across all automations).
+     */
+    public function allLogs(Request $request, string $funnelUuid): JsonResponse
+    {
+        $funnel = Funnel::where('uuid', $funnelUuid)->firstOrFail();
+
+        $logs = \App\Models\FunnelAutomationLog::query()
+            ->whereHas('automation', fn ($q) => $q->where('funnel_id', $funnel->id))
+            ->with([
+                'automation:id,name,trigger_type',
+                'action:id,action_type,action_config',
+                'session:id,uuid,email,visitor_id',
+            ])
+            ->when($request->input('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when($request->input('automation_id'), fn ($q, $id) => $q->where('automation_id', $id))
+            ->latest('id')
+            ->paginate($request->input('per_page', 25));
+
+        return response()->json([
+            'data' => $logs->items(),
+            'meta' => [
+                'current_page' => $logs->currentPage(),
+                'last_page' => $logs->lastPage(),
+                'per_page' => $logs->perPage(),
+                'total' => $logs->total(),
+            ],
+        ]);
+    }
+
+    /**
      * Get available merge tag variables for a trigger type.
      *
      * This endpoint returns all variables that can be used in message templates

@@ -137,7 +137,7 @@ new class extends Component
         // If only one method available or show_method_selector is false, just use default
         if (! $showMethodSelector && count($methods) > 1) {
             // Find the default method
-            $defaultId = match($defaultMethod) {
+            $defaultId = match ($defaultMethod) {
                 'stripe' => 'credit_card',
                 'cod' => 'cod',
                 default => 'fpx',
@@ -148,7 +148,7 @@ new class extends Component
 
         // Reorder methods to put the default one first
         if (count($methods) > 1) {
-            $defaultId = match($defaultMethod) {
+            $defaultId = match ($defaultMethod) {
                 'stripe' => 'credit_card',
                 'cod' => 'cod',
                 default => 'fpx',
@@ -219,7 +219,7 @@ new class extends Component
     {
         $phone = $this->customerData['phone'] ?? '';
 
-        return $phone ? $this->countryCode . $phone : '';
+        return $phone ? $this->countryCode.$phone : '';
     }
 
     public function toggleProduct(int $productId): void
@@ -526,6 +526,11 @@ new class extends Component
                     'transaction_id' => 'COD-'.date('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(8)),
                 ]);
                 $productOrder->markAsConfirmed();
+
+                // Trigger funnel automations for purchase completed
+                app(\App\Services\Funnel\FunnelAutomationService::class)
+                    ->triggerPurchaseCompleted($productOrder, $this->funnelSession);
+
                 $this->redirectToNextStep($productOrder);
 
                 return;

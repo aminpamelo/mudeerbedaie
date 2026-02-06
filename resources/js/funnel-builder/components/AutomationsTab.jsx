@@ -11,8 +11,10 @@ import {
     AUTOMATION_STATUS,
 } from '../types/funnel-automation-types';
 import FunnelAutomationBuilder from './FunnelAutomationBuilder';
+import AutomationHistoryTab from './AutomationHistoryTab';
 
 export default function AutomationsTab({ funnelUuid, steps = [], showToast }) {
+    const [activeSubTab, setActiveSubTab] = useState('automations');
     const [automations, setAutomations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showBuilder, setShowBuilder] = useState(false);
@@ -107,14 +109,6 @@ export default function AutomationsTab({ funnelUuid, steps = [], showToast }) {
         };
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-        );
-    }
-
     // Show builder if open
     if (showBuilder) {
         return (
@@ -130,42 +124,101 @@ export default function AutomationsTab({ funnelUuid, steps = [], showToast }) {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Funnel Automations</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                        Automate email sequences, cart recovery, and more based on visitor actions.
-                    </p>
-                </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Create Automation
-                </button>
+            {/* Sub-tabs Navigation */}
+            <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                    <button
+                        onClick={() => setActiveSubTab('automations')}
+                        className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeSubTab === 'automations'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                        <span className="flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Automations
+                            {automations.length > 0 && (
+                                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                                    {automations.length}
+                                </span>
+                            )}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setActiveSubTab('history')}
+                        className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeSubTab === 'history'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                        <span className="flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            History
+                        </span>
+                    </button>
+                </nav>
             </div>
 
-            {/* Automations List */}
-            {automations.length === 0 ? (
-                <EmptyState onCreateClick={() => setShowCreateModal(true)} />
-            ) : (
-                <div className="space-y-4">
-                    {automations.map((automation) => (
-                        <AutomationCard
-                            key={automation.id}
-                            automation={automation}
-                            triggerConfig={getTriggerConfig(automation.trigger_type)}
-                            onEdit={() => openBuilder(automation)}
-                            onToggle={() => handleToggle(automation)}
-                            onDuplicate={() => handleDuplicate(automation)}
-                            onDelete={() => handleDelete(automation)}
-                        />
-                    ))}
-                </div>
+            {/* Automations Sub-tab */}
+            {activeSubTab === 'automations' && (
+                <>
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900">Funnel Automations</h3>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Automate email sequences, cart recovery, and more based on visitor actions.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Create Automation
+                        </button>
+                    </div>
+
+                    {/* Loading State */}
+                    {loading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        </div>
+                    ) : automations.length === 0 ? (
+                        <EmptyState onCreateClick={() => setShowCreateModal(true)} />
+                    ) : (
+                        <div className="space-y-4">
+                            {automations.map((automation) => (
+                                <AutomationCard
+                                    key={automation.id}
+                                    automation={automation}
+                                    triggerConfig={getTriggerConfig(automation.trigger_type)}
+                                    onEdit={() => openBuilder(automation)}
+                                    onToggle={() => handleToggle(automation)}
+                                    onDuplicate={() => handleDuplicate(automation)}
+                                    onDelete={() => handleDelete(automation)}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* History Sub-tab */}
+            {activeSubTab === 'history' && (
+                <AutomationHistoryTab
+                    funnelUuid={funnelUuid}
+                    automations={automations}
+                    showToast={showToast}
+                />
             )}
 
             {/* Create Automation Modal */}
