@@ -19,6 +19,39 @@ new class extends Component {
         $this->order->load(['student.user', 'course', 'enrollment', 'items']);
     }
 
+    public function fetchStripeFailureDetails()
+    {
+        if (!$this->order->isFailed()) {
+            $this->dispatch('notify', message: 'This order is not in a failed state.', type: 'error');
+            return;
+        }
+
+        if ($this->order->payment_method !== 'stripe') {
+            $this->dispatch('notify', message: 'This order was not processed through Stripe.', type: 'error');
+            return;
+        }
+
+        if (!$this->order->stripe_invoice_id && !$this->order->stripe_charge_id && !$this->order->stripe_payment_intent_id) {
+            $this->dispatch('notify', message: 'No Stripe reference IDs found for this order.', type: 'error');
+            return;
+        }
+
+        try {
+            $stripeService = app(StripeService::class);
+            $failureDetails = $stripeService->fetchOrderFailureDetails($this->order);
+
+            if ($failureDetails) {
+                $this->order->update(['failure_reason' => $failureDetails]);
+                $this->order->refresh();
+                $this->dispatch('notify', message: 'Failure details updated from Stripe successfully.', type: 'success');
+            } else {
+                $this->dispatch('notify', message: 'No additional failure details found in Stripe for this order.', type: 'info');
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('notify', message: 'Failed to fetch details from Stripe: ' . $e->getMessage(), type: 'error');
+        }
+    }
+
     public function processRefund($amount = null)
     {
         try {
@@ -351,17 +384,104 @@ new class extends Component {
                     </div>
                 </div>
 
-                @if($order->isFailed() && $order->failure_reason)
-                    <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <flux:text class="text-red-800 font-medium">Failure Reason</flux:text>
-                        <flux:text class="text-red-700 mt-1">
-                            {{ $order->failure_reason['failure_message'] ?? 'Payment failed' }}
-                        </flux:text>
-                        @if(isset($order->failure_reason['failure_code']))
-                            <flux:text size="sm" class="text-red-600 mt-1">
-                                Code: {{ $order->failure_reason['failure_code'] }}
-                            </flux:text>
+                @if($order->isFailed())
+                    @php $failureDetails = $order->getFailureDetails(); @endphp
+                    <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 mt-0.5">
+                                @if($failureDetails['severity'] === 'critical')
+                                    <flux:icon name="shield-exclamation" class="w-5 h-5 text-red-700" />
+                                @elseif($failureDetails['severity'] === 'high')
+                                    <flux:icon name="exclamation-triangle" class="w-5 h-5 text-red-600" />
+                                @else
+                                    <flux:icon name="exclamation-circle" class="w-5 h-5 text-red-500" />
+                                @endif
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <flux:text class="text-red-800 font-semibold">Payment Failed</flux:text>
+                                    @if($failureDetails['severity'] === 'critical')
+                                        <flux:badge variant="danger" size="sm">Critical</flux:badge>
+                                    @elseif($failureDetails['severity'] === 'high')
+                                        <flux:badge variant="danger" size="sm">High Risk</flux:badge>
+                                    @endif
+                                </div>
+                                <flux:text class="text-red-700 mt-1">
+                                    {{ $failureDetails['message'] }}
+                                </flux:text>
+                            </div>
+                        </div>
+
+                        @if($failureDetails['code'])
+                            <div class="flex items-center gap-2 text-sm">
+                                <flux:text class="text-red-600 font-medium">Error Code:</flux:text>
+                                <code class="px-2 py-0.5 bg-red-100 text-red-800 rounded text-xs font-mono">{{ $failureDetails['code'] }}</code>
+                            </div>
                         @endif
+
+                        {{-- Extra Stripe details when available --}}
+                        @if($order->failure_reason)
+                            @if(isset($order->failure_reason['seller_message']))
+                                <div class="flex items-center gap-2 text-sm">
+                                    <flux:text class="text-red-600 font-medium">Bank Response:</flux:text>
+                                    <flux:text size="sm" class="text-red-700">{{ $order->failure_reason['seller_message'] }}</flux:text>
+                                </div>
+                            @endif
+                            @if(isset($order->failure_reason['decline_code']))
+                                <div class="flex items-center gap-2 text-sm">
+                                    <flux:text class="text-red-600 font-medium">Decline Code:</flux:text>
+                                    <code class="px-2 py-0.5 bg-red-100 text-red-800 rounded text-xs font-mono">{{ $order->failure_reason['decline_code'] }}</code>
+                                </div>
+                            @endif
+                            @if(isset($order->failure_reason['risk_level']))
+                                <div class="flex items-center gap-2 text-sm">
+                                    <flux:text class="text-red-600 font-medium">Risk Level:</flux:text>
+                                    <flux:badge :variant="match($order->failure_reason['risk_level']) {
+                                        'highest' => 'danger',
+                                        'elevated' => 'warning',
+                                        default => 'outline'
+                                    }" size="sm">
+                                        {{ ucfirst($order->failure_reason['risk_level']) }}
+                                    </flux:badge>
+                                </div>
+                            @endif
+                        @endif
+
+                        <div class="border-t border-red-200 pt-3 space-y-2">
+                            <div>
+                                <flux:text size="sm" class="text-red-800 font-medium">What happened?</flux:text>
+                                <flux:text size="sm" class="text-red-700 mt-0.5">{{ $failureDetails['explanation'] }}</flux:text>
+                            </div>
+                            <div>
+                                <flux:text size="sm" class="text-red-800 font-medium">Suggested action</flux:text>
+                                <flux:text size="sm" class="text-red-700 mt-0.5">{{ $failureDetails['next_steps'] }}</flux:text>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-red-200 pt-3 flex items-center justify-between flex-wrap gap-2">
+                            @if($order->stripe_invoice_id)
+                                <flux:text size="xs" class="text-red-500">
+                                    Stripe Invoice: <span class="font-mono">{{ $order->stripe_invoice_id }}</span>
+                                </flux:text>
+                            @else
+                                <div></div>
+                            @endif
+                            @if($order->payment_method === 'stripe' && ($order->stripe_invoice_id || $order->stripe_charge_id || $order->stripe_payment_intent_id))
+                                <flux:button
+                                    size="xs"
+                                    variant="outline"
+                                    wire:click="fetchStripeFailureDetails"
+                                    wire:loading.attr="disabled"
+                                    wire:target="fetchStripeFailureDetails"
+                                >
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="arrow-path" class="w-3 h-3 mr-1" wire:loading.class="animate-spin" wire:target="fetchStripeFailureDetails" />
+                                        <span wire:loading.remove wire:target="fetchStripeFailureDetails">Fetch from Stripe</span>
+                                        <span wire:loading wire:target="fetchStripeFailureDetails">Fetching...</span>
+                                    </div>
+                                </flux:button>
+                            @endif
+                        </div>
                     </div>
                 @endif
             </flux:card>
@@ -599,7 +719,7 @@ new class extends Component {
                         <div class="md:col-span-2">
                             <flux:text class="text-gray-600">Payment Receipt</flux:text>
                             <div class="mt-2 flex items-center space-x-3">
-                                <flux:icon icon="document" class="w-5 h-5 text-green-600" />
+                                <flux:icon name="document" class="w-5 h-5 text-green-600" />
                                 <flux:text class="text-sm text-green-700">Receipt attachment available</flux:text>
                                 <flux:button
                                     wire:click="downloadReceipt"
@@ -650,10 +770,10 @@ new class extends Component {
                         <div class="md:col-span-2">
                             <flux:text class="text-gray-600">Stripe Receipt</flux:text>
                             <div class="mt-2 flex items-center space-x-3">
-                                <flux:icon icon="document" class="w-5 h-5 text-blue-600" />
+                                <flux:icon name="document" class="w-5 h-5 text-blue-600" />
                                 <flux:text class="text-sm text-blue-700">Official Stripe receipt available</flux:text>
                                 <a href="{{ $order->receipt_url }}" target="_blank">
-                                    <flux:button variant="outline" size="sm" icon="external-link">
+                                    <flux:button variant="outline" size="sm" icon="arrow-top-right-on-square">
                                         View Stripe Receipt
                                     </flux:button>
                                 </a>
@@ -958,4 +1078,37 @@ new class extends Component {
             </form>
         </div>
     </flux:modal>
+
+    <!-- Toast Notification -->
+    <div
+        x-data="{ show: false, message: '', type: 'success' }"
+        x-on:notify.window="
+            show = true;
+            message = $event.detail.message || 'Operation successful';
+            type = $event.detail.type || 'success';
+            setTimeout(() => show = false, 4000)
+        "
+        x-show="show"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 transform translate-y-2"
+        x-transition:enter-end="opacity-100 transform translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 transform translate-y-0"
+        x-transition:leave-end="opacity-0 transform translate-y-2"
+        class="fixed bottom-4 right-4 z-50"
+        style="display: none;"
+    >
+        <div x-show="type === 'success'" class="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg shadow-lg">
+            <flux:icon.check-circle class="w-5 h-5 text-green-600" />
+            <span x-text="message"></span>
+        </div>
+        <div x-show="type === 'error'" class="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 text-red-800 rounded-lg shadow-lg">
+            <flux:icon.exclamation-circle class="w-5 h-5 text-red-600" />
+            <span x-text="message"></span>
+        </div>
+        <div x-show="type === 'info'" class="flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg shadow-lg">
+            <flux:icon.information-circle class="w-5 h-5 text-blue-600" />
+            <span x-text="message"></span>
+        </div>
+    </div>
 </div>

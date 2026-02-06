@@ -4,9 +4,8 @@ use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
-use App\Models\PlatformOrder;
-use App\Models\PlatformOrderItem;
-use App\Models\PlatformCustomer;
+use App\Models\ProductOrder;
+use App\Models\ProductOrderItem;
 use App\Models\PlatformSkuMapping;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -262,7 +261,7 @@ new class extends Component {
         }
 
         // Check if order already exists
-        $existingOrder = PlatformOrder::where('platform_account_id', $account->id)
+        $existingOrder = ProductOrder::where('platform_account_id', $account->id)
             ->where('platform_order_id', $orderData['order_id'])
             ->first();
 
@@ -270,31 +269,31 @@ new class extends Component {
             throw new \Exception("Order {$orderData['order_id']} already exists");
         }
 
-        // Create platform order
-        $platformOrder = PlatformOrder::create([
+        // Create product order
+        $productOrder = ProductOrder::create([
+            'order_number' => ProductOrder::generateOrderNumber(),
             'platform_id' => $this->platform->id,
             'platform_account_id' => $account->id,
             'platform_order_id' => $orderData['order_id'],
+            'platform_order_number' => $orderData['order_id'],
             'status' => $this->normalizeOrderStatus($orderData['status']),
             'order_date' => $this->parseDate($orderData['order_date']),
             'total_amount' => $this->parseAmount($orderData['total_amount']),
+            'subtotal' => $this->parseAmount($orderData['total_amount']),
             'currency' => strtoupper($orderData['currency']),
             'customer_name' => $orderData['customer_name'] ?? null,
-            'customer_email' => $orderData['customer_email'] ?? null,
+            'guest_email' => $orderData['customer_email'] ?? null,
             'shipping_address' => $orderData['shipping_address'] ?? null,
-            'items_count' => $this->parseInt($orderData['items_count'] ?? 1),
-            'platform_fees' => $this->parseAmount($orderData['platform_fees'] ?? 0),
-            'tracking_number' => $orderData['tracking_number'] ?? null,
+            'tracking_id' => $orderData['tracking_number'] ?? null,
+            'source' => 'platform_import',
             'metadata' => [
                 'imported_at' => now()->toISOString(),
                 'import_notes' => $this->import_notes,
                 'raw_data' => $orderData,
             ],
-            'is_imported' => true,
-            'imported_at' => now(),
         ]);
 
-        return $platformOrder;
+        return $productOrder;
     }
 
     private function normalizeOrderStatus(string $status): string
@@ -446,7 +445,7 @@ new class extends Component {
 
     {{-- Import Results --}}
     @if($import_results)
-    <div class="mb-6 bg-white rounded-lg border p-6">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
         <flux:heading size="lg" class="mb-4">Import Results</flux:heading>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -482,7 +481,7 @@ new class extends Component {
         <div class="lg:col-span-2">
             <form wire:submit="import" class="space-y-6">
                 {{-- File Upload --}}
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Step 1: Select CSV File</flux:heading>
 
                     <div class="space-y-4">
@@ -522,7 +521,7 @@ new class extends Component {
 
                 {{-- CSV Preview and Mapping --}}
                 @if($show_preview)
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Step 2: Map CSV Fields</flux:heading>
 
                     {{-- CSV Sample Preview --}}
@@ -591,7 +590,7 @@ new class extends Component {
 
                 {{-- Import Progress --}}
                 @if($importing)
-                <div class="bg-white rounded-lg border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Importing Orders...</flux:heading>
 
                     <div class="space-y-4">
@@ -629,7 +628,7 @@ new class extends Component {
         {{-- Sidebar --}}
         <div class="space-y-6">
             {{-- Import Guidelines --}}
-            <div class="bg-white rounded-lg border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Import Guidelines</flux:heading>
 
                 <div class="space-y-4">

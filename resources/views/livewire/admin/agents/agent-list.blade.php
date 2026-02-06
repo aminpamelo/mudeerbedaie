@@ -90,32 +90,32 @@ new class extends Component {
     </div>
 
     <!-- Agents Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
-                <thead class="bg-gray-50 border-b border-gray-200">
+                <thead class="bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-200 dark:border-zinc-700">
                     <tr>
-                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Agent/Company</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Contact</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Payment Terms</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Warehouses</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 sm:pl-6">Agent/Company</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Type</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Contact</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Payment Terms</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Warehouses</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Status</th>
                         <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
                             <span class="sr-only">Actions</span>
-                            <span class="text-sm font-semibold text-gray-900">Actions</span>
+                            <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">Actions</span>
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white">
+                <tbody class="bg-white dark:bg-zinc-800">
                     @forelse($agents as $agent)
-                        <tr wire:key="agent-{{ $agent->id }}" class="border-b border-gray-200 hover:bg-gray-50">
+                        <tr wire:key="agent-{{ $agent->id }}" class="border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50">
                             <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                                 <div>
-                                    <div class="font-medium text-gray-900">{{ $agent->name }}</div>
-                                    <div class="text-gray-500">{{ $agent->agent_code }}</div>
+                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $agent->name }}</div>
+                                    <div class="text-gray-500 dark:text-gray-400">{{ $agent->agent_code }}</div>
                                     @if($agent->company_name)
-                                        <div class="text-xs text-gray-500">{{ $agent->company_name }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ $agent->company_name }}</div>
                                     @endif
                                 </div>
                             </td>
@@ -124,20 +124,20 @@ new class extends Component {
                                     {{ ucfirst($agent->type) }}
                                 </flux:badge>
                             </td>
-                            <td class="px-3 py-4 text-sm text-gray-900">
+                            <td class="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
                                 <div class="space-y-1">
                                     @if($agent->contact_person)
                                         <div class="font-medium">{{ $agent->contact_person }}</div>
                                     @endif
                                     @if($agent->phone)
-                                        <div class="text-gray-500">{{ $agent->phone }}</div>
+                                        <div class="text-gray-500 dark:text-gray-400">{{ $agent->phone }}</div>
                                     @endif
                                     @if($agent->email)
-                                        <div class="text-gray-500">{{ $agent->email }}</div>
+                                        <div class="text-gray-500 dark:text-gray-400">{{ $agent->email }}</div>
                                     @endif
                                 </div>
                             </td>
-                            <td class="px-3 py-4 text-sm text-gray-500">
+                            <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                                 {{ $agent->payment_terms ?: '-' }}
                             </td>
                             <td class="px-3 py-4 text-sm">
@@ -195,9 +195,9 @@ new class extends Component {
                         <tr>
                             <td colspan="7" class="px-6 py-12 text-center">
                                 <div>
-                                    <flux:icon name="user-group" class="mx-auto h-12 w-12 text-gray-400" />
-                                    <h3 class="mt-2 text-sm font-medium text-gray-900">No agents found</h3>
-                                    <p class="mt-1 text-sm text-gray-500">Get started by creating your first agent or company.</p>
+                                    <flux:icon name="user-group" class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
+                                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No agents found</h3>
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating your first agent or company.</p>
                                     <div class="mt-6">
                                         <flux:button variant="primary" href="{{ route('agents.create') }}" icon="plus">
                                             Add Agent

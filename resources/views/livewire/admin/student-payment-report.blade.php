@@ -233,7 +233,7 @@ new class extends Component
 
     private function getStudents()
     {
-        $query = Student::with(['user', 'enrollments.course', 'enrollments'])
+        $query = Student::with(['user', 'enrollments.course'])
             ->whereHas('user', function ($q) {
                 if ($this->search) {
                     $q->where('name', 'like', '%'.$this->search.'%')
@@ -249,15 +249,11 @@ new class extends Component
             });
         }
 
-        // Sort by user name or student ID
+        // Sort by user name using a join, or by student column directly
         if ($this->sortBy === 'name') {
-            $query->whereHas('user')->with('user')
-                ->get()
-                ->sortBy(function ($student) {
-                    return $student->user->name;
-                }, SORT_REGULAR, $this->sortDirection === 'desc');
-
-            return $query->paginate(20);
+            $query->join('users', 'students.user_id', '=', 'users.id')
+                ->orderBy('users.name', $this->sortDirection)
+                ->select('students.*');
         } else {
             $query->orderBy($this->sortBy, $this->sortDirection);
         }
@@ -640,7 +636,7 @@ new class extends Component
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div class="flex items-center space-x-4">
-            <flux:icon icon="document-chart-bar" class="w-8 h-8 text-blue-600" />
+            <flux:icon name="document-chart-bar" class="w-8 h-8 text-blue-600" />
             <div>
                 <flux:heading size="xl">Student Payment Report</flux:heading>
                 <flux:text class="mt-2">Track student payment history across different billing periods</flux:text>
@@ -651,14 +647,14 @@ new class extends Component
             <div class="relative" x-data="{ open: @entangle('showColumnManager') }">
                 <flux:button variant="outline" @click="open = !open">
                     <div class="flex items-center justify-center">
-                        <flux:icon icon="view-columns" class="w-4 h-4 mr-1" />
+                        <flux:icon name="view-columns" class="w-4 h-4 mr-1" />
                         Columns
                         <span class="ml-1 text-xs text-gray-500">({{ count($visiblePeriods) }}/{{ $allPeriodColumns->count() }})</span>
                     </div>
                 </flux:button>
 
                 <div x-show="open" @click.away="open = false" x-cloak
-                     class="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                     class="absolute right-0 mt-2 w-72 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50"
                      x-transition:enter="transition ease-out duration-100"
                      x-transition:enter-start="transform opacity-0 scale-95"
                      x-transition:enter-end="transform opacity-100 scale-100"
@@ -707,7 +703,7 @@ new class extends Component
             <!-- Export CSV Button -->
             <flux:button variant="outline" wire:click="exportReport">
                 <div class="flex items-center justify-center">
-                    <flux:icon icon="arrow-down-tray" class="w-4 h-4 mr-1" />
+                    <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
                     Export CSV
                 </div>
             </flux:button>
@@ -744,7 +740,7 @@ new class extends Component
                             wire:click="$set('search', '')"
                             class="text-gray-500 hover:text-gray-700"
                         >
-                            <flux:icon icon="x-mark" class="w-4 h-4" />
+                            <flux:icon name="x-mark" class="w-4 h-4" />
                             Clear
                         </flux:button>
                     </div>
@@ -780,7 +776,7 @@ new class extends Component
                                 wire:click="$set('courseFilter', '')"
                                 class="text-gray-500 hover:text-gray-700"
                             >
-                                <flux:icon icon="x-mark" class="w-4 h-4" />
+                                <flux:icon name="x-mark" class="w-4 h-4" />
                                 Clear
                             </flux:button>
                         </div>
@@ -808,7 +804,7 @@ new class extends Component
                         size="sm"
                         wire:click="$set('search', ''); $set('courseFilter', '')"
                     >
-                        <flux:icon icon="x-mark" class="w-4 h-4 mr-1" />
+                        <flux:icon name="x-mark" class="w-4 h-4 mr-1" />
                         Clear All Filters
                     </flux:button>
                 </div>
@@ -819,7 +815,7 @@ new class extends Component
         @if($selectedCourse && $selectedCourse->feeSettings)
             <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div class="flex items-start space-x-3">
-                    <flux:icon icon="information-circle" class="w-5 h-5 text-blue-600 mt-0.5" />
+                    <flux:icon name="information-circle" class="w-5 h-5 text-blue-600 mt-0.5" />
                     <div>
                         <flux:text class="text-blue-800 font-medium">
                             {{ $selectedCourse->feeSettings->billing_cycle_label }} Billing Period
@@ -835,7 +831,7 @@ new class extends Component
         @elseif(!$courseFilter)
             <div class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
                 <div class="flex items-start space-x-3">
-                    <flux:icon icon="calendar-days" class="w-5 h-5 text-gray-600 mt-0.5" />
+                    <flux:icon name="calendar-days" class="w-5 h-5 text-gray-600 mt-0.5" />
                     <div>
                         <flux:text class="text-gray-800 font-medium">
                             All Courses View
@@ -857,18 +853,18 @@ new class extends Component
                 <div class="flex items-center space-x-4">
                     @if($search)
                         <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-xs">
-                            <flux:icon icon="magnifying-glass" class="w-3 h-3 mr-1" />
+                            <flux:icon name="magnifying-glass" class="w-3 h-3 mr-1" />
                             Search: {{ $search }}
                         </span>
                     @endif
                     @if($courseFilter && $selectedCourse)
                         <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 rounded-md text-xs">
-                            <flux:icon icon="academic-cap" class="w-3 h-3 mr-1" />
+                            <flux:icon name="academic-cap" class="w-3 h-3 mr-1" />
                             Course: {{ $selectedCourse->name }}
                         </span>
                     @endif
                     <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 rounded-md text-xs">
-                        <flux:icon icon="calendar" class="w-3 h-3 mr-1" />
+                        <flux:icon name="calendar" class="w-3 h-3 mr-1" />
                         Year: {{ $year }}
                     </span>
                 </div>
@@ -883,11 +879,11 @@ new class extends Component
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-gray-200">
-                            <th class="text-left py-3 px-4 sticky left-0 bg-white z-10 min-w-[200px]">
+                            <th class="text-left py-3 px-4 sticky left-0 bg-white dark:bg-zinc-800 z-10 min-w-[200px]">
                                 <button wire:click="sortBy('name')" class="flex items-center space-x-1 hover:text-blue-600">
                                     <span>Student Name</span>
                                     @if($sortBy === 'name')
-                                        <flux:icon icon="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                        <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
                                     @endif
                                 </button>
                             </th>
@@ -918,7 +914,7 @@ new class extends Component
                     <tbody>
                         @foreach($students as $student)
                             <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                <td class="py-3 px-4 sticky left-0 bg-white z-10 border-r border-gray-100">
+                                <td class="py-3 px-4 sticky left-0 bg-white dark:bg-zinc-800 z-10 border-r border-gray-100">
                                     <div class="font-medium">{{ $student->user->name }}</div>
                                     <div class="text-xs text-gray-600">{{ $student->student_id }}</div>
                                     <div class="text-xs text-gray-500">{{ $student->user->email }}</div>
@@ -970,12 +966,12 @@ new class extends Component
                                                             wire:navigate
                                                         >
                                                             <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full mb-1">
-                                                                <flux:icon icon="check" class="w-4 h-4" />
+                                                                <flux:icon name="check" class="w-4 h-4" />
                                                             </div>
                                                         </flux:link>
                                                     @else
                                                         <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full mb-1">
-                                                            <flux:icon icon="check" class="w-4 h-4" />
+                                                            <flux:icon name="check" class="w-4 h-4" />
                                                         </div>
                                                     @endif
                                                     <div class="text-xs font-medium text-emerald-600">
@@ -987,7 +983,7 @@ new class extends Component
                                             @case('unpaid')
                                                 <div class="space-y-1">
                                                     <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-600 rounded-full mb-1">
-                                                        <flux:icon icon="exclamation-triangle" class="w-4 h-4" />
+                                                        <flux:icon name="exclamation-triangle" class="w-4 h-4" />
                                                     </div>
                                                     <div class="text-xs font-medium text-red-600">
                                                         RM {{ number_format($payment['unpaid_amount'] ?? 0, 2) }} unpaid
@@ -998,7 +994,7 @@ new class extends Component
                                             @case('partial_payment')
                                                 <div class="space-y-1">
                                                     <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full mb-1">
-                                                        <flux:icon icon="minus" class="w-4 h-4" />
+                                                        <flux:icon name="minus" class="w-4 h-4" />
                                                     </div>
                                                     <div class="text-xs font-medium text-yellow-600">
                                                         RM {{ number_format($payment['paid_amount'] ?? 0, 2) }} paid
@@ -1012,7 +1008,7 @@ new class extends Component
                                             @case('not_started')
                                                 <div class="space-y-1">
                                                     <div class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full mb-1">
-                                                        <flux:icon icon="clock" class="w-4 h-4" />
+                                                        <flux:icon name="clock" class="w-4 h-4" />
                                                     </div>
                                                     <div class="text-xs text-blue-600">
                                                         Not started yet
@@ -1028,7 +1024,7 @@ new class extends Component
                                             @case('cancelled_this_period')
                                                 <div class="space-y-1">
                                                     <div class="inline-flex items-center justify-center w-6 h-6 bg-orange-100 text-orange-600 rounded-full mb-1">
-                                                        <flux:icon icon="x-circle" class="w-4 h-4" />
+                                                        <flux:icon name="x-circle" class="w-4 h-4" />
                                                     </div>
                                                     <div class="text-xs text-orange-600">
                                                         Canceled this month
@@ -1044,7 +1040,7 @@ new class extends Component
                                             @case('cancelled_before')
                                                 <div class="space-y-1">
                                                     <div class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 text-gray-500 rounded-full mb-1">
-                                                        <flux:icon icon="x-circle" class="w-4 h-4" />
+                                                        <flux:icon name="x-circle" class="w-4 h-4" />
                                                     </div>
                                                     <div class="text-xs text-gray-500">
                                                         Already cancelled
@@ -1055,7 +1051,7 @@ new class extends Component
                                             @case('withdrawn')
                                                 <div class="space-y-1">
                                                     <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-500 rounded-full mb-1">
-                                                        <flux:icon icon="user-minus" class="w-4 h-4" />
+                                                        <flux:icon name="user-minus" class="w-4 h-4" />
                                                     </div>
                                                     <div class="text-xs text-red-500">
                                                         Withdrawn
@@ -1066,7 +1062,7 @@ new class extends Component
                                             @case('suspended')
                                                 <div class="space-y-1">
                                                     <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-500 rounded-full mb-1">
-                                                        <flux:icon icon="pause" class="w-4 h-4" />
+                                                        <flux:icon name="pause" class="w-4 h-4" />
                                                     </div>
                                                     <div class="text-xs text-yellow-500">
                                                         Suspended
@@ -1077,7 +1073,7 @@ new class extends Component
                                             @case('completed')
                                                 <div class="space-y-1">
                                                     <div class="inline-flex items-center justify-center w-6 h-6 bg-green-100 text-green-500 rounded-full mb-1">
-                                                        <flux:icon icon="academic-cap" class="w-4 h-4" />
+                                                        <flux:icon name="academic-cap" class="w-4 h-4" />
                                                     </div>
                                                     <div class="text-xs text-green-500">
                                                         Completed
@@ -1087,7 +1083,7 @@ new class extends Component
 
                                             @default
                                                 <div class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 text-gray-400 rounded-full">
-                                                    <flux:icon icon="x-mark" class="w-4 h-4" />
+                                                    <flux:icon name="x-mark" class="w-4 h-4" />
                                                 </div>
                                         @endswitch
                                     </td>
@@ -1159,7 +1155,7 @@ new class extends Component
             </div>
         @else
             <div class="text-center py-12">
-                <flux:icon icon="users" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <flux:icon name="users" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <flux:heading size="md" class="text-gray-600 mb-2">No students found</flux:heading>
                 <flux:text class="text-gray-600">
                     @if($search || $courseFilter)
@@ -1187,19 +1183,19 @@ new class extends Component
                 <div class="space-y-2">
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full">
-                            <flux:icon icon="check" class="w-4 h-4" />
+                            <flux:icon name="check" class="w-4 h-4" />
                         </div>
                         <flux:text>Payment Received (Full)</flux:text>
                     </div>
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full">
-                            <flux:icon icon="minus" class="w-4 h-4" />
+                            <flux:icon name="minus" class="w-4 h-4" />
                         </div>
                         <flux:text>Partial Payment</flux:text>
                     </div>
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-600 rounded-full">
-                            <flux:icon icon="exclamation-triangle" class="w-4 h-4" />
+                            <flux:icon name="exclamation-triangle" class="w-4 h-4" />
                         </div>
                         <flux:text>Unpaid Amount Due</flux:text>
                     </div>
@@ -1212,25 +1208,25 @@ new class extends Component
                 <div class="space-y-2">
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full">
-                            <flux:icon icon="clock" class="w-4 h-4" />
+                            <flux:icon name="clock" class="w-4 h-4" />
                         </div>
                         <flux:text>Not Started Yet</flux:text>
                     </div>
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-green-100 text-green-500 rounded-full">
-                            <flux:icon icon="academic-cap" class="w-4 h-4" />
+                            <flux:icon name="academic-cap" class="w-4 h-4" />
                         </div>
                         <flux:text>Course Completed</flux:text>
                     </div>
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-500 rounded-full">
-                            <flux:icon icon="user-minus" class="w-4 h-4" />
+                            <flux:icon name="user-minus" class="w-4 h-4" />
                         </div>
                         <flux:text>Student Withdrawn</flux:text>
                     </div>
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-500 rounded-full">
-                            <flux:icon icon="pause" class="w-4 h-4" />
+                            <flux:icon name="pause" class="w-4 h-4" />
                         </div>
                         <flux:text>Enrollment Suspended</flux:text>
                     </div>
@@ -1243,13 +1239,13 @@ new class extends Component
                 <div class="space-y-2">
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-orange-100 text-orange-600 rounded-full">
-                            <flux:icon icon="x-circle" class="w-4 h-4" />
+                            <flux:icon name="x-circle" class="w-4 h-4" />
                         </div>
                         <flux:text>Canceled This Month</flux:text>
                     </div>
                     <div class="flex items-center space-x-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 text-gray-500 rounded-full">
-                            <flux:icon icon="x-circle" class="w-4 h-4" />
+                            <flux:icon name="x-circle" class="w-4 h-4" />
                         </div>
                         <flux:text>Previously Canceled</flux:text>
                     </div>

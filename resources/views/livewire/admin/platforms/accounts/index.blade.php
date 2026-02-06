@@ -25,6 +25,17 @@ new class extends Component
         $this->resetPage();
     }
 
+    /**
+     * Check if an account has active OAuth credentials.
+     */
+    public function hasOAuthCredentials(PlatformAccount $account): bool
+    {
+        return $account->credentials()
+            ->where('credential_type', 'oauth_token')
+            ->where('is_active', true)
+            ->exists();
+    }
+
     public function updatedSearch()
     {
         $this->resetPage();
@@ -69,7 +80,7 @@ new class extends Component
 
     public function with()
     {
-        $query = $this->platform->accounts()->with('liveHosts');
+        $query = $this->platform->accounts()->with(['liveHosts', 'credentials']);
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -130,17 +141,22 @@ new class extends Component
             <flux:text class="mt-2">Manage seller accounts, shop IDs, and business manager connections for {{ $platform->display_name }}</flux:text>
         </div>
         <div class="flex gap-3">
+            @if($platform->slug === 'tiktok-shop')
+                <flux:button variant="primary" icon="link" :href="route('tiktok.connect')">
+                    Connect TikTok Shop
+                </flux:button>
+            @endif
             <flux:button variant="outline" icon="plus" :href="route('platforms.accounts.create', $platform)" wire:navigate>
-                Add Account
+                Add Account Manually
             </flux:button>
-            <flux:button variant="primary" icon="arrow-down-tray">
+            <flux:button variant="ghost" icon="arrow-down-tray">
                 Export Accounts
             </flux:button>
         </div>
     </div>
 
     {{-- Platform Info Card --}}
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         <div class="flex items-center space-x-4">
             @if($platform->logo_url)
                 <img src="{{ $platform->logo_url }}" alt="{{ $platform->name }}" class="w-12 h-12 rounded-lg">
@@ -171,45 +187,45 @@ new class extends Component
 
     {{-- Stats Cards --}}
     <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
                     <flux:text size="sm" class="text-zinc-600">Total Accounts</flux:text>
                     <flux:heading size="lg">{{ $totalAccounts }}</flux:heading>
                 </div>
-                <div class="p-2 bg-blue-100 rounded-lg">
-                    <flux:icon name="user-group" class="w-6 h-6 text-blue-600" />
+                <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <flux:icon name="user-group" class="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text size="sm" class="text-zinc-600">Active Accounts</flux:text>
+                    <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">Active Accounts</flux:text>
                     <flux:heading size="lg">{{ $activeAccounts }}</flux:heading>
                 </div>
-                <div class="p-2 bg-green-100 rounded-lg">
-                    <flux:icon name="check-circle" class="w-6 h-6 text-green-600" />
+                <div class="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <flux:icon name="check-circle" class="w-6 h-6 text-green-600 dark:text-green-400" />
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-lg border p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text size="sm" class="text-zinc-600">Last Synced</flux:text>
+                    <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">Last Synced</flux:text>
                     <flux:heading size="lg">{{ $connectedAccounts }}</flux:heading>
                 </div>
-                <div class="p-2 bg-purple-100 rounded-lg">
-                    <flux:icon name="arrow-path" class="w-6 h-6 text-purple-600" />
+                <div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                    <flux:icon name="arrow-path" class="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
             </div>
         </div>
     </div>
 
     {{-- Filters & Search --}}
-    <div class="mb-6 bg-white rounded-lg border p-4">
+    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
         <div class="flex flex-col lg:flex-row gap-4">
             <div class="flex-1">
                 <flux:input
@@ -243,9 +259,9 @@ new class extends Component
     {{-- Accounts Grid --}}
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         @forelse($accounts as $account)
-            <div class="bg-white rounded-lg border overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden hover:shadow-lg transition-shadow">
                 {{-- Account Header --}}
-                <div class="p-4 border-b bg-gray-50">
+                <div class="p-4 border-b border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-700/50">
                     <div class="flex items-start justify-between">
                         <div>
                             <flux:heading size="sm">{{ $account->name }}</flux:heading>
@@ -253,11 +269,18 @@ new class extends Component
                                 Created {{ $account->created_at->format('M j, Y') }}
                             </flux:text>
                         </div>
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center space-x-2 flex-wrap gap-1">
                             @if($account->is_active)
                                 <flux:badge size="sm" color="green">Active</flux:badge>
                             @else
                                 <flux:badge size="sm" color="red">Inactive</flux:badge>
+                            @endif
+                            @if($platform->slug === 'tiktok-shop')
+                                @if($this->hasOAuthCredentials($account))
+                                    <flux:badge size="sm" color="blue">API Connected</flux:badge>
+                                @else
+                                    <flux:badge size="sm" color="amber">Not Linked</flux:badge>
+                                @endif
                             @endif
                         </div>
                     </div>
@@ -326,7 +349,24 @@ new class extends Component
                 </div>
 
                 {{-- Actions --}}
-                <div class="px-4 py-3 bg-gray-50 border-t">
+                <div class="px-4 py-3 bg-gray-50 dark:bg-zinc-700/50 border-t border-gray-200 dark:border-zinc-700">
+                    {{-- Link to TikTok Shop button for accounts without OAuth --}}
+                    @if($platform->slug === 'tiktok-shop' && !$this->hasOAuthCredentials($account))
+                        <div class="mb-3 pb-3 border-b border-gray-200 dark:border-zinc-600">
+                            <flux:button
+                                size="sm"
+                                variant="primary"
+                                class="w-full"
+                                :href="route('tiktok.connect', ['link_account' => $account->id])"
+                            >
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="link" class="w-4 h-4 mr-2" />
+                                    Link to TikTok Shop
+                                </div>
+                            </flux:button>
+                        </div>
+                    @endif
+
                     <div class="flex items-center justify-between">
                         <div class="flex space-x-2">
                             <flux:button

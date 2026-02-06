@@ -3,6 +3,7 @@
 use App\Models\ProductOrder;
 use App\Models\StockLevel;
 use App\Models\StockMovement;
+use App\Services\TikTok\OrderItemLinker;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 
@@ -23,6 +24,7 @@ new class extends Component
     {
         $this->order = $order->load([
             'items.product',
+            'items.package',
             'items.warehouse',
             'user',
             'payments',
@@ -31,9 +33,15 @@ new class extends Component
             'notes.user',
         ]);
 
-        // Get payment status from payments table
+        // Get payment status from payments table, fallback to paid_time for POS orders
         $latestPayment = $this->order->payments()->latest()->first();
-        $this->paymentStatus = $latestPayment?->status ?? 'pending';
+        if ($latestPayment) {
+            $this->paymentStatus = $latestPayment->status;
+        } elseif ($this->order->paid_time) {
+            $this->paymentStatus = 'completed';
+        } else {
+            $this->paymentStatus = 'pending';
+        }
 
         // Set order status to component property
         $this->orderStatus = $this->order->status;
@@ -228,9 +236,80 @@ new class extends Component
             }
         }
     }
+
+    public function linkOrderItems(): void
+    {
+        if (! $this->order->platform_id || ! $this->order->platform_account_id) {
+            session()->flash('error', 'This order has no platform account linked.');
+
+            return;
+        }
+
+        $linker = app(OrderItemLinker::class);
+        $linked = 0;
+
+        foreach ($this->order->items as $item) {
+            if (! $item->product_id && ! $item->package_id) {
+                if ($linker->linkItemToMapping($item, $this->order->platform_id, $this->order->platform_account_id)) {
+                    $linked++;
+                }
+            }
+        }
+
+        if ($linked > 0) {
+            $this->order->addSystemNote("Manually linked {$linked} item(s) to internal products/packages");
+            session()->flash('success', "Linked {$linked} item(s) to internal products/packages.");
+        } else {
+            session()->flash('info', 'No items could be linked. Check that SKU mappings exist for this account.');
+        }
+
+        $this->order = $this->order->fresh([
+            'items.product',
+            'items.package',
+            'items.warehouse',
+            'user',
+            'payments',
+            'platform',
+            'platformAccount',
+            'notes.user',
+        ]);
+    }
+
+    public function deductOrderStock(): void
+    {
+        $linker = app(OrderItemLinker::class);
+        $result = $linker->deductStockForOrder($this->order);
+
+        if ($result['deducted'] > 0) {
+            $this->order->addSystemNote("Manually deducted stock for {$result['deducted']} item(s)");
+            session()->flash('success', "Stock deducted for {$result['deducted']} item(s).");
+        } else {
+            session()->flash('info', 'No stock was deducted. Items may already have been deducted or are missing warehouse assignments.');
+        }
+
+        $this->order->refresh();
+    }
 }; ?>
 
 <div>
+    @if (session()->has('success'))
+        <flux:callout variant="success" class="mb-6">
+            {{ session('success') }}
+        </flux:callout>
+    @endif
+
+    @if (session()->has('error'))
+        <flux:callout variant="danger" class="mb-6">
+            {{ session('error') }}
+        </flux:callout>
+    @endif
+
+    @if (session()->has('info'))
+        <flux:callout variant="warning" class="mb-6">
+            {{ session('info') }}
+        </flux:callout>
+    @endif
+
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
         <div>
@@ -273,7 +352,7 @@ new class extends Component
         <div class="lg:col-span-2 space-y-6">
 
             <!-- Order Status -->
-            <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Order Status</flux:heading>
 
                 <div class="grid md:grid-cols-2 gap-4">
@@ -308,17 +387,19 @@ new class extends Component
 
                 <div class="mt-4 grid md:grid-cols-2 gap-4">
                     <div>
-                        <flux:text class="text-sm text-zinc-600">Payment Method</flux:text>
+                        <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Payment Method</flux:text>
                         <flux:text class="font-medium capitalize">
                             @if($order->payments->count() > 0)
                                 {{ str_replace('_', ' ', $order->payments->sortByDesc('created_at')->first()->payment_method) }}
+                            @elseif($order->payment_method)
+                                {{ str_replace('_', ' ', $order->payment_method) }}
                             @else
                                 Not Set
                             @endif
                         </flux:text>
                     </div>
                     <div>
-                        <flux:text class="text-sm text-zinc-600">Currency</flux:text>
+                        <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Currency</flux:text>
                         <flux:text class="font-medium">{{ $order->currency }}</flux:text>
                     </div>
                 </div>
@@ -326,65 +407,65 @@ new class extends Component
 
             <!-- Platform & Shipping Information (if platform order) -->
             @if($order->isPlatformOrder())
-                <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Platform & Shipping Details</flux:heading>
 
                     <div class="grid md:grid-cols-2 gap-6">
                         @if($order->platform)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Platform</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Platform</flux:text>
                                 <flux:text class="font-medium">{{ $order->platform->display_name }}</flux:text>
                                 @if($order->platformAccount)
-                                    <flux:text class="text-sm text-zinc-600 mt-1">Account: {{ $order->platformAccount->name }}</flux:text>
+                                    <flux:text class="text-sm text-zinc-600 dark:text-zinc-400 mt-1">Account: {{ $order->platformAccount->name }}</flux:text>
                                 @endif
                             </div>
                         @endif
 
                         @if($order->tracking_id)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Tracking ID</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Tracking ID</flux:text>
                                 <flux:text class="font-medium">{{ $order->tracking_id }}</flux:text>
                             </div>
                         @endif
 
                         @if($order->package_id)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Package ID</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Package ID</flux:text>
                                 <flux:text class="font-medium">{{ $order->package_id }}</flux:text>
                             </div>
                         @endif
 
                         @if($order->shipping_provider)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Shipping Provider</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Shipping Provider</flux:text>
                                 <flux:text class="font-medium">{{ $order->shipping_provider }}</flux:text>
                             </div>
                         @endif
 
                         @if($order->fulfillment_type)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Fulfillment Type</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Fulfillment Type</flux:text>
                                 <flux:text class="font-medium capitalize">{{ str_replace('_', ' ', $order->fulfillment_type) }}</flux:text>
                             </div>
                         @endif
 
                         @if($order->delivery_option)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Delivery Option</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Delivery Option</flux:text>
                                 <flux:text class="font-medium">{{ $order->delivery_option }}</flux:text>
                             </div>
                         @endif
 
                         @if($order->weight_kg)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Weight</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Weight</flux:text>
                                 <flux:text class="font-medium">{{ $order->formatted_weight }}</flux:text>
                             </div>
                         @endif
 
                         @if($order->buyer_username)
                             <div>
-                                <flux:text class="text-sm text-zinc-600">Buyer Username</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Buyer Username</flux:text>
                                 <flux:text class="font-medium">{{ $order->buyer_username }}</flux:text>
                             </div>
                         @endif
@@ -452,35 +533,85 @@ new class extends Component
             @endif
 
             <!-- Order Items -->
-            <div class="bg-white rounded-lg shadow-sm border p-6">
-                <flux:heading size="lg" class="mb-4">Order Items</flux:heading>
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <flux:heading size="lg">Order Items</flux:heading>
+                    @if($order->platform_id && $order->platform_account_id)
+                        <div class="flex items-center gap-2">
+                            @if($order->items->contains(fn ($item) => !$item->product_id && !$item->package_id))
+                                <flux:button size="sm" variant="outline" wire:click="linkOrderItems" wire:loading.attr="disabled">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="link" class="w-4 h-4 mr-1" />
+                                        <span wire:loading.remove wire:target="linkOrderItems">Link to Products</span>
+                                        <span wire:loading wire:target="linkOrderItems">Linking...</span>
+                                    </div>
+                                </flux:button>
+                            @endif
+                            @if($order->items->contains(fn ($item) => ($item->product_id || $item->package_id) && $item->warehouse_id) && in_array($order->status, ['shipped', 'delivered']))
+                                <flux:button size="sm" variant="outline" wire:click="deductOrderStock" wire:loading.attr="disabled" wire:confirm="Deduct stock for all linked items in this order?">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="minus-circle" class="w-4 h-4 mr-1" />
+                                        <span wire:loading.remove wire:target="deductOrderStock">Deduct Stock</span>
+                                        <span wire:loading wire:target="deductOrderStock">Deducting...</span>
+                                    </div>
+                                </flux:button>
+                            @endif
+                        </div>
+                    @endif
+                </div>
 
                 <div class="space-y-4">
                     @foreach($order->items as $item)
                         <div class="flex items-center justify-between border-b pb-4">
                             <div class="flex items-center space-x-4">
-                                <div class="w-16 h-16 bg-zinc-100 rounded-lg flex items-center justify-center">
-                                    <flux:icon name="cube" class="w-8 h-8 text-zinc-400" />
+                                <div class="w-16 h-16 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                                    @if($item->package_id)
+                                        <flux:icon name="archive-box" class="w-8 h-8 text-purple-400" />
+                                    @elseif($item->product_id)
+                                        <flux:icon name="cube" class="w-8 h-8 text-blue-400" />
+                                    @else
+                                        <flux:icon name="cube" class="w-8 h-8 text-zinc-400" />
+                                    @endif
                                 </div>
                                 <div>
-                                    <flux:heading class="font-medium">{{ $item->product?->name ?? $item->product_name ?? 'Unknown Product' }}</flux:heading>
-                                    @if($item->product)
-                                        <flux:text class="text-sm text-zinc-600">
+                                    <div class="flex items-center gap-2">
+                                        @if($item->package_id && $item->package)
+                                            <a href="{{ route('packages.show', $item->package_id) }}" wire:navigate class="font-medium text-gray-900 dark:text-zinc-100 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                                {{ $item->package->name }}
+                                            </a>
+                                            <flux:badge size="sm" color="purple">Package</flux:badge>
+                                        @elseif($item->product_id && $item->product)
+                                            <a href="{{ route('products.show', $item->product_id) }}" wire:navigate class="font-medium text-gray-900 dark:text-zinc-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                                {{ $item->product->name }}
+                                            </a>
+                                            <flux:badge size="sm" color="blue">Product</flux:badge>
+                                        @else
+                                            <flux:heading class="font-medium">{{ $item->product_name ?? 'Unknown Product' }}</flux:heading>
+                                            <flux:badge size="sm" color="zinc">Unmapped</flux:badge>
+                                        @endif
+                                    </div>
+                                    @if($item->platform_product_name && ($item->product_id || $item->package_id))
+                                        <flux:text class="text-xs text-zinc-400">
+                                            Platform: {{ $item->platform_product_name }}
+                                        </flux:text>
+                                    @endif
+                                    @if($item->product && $item->product->sku)
+                                        <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">
                                             SKU: {{ $item->product->sku }}
                                         </flux:text>
                                     @elseif($item->platform_sku)
-                                        <flux:text class="text-sm text-zinc-600">
+                                        <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">
                                             Platform SKU: {{ $item->platform_sku }}
                                         </flux:text>
                                     @endif
-                                    <flux:text class="text-sm text-zinc-600">
+                                    <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">
                                         Warehouse: {{ $item->warehouse?->name ?? 'Not assigned' }}
                                     </flux:text>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <flux:text class="font-medium">{{ $item->quantity }} × MYR {{ number_format($item->unit_price, 2) }}</flux:text>
-                                <flux:text class="text-sm text-zinc-600">MYR {{ number_format($item->total_price, 2) }}</flux:text>
+                                <flux:text class="font-medium">{{ $item->quantity_ordered ?? $item->quantity }} × MYR {{ number_format($item->unit_price, 2) }}</flux:text>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">MYR {{ number_format($item->total_price, 2) }}</flux:text>
                             </div>
                         </div>
                     @endforeach
@@ -488,36 +619,53 @@ new class extends Component
             </div>
 
             <!-- Customer Information -->
-            <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Customer Information</flux:heading>
 
                 <div class="grid md:grid-cols-2 gap-6">
                     <div>
-                        <flux:text class="text-sm text-zinc-600">Customer</flux:text>
+                        <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Customer</flux:text>
                         <flux:text class="font-medium">{{ $order->getCustomerName() }}</flux:text>
-                        <flux:text class="text-sm text-zinc-600 mt-1">{{ $order->getCustomerEmail() }}</flux:text>
+                        <flux:text class="text-sm text-zinc-600 dark:text-zinc-400 mt-1">{{ $order->getCustomerEmail() }}</flux:text>
 
                         <!-- Show phone from multiple sources -->
                         @php
                             $phone = $order->customer_phone ?? $order->billingAddress()?->phone ?? null;
                         @endphp
                         @if($phone)
-                            <flux:text class="text-sm text-zinc-600">{{ $phone }}</flux:text>
+                            <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">{{ $phone }}</flux:text>
                         @endif
                     </div>
 
                     @if($order->user)
                         <div>
-                            <flux:text class="text-sm text-zinc-600">Account</flux:text>
+                            <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Account</flux:text>
                             <flux:text class="font-medium">{{ $order->user->name }}</flux:text>
-                            <flux:text class="text-sm text-zinc-600 mt-1">{{ $order->user->email }}</flux:text>
+                            <flux:text class="text-sm text-zinc-600 dark:text-zinc-400 mt-1">{{ $order->user->email }}</flux:text>
                         </div>
                     @endif
                 </div>
             </div>
 
+            <!-- POS Sale Info -->
+            @if($order->source === 'pos' && ($order->metadata['salesperson_name'] ?? null))
+                <div class="bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800 p-6">
+                    <flux:heading size="lg" class="mb-4">POS Sale Information</flux:heading>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <flux:text class="text-sm text-orange-700 dark:text-orange-400">Salesperson</flux:text>
+                            <flux:text class="font-medium">{{ $order->metadata['salesperson_name'] }}</flux:text>
+                        </div>
+                        <div>
+                            <flux:text class="text-sm text-orange-700 dark:text-orange-400">Source</flux:text>
+                            <flux:badge size="sm" color="orange">POS - Point of Sale</flux:badge>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <!-- Addresses -->
-            <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                 <flux:heading size="lg" class="mb-4">Addresses</flux:heading>
 
                 @php
@@ -530,7 +678,7 @@ new class extends Component
                     <!-- Billing Address -->
                     <div>
                         <flux:text class="font-medium mb-2">Billing Address</flux:text>
-                        <div class="text-sm text-zinc-600 space-y-1">
+                        <div class="text-sm text-zinc-600 dark:text-zinc-400 space-y-1">
                             @if($billingAddressModel)
                                 <div>{{ $billingAddressModel->first_name }} {{ $billingAddressModel->last_name }}</div>
                                 @if($billingAddressModel->company)
@@ -543,7 +691,7 @@ new class extends Component
                                 <div>{{ $billingAddressModel->city }}, {{ $billingAddressModel->state }} {{ $billingAddressModel->postal_code }}</div>
                                 <div>{{ $billingAddressModel->country }}</div>
                             @else
-                                <div class="text-zinc-500 italic">No billing address provided</div>
+                                <div class="text-zinc-500 dark:text-zinc-400 italic">No billing address provided</div>
                             @endif
                         </div>
                     </div>
@@ -551,7 +699,7 @@ new class extends Component
                     <!-- Shipping Address -->
                     <div>
                         <flux:text class="font-medium mb-2">Shipping Address</flux:text>
-                        <div class="text-sm text-zinc-600 space-y-1">
+                        <div class="text-sm text-zinc-600 dark:text-zinc-400 space-y-1">
                             @if($shippingAddressModel)
                                 {{-- Traditional address model --}}
                                 <div>{{ $shippingAddressModel->first_name }} {{ $shippingAddressModel->last_name }}</div>
@@ -565,28 +713,61 @@ new class extends Component
                                 <div>{{ $shippingAddressModel->city }}, {{ $shippingAddressModel->state }} {{ $shippingAddressModel->postal_code }}</div>
                                 <div>{{ $shippingAddressModel->country }}</div>
                             @elseif($platformShipping && is_array($platformShipping))
-                                {{-- Platform order JSON address --}}
-                                @if(!empty($platformShipping['detail_address']))
-                                    <div>{{ $platformShipping['detail_address'] }}</div>
-                                @endif
-                                @if(!empty($platformShipping['additional_info']))
-                                    <div>{{ $platformShipping['additional_info'] }}</div>
-                                @endif
-                                @php
-                                    $cityState = implode(', ', array_filter([
-                                        $platformShipping['city'] ?? null,
-                                        $platformShipping['state'] ?? null,
-                                        $platformShipping['postal_code'] ?? null
-                                    ]));
-                                @endphp
-                                @if($cityState)
-                                    <div>{{ $cityState }}</div>
-                                @endif
-                                @if(!empty($platformShipping['country']))
-                                    <div>{{ $platformShipping['country'] }}</div>
+                                @if(!empty($platformShipping['full_address']))
+                                    {{-- POS or other flat address --}}
+                                    <div>{{ $platformShipping['full_address'] }}</div>
+                                @elseif(!empty($platformShipping['address_line_1']))
+                                    {{-- Funnel/website structured address --}}
+                                    @if(!empty($platformShipping['first_name']) || !empty($platformShipping['last_name']))
+                                        <div>{{ trim(($platformShipping['first_name'] ?? '') . ' ' . ($platformShipping['last_name'] ?? '')) }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['company']))
+                                        <div>{{ $platformShipping['company'] }}</div>
+                                    @endif
+                                    <div>{{ $platformShipping['address_line_1'] }}</div>
+                                    @if(!empty($platformShipping['address_line_2']))
+                                        <div>{{ $platformShipping['address_line_2'] }}</div>
+                                    @endif
+                                    @php
+                                        $cityState = implode(', ', array_filter([
+                                            $platformShipping['city'] ?? null,
+                                            $platformShipping['state'] ?? null,
+                                            $platformShipping['postal_code'] ?? null
+                                        ]));
+                                    @endphp
+                                    @if($cityState)
+                                        <div>{{ $cityState }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['country']))
+                                        <div>{{ $platformShipping['country'] }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['phone']))
+                                        <div>{{ $platformShipping['phone'] }}</div>
+                                    @endif
+                                @else
+                                    {{-- Platform order JSON address --}}
+                                    @if(!empty($platformShipping['detail_address']))
+                                        <div>{{ $platformShipping['detail_address'] }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['additional_info']))
+                                        <div>{{ $platformShipping['additional_info'] }}</div>
+                                    @endif
+                                    @php
+                                        $cityState = implode(', ', array_filter([
+                                            $platformShipping['city'] ?? null,
+                                            $platformShipping['state'] ?? null,
+                                            $platformShipping['postal_code'] ?? null
+                                        ]));
+                                    @endphp
+                                    @if($cityState)
+                                        <div>{{ $cityState }}</div>
+                                    @endif
+                                    @if(!empty($platformShipping['country']))
+                                        <div>{{ $platformShipping['country'] }}</div>
+                                    @endif
                                 @endif
                             @else
-                                <div class="text-zinc-500 italic">No shipping address provided</div>
+                                <div class="text-zinc-500 dark:text-zinc-400 italic">No shipping address provided</div>
                             @endif
                         </div>
                     </div>
@@ -595,7 +776,7 @@ new class extends Component
 
             <!-- Order Notes -->
             @if($order->notes->count() > 0)
-                <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
                     <flux:heading size="lg" class="mb-4">Order Notes</flux:heading>
 
                     <div class="space-y-4">
@@ -603,7 +784,7 @@ new class extends Component
                             <div class="border-l-4 @if($note->type === 'system') border-blue-500 @elseif($note->type === 'customer') border-green-500 @else border-amber-500 @endif pl-4 py-2">
                                 <div class="flex items-start justify-between">
                                     <div class="flex-1">
-                                        <flux:text class="text-zinc-900">{{ $note->message }}</flux:text>
+                                        <flux:text class="text-zinc-900 dark:text-zinc-100">{{ $note->message }}</flux:text>
                                         <div class="flex items-center gap-3 mt-2">
                                             <flux:badge
                                                 variant="@if($note->type === 'system') subtle @elseif($note->type === 'customer') positive @else warning @endif"
@@ -612,12 +793,12 @@ new class extends Component
                                                 {{ ucfirst($note->type) }}
                                             </flux:badge>
 
-                                            <flux:text class="text-xs text-zinc-500">
+                                            <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
                                                 {{ $note->created_at->format('M j, Y \a\t g:i A') }}
                                             </flux:text>
 
                                             @if($note->user)
-                                                <flux:text class="text-xs text-zinc-500">
+                                                <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
                                                     by {{ $note->user->name }}
                                                 </flux:text>
                                             @endif
@@ -633,7 +814,7 @@ new class extends Component
 
         <!-- Right Column - Order Summary -->
         <div class="lg:col-span-1">
-            <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6 sticky top-6">
                 <flux:heading size="lg" class="mb-4">Order Summary</flux:heading>
 
                 <!-- Order Totals -->
@@ -752,7 +933,7 @@ new class extends Component
                     @endif
 
                     <!-- Total -->
-                    <div class="border-t-2 pt-3 mt-2">
+                    <div class="border-t-2 border-gray-200 dark:border-zinc-700 pt-3 mt-2">
                         <div class="flex justify-between">
                             <flux:text class="font-semibold text-lg">Total</flux:text>
                             <flux:text class="font-semibold text-lg text-blue-600">{{ $order->currency }} {{ number_format($order->total_amount, 2) }}</flux:text>
@@ -896,7 +1077,7 @@ new class extends Component
                 </div>
 
                 <!-- Timestamps -->
-                <div class="mt-6 pt-6 border-t text-sm text-zinc-600 space-y-2">
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-zinc-700 text-sm text-zinc-600 dark:text-zinc-400 dark:text-zinc-400 space-y-2">
                     <div>
                         <flux:text class="font-medium">Created</flux:text>
                         <flux:text>{{ $order->created_at->format('M j, Y g:i A') }}</flux:text>

@@ -41,12 +41,20 @@ class ProcessTikTokOrderImport implements ShouldQueue
      */
     public function handle(): void
     {
+        Log::info('TikTok import job started', [
+            'import_job_id' => $this->importJobId,
+            'platform_id' => $this->platformId,
+            'account_id' => $this->accountId,
+            'batch_size' => $this->batchSize,
+        ]);
+
         $importJob = ImportJob::findOrFail($this->importJobId);
         $platform = Platform::findOrFail($this->platformId);
         $account = PlatformAccount::findOrFail($this->accountId);
 
         try {
             $importJob->markAsStarted();
+            Log::info('Import job marked as started', ['import_job_id' => $this->importJobId]);
 
             // Load CSV data from file
             $csvData = $this->loadCsvData($importJob->file_path);
@@ -60,29 +68,53 @@ class ProcessTikTokOrderImport implements ShouldQueue
             // Process in batches to avoid memory issues
             $chunks = array_chunk($csvData, $this->batchSize);
 
+            // Create processor once outside the loop for better performance
+            $processor = new TikTokOrderProcessor(
+                $platform,
+                $account,
+                $this->fieldMapping,
+                $this->productMappings,
+                $this->packageMappings
+            );
+
             foreach ($chunks as $chunkIndex => $chunk) {
+                Log::info('Processing chunk', [
+                    'import_job_id' => $this->importJobId,
+                    'chunk' => $chunkIndex + 1,
+                    'total_chunks' => count($chunks),
+                    'rows_in_chunk' => count($chunk),
+                ]);
+
                 foreach ($chunk as $rowIndex => $row) {
                     $globalIndex = ($chunkIndex * $this->batchSize) + $rowIndex;
 
                     try {
-                        DB::transaction(function () use ($row, $platform, $account, &$imported, &$updated) {
-                            $processor = new TikTokOrderProcessor(
-                                $platform,
-                                $account,
-                                $this->fieldMapping,
-                                $this->productMappings,
-                                $this->packageMappings
-                            );
+                        Log::debug('Processing row', [
+                            'import_job_id' => $this->importJobId,
+                            'row' => $globalIndex + 2,
+                        ]);
 
-                            $orderData = $this->extractOrderData($row);
-                            $result = $processor->processOrderRow($orderData);
+                        $orderData = $this->extractOrderData($row);
 
-                            if ($result['product_order']->wasRecentlyCreated) {
-                                $imported++;
-                            } else {
-                                $updated++;
-                            }
-                        });
+                        // Validate we have required data before processing
+                        if (empty($orderData['order_id'])) {
+                            throw new \Exception('Missing order_id in row');
+                        }
+
+                        // processOrderRow already has its own DB::transaction, no need to wrap again
+                        $result = $processor->processOrderRow($orderData);
+
+                        if ($result['product_order']->wasRecentlyCreated) {
+                            $imported++;
+                        } else {
+                            $updated++;
+                        }
+
+                        Log::debug('Row processed successfully', [
+                            'import_job_id' => $this->importJobId,
+                            'row' => $globalIndex + 2,
+                            'order_id' => $orderData['order_id'] ?? 'N/A',
+                        ]);
                     } catch (\Exception $e) {
                         $skipped++;
                         $errorMessage = 'Row '.($globalIndex + 2).': '.$e->getMessage();
@@ -145,14 +177,31 @@ class ProcessTikTokOrderImport implements ShouldQueue
      */
     protected function loadCsvData(string $filePath): array
     {
+        Log::info('Loading CSV file', [
+            'import_job_id' => $this->importJobId,
+            'file_path' => $filePath,
+        ]);
+
         $fullPath = Storage::path($filePath);
 
         if (! file_exists($fullPath)) {
             throw new \Exception("CSV file not found at: {$filePath}");
         }
 
+        $fileSize = filesize($fullPath);
+        Log::info('CSV file found', [
+            'import_job_id' => $this->importJobId,
+            'full_path' => $fullPath,
+            'file_size_bytes' => $fileSize,
+        ]);
+
         $fileContent = file_get_contents($fullPath);
         $lines = explode("\n", $fileContent);
+
+        Log::info('CSV file loaded into memory', [
+            'import_job_id' => $this->importJobId,
+            'total_lines' => count($lines),
+        ]);
 
         // Skip first row (header row) and parse data rows
         $csvData = [];
@@ -163,6 +212,11 @@ class ProcessTikTokOrderImport implements ShouldQueue
                 $csvData[] = $row;
             }
         }
+
+        Log::info('CSV data parsed', [
+            'import_job_id' => $this->importJobId,
+            'data_rows' => count($csvData),
+        ]);
 
         return $csvData;
     }

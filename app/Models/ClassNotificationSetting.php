@@ -15,6 +15,7 @@ class ClassNotificationSetting extends Model
         'class_id',
         'notification_type',
         'is_enabled',
+        'email_enabled',
         'template_id',
         'custom_minutes_before',
         'send_to_students',
@@ -35,6 +36,7 @@ class ClassNotificationSetting extends Model
     {
         return [
             'is_enabled' => 'boolean',
+            'email_enabled' => 'boolean',
             'send_to_students' => 'boolean',
             'send_to_teacher' => 'boolean',
             'whatsapp_enabled' => 'boolean',
@@ -78,6 +80,77 @@ class ClassNotificationSetting extends Model
         return $this->isVisualEditor()
             ? ! empty($this->html_content)
             : ! empty($this->custom_content);
+    }
+
+    /**
+     * Check if this notification setting has valid template configuration.
+     * A setting is ready when it has both subject and content available.
+     */
+    public function isTemplateReady(): bool
+    {
+        // Check for subject
+        $hasSubject = ! empty($this->custom_subject) || ! empty($this->template?->subject);
+
+        // Check for content (priority order matches SendClassNotificationJob)
+        $hasContent = ! empty($this->html_content)  // Custom visual template
+            || ! empty($this->custom_content)       // Custom text template
+            || ! empty($this->template?->html_content)  // System visual template
+            || ! empty($this->template?->content);      // System text template
+
+        return $hasSubject && $hasContent;
+    }
+
+    /**
+     * Get the template readiness status with details.
+     */
+    public function getTemplateReadinessAttribute(): array
+    {
+        $hasSubject = ! empty($this->custom_subject) || ! empty($this->template?->subject);
+        $hasContent = ! empty($this->html_content)
+            || ! empty($this->custom_content)
+            || ! empty($this->template?->html_content)
+            || ! empty($this->template?->content);
+
+        $isReady = $hasSubject && $hasContent;
+
+        $issues = [];
+        if (! $hasSubject) {
+            $issues[] = 'Tiada subjek';
+        }
+        if (! $hasContent) {
+            $issues[] = 'Tiada kandungan';
+        }
+
+        return [
+            'ready' => $isReady,
+            'has_subject' => $hasSubject,
+            'has_content' => $hasContent,
+            'issues' => $issues,
+            'source' => $this->getTemplateSource(),
+        ];
+    }
+
+    /**
+     * Get the source of the template content.
+     */
+    public function getTemplateSource(): string
+    {
+        if (! empty($this->html_content)) {
+            return 'custom_visual';
+        }
+        if (! empty($this->custom_content)) {
+            return 'custom_text';
+        }
+        if ($this->template) {
+            if (! empty($this->template->html_content)) {
+                return 'system_visual';
+            }
+            if (! empty($this->template->content)) {
+                return 'system_text';
+            }
+        }
+
+        return 'none';
     }
 
     public function getEffectiveHtmlContent(): ?string

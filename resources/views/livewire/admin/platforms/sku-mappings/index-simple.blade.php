@@ -20,7 +20,7 @@ new class extends Component {
         </flux:button>
     </div>
 
-    <div class="overflow-hidden rounded-lg border border-zinc-200 bg-white p-6">
+    <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
         <p class="text-zinc-600">SKU Mappings page is now working. The component will be enhanced with full functionality.</p>
     </div>
 </x-admin.layout>

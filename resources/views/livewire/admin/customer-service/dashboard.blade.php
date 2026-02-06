@@ -84,10 +84,10 @@ new class extends Component
 
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text size="sm" class="text-gray-600">Total Refund Requests</flux:text>
+                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Total Refund Requests</flux:text>
                     <flux:text class="text-3xl font-bold mt-1">{{ number_format($stats['total_refunds']) }}</flux:text>
                 </div>
                 <div class="bg-gray-100 rounded-full p-3">
@@ -99,10 +99,10 @@ new class extends Component
             </div>
         </div>
 
-        <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text size="sm" class="text-gray-600">Pending Review</flux:text>
+                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Pending Review</flux:text>
                     <flux:text class="text-3xl font-bold mt-1 text-yellow-600">{{ number_format($stats['pending_review']) }}</flux:text>
                 </div>
                 <div class="bg-yellow-100 rounded-full p-3">
@@ -114,10 +114,10 @@ new class extends Component
             </div>
         </div>
 
-        <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text size="sm" class="text-gray-600">Approved</flux:text>
+                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Approved</flux:text>
                     <flux:text class="text-3xl font-bold mt-1 text-green-600">{{ number_format($stats['approved']) }}</flux:text>
                 </div>
                 <div class="bg-green-100 rounded-full p-3">
@@ -129,10 +129,10 @@ new class extends Component
             </div>
         </div>
 
-        <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <flux:text size="sm" class="text-gray-600">Total Refunded</flux:text>
+                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Total Refunded</flux:text>
                     <flux:text class="text-3xl font-bold mt-1 text-blue-600">RM {{ number_format($stats['total_refund_amount'], 2) }}</flux:text>
                 </div>
                 <div class="bg-blue-100 rounded-full p-3">
@@ -159,7 +159,7 @@ new class extends Component
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'pending_review']) }}" wire:navigate class="bg-white rounded-lg p-4 hover:shadow-md transition-shadow border border-gray-200">
+                <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'pending_review']) }}" wire:navigate class="bg-white dark:bg-zinc-800 rounded-lg p-4 hover:shadow-md transition-shadow border border-gray-200 dark:border-zinc-700">
                     <flux:text size="sm" class="text-gray-600">Pending Review</flux:text>
                     <div class="flex items-center justify-between mt-2">
                         <flux:text class="text-2xl font-bold text-yellow-600">{{ $statusBreakdown['pending_review'] }}</flux:text>
@@ -167,7 +167,7 @@ new class extends Component
                     </div>
                 </a>
 
-                <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'approved_pending_return']) }}" wire:navigate class="bg-white rounded-lg p-4 hover:shadow-md transition-shadow border border-gray-200">
+                <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'approved_pending_return']) }}" wire:navigate class="bg-white dark:bg-zinc-800 rounded-lg p-4 hover:shadow-md transition-shadow border border-gray-200 dark:border-zinc-700">
                     <flux:text size="sm" class="text-gray-600">Awaiting Return</flux:text>
                     <div class="flex items-center justify-between mt-2">
                         <flux:text class="text-2xl font-bold text-blue-600">{{ $statusBreakdown['approved_pending_return'] }}</flux:text>
@@ -175,7 +175,7 @@ new class extends Component
                     </div>
                 </a>
 
-                <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'refund_processing']) }}" wire:navigate class="bg-white rounded-lg p-4 hover:shadow-md transition-shadow border border-gray-200">
+                <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'refund_processing']) }}" wire:navigate class="bg-white dark:bg-zinc-800 rounded-lg p-4 hover:shadow-md transition-shadow border border-gray-200 dark:border-zinc-700">
                     <flux:text size="sm" class="text-gray-600">Refund Processing</flux:text>
                     <div class="flex items-center justify-between mt-2">
                         <flux:text class="text-2xl font-bold text-purple-600">{{ $statusBreakdown['refund_processing'] }}</flux:text>
@@ -188,8 +188,8 @@ new class extends Component
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Pending Refunds -->
-        <div class="bg-white rounded-lg border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
                 <flux:heading size="lg">Pending Review</flux:heading>
                 <flux:button variant="ghost" size="sm" :href="route('admin.customer-service.return-refunds.index', ['action' => 'pending'])" wire:navigate>
                     View All
@@ -222,8 +222,8 @@ new class extends Component
         </div>
 
         <!-- Recent Activity -->
-        <div class="bg-white rounded-lg border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
                 <flux:heading size="lg">Recent Activity</flux:heading>
                 <flux:button variant="ghost" size="sm" :href="route('admin.customer-service.return-refunds.index')" wire:navigate>
                     View All
@@ -270,7 +270,7 @@ new class extends Component
     </div>
 
     <!-- Status Breakdown -->
-    <div class="mt-6 bg-white rounded-lg border border-gray-200 p-6">
+    <div class="mt-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
         <flux:heading size="lg" class="mb-4">Refund Status Breakdown</flux:heading>
         <div class="grid grid-cols-2 md:grid-cols-7 gap-4">
             <a href="{{ route('admin.customer-service.return-refunds.index', ['status' => 'pending_review']) }}" wire:navigate class="text-center p-4 rounded-lg bg-yellow-50 hover:bg-yellow-100 transition-colors">
@@ -306,7 +306,7 @@ new class extends Component
 
     <!-- Quick Links -->
     <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <a href="{{ route('admin.customer-service.return-refunds.index') }}" wire:navigate class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <a href="{{ route('admin.customer-service.return-refunds.index') }}" wire:navigate class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6 hover:shadow-md transition-shadow">
             <div class="flex items-center gap-4">
                 <div class="bg-cyan-100 rounded-full p-3">
                     <flux:icon name="clipboard-document-list" class="w-6 h-6 text-cyan-600" />
@@ -318,7 +318,7 @@ new class extends Component
             </div>
         </a>
 
-        <a href="{{ route('admin.customer-service.return-refunds.create') }}" wire:navigate class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <a href="{{ route('admin.customer-service.return-refunds.create') }}" wire:navigate class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6 hover:shadow-md transition-shadow">
             <div class="flex items-center gap-4">
                 <div class="bg-green-100 rounded-full p-3">
                     <flux:icon name="plus-circle" class="w-6 h-6 text-green-600" />
@@ -330,7 +330,7 @@ new class extends Component
             </div>
         </a>
 
-        <a href="{{ route('admin.orders.index') }}" wire:navigate class="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <a href="{{ route('admin.orders.index') }}" wire:navigate class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6 hover:shadow-md transition-shadow">
             <div class="flex items-center gap-4">
                 <div class="bg-purple-100 rounded-full p-3">
                     <flux:icon name="shopping-bag" class="w-6 h-6 text-purple-600" />

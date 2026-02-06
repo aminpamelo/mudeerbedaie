@@ -81,7 +81,7 @@ new class extends Component {
 
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <div class="rounded-lg border border-gray-200 bg-white p-6">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="cube" class="h-8 w-8 text-blue-600" />
@@ -95,7 +95,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-white p-6">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="chart-bar" class="h-8 w-8 text-green-600" />
@@ -109,7 +109,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-white p-6">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="currency-dollar" class="h-8 w-8 text-yellow-600" />
@@ -123,7 +123,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-white p-6">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="exclamation-triangle" class="h-8 w-8 text-red-600" />
@@ -165,7 +165,7 @@ new class extends Component {
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <!-- Recent Stock Movements -->
-        <div class="rounded-lg border border-gray-200 bg-white">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
             <div class="px-6 py-4 border-b border-gray-200">
                 <div class="flex items-center justify-between">
                     <flux:heading size="lg">Recent Movements</flux:heading>
@@ -221,7 +221,7 @@ new class extends Component {
         </div>
 
         <!-- Low Stock Products -->
-        <div class="rounded-lg border border-gray-200 bg-white">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
             <div class="px-6 py-4 border-b border-gray-200">
                 <div class="flex items-center justify-between">
                     <flux:heading size="lg">Low Stock Products</flux:heading>

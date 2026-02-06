@@ -3,6 +3,7 @@
 use App\Models\Package;
 use App\Models\Product;
 use App\Models\Course;
+use App\Models\ClassModel;
 use App\Models\Warehouse;
 use Livewire\Volt\Component;
 use Illuminate\Support\Str;
@@ -27,9 +28,11 @@ new class extends Component {
     // Package items
     public $selectedProducts = [];
     public $selectedCourses = [];
+    public $selectedClasses = [];
     public $productQuantities = [];
     public $productCustomPrices = [];
     public $courseCustomPrices = [];
+    public $classCustomPrices = [];
 
     public function rules(): array
     {
@@ -51,9 +54,11 @@ new class extends Component {
             'meta_description' => 'nullable|string|max:500',
             'selectedProducts' => 'array',
             'selectedCourses' => 'array',
+            'selectedClasses' => 'array',
             'productQuantities.*' => 'required|integer|min:1',
             'productCustomPrices.*' => 'nullable|numeric|min:0',
             'courseCustomPrices.*' => 'nullable|numeric|min:0',
+            'classCustomPrices.*' => 'nullable|numeric|min:0',
         ];
     }
 
@@ -67,6 +72,7 @@ new class extends Component {
         return [
             'products' => Product::active()->with('category')->orderBy('name')->get(),
             'courses' => Course::where('status', 'active')->orderBy('name')->get(),
+            'classes' => ClassModel::where('status', 'active')->with(['course.feeSettings', 'teacher'])->orderBy('title')->get(),
             'warehouses' => Warehouse::orderBy('name')->get(),
         ];
     }
@@ -108,6 +114,20 @@ new class extends Component {
         unset($this->courseCustomPrices[$courseId]);
     }
 
+    public function addClass($classId): void
+    {
+        if ($classId && !in_array($classId, $this->selectedClasses)) {
+            $this->selectedClasses[] = (int)$classId;
+            $this->classCustomPrices[$classId] = '';
+        }
+    }
+
+    public function removeClass($classId): void
+    {
+        $this->selectedClasses = array_values(array_filter($this->selectedClasses, fn($id) => $id != $classId));
+        unset($this->classCustomPrices[$classId]);
+    }
+
     public function calculateOriginalPrice(): float
     {
         $total = 0;
@@ -133,6 +153,16 @@ new class extends Component {
             }
         }
 
+        // Add class prices
+        foreach ($this->selectedClasses as $classId) {
+            $class = ClassModel::with('course.feeSettings')->find($classId);
+            if ($class) {
+                $customPrice = (float)($this->classCustomPrices[$classId] ?? 0);
+                $price = $customPrice ?: (float)($class->course?->feeSettings->fee_amount ?? 0);
+                $total += $price;
+            }
+        }
+
         return $total;
     }
 
@@ -140,8 +170,8 @@ new class extends Component {
     {
         $this->validate();
 
-        if (empty($this->selectedProducts) && empty($this->selectedCourses)) {
-            $this->addError('items', 'Please add at least one product or course to the package.');
+        if (empty($this->selectedProducts) && empty($this->selectedCourses) && empty($this->selectedClasses)) {
+            $this->addError('items', 'Please add at least one product, course, or class to the package.');
             return;
         }
 
@@ -193,6 +223,19 @@ new class extends Component {
             ]);
         }
 
+        // Add classes to package
+        foreach ($this->selectedClasses as $index => $classId) {
+            $class = ClassModel::with('course.feeSettings')->find($classId);
+            $package->items()->create([
+                'itemable_type' => ClassModel::class,
+                'itemable_id' => $classId,
+                'quantity' => 1,
+                'custom_price' => $this->classCustomPrices[$classId] ?: null,
+                'original_price' => $class->course?->feeSettings->fee_amount ?? 0,
+                'sort_order' => count($this->selectedProducts) + count($this->selectedCourses) + $index,
+            ]);
+        }
+
         session()->flash('success', 'Package created successfully!');
         $this->redirect(route('packages.show', $package));
     }
@@ -211,9 +254,9 @@ new class extends Component {
 
     <form wire:submit="save" class="space-y-8">
         <!-- Basic Information -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Basic Information</h3>
+                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Basic Information</h3>
 
                 <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <flux:field>
@@ -248,9 +291,9 @@ new class extends Component {
         </div>
 
         <!-- Pricing -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Pricing</h3>
+                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Pricing</h3>
 
                 <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
                     <flux:field>
@@ -275,7 +318,7 @@ new class extends Component {
                     </flux:field>
                 </div>
 
-                @if(count($selectedProducts) > 0 || count($selectedCourses) > 0)
+                @if(count($selectedProducts) > 0 || count($selectedCourses) > 0 || count($selectedClasses) > 0)
                     <div class="mt-4 p-4 bg-blue-50 rounded-lg">
                         <h4 class="text-sm font-medium text-blue-900">Pricing Summary</h4>
                         <div class="mt-2 text-sm text-blue-700">
@@ -294,23 +337,23 @@ new class extends Component {
         </div>
 
         <!-- Package Items -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-medium leading-6 text-gray-900">Package Items</h3>
+                    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">Package Items</h3>
                     <div class="text-sm text-gray-500">
-                        Total Items: {{ count($selectedProducts) + count($selectedCourses) }}
+                        Total Items: {{ count($selectedProducts) + count($selectedCourses) + count($selectedClasses) }}
                     </div>
                 </div>
                 <flux:error name="items" />
 
-                @if(count($selectedProducts) === 0 && count($selectedCourses) === 0)
+                @if(count($selectedProducts) === 0 && count($selectedCourses) === 0 && count($selectedClasses) === 0)
                     <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div class="flex items-start">
                             <flux:icon name="information-circle" class="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
                             <div class="text-sm text-blue-700">
-                                <p class="font-medium">Add multiple products and courses to your package</p>
-                                <p class="mt-1">You can select multiple products (with different quantities) and multiple courses. For example: 2 products + 3 courses in one package!</p>
+                                <p class="font-medium">Add products, courses, or classes to your package</p>
+                                <p class="mt-1">You can select multiple products (with different quantities), courses, and classes. Adding a class will automatically enroll students in the parent course upon purchase.</p>
                             </div>
                         </div>
                     </div>
@@ -470,13 +513,91 @@ new class extends Component {
                         </div>
                     @endif
                 </div>
+
+                <!-- Classes Section -->
+                <div class="mt-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-md font-medium text-gray-900">Classes</h4>
+                        <flux:badge variant="outline" size="sm">{{ count($selectedClasses) }} selected</flux:badge>
+                    </div>
+
+                    <div class="mb-4">
+                        <flux:field>
+                            <flux:label>Add Classes to Package</flux:label>
+                            <flux:select wire:change="addClass($event.target.value)" placeholder="Select classes to add...">
+                                <flux:select.option value="">+ Add a class to this package...</flux:select.option>
+                            @foreach($classes as $class)
+                                @if(!in_array($class->id, $selectedClasses))
+                                    <flux:select.option value="{{ $class->id }}">
+                                        {{ $class->title }} ({{ $class->course?->name }}) - {{ $class->teacher?->name ?? 'No teacher' }}
+                                    </flux:select.option>
+                                @endif
+                            @endforeach
+                        </flux:select>
+                        </flux:field>
+                    </div>
+
+                    @if(count($selectedClasses) > 0)
+                        <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div class="flex items-center text-sm text-green-700">
+                                <flux:icon name="check-circle" class="h-4 w-4 mr-2" />
+                                {{ count($selectedClasses) }} class{{ count($selectedClasses) > 1 ? 'es' : '' }} added to package
+                            </div>
+                        </div>
+                        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div class="flex items-start text-sm text-blue-700">
+                                <flux:icon name="information-circle" class="h-4 w-4 mr-2 mt-0.5" />
+                                <span>Students will be automatically enrolled in the parent course and assigned to the selected class upon purchase.</span>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            @foreach($selectedClasses as $classId)
+                                @php $class = $classes->find($classId) @endphp
+                                @if($class)
+                                    <div class="flex items-center space-x-4 p-4 border rounded-lg bg-gray-50">
+                                        <div class="flex-1">
+                                            <div class="font-medium">{{ $class->title }}</div>
+                                            <div class="text-sm text-gray-500">{{ $class->course?->name }} &middot; {{ $class->teacher?->name ?? 'No teacher' }}</div>
+                                        </div>
+
+                                        <div class="w-32">
+                                            <flux:field>
+                                                <flux:label>Custom Price</flux:label>
+                                                <flux:input
+                                                    type="number"
+                                                    step="0.01"
+                                                    wire:model.live="classCustomPrices.{{ $classId }}"
+                                                    placeholder="{{ $class->course?->feeSettings->fee_amount ?? 0 }}"
+                                                />
+                                            </flux:field>
+                                        </div>
+
+                                        <div class="text-right">
+                                            <div class="text-sm font-medium">
+                                                RM {{ number_format(((float)($classCustomPrices[$classId] ?? 0) ?: (float)($class->course?->feeSettings->fee_amount ?? 0)), 2) }}
+                                            </div>
+                                        </div>
+
+                                        <flux:button
+                                            wire:click="removeClass({{ $classId }})"
+                                            variant="outline"
+                                            size="sm"
+                                            icon="x-mark"
+                                        >
+                                        </flux:button>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
             </div>
         </div>
 
         <!-- Settings -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Settings</h3>
+                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Settings</h3>
 
                 <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <flux:field>
@@ -527,9 +648,9 @@ new class extends Component {
         </div>
 
         <!-- SEO -->
-        <div class="bg-white shadow sm:rounded-lg">
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">SEO</h3>
+                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">SEO</h3>
 
                 <div class="grid grid-cols-1 gap-6">
                     <flux:field>

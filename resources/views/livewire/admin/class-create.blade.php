@@ -470,7 +470,7 @@ new class extends Component {
         </flux:button>
     </div>
 
-    <div class="bg-white shadow rounded-lg">
+    <div class="bg-white dark:bg-zinc-800 shadow rounded-lg border border-gray-200 dark:border-zinc-700">
         <form wire:submit="save" class="p-6 space-y-6">
             
             <!-- Basic Information -->
@@ -674,7 +674,7 @@ new class extends Component {
 
                                 @for($week = 1; $week <= 4; $week++)
                                     @php $weekKey = 'week_' . $week; @endphp
-                                    <div class="border border-gray-200 rounded-lg p-4 bg-white">
+                                    <div class="border border-gray-200 dark:border-zinc-700 rounded-lg p-4 bg-white dark:bg-zinc-800">
                                         <div class="flex items-center gap-2 mb-4">
                                             <flux:badge color="blue" size="sm">Week {{ $week }}</flux:badge>
                                             <flux:text class="text-sm text-gray-500">

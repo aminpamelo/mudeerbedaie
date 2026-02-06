@@ -86,13 +86,18 @@ class NotificationService
                 ->pluck('student');
 
             foreach ($students as $student) {
-                if ($student?->user?->email) {
+                // Include recipient if they have email OR phone number
+                // This allows WhatsApp-only notifications to work
+                $hasEmail = ! empty($student?->user?->email);
+                $hasPhone = ! empty($student?->phone_number);
+
+                if ($hasEmail || $hasPhone) {
                     $recipients->push([
                         'type' => 'student',
                         'model' => $student,
-                        'email' => $student->user->email,
-                        'name' => $student->user->name,
-                        'phone' => $student->phone_number, // Include phone for WhatsApp
+                        'email' => $student->user?->email,
+                        'name' => $student->user?->name ?? $student->name ?? 'Pelajar',
+                        'phone' => $student->phone_number,
                     ]);
                 }
             }
@@ -100,13 +105,17 @@ class NotificationService
 
         if ($setting->send_to_teacher && $class->teacher) {
             $teacher = $class->teacher;
-            if ($teacher->user?->email) {
+            // Include teacher if they have email OR phone number
+            $hasEmail = ! empty($teacher->user?->email);
+            $hasPhone = ! empty($teacher->phone_number);
+
+            if ($hasEmail || $hasPhone) {
                 $recipients->push([
                     'type' => 'teacher',
                     'model' => $teacher,
-                    'email' => $teacher->user->email,
-                    'name' => $teacher->user->name,
-                    'phone' => $teacher->phone_number, // Include phone for WhatsApp
+                    'email' => $teacher->user?->email,
+                    'name' => $teacher->user?->name ?? $teacher->name ?? 'Guru',
+                    'phone' => $teacher->phone_number,
                 ]);
             }
         }
@@ -375,8 +384,16 @@ class NotificationService
 
     private function calculateFollowupTime(ClassSession $session, ClassNotificationSetting $setting): ?\Carbon\Carbon
     {
-        // For followups, use the completed_at time if available, otherwise session datetime
-        $baseTime = $session->completed_at ?? $session->getSessionDateTime();
+        // For followups, calculate based on when the session ends
+        if ($session->completed_at) {
+            // If session is completed, use the actual completion time
+            $baseTime = $session->completed_at;
+        } else {
+            // Otherwise, calculate expected end time: session start + duration
+            $sessionStart = $session->getSessionDateTime();
+            $durationMinutes = $session->duration_minutes ?? $session->class?->timetable?->duration_minutes ?? 60;
+            $baseTime = $sessionStart->copy()->addMinutes($durationMinutes);
+        }
 
         return $baseTime->copy()->addMinutes($setting->getMinutesAfter());
     }
@@ -420,5 +437,45 @@ class NotificationService
             ->where('type', $type)
             ->where('language', $language)
             ->first();
+    }
+
+    /**
+     * Check if email should be sent for this notification setting.
+     * Respects both global class channel settings and individual notification settings.
+     */
+    public function shouldSendEmail(ClassModel $class, ClassNotificationSetting $setting): bool
+    {
+        // Check global email channel is enabled for the class
+        if (! ($class->email_channel_enabled ?? true)) {
+            return false;
+        }
+
+        // Check notification type is enabled
+        if (! $setting->is_enabled) {
+            return false;
+        }
+
+        // Check individual email setting (defaults to true if not set)
+        return $setting->email_enabled ?? true;
+    }
+
+    /**
+     * Check if WhatsApp should be sent for this notification setting.
+     * Respects both global class channel settings and individual notification settings.
+     */
+    public function shouldSendWhatsApp(ClassModel $class, ClassNotificationSetting $setting): bool
+    {
+        // Check global WhatsApp channel is enabled for the class
+        if (! ($class->whatsapp_channel_enabled ?? true)) {
+            return false;
+        }
+
+        // Check notification type is enabled
+        if (! $setting->is_enabled) {
+            return false;
+        }
+
+        // Check individual WhatsApp setting
+        return $setting->whatsapp_enabled ?? false;
     }
 }

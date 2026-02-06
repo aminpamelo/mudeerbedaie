@@ -99,9 +99,27 @@ new class extends Component
         ];
     }
 
+    public function messages()
+    {
+        return [
+            'csv_file.required' => 'Please select a CSV file to upload. Wait for the upload to complete before clicking "Process CSV File".',
+            'csv_file.file' => 'The selected file is invalid. Please select a valid CSV file.',
+            'csv_file.mimes' => 'The file must be a CSV or TXT file.',
+            'csv_file.max' => 'The file size must not exceed 20MB.',
+            'selected_account_id.required' => 'Please select a TikTok account.',
+            'selected_account_id.exists' => 'The selected account is invalid.',
+        ];
+    }
+
     // Step 1: File Upload and Initial Processing
     public function uploadAndProcess()
     {
+        // Check if file is still uploading (common user error - clicking submit too fast)
+        if (!$this->csv_file) {
+            $this->addError('csv_file', 'Please wait for the file to finish uploading before clicking "Process CSV File".');
+            return;
+        }
+
         $this->validate();
 
         try {
@@ -1073,7 +1091,7 @@ new class extends Component
 
     {{-- Step 1: File Upload --}}
     @if($current_step === 1)
-    <div class="bg-white rounded-lg border p-6">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
         <flux:heading size="lg" class="mb-4">Step 1: Upload TikTok CSV File</flux:heading>
 
         <form wire:submit="uploadAndProcess" class="space-y-4">
@@ -1082,6 +1100,26 @@ new class extends Component
                     <flux:label>TikTok CSV File *</flux:label>
                     <input type="file" wire:model="csv_file" accept=".csv,.txt"
                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+
+                    {{-- File Upload Progress Indicator --}}
+                    <div wire:loading wire:target="csv_file" class="mt-2">
+                        <div class="flex items-center gap-2 text-blue-600">
+                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-sm font-medium">Uploading file...</span>
+                        </div>
+                    </div>
+
+                    {{-- File Uploaded Success Indicator --}}
+                    @if($csv_file)
+                        <div class="mt-2 flex items-center gap-2 text-green-600">
+                            <flux:icon name="check-circle" class="w-4 h-4" />
+                            <span class="text-sm font-medium">File ready: {{ $csv_file->getClientOriginalName() }}</span>
+                        </div>
+                    @endif
+
                     <flux:description>Upload the CSV file exported from TikTok Seller Center (Max: 20MB)</flux:description>
                     <flux:error name="csv_file" />
                 </flux:field>
@@ -1111,12 +1149,16 @@ new class extends Component
             </div>
 
             <div class="flex justify-end">
-                <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
+                <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="csv_file,uploadAndProcess">
                     <div class="flex items-center justify-center">
-                        <flux:icon name="arrow-up-tray" class="w-4 h-4 mr-1" wire:loading.remove />
-                        <flux:icon name="loading" class="w-4 h-4 mr-1 animate-spin" wire:loading />
-                        <span wire:loading.remove>Process CSV File</span>
-                        <span wire:loading>Processing...</span>
+                        <flux:icon name="arrow-up-tray" class="w-4 h-4 mr-1" wire:loading.remove wire:target="csv_file,uploadAndProcess" />
+                        <svg class="animate-spin h-4 w-4 mr-1" wire:loading wire:target="csv_file,uploadAndProcess" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span wire:loading.remove wire:target="csv_file,uploadAndProcess">Process CSV File</span>
+                        <span wire:loading wire:target="csv_file">Uploading...</span>
+                        <span wire:loading wire:target="uploadAndProcess">Processing...</span>
                     </div>
                 </flux:button>
             </div>
@@ -1126,7 +1168,7 @@ new class extends Component
 
     {{-- Step 2: Field Mapping --}}
     @if($current_step === 2)
-    <div class="bg-white rounded-lg border p-6">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
         <flux:heading size="lg" class="mb-4">Step 2: Map CSV Fields</flux:heading>
         <flux:text class="mb-6">Found {{ count($csv_headers) }} columns and {{ $total_rows }} data rows. Map the TikTok CSV columns to system fields.</flux:text>
 
@@ -1192,7 +1234,7 @@ new class extends Component
 
     {{-- Step 3: Product & Package Mapping --}}
     @if($current_step === 3)
-    <div class="bg-white rounded-lg border p-6">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
         <flux:heading size="lg" class="mb-4">Step 3: Map Products & Packages</flux:heading>
         <flux:text class="mb-6">Map TikTok products to your system products (individual items) or packages (combo bundles) for accurate inventory tracking and sales management.</flux:text>
 
@@ -1354,7 +1396,7 @@ new class extends Component
 
     {{-- Step 4: Preview --}}
     @if($current_step === 4)
-    <div class="bg-white rounded-lg border p-6">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
         <flux:heading size="lg" class="mb-4">Step 4: Import Preview</flux:heading>
         <flux:text class="mb-6">Review the first 5 orders to validate field mapping and product assignments before processing all {{ $total_rows }} orders.</flux:text>
 
@@ -1403,7 +1445,7 @@ new class extends Component
                             <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">Status</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-zinc-200">
+                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-700">
                         @foreach($preview_data as $item)
                         <tr class="{{ count($item['validation_errors']) > 0 ? 'bg-red-50' : (count($item['warnings']) > 0 ? 'bg-yellow-50' : '') }}">
                             <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-900">

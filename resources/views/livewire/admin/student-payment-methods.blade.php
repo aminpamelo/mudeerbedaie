@@ -547,7 +547,7 @@ new class extends Component {
                 <!-- Stripe Elements Card Input -->
                 <div>
                     <flux:text class="font-medium mb-3">Card Information</flux:text>
-                    <div id="stripe-card-element" class="p-4 border rounded-lg bg-white">
+                    <div id="stripe-card-element" class="p-4 border rounded-lg bg-white dark:bg-zinc-700 dark:border-zinc-600">
                         <!-- Stripe Elements will be mounted here -->
                         <div class="text-center text-gray-500 py-8">
                             <flux:icon icon="credit-card" class="w-8 h-8 mx-auto mb-2" />
@@ -637,7 +637,7 @@ new class extends Component {
                             type="text"
                             readonly
                             value="{{ $magicLink }}"
-                            class="flex-1 text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            class="flex-1 text-sm bg-white dark:bg-zinc-700 border border-gray-300 dark:border-zinc-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-gray-200"
                             id="magic-link-input"
                             x-ref="linkInput"
                         />

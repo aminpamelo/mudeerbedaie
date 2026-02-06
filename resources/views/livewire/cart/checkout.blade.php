@@ -3,6 +3,8 @@
 use App\Models\ProductCart;
 use App\Models\ProductOrder;
 use App\Models\ProductOrderPayment;
+use App\Services\BayarcashService;
+use App\Services\SettingsService;
 use Livewire\Volt\Component;
 
 new class extends Component
@@ -127,7 +129,7 @@ new class extends Component
         try {
             // Validate payment method
             $this->validate([
-                'paymentMethod' => 'required|in:credit_card,debit_card,bank_transfer,cash,fpx,grabpay,boost',
+                'paymentMethod' => 'required|in:credit_card,debit_card,bank_transfer,cod,fpx,grabpay,boost',
             ]);
 
             // Final stock validation
@@ -156,6 +158,9 @@ new class extends Component
                 addresses: $addresses
             );
 
+            // Update order with payment method
+            $order->update(['payment_method' => $this->paymentMethod]);
+
             // Create payment record
             $payment = $order->payments()->create([
                 'payment_method' => $this->paymentMethod,
@@ -166,10 +171,15 @@ new class extends Component
                 'transaction_id' => $this->generateTransactionId(),
             ]);
 
-            // For demo purposes, we'll mark cash payments as completed
-            if ($this->paymentMethod === 'cash') {
-                $payment->markAsPaid();
-                $order->markAsConfirmed();
+            // Handle FPX payments via Bayarcash
+            if ($this->paymentMethod === 'fpx' && $this->isBayarcashEnabled()) {
+                $this->processBayarcashPayment($order);
+                return; // Will redirect to Bayarcash
+            }
+
+            // COD: set order to processing, payment remains pending until delivery
+            if ($this->paymentMethod === 'cod') {
+                $order->markAsProcessing();
             }
 
             // Clear the cart
@@ -187,13 +197,48 @@ new class extends Component
         }
     }
 
+    /**
+     * Check if Bayarcash is enabled for FPX payments.
+     */
+    private function isBayarcashEnabled(): bool
+    {
+        return app(SettingsService::class)->isBayarcashEnabled();
+    }
+
+    /**
+     * Process payment via Bayarcash and redirect to payment page.
+     */
+    private function processBayarcashPayment(ProductOrder $order): void
+    {
+        $bayarcashService = app(BayarcashService::class);
+
+        $payerName = trim($this->billingAddress['first_name'] . ' ' . $this->billingAddress['last_name']);
+        $payerEmail = $this->customerData['email'];
+        $payerPhone = $this->customerData['phone'] ?? '';
+
+        $response = $bayarcashService->createPaymentIntent([
+            'order_number' => $order->order_number,
+            'amount' => $order->total_amount,
+            'payer_name' => $payerName,
+            'payer_email' => $payerEmail,
+            'payer_phone' => $payerPhone,
+        ]);
+
+        // Clear the cart before redirecting
+        $this->cart->clear();
+
+        // Redirect to Bayarcash payment page
+        $this->redirect($response->url);
+    }
+
     private function getPaymentProvider(): ?string
     {
         return match($this->paymentMethod) {
             'credit_card', 'debit_card' => 'stripe',
-            'fpx' => 'fpx',
+            'fpx' => 'bayarcash',
             'grabpay' => 'grabpay',
             'boost' => 'boost',
+            'cod' => 'cod',
             default => null,
         };
     }
@@ -469,11 +514,27 @@ new class extends Component
                                     <flux:text size="sm" class="text-gray-600 mt-1">Digital Wallet</flux:text>
                                 </div>
 
-                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'cash' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
-                                    <flux:radio wire:model.live="paymentMethod" value="cash" label="Cash on Delivery" />
+                                @if(app(\App\Services\SettingsService::class)->isCodEnabled())
+                                <div class="border rounded-lg p-4 {{ $paymentMethod === 'cod' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
+                                    <flux:radio wire:model.live="paymentMethod" value="cod" label="Cash on Delivery" />
                                     <flux:text size="sm" class="text-gray-600 mt-1">Pay when you receive</flux:text>
                                 </div>
+                                @endif
                             </div>
+
+                            @if($paymentMethod === 'cod')
+                                @php
+                                    $codInstructions = app(\App\Services\SettingsService::class)->getCodInstructions();
+                                @endphp
+                                @if($codInstructions)
+                                    <div class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <flux:text size="sm" class="text-amber-800">
+                                            <flux:icon name="information-circle" class="w-4 h-4 inline mr-1" />
+                                            {{ $codInstructions }}
+                                        </flux:text>
+                                    </div>
+                                @endif
+                            @endif
 
                             @if(in_array($paymentMethod, ['credit_card', 'debit_card']))
                                 <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">

@@ -72,7 +72,7 @@ new class extends Component
 
     <!-- Summary Stats -->
     <div class="grid grid-cols-1 gap-6 md:grid-cols-3 mb-6">
-        <div class="rounded-lg border border-gray-200 bg-white p-6">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="arrow-down" class="h-8 w-8 text-green-600" />
@@ -86,7 +86,7 @@ new class extends Component
             </div>
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-white p-6">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="arrow-up" class="h-8 w-8 text-red-600" />
@@ -100,7 +100,7 @@ new class extends Component
             </div>
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-white p-6">
+        <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-6">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <flux:icon name="chart-bar" class="h-8 w-8 text-blue-600" />
@@ -158,7 +158,7 @@ new class extends Component
     </div>
 
     <!-- Movements Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0 table-fixed">
                 <colgroup>
@@ -190,7 +190,7 @@ new class extends Component
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white">
+                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                 @forelse($movements as $movement)
                     <tr wire:key="movement-{{ $movement->id }}" class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="py-4 pl-4 pr-2 text-xs sm:pl-6">

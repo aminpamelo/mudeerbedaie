@@ -11,6 +11,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ProcessStudentImportToClass implements ShouldQueue
 {
@@ -52,13 +53,37 @@ class ProcessStudentImportToClass implements ShouldQueue
                 throw new \Exception('Class not found');
             }
 
-            if (! file_exists($importProgress->file_path)) {
+            // Debug logging for production troubleshooting
+            $storagePath = Storage::disk('local')->path('');
+            $fullPath = Storage::disk('local')->path($importProgress->file_path);
+            Log::info("Student import job - Storage base path: {$storagePath}");
+            Log::info("Student import job - Looking for file: {$importProgress->file_path}");
+            Log::info("Student import job - Full path would be: {$fullPath}");
+
+            // Use Storage facade for consistent file access across environments
+            $fileExists = Storage::disk('local')->exists($importProgress->file_path);
+            Log::info('Student import job - Storage exists check: '.($fileExists ? 'YES' : 'NO'));
+
+            if (! $fileExists) {
+                // Additional debug: check with raw file_exists
+                $rawExists = file_exists($fullPath);
+                Log::error('Student import job - File not found via Storage. Raw file_exists: '.($rawExists ? 'YES' : 'NO'));
+
+                // List files in directory for debugging
+                $directory = dirname($importProgress->file_path);
+                if (Storage::disk('local')->exists($directory)) {
+                    $files = Storage::disk('local')->files($directory);
+                    Log::info("Student import job - Files in {$directory}: ".json_encode($files));
+                } else {
+                    Log::error("Student import job - Directory does not exist: {$directory}");
+                }
+
                 throw new \Exception("CSV file not found at path: {$importProgress->file_path}");
             }
 
-            $fileContents = file_get_contents($importProgress->file_path);
+            $fileContents = Storage::disk('local')->get($importProgress->file_path);
 
-            if ($fileContents === false) {
+            if ($fileContents === false || $fileContents === null) {
                 throw new \Exception('Failed to read uploaded file');
             }
 
@@ -107,6 +132,18 @@ class ProcessStudentImportToClass implements ShouldQueue
             $errorCount = 0;
 
             foreach ($lines as $lineNumber => $line) {
+                // Check for cancellation every 10 rows for efficiency
+                if ($processedRows % 10 === 0) {
+                    $importProgress->refresh();
+                    if ($importProgress->status === 'cancelled') {
+                        Log::info("Student import cancelled by user at row {$processedRows}");
+                        // Clean up uploaded file
+                        Storage::disk('local')->delete($importProgress->file_path);
+
+                        return;
+                    }
+                }
+
                 $row = str_getcsv($line);
                 $phone = isset($row[$phoneIndex]) ? trim($row[$phoneIndex]) : null;
                 $name = $nameIndex !== false && isset($row[$nameIndex]) ? trim($row[$nameIndex]) : null;
@@ -140,10 +177,22 @@ class ProcessStudentImportToClass implements ShouldQueue
                 })->first();
 
                 if ($student) {
+                    // Skip students with no associated user account
+                    if (! $student->user) {
+                        $result['errors'][] = 'Row '.($lineNumber + 2).": Student found (phone: {$phone}) but has no associated user account.";
+                        $errorCount++;
+                        $processedRows++;
+                        $this->updateProgress($importProgress, $processedRows, $matchedCount, $createdCount, $enrolledCount, $skippedCount, $errorCount);
+
+                        continue;
+                    }
+
+                    $studentName = $student->user->name;
+
                     $matchedCount++;
                     $result['matched'][] = [
                         'phone' => $phone,
-                        'name' => $student->user->name,
+                        'name' => $studentName,
                         'student_id' => $student->student_id,
                     ];
 
@@ -151,7 +200,7 @@ class ProcessStudentImportToClass implements ShouldQueue
                     if (in_array($student->id, $classStudentIds)) {
                         $result['already_enrolled'][] = [
                             'phone' => $phone,
-                            'name' => $student->user->name,
+                            'name' => $studentName,
                         ];
                         $processedRows++;
                         $this->updateProgress($importProgress, $processedRows, $matchedCount, $createdCount, $enrolledCount, $skippedCount, $errorCount);
@@ -165,7 +214,7 @@ class ProcessStudentImportToClass implements ShouldQueue
                         if ($class->max_capacity) {
                             $currentCount = count($classStudentIds) + $enrolledCount;
                             if ($currentCount >= $class->max_capacity) {
-                                $result['errors'][] = "Skipped {$student->user->name}: Class is at maximum capacity.";
+                                $result['errors'][] = "Skipped {$studentName}: Class is at maximum capacity.";
                                 $errorCount++;
                                 $processedRows++;
                                 $this->updateProgress($importProgress, $processedRows, $matchedCount, $createdCount, $enrolledCount, $skippedCount, $errorCount);
@@ -174,13 +223,26 @@ class ProcessStudentImportToClass implements ShouldQueue
                             }
                         }
 
-                        $class->addStudent($student, $orderId);
-                        $enrolledCount++;
-                        $result['enrolled'][] = [
-                            'phone' => $phone,
-                            'name' => $student->user->name,
-                            'order_id' => $orderId,
-                        ];
+                        try {
+                            $class->addStudent($student, $orderId);
+                            $classStudentIds[] = $student->id; // Track enrolled student to prevent duplicates
+                            $enrolledCount++;
+                            $result['enrolled'][] = [
+                                'phone' => $phone,
+                                'name' => $studentName,
+                                'order_id' => $orderId,
+                            ];
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            // Handle duplicate enrollment gracefully
+                            if (str_contains($e->getMessage(), 'UNIQUE constraint failed') || str_contains($e->getMessage(), 'Duplicate entry')) {
+                                $result['already_enrolled'][] = [
+                                    'phone' => $phone,
+                                    'name' => $studentName,
+                                ];
+                            } else {
+                                throw $e;
+                            }
+                        }
                     }
                 } else {
                     // Student not found
@@ -228,12 +290,25 @@ class ProcessStudentImportToClass implements ShouldQueue
                                 }
 
                                 $class->addStudent($newStudent, $orderId);
+                                $classStudentIds[] = $newStudent->id; // Track enrolled student
                                 $enrolledCount++;
                                 $result['enrolled'][] = [
                                     'phone' => $phone,
                                     'name' => $name,
                                     'order_id' => $orderId,
                                 ];
+                            }
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            DB::rollBack();
+                            // Handle duplicate enrollment gracefully
+                            if (str_contains($e->getMessage(), 'UNIQUE constraint failed') || str_contains($e->getMessage(), 'Duplicate entry')) {
+                                $result['already_enrolled'][] = [
+                                    'phone' => $phone,
+                                    'name' => $name,
+                                ];
+                            } else {
+                                $result['errors'][] = 'Row '.($lineNumber + 2).': Failed to create student - '.$e->getMessage();
+                                $errorCount++;
                             }
                         } catch (\Exception $e) {
                             DB::rollBack();
@@ -262,9 +337,7 @@ class ProcessStudentImportToClass implements ShouldQueue
             ]);
 
             // Clean up uploaded file
-            if (file_exists($importProgress->file_path)) {
-                unlink($importProgress->file_path);
-            }
+            Storage::disk('local')->delete($importProgress->file_path);
 
             Log::info("Student import to class completed: {$processedRows} rows processed, {$matchedCount} matched, {$createdCount} created, {$enrolledCount} enrolled");
         } catch (\Exception $e) {
@@ -276,10 +349,8 @@ class ProcessStudentImportToClass implements ShouldQueue
                 'completed_at' => now(),
             ]);
 
-            // Clean up uploaded file
-            if (file_exists($importProgress->file_path)) {
-                unlink($importProgress->file_path);
-            }
+            // Don't delete file on failure - it might be needed for debugging or retry
+            // File will be cleaned up by a scheduled task or manually
 
             throw $e;
         }

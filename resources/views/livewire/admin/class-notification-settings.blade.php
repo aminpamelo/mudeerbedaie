@@ -57,6 +57,15 @@ new class extends Component
 
     public string $activeChannelTab = 'email';
 
+    // Main channel tab for separating Email/WhatsApp views
+    #[\Livewire\Attributes\Url(as: 'channel')]
+    public string $activeMainTab = 'email';
+
+    // Global channel enabled states
+    public bool $emailChannelEnabled = true;
+
+    public bool $whatsappChannelEnabled = true;
+
     // WhatsApp image properties
     public $whatsappImage = null;
 
@@ -67,10 +76,23 @@ new class extends Component
 
     public Collection $attachments;
 
+    // WhatsApp Template Modal properties
+    public bool $showWhatsappModal = false;
+
+    public ?int $editingWhatsappSettingId = null;
+
+    public string $waTemplateContent = '';
+
+    public $waTemplateImage = null;
+
+    public ?string $waExistingImagePath = null;
+
     public function mount(ClassModel $class): void
     {
         $this->class = $class;
         $this->autoScheduleEnabled = $class->auto_schedule_notifications ?? false;
+        $this->emailChannelEnabled = $class->email_channel_enabled ?? true;
+        $this->whatsappChannelEnabled = $class->whatsapp_channel_enabled ?? true;
         $this->attachments = collect();
         $this->initializeSettings();
     }
@@ -129,6 +151,35 @@ new class extends Component
         );
     }
 
+    public function setActiveMainTab(string $tab): void
+    {
+        $this->activeMainTab = $tab;
+    }
+
+    public function updatedEmailChannelEnabled(): void
+    {
+        $this->class->update(['email_channel_enabled' => $this->emailChannelEnabled]);
+
+        $this->dispatch('notify',
+            type: 'success',
+            message: $this->emailChannelEnabled
+                ? 'Saluran E-mel telah diaktifkan untuk semua notifikasi.'
+                : 'Saluran E-mel telah dinyahaktifkan untuk semua notifikasi.',
+        );
+    }
+
+    public function updatedWhatsappChannelEnabled(): void
+    {
+        $this->class->update(['whatsapp_channel_enabled' => $this->whatsappChannelEnabled]);
+
+        $this->dispatch('notify',
+            type: 'success',
+            message: $this->whatsappChannelEnabled
+                ? 'Saluran WhatsApp telah diaktifkan untuk semua notifikasi.'
+                : 'Saluran WhatsApp telah dinyahaktifkan untuk semua notifikasi.',
+        );
+    }
+
     public function getSettingsProperty()
     {
         return $this->class->notificationSettings()
@@ -167,6 +218,67 @@ new class extends Component
 
         foreach ($notifications as $notification) {
             // Create a unique key for each session slot
+            if ($notification->scheduled_session_date) {
+                $slotKey = $notification->scheduled_session_date->format('Y-m-d').'_'.$notification->scheduled_session_time;
+                $slotLabel = $notification->scheduled_session_date->format('d M Y').' - '.\Carbon\Carbon::parse($notification->scheduled_session_time)->format('g:i A');
+                $slotDate = $notification->scheduled_session_date;
+            } elseif ($notification->session) {
+                $slotKey = $notification->session->session_date->format('Y-m-d').'_'.$notification->session->session_time->format('H:i:s');
+                $slotLabel = $notification->session->session_date->format('d M Y').' - '.$notification->session->session_time->format('g:i A');
+                $slotDate = $notification->session->session_date;
+            } else {
+                $slotKey = 'unknown';
+                $slotLabel = 'Tidak Diketahui';
+                $slotDate = null;
+            }
+
+            if (! isset($grouped[$slotKey])) {
+                $grouped[$slotKey] = [
+                    'label' => $slotLabel,
+                    'date' => $slotDate,
+                    'notifications' => [],
+                ];
+            }
+
+            $grouped[$slotKey]['notifications'][] = $notification;
+        }
+
+        return $grouped;
+    }
+
+    public function getFilteredNotificationHistoryProperty(): array
+    {
+        $channel = $this->activeMainTab;
+
+        // Build query based on channel
+        $query = $this->class->scheduledNotifications()
+            ->with(['session', 'setting'])
+            ->with(['logs' => fn ($q) => $q->where('channel', $channel)]);
+
+        // Filter based on channel settings on the notification setting
+        // For Email: show if setting has email_enabled (defaults to true if null)
+        // For WhatsApp: show if setting has whatsapp_enabled
+        if ($channel === 'email') {
+            $query->whereHas('setting', function ($q) {
+                $q->where(function ($sub) {
+                    $sub->where('email_enabled', true)
+                        ->orWhereNull('email_enabled'); // Default to true if not set
+                });
+            });
+        } else {
+            // WhatsApp channel
+            $query->whereHas('setting', fn ($q) => $q->where('whatsapp_enabled', true));
+        }
+
+        $notifications = $query
+            ->orderByDesc('scheduled_session_date')
+            ->orderByDesc('scheduled_session_time')
+            ->orderByDesc('scheduled_at')
+            ->get();
+
+        $grouped = [];
+
+        foreach ($notifications as $notification) {
             if ($notification->scheduled_session_date) {
                 $slotKey = $notification->scheduled_session_date->format('Y-m-d').'_'.$notification->scheduled_session_time;
                 $slotLabel = $notification->scheduled_session_date->format('d M Y').' - '.\Carbon\Carbon::parse($notification->scheduled_session_time)->format('g:i A');
@@ -246,6 +358,185 @@ new class extends Component
                     : 'Notifikasi telah dinyahaktifkan',
             );
         }
+    }
+
+    public function toggleEmailSetting(int $settingId, ?bool $newValue = null): void
+    {
+        $setting = ClassNotificationSetting::find($settingId);
+        if ($setting && $setting->class_id === $this->class->id) {
+            // Get current WhatsApp state
+            $currentWhatsappEnabled = $setting->whatsapp_enabled ?? false;
+
+            // Determine new email state
+            if ($newValue !== null) {
+                // Use the explicitly passed value from the switch
+                $newEmailEnabled = $newValue;
+            } else {
+                // Fallback: toggle based on current state
+                $currentEmailEnabled = $setting->email_enabled;
+                if ($currentEmailEnabled === null) {
+                    $currentEmailEnabled = $setting->is_enabled && ! $currentWhatsappEnabled;
+                }
+                $newEmailEnabled = ! $currentEmailEnabled;
+            }
+
+            // Always explicitly set both channel flags to avoid null ambiguity
+            $updateData = [
+                'email_enabled' => $newEmailEnabled,
+                'whatsapp_enabled' => $currentWhatsappEnabled, // Keep WhatsApp unchanged
+                'is_enabled' => $newEmailEnabled || $currentWhatsappEnabled,
+            ];
+
+            $setting->update($updateData);
+
+            $this->dispatch('notify',
+                type: 'success',
+                message: $newEmailEnabled
+                    ? 'Notifikasi e-mel telah diaktifkan'
+                    : 'Notifikasi e-mel telah dinyahaktifkan',
+            );
+        }
+    }
+
+    public function toggleWhatsappSetting(int $settingId, ?bool $newValue = null): void
+    {
+        $setting = ClassNotificationSetting::find($settingId);
+        if ($setting && $setting->class_id === $this->class->id) {
+            // Get current email state
+            $currentEmailEnabled = $setting->email_enabled;
+            $currentWhatsappEnabled = $setting->whatsapp_enabled ?? false;
+
+            // If email_enabled is null (legacy data), determine from is_enabled
+            if ($currentEmailEnabled === null) {
+                $currentEmailEnabled = $setting->is_enabled && ! $currentWhatsappEnabled;
+            }
+
+            // Determine new WhatsApp state
+            if ($newValue !== null) {
+                // Use the explicitly passed value from the switch
+                $newWhatsappEnabled = $newValue;
+            } else {
+                // Fallback: toggle based on current state
+                $newWhatsappEnabled = ! $currentWhatsappEnabled;
+            }
+
+            // Always explicitly set both channel flags to avoid null ambiguity
+            $updateData = [
+                'email_enabled' => $currentEmailEnabled, // Keep Email unchanged
+                'whatsapp_enabled' => $newWhatsappEnabled,
+                'is_enabled' => $currentEmailEnabled || $newWhatsappEnabled,
+            ];
+
+            $setting->update($updateData);
+
+            $this->dispatch('notify',
+                type: 'success',
+                message: $newWhatsappEnabled
+                    ? 'Notifikasi WhatsApp telah diaktifkan'
+                    : 'Notifikasi WhatsApp telah dinyahaktifkan',
+            );
+        }
+    }
+
+    public function editWhatsappTemplate(int $settingId): void
+    {
+        $setting = ClassNotificationSetting::find($settingId);
+        if ($setting && $setting->class_id === $this->class->id) {
+            $this->editingWhatsappSettingId = $settingId;
+            $this->waTemplateContent = $setting->whatsapp_content ?? '';
+            $this->waTemplateImage = null;
+            $this->waExistingImagePath = $setting->whatsapp_image_path;
+            $this->showWhatsappModal = true;
+        }
+    }
+
+    public function saveWhatsappTemplate(): void
+    {
+        $setting = ClassNotificationSetting::find($this->editingWhatsappSettingId);
+        if ($setting && $setting->class_id === $this->class->id) {
+            $updateData = [
+                'whatsapp_content' => $this->waTemplateContent,
+                'use_custom_whatsapp_template' => ! empty($this->waTemplateContent),
+            ];
+
+            // Handle image upload
+            if ($this->waTemplateImage) {
+                // Delete old image if exists
+                if ($this->waExistingImagePath) {
+                    Storage::disk('public')->delete($this->waExistingImagePath);
+                }
+
+                $path = $this->waTemplateImage->store('whatsapp-templates', 'public');
+                $updateData['whatsapp_image_path'] = $path;
+                $this->waExistingImagePath = $path;
+            }
+
+            $setting->update($updateData);
+
+            $this->dispatch('notify', type: 'success', message: 'Templat WhatsApp berjaya disimpan');
+            $this->showWhatsappModal = false;
+        }
+    }
+
+    public function removeWaTemplateImage(): void
+    {
+        $setting = ClassNotificationSetting::find($this->editingWhatsappSettingId);
+        if ($setting && $setting->class_id === $this->class->id && $this->waExistingImagePath) {
+            Storage::disk('public')->delete($this->waExistingImagePath);
+            $setting->update(['whatsapp_image_path' => null]);
+            $this->waExistingImagePath = null;
+            $this->dispatch('notify', type: 'success', message: 'Gambar telah dipadamkan');
+        }
+    }
+
+    #[\Livewire\Attributes\Computed]
+    public function waNotificationTypeLabel(): array
+    {
+        if (! $this->editingWhatsappSettingId) {
+            return ['name' => '', 'description' => ''];
+        }
+
+        $setting = ClassNotificationSetting::find($this->editingWhatsappSettingId);
+        if (! $setting) {
+            return ['name' => '', 'description' => ''];
+        }
+
+        return ClassNotificationSetting::getNotificationTypeLabels()[$setting->notification_type] ?? [
+            'name' => $setting->notification_type,
+            'description' => '',
+        ];
+    }
+
+    #[\Livewire\Attributes\Computed]
+    public function waPreviewContent(): string
+    {
+        if (empty($this->waTemplateContent)) {
+            return '';
+        }
+
+        $replacements = [
+            '{{student_name}}' => 'Ahmad bin Ali (Contoh)',
+            '{{teacher_name}}' => 'Ustazah Noraini binti Sulaiman',
+            '{{class_name}}' => $this->class->title,
+            '{{course_name}}' => $this->class->course?->name ?? 'Kursus',
+            '{{session_date}}' => now()->addDay()->format('d M Y'),
+            '{{session_time}}' => '8:00 PM',
+            '{{session_datetime}}' => now()->addDay()->format('d M Y') . ' 8:00 PM',
+            '{{location}}' => $this->class->location ?? 'TBA',
+            '{{meeting_url}}' => $this->class->meeting_url ?? 'http://example.com/meet',
+            '{{whatsapp_link}}' => $this->class->whatsapp_group_link ?? '',
+            '{{duration}}' => ($this->class->duration_minutes ?? 60) . ' minit',
+            '{{remaining_sessions}}' => '8',
+            '{{total_sessions}}' => '12',
+            '{{attendance_rate}}' => '92%',
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $this->waTemplateContent);
+    }
+
+    public function getWaPreviewContent(): string
+    {
+        return $this->waPreviewContent;
     }
 
     public function editSetting(int $settingId): void
@@ -356,7 +647,7 @@ new class extends Component
                 $data['editor_type'] = $this->editorType;
 
                 if ($this->editorType === 'visual') {
-                    $data['custom_subject'] = null;
+                    $data['custom_subject'] = $this->customSubject ?: null; // Allow subject for visual editor
                     $data['custom_content'] = null;
                     $data['design_json'] = $this->designJson ? json_decode($this->designJson, true) : null;
                     $data['html_content'] = $this->htmlContent;
@@ -594,6 +885,38 @@ new class extends Component
         }
     }
 
+    public function cancelScheduledNotificationsForSlot(string $date, string $time): void
+    {
+        // Normalize time format to HH:MM (remove seconds if present)
+        $normalizedTime = preg_replace('/^(\d{1,2}:\d{2})(:\d{2})?$/', '$1', $time);
+
+        // Find and cancel all pending notifications for this slot
+        // Use whereDate for proper date comparison with date-cast column
+        $cancelled = ScheduledNotification::where('class_id', $this->class->id)
+            ->whereDate('scheduled_session_date', $date)
+            ->where(function ($query) use ($normalizedTime) {
+                $query->where('scheduled_session_time', $normalizedTime)
+                    ->orWhere('scheduled_session_time', $normalizedTime.':00');
+            })
+            ->whereIn('status', ['pending', 'processing'])
+            ->update(['status' => 'cancelled']);
+
+        // Clear cached computed property to force refresh on re-render
+        unset($this->scheduledSlots);
+
+        if ($cancelled > 0) {
+            $this->dispatch('notify',
+                type: 'success',
+                message: $cancelled.' notifikasi telah dibatalkan untuk slot ini',
+            );
+        } else {
+            $this->dispatch('notify',
+                type: 'info',
+                message: 'Tiada notifikasi untuk dibatalkan',
+            );
+        }
+    }
+
     public function scheduleAllUpcomingNotifications(): void
     {
         $service = app(\App\Services\NotificationService::class);
@@ -645,10 +968,10 @@ new class extends Component
     public string $testChannel = 'email';
     public bool $showTestModal = false;
 
-    public function openTestModal(int $settingId): void
+    public function openTestModal(int $settingId, string $channel = 'email'): void
     {
         $this->testSettingId = $settingId;
-        $this->testChannel = 'email';
+        $this->testChannel = $channel;
         $this->showTestModal = true;
     }
 
@@ -1281,10 +1604,28 @@ new class extends Component
                                     @endif
                                 </div>
                                 @if($isScheduled && $pendingCount > 0)
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 text-sm font-medium rounded-lg">
-                                        <flux:icon.check-circle class="w-4 h-4" />
-                                        Telah Dijadualkan
-                                    </span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 text-sm font-medium rounded-lg">
+                                            <flux:icon.check-circle class="w-4 h-4" />
+                                            Telah Dijadualkan
+                                        </span>
+                                        <flux:button
+                                            variant="danger"
+                                            size="xs"
+                                            wire:click="cancelScheduledNotificationsForSlot('{{ $slot['session_date'] }}', '{{ $slot['session_time'] }}')"
+                                            wire:loading.attr="disabled"
+                                            wire:target="cancelScheduledNotificationsForSlot('{{ $slot['session_date'] }}', '{{ $slot['session_time'] }}')"
+                                            wire:confirm="Adakah anda pasti untuk membatalkan {{ $pendingCount }} notifikasi yang dijadualkan untuk slot ini?"
+                                            title="Batalkan Notifikasi"
+                                        >
+                                            <span wire:loading.remove wire:target="cancelScheduledNotificationsForSlot('{{ $slot['session_date'] }}', '{{ $slot['session_time'] }}')">
+                                                <flux:icon.x-mark class="w-3.5 h-3.5" />
+                                            </span>
+                                            <span wire:loading wire:target="cancelScheduledNotificationsForSlot('{{ $slot['session_date'] }}', '{{ $slot['session_time'] }}')">
+                                                <flux:icon.arrow-path class="w-3.5 h-3.5 animate-spin" />
+                                            </span>
+                                        </flux:button>
+                                    </div>
                                 @elseif($autoScheduleEnabled)
                                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg">
                                         <flux:icon.bolt class="w-4 h-4" />
@@ -1336,33 +1677,183 @@ new class extends Component
                 </flux:text>
             </div>
 
+            <!-- Channel Sub-tabs -->
+            <div class="flex border-b border-gray-200 mb-4">
+                <button
+                    type="button"
+                    wire:click="setActiveMainTab('email')"
+                    class="flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'email' ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50' }}"
+                >
+                    <flux:icon.envelope class="w-4 h-4" />
+                    E-mel
+                    @php
+                        $emailEnabledCount = $this->settings->where('is_enabled', true)->where('email_enabled', true)->count();
+                    @endphp
+                    @if($emailEnabledCount > 0)
+                        <flux:badge color="blue" size="sm">{{ $emailEnabledCount }}</flux:badge>
+                    @endif
+                </button>
+                <button
+                    type="button"
+                    wire:click="setActiveMainTab('whatsapp')"
+                    class="flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'whatsapp' ? 'border-green-500 text-green-600 bg-green-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50' }}"
+                >
+                    <flux:icon.device-phone-mobile class="w-4 h-4" />
+                    WhatsApp
+                    @php
+                        $whatsappEnabledCount = $this->settings->where('is_enabled', true)->where('whatsapp_enabled', true)->count();
+                    @endphp
+                    @if($whatsappEnabledCount > 0)
+                        <flux:badge color="green" size="sm">{{ $whatsappEnabledCount }}</flux:badge>
+                    @endif
+                </button>
+            </div>
+
+            <!-- Global Channel Toggle -->
+            @if($activeMainTab === 'email')
+                <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <flux:icon.envelope class="w-5 h-5 text-blue-600" />
+                            <div>
+                                <p class="font-medium text-blue-900">Aktifkan Saluran E-mel</p>
+                                <p class="text-sm text-blue-700">Kawalan utama untuk semua notifikasi e-mel kelas ini</p>
+                            </div>
+                        </div>
+                        <flux:switch
+                            wire:model.live="emailChannelEnabled"
+                        />
+                    </div>
+                    @if(!$emailChannelEnabled)
+                        <div class="mt-3 p-2 bg-blue-100 rounded text-sm text-blue-800">
+                            <flux:icon.information-circle class="w-4 h-4 inline mr-1" />
+                            Semua notifikasi e-mel dinyahaktifkan. Aktifkan suis di atas untuk menghantar notifikasi e-mel.
+                        </div>
+                    @endif
+                </div>
+            @else
+                <div class="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <flux:icon.device-phone-mobile class="w-5 h-5 text-green-600" />
+                            <div>
+                                <p class="font-medium text-green-900">Aktifkan Saluran WhatsApp</p>
+                                <p class="text-sm text-green-700">Kawalan utama untuk semua notifikasi WhatsApp kelas ini</p>
+                            </div>
+                        </div>
+                        <flux:switch
+                            wire:model.live="whatsappChannelEnabled"
+                        />
+                    </div>
+                    @if(!$whatsappChannelEnabled)
+                        <div class="mt-3 p-2 bg-green-100 rounded text-sm text-green-800">
+                            <flux:icon.information-circle class="w-4 h-4 inline mr-1" />
+                            Semua notifikasi WhatsApp dinyahaktifkan. Aktifkan suis di atas untuk menghantar notifikasi WhatsApp.
+                        </div>
+                    @endif
+                </div>
+            @endif
+
             <div class="space-y-4">
                 @php $typeLabels = $this->getTypeLabels(); @endphp
                 @foreach($this->settings as $setting)
                     @php
                         $label = $typeLabels[$setting->notification_type] ?? ['name' => $setting->notification_type, 'description' => ''];
+                        $readiness = $setting->template_readiness;
+                        // Determine if each channel is enabled for this notification
+                        // Channels are independent - use channel-specific flags
+                        // For backward compatibility: if email_enabled is null, check is_enabled (legacy behavior)
+                        $isWhatsappEnabled = $setting->whatsapp_enabled ?? false;
+                        $isEmailEnabled = $setting->email_enabled ?? ($setting->is_enabled && !$isWhatsappEnabled);
+                        $currentChannelEnabled = $activeMainTab === 'email' ? $isEmailEnabled : $isWhatsappEnabled;
                     @endphp
-                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors {{ !$currentChannelEnabled ? 'opacity-60' : '' }}">
                         <div class="flex-1">
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
                                 <p class="font-medium text-gray-900">{{ $label['name'] }}</p>
-                                @if($setting->is_enabled)
-                                    <flux:badge color="green" size="sm">Aktif</flux:badge>
+                                @if($activeMainTab === 'email')
+                                    @if($isEmailEnabled)
+                                        <flux:badge color="blue" size="sm">
+                                            <flux:icon.envelope class="w-3 h-3 mr-0.5" />
+                                            Aktif
+                                        </flux:badge>
+                                    @else
+                                        <flux:badge color="zinc" size="sm">Tidak Aktif</flux:badge>
+                                    @endif
                                 @else
-                                    <flux:badge color="zinc" size="sm">Tidak Aktif</flux:badge>
+                                    @if($isWhatsappEnabled)
+                                        <flux:badge color="green" size="sm">
+                                            <flux:icon.device-phone-mobile class="w-3 h-3 mr-0.5" />
+                                            Aktif
+                                        </flux:badge>
+                                        @if($setting->hasCustomWhatsAppTemplate())
+                                            <flux:badge color="emerald" size="sm" title="Templat WhatsApp tersuai">
+                                                <flux:icon.document-check class="w-3 h-3 mr-0.5" />
+                                                Tersuai
+                                            </flux:badge>
+                                        @endif
+                                    @else
+                                        <flux:badge color="zinc" size="sm">Tidak Aktif</flux:badge>
+                                    @endif
                                 @endif
-                                @if($setting->whatsapp_enabled)
-                                    <flux:badge color="emerald" size="sm">
-                                        <flux:icon.device-phone-mobile class="w-3 h-3 mr-0.5" />
-                                        WhatsApp
+                                @if($currentChannelEnabled && $readiness['ready'])
+                                    <flux:badge color="sky" size="sm" title="Templat sedia untuk penghantaran">
+                                        <flux:icon.check-circle class="w-3 h-3 mr-0.5" />
+                                        Sedia
+                                        </flux:badge>
+                                @elseif($currentChannelEnabled && !$readiness['ready'])
+                                    <flux:badge color="amber" size="sm" title="{{ implode(', ', $readiness['issues']) }}">
+                                        <flux:icon.exclamation-triangle class="w-3 h-3 mr-0.5" />
+                                        {{ implode(', ', $readiness['issues']) }}
                                     </flux:badge>
                                 @endif
                             </div>
                             <p class="text-sm text-gray-500 mt-1">{{ $label['description'] }}</p>
-                            @if($setting->template)
-                                <p class="text-xs text-gray-400 mt-1">
-                                    Templat: {{ $setting->template->name }}
-                                </p>
+
+                            {{-- Channel-specific template info --}}
+                            @if($activeMainTab === 'email')
+                                @if($setting->template)
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        <flux:icon.document-text class="w-3 h-3 inline mr-0.5" />
+                                        Templat: {{ $setting->template->name }}
+                                        @if($readiness['source'] === 'custom_visual')
+                                            <span class="text-blue-600">(Templat visual tersuai)</span>
+                                        @elseif($readiness['source'] === 'custom_text')
+                                            <span class="text-blue-600">(Templat teks tersuai)</span>
+                                        @endif
+                                    </p>
+                                @elseif($setting->hasCustomTemplate())
+                                    <p class="text-xs text-blue-600 mt-1">
+                                        <flux:icon.document-text class="w-3 h-3 inline mr-0.5" />
+                                        @if($readiness['source'] === 'custom_visual')
+                                            Templat visual tersuai
+                                        @else
+                                            Templat teks tersuai
+                                        @endif
+                                    </p>
+                                @elseif($isEmailEnabled && !$readiness['ready'])
+                                    <p class="text-xs text-amber-600 mt-1">
+                                        <flux:icon.exclamation-circle class="w-3 h-3 inline mr-0.5" />
+                                        Sila tetapkan templat atau kandungan tersuai
+                                    </p>
+                                @endif
+                            @else
+                                {{-- WhatsApp tab --}}
+                                @if($setting->hasCustomWhatsAppTemplate())
+                                    <p class="text-xs text-green-600 mt-1">
+                                        <flux:icon.document-text class="w-3 h-3 inline mr-0.5" />
+                                        Templat WhatsApp tersuai
+                                        @if($setting->hasWhatsAppImage())
+                                            <flux:icon.photo class="w-3 h-3 inline ml-2" />
+                                            dengan gambar
+                                        @endif
+                                    </p>
+                                @elseif($isWhatsappEnabled)
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        <flux:icon.arrow-path class="w-3 h-3 inline mr-0.5" />
+                                        Auto-tukar dari templat e-mel
+                                    </p>
+                                @endif
                             @endif
                         </div>
                         <div class="flex items-center gap-3">
@@ -1381,27 +1872,53 @@ new class extends Component
                                 @endif
                             </div>
                             <div class="flex items-center gap-2">
-                                <flux:button
-                                    variant="outline"
-                                    size="sm"
-                                    wire:click="openTestModal({{ $setting->id }})"
-                                    wire:loading.attr="disabled"
-                                    title="Hantar mesej ujian"
-                                >
-                                    <flux:icon.paper-airplane class="w-4 h-4" />
-                                </flux:button>
-                                <flux:button
-                                    variant="outline"
-                                    size="sm"
-                                    wire:click="editSetting({{ $setting->id }})"
-                                    title="Edit tetapan"
-                                >
-                                    <flux:icon.pencil class="w-4 h-4" />
-                                </flux:button>
-                                <flux:switch
-                                    wire:click="toggleSetting({{ $setting->id }})"
-                                    :checked="$setting->is_enabled"
-                                />
+                                @if($activeMainTab === 'whatsapp')
+                                    <flux:button
+                                        variant="outline"
+                                        size="sm"
+                                        wire:click="openTestModal({{ $setting->id }}, 'whatsapp')"
+                                        wire:loading.attr="disabled"
+                                        title="Hantar mesej WhatsApp ujian"
+                                    >
+                                        <flux:icon.paper-airplane class="w-4 h-4" />
+                                    </flux:button>
+                                    <flux:button
+                                        variant="outline"
+                                        size="sm"
+                                        wire:click="editWhatsappTemplate({{ $setting->id }})"
+                                        title="Edit templat WhatsApp"
+                                    >
+                                        <flux:icon.pencil class="w-4 h-4" />
+                                    </flux:button>
+                                    <flux:switch
+                                        x-on:change="$wire.toggleWhatsappSetting({{ $setting->id }}, $event.target.checked)"
+                                        :checked="$isWhatsappEnabled"
+                                        title="Aktif/Nyahaktif WhatsApp"
+                                    />
+                                @else
+                                    <flux:button
+                                        variant="outline"
+                                        size="sm"
+                                        wire:click="openTestModal({{ $setting->id }}, 'email')"
+                                        wire:loading.attr="disabled"
+                                        title="Hantar e-mel ujian"
+                                    >
+                                        <flux:icon.paper-airplane class="w-4 h-4" />
+                                    </flux:button>
+                                    <flux:button
+                                        variant="outline"
+                                        size="sm"
+                                        wire:click="editSetting({{ $setting->id }})"
+                                        title="Edit tetapan e-mel"
+                                    >
+                                        <flux:icon.pencil class="w-4 h-4" />
+                                    </flux:button>
+                                    <flux:switch
+                                        x-on:change="$wire.toggleEmailSetting({{ $setting->id }}, $event.target.checked)"
+                                        :checked="$isEmailEnabled"
+                                        title="Aktif/Nyahaktif E-mel"
+                                    />
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -1420,7 +1937,27 @@ new class extends Component
                 </flux:text>
             </div>
 
-            @php $groupedHistory = $this->groupedNotificationHistory; @endphp
+            <!-- History Channel Tabs -->
+            <div class="flex border-b border-gray-200 mb-4">
+                <button
+                    type="button"
+                    wire:click="setActiveMainTab('email')"
+                    class="flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'email' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}"
+                >
+                    <flux:icon.envelope class="w-4 h-4" />
+                    E-mel
+                </button>
+                <button
+                    type="button"
+                    wire:click="setActiveMainTab('whatsapp')"
+                    class="flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'whatsapp' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}"
+                >
+                    <flux:icon.device-phone-mobile class="w-4 h-4" />
+                    WhatsApp
+                </button>
+            </div>
+
+            @php $groupedHistory = $this->filteredNotificationHistory; @endphp
 
             @if(count($groupedHistory) > 0)
                 <div class="space-y-4">
@@ -1430,12 +1967,16 @@ new class extends Component
                             <button
                                 type="button"
                                 @click="expanded = !expanded"
-                                class="w-full bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 hover:from-blue-100 hover:to-indigo-100 transition-colors cursor-pointer"
+                                class="w-full px-4 py-3 transition-colors cursor-pointer {{ $activeMainTab === 'email' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100' : 'bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100' }}"
                                 :class="expanded ? 'border-b border-gray-200' : ''"
                             >
                                 <div class="flex items-center gap-3">
-                                    <div class="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                        <flux:icon.calendar class="w-5 h-5 text-blue-600" />
+                                    <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center {{ $activeMainTab === 'email' ? 'bg-blue-100' : 'bg-green-100' }}">
+                                        @if($activeMainTab === 'email')
+                                            <flux:icon.envelope class="w-5 h-5 text-blue-600" />
+                                        @else
+                                            <flux:icon.device-phone-mobile class="w-5 h-5 text-green-600" />
+                                        @endif
                                     </div>
                                     <div class="flex-1 text-left">
                                         <p class="font-semibold text-gray-900">Sesi: {{ $group['label'] }}</p>
@@ -1647,9 +2188,15 @@ new class extends Component
                 </div>
             @else
                 <div class="text-center py-12">
-                    <flux:icon.bell-slash class="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p class="text-gray-700 font-medium">Tiada notifikasi dijadualkan lagi.</p>
-                    <p class="text-sm text-gray-500 mt-1">Aktifkan tetapan notifikasi di atas dan klik "Jadualkan Semua" untuk mula menghantar notifikasi.</p>
+                    @if($activeMainTab === 'email')
+                        <flux:icon.envelope class="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p class="text-gray-700 font-medium">Tiada notifikasi e-mel dijadualkan lagi.</p>
+                        <p class="text-sm text-gray-500 mt-1">Aktifkan tetapan notifikasi e-mel di atas untuk mula menghantar notifikasi.</p>
+                    @else
+                        <flux:icon.device-phone-mobile class="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p class="text-gray-700 font-medium">Tiada notifikasi WhatsApp dijadualkan lagi.</p>
+                        <p class="text-sm text-gray-500 mt-1">Aktifkan tetapan notifikasi WhatsApp di atas untuk mula menghantar notifikasi.</p>
+                    @endif
                 </div>
             @endif
         </div>
@@ -1789,7 +2336,7 @@ new class extends Component
                                 @endif
                             </div>
                         </div>
-                        <div class="bg-white p-4 space-y-4">
+                        <div class="bg-white dark:bg-zinc-800 p-4 space-y-4">
                             <flux:select wire:model.live="selectedTemplateId" class="w-full">
                                 <option value="">-- Pilih Templat --</option>
                                 @foreach($this->templates as $type => $templateGroup)
@@ -1868,7 +2415,7 @@ new class extends Component
                             </div>
                             <p class="text-xs text-amber-700 mt-1">Templat ini akan digunakan khusus untuk kelas ini sahaja</p>
                         </div>
-                        <div class="bg-white p-4 space-y-4">
+                        <div class="bg-white dark:bg-zinc-800 p-4 space-y-4">
                             <!-- Editor Type Selection -->
                             <div>
                                 <flux:label class="mb-2">Jenis Editor</flux:label>
@@ -1892,21 +2439,29 @@ new class extends Component
 
                             @if($editorType === 'visual')
                                 <!-- Visual Builder Section -->
-                                <div class="p-4 border border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div>
-                                            <p class="font-semibold text-gray-900 text-sm">Templat Visual</p>
-                                            <p class="text-xs text-purple-600">Reka bentuk email dengan gambar dan susun atur tersuai</p>
+                                <div class="space-y-4">
+                                    <!-- Subject field for visual editor -->
+                                    <flux:field>
+                                        <flux:label>Subjek E-mel</flux:label>
+                                        <flux:input wire:model="customSubject" placeholder="Contoh: Peringatan Kelas @{{class_name}}" />
+                                        <flux:description>Subjek e-mel akan digunakan untuk templat visual anda.</flux:description>
+                                    </flux:field>
+
+                                    <div class="p-4 border border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div>
+                                                <p class="font-semibold text-gray-900 text-sm">Templat Visual</p>
+                                                <p class="text-xs text-purple-600">Reka bentuk email dengan gambar dan susun atur tersuai</p>
+                                            </div>
+                                            <flux:button
+                                                wire:click="openVisualBuilder"
+                                                variant="primary"
+                                                size="sm"
+                                                icon="pencil-square"
+                                            >
+                                                {{ $hasVisualContent ? 'Edit Reka Bentuk' : 'Cipta Reka Bentuk' }}
+                                            </flux:button>
                                         </div>
-                                        <flux:button
-                                            wire:click="openVisualBuilder"
-                                            variant="primary"
-                                            size="sm"
-                                            icon="pencil-square"
-                                        >
-                                            {{ $hasVisualContent ? 'Edit Reka Bentuk' : 'Cipta Reka Bentuk' }}
-                                        </flux:button>
-                                    </div>
 
                                     @if($hasVisualContent)
                                         <div class="p-3 bg-white rounded border border-purple-100">
@@ -1921,6 +2476,7 @@ new class extends Component
                                             <p class="text-xs text-gray-500">Klik butang untuk mula mereka bentuk templat</p>
                                         </div>
                                     @endif
+                                    </div>
                                 </div>
                             @else
                                 <!-- Text Editor Section -->
@@ -1983,7 +2539,7 @@ new class extends Component
                             <span class="text-xs text-gray-500">(Pilihan)</span>
                         </div>
                     </div>
-                    <div class="bg-white p-4 space-y-4">
+                    <div class="bg-white dark:bg-zinc-800 p-4 space-y-4">
                         <!-- Upload Area -->
                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
                             <input type="file" wire:model="newAttachments" multiple class="hidden" id="attachment-upload-{{ $editingSettingId }}">
@@ -2044,272 +2600,35 @@ new class extends Component
                     </div>
                 </div>
 
-                <!-- Delivery Channels Card -->
-                <div class="border border-gray-200 rounded-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-gray-50 to-slate-50 px-4 py-3 border-b border-gray-200">
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <flux:icon.megaphone class="w-4 h-4 text-blue-600" />
+                <!-- Email Channel Info Card -->
+                <div class="border border-blue-200 rounded-xl overflow-hidden bg-blue-50">
+                    <div class="px-4 py-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <flux:icon.envelope class="w-4 h-4 text-blue-600" />
                             </div>
-                            <span class="font-semibold text-gray-900 text-sm">Saluran Penghantaran</span>
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-900 text-sm">Tetapan E-mel</p>
+                                <p class="text-xs text-blue-600">Kandungan e-mel dikonfigurasikan di bahagian "Sumber Kandungan" di atas.</p>
+                            </div>
+                            <flux:icon.check-circle class="w-5 h-5 text-blue-600" />
                         </div>
                     </div>
+                </div>
 
-                    <div class="p-4 space-y-4">
-                        <!-- Channel Selection -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <!-- Email Channel (always enabled) -->
-                            <div class="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                <input type="checkbox" checked disabled class="w-4 h-4 text-blue-600 border-gray-300 rounded cursor-not-allowed">
-                                <div class="flex items-center gap-2">
-                                    <flux:icon.envelope class="w-4 h-4 text-blue-600" />
-                                    <div>
-                                        <p class="font-medium text-gray-900 text-sm">E-mel</p>
-                                        <p class="text-xs text-gray-500">Sentiasa aktif</p>
-                                    </div>
-                                </div>
+                <!-- WhatsApp Configuration Note -->
+                <div class="border border-green-200 rounded-xl overflow-hidden bg-green-50">
+                    <div class="px-4 py-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                <flux:icon.device-phone-mobile class="w-4 h-4 text-green-600" />
                             </div>
-                            <!-- WhatsApp Channel (toggleable) -->
-                            <label class="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-green-300 transition-colors {{ $whatsappEnabled ? 'border-green-300 bg-green-50' : '' }}">
-                                <input type="checkbox" wire:model.live="whatsappEnabled" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
-                                <div class="flex items-center gap-2">
-                                    <flux:icon.device-phone-mobile class="w-4 h-4 {{ $whatsappEnabled ? 'text-green-600' : 'text-gray-400' }}" />
-                                    <div>
-                                        <p class="font-medium text-gray-900 text-sm">WhatsApp</p>
-                                        <p class="text-xs text-amber-600">⚠️ API Tidak Rasmi</p>
-                                    </div>
-                                </div>
-                            </label>
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-900 text-sm">Tetapan WhatsApp</p>
+                                <p class="text-xs text-green-600">Konfigurasi WhatsApp boleh dilakukan melalui tab WhatsApp di halaman utama notifikasi.</p>
+                            </div>
+                            <flux:icon.arrow-top-right-on-square class="w-5 h-5 text-green-600" />
                         </div>
-
-                        <!-- Channel Template Tabs (show when WhatsApp is enabled) -->
-                        @if($whatsappEnabled)
-                        <div class="border border-gray-200 rounded-xl overflow-hidden mt-4">
-                            <!-- Tab Headers -->
-                            <div class="flex border-b border-gray-200 bg-gray-50">
-                                <button
-                                    type="button"
-                                    wire:click="$set('activeChannelTab', 'email')"
-                                    class="flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 {{ $activeChannelTab === 'email' ? 'bg-white border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700' }}"
-                                >
-                                    <flux:icon.envelope class="w-4 h-4" />
-                                    E-mel
-                                </button>
-                                <button
-                                    type="button"
-                                    wire:click="$set('activeChannelTab', 'whatsapp')"
-                                    class="flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 {{ $activeChannelTab === 'whatsapp' ? 'bg-white border-b-2 border-green-500 text-green-600' : 'text-gray-500 hover:text-gray-700' }}"
-                                >
-                                    <flux:icon.device-phone-mobile class="w-4 h-4" />
-                                    WhatsApp
-                                    @if($useCustomWhatsappTemplate)
-                                        <span class="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded">Tersuai</span>
-                                    @endif
-                                </button>
-                            </div>
-
-                            <!-- Tab Content -->
-                            <div class="p-4">
-                                <!-- Email Tab -->
-                                @if($activeChannelTab === 'email')
-                                <div class="p-3 bg-blue-50 rounded-lg">
-                                    <div class="flex items-start gap-2">
-                                        <flux:icon.check-circle class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <p class="text-sm font-medium text-blue-800">Kandungan e-mel dikonfigurasikan di bahagian "Sumber Kandungan" di atas.</p>
-                                            <p class="text-xs text-blue-600 mt-1">Templat {{ $contentSource === 'system' ? 'sistem' : ($editorType === 'visual' ? 'visual tersuai' : 'teks tersuai') }} akan digunakan.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                @endif
-
-                                <!-- WhatsApp Tab -->
-                                @if($activeChannelTab === 'whatsapp')
-                                <div class="space-y-4">
-                                    <!-- Template Source Toggle -->
-                                    <label class="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-green-300">
-                                        <input
-                                            type="checkbox"
-                                            wire:model.live="useCustomWhatsappTemplate"
-                                            class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                                        >
-                                        <div>
-                                            <p class="font-medium text-gray-900 text-sm">Guna templat WhatsApp tersuai</p>
-                                            <p class="text-xs text-gray-500">Jika tidak diaktifkan, kandungan e-mel akan ditukar secara automatik</p>
-                                        </div>
-                                    </label>
-
-                                    @if($useCustomWhatsappTemplate)
-                                    <!-- WhatsApp Editor -->
-                                    <div class="space-y-3">
-                                        <!-- Formatting Toolbar -->
-                                        <div class="flex flex-wrap items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                                            <button type="button" onclick="insertWhatsAppFormat('*', '*')" class="px-2.5 py-1.5 text-xs font-bold bg-white border border-gray-300 rounded hover:bg-gray-100" title="Bold">B</button>
-                                            <button type="button" onclick="insertWhatsAppFormat('_', '_')" class="px-2.5 py-1.5 text-xs italic bg-white border border-gray-300 rounded hover:bg-gray-100" title="Italic">I</button>
-                                            <button type="button" onclick="insertWhatsAppFormat('~', '~')" class="px-2.5 py-1.5 text-xs line-through bg-white border border-gray-300 rounded hover:bg-gray-100" title="Strikethrough">S</button>
-                                            <button type="button" onclick="insertWhatsAppFormat('\`\`\`', '\`\`\`')" class="px-2.5 py-1.5 text-xs font-mono bg-white border border-gray-300 rounded hover:bg-gray-100" title="Code">&lt;/&gt;</button>
-                                            <span class="border-l border-gray-300 h-6 mx-1"></span>
-                                            <span class="text-xs text-gray-500">WhatsApp Formatting</span>
-                                        </div>
-
-                                        <!-- WhatsApp Content Textarea -->
-                                        <div>
-                                            <textarea
-                                                id="whatsapp-content-editor"
-                                                wire:model="whatsappContent"
-                                                rows="10"
-                                                class="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                                placeholder="Tulis mesej WhatsApp anda di sini...
-
-Contoh:
-Assalamualaikum *@{{student_name}}*,
-
-Kelas anda akan bermula dalam *1 JAM*:
-📚 @{{class_name}}
-⏰ @{{session_time}}
-🔗 @{{meeting_url}}
-
-Sila hadir tepat pada waktunya."
-                                            ></textarea>
-                                        </div>
-
-                                        <!-- Character Count & Actions -->
-                                        <div class="flex items-center justify-between text-xs">
-                                            <span class="text-gray-500">{{ strlen($whatsappContent ?? '') }} aksara</span>
-                                            <button
-                                                type="button"
-                                                x-data="{ showPreview: false }"
-                                                x-on:click="showPreview = !showPreview; $dispatch('toggle-whatsapp-preview')"
-                                                class="text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
-                                            >
-                                                <flux:icon.eye class="w-3.5 h-3.5" />
-                                                Pratonton
-                                            </button>
-                                        </div>
-
-                                        <!-- WhatsApp Preview -->
-                                        <div
-                                            x-data="{ visible: false }"
-                                            x-on:toggle-whatsapp-preview.window="visible = !visible"
-                                            x-show="visible"
-                                            x-transition
-                                            class="p-4 bg-[#e5ddd5] rounded-lg"
-                                        >
-                                            <p class="text-xs text-gray-600 mb-2 text-center">Pratonton WhatsApp</p>
-                                            <div class="max-w-sm mx-auto">
-                                                <div class="bg-[#dcf8c6] rounded-lg p-3 shadow-sm">
-                                                    <div
-                                                        class="text-sm text-gray-800 whitespace-pre-wrap"
-                                                        x-html="formatWhatsAppPreview($wire.whatsappContent || '')"
-                                                    ></div>
-                                                    <div class="text-right mt-1">
-                                                        <span class="text-xs text-gray-500">{{ now()->format('g:i A') }}</span>
-                                                        <span class="text-blue-500 ml-1">✓✓</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- WhatsApp Image Upload -->
-                                        <div class="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
-                                            <div class="flex items-center gap-2 mb-3">
-                                                <flux:icon.photo class="w-4 h-4 text-purple-600" />
-                                                <span class="font-semibold text-gray-900 text-sm">Gambar WhatsApp (Pilihan)</span>
-                                            </div>
-                                            <p class="text-xs text-gray-600 mb-3">Gambar akan dihantar sebelum mesej teks. Format yang disokong: JPG, PNG, GIF (maks 5MB)</p>
-
-                                            @if($existingWhatsappImagePath || $whatsappImage)
-                                            <!-- Image Preview -->
-                                            <div class="relative mb-3">
-                                                <div class="aspect-video w-full max-w-xs mx-auto overflow-hidden rounded-lg border border-gray-200 bg-white">
-                                                    @if($whatsappImage)
-                                                        <img src="{{ $whatsappImage->temporaryUrl() }}" alt="Preview" class="w-full h-full object-contain">
-                                                    @elseif($existingWhatsappImagePath)
-                                                        <img src="{{ Storage::disk('public')->url($existingWhatsappImagePath) }}" alt="Existing Image" class="w-full h-full object-contain">
-                                                    @endif
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    wire:click="removeWhatsappImage"
-                                                    class="absolute top-2 right-2 p-1.5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors"
-                                                    title="Padam gambar"
-                                                >
-                                                    <flux:icon.x-mark class="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                            @else
-                                            <!-- Upload Area -->
-                                            <div class="relative">
-                                                <input
-                                                    type="file"
-                                                    wire:model="whatsappImage"
-                                                    accept="image/jpeg,image/png,image/gif"
-                                                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                    id="whatsapp-image-upload"
-                                                >
-                                                <label
-                                                    for="whatsapp-image-upload"
-                                                    class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-purple-300 rounded-lg bg-white hover:bg-purple-50 hover:border-purple-400 transition-colors cursor-pointer"
-                                                >
-                                                    <flux:icon.cloud-arrow-up class="w-8 h-8 text-purple-400 mb-2" />
-                                                    <span class="text-sm font-medium text-gray-700">Klik untuk muat naik gambar</span>
-                                                    <span class="text-xs text-gray-500 mt-1">atau seret & lepaskan di sini</span>
-                                                </label>
-                                            </div>
-                                            @endif
-
-                                            <!-- Upload Loading -->
-                                            <div wire:loading wire:target="whatsappImage" class="mt-3">
-                                                <div class="flex items-center justify-center gap-2 text-sm text-purple-600">
-                                                    <flux:icon.arrow-path class="w-4 h-4 animate-spin" />
-                                                    <span>Memuat naik gambar...</span>
-                                                </div>
-                                            </div>
-
-                                            @error('whatsappImage')
-                                            <div class="mt-2 text-xs text-red-600">{{ $message }}</div>
-                                            @enderror
-                                        </div>
-
-                                        <!-- Formatting Guide -->
-                                        <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
-                                            <p class="text-xs font-semibold text-green-800 mb-2">Panduan Format WhatsApp:</p>
-                                            <div class="grid grid-cols-2 gap-2 text-xs">
-                                                <div class="flex items-center gap-2">
-                                                    <code class="px-1 bg-white rounded text-green-700">*teks*</code>
-                                                    <span class="text-gray-600">→ <strong>tebal</strong></span>
-                                                </div>
-                                                <div class="flex items-center gap-2">
-                                                    <code class="px-1 bg-white rounded text-green-700">_teks_</code>
-                                                    <span class="text-gray-600">→ <em>condong</em></span>
-                                                </div>
-                                                <div class="flex items-center gap-2">
-                                                    <code class="px-1 bg-white rounded text-green-700">~teks~</code>
-                                                    <span class="text-gray-600">→ <s>bergaris</s></span>
-                                                </div>
-                                                <div class="flex items-center gap-2">
-                                                    <code class="px-1 bg-white rounded text-green-700">`kod`</code>
-                                                    <span class="text-gray-600">→ <code class="text-xs">monospace</code></span>
-                                                </div>
-                                            </div>
-                                            <div class="mt-2 pt-2 border-t border-green-200">
-                                                <p class="text-xs text-green-700">Placeholder tersedia: <code class="px-1 bg-white rounded">@{{student_name}}</code>, <code class="px-1 bg-white rounded">@{{class_name}}</code>, <code class="px-1 bg-white rounded">@{{session_time}}</code>, <code class="px-1 bg-white rounded">@{{meeting_url}}</code></p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    @else
-                                    <!-- Auto-convert info -->
-                                    <div class="p-4 bg-gray-50 rounded-lg text-center">
-                                        <flux:icon.arrows-right-left class="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                                        <p class="text-sm text-gray-600">Kandungan e-mel akan ditukar secara automatik kepada format WhatsApp</p>
-                                        <p class="text-xs text-gray-500 mt-1">Aktifkan templat tersuai untuk kawalan penuh</p>
-                                    </div>
-                                    @endif
-                                </div>
-                                @endif
-                            </div>
-                        </div>
-                        @endif
                     </div>
                 </div>
 
@@ -2437,9 +2756,234 @@ Sila hadir tepat pada waktunya."
             </div>
         </div>
     </flux:modal>
+
+    <!-- WhatsApp Template Modal -->
+    <flux:modal wire:model="showWhatsappModal" class="max-w-5xl">
+        <div class="p-6" x-data="waTemplateEditor()"
+            x-init="initPreview(@js($this->waPreviewContent))">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-4 border-b border-gray-200 mb-5">
+                <div>
+                    <flux:heading size="lg">Edit Templat WhatsApp</flux:heading>
+                    <flux:text class="text-gray-500 text-sm mt-1">
+                        {{ $this->class->title }} - {{ $this->waNotificationTypeLabel['name'] ?? '' }}
+                    </flux:text>
+                </div>
+                <div class="text-sm text-gray-500">
+                    <span class="{{ strlen($waTemplateContent) > 4096 ? 'text-red-600 font-semibold' : '' }}">
+                        {{ strlen($waTemplateContent) }} / 4,096
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Left Column: Editor -->
+                <div class="space-y-4">
+                    <!-- Content Editor -->
+                    <div>
+                        <flux:label class="mb-2">Kandungan Mesej</flux:label>
+                        <textarea
+                            id="wa-template-content"
+                            wire:model.live.debounce.300ms="waTemplateContent"
+                            class="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none font-mono text-sm"
+                            placeholder="Tulis mesej WhatsApp anda di sini..."
+                        ></textarea>
+                    </div>
+
+                    <!-- Placeholders -->
+                    <div>
+                        <flux:label class="mb-2">Placeholder (Klik untuk tambah)</flux:label>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="ph in placeholders" :key="ph.key">
+                                <button
+                                    type="button"
+                                    @click="insertPlaceholder(ph.key)"
+                                    class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300 transition-colors"
+                                    x-text="ph.key"
+                                ></button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Format Guide -->
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p class="text-sm font-medium text-green-800 mb-2">Panduan Format WhatsApp</p>
+                        <div class="grid grid-cols-2 gap-2 text-xs text-green-700">
+                            <div><code class="bg-green-100 px-1 rounded">*bold*</code> = <strong>bold</strong></div>
+                            <div><code class="bg-green-100 px-1 rounded">_italic_</code> = <em>italic</em></div>
+                            <div><code class="bg-green-100 px-1 rounded">~strikethrough~</code> = <del>strikethrough</del></div>
+                            <div><code class="bg-green-100 px-1 rounded">```code```</code> = <code>code</code></div>
+                        </div>
+                    </div>
+
+                    <!-- Image Upload -->
+                    <div>
+                        <flux:label class="mb-2">Gambar Lampiran</flux:label>
+                        @if($waExistingImagePath)
+                            <div class="relative inline-block mb-2">
+                                <img
+                                    src="{{ Storage::disk('public')->url($waExistingImagePath) }}"
+                                    alt="WhatsApp Image"
+                                    class="w-32 h-32 object-cover rounded-lg border border-gray-200"
+                                >
+                                <button
+                                    type="button"
+                                    wire:click="removeWaTemplateImage"
+                                    class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg"
+                                    title="Padam gambar"
+                                >
+                                    <flux:icon.x-mark class="w-4 h-4" />
+                                </button>
+                            </div>
+                        @endif
+
+                        <div class="flex items-center justify-center w-full">
+                            <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <flux:icon.arrow-up-tray class="w-6 h-6 text-gray-400 mb-2" />
+                                    <p class="text-xs text-gray-500">
+                                        <span class="font-semibold">Klik untuk muat naik</span> atau seret dan lepas
+                                    </p>
+                                    <p class="text-xs text-gray-400">PNG, JPG sehingga 2MB</p>
+                                </div>
+                                <input
+                                    type="file"
+                                    wire:model="waTemplateImage"
+                                    accept="image/*"
+                                    class="hidden"
+                                >
+                            </label>
+                        </div>
+                        @if($waTemplateImage)
+                            <div class="mt-2 flex items-center gap-2 text-sm text-green-600">
+                                <flux:icon.check-circle class="w-4 h-4" />
+                                <span>Gambar baharu dipilih: {{ $waTemplateImage->getClientOriginalName() }}</span>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Right Column: Preview -->
+                <div>
+                    <flux:label class="mb-2">Pratonton Mesej</flux:label>
+                    <div class="bg-[#e5ddd5] rounded-lg p-4 min-h-[400px]">
+                        <!-- WhatsApp bubble style preview -->
+                        <div class="max-w-[85%] ml-auto">
+                            @if($waExistingImagePath || $waTemplateImage)
+                                <div class="bg-[#dcf8c6] rounded-t-lg rounded-bl-lg p-1 mb-0.5">
+                                    @if($waTemplateImage)
+                                        <img
+                                            src="{{ $waTemplateImage->temporaryUrl() }}"
+                                            alt="Preview"
+                                            class="w-full rounded-lg"
+                                        >
+                                    @elseif($waExistingImagePath)
+                                        <img
+                                            src="{{ Storage::disk('public')->url($waExistingImagePath) }}"
+                                            alt="Preview"
+                                            class="w-full rounded-lg"
+                                        >
+                                    @endif
+                                </div>
+                            @endif
+
+                            <div class="bg-[#dcf8c6] rounded-lg rounded-tr-none p-3 shadow-sm">
+                                <div x-show="previewContent" class="text-sm text-gray-800 whitespace-pre-wrap break-words" x-html="formatWhatsAppPreview(previewContent)"></div>
+                                <p x-show="!previewContent" class="text-sm text-gray-400 italic">Pratonton mesej akan dipaparkan di sini...</p>
+                                <div class="flex items-center justify-end gap-1 mt-1">
+                                    <span class="text-xs text-gray-500">{{ now()->format('g:i A') }}</span>
+                                    <svg class="w-4 h-4 text-blue-500" viewBox="0 0 16 15" fill="currentColor">
+                                        <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-1.891-1.891a.366.366 0 0 0-.51-.063l-.478.372a.365.365 0 0 0-.063.51l2.67 3.474c.138.18.382.18.52 0l6.52-8.482a.366.366 0 0 0-.063-.51z"/>
+                                        <path d="M11.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L4.666 9.879a.32.32 0 0 1-.484.033L2.291 8.021a.366.366 0 0 0-.51-.063l-.478.372a.365.365 0 0 0-.063.51l2.67 3.474c.138.18.382.18.52 0l6.52-8.482a.366.366 0 0 0-.063-.51z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="text-center text-xs text-gray-500 mt-4">
+                            Ini adalah pratonton dengan data contoh. Data sebenar akan digunakan semasa penghantaran.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-gray-200">
+                <flux:button variant="ghost" wire:click="$set('showWhatsappModal', false)">Batal</flux:button>
+                <flux:button
+                    variant="primary"
+                    wire:click="saveWhatsappTemplate"
+                    wire:loading.attr="disabled"
+                    icon="check"
+                    class="!bg-green-600 hover:!bg-green-700"
+                >
+                    <span wire:loading.remove wire:target="saveWhatsappTemplate">Simpan Templat</span>
+                    <span wire:loading wire:target="saveWhatsappTemplate">Menyimpan...</span>
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>
 
+@verbatim
 <script>
+    function waTemplateEditor() {
+        return {
+            previewContent: '',
+            placeholders: [
+                { key: '{{student_name}}', label: 'Nama Pelajar' },
+                { key: '{{teacher_name}}', label: 'Nama Guru' },
+                { key: '{{class_name}}', label: 'Nama Kelas' },
+                { key: '{{course_name}}', label: 'Nama Kursus' },
+                { key: '{{session_date}}', label: 'Tarikh Sesi' },
+                { key: '{{session_time}}', label: 'Masa Sesi' },
+                { key: '{{session_datetime}}', label: 'Tarikh & Masa' },
+                { key: '{{location}}', label: 'Lokasi' },
+                { key: '{{meeting_url}}', label: 'URL Mesyuarat' },
+                { key: '{{whatsapp_link}}', label: 'Link WhatsApp' },
+                { key: '{{duration}}', label: 'Tempoh' },
+                { key: '{{remaining_sessions}}', label: 'Sesi Tinggal' },
+                { key: '{{total_sessions}}', label: 'Jumlah Sesi' },
+                { key: '{{attendance_rate}}', label: 'Kadar Kehadiran' },
+            ],
+            initPreview(content) {
+                this.previewContent = content || '';
+                // Watch for Livewire updates
+                this.$watch('$wire.waTemplateContent', (value) => {
+                    // Update preview when content changes - we need to get the computed property
+                    this.$wire.call('getWaPreviewContent').then(result => {
+                        this.previewContent = result || '';
+                    });
+                });
+            },
+            insertPlaceholder(placeholder) {
+                const textarea = document.getElementById('wa-template-content');
+                if (!textarea) return;
+
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const text = textarea.value;
+
+                textarea.value = text.substring(0, start) + placeholder + text.substring(end);
+                textarea.focus();
+                textarea.setSelectionRange(start + placeholder.length, start + placeholder.length);
+
+                // Trigger Livewire update
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            },
+            formatWhatsAppPreview(text) {
+                if (!text) return '';
+                return text
+                    .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+                    .replace(/_([^_]+)_/g, '<em>$1</em>')
+                    .replace(/~([^~]+)~/g, '<del>$1</del>')
+                    .replace(/```([^`]+)```/g, '<code class="bg-gray-200 px-1 rounded text-sm">$1</code>')
+                    .replace(/`([^`]+)`/g, '<code class="bg-gray-200 px-0.5 rounded text-sm">$1</code>')
+                    .replace(/\n/g, '<br>');
+            }
+        };
+    }
+
     function formatWhatsAppPreview(text) {
         if (!text) return '';
         return text
@@ -2450,21 +2994,5 @@ Sila hadir tepat pada waktunya."
             .replace(/`([^`]+)`/g, '<code class="bg-gray-200 px-0.5 rounded text-sm">$1</code>')
             .replace(/\n/g, '<br>');
     }
-
-    function insertWhatsAppFormat(before, after) {
-        const textarea = document.getElementById('whatsapp-content-editor');
-        if (!textarea) return;
-
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = textarea.value;
-        const selectedText = text.substring(start, end);
-
-        textarea.value = text.substring(0, start) + before + selectedText + after + text.substring(end);
-        textarea.focus();
-        textarea.setSelectionRange(start + before.length, end + before.length);
-
-        // Trigger Livewire update
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    }
 </script>
+@endverbatim

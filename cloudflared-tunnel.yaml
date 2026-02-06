@@ -1,0 +1,10 @@
+tunnel: f60ab69f-7db8-4fe2-a6e6-271a08dfb395
+credentials-file: /Users/ahmadaminnajmi/.cloudflared/f60ab69f-7db8-4fe2-a6e6-271a08dfb395.json
+
+ingress:
+  - hostname: dev.kelasify.com
+    service: http://127.0.0.1:80
+    originRequest:
+      httpHostHeader: mudeerbedaie.test
+      noTLSVerify: true
+  - service: http_status:404

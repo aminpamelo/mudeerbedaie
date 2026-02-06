@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Listeners\BlockExampleEmails;
 use App\Models\ClassModel;
 use App\Models\Task;
 use App\Models\User;

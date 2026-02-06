@@ -167,40 +167,40 @@ new class extends Component
         <!-- Main Content -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Refund Details -->
-            <div class="bg-white rounded-lg border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                     <flux:heading size="lg">Refund Details</flux:heading>
                 </div>
                 <div class="p-6">
                     <dl class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Return Date</dt>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Return Date</dt>
                             <dd class="mt-1 text-lg font-semibold">{{ $refund->return_date->format('M j, Y') }}</dd>
                         </div>
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Refund Amount</dt>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Refund Amount</dt>
                             <dd class="mt-1 text-lg font-semibold text-green-600">RM {{ number_format($refund->refund_amount, 2) }}</dd>
                         </div>
                         <div class="md:col-span-2">
-                            <dt class="text-sm font-medium text-gray-500">Reason for Return</dt>
-                            <dd class="mt-1 text-gray-900">{{ $refund->reason ?? 'No reason provided' }}</dd>
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Reason for Return</dt>
+                            <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->reason ?? 'No reason provided' }}</dd>
                         </div>
                         @if($refund->action_reason)
                             <div class="md:col-span-2">
-                                <dt class="text-sm font-medium text-gray-500">Action Reason ({{ $refund->getActionLabel() }})</dt>
-                                <dd class="mt-1 text-gray-900">{{ $refund->action_reason }}</dd>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Action Reason ({{ $refund->getActionLabel() }})</dt>
+                                <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->action_reason }}</dd>
                             </div>
                         @endif
                         @if($refund->action_date)
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Action Date</dt>
-                                <dd class="mt-1 text-gray-900">{{ $refund->action_date->format('M j, Y \a\t g:i A') }}</dd>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Action Date</dt>
+                                <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->action_date->format('M j, Y \a\t g:i A') }}</dd>
                             </div>
                         @endif
                         @if($refund->processedBy)
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Processed By</dt>
-                                <dd class="mt-1 text-gray-900">{{ $refund->processedBy->name }}</dd>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Processed By</dt>
+                                <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->processedBy->name }}</dd>
                             </div>
                         @endif
                     </dl>
@@ -209,8 +209,8 @@ new class extends Component
 
             <!-- Order Information -->
             @if($refund->order)
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
                         <flux:heading size="lg">Order Information</flux:heading>
                         <flux:button variant="ghost" size="sm" :href="route('admin.orders.show', $refund->order)" wire:navigate>
                             View Order
@@ -219,19 +219,19 @@ new class extends Component
                     <div class="p-6">
                         <dl class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Order Number</dt>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Order Number</dt>
                                 <dd class="mt-1 text-lg font-semibold">{{ $refund->order->order_number }}</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Order Total</dt>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Order Total</dt>
                                 <dd class="mt-1 text-lg font-semibold">RM {{ number_format($refund->order->total_amount, 2) }}</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Order Date</dt>
-                                <dd class="mt-1 text-gray-900">{{ $refund->order->created_at->format('M j, Y') }}</dd>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Order Date</dt>
+                                <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->order->created_at->format('M j, Y') }}</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Order Status</dt>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Order Status</dt>
                                 <dd class="mt-1">
                                     <flux:badge size="sm">{{ ucfirst($refund->order->status) }}</flux:badge>
                                 </dd>
@@ -240,17 +240,17 @@ new class extends Component
 
                         @if($refund->order->items->count() > 0)
                             <div class="mt-6">
-                                <h4 class="text-sm font-medium text-gray-500 mb-3">Order Items</h4>
+                                <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Order Items</h4>
                                 <div class="border rounded-lg overflow-hidden">
-                                    <table class="min-w-full divide-y divide-gray-200">
-                                        <thead class="bg-gray-50">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                                        <thead class="bg-gray-50 dark:bg-zinc-700/50">
                                             <tr>
                                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
                                                 <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
                                             </tr>
                                         </thead>
-                                        <tbody class="bg-white divide-y divide-gray-200">
+                                        <tbody class="bg-white divide-y divide-gray-200 dark:divide-zinc-700">
                                             @foreach($refund->order->items as $item)
                                                 <tr>
                                                     <td class="px-4 py-3 text-sm">{{ $item->product_name }}</td>
@@ -269,8 +269,8 @@ new class extends Component
 
             <!-- Package Information -->
             @if($refund->package)
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
                         <flux:heading size="lg">Package Information</flux:heading>
                         <flux:button variant="ghost" size="sm" :href="route('packages.show', $refund->package)" wire:navigate>
                             View Package
@@ -279,17 +279,17 @@ new class extends Component
                     <div class="p-6">
                         <dl class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Package Name</dt>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Package Name</dt>
                                 <dd class="mt-1 text-lg font-semibold">{{ $refund->package->name }}</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Package Price</dt>
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Package Price</dt>
                                 <dd class="mt-1 text-lg font-semibold">RM {{ number_format($refund->package->price, 2) }}</dd>
                             </div>
                             @if($refund->package->description)
                                 <div class="md:col-span-2">
-                                    <dt class="text-sm font-medium text-gray-500">Description</dt>
-                                    <dd class="mt-1 text-gray-900">{{ $refund->package->description }}</dd>
+                                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Description</dt>
+                                    <dd class="mt-1 text-gray-900 dark:text-gray-100">{{ $refund->package->description }}</dd>
                                 </div>
                             @endif
                         </dl>
@@ -298,8 +298,8 @@ new class extends Component
             @endif
 
             <!-- Tracking & Bank Details Form -->
-            <div class="bg-white rounded-lg border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                     <flux:heading size="lg">Tracking & Bank Details</flux:heading>
                 </div>
                 <form wire:submit="updateDetails" class="p-6">
@@ -337,14 +337,14 @@ new class extends Component
         <!-- Sidebar -->
         <div class="space-y-6">
             <!-- Customer Information -->
-            <div class="bg-white rounded-lg border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                     <flux:heading size="lg">Customer</flux:heading>
                 </div>
                 <div class="p-6">
                     @if($refund->customer)
                         <div class="flex items-center gap-4 mb-4">
-                            <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                            <div class="w-12 h-12 bg-gray-200 dark:bg-zinc-700 rounded-full flex items-center justify-center">
                                 <flux:icon name="user" class="w-6 h-6 text-gray-500" />
                             </div>
                             <div>
@@ -353,7 +353,7 @@ new class extends Component
                             </div>
                         </div>
                         @if($refund->customer->phone)
-                            <div class="flex items-center gap-2 text-sm text-gray-600">
+                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                 <flux:icon name="phone" class="w-4 h-4" />
                                 {{ $refund->customer->phone }}
                             </div>
@@ -365,8 +365,8 @@ new class extends Component
             </div>
 
             <!-- Status Timeline -->
-            <div class="bg-white rounded-lg border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                     <flux:heading size="lg">Status Timeline</flux:heading>
                 </div>
                 <div class="p-6">
@@ -413,8 +413,8 @@ new class extends Component
 
             <!-- Quick Actions -->
             @if($refund->isApproved() && !$refund->isRefundCompleted())
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                         <flux:heading size="lg">Quick Actions</flux:heading>
                     </div>
                     <div class="p-6 space-y-3">

@@ -220,14 +220,14 @@ new class extends Component
             <!-- Main Form -->
             <div class="lg:col-span-2 space-y-6">
                 <!-- Order Selection -->
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                         <flux:heading size="lg">Select Order</flux:heading>
                         <flux:text size="sm" class="text-gray-500">Choose the order for this return request</flux:text>
                     </div>
                     <div class="p-6">
                         @if($selectedOrder = $this->getSelectedOrder())
-                            <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                            <div class="bg-gray-50 dark:bg-zinc-700/50 rounded-lg p-4 flex items-center justify-between">
                                 <div>
                                     <flux:text class="font-semibold">{{ $selectedOrder->order_number }}</flux:text>
                                     <flux:text size="sm" class="text-gray-500">
@@ -250,7 +250,7 @@ new class extends Component
                                     <button
                                         type="button"
                                         wire:click="selectOrder({{ $order->id }})"
-                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 transition-colors"
+                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-zinc-700/50 border-b dark:border-zinc-700 last:border-b-0 transition-colors"
                                     >
                                         <div class="flex items-center justify-between">
                                             <div>
@@ -264,7 +264,7 @@ new class extends Component
                                         </div>
                                     </button>
                                 @empty
-                                    <div class="px-4 py-8 text-center text-gray-500">
+                                    <div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                                         No orders found
                                     </div>
                                 @endforelse
@@ -275,8 +275,8 @@ new class extends Component
                 </div>
 
                 <!-- Package Selection (Optional) -->
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                         <flux:heading size="lg">Select Package (Optional)</flux:heading>
                         <flux:text size="sm" class="text-gray-500">If this return is for a specific package</flux:text>
                     </div>
@@ -302,7 +302,7 @@ new class extends Component
                                     <button
                                         type="button"
                                         wire:click="selectPackage({{ $package->id }})"
-                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 transition-colors"
+                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-zinc-700/50 border-b dark:border-zinc-700 last:border-b-0 transition-colors"
                                     >
                                         <div class="flex items-center justify-between">
                                             <flux:text class="font-medium">{{ $package->name }}</flux:text>
@@ -310,7 +310,7 @@ new class extends Component
                                         </div>
                                     </button>
                                 @empty
-                                    <div class="px-4 py-8 text-center text-gray-500">
+                                    <div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                                         No packages found
                                     </div>
                                 @endforelse
@@ -320,8 +320,8 @@ new class extends Component
                 </div>
 
                 <!-- Return Details -->
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                         <flux:heading size="lg">Return Details</flux:heading>
                     </div>
                     <div class="p-6">
@@ -346,8 +346,8 @@ new class extends Component
                 </div>
 
                 <!-- Tracking & Bank Details -->
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                         <flux:heading size="lg">Tracking & Bank Details</flux:heading>
                         <flux:text size="sm" class="text-gray-500">Optional - can be added later</flux:text>
                     </div>
@@ -381,13 +381,13 @@ new class extends Component
             <!-- Sidebar -->
             <div class="space-y-6">
                 <!-- Customer Selection -->
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                         <flux:heading size="lg">Customer</flux:heading>
                     </div>
                     <div class="p-6">
                         @if($selectedCustomer = $this->getSelectedCustomer())
-                            <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                            <div class="bg-gray-50 dark:bg-zinc-700/50 rounded-lg p-4 flex items-center justify-between">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
                                         <flux:icon name="user" class="w-5 h-5 text-gray-500" />
@@ -410,13 +410,13 @@ new class extends Component
                                     <button
                                         type="button"
                                         wire:click="selectCustomer({{ $customer->id }})"
-                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 transition-colors"
+                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-zinc-700/50 border-b dark:border-zinc-700 last:border-b-0 transition-colors"
                                     >
                                         <flux:text class="font-medium">{{ $customer->name }}</flux:text>
                                         <flux:text size="sm" class="text-gray-500">{{ $customer->email }}</flux:text>
                                     </button>
                                 @empty
-                                    <div class="px-4 py-6 text-center text-gray-500">
+                                    <div class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
                                         No customers found
                                     </div>
                                 @endforelse
@@ -426,8 +426,8 @@ new class extends Component
                 </div>
 
                 <!-- Summary -->
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                         <flux:heading size="lg">Summary</flux:heading>
                     </div>
                     <div class="p-6 space-y-4">

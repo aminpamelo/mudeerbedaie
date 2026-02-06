@@ -101,7 +101,7 @@ new class extends Component
                     {{ ucfirst($ticket->priority) }} Priority
                 </span>
             </div>
-            <flux:text class="text-gray-600">{{ $ticket->subject }}</flux:text>
+            <flux:text class="text-gray-600 dark:text-gray-400">{{ $ticket->subject }}</flux:text>
         </div>
         <flux:button variant="ghost" :href="route('admin.customer-service.tickets.index')" wire:navigate>
             <div class="flex items-center">
@@ -115,8 +115,8 @@ new class extends Component
         <!-- Main Content -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Original Description -->
-            <div class="bg-white rounded-lg border">
-                <div class="px-6 py-4 border-b bg-gray-50">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700 border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-700/50">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-cyan-100 rounded-full flex items-center justify-center">
@@ -138,8 +138,8 @@ new class extends Component
             </div>
 
             <!-- Replies -->
-            <div class="bg-white rounded-lg border">
-                <div class="px-6 py-4 border-b">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                     <flux:heading size="lg">Conversation</flux:heading>
                 </div>
                 <div class="divide-y">
@@ -147,7 +147,7 @@ new class extends Component
                         <div class="p-6 {{ $reply->is_internal ? 'bg-yellow-50' : '' }}" wire:key="reply-{{ $reply->id }}">
                             <div class="flex items-start gap-4">
                                 <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 {{ $reply->is_internal ? 'bg-yellow-200' : 'bg-gray-200' }}">
-                                    <flux:icon name="user" class="w-5 h-5 {{ $reply->is_internal ? 'text-yellow-700' : 'text-gray-600' }}" />
+                                    <flux:icon name="user" class="w-5 h-5 {{ $reply->is_internal ? 'text-yellow-700' : 'text-gray-600 dark:text-gray-400' }}" />
                                 </div>
                                 <div class="flex-1">
                                     <div class="flex items-center gap-2 mb-2">
@@ -164,7 +164,7 @@ new class extends Component
                             </div>
                         </div>
                     @empty
-                        <div class="p-6 text-center text-gray-500">
+                        <div class="p-6 text-center text-gray-500 dark:text-gray-400">
                             <flux:text>No replies yet</flux:text>
                         </div>
                     @endforelse
@@ -173,8 +173,8 @@ new class extends Component
 
             <!-- Reply Form -->
             @if($ticket->status !== 'closed')
-                <div class="bg-white rounded-lg border">
-                    <div class="px-6 py-4 border-b">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                         <flux:heading size="lg">Add Reply</flux:heading>
                     </div>
                     <form wire:submit="addReply" class="p-6">
@@ -203,8 +203,8 @@ new class extends Component
         <div class="space-y-6">
             <!-- Order Info -->
             @if($ticket->order)
-                <div class="bg-white rounded-lg border">
-                    <div class="px-6 py-4 border-b">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                         <flux:heading size="lg">Order Details</flux:heading>
                     </div>
                     <div class="p-6 space-y-4">
@@ -227,7 +227,7 @@ new class extends Component
                             <flux:text>{{ $ticket->order->created_at->format('M j, Y') }}</flux:text>
                         </div>
                         @if($ticket->order->items->count() > 0)
-                            <div class="pt-4 border-t">
+                            <div class="pt-4 border-t border-gray-200 dark:border-zinc-700">
                                 <flux:text size="sm" class="text-gray-500 mb-2">Items</flux:text>
                                 @foreach($ticket->order->items->take(3) as $item)
                                     <div class="flex justify-between text-sm mb-1">
@@ -245,14 +245,14 @@ new class extends Component
             @endif
 
             <!-- Customer Info -->
-            <div class="bg-white rounded-lg border">
-                <div class="px-6 py-4 border-b">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                     <flux:heading size="lg">Customer</flux:heading>
                 </div>
                 <div class="p-6">
                     @if($ticket->customer)
                         <div class="flex items-center gap-3 mb-4">
-                            <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                            <div class="w-12 h-12 bg-gray-200 dark:bg-zinc-700 rounded-full flex items-center justify-center">
                                 <flux:icon name="user" class="w-6 h-6 text-gray-500" />
                             </div>
                             <div>
@@ -261,7 +261,7 @@ new class extends Component
                             </div>
                         </div>
                         @if($ticket->customer->phone)
-                            <div class="flex items-center gap-2 text-sm text-gray-600">
+                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                 <flux:icon name="phone" class="w-4 h-4" />
                                 {{ $ticket->customer->phone }}
                             </div>
@@ -273,8 +273,8 @@ new class extends Component
             </div>
 
             <!-- Ticket Management -->
-            <div class="bg-white rounded-lg border">
-                <div class="px-6 py-4 border-b">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                     <flux:heading size="lg">Manage Ticket</flux:heading>
                 </div>
                 <div class="p-6 space-y-4">
@@ -324,8 +324,8 @@ new class extends Component
             </div>
 
             <!-- Ticket Info -->
-            <div class="bg-white rounded-lg border">
-                <div class="px-6 py-4 border-b">
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
                     <flux:heading size="lg">Ticket Info</flux:heading>
                 </div>
                 <div class="p-6 space-y-3">

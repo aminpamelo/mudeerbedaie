@@ -90,7 +90,7 @@ new class extends Component {
     </div>
 
     <!-- Warehouses Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
                 <thead class="bg-gray-50 border-b border-gray-200">
@@ -107,7 +107,7 @@ new class extends Component {
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white">
+                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
                     @forelse($warehouses as $warehouse)
                         <tr wire:key="warehouse-{{ $warehouse->id }}" class="border-b border-gray-200 hover:bg-gray-50">
                         <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">

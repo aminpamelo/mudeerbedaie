@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use App\AcademicStatus;
+use App\Observers\EnrollmentObserver;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+#[ObservedBy(EnrollmentObserver::class)]
 class Enrollment extends Model
 {
     use HasFactory;

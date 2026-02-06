@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Observers\ProductOrderObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+#[ObservedBy(ProductOrderObserver::class)]
 class ProductOrder extends Model
 {
     use HasFactory;
@@ -47,6 +50,7 @@ class ProductOrder extends Model
         'reference_number',
         'source',
         'source_reference',
+        'hidden_from_admin',
         // Platform discount breakdown
         'sku_platform_discount',
         'sku_seller_discount',
@@ -111,6 +115,7 @@ class ProductOrder extends Model
             // Platform data
             'shipping_address' => 'array',
             'platform_data' => 'array',
+            'hidden_from_admin' => 'boolean',
         ];
     }
 
@@ -299,6 +304,30 @@ class ProductOrder extends Model
         return 'Guest Customer';
     }
 
+    public function getCustomerPhone(): string
+    {
+        // Check if customer_phone field is set (platform orders)
+        if ($this->customer_phone) {
+            return $this->customer_phone;
+        }
+
+        if ($this->customer?->phone) {
+            return $this->customer->phone;
+        }
+
+        $shipping = $this->shippingAddress();
+        if ($shipping?->phone) {
+            return $shipping->phone;
+        }
+
+        $billing = $this->billingAddress();
+        if ($billing?->phone) {
+            return $billing->phone;
+        }
+
+        return 'No phone provided';
+    }
+
     // Platform order helper methods
     public function isPlatformOrder(): bool
     {
@@ -331,10 +360,18 @@ class ProductOrder extends Model
 
     public function isPaid(): bool
     {
+        // For platform orders (TikTok, etc.), check paid_time
         if ($this->isPlatformOrder()) {
             return ! is_null($this->paid_time);
         }
 
+        // For funnel orders paid via Bayarcash/FPX, check paid_time
+        // Bayarcash sets paid_time when payment is successful
+        if ($this->source === 'funnel' && ! is_null($this->paid_time)) {
+            return true;
+        }
+
+        // For other orders, check payment records in the payments table
         return $this->payments()->where('status', 'completed')->sum('amount') >= $this->total_amount;
     }
 
@@ -451,6 +488,23 @@ class ProductOrder extends Model
     public function getDisplayOrderIdAttribute(): string
     {
         return $this->platform_order_number ?: $this->platform_order_id ?: $this->order_number;
+    }
+
+    public function getPaymentMethodLabelAttribute(): string
+    {
+        $methods = [
+            'stripe' => 'Stripe',
+            'cash' => 'Cash',
+            'bank_transfer' => 'Bank Transfer',
+            'manual' => 'Manual Payment',
+        ];
+
+        return $methods[$this->payment_method] ?? ucfirst(str_replace('_', ' ', $this->payment_method ?? 'Not Set'));
+    }
+
+    public function scopeVisibleInAdmin($query)
+    {
+        return $query->where('hidden_from_admin', false);
     }
 
     // Static methods

@@ -9,17 +9,19 @@
         <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
             x-data="{
                 sections: {},
-                currentRoute: '{{ request()->route()->getName() }}',
+                currentRoute: '{{ request()->route()?->getName() }}',
                 sectionRoutes: {
                     'platform': ['dashboard'],
                     'administration': ['courses.*', 'users.*', 'students.*', 'teachers.*', 'classes.*', 'class-categories.*', 'admin.sessions.*', 'admin.payslips.*', 'enrollments.*'],
                     'subscription': ['orders.*', 'admin.payments*'],
                     'products': ['products.*', 'product-categories.*', 'product-attributes.*'],
                     'crm': ['crm.*'],
+                    'funnels': ['admin.funnels*', 'workflows.*', 'funnel-builder.*'],
                     'commerce': ['admin.orders.*', 'packages.*'],
                     'customerService': ['admin.customer-service.*'],
                     'certificates': ['certificates.*'],
                     'inventory': ['inventory.*', 'stock.*', 'warehouses.*', 'agents.*'],
+                    'salesDept': ['pos.*'],
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
@@ -175,6 +177,17 @@
 
                 <flux:navlist.group
                     expandable
+                    :heading="__('Sales Funnels')"
+                    data-section='funnels' x-init="if (!isExpanded('funnels')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('funnels', $event)"
+                >
+                    <flux:navlist.item icon="funnel" :href="route('admin.funnels')" :current="request()->routeIs('admin.funnels*')" wire:navigate>{{ __('All Funnels') }}</flux:navlist.item>
+                    <flux:navlist.item icon="plus-circle" :href="route('funnel-builder.index')" :current="request()->routeIs('funnel-builder.*')" wire:navigate>{{ __('Create Funnel') }}</flux:navlist.item>
+                    <flux:navlist.item icon="bolt" :href="route('workflows.index')" :current="request()->routeIs('workflows.*')" wire:navigate>{{ __('Workflows') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
                     :heading="__('Commerce & Packages')"
                     data-section='commerce' x-init="if (!isExpanded('commerce')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('commerce', $event)"
@@ -218,6 +231,17 @@
                     <flux:navlist.item icon="building-storefront" :href="route('warehouses.index')" :current="request()->routeIs('warehouses.*')" wire:navigate>{{ __('Warehouses') }}</flux:navlist.item>
                     <flux:navlist.item icon="building-office" :href="route('agents.index')" :current="request()->routeIs('agents.*')" wire:navigate>{{ __('Agents & Companies') }}</flux:navlist.item>
                 </flux:navlist.group>
+
+                @if(Route::has('pos.index'))
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Sales Department')"
+                    data-section='salesDept' x-init="if (!isExpanded('salesDept')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('salesDept', $event)"
+                >
+                    <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @endif
 
                 <flux:navlist.group
                     expandable
@@ -407,6 +431,17 @@
                     <flux:navlist.item icon="calendar" :href="route('live-host.schedule')" :current="request()->routeIs('live-host.schedule')" wire:navigate>{{ __('My Schedule') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-up-tray" :href="route('live-host.session-slots')" :current="request()->routeIs('live-host.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
                     <flux:navlist.item icon="play-circle" :href="route('live-host.sessions.index')" :current="request()->routeIs('live-host.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @endif
+
+                @if(auth()->user()->isSales() && Route::has('pos.index'))
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Sales Department')"
+                    data-section='salesDept' x-init="if (!isExpanded('salesDept')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('salesDept', $event)"
+                >
+                    <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 

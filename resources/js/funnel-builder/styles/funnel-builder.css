@@ -1,0 +1,492 @@
+/**
+ * Funnel Builder Custom Styles
+ * Extends Puck and Tailwind with custom styling
+ */
+
+/* Base resets for funnel builder */
+.funnel-builder-app {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Puck Editor Customizations */
+.funnel-editor {
+    --puck-color-primary: #3b82f6;
+    --puck-color-primary-hover: #2563eb;
+}
+
+/* Override Puck header for consistent styling */
+.funnel-editor [data-puck-header] {
+    display: none;
+}
+
+/* Improve component panel styling */
+[data-puck-component-list] {
+    padding: 1rem;
+}
+
+[data-puck-component-item] {
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+[data-puck-component-item]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Canvas styling */
+[data-puck-canvas] {
+    background: #f8fafc;
+    min-height: 100%;
+    overflow-y: auto !important;
+}
+
+[data-puck-frame] {
+    background: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border-radius: 0.5rem;
+    overflow: visible;
+}
+
+/* Ensure the preview area is scrollable */
+[data-puck-preview] {
+    overflow-y: auto !important;
+    max-height: 100%;
+}
+
+/* Fix for Puck editor main layout to allow scrolling */
+.funnel-editor [class*="Puck_puck"] {
+    overflow: visible;
+}
+
+.funnel-editor [class*="Puck_frame"] {
+    overflow-y: auto !important;
+}
+
+/* Drop zone indicators */
+[data-puck-drop-zone] {
+    border: 2px dashed transparent;
+    transition: all 0.2s ease;
+}
+
+[data-puck-drop-zone][data-puck-drop-zone-active='true'] {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+/* Component Editor Panel */
+[data-puck-editor] {
+    background: white;
+    border-left: 1px solid #e5e7eb;
+    overflow-y: auto !important;
+    max-height: 100%;
+}
+
+/* Fix right sidebar scrolling */
+.funnel-editor [class*="Puck_rightSidebar"],
+.funnel-editor [class*="rightSideBar"],
+.funnel-editor [data-puck-sidebar="right"] {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 100px);
+}
+
+/* Fix fields container scrolling */
+.funnel-editor [class*="Puck_fields"],
+.funnel-editor [class*="Fields_fields"] {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 150px);
+    padding-bottom: 2rem;
+}
+
+/* Field styling */
+[data-puck-field] {
+    margin-bottom: 1rem;
+}
+
+[data-puck-field] label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.25rem;
+}
+
+[data-puck-field] input,
+[data-puck-field] textarea,
+[data-puck-field] select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+[data-puck-field] input:focus,
+[data-puck-field] textarea:focus,
+[data-puck-field] select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Custom Component Styles */
+
+/* Hero Section */
+.puck-hero-section {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+}
+
+.puck-hero-section .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.puck-hero-section .hero-content {
+    position: relative;
+    z-index: 10;
+    padding: 2rem;
+}
+
+/* Countdown Timer */
+.puck-countdown {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.puck-countdown-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 0.5rem;
+    min-width: 80px;
+}
+
+.puck-countdown-value {
+    font-size: 2rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.puck-countdown-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    margin-top: 0.25rem;
+    opacity: 0.8;
+}
+
+/* Features Grid */
+.puck-features-grid {
+    display: grid;
+    gap: 2rem;
+}
+
+.puck-feature-item {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.puck-feature-icon {
+    width: 3rem;
+    height: 3rem;
+    margin: 0 auto 1rem;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #3b82f6;
+}
+
+/* Pricing Card */
+.puck-pricing-card {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    text-align: center;
+}
+
+.puck-pricing-card.featured {
+    border: 2px solid #3b82f6;
+    transform: scale(1.05);
+}
+
+.puck-price {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #111827;
+}
+
+.puck-price-currency {
+    font-size: 1.5rem;
+    vertical-align: top;
+}
+
+.puck-price-period {
+    font-size: 1rem;
+    color: #6b7280;
+}
+
+.puck-original-price {
+    text-decoration: line-through;
+    color: #9ca3af;
+    font-size: 1.25rem;
+}
+
+/* Testimonial Block */
+.puck-testimonial {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.puck-testimonial-content {
+    font-style: italic;
+    color: #374151;
+    margin-bottom: 1rem;
+}
+
+.puck-testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.puck-testimonial-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* FAQ Accordion */
+.puck-faq-item {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.puck-faq-question {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    font-weight: 500;
+    color: #111827;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+}
+
+.puck-faq-answer {
+    padding-bottom: 1rem;
+    color: #6b7280;
+}
+
+/* Opt-in Form */
+.puck-optin-form {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.puck-optin-form input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.puck-optin-form button {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Product Card */
+.puck-product-card {
+    background: white;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.puck-product-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.puck-product-content {
+    padding: 1.5rem;
+}
+
+/* Order Bump */
+.puck-order-bump {
+    border: 2px dashed #fbbf24;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background: #fffbeb;
+}
+
+.puck-order-bump-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.puck-order-bump-checkbox input {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.125rem;
+}
+
+/* Checkout Form */
+.puck-checkout-form {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.puck-checkout-section {
+    margin-bottom: 1.5rem;
+}
+
+.puck-checkout-section h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 1rem;
+}
+
+/* Video Block */
+.puck-video-wrapper {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    overflow: hidden;
+    border-radius: 0.75rem;
+}
+
+.puck-video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Button animations */
+.puck-button {
+    transition: all 0.2s ease;
+}
+
+.puck-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.puck-button:active {
+    transform: translateY(0);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .puck-hero-section {
+        min-height: 60vh;
+    }
+
+    .puck-countdown {
+        gap: 0.5rem;
+    }
+
+    .puck-countdown-unit {
+        min-width: 60px;
+        padding: 0.75rem;
+    }
+
+    .puck-countdown-value {
+        font-size: 1.5rem;
+    }
+
+    .puck-pricing-card.featured {
+        transform: none;
+    }
+}
+
+/* Loading states */
+.loading-skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Drag and drop styling */
+.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.drag-over {
+    border: 2px solid #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+/* Toast notifications */
+.toast {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    animation: toast-in 0.3s ease;
+}
+
+.toast-success {
+    background: #10b981;
+    color: white;
+}
+
+.toast-error {
+    background: #ef4444;
+    color: white;
+}
+
+@keyframes toast-in {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
