@@ -35,8 +35,8 @@ Route::get('dashboard', function () {
         return redirect()->route('class-admin.dashboard');
     }
 
-    if ($user->isSales()) {
-        return redirect()->route('pos.index');
+    if ($user->isDepartmentStaff()) {
+        return redirect()->route('tasks.dashboard');
     }
 
     return view('dashboard');
@@ -404,6 +404,30 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('funnels', 'admin.funnel-list')->name('admin.funnels');
     Volt::route('funnels/{funnel}', 'admin.funnel-show')->name('admin.funnels.show');
 
+});
+
+// ============================================================================
+// TASK MANAGEMENT - Accessible by admin (read-only) and department members
+// ============================================================================
+Route::middleware(['auth'])->prefix('tasks')->name('tasks.')->group(function () {
+    // Dashboard/Overview
+    Volt::route('/', 'tasks.dashboard')->name('dashboard');
+
+    // My Tasks (personal view)
+    Volt::route('my-tasks', 'tasks.my-tasks')->name('my-tasks');
+
+    // Manage Members (Admin only)
+    Volt::route('manage-members', 'tasks.manage-members')->name('manage-members');
+
+    // Department-specific routes
+    Volt::route('department/{department:slug}', 'tasks.kanban-board')->name('department.board');
+    Volt::route('department/{department:slug}/list', 'tasks.task-list')->name('department.list');
+    Volt::route('department/{department:slug}/settings', 'tasks.department-settings')->name('department.settings');
+
+    // Task CRUD
+    Volt::route('create', 'tasks.task-create')->name('create');
+    Volt::route('{task}', 'tasks.task-show')->name('show');
+    Volt::route('{task}/edit', 'tasks.task-edit')->name('edit');
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)

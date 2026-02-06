@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\DepartmentRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -118,11 +119,27 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user is sales staff
+     * Check if user is a PIC Department (users.role = 'pic_department')
      */
-    public function isSales(): bool
+    public function isPicDepartmentRole(): bool
     {
-        return $this->role === 'sales';
+        return $this->role === 'pic_department';
+    }
+
+    /**
+     * Check if user is a Member Department (users.role = 'member_department')
+     */
+    public function isMemberDepartmentRole(): bool
+    {
+        return $this->role === 'member_department';
+    }
+
+    /**
+     * Check if user is department staff (either PIC or member)
+     */
+    public function isDepartmentStaff(): bool
+    {
+        return $this->isPicDepartmentRole() || $this->isMemberDepartmentRole();
     }
 
     /**
@@ -439,5 +456,178 @@ class User extends Authenticatable
     public function impersonationLogsAsTarget(): HasMany
     {
         return $this->hasMany(ImpersonationLog::class, 'impersonated_id');
+    }
+
+    // =========================================================================
+    // TASK MANAGEMENT - Department Relationships
+    // =========================================================================
+
+    /**
+     * Get all departments this user belongs to
+     */
+    public function departments(): BelongsToMany
+    {
+        return $this->belongsToMany(Department::class, 'department_users')
+            ->withPivot('role', 'assigned_by')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get departments where user is PIC (Person in Charge)
+     */
+    public function picDepartments(): BelongsToMany
+    {
+        return $this->belongsToMany(Department::class, 'department_users')
+            ->withPivot('role', 'assigned_by')
+            ->withTimestamps()
+            ->wherePivot('role', DepartmentRole::DEPARTMENT_PIC->value);
+    }
+
+    /**
+     * Get tasks assigned to this user
+     */
+    public function assignedTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'assigned_to');
+    }
+
+    /**
+     * Get tasks created by this user
+     */
+    public function createdTasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'created_by');
+    }
+
+    /**
+     * Check if user is a PIC of any department
+     */
+    public function isDepartmentPic(): bool
+    {
+        return $this->picDepartments()->exists();
+    }
+
+    /**
+     * Check if user is PIC of a specific department (includes parent PIC for child departments)
+     */
+    public function isPicOfDepartment(Department $department): bool
+    {
+        // Direct PIC check
+        if ($this->picDepartments()->where('department_id', $department->id)->exists()) {
+            return true;
+        }
+
+        // If child department, check if user is PIC of parent
+        if ($department->parent_id) {
+            return $this->picDepartments()->where('department_id', $department->parent_id)->exists();
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user can manage tasks in a department (PIC only - full control including settings)
+     */
+    public function canManageTasks(Department $department): bool
+    {
+        return $this->isPicOfDepartment($department);
+    }
+
+    /**
+     * Check if user can create tasks in a department (PIC only)
+     */
+    public function canCreateTasks(Department $department): bool
+    {
+        return $this->isPicOfDepartment($department);
+    }
+
+    /**
+     * Check if user can edit/update tasks in a department (PIC and Members)
+     */
+    public function canEditTasks(Department $department): bool
+    {
+        // Direct membership check
+        if ($this->departments->contains('id', $department->id)) {
+            return true;
+        }
+
+        // If child department, check parent membership
+        if ($department->parent_id) {
+            return $this->departments->contains('id', $department->parent_id);
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user can view tasks in a department
+     */
+    public function canViewTasks(Department $department): bool
+    {
+        // Admin can view all departments (read-only)
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        // Direct membership check
+        if ($this->departments->contains('id', $department->id)) {
+            return true;
+        }
+
+        // If child department, check parent membership
+        if ($department->parent_id) {
+            return $this->departments->contains('id', $department->parent_id);
+        }
+
+        return false;
+    }
+
+    /**
+     * Get all accessible department IDs (direct + child departments of PIC parents)
+     */
+    public function getAccessibleDepartmentIds(): \Illuminate\Support\Collection
+    {
+        $directIds = $this->departments->pluck('id');
+
+        // For PIC departments that have children, include child IDs
+        $picIds = $this->picDepartments->pluck('id');
+        $childIds = Department::whereIn('parent_id', $picIds)->pluck('id');
+
+        return $directIds->merge($childIds)->unique();
+    }
+
+    /**
+     * Get all departments accessible to this user (direct + children of PIC parents)
+     */
+    public function getAccessibleDepartments(): \Illuminate\Database\Eloquent\Collection
+    {
+        $ids = $this->getAccessibleDepartmentIds();
+
+        return Department::whereIn('id', $ids)
+            ->where('status', 'active')
+            ->orderBy('sort_order')
+            ->get();
+    }
+
+    /**
+     * Get all departments where user can create tasks (PIC departments + their children)
+     */
+    public function getCreatableDepartments(): \Illuminate\Database\Eloquent\Collection
+    {
+        $picIds = $this->picDepartments()->where('status', 'active')->pluck('departments.id');
+        $childIds = Department::whereIn('parent_id', $picIds)->where('status', 'active')->pluck('id');
+
+        return Department::whereIn('id', $picIds->merge($childIds))
+            ->where('status', 'active')
+            ->orderBy('sort_order')
+            ->get();
+    }
+
+    /**
+     * Check if user has access to task management module
+     */
+    public function hasTaskManagementAccess(): bool
+    {
+        return $this->isAdmin() || $this->departments()->exists();
     }
 }

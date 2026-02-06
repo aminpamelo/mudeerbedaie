@@ -15,18 +15,5 @@ Schedule::command('subscriptions:generate-orders')->daily()->at('01:00');
 Schedule::command('notifications:schedule --days=7')->dailyAt('00:30');
 Schedule::command('notifications:process --limit=50')->everyFiveMinutes();
 
-// Funnel automation jobs
-Schedule::job(new \App\Jobs\Funnel\DetectAbandonedSessions)->everyFifteenMinutes();
-Schedule::job(new \App\Jobs\Funnel\ProcessCartAbandonment)->everyThirtyMinutes();
-Schedule::job(new \App\Jobs\Funnel\UpdateFunnelAnalytics)->dailyAt('02:00');
-
-// TikTok Shop order sync - runs every 15 minutes for active accounts with auto-sync enabled
-Schedule::command('tiktok:sync-orders --all --queue --days=1')
-    ->everyFifteenMinutes()
-    ->withoutOverlapping()
-    ->runInBackground();
-
-// TikTok token refresh - runs daily to ensure tokens don't expire
-Schedule::command(\App\Console\Commands\TikTokRefreshTokens::class)
-    ->daily()
-    ->at('03:00');
+// Schedule task management reminders (due soon + overdue alerts)
+Schedule::command('tasks:send-reminders')->dailyAt('08:00');

@@ -25,6 +25,7 @@
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
+                    'taskManagement': ['tasks.*'],
                     'settings': ['admin.settings.*'],
                     'teaching': ['teacher.courses.*', 'teacher.classes.*', 'teacher.sessions.*', 'teacher.payslips.*', 'teacher.students.*', 'teacher.timetable'],
                     'liveStreaming': ['live-host.*'],
@@ -84,8 +85,13 @@
                 <x-app-logo />
             </a>
 
+            @php
+                // Check if user is department staff (PIC or Member role)
+                // These users have dedicated roles: pic_department or member_department
+                $isDepartmentStaff = auth()->user()->isDepartmentStaff();
+            @endphp
             <flux:navlist variant="outline">
-                @if(auth()->user()->isStudent())
+                @if(auth()->user()->isStudent() && !$isDepartmentStaff)
                 {{-- Student Home --}}
                 <flux:navlist.group
                     expandable
@@ -279,7 +285,63 @@
                     <flux:navlist.item icon="chart-bar" :href="route('admin.reports.subscriptions')" :current="request()->routeIs('admin.reports.subscriptions')" wire:navigate>{{ __('Subscription Reports') }}</flux:navlist.item>
                     <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.student-payments')" :current="request()->routeIs('admin.reports.student-payments')" wire:navigate>{{ __('Student Payment Report') }}</flux:navlist.item>
                 </flux:navlist.group>
+                @endif
 
+                {{-- Task Management - Show for admin (read-only) and department PICs/members --}}
+                @if(auth()->user()->hasTaskManagementAccess())
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Task Management')"
+                    data-section='taskManagement'
+                    x-init="if (!isExpanded('taskManagement')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('taskManagement', $event)"
+                >
+                    <flux:navlist.item icon="clipboard-document-list" :href="route('tasks.dashboard')" :current="request()->routeIs('tasks.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                    <flux:navlist.item icon="user" :href="route('tasks.my-tasks')" :current="request()->routeIs('tasks.my-tasks')" wire:navigate>{{ __('My Tasks') }}</flux:navlist.item>
+
+                    {{-- Department links with parent-child hierarchy --}}
+                    @php
+                        $userDepartments = auth()->user()->isAdmin()
+                            ? \App\Models\Department::active()->topLevel()->ordered()->with('children')->get()
+                            : auth()->user()->departments()->where('status', 'active')->orderBy('sort_order')->get();
+                    @endphp
+                    @foreach($userDepartments as $dept)
+                        @if($dept->children->count() > 0)
+                            {{-- Parent department with children --}}
+                            <flux:navlist.item
+                                icon="folder"
+                                :href="route('tasks.department.board', $dept->slug)"
+                                :current="request()->routeIs('tasks.department.board') && request()->route('department')?->slug === $dept->slug"
+                                wire:navigate
+                            >{{ $dept->name }}</flux:navlist.item>
+                            @foreach($dept->children as $child)
+                            <flux:navlist.item
+                                icon="document"
+                                :href="route('tasks.department.board', $child->slug)"
+                                :current="request()->routeIs('tasks.department.board') && request()->route('department')?->slug === $child->slug"
+                                wire:navigate
+                                class="pl-4"
+                            >{{ $child->name }}</flux:navlist.item>
+                            @endforeach
+                        @else
+                            {{-- Standalone department --}}
+                            <flux:navlist.item
+                                icon="folder"
+                                :href="route('tasks.department.board', $dept->slug)"
+                                :current="request()->routeIs('tasks.department.board') && request()->route('department')?->slug === $dept->slug"
+                                wire:navigate
+                            >{{ $dept->name }}</flux:navlist.item>
+                        @endif
+                    @endforeach
+
+                    {{-- Manage Members link for Admin --}}
+                    @if(auth()->user()->isAdmin())
+                    <flux:navlist.item icon="user-group" :href="route('tasks.manage-members')" :current="request()->routeIs('tasks.manage-members') || request()->routeIs('tasks.department.settings')" wire:navigate>{{ __('Manage Members') }}</flux:navlist.item>
+                    @endif
+                </flux:navlist.group>
+                @endif
+
+                @if(auth()->user()->isAdmin())
                 <flux:navlist.group
                     expandable
                     heading="Settings"
@@ -418,7 +480,7 @@
                 </flux:navlist.group>
                 @endif
 
-                @if(auth()->user()->isStudent())
+                @if(auth()->user()->isStudent() && !$isDepartmentStaff)
                 <flux:navlist.group
                     expandable
                     :heading="__('Courses')"
@@ -501,8 +563,8 @@
             </flux:dropdown>
         </flux:sidebar>
 
-        <!-- Mobile User Menu (Non-Student) -->
-        @if(!auth()->user()->isStudent() || auth()->user()->isClassAdmin())
+        <!-- Mobile User Menu (Non-Student or Department Members) -->
+        @if(!auth()->user()->isStudent() || auth()->user()->isClassAdmin() || $isDepartmentStaff)
         <flux:header class="lg:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
@@ -555,10 +617,10 @@
 
         {{-- Main content with conditional padding for mobile bottom nav --}}
         @php
-            $isStudent = auth()->check() && auth()->user()->isStudent();
+            $isRealStudent = auth()->check() && auth()->user()->isStudent() && !$isDepartmentStaff;
         @endphp
 
-        @if($isStudent)
+        @if($isRealStudent)
             <flux:main class="lg:pb-0 pb-20">
                 {{ $slot }}
             </flux:main>
