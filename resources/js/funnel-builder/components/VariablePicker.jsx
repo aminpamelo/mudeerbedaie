@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 
 /**
  * Variable definitions by category for merge tags.
@@ -163,7 +163,9 @@ export default function VariablePicker({
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(null);
+    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
     const dropdownRef = useRef(null);
+    const buttonRef = useRef(null);
     const searchInputRef = useRef(null);
 
     // Get available variables based on trigger type
@@ -204,10 +206,44 @@ export default function VariablePicker({
         return filtered;
     }, [availableVariables, searchQuery]);
 
+    // Calculate dropdown position to prevent overflow
+    const calculatePosition = useCallback(() => {
+        if (!buttonRef.current) return;
+
+        const buttonRect = buttonRef.current.getBoundingClientRect();
+        const dropdownWidth = 420;
+        const dropdownHeight = 520;
+        const padding = 16;
+
+        let left = buttonRect.right - dropdownWidth;
+        let top = buttonRect.bottom + 8;
+
+        // Prevent overflow on the left
+        if (left < padding) {
+            left = padding;
+        }
+
+        // Prevent overflow on the right
+        if (left + dropdownWidth > window.innerWidth - padding) {
+            left = window.innerWidth - dropdownWidth - padding;
+        }
+
+        // Prevent overflow on the bottom - show above if not enough space
+        if (top + dropdownHeight > window.innerHeight - padding) {
+            top = buttonRect.top - dropdownHeight - 8;
+            if (top < padding) {
+                top = padding;
+            }
+        }
+
+        setDropdownPosition({ top, left });
+    }, []);
+
     // Handle click outside to close dropdown
     useEffect(() => {
         function handleClickOutside(event) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+                buttonRef.current && !buttonRef.current.contains(event.target)) {
                 setIsOpen(false);
             }
         }
@@ -216,12 +252,25 @@ export default function VariablePicker({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Focus search input when dropdown opens
+    // Focus search input when dropdown opens and calculate position
     useEffect(() => {
-        if (isOpen && searchInputRef.current) {
-            searchInputRef.current.focus();
+        if (isOpen) {
+            calculatePosition();
+            if (searchInputRef.current) {
+                searchInputRef.current.focus();
+            }
+
+            // Recalculate on scroll/resize
+            const handleReposition = () => calculatePosition();
+            window.addEventListener('resize', handleReposition);
+            window.addEventListener('scroll', handleReposition, true);
+
+            return () => {
+                window.removeEventListener('resize', handleReposition);
+                window.removeEventListener('scroll', handleReposition, true);
+            };
         }
-    }, [isOpen]);
+    }, [isOpen, calculatePosition]);
 
     // Handle variable selection
     const handleSelect = (variableKey) => {
@@ -242,9 +291,10 @@ export default function VariablePicker({
     const categories = Object.entries(filteredVariables);
 
     return (
-        <div className="relative inline-block" ref={dropdownRef}>
+        <div className="relative inline-block">
             {/* Trigger Button */}
             <button
+                ref={buttonRef}
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg
@@ -264,17 +314,22 @@ export default function VariablePicker({
                 </svg>
             </button>
 
-            {/* Dropdown Panel - Large overlay */}
+            {/* Dropdown Panel - Fixed position to prevent overflow */}
             {isOpen && (
                 <div
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-[60]"
                     onClick={() => setIsOpen(false)}
                 />
             )}
             {isOpen && (
                 <div
-                    className="absolute z-50 mt-2 right-0 w-[420px] max-h-[520px] overflow-hidden rounded-2xl border border-gray-200
+                    ref={dropdownRef}
+                    className="fixed z-[70] w-[420px] max-h-[520px] overflow-hidden rounded-2xl border border-gray-200
                         bg-white shadow-2xl ring-1 ring-black ring-opacity-5"
+                    style={{
+                        top: `${dropdownPosition.top}px`,
+                        left: `${dropdownPosition.left}px`,
+                    }}
                     onKeyDown={handleKeyDown}
                 >
                     {/* Header */}
