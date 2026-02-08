@@ -388,6 +388,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/notifications', 'admin.settings-notifications')->name('admin.settings.notifications');
     Volt::route('settings/notifications/{template}/builder', 'admin.react-template-builder')->name('admin.settings.notifications.builder');
     Volt::route('settings/whatsapp', 'admin.settings-whatsapp')->name('admin.settings.whatsapp');
+    Volt::route('settings/shipping', 'admin.settings-shipping')->name('admin.settings.shipping');
 
     // Customer Service routes
     Volt::route('customer-service', 'admin.customer-service.dashboard')->name('admin.customer-service.dashboard');

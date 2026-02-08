@@ -79,6 +79,15 @@
                     >
                         {{ __('Notifications') }}
                     </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="truck"
+                        :href="route('admin.settings.shipping')"
+                        :current="request()->routeIs('admin.settings.shipping')"
+                        wire:navigate
+                    >
+                        {{ __('Shipping') }}
+                    </flux:navlist.item>
                 </flux:navlist.group>
                 @endif
             </flux:navlist>
@@ -242,6 +251,15 @@
                         icon="bell"
                     >
                         Notifications
+                    </flux:navbar.item>
+
+                    <flux:navbar.item
+                        :href="route('admin.settings.shipping')"
+                        wire:navigate
+                        :current="$activeTab === 'shipping'"
+                        icon="truck"
+                    >
+                        Shipping
                     </flux:navbar.item>
                 </flux:navbar>
 

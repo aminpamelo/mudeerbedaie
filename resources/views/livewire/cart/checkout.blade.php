@@ -5,6 +5,8 @@ use App\Models\ProductOrder;
 use App\Models\ProductOrderPayment;
 use App\Services\BayarcashService;
 use App\Services\SettingsService;
+use App\Services\Shipping\ShippingManager;
+use App\DTOs\Shipping\ShippingRateRequest;
 use Livewire\Volt\Component;
 
 new class extends Component
@@ -45,12 +47,24 @@ new class extends Component
     public bool $sameAsBilling = true;
     public string $paymentMethod = 'credit_card';
     public bool $isProcessing = false;
-    public string $currentStep = 'information'; // information, payment, confirmation
+    public string $currentStep = 'information'; // information, shipping, payment, confirmation
+
+    // Shipping
+    public string $selectedShippingProvider = '';
+    public string $selectedShippingService = '';
+    public float $selectedShippingCost = 0;
+    public array $availableShippingRates = [];
+    public bool $isLoadingRates = false;
+    public bool $hasShippingProviders = false;
 
     public function mount(): void
     {
         $this->loadCart();
         $this->prefillUserData();
+
+        // Check if any shipping providers are enabled
+        $shippingManager = app(ShippingManager::class);
+        $this->hasShippingProviders = count($shippingManager->getEnabledProviders()) > 0;
 
         // Redirect if cart is empty
         if (!$this->cart || $this->cart->isEmpty()) {
@@ -88,7 +102,7 @@ new class extends Component
         }
     }
 
-    public function proceedToPayment(): void
+    public function proceedToShipping(): void
     {
         // Validate customer information
         $this->validate([
@@ -114,12 +128,95 @@ new class extends Component
             ]);
         }
 
+        // Skip shipping step if no providers enabled
+        if (!$this->hasShippingProviders) {
+            $this->currentStep = 'payment';
+            return;
+        }
+
+        $this->currentStep = 'shipping';
+        $this->fetchShippingRates();
+    }
+
+    public function fetchShippingRates(): void
+    {
+        $this->isLoadingRates = true;
+
+        try {
+            $shippingManager = app(ShippingManager::class);
+            $senderDefaults = app(SettingsService::class)->getShippingSenderDefaults();
+            $address = $this->sameAsBilling ? $this->billingAddress : $this->shippingAddress;
+
+            $request = new ShippingRateRequest(
+                originPostalCode: $senderDefaults['postal_code'] ?? '',
+                originCity: $senderDefaults['city'] ?? '',
+                originState: $senderDefaults['state'] ?? '',
+                destinationPostalCode: $address['postal_code'] ?? '',
+                destinationCity: $address['city'] ?? '',
+                destinationState: $address['state'] ?? '',
+                weightKg: $this->calculateTotalWeight(),
+            );
+
+            $rates = $shippingManager->getRatesFromAllProviders($request);
+
+            $this->availableShippingRates = array_map(fn ($rate) => [
+                'provider_slug' => $rate->providerSlug,
+                'provider_name' => $rate->providerName,
+                'service_name' => $rate->serviceName,
+                'service_code' => $rate->serviceCode,
+                'cost' => $rate->cost,
+                'currency' => $rate->currency,
+                'estimated_days' => $rate->estimatedDays,
+            ], $rates);
+        } catch (\Exception $e) {
+            $this->availableShippingRates = [];
+            $this->dispatch('checkout-error', message: 'Failed to load shipping rates: ' . $e->getMessage());
+        } finally {
+            $this->isLoadingRates = false;
+        }
+    }
+
+    public function selectShippingRate(string $providerSlug, string $serviceCode, float $cost): void
+    {
+        $this->selectedShippingProvider = $providerSlug;
+        $this->selectedShippingService = $serviceCode;
+        $this->selectedShippingCost = $cost;
+    }
+
+    public function proceedToPayment(): void
+    {
+        // If shipping step is active, validate shipping selection
+        if ($this->hasShippingProviders && empty($this->selectedShippingProvider)) {
+            $this->dispatch('checkout-error', message: 'Please select a shipping method.');
+            return;
+        }
+
         $this->currentStep = 'payment';
     }
 
     public function backToInformation(): void
     {
         $this->currentStep = 'information';
+    }
+
+    public function backToShipping(): void
+    {
+        $this->currentStep = 'shipping';
+    }
+
+    private function calculateTotalWeight(): float
+    {
+        if (!$this->cart) {
+            return 0.5;
+        }
+
+        $weight = 0;
+        foreach ($this->cart->items as $item) {
+            $itemWeight = $item->product->weight_kg ?? 0.5;
+            $weight += $itemWeight * $item->quantity;
+        }
+
+        return max($weight, 0.5);
     }
 
     public function processOrder(): void
@@ -158,8 +255,18 @@ new class extends Component
                 addresses: $addresses
             );
 
-            // Update order with payment method
-            $order->update(['payment_method' => $this->paymentMethod]);
+            // Update order with payment method and shipping info
+            $orderUpdate = ['payment_method' => $this->paymentMethod];
+
+            if ($this->selectedShippingProvider) {
+                $orderUpdate['shipping_cost'] = $this->selectedShippingCost;
+                $orderUpdate['shipping_provider'] = $this->selectedShippingProvider;
+                $orderUpdate['delivery_option'] = $this->selectedShippingService;
+                $orderUpdate['weight_kg'] = $this->calculateTotalWeight();
+                $orderUpdate['total_amount'] = $order->subtotal + $this->selectedShippingCost + $order->tax_amount - $order->discount_amount;
+            }
+
+            $order->update($orderUpdate);
 
             // Create payment record
             $payment = $order->payments()->create([
@@ -260,7 +367,20 @@ new class extends Component
 
     public function getCartTotal(): string
     {
-        return $this->cart ? number_format($this->cart->total_amount, 2) : '0.00';
+        if (!$this->cart) {
+            return '0.00';
+        }
+
+        return number_format($this->cart->total_amount + $this->selectedShippingCost, 2);
+    }
+
+    public function getShippingCostFormatted(): string
+    {
+        if ($this->selectedShippingCost > 0) {
+            return number_format($this->selectedShippingCost, 2);
+        }
+
+        return '0.00';
     }
 }; ?>
 
@@ -298,7 +418,7 @@ new class extends Component
         <div class="mb-8">
             <div class="flex items-center justify-center space-x-8">
                 <div class="flex items-center">
-                    <div class="w-8 h-8 rounded-full {{ $currentStep === 'information' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold">
+                    <div class="w-8 h-8 rounded-full {{ $currentStep === 'information' ? 'bg-blue-600 text-white' : (in_array($currentStep, ['shipping', 'payment']) ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600') }} flex items-center justify-center font-semibold">
                         1
                     </div>
                     <flux:text class="ml-2 {{ $currentStep === 'information' ? 'font-semibold' : '' }}">Information</flux:text>
@@ -306,9 +426,20 @@ new class extends Component
 
                 <div class="flex-1 h-px bg-gray-200"></div>
 
+                @if($hasShippingProviders)
+                <div class="flex items-center">
+                    <div class="w-8 h-8 rounded-full {{ $currentStep === 'shipping' ? 'bg-blue-600 text-white' : ($currentStep === 'payment' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600') }} flex items-center justify-center font-semibold">
+                        2
+                    </div>
+                    <flux:text class="ml-2 {{ $currentStep === 'shipping' ? 'font-semibold' : '' }}">Shipping</flux:text>
+                </div>
+
+                <div class="flex-1 h-px bg-gray-200"></div>
+                @endif
+
                 <div class="flex items-center">
                     <div class="w-8 h-8 rounded-full {{ $currentStep === 'payment' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center font-semibold">
-                        2
+                        {{ $hasShippingProviders ? '3' : '2' }}
                     </div>
                     <flux:text class="ml-2 {{ $currentStep === 'payment' ? 'font-semibold' : '' }}">Payment</flux:text>
                 </div>
@@ -475,7 +606,78 @@ new class extends Component
                                 Back to Cart
                             </flux:button>
 
-                            <flux:button variant="primary" wire:click="proceedToPayment">
+                            <flux:button variant="primary" wire:click="proceedToShipping">
+                                {{ $hasShippingProviders ? 'Continue to Shipping' : 'Continue to Payment' }}
+                                <flux:icon name="arrow-right" class="w-4 h-4 ml-2" />
+                            </flux:button>
+                        </div>
+                    </div>
+                @elseif($currentStep === 'shipping')
+                    <!-- Shipping Step -->
+                    <div class="bg-white rounded-lg shadow-sm border p-6">
+                        <flux:heading size="lg" class="mb-6">Shipping Method</flux:heading>
+
+                        @if($isLoadingRates)
+                            <div class="text-center py-8">
+                                <div class="inline-flex items-center space-x-2 text-gray-500">
+                                    <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Loading shipping rates...</span>
+                                </div>
+                            </div>
+                        @elseif(empty($availableShippingRates))
+                            <div class="text-center py-8">
+                                <flux:icon name="truck" class="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <flux:text class="text-gray-500">No shipping rates available for your location.</flux:text>
+                                <flux:text size="sm" class="text-gray-400 mt-1">Please check your address details and try again.</flux:text>
+                                <flux:button variant="outline" wire:click="fetchShippingRates" class="mt-4" size="sm">
+                                    Retry
+                                </flux:button>
+                            </div>
+                        @else
+                            <div class="space-y-3">
+                                @foreach($availableShippingRates as $index => $rate)
+                                    <div
+                                        wire:click="selectShippingRate('{{ $rate['provider_slug'] }}', '{{ $rate['service_code'] }}', {{ $rate['cost'] }})"
+                                        class="border rounded-lg p-4 cursor-pointer transition-colors {{ $selectedShippingProvider === $rate['provider_slug'] && $selectedShippingService === $rate['service_code'] ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300' }}"
+                                    >
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-3">
+                                                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                                    <flux:icon name="truck" class="w-5 h-5 text-gray-600" />
+                                                </div>
+                                                <div>
+                                                    <flux:text class="font-medium">{{ $rate['service_name'] }}</flux:text>
+                                                    <flux:text size="sm" class="text-gray-500">{{ $rate['provider_name'] }}</flux:text>
+                                                </div>
+                                            </div>
+                                            <div class="text-right">
+                                                <flux:text class="font-semibold">MYR {{ number_format($rate['cost'], 2) }}</flux:text>
+                                                @if($rate['estimated_days'])
+                                                    <flux:text size="sm" class="text-gray-500">~{{ $rate['estimated_days'] }} {{ $rate['estimated_days'] === 1 ? 'day' : 'days' }}</flux:text>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <div class="mt-8 flex justify-between">
+                            <flux:button variant="outline" wire:click="backToInformation">
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="arrow-left" class="w-4 h-4 mr-1" />
+                                    Back
+                                </div>
+                            </flux:button>
+
+                            <flux:button
+                                variant="primary"
+                                wire:click="proceedToPayment"
+                                :disabled="empty($selectedShippingProvider)"
+                            >
                                 Continue to Payment
                                 <flux:icon name="arrow-right" class="w-4 h-4 ml-2" />
                             </flux:button>
@@ -547,7 +749,7 @@ new class extends Component
                         </div>
 
                         <div class="mt-8 flex justify-between">
-                            <flux:button variant="outline" wire:click="backToInformation">
+                            <flux:button variant="outline" wire:click="{{ $hasShippingProviders ? 'backToShipping' : 'backToInformation' }}">
                                 <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
                                 Back
                             </flux:button>
@@ -599,6 +801,17 @@ new class extends Component
                         <div class="flex justify-between">
                             <flux:text>Tax (GST 6%)</flux:text>
                             <flux:text>MYR {{ $this->getCartTax() }}</flux:text>
+                        </div>
+
+                        <div class="flex justify-between">
+                            <flux:text>Shipping</flux:text>
+                            <flux:text>
+                                @if($selectedShippingCost > 0)
+                                    MYR {{ $this->getShippingCostFormatted() }}
+                                @else
+                                    <span class="text-gray-400">{{ $hasShippingProviders ? 'Calculated at next step' : 'Free' }}</span>
+                                @endif
+                            </flux:text>
                         </div>
 
                         <div class="border-t pt-2">

@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Listeners\BlockExampleEmails;
 use App\Models\ClassModel;
 use App\Models\User;
+use App\Services\Shipping\JntShippingService;
+use App\Services\Shipping\ShippingManager;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -17,7 +19,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ShippingManager::class, function ($app) {
+            $manager = new ShippingManager;
+            $manager->registerProvider($app->make(JntShippingService::class));
+
+            return $manager;
+        });
     }
 
     /**

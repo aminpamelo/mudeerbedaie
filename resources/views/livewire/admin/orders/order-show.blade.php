@@ -1,8 +1,11 @@
 <?php
 
+use App\DTOs\Shipping\ShipmentRequest;
 use App\Models\ProductOrder;
 use App\Models\StockLevel;
 use App\Models\StockMovement;
+use App\Services\SettingsService;
+use App\Services\Shipping\ShippingManager;
 use App\Services\TikTok\OrderItemLinker;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
@@ -19,6 +22,11 @@ new class extends Component
     public $paymentStatus = 'pending';
 
     public $orderStatus = 'draft';
+
+    // Shipping
+    public bool $showTrackingModal = false;
+    public array $trackingInfo = [];
+    public string $manualTrackingId = '';
 
     public function mount(ProductOrder $order): void
     {
@@ -289,6 +297,142 @@ new class extends Component
 
         $this->order->refresh();
     }
+
+    public function createJntShipment(): void
+    {
+        try {
+            $shippingManager = app(ShippingManager::class);
+            $jntService = $shippingManager->getProvider('jnt');
+            $senderDefaults = app(SettingsService::class)->getShippingSenderDefaults();
+            $shippingAddress = $this->order->addresses()->where('type', 'shipping')->first()
+                ?? $this->order->addresses()->where('type', 'billing')->first();
+
+            if (! $shippingAddress) {
+                session()->flash('error', 'No shipping address found for this order.');
+                return;
+            }
+
+            $request = new ShipmentRequest(
+                orderNumber: $this->order->order_number,
+                senderName: $senderDefaults['name'] ?: 'Sender',
+                senderPhone: $senderDefaults['phone'] ?: '',
+                senderAddress: $senderDefaults['address'] ?: '',
+                senderCity: $senderDefaults['city'] ?: '',
+                senderState: $senderDefaults['state'] ?: '',
+                senderPostalCode: $senderDefaults['postal_code'] ?: '',
+                receiverName: trim($shippingAddress->first_name.' '.$shippingAddress->last_name),
+                receiverPhone: $shippingAddress->phone ?: '',
+                receiverAddress: trim($shippingAddress->address_line_1.' '.$shippingAddress->address_line_2),
+                receiverCity: $shippingAddress->city ?: '',
+                receiverState: $shippingAddress->state ?: '',
+                receiverPostalCode: $shippingAddress->postal_code ?: '',
+                weightKg: $this->order->weight_kg ?: 0.5,
+                itemDescription: 'Order '.$this->order->order_number,
+                itemValue: $this->order->total_amount,
+                itemQuantity: $this->order->items->sum('quantity_ordered'),
+                serviceCode: $this->order->delivery_option ?: app(SettingsService::class)->get('jnt_default_service_type', 'EZ'),
+            );
+
+            $result = $jntService->createShipment($request);
+
+            if ($result->success) {
+                $this->order->update([
+                    'tracking_id' => $result->trackingNumber,
+                    'shipping_provider' => 'jnt',
+                    'status' => 'shipped',
+                    'shipped_at' => now(),
+                ]);
+                $this->orderStatus = 'shipped';
+                $this->order->addSystemNote("JNT shipment created. Tracking: {$result->trackingNumber}");
+                session()->flash('success', "Shipment created successfully! Tracking: {$result->trackingNumber}");
+            } else {
+                session()->flash('error', "Failed to create shipment: {$result->message}");
+            }
+        } catch (\Exception $e) {
+            session()->flash('error', 'Shipment creation failed: '.$e->getMessage());
+        }
+
+        $this->order->refresh();
+    }
+
+    public function viewTracking(): void
+    {
+        if (! $this->order->tracking_id || ! $this->order->shipping_provider) {
+            return;
+        }
+
+        try {
+            $shippingManager = app(ShippingManager::class);
+            $provider = $shippingManager->getProvider($this->order->shipping_provider);
+            $result = $provider->getTracking($this->order->tracking_id);
+
+            $this->trackingInfo = $result->events;
+            $this->showTrackingModal = true;
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to fetch tracking: '.$e->getMessage());
+        }
+    }
+
+    public function cancelJntShipment(): void
+    {
+        if (! $this->order->tracking_id) {
+            return;
+        }
+
+        try {
+            $shippingManager = app(ShippingManager::class);
+            $provider = $shippingManager->getProvider($this->order->shipping_provider);
+            $result = $provider->cancelShipment($this->order->tracking_id);
+
+            if ($result->success) {
+                $oldTracking = $this->order->tracking_id;
+                $this->order->update([
+                    'tracking_id' => null,
+                    'shipping_provider' => null,
+                    'status' => 'processing',
+                    'shipped_at' => null,
+                ]);
+                $this->orderStatus = 'processing';
+                $this->order->addSystemNote("JNT shipment cancelled. Previous tracking: {$oldTracking}");
+                session()->flash('success', 'Shipment cancelled successfully.');
+            } else {
+                session()->flash('error', "Failed to cancel shipment: {$result->message}");
+            }
+        } catch (\Exception $e) {
+            session()->flash('error', 'Shipment cancellation failed: '.$e->getMessage());
+        }
+
+        $this->order->refresh();
+    }
+
+    public function setManualTracking(): void
+    {
+        if (empty($this->manualTrackingId)) {
+            return;
+        }
+
+        $this->order->update([
+            'tracking_id' => $this->manualTrackingId,
+            'status' => 'shipped',
+            'shipped_at' => now(),
+        ]);
+        $this->orderStatus = 'shipped';
+        $this->order->addSystemNote("Manual tracking set: {$this->manualTrackingId}");
+        session()->flash('success', 'Tracking number saved.');
+        $this->manualTrackingId = '';
+        $this->order->refresh();
+    }
+
+    public function closeTrackingModal(): void
+    {
+        $this->showTrackingModal = false;
+        $this->trackingInfo = [];
+    }
+
+    private function isJntEnabled(): bool
+    {
+        return app(SettingsService::class)->isJntEnabled();
+    }
 }; ?>
 
 <div>
@@ -530,6 +674,140 @@ new class extends Component
                         </div>
                     @endif
                 </div>
+            @endif
+
+            <!-- Shipping Management (non-platform orders) -->
+            @if(!$order->isPlatformOrder())
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
+                    <flux:heading size="lg" class="mb-4">Shipping Information</flux:heading>
+
+                    @if($order->tracking_id)
+                        <!-- Tracking Info -->
+                        <div class="grid md:grid-cols-2 gap-6 mb-4">
+                            <div>
+                                <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Tracking Number</flux:text>
+                                <flux:text class="font-medium">{{ $order->tracking_id }}</flux:text>
+                            </div>
+                            @if($order->shipping_provider)
+                                <div>
+                                    <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Provider</flux:text>
+                                    <flux:text class="font-medium capitalize">{{ $order->shipping_provider === 'jnt' ? 'J&T Express' : $order->shipping_provider }}</flux:text>
+                                </div>
+                            @endif
+                            @if($order->delivery_option)
+                                <div>
+                                    <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Service</flux:text>
+                                    <flux:text class="font-medium">{{ $order->delivery_option }}</flux:text>
+                                </div>
+                            @endif
+                            @if($order->weight_kg)
+                                <div>
+                                    <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Weight</flux:text>
+                                    <flux:text class="font-medium">{{ number_format($order->weight_kg, 2) }} kg</flux:text>
+                                </div>
+                            @endif
+                            @if($order->shipping_cost)
+                                <div>
+                                    <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Shipping Cost</flux:text>
+                                    <flux:text class="font-medium">MYR {{ number_format($order->shipping_cost, 2) }}</flux:text>
+                                </div>
+                            @endif
+                            @if($order->shipped_at)
+                                <div>
+                                    <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">Shipped At</flux:text>
+                                    <flux:text class="font-medium">{{ $order->shipped_at->format('M j, Y g:i A') }}</flux:text>
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="flex gap-2">
+                            @if($order->shipping_provider)
+                                <flux:button variant="outline" size="sm" wire:click="viewTracking">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="magnifying-glass" class="w-4 h-4 mr-1" />
+                                        View Tracking
+                                    </div>
+                                </flux:button>
+
+                                @if($order->status === 'shipped')
+                                    <flux:button variant="outline" size="sm" wire:click="cancelJntShipment"
+                                        wire:confirm="Are you sure you want to cancel this shipment?"
+                                    >
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="x-mark" class="w-4 h-4 mr-1" />
+                                            Cancel Shipment
+                                        </div>
+                                    </flux:button>
+                                @endif
+                            @endif
+                        </div>
+                    @else
+                        <!-- No tracking - show actions -->
+                        <div class="space-y-4">
+                            @if($this->isJntEnabled() && in_array($order->status, ['confirmed', 'processing']))
+                                <div class="p-4 rounded-lg border border-blue-200 bg-blue-50">
+                                    <flux:text class="text-sm text-blue-800 mb-3">Create a J&T Express shipment for this order.</flux:text>
+                                    <flux:button variant="primary" size="sm" wire:click="createJntShipment" wire:loading.attr="disabled">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="truck" class="w-4 h-4 mr-1" />
+                                            <span wire:loading.remove wire:target="createJntShipment">Create JNT Shipment</span>
+                                            <span wire:loading wire:target="createJntShipment">Creating...</span>
+                                        </div>
+                                    </flux:button>
+                                </div>
+                            @endif
+
+                            <!-- Manual Tracking Entry -->
+                            <div class="p-4 rounded-lg border border-gray-200">
+                                <flux:text class="text-sm text-gray-600 mb-3">Or manually enter a tracking number:</flux:text>
+                                <div class="flex gap-2">
+                                    <flux:input wire:model="manualTrackingId" placeholder="Enter tracking number" size="sm" />
+                                    <flux:button variant="outline" size="sm" wire:click="setManualTracking">
+                                        Save
+                                    </flux:button>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            @endif
+
+            <!-- Tracking Modal -->
+            @if($showTrackingModal)
+                <flux:modal wire:model="showTrackingModal">
+                    <div class="p-6">
+                        <flux:heading size="lg" class="mb-4">Tracking Timeline</flux:heading>
+                        <flux:text class="text-sm text-gray-500 mb-4">Tracking: {{ $order->tracking_id }}</flux:text>
+
+                        @if(empty($trackingInfo))
+                            <flux:text class="text-gray-500">No tracking events available yet.</flux:text>
+                        @else
+                            <div class="space-y-4">
+                                @foreach($trackingInfo as $event)
+                                    <div class="flex gap-3">
+                                        <div class="flex flex-col items-center">
+                                            <div class="w-3 h-3 bg-blue-600 rounded-full"></div>
+                                            @if(!$loop->last)
+                                                <div class="w-px h-full bg-gray-200 mt-1"></div>
+                                            @endif
+                                        </div>
+                                        <div class="pb-4">
+                                            <flux:text class="font-medium text-sm">{{ $event['description'] ?: $event['status'] }}</flux:text>
+                                            <flux:text class="text-xs text-gray-500">{{ $event['datetime'] }}</flux:text>
+                                            @if(!empty($event['location']))
+                                                <flux:text class="text-xs text-gray-400">{{ $event['location'] }}</flux:text>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <div class="mt-6 flex justify-end">
+                            <flux:button variant="outline" wire:click="closeTrackingModal">Close</flux:button>
+                        </div>
+                    </div>
+                </flux:modal>
             @endif
 
             <!-- Order Items -->
