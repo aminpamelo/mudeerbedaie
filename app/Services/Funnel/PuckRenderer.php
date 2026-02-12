@@ -229,6 +229,9 @@ class PuckRenderer
         $fontSize = $props['fontSize'] ?? '16px';
         $color = $props['color'] ?? '#374151';
 
+        // Detect and handle full HTML documents pasted into TextBlock
+        $content = $this->sanitizeFullHtmlDocument($content);
+
         return sprintf(
             '<div class="puck-text" style="text-align: %s; font-size: %s; color: %s; line-height: 1.7;">%s</div>',
             e($align),
@@ -236,6 +239,224 @@ class PuckRenderer
             e($color),
             $content // Allow HTML in text blocks
         );
+    }
+
+    /**
+     * Detect if content is a full HTML document and extract body content + scoped styles.
+     */
+    protected function sanitizeFullHtmlDocument(string $content): string
+    {
+        $trimmed = trim($content);
+
+        // Check if this is a full HTML document
+        if (! preg_match('/^<!DOCTYPE\s|^<html[\s>]/i', $trimmed)) {
+            return $content;
+        }
+
+        $scopeId = 'puck-scoped-'.substr(md5($content), 0, 8);
+        $styles = '';
+        $bodyContent = '';
+
+        // Extract <style> tags and scope their CSS rules
+        if (preg_match_all('/<style[^>]*>(.*?)<\/style>/si', $trimmed, $styleMatches)) {
+            foreach ($styleMatches[1] as $cssContent) {
+                $styles .= $this->scopeCssRules($cssContent, ".{$scopeId}");
+            }
+        }
+
+        // Extract body content
+        if (preg_match('/<body[^>]*>(.*)<\/body>/si', $trimmed, $bodyMatch)) {
+            $bodyContent = $bodyMatch[1];
+        } else {
+            $bodyContent = preg_replace('/<!DOCTYPE[^>]*>/i', '', $trimmed);
+            $bodyContent = preg_replace('/<\/?html[^>]*>/i', '', $bodyContent);
+            $bodyContent = preg_replace('/<head[^>]*>.*?<\/head>/si', '', $bodyContent);
+        }
+
+        // Remove <script> tags to prevent external JS frameworks from interfering with page rendering
+        $bodyContent = preg_replace('/<script\b[^>]*>.*?<\/script>/si', '', $bodyContent);
+
+        $extracted = '';
+        if ($styles !== '') {
+            $extracted .= "<style>{$styles}</style>";
+        }
+        // Use transform to create a containing block so position:fixed elements
+        // inside the scoped content don't escape and overlay the rest of the page.
+        $extracted .= sprintf(
+            '<div class="%s" style="transform: translateZ(0); overflow: hidden; position: relative;">%s</div>',
+            $scopeId,
+            $bodyContent
+        );
+
+        return $extracted;
+    }
+
+    /**
+     * Scope CSS rules by prefixing all selectors with a container selector.
+     */
+    protected function scopeCssRules(string $css, string $scopeSelector): string
+    {
+        // Process CSS: prefix each rule's selector(s) with the scope selector.
+        // This handles normal rules and preserves @media, @keyframes, @font-face blocks.
+        $result = '';
+        $length = strlen($css);
+        $i = 0;
+
+        while ($i < $length) {
+            // Skip whitespace
+            while ($i < $length && ctype_space($css[$i])) {
+                $result .= $css[$i];
+                $i++;
+            }
+
+            if ($i >= $length) {
+                break;
+            }
+
+            // Handle @-rules
+            if ($css[$i] === '@') {
+                $atRule = '@';
+                $i++;
+                // Read the at-rule name
+                while ($i < $length && $css[$i] !== '{' && $css[$i] !== ';') {
+                    $atRule .= $css[$i];
+                    $i++;
+                }
+
+                if ($i >= $length) {
+                    $result .= $atRule;
+                    break;
+                }
+
+                $atRuleName = strtolower(trim(explode(' ', trim(substr($atRule, 1)))[0] ?? ''));
+
+                if ($css[$i] === ';') {
+                    // At-rule without block (e.g., @import, @charset)
+                    $result .= $atRule.';';
+                    $i++;
+                } elseif (in_array($atRuleName, ['keyframes', '-webkit-keyframes', 'font-face'])) {
+                    // Preserve these blocks as-is (no scoping needed)
+                    $result .= $atRule.'{';
+                    $i++; // skip {
+                    $braceCount = 1;
+                    while ($i < $length && $braceCount > 0) {
+                        if ($css[$i] === '{') {
+                            $braceCount++;
+                        } elseif ($css[$i] === '}') {
+                            $braceCount--;
+                        }
+                        if ($braceCount > 0) {
+                            $result .= $css[$i];
+                        }
+                        $i++;
+                    }
+                    $result .= '}';
+                } elseif ($atRuleName === 'media') {
+                    // Recurse into @media blocks to scope inner rules
+                    $result .= $atRule.'{';
+                    $i++; // skip {
+                    $innerCss = '';
+                    $braceCount = 1;
+                    while ($i < $length && $braceCount > 0) {
+                        if ($css[$i] === '{') {
+                            $braceCount++;
+                        } elseif ($css[$i] === '}') {
+                            $braceCount--;
+                        }
+                        if ($braceCount > 0) {
+                            $innerCss .= $css[$i];
+                        }
+                        $i++;
+                    }
+                    $result .= $this->scopeCssRules($innerCss, $scopeSelector);
+                    $result .= '}';
+                } else {
+                    // Other at-rules with blocks - preserve as-is
+                    $result .= $atRule.'{';
+                    $i++; // skip {
+                    $braceCount = 1;
+                    while ($i < $length && $braceCount > 0) {
+                        if ($css[$i] === '{') {
+                            $braceCount++;
+                        } elseif ($css[$i] === '}') {
+                            $braceCount--;
+                        }
+                        if ($braceCount > 0) {
+                            $result .= $css[$i];
+                        }
+                        $i++;
+                    }
+                    $result .= '}';
+                }
+
+                continue;
+            }
+
+            // Handle comments
+            if ($i + 1 < $length && $css[$i] === '/' && $css[$i + 1] === '*') {
+                $commentEnd = strpos($css, '*/', $i + 2);
+                if ($commentEnd === false) {
+                    $result .= substr($css, $i);
+                    break;
+                }
+                $result .= substr($css, $i, $commentEnd + 2 - $i);
+                $i = $commentEnd + 2;
+
+                continue;
+            }
+
+            // Read selector(s) until {
+            $selector = '';
+            while ($i < $length && $css[$i] !== '{') {
+                $selector .= $css[$i];
+                $i++;
+            }
+
+            if ($i >= $length) {
+                $result .= $selector;
+                break;
+            }
+
+            $i++; // skip {
+
+            // Read declaration block until matching }
+            $declarations = '';
+            $braceCount = 1;
+            while ($i < $length && $braceCount > 0) {
+                if ($css[$i] === '{') {
+                    $braceCount++;
+                } elseif ($css[$i] === '}') {
+                    $braceCount--;
+                }
+                if ($braceCount > 0) {
+                    $declarations .= $css[$i];
+                }
+                $i++;
+            }
+
+            // Scope the selector
+            $selector = trim($selector);
+            if ($selector !== '') {
+                $scopedSelectors = [];
+                foreach (explode(',', $selector) as $sel) {
+                    $sel = trim($sel);
+                    if ($sel === '') {
+                        continue;
+                    }
+                    // For body/html selectors, replace with the scope container
+                    if (preg_match('/^(html|body)$/i', $sel)) {
+                        $scopedSelectors[] = $scopeSelector;
+                    } elseif (preg_match('/^(html|body)\s+/i', $sel)) {
+                        $scopedSelectors[] = $scopeSelector.' '.preg_replace('/^(html|body)\s+/i', '', $sel);
+                    } else {
+                        $scopedSelectors[] = $scopeSelector.' '.$sel;
+                    }
+                }
+                $result .= implode(', ', $scopedSelectors).'{'.$declarations.'}';
+            }
+        }
+
+        return $result;
     }
 
     /**

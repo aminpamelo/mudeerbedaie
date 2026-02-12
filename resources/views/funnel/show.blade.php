@@ -169,7 +169,7 @@
 
     <!-- Livewire Checkout Component (for checkout steps) -->
     @if($step->type === 'checkout')
-        <div id="funnel-checkout-container">
+        <div id="funnel-checkout-container" style="max-width: 1200px; margin: 0 auto; padding: 32px 16px; background-color: #f9fafb;">
             @livewire('funnel.checkout-form', [
                 'funnel' => $funnel,
                 'step' => $step,
