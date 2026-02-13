@@ -49,7 +49,7 @@ class PosController extends Controller
     public function packages(Request $request): JsonResponse
     {
         $query = Package::query()
-            ->where('is_active', true)
+            ->where('status', 'active')
             ->with(['items', 'products']);
 
         if ($search = $request->get('search')) {
@@ -67,7 +67,7 @@ class PosController extends Controller
     public function courses(Request $request): JsonResponse
     {
         $query = Course::query()
-            ->where('status', 'published')
+            ->where('status', 'active')
             ->with('classes');
 
         if ($search = $request->get('search')) {

@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import CartItem from './CartItem';
 import CustomerSelect from './CustomerSelect';
 
-export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQuantity, onRemoveItem, onClearCart, onCharge, subtotal }) {
-    const [discount, setDiscount] = useState({ amount: 0, type: 'fixed' });
+export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQuantity, onRemoveItem, onClearCart, onCharge, subtotal, discount, onDiscountChange }) {
 
     const discountValue = discount.type === 'percentage'
         ? (subtotal * discount.amount / 100)
@@ -72,13 +71,13 @@ export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQu
                             min="0"
                             step="0.01"
                             value={discount.amount || ''}
-                            onChange={(e) => setDiscount(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                            onChange={(e) => onDiscountChange({ ...discount, amount: parseFloat(e.target.value) || 0 })}
                             placeholder="0"
                             className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-sm text-right outline-none focus:ring-1 focus:ring-blue-500"
                         />
                         <select
                             value={discount.type}
-                            onChange={(e) => setDiscount(prev => ({ ...prev, type: e.target.value }))}
+                            onChange={(e) => onDiscountChange({ ...discount, type: e.target.value })}
                             className="px-2 py-1.5 border border-gray-200 rounded text-sm outline-none focus:ring-1 focus:ring-blue-500"
                         >
                             <option value="fixed">RM</option>

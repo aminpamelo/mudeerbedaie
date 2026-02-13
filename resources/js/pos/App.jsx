@@ -18,6 +18,7 @@ export default function App() {
     const [completedSale, setCompletedSale] = useState(null);
     const [classSelector, setClassSelector] = useState(null);
     const [variantSelector, setVariantSelector] = useState(null);
+    const [discount, setDiscount] = useState({ amount: 0, type: 'fixed' });
 
     const addToCart = useCallback((item) => {
         setCart(prev => {
@@ -51,6 +52,7 @@ export default function App() {
     const clearCart = useCallback(() => {
         setCart([]);
         setCustomer(null);
+        setDiscount({ amount: 0, type: 'fixed' });
     }, []);
 
     const handleProductClick = useCallback((product) => {
@@ -190,6 +192,8 @@ export default function App() {
                         onClearCart={clearCart}
                         onCharge={() => setShowPayment(true)}
                         subtotal={subtotal}
+                        discount={discount}
+                        onDiscountChange={setDiscount}
                     />
                 </div>
             </div>
@@ -200,6 +204,7 @@ export default function App() {
                     cart={cart}
                     customer={customer}
                     subtotal={subtotal}
+                    discount={discount}
                     onClose={() => setShowPayment(false)}
                     onComplete={handleSaleComplete}
                 />

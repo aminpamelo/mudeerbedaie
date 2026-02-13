@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { saleApi } from '../services/api';
 
-export default function PaymentModal({ cart, customer, subtotal, onClose, onComplete }) {
+export default function PaymentModal({ cart, customer, subtotal, discount, onClose, onComplete }) {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [paymentReference, setPaymentReference] = useState('');
     const [paymentStatus, setPaymentStatus] = useState('paid');
-    const [discount, setDiscount] = useState({ amount: 0, type: 'fixed' });
     const [notes, setNotes] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
