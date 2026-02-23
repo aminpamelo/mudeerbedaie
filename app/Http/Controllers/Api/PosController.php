@@ -350,9 +350,8 @@ class PosController extends Controller
             $query->whereDate('order_date', today());
         }
 
-        if ($salespersonId = $request->get('salesperson_id')) {
-            $query->whereJsonContains('metadata->salesperson_id', (int) $salespersonId);
-        }
+        // Always scope to the current authenticated user's sales
+        $query->whereJsonContains('metadata->salesperson_id', $request->user()->id);
 
         $sales = $query->paginate($request->get('per_page', 20));
 
@@ -461,14 +460,6 @@ class PosController extends Controller
      */
     public function dashboard(Request $request): JsonResponse
     {
-        $todaySales = ProductOrder::query()
-            ->where('source', 'pos')
-            ->whereDate('order_date', today())
-            ->whereNotNull('paid_time');
-
-        $totalSalesToday = $todaySales->count();
-        $totalRevenue = $todaySales->sum('total_amount');
-
         $mySalesToday = ProductOrder::query()
             ->where('source', 'pos')
             ->whereDate('order_date', today())
@@ -480,8 +471,8 @@ class PosController extends Controller
 
         return response()->json([
             'data' => [
-                'today_sales_count' => $totalSalesToday,
-                'today_revenue' => number_format($totalRevenue, 2),
+                'today_sales_count' => $myCount,
+                'today_revenue' => number_format($myRevenue, 2),
                 'my_sales_count' => $myCount,
                 'my_revenue' => number_format($myRevenue, 2),
             ],
@@ -504,6 +495,7 @@ class PosController extends Controller
             ->where('source', 'pos')
             ->whereNotNull('paid_time')
             ->whereYear('order_date', $year)
+            ->whereJsonContains('metadata->salesperson_id', $request->user()->id)
             ->selectRaw("
                 {$monthExpr} as month_number,
                 COUNT(*) as sales_count,
@@ -525,6 +517,7 @@ class PosController extends Controller
             ->where('product_orders.source', 'pos')
             ->whereNotNull('product_orders.paid_time')
             ->whereYear('product_orders.order_date', $year)
+            ->whereRaw("json_extract(product_orders.metadata, '$.salesperson_id') = ?", [$request->user()->id])
             ->selectRaw("
                 {$itemMonthExpr} as month_number,
                 COALESCE(SUM(product_order_items.quantity_ordered), 0) as items_sold
@@ -580,7 +573,7 @@ class PosController extends Controller
         $day = $request->get('day');
 
         if ($day) {
-            return $this->reportDayDetail($year, $month, (int) $day);
+            return $this->reportDayDetail($year, $month, (int) $day, $request->user()->id);
         }
 
         $startOfMonth = Carbon::create($year, $month, 1)->startOfDay();
@@ -596,6 +589,7 @@ class PosController extends Controller
             ->where('source', 'pos')
             ->whereNotNull('paid_time')
             ->whereBetween('order_date', [$startOfMonth, $endOfMonth])
+            ->whereJsonContains('metadata->salesperson_id', $request->user()->id)
             ->selectRaw("
                 {$dayExpr} as day_number,
                 COUNT(*) as sales_count,
@@ -642,7 +636,7 @@ class PosController extends Controller
     /**
      * Detail for a specific day: item breakdown and individual orders.
      */
-    private function reportDayDetail(int $year, int $month, int $day): JsonResponse
+    private function reportDayDetail(int $year, int $month, int $day, int $userId): JsonResponse
     {
         $date = Carbon::create($year, $month, $day);
 
@@ -650,6 +644,7 @@ class PosController extends Controller
             ->where('source', 'pos')
             ->whereNotNull('paid_time')
             ->whereDate('order_date', $date)
+            ->whereJsonContains('metadata->salesperson_id', $userId)
             ->with('items')
             ->latest('order_date')
             ->get();

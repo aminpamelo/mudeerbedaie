@@ -89,7 +89,7 @@ export default function ProductSearch({ onProductClick, onPackageClick, onCourse
                     <button
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
-                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                        className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-md transition-colors active:bg-gray-100 ${
                             activeTab === tab.key
                                 ? 'bg-white text-gray-900 shadow-sm'
                                 : 'text-gray-500 hover:text-gray-700'
@@ -173,7 +173,7 @@ function ItemCard({ item, type, onClick }) {
     return (
         <button
             onClick={onClick}
-            className="bg-white border border-gray-200 rounded-xl p-3 text-left hover:border-blue-400 hover:shadow-md transition-all group"
+            className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 text-left hover:border-blue-400 hover:shadow-md transition-all group active:scale-[0.98]"
         >
             {/* Image or Placeholder */}
             <div className="w-full aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">

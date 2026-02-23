@@ -127,8 +127,8 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={onClose}>
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg sm:mx-4 max-h-full sm:max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
                     <h3 className="text-lg font-semibold text-gray-900">Order Confirmation</h3>

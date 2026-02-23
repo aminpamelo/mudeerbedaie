@@ -13,7 +13,7 @@ function formatRM(value) {
     return 'RM ' + Number(value).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function PosReport() {
+export default function PosReport({ isMobile = false }) {
     const [reportView, setReportView] = useState('monthly');
 
     // Monthly state
@@ -160,7 +160,7 @@ export default function PosReport() {
     return (
         <div className="h-full flex flex-col bg-gray-50">
             {/* Toolbar */}
-            <div className="bg-white border-b border-gray-200 px-6 py-3 shrink-0 flex items-center justify-between">
+            <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                 <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                     <button
                         onClick={() => setReportView('monthly')}
@@ -216,7 +216,7 @@ export default function PosReport() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 lg:p-6">
                 {reportView === 'monthly' && (
                     monthlyLoading ? <Spinner /> : monthlyData && (
                         <>
@@ -229,7 +229,7 @@ export default function PosReport() {
                             </div>
 
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-3 gap-4 mb-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                                 <div className="bg-white rounded-xl border border-gray-200 p-4">
                                     <p className="text-xs font-medium text-gray-500">Total Revenue</p>
                                     <p className="text-xl font-bold text-blue-600 mt-1">{formatRM(monthlyData.totals.revenue)}</p>
@@ -283,7 +283,7 @@ export default function PosReport() {
                     dailyLoading ? <Spinner /> : dailyData && (
                         <>
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                                 <div className="bg-white rounded-xl border border-gray-200 p-4">
                                     <p className="text-xs font-medium text-gray-500">Revenue — {dailyData.month_name}</p>
                                     <p className="text-xl font-bold text-blue-600 mt-1">{formatRM(dailyData.totals.revenue)}</p>

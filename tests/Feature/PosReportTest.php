@@ -19,6 +19,11 @@ test('monthly report returns 12 months with correct structure', function () {
         'paid_time' => now(),
         'order_date' => now()->startOfYear(),
         'total_amount' => 100.00,
+        'metadata' => [
+            'pos_sale' => true,
+            'salesperson_id' => $this->admin->id,
+            'salesperson_name' => $this->admin->name,
+        ],
     ]);
 
     $response = $this->actingAs($this->admin)
@@ -42,6 +47,11 @@ test('monthly report only includes paid POS orders', function () {
         'paid_time' => now(),
         'order_date' => now(),
         'total_amount' => 100.00,
+        'metadata' => [
+            'pos_sale' => true,
+            'salesperson_id' => $this->admin->id,
+            'salesperson_name' => $this->admin->name,
+        ],
     ]);
 
     // Unpaid POS order — should NOT count
@@ -50,6 +60,11 @@ test('monthly report only includes paid POS orders', function () {
         'paid_time' => null,
         'order_date' => now(),
         'total_amount' => 50.00,
+        'metadata' => [
+            'pos_sale' => true,
+            'salesperson_id' => $this->admin->id,
+            'salesperson_name' => $this->admin->name,
+        ],
     ]);
 
     // Non-POS order — should NOT count
@@ -92,6 +107,11 @@ test('daily report with day parameter returns item breakdown', function () {
         'paid_time' => now(),
         'order_date' => now(),
         'total_amount' => 200.00,
+        'metadata' => [
+            'pos_sale' => true,
+            'salesperson_id' => $this->admin->id,
+            'salesperson_name' => $this->admin->name,
+        ],
     ]);
 
     ProductOrderItem::factory()->create([
@@ -122,4 +142,41 @@ test('daily report with day parameter returns item breakdown', function () {
 test('report endpoints require authentication', function () {
     $this->getJson('/api/pos/reports/monthly')->assertUnauthorized();
     $this->getJson('/api/pos/reports/daily')->assertUnauthorized();
+});
+
+test('reports only show current user sales, not other salesperson data', function () {
+    $otherUser = User::factory()->admin()->create();
+
+    // Current user's order
+    ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 100.00,
+        'metadata' => [
+            'pos_sale' => true,
+            'salesperson_id' => $this->admin->id,
+            'salesperson_name' => $this->admin->name,
+        ],
+    ]);
+
+    // Other user's order — should NOT appear
+    ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 200.00,
+        'metadata' => [
+            'pos_sale' => true,
+            'salesperson_id' => $otherUser->id,
+            'salesperson_name' => $otherUser->name,
+        ],
+    ]);
+
+    $response = $this->actingAs($this->admin)
+        ->getJson('/api/pos/reports/monthly?year='.now()->year);
+
+    $response->assertSuccessful();
+    expect((float) $response->json('data.totals.revenue'))->toBe(100.0);
+    expect($response->json('data.totals.sales_count'))->toBe(1);
 });

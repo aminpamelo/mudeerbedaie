@@ -37,14 +37,14 @@ export default function CartItem({ item, onUpdateQuantity, onRemove }) {
                 <div className="flex items-center gap-1">
                     <button
                         onClick={() => onUpdateQuantity(item.quantity - 1)}
-                        className="w-7 h-7 flex items-center justify-center rounded-md bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-medium"
+                        className="w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-md bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 active:bg-gray-200 text-sm font-medium"
                     >
                         -
                     </button>
                     <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
                     <button
                         onClick={() => onUpdateQuantity(item.quantity + 1)}
-                        className="w-7 h-7 flex items-center justify-center rounded-md bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 text-sm font-medium"
+                        className="w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-md bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 active:bg-gray-200 text-sm font-medium"
                     >
                         +
                     </button>

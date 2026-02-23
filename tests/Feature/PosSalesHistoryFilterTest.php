@@ -18,6 +18,7 @@ test('sales history can filter by status paid', function () {
         'paid_time' => now(),
         'order_date' => now(),
         'total_amount' => 100.00,
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     ProductOrder::factory()->create([
@@ -26,6 +27,7 @@ test('sales history can filter by status paid', function () {
         'status' => 'pending',
         'order_date' => now(),
         'total_amount' => 50.00,
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     $response = $this->actingAs($this->admin)
@@ -41,6 +43,7 @@ test('sales history can filter by status pending', function () {
         'source' => 'pos',
         'paid_time' => now(),
         'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     ProductOrder::factory()->create([
@@ -48,6 +51,7 @@ test('sales history can filter by status pending', function () {
         'paid_time' => null,
         'status' => 'pending',
         'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     $response = $this->actingAs($this->admin)
@@ -64,12 +68,14 @@ test('sales history can filter by status cancelled', function () {
         'paid_time' => null,
         'status' => 'cancelled',
         'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     ProductOrder::factory()->create([
         'source' => 'pos',
         'paid_time' => now(),
         'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     $response = $this->actingAs($this->admin)
@@ -86,6 +92,7 @@ test('sales history can filter by payment method', function () {
         'paid_time' => now(),
         'payment_method' => 'cash',
         'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     ProductOrder::factory()->create([
@@ -93,6 +100,7 @@ test('sales history can filter by payment method', function () {
         'paid_time' => now(),
         'payment_method' => 'card',
         'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     $response = $this->actingAs($this->admin)
@@ -108,12 +116,14 @@ test('sales history can filter by period today', function () {
         'source' => 'pos',
         'paid_time' => now(),
         'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     ProductOrder::factory()->create([
         'source' => 'pos',
         'paid_time' => now(),
         'order_date' => now()->subDays(5),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     $response = $this->actingAs($this->admin)
@@ -130,6 +140,7 @@ test('sales history can combine multiple filters', function () {
         'paid_time' => now(),
         'payment_method' => 'cash',
         'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     // Paid + card + today — should NOT match (wrong payment method)
@@ -138,6 +149,7 @@ test('sales history can combine multiple filters', function () {
         'paid_time' => now(),
         'payment_method' => 'card',
         'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     // Paid + cash + old — should NOT match (wrong period)
@@ -146,10 +158,37 @@ test('sales history can combine multiple filters', function () {
         'paid_time' => now(),
         'payment_method' => 'cash',
         'order_date' => now()->subMonth(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
     ]);
 
     $response = $this->actingAs($this->admin)
         ->getJson('/api/pos/sales?status=paid&payment_method=cash&period=today');
+
+    $response->assertSuccessful();
+    expect($response->json('data'))->toHaveCount(1);
+});
+
+test('sales history only shows current user sales', function () {
+    $otherUser = User::factory()->admin()->create();
+
+    // Current user's sale
+    ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $this->admin->id, 'salesperson_name' => $this->admin->name],
+    ]);
+
+    // Other user's sale — should NOT appear
+    ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $otherUser->id, 'salesperson_name' => $otherUser->name],
+    ]);
+
+    $response = $this->actingAs($this->admin)
+        ->getJson('/api/pos/sales');
 
     $response->assertSuccessful();
     expect($response->json('data'))->toHaveCount(1);

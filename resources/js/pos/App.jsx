@@ -7,6 +7,7 @@ import SalesHistory from './components/SalesHistory';
 import PosReport from './components/PosReport';
 import ClassSelector from './components/ClassSelector';
 import VariantSelector from './components/VariantSelector';
+import useMediaQuery from './hooks/useMediaQuery';
 
 const VIEWS = { POS: 'pos', HISTORY: 'history', REPORT: 'report' };
 
@@ -30,6 +31,9 @@ const TABS = [
 
 export default function App() {
     const config = window.posConfig || {};
+    const isMobile = useMediaQuery('(max-width: 1023px)');
+    const isSmallMobile = useMediaQuery('(max-width: 639px)');
+
     const [view, setView] = useState(() => {
         const hash = window.location.hash.replace('#', '');
         return Object.values(VIEWS).includes(hash) ? hash : VIEWS.POS;
@@ -46,6 +50,9 @@ export default function App() {
     const [variantSelector, setVariantSelector] = useState(null);
     const [discount, setDiscount] = useState({ amount: 0, type: 'fixed' });
     const [postage, setPostage] = useState(0);
+    const [showCartDrawer, setShowCartDrawer] = useState(false);
+
+    const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
     const addToCart = useCallback((item) => {
         setCart(prev => {
@@ -159,46 +166,73 @@ export default function App() {
         clearCart();
     }, [clearCart]);
 
+    const handleCharge = useCallback(() => {
+        setShowCartDrawer(false);
+        setShowPayment(true);
+    }, []);
+
     if (completedSale) {
         return <SaleComplete sale={completedSale} onNewSale={handleNewSale} />;
     }
 
     const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
 
+    const cartProps = {
+        cart,
+        customer,
+        onCustomerChange: setCustomer,
+        onUpdateQuantity: updateQuantity,
+        onRemoveItem: removeFromCart,
+        onClearCart: clearCart,
+        onCharge: handleCharge,
+        subtotal,
+        discount,
+        onDiscountChange: setDiscount,
+        postage,
+        onPostageChange: setPostage,
+    };
+
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
             <header className="bg-white border-b border-gray-200 shrink-0">
-                <div className="px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <img src="/images/bedaie-brand.png" alt="BeDaie" className="h-8 w-auto object-contain" />
-                        <h1 className="text-lg font-semibold text-gray-900">Point of Sale</h1>
+                <div className="px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <img src="/images/bedaie-brand.png" alt="BeDaie" className="h-7 sm:h-8 w-auto object-contain" />
+                        <h1 className="text-base sm:text-lg font-semibold text-gray-900">
+                            {isSmallMobile ? 'POS' : 'Point of Sale'}
+                        </h1>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500">{config.user?.name}</span>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {!isMobile && (
+                            <span className="text-sm text-gray-500">{config.user?.name}</span>
+                        )}
                         <a
                             href={config.dashboardUrl || '/dashboard'}
-                            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                            className="px-2 sm:px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1.5"
                         >
-                            Back to Admin
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            {!isMobile && <span>Back to Admin</span>}
                         </a>
                     </div>
                 </div>
 
                 {/* Tab Navigation */}
-                <nav className="px-4 flex gap-1">
+                <nav className="px-3 sm:px-4 flex gap-1">
                     {TABS.map(tab => (
                         <button
                             key={tab.key}
                             onClick={() => setView(tab.key)}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium border-b-2 transition-colors ${
                                 view === tab.key
                                     ? 'border-blue-600 text-blue-600'
                                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                             }`}
                         >
                             {tab.icon}
-                            {tab.label}
+                            <span className={isSmallMobile ? 'hidden' : ''}>{tab.label}</span>
                         </button>
                     ))}
                 </nav>
@@ -206,8 +240,8 @@ export default function App() {
 
             {/* Tab Content */}
             {view === VIEWS.POS && (
-                <div className="flex-1 flex overflow-hidden">
-                    {/* Product Grid */}
+                <div className="flex-1 flex overflow-hidden relative">
+                    {/* Product Grid - full width on mobile, flex-1 on desktop */}
                     <div className="flex-1 overflow-hidden">
                         <ProductSearch
                             onProductClick={handleProductClick}
@@ -216,35 +250,71 @@ export default function App() {
                         />
                     </div>
 
-                    {/* Cart Panel */}
-                    <div className="w-96 border-l border-gray-200 bg-white flex flex-col">
-                        <CartPanel
-                            cart={cart}
-                            customer={customer}
-                            onCustomerChange={setCustomer}
-                            onUpdateQuantity={updateQuantity}
-                            onRemoveItem={removeFromCart}
-                            onClearCart={clearCart}
-                            onCharge={() => setShowPayment(true)}
-                            subtotal={subtotal}
-                            discount={discount}
-                            onDiscountChange={setDiscount}
-                            postage={postage}
-                            onPostageChange={setPostage}
-                        />
-                    </div>
+                    {/* Desktop: Side-by-side Cart Panel */}
+                    {!isMobile && (
+                        <div className="w-96 border-l border-gray-200 bg-white flex flex-col">
+                            <CartPanel {...cartProps} />
+                        </div>
+                    )}
+
+                    {/* Mobile: Cart Drawer Overlay */}
+                    {isMobile && showCartDrawer && (
+                        <>
+                            <div
+                                className="fixed inset-0 bg-black/50 z-40 cart-backdrop-enter"
+                                onClick={() => setShowCartDrawer(false)}
+                            />
+                            <div className="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-xl flex flex-col cart-drawer-enter">
+                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-gray-200 shrink-0">
+                                    <span className="text-sm font-semibold text-gray-900">Cart ({cartItemCount})</span>
+                                    <button
+                                        onClick={() => setShowCartDrawer(false)}
+                                        className="p-2 -mr-2 text-gray-400 hover:text-gray-600 active:text-gray-800"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <CartPanel {...cartProps} />
+                            </div>
+                        </>
+                    )}
+
+                    {/* Mobile: Floating Cart Button */}
+                    {isMobile && !showCartDrawer && (
+                        <button
+                            onClick={() => setShowCartDrawer(true)}
+                            className="fixed bottom-6 right-4 z-30 bg-blue-600 text-white rounded-2xl shadow-lg hover:bg-blue-700 active:bg-blue-800 transition-colors px-4 py-3 flex items-center gap-3"
+                        >
+                            <div className="relative">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+                                </svg>
+                                {cartItemCount > 0 && (
+                                    <span className="absolute -top-2 -right-2.5 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                                        {cartItemCount > 9 ? '9+' : cartItemCount}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-left">
+                                <div className="text-xs opacity-80">{cartItemCount} item{cartItemCount !== 1 ? 's' : ''}</div>
+                                <div className="text-sm font-bold">RM {subtotal.toFixed(2)}</div>
+                            </div>
+                        </button>
+                    )}
                 </div>
             )}
 
             {view === VIEWS.HISTORY && (
                 <div className="flex-1 overflow-hidden">
-                    <SalesHistory />
+                    <SalesHistory isMobile={isMobile} />
                 </div>
             )}
 
             {view === VIEWS.REPORT && (
                 <div className="flex-1 overflow-hidden">
-                    <PosReport />
+                    <PosReport isMobile={isMobile} />
                 </div>
             )}
 

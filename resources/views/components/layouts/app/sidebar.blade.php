@@ -21,7 +21,7 @@
                     'customerService': ['admin.customer-service.*'],
                     'certificates': ['certificates.*'],
                     'inventory': ['inventory.*', 'stock.*', 'warehouses.*', 'agents.*'],
-                    'salesDept': ['pos.*'],
+                    'salesDept': ['pos.*', 'admin.reports.sales-department'],
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
@@ -234,6 +234,7 @@
                     @click="saveState('salesDept', $event)"
                 >
                     <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
+                    <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
@@ -278,6 +279,7 @@
                     <flux:navlist.item icon="academic-cap" :href="route('admin.reports.student-class-enrollments')" :current="request()->routeIs('admin.reports.student-class-enrollments')" wire:navigate>{{ __('Student Class Enrollment Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="chart-bar" :href="route('admin.reports.subscriptions')" :current="request()->routeIs('admin.reports.subscriptions')" wire:navigate>{{ __('Subscription Reports') }}</flux:navlist.item>
                     <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.student-payments')" :current="request()->routeIs('admin.reports.student-payments')" wire:navigate>{{ __('Student Payment Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="banknotes" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -380,6 +382,7 @@
                     @click="saveState('salesDept', $event)"
                 >
                     <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
+                    <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 

@@ -233,6 +233,13 @@ Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(fu
 });
 
 // ============================================================================
+// SALES DEPARTMENT REPORT - Accessible by admin, class_admin, and sales roles
+// ============================================================================
+Route::middleware(['auth', 'role:admin,class_admin,sales'])->prefix('admin')->group(function () {
+    Volt::route('reports/sales-department', 'admin.reports.sales-department')->name('admin.reports.sales-department');
+});
+
+// ============================================================================
 // ADMIN-ONLY ROUTES - Accessible only by admin role
 // ============================================================================
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
