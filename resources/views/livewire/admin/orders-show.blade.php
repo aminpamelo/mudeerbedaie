@@ -766,6 +766,31 @@ new class extends Component {
                                 </div>
                             @endif
                         </div>
+                    @elseif($order->receipt_attachment)
+                        <div class="md:col-span-2">
+                            <flux:text class="text-gray-600">Receipt Attachment</flux:text>
+                            <div class="mt-2">
+                                @if(str_ends_with($order->receipt_attachment, '.pdf'))
+                                    <div class="flex items-center space-x-3">
+                                        <flux:icon name="document" class="w-5 h-5 text-red-600" />
+                                        <flux:text class="text-sm text-gray-700">PDF Receipt</flux:text>
+                                        <a href="{{ $order->receipt_attachment_url }}" target="_blank">
+                                            <flux:button variant="outline" size="sm" icon="arrow-top-right-on-square">
+                                                View
+                                            </flux:button>
+                                        </a>
+                                    </div>
+                                @else
+                                    <a href="{{ $order->receipt_attachment_url }}" target="_blank" class="block">
+                                        <img
+                                            src="{{ $order->receipt_attachment_url }}"
+                                            alt="Receipt"
+                                            class="max-w-xs rounded-lg border border-gray-200 hover:opacity-90 transition-opacity"
+                                        />
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
                     @elseif($order->payment_method === 'stripe' && $order->receipt_url)
                         <div class="md:col-span-2">
                             <flux:text class="text-gray-600">Stripe Receipt</flux:text>

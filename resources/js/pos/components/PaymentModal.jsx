@@ -18,6 +18,8 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
     const [paymentReference, setPaymentReference] = useState('');
     const [paymentStatus, setPaymentStatus] = useState('paid');
     const [notes, setNotes] = useState('');
+    const [receiptFile, setReceiptFile] = useState(null);
+    const [receiptPreview, setReceiptPreview] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [editingCustomer, setEditingCustomer] = useState(false);
@@ -30,6 +32,28 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
         postcode: '',
         state: '',
     });
+
+    const handleReceiptChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) {
+            setReceiptFile(null);
+            setReceiptPreview(null);
+            return;
+        }
+        setReceiptFile(file);
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (ev) => setReceiptPreview(ev.target.result);
+            reader.readAsDataURL(file);
+        } else {
+            setReceiptPreview(null);
+        }
+    };
+
+    const removeReceipt = () => {
+        setReceiptFile(null);
+        setReceiptPreview(null);
+    };
 
     const discountValue = discount.type === 'percentage'
         ? (subtotal * discount.amount / 100)
@@ -93,7 +117,7 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
                 }
             }
 
-            const response = await saleApi.create(payload);
+            const response = await saleApi.create(payload, receiptFile);
             onComplete(response.data);
         } catch (err) {
             setError(err.message || 'Failed to create sale');
@@ -328,6 +352,55 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
                             rows={2}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                         />
+                    </div>
+
+                    {/* Receipt Attachment */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Receipt Attachment (optional)</label>
+                        {!receiptFile ? (
+                            <label className="flex flex-col items-center justify-center w-full py-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
+                                <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span className="text-xs text-gray-500">Upload receipt image or PDF</span>
+                                <span className="text-xs text-gray-400 mt-0.5">JPG, PNG, PDF, WebP (max 5MB)</span>
+                                <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                                    onChange={handleReceiptChange}
+                                    className="hidden"
+                                />
+                            </label>
+                        ) : (
+                            <div className="border border-gray-200 rounded-lg p-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        {receiptPreview ? (
+                                            <img src={receiptPreview} alt="Receipt" className="w-10 h-10 rounded object-cover shrink-0" />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded bg-red-50 flex items-center justify-center shrink-0">
+                                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-gray-700 truncate">{receiptFile.name}</p>
+                                            <p className="text-xs text-gray-400">{(receiptFile.size / 1024).toFixed(0)} KB</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={removeReceipt}
+                                        className="p-1 text-gray-400 hover:text-red-500 transition-colors shrink-0"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Error */}

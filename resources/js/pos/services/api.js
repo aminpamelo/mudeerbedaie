@@ -3,16 +3,24 @@ const getCsrfToken = () => window.posConfig?.csrfToken || document.querySelector
 
 async function request(endpoint, options = {}) {
     const url = `${getApiBase()}${endpoint}`;
+    const isFormData = options.body instanceof FormData;
+    const defaultHeaders = {
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest',
+    };
+
+    if (!isFormData) {
+        defaultHeaders['Content-Type'] = 'application/json';
+    }
+
     const config = {
         credentials: 'same-origin',
+        ...options,
         headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': getCsrfToken(),
-            'X-Requested-With': 'XMLHttpRequest',
+            ...defaultHeaders,
             ...options.headers,
         },
-        ...options,
     };
 
     const response = await fetch(url, config);
@@ -52,10 +60,35 @@ export const customerApi = {
 };
 
 export const saleApi = {
-    create: (data) => request('/sales', {
-        method: 'POST',
-        body: JSON.stringify(data),
-    }),
+    create: (data, receiptFile = null) => {
+        if (receiptFile) {
+            const formData = new FormData();
+            Object.entries(data).forEach(([key, value]) => {
+                if (key === 'items' && Array.isArray(value)) {
+                    value.forEach((item, index) => {
+                        Object.entries(item).forEach(([itemKey, itemValue]) => {
+                            if (itemValue !== null && itemValue !== undefined) {
+                                formData.append(`items[${index}][${itemKey}]`, itemValue);
+                            }
+                        });
+                    });
+                } else if (value !== null && value !== undefined) {
+                    formData.append(key, value);
+                }
+            });
+            formData.append('receipt_attachment', receiptFile);
+
+            return request('/sales', {
+                method: 'POST',
+                body: formData,
+            });
+        }
+
+        return request('/sales', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
     list: (params = {}) => {
         const query = new URLSearchParams(params).toString();
         return request(`/sales?${query}`);

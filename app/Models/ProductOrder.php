@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 #[ObservedBy(ProductOrderObserver::class)]
@@ -71,6 +72,7 @@ class ProductOrder extends Model
         'delivery_option',
         'shipping_provider',
         'payment_method',
+        'receipt_attachment',
         'weight_kg',
         // Platform notes
         'buyer_message',
@@ -117,6 +119,17 @@ class ProductOrder extends Model
             'platform_data' => 'array',
             'hidden_from_admin' => 'boolean',
         ];
+    }
+
+    protected $appends = ['receipt_attachment_url'];
+
+    public function getReceiptAttachmentUrlAttribute(): ?string
+    {
+        if (! $this->receipt_attachment) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->receipt_attachment);
     }
 
     // Relationships

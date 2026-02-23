@@ -127,7 +127,12 @@ class PosController extends Controller
     {
         $validated = $request->validated();
 
-        return DB::transaction(function () use ($validated, $request) {
+        $receiptPath = null;
+        if ($request->hasFile('receipt_attachment')) {
+            $receiptPath = $request->file('receipt_attachment')->store('pos/receipts', 'public');
+        }
+
+        return DB::transaction(function () use ($validated, $request, $receiptPath) {
             $subtotal = 0;
             $itemsData = [];
 
@@ -233,6 +238,7 @@ class PosController extends Controller
                 'shipping_cost' => $shippingCost,
                 'total_amount' => $totalAmount,
                 'payment_method' => $validated['payment_method'],
+                'receipt_attachment' => $receiptPath,
                 'order_date' => now(),
                 'paid_time' => ($validated['payment_status'] === 'paid') ? now() : null,
                 'internal_notes' => $validated['notes'] ?? null,
@@ -288,6 +294,7 @@ class PosController extends Controller
                     'payment_method' => $order->payment_method,
                     'payment_reference' => $order->metadata['payment_reference'] ?? null,
                     'payment_status' => $order->metadata['payment_status'] ?? 'pending',
+                    'receipt_attachment_url' => $order->receipt_attachment_url,
                     'items' => $order->items,
                 ],
             ], 201);

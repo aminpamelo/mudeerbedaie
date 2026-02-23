@@ -499,6 +499,39 @@ export default function SalesHistory() {
                                             )}
                                         </div>
 
+                                        {/* Receipt Attachment */}
+                                        {selectedSale.receipt_attachment_url && (
+                                            <div className="border-t border-gray-100 pt-3">
+                                                <p className="text-xs text-gray-500 mb-2">Receipt</p>
+                                                {selectedSale.receipt_attachment?.endsWith('.pdf') ? (
+                                                    <a
+                                                        href={selectedSale.receipt_attachment_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-2 px-3 py-2 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                        </svg>
+                                                        View Receipt PDF
+                                                    </a>
+                                                ) : (
+                                                    <a
+                                                        href={selectedSale.receipt_attachment_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="block"
+                                                    >
+                                                        <img
+                                                            src={selectedSale.receipt_attachment_url}
+                                                            alt="Receipt"
+                                                            className="w-full rounded-lg border border-gray-200 hover:opacity-90 transition-opacity cursor-pointer"
+                                                        />
+                                                    </a>
+                                                )}
+                                            </div>
+                                        )}
+
                                         {/* Status Update */}
                                         <div className="border-t border-gray-200 pt-3">
                                             <p className="text-xs text-gray-500 mb-2">Update Status</p>
