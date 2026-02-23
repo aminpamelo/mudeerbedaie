@@ -394,6 +394,29 @@ class PosController extends Controller
     }
 
     /**
+     * Update tracking number and/or notes for a POS sale.
+     */
+    public function updateSaleDetails(Request $request, ProductOrder $sale): JsonResponse
+    {
+        if ($sale->source !== 'pos') {
+            return response()->json(['message' => 'Only POS sales can be updated here.'], 403);
+        }
+
+        $validated = $request->validate([
+            'tracking_id' => 'nullable|string|max:255',
+            'internal_notes' => 'nullable|string|max:2000',
+        ]);
+
+        $sale->update($validated);
+        $sale->load(['items', 'customer']);
+
+        return response()->json([
+            'message' => 'Sale details updated successfully.',
+            'data' => $sale,
+        ]);
+    }
+
+    /**
      * Delete a POS sale.
      */
     public function deleteSale(ProductOrder $sale): JsonResponse

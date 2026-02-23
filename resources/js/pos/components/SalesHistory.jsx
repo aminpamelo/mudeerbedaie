@@ -42,6 +42,13 @@ export default function SalesHistory() {
     const [deleting, setDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+    // Inline editing states
+    const [editingTracking, setEditingTracking] = useState(false);
+    const [trackingValue, setTrackingValue] = useState('');
+    const [editingNotes, setEditingNotes] = useState(false);
+    const [notesValue, setNotesValue] = useState('');
+    const [savingDetails, setSavingDetails] = useState(false);
+
     const fetchSales = async (searchTerm, pageNum, filters = {}) => {
         setLoading(true);
         try {
@@ -93,6 +100,44 @@ export default function SalesHistory() {
         }
     };
 
+    const handleSaveTracking = async () => {
+        if (!selectedSale || savingDetails) return;
+        setSavingDetails(true);
+        try {
+            const response = await saleApi.updateDetails(selectedSale.id, {
+                tracking_id: trackingValue || null,
+            });
+            const updatedSale = response.data;
+            setSales(prev => prev.map(s => s.id === updatedSale.id ? updatedSale : s));
+            setSelectedSale(updatedSale);
+            setEditingTracking(false);
+        } catch (err) {
+            console.error('Failed to update tracking:', err);
+            alert('Failed to update tracking: ' + err.message);
+        } finally {
+            setSavingDetails(false);
+        }
+    };
+
+    const handleSaveNotes = async () => {
+        if (!selectedSale || savingDetails) return;
+        setSavingDetails(true);
+        try {
+            const response = await saleApi.updateDetails(selectedSale.id, {
+                internal_notes: notesValue || null,
+            });
+            const updatedSale = response.data;
+            setSales(prev => prev.map(s => s.id === updatedSale.id ? updatedSale : s));
+            setSelectedSale(updatedSale);
+            setEditingNotes(false);
+        } catch (err) {
+            console.error('Failed to update notes:', err);
+            alert('Failed to update notes: ' + err.message);
+        } finally {
+            setSavingDetails(false);
+        }
+    };
+
     const handleDelete = async () => {
         if (!selectedSale || deleting) return;
         setDeleting(true);
@@ -108,6 +153,13 @@ export default function SalesHistory() {
             setDeleting(false);
         }
     };
+
+    // Reset editing states when selected sale changes
+    useEffect(() => {
+        setEditingTracking(false);
+        setEditingNotes(false);
+        setShowDeleteConfirm(false);
+    }, [selectedSale?.id]);
 
     return (
         <div className="h-full flex flex-col bg-gray-50">
@@ -200,6 +252,8 @@ export default function SalesHistory() {
                                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Total</th>
                                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Payment</th>
                                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Notes</th>
+                                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tracking</th>
                                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
                                         </tr>
                                     </thead>
@@ -207,6 +261,7 @@ export default function SalesHistory() {
                                         {sales.map(sale => {
                                             const displayStatus = getDisplayStatus(sale);
                                             const statusOption = STATUS_OPTIONS.find(o => o.value === displayStatus);
+                                            const notes = sale.internal_notes || sale.customer_notes;
                                             return (
                                                 <tr
                                                     key={sale.id}
@@ -230,6 +285,22 @@ export default function SalesHistory() {
                                                         <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${statusOption?.color}`}>
                                                             {statusOption?.label}
                                                         </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-500 max-w-[150px]">
+                                                        {notes ? (
+                                                            <span className="truncate block" title={notes}>
+                                                                {notes.length > 25 ? notes.substring(0, 25) + '...' : notes}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-300">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-500">
+                                                        {sale.tracking_id ? (
+                                                            <span className="text-gray-700 font-medium">{sale.tracking_id}</span>
+                                                        ) : (
+                                                            <span className="text-gray-300">—</span>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 py-3 text-sm text-gray-500">
                                                         {sale.order_date ? new Date(sale.order_date).toLocaleDateString('en-MY', {
@@ -297,12 +368,107 @@ export default function SalesHistory() {
                                                 RM {parseFloat(selectedSale.total_amount).toFixed(2)}
                                             </span>
                                         </div>
-                                        {(selectedSale.internal_notes || selectedSale.notes) && (
-                                            <div className="pt-2">
-                                                <p className="text-xs text-gray-500">Notes</p>
-                                                <p className="text-sm text-gray-700 mt-1">{selectedSale.internal_notes || selectedSale.notes}</p>
+
+                                        {/* Tracking Number */}
+                                        <div className="border-t border-gray-100 pt-3">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <p className="text-xs text-gray-500">Tracking Number</p>
+                                                {!editingTracking && (
+                                                    <button
+                                                        onClick={() => { setTrackingValue(selectedSale.tracking_id || ''); setEditingTracking(true); }}
+                                                        className="text-xs text-blue-600 hover:text-blue-700"
+                                                    >
+                                                        {selectedSale.tracking_id ? 'Edit' : 'Add'}
+                                                    </button>
+                                                )}
                                             </div>
-                                        )}
+                                            {editingTracking ? (
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        type="text"
+                                                        value={trackingValue}
+                                                        onChange={(e) => setTrackingValue(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') handleSaveTracking();
+                                                            if (e.key === 'Escape') setEditingTracking(false);
+                                                        }}
+                                                        placeholder="Enter tracking number"
+                                                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                                        autoFocus
+                                                    />
+                                                    <button
+                                                        onClick={handleSaveTracking}
+                                                        disabled={savingDetails}
+                                                        className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded disabled:opacity-50"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditingTracking(false)}
+                                                        className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-gray-700">
+                                                    {selectedSale.tracking_id || <span className="text-gray-400">No tracking number</span>}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Notes */}
+                                        <div className="border-t border-gray-100 pt-3">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <p className="text-xs text-gray-500">Notes</p>
+                                                {!editingNotes && (
+                                                    <button
+                                                        onClick={() => { setNotesValue(selectedSale.internal_notes || ''); setEditingNotes(true); }}
+                                                        className="text-xs text-blue-600 hover:text-blue-700"
+                                                    >
+                                                        {selectedSale.internal_notes ? 'Edit' : 'Add'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {editingNotes ? (
+                                                <div>
+                                                    <textarea
+                                                        value={notesValue}
+                                                        onChange={(e) => setNotesValue(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Escape') setEditingNotes(false);
+                                                        }}
+                                                        placeholder="Add notes..."
+                                                        rows={3}
+                                                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                                                        autoFocus
+                                                    />
+                                                    <div className="flex justify-end gap-1 mt-1">
+                                                        <button
+                                                            onClick={() => setEditingNotes(false)}
+                                                            className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                        <button
+                                                            onClick={handleSaveNotes}
+                                                            disabled={savingDetails}
+                                                            className="px-2 py-1 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50"
+                                                        >
+                                                            {savingDetails ? 'Saving...' : 'Save'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-gray-700">
+                                                    {selectedSale.internal_notes || <span className="text-gray-400">No notes</span>}
+                                                </p>
+                                            )}
+                                        </div>
 
                                         {/* Status Update */}
                                         <div className="border-t border-gray-200 pt-3">

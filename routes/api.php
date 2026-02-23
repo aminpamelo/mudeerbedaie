@@ -252,6 +252,7 @@ Route::middleware(['auth:sanctum'])->prefix('pos')->group(function () {
     Route::get('sales', [\App\Http\Controllers\Api\PosController::class, 'salesHistory'])->name('api.pos.sales.index');
     Route::get('sales/{sale}', [\App\Http\Controllers\Api\PosController::class, 'saleDetail'])->name('api.pos.sales.show');
     Route::put('sales/{sale}/status', [\App\Http\Controllers\Api\PosController::class, 'updateSaleStatus'])->name('api.pos.sales.update-status');
+    Route::put('sales/{sale}/details', [\App\Http\Controllers\Api\PosController::class, 'updateSaleDetails'])->name('api.pos.sales.update-details');
     Route::delete('sales/{sale}', [\App\Http\Controllers\Api\PosController::class, 'deleteSale'])->name('api.pos.sales.destroy');
     Route::get('dashboard', [\App\Http\Controllers\Api\PosController::class, 'dashboard'])->name('api.pos.dashboard');
     Route::get('reports/monthly', [\App\Http\Controllers\Api\PosController::class, 'reportMonthly'])->name('api.pos.reports.monthly');
