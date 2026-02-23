@@ -343,6 +343,35 @@ export default function SalesHistory() {
                                             <p className="text-xs text-gray-500">Salesperson</p>
                                             <p className="text-sm font-medium text-gray-900">{selectedSale.metadata?.salesperson_name || '-'}</p>
                                         </div>
+
+                                        {/* Contact & Address */}
+                                        {(selectedSale.customer_phone || selectedSale.customer?.phone || selectedSale.guest_email || selectedSale.customer?.email || selectedSale.shipping_address) && (
+                                            <div className="border-t border-gray-100 pt-3 space-y-2">
+                                                {(selectedSale.customer_phone || selectedSale.customer?.phone) && (
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Phone</p>
+                                                        <p className="text-sm text-gray-700">{selectedSale.customer_phone || selectedSale.customer?.phone}</p>
+                                                    </div>
+                                                )}
+                                                {(selectedSale.guest_email || selectedSale.customer?.email) && (
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Email</p>
+                                                        <p className="text-sm text-gray-700">{selectedSale.guest_email || selectedSale.customer?.email}</p>
+                                                    </div>
+                                                )}
+                                                {selectedSale.shipping_address && (
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Address</p>
+                                                        <p className="text-sm text-gray-700">
+                                                            {typeof selectedSale.shipping_address === 'string'
+                                                                ? selectedSale.shipping_address
+                                                                : selectedSale.shipping_address.full_address || '-'}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
                                         <div className="border-t border-gray-100 pt-3">
                                             <p className="text-xs text-gray-500 mb-2">Items</p>
                                             {selectedSale.items?.map((item, i) => (

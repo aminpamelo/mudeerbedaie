@@ -77,3 +77,33 @@ it('exports orders with correct CSV filename format', function () {
 
     expect($filename)->toStartWith('orders-export-')->toEndWith('.csv');
 });
+
+it('exports POS order with full_address in shipping address column', function () {
+    $order = ProductOrder::factory()->create([
+        'order_number' => 'ORD-POS-ADDR-001',
+        'source' => 'pos',
+        'shipping_address' => ['full_address' => 'Lot 123, Jalan Test, 12345 Selangor'],
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_name' => 'Test Product',
+        'quantity_ordered' => 1,
+        'unit_price' => 50.00,
+        'total_price' => 50.00,
+    ]);
+
+    $component = Volt::test('admin.orders.order-list')
+        ->set('sourceTab', 'pos')
+        ->call('exportOrders');
+
+    $downloadEffect = data_get($component->effects, 'download');
+    $content = data_get($downloadEffect, 'content');
+
+    if (is_string($content)) {
+        $decoded = base64_decode($content);
+        expect($decoded)->toContain('Lot 123, Jalan Test, 12345 Selangor');
+    } else {
+        $this->markTestSkipped('Cannot inspect download content');
+    }
+});

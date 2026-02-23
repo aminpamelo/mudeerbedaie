@@ -479,13 +479,17 @@ new class extends Component
                 $shippingAddress = '';
                 if (is_array($order->shipping_address)) {
                     $addr = $order->shipping_address;
-                    $shippingAddress = implode(', ', array_filter([
-                        $addr['address'] ?? $addr['address_line1'] ?? '',
-                        $addr['city'] ?? '',
-                        $addr['state'] ?? '',
-                        $addr['postcode'] ?? $addr['zip'] ?? '',
-                        $addr['country'] ?? '',
-                    ]));
+                    if (! empty($addr['full_address'])) {
+                        $shippingAddress = $addr['full_address'];
+                    } else {
+                        $shippingAddress = implode(', ', array_filter([
+                            $addr['address'] ?? $addr['address_line1'] ?? '',
+                            $addr['city'] ?? '',
+                            $addr['state'] ?? '',
+                            $addr['postcode'] ?? $addr['zip'] ?? '',
+                            $addr['country'] ?? '',
+                        ]));
+                    }
                 }
 
                 fputcsv($handle, [

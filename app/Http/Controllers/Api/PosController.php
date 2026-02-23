@@ -201,13 +201,28 @@ class PosController extends Controller
                 $shippingAddress = ['full_address' => $customerAddress];
             }
 
+            // Resolve customer info: use provided values, fall back to User record
+            $customerId = $validated['customer_id'] ?? null;
+            $customerName = $validated['customer_name'] ?? null;
+            $customerPhone = $validated['customer_phone'] ?? null;
+            $customerEmail = $validated['customer_email'] ?? null;
+
+            if ($customerId) {
+                $customerUser = User::find($customerId);
+                if ($customerUser) {
+                    $customerName = $customerName ?: $customerUser->name;
+                    $customerPhone = $customerPhone ?: $customerUser->phone;
+                    $customerEmail = $customerEmail ?: $customerUser->email;
+                }
+            }
+
             // Create ProductOrder with source = 'pos'
             $order = ProductOrder::create([
                 'order_number' => ProductOrder::generateOrderNumber(),
-                'customer_id' => $validated['customer_id'] ?? null,
-                'customer_name' => $validated['customer_name'] ?? null,
-                'customer_phone' => $validated['customer_phone'] ?? null,
-                'guest_email' => $validated['customer_email'] ?? null,
+                'customer_id' => $customerId,
+                'customer_name' => $customerName,
+                'customer_phone' => $customerPhone,
+                'guest_email' => $customerEmail,
                 'shipping_address' => $shippingAddress,
                 'source' => 'pos',
                 'source_reference' => 'salesperson:'.$request->user()->id,
@@ -472,30 +487,42 @@ class PosController extends Controller
     public function reportMonthly(Request $request): JsonResponse
     {
         $year = (int) $request->get('year', now()->year);
+        $driver = DB::connection()->getDriverName();
+        $isSqlite = $driver === 'sqlite';
+
+        $monthExpr = $isSqlite ? "CAST(strftime('%m', order_date) AS INTEGER)" : 'MONTH(order_date)';
+        $monthGroup = $isSqlite ? "strftime('%m', order_date)" : 'MONTH(order_date)';
 
         $orderStats = ProductOrder::query()
             ->where('source', 'pos')
             ->whereNotNull('paid_time')
-            ->whereRaw("CAST(strftime('%Y', order_date) AS INTEGER) = ?", [$year])
+            ->whereYear('order_date', $year)
             ->selectRaw("
-                CAST(strftime('%m', order_date) AS INTEGER) as month_number,
+                {$monthExpr} as month_number,
                 COUNT(*) as sales_count,
                 COALESCE(SUM(total_amount), 0) as revenue
             ")
-            ->groupByRaw("strftime('%m', order_date)")
+            ->groupByRaw($monthGroup)
             ->get()
             ->keyBy('month_number');
+
+        $itemMonthExpr = $isSqlite
+            ? "CAST(strftime('%m', product_orders.order_date) AS INTEGER)"
+            : 'MONTH(product_orders.order_date)';
+        $itemMonthGroup = $isSqlite
+            ? "strftime('%m', product_orders.order_date)"
+            : 'MONTH(product_orders.order_date)';
 
         $itemStats = DB::table('product_order_items')
             ->join('product_orders', 'product_orders.id', '=', 'product_order_items.order_id')
             ->where('product_orders.source', 'pos')
             ->whereNotNull('product_orders.paid_time')
-            ->whereRaw("CAST(strftime('%Y', product_orders.order_date) AS INTEGER) = ?", [$year])
+            ->whereYear('product_orders.order_date', $year)
             ->selectRaw("
-                CAST(strftime('%m', product_orders.order_date) AS INTEGER) as month_number,
+                {$itemMonthExpr} as month_number,
                 COALESCE(SUM(product_order_items.quantity_ordered), 0) as items_sold
             ")
-            ->groupByRaw("strftime('%m', product_orders.order_date)")
+            ->groupByRaw($itemMonthGroup)
             ->get()
             ->keyBy('month_number');
 
@@ -553,16 +580,21 @@ class PosController extends Controller
         $endOfMonth = $startOfMonth->copy()->endOfMonth()->endOfDay();
         $daysInMonth = $startOfMonth->daysInMonth;
 
+        $driver = DB::connection()->getDriverName();
+        $isSqlite = $driver === 'sqlite';
+        $dayExpr = $isSqlite ? "CAST(strftime('%d', order_date) AS INTEGER)" : 'DAY(order_date)';
+        $dayGroup = $isSqlite ? "strftime('%d', order_date)" : 'DAY(order_date)';
+
         $dailyStats = ProductOrder::query()
             ->where('source', 'pos')
             ->whereNotNull('paid_time')
             ->whereBetween('order_date', [$startOfMonth, $endOfMonth])
             ->selectRaw("
-                CAST(strftime('%d', order_date) AS INTEGER) as day_number,
+                {$dayExpr} as day_number,
                 COUNT(*) as sales_count,
                 COALESCE(SUM(total_amount), 0) as revenue
             ")
-            ->groupByRaw("strftime('%d', order_date)")
+            ->groupByRaw($dayGroup)
             ->get()
             ->keyBy('day_number');
 

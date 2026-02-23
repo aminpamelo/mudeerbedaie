@@ -75,6 +75,10 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
             if (customer) {
                 if (customer.type === 'existing' && !editingCustomer) {
                     payload.customer_id = customer.id;
+                    payload.customer_name = customer.name || null;
+                    payload.customer_phone = customer.phone || null;
+                    payload.customer_email = customer.email || null;
+                    payload.customer_address = customer.address || null;
                 } else if (customer.type === 'existing' && editingCustomer) {
                     payload.customer_id = customer.id;
                     payload.customer_name = customerEdit.name || null;
