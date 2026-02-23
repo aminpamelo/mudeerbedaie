@@ -1066,7 +1066,7 @@ new class extends Component
                                         <flux:text class="text-zinc-900 dark:text-zinc-100">{{ $note->message }}</flux:text>
                                         <div class="flex items-center gap-3 mt-2">
                                             <flux:badge
-                                                variant="@if($note->type === 'system') subtle @elseif($note->type === 'customer') positive @else warning @endif"
+                                                :variant="match($note->type) { 'system' => 'subtle', 'customer' => 'positive', default => 'warning' }"
                                                 size="sm"
                                             >
                                                 {{ ucfirst($note->type) }}
