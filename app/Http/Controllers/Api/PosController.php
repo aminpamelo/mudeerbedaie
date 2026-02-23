@@ -10,6 +10,7 @@ use App\Models\Package;
 use App\Models\Product;
 use App\Models\ProductOrder;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -190,7 +191,8 @@ class PosController extends Controller
                 }
             }
 
-            $totalAmount = max(0, $subtotal - $discountAmount);
+            $shippingCost = $validated['shipping_cost'] ?? 0;
+            $totalAmount = max(0, $subtotal - $discountAmount + $shippingCost);
 
             // Build shipping address from customer address
             $shippingAddress = null;
@@ -213,6 +215,7 @@ class PosController extends Controller
                 'order_type' => 'product',
                 'subtotal' => $subtotal,
                 'discount_amount' => $discountAmount,
+                'shipping_cost' => $shippingCost,
                 'total_amount' => $totalAmount,
                 'payment_method' => $validated['payment_method'],
                 'order_date' => now(),
@@ -265,6 +268,7 @@ class PosController extends Controller
                     'salesperson_id' => $request->user()->id,
                     'subtotal' => number_format($order->subtotal, 2, '.', ''),
                     'discount_amount' => number_format($order->discount_amount, 2, '.', ''),
+                    'shipping_cost' => number_format($order->shipping_cost, 2, '.', ''),
                     'total_amount' => number_format($order->total_amount, 2, '.', ''),
                     'payment_method' => $order->payment_method,
                     'payment_reference' => $order->metadata['payment_reference'] ?? null,
@@ -297,6 +301,29 @@ class PosController extends Controller
             });
         }
 
+        if ($status = $request->get('status')) {
+            if ($status === 'paid') {
+                $query->whereNotNull('paid_time');
+            } elseif ($status === 'pending') {
+                $query->whereNull('paid_time')->where('status', '!=', 'cancelled');
+            } elseif ($status === 'cancelled') {
+                $query->where('status', 'cancelled');
+            }
+        }
+
+        if ($paymentMethod = $request->get('payment_method')) {
+            $query->where('payment_method', $paymentMethod);
+        }
+
+        if ($period = $request->get('period')) {
+            match ($period) {
+                'today' => $query->whereDate('order_date', today()),
+                'this_week' => $query->whereBetween('order_date', [now()->startOfWeek(), now()->endOfWeek()]),
+                'this_month' => $query->whereBetween('order_date', [now()->startOfMonth(), now()->endOfMonth()]),
+                default => null,
+            };
+        }
+
         if ($request->get('today')) {
             $query->whereDate('order_date', today());
         }
@@ -318,6 +345,70 @@ class PosController extends Controller
         $sale->load(['items.itemable', 'customer']);
 
         return response()->json(['data' => $sale]);
+    }
+
+    /**
+     * Update the status of a POS sale.
+     */
+    public function updateSaleStatus(Request $request, ProductOrder $sale): JsonResponse
+    {
+        if ($sale->source !== 'pos') {
+            return response()->json(['message' => 'Only POS sales can be updated here.'], 403);
+        }
+
+        $validated = $request->validate([
+            'status' => 'required|string|in:paid,pending,cancelled',
+        ]);
+
+        $newStatus = $validated['status'];
+
+        if ($newStatus === 'paid') {
+            $sale->update([
+                'paid_time' => now(),
+                'status' => 'confirmed',
+            ]);
+            $sale->payments()->update([
+                'status' => 'completed',
+                'paid_at' => now(),
+            ]);
+        } elseif ($newStatus === 'pending') {
+            $sale->update([
+                'paid_time' => null,
+                'status' => 'pending',
+            ]);
+            $sale->payments()->update([
+                'status' => 'pending',
+                'paid_at' => null,
+            ]);
+        } elseif ($newStatus === 'cancelled') {
+            $sale->markAsCancelled('Cancelled from POS');
+            $sale->payments()->update(['status' => 'cancelled']);
+        }
+
+        $sale->load(['items', 'customer']);
+
+        return response()->json([
+            'message' => 'Sale status updated successfully.',
+            'data' => $sale,
+        ]);
+    }
+
+    /**
+     * Delete a POS sale.
+     */
+    public function deleteSale(ProductOrder $sale): JsonResponse
+    {
+        if ($sale->source !== 'pos') {
+            return response()->json(['message' => 'Only POS sales can be deleted here.'], 403);
+        }
+
+        DB::transaction(function () use ($sale) {
+            $sale->payments()->delete();
+            $sale->items()->delete();
+            $sale->delete();
+        });
+
+        return response()->json(['message' => 'Sale deleted successfully.']);
     }
 
     /**
@@ -348,6 +439,195 @@ class PosController extends Controller
                 'today_revenue' => number_format($totalRevenue, 2),
                 'my_sales_count' => $myCount,
                 'my_revenue' => number_format($myRevenue, 2),
+            ],
+        ]);
+    }
+
+    /**
+     * Monthly report: revenue, sales count, items sold per month for a given year.
+     */
+    public function reportMonthly(Request $request): JsonResponse
+    {
+        $year = (int) $request->get('year', now()->year);
+
+        $orderStats = ProductOrder::query()
+            ->where('source', 'pos')
+            ->whereNotNull('paid_time')
+            ->whereRaw("CAST(strftime('%Y', order_date) AS INTEGER) = ?", [$year])
+            ->selectRaw("
+                CAST(strftime('%m', order_date) AS INTEGER) as month_number,
+                COUNT(*) as sales_count,
+                COALESCE(SUM(total_amount), 0) as revenue
+            ")
+            ->groupByRaw("strftime('%m', order_date)")
+            ->get()
+            ->keyBy('month_number');
+
+        $itemStats = DB::table('product_order_items')
+            ->join('product_orders', 'product_orders.id', '=', 'product_order_items.order_id')
+            ->where('product_orders.source', 'pos')
+            ->whereNotNull('product_orders.paid_time')
+            ->whereRaw("CAST(strftime('%Y', product_orders.order_date) AS INTEGER) = ?", [$year])
+            ->selectRaw("
+                CAST(strftime('%m', product_orders.order_date) AS INTEGER) as month_number,
+                COALESCE(SUM(product_order_items.quantity_ordered), 0) as items_sold
+            ")
+            ->groupByRaw("strftime('%m', product_orders.order_date)")
+            ->get()
+            ->keyBy('month_number');
+
+        $monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        $months = [];
+        $totalRevenue = 0;
+        $totalSales = 0;
+        $totalItems = 0;
+
+        for ($m = 1; $m <= 12; $m++) {
+            $salesCount = (int) ($orderStats[$m]->sales_count ?? 0);
+            $revenue = round((float) ($orderStats[$m]->revenue ?? 0), 2);
+            $itemsSold = (int) ($itemStats[$m]->items_sold ?? 0);
+
+            $totalRevenue += $revenue;
+            $totalSales += $salesCount;
+            $totalItems += $itemsSold;
+
+            $months[] = [
+                'month' => $m,
+                'month_name' => $monthNames[$m - 1],
+                'sales_count' => $salesCount,
+                'revenue' => $revenue,
+                'items_sold' => $itemsSold,
+            ];
+        }
+
+        return response()->json([
+            'data' => [
+                'year' => $year,
+                'totals' => [
+                    'revenue' => round($totalRevenue, 2),
+                    'sales_count' => $totalSales,
+                    'items_sold' => $totalItems,
+                ],
+                'months' => $months,
+            ],
+        ]);
+    }
+
+    /**
+     * Daily report: revenue and sales per day for a given month, or day detail with item breakdown.
+     */
+    public function reportDaily(Request $request): JsonResponse
+    {
+        $year = (int) $request->get('year', now()->year);
+        $month = (int) $request->get('month', now()->month);
+        $day = $request->get('day');
+
+        if ($day) {
+            return $this->reportDayDetail($year, $month, (int) $day);
+        }
+
+        $startOfMonth = Carbon::create($year, $month, 1)->startOfDay();
+        $endOfMonth = $startOfMonth->copy()->endOfMonth()->endOfDay();
+        $daysInMonth = $startOfMonth->daysInMonth;
+
+        $dailyStats = ProductOrder::query()
+            ->where('source', 'pos')
+            ->whereNotNull('paid_time')
+            ->whereBetween('order_date', [$startOfMonth, $endOfMonth])
+            ->selectRaw("
+                CAST(strftime('%d', order_date) AS INTEGER) as day_number,
+                COUNT(*) as sales_count,
+                COALESCE(SUM(total_amount), 0) as revenue
+            ")
+            ->groupByRaw("strftime('%d', order_date)")
+            ->get()
+            ->keyBy('day_number');
+
+        $totalRevenue = 0;
+        $totalSales = 0;
+        $days = [];
+
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $salesCount = (int) ($dailyStats[$d]->sales_count ?? 0);
+            $revenue = round((float) ($dailyStats[$d]->revenue ?? 0), 2);
+
+            $totalRevenue += $revenue;
+            $totalSales += $salesCount;
+
+            $days[] = [
+                'day' => $d,
+                'date' => Carbon::create($year, $month, $d)->toDateString(),
+                'day_name' => Carbon::create($year, $month, $d)->format('D'),
+                'sales_count' => $salesCount,
+                'revenue' => $revenue,
+            ];
+        }
+
+        return response()->json([
+            'data' => [
+                'year' => $year,
+                'month' => $month,
+                'month_name' => $startOfMonth->format('F'),
+                'totals' => [
+                    'revenue' => round($totalRevenue, 2),
+                    'sales_count' => $totalSales,
+                ],
+                'days' => $days,
+            ],
+        ]);
+    }
+
+    /**
+     * Detail for a specific day: item breakdown and individual orders.
+     */
+    private function reportDayDetail(int $year, int $month, int $day): JsonResponse
+    {
+        $date = Carbon::create($year, $month, $day);
+
+        $orders = ProductOrder::query()
+            ->where('source', 'pos')
+            ->whereNotNull('paid_time')
+            ->whereDate('order_date', $date)
+            ->with('items')
+            ->latest('order_date')
+            ->get();
+
+        $itemSummary = [];
+        foreach ($orders as $order) {
+            foreach ($order->items as $item) {
+                $key = $item->product_name.'|'.($item->variant_name ?? '');
+                if (! isset($itemSummary[$key])) {
+                    $itemSummary[$key] = [
+                        'product_name' => $item->product_name,
+                        'variant_name' => $item->variant_name,
+                        'quantity' => 0,
+                        'total_amount' => 0,
+                    ];
+                }
+                $itemSummary[$key]['quantity'] += $item->quantity_ordered;
+                $itemSummary[$key]['total_amount'] += (float) $item->total_price;
+            }
+        }
+
+        // Round totals
+        foreach ($itemSummary as &$summary) {
+            $summary['total_amount'] = round($summary['total_amount'], 2);
+        }
+
+        return response()->json([
+            'data' => [
+                'date' => $date->toDateString(),
+                'sales_count' => $orders->count(),
+                'revenue' => round((float) $orders->sum('total_amount'), 2),
+                'items' => array_values($itemSummary),
+                'orders' => $orders->map(fn (ProductOrder $o) => [
+                    'id' => $o->id,
+                    'order_number' => $o->order_number,
+                    'total_amount' => round((float) $o->total_amount, 2),
+                    'payment_method' => $o->payment_method,
+                    'order_date' => $o->order_date->toDateTimeString(),
+                    'customer_name' => $o->getCustomerName(),
+                ])->values(),
             ],
         ]);
     }

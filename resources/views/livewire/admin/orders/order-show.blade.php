@@ -908,7 +908,8 @@ new class extends Component
 
                         <!-- Show phone from multiple sources -->
                         @php
-                            $phone = $order->customer_phone ?? $order->billingAddress()?->phone ?? null;
+                            $billingAddr = $order->billingAddress();
+                            $phone = $order->customer_phone ?? ($billingAddr ? $billingAddr->phone : null);
                         @endphp
                         @if($phone)
                             <flux:text class="text-sm text-zinc-600 dark:text-zinc-400">{{ $phone }}</flux:text>

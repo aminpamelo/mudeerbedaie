@@ -61,8 +61,26 @@ export const saleApi = {
         return request(`/sales?${query}`);
     },
     get: (id) => request(`/sales/${id}`),
+    updateStatus: (id, status) => request(`/sales/${id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+    }),
+    delete: (id) => request(`/sales/${id}`, {
+        method: 'DELETE',
+    }),
 };
 
 export const dashboardApi = {
     stats: () => request('/dashboard'),
+};
+
+export const reportApi = {
+    monthly: (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return request(`/reports/monthly?${query}`);
+    },
+    daily: (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return request(`/reports/daily?${query}`);
+    },
 };

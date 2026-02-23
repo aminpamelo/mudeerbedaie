@@ -32,6 +32,11 @@ new class extends Component
 
     public string $editingPhoneValue = '';
 
+    // Inline tracking number editing
+    public ?int $editingTrackingOrderId = null;
+
+    public string $editingTrackingValue = '';
+
     public function startEditingPhone(int $orderId, ?string $currentPhone): void
     {
         $this->editingPhoneOrderId = $orderId;
@@ -54,6 +59,30 @@ new class extends Component
     {
         $this->editingPhoneOrderId = null;
         $this->editingPhoneValue = '';
+    }
+
+    public function startEditingTracking(int $orderId, ?string $currentTracking): void
+    {
+        $this->editingTrackingOrderId = $orderId;
+        $this->editingTrackingValue = $currentTracking ?? '';
+    }
+
+    public function saveTracking(): void
+    {
+        if ($this->editingTrackingOrderId) {
+            $order = ProductOrder::findOrFail($this->editingTrackingOrderId);
+            $order->update(['tracking_id' => $this->editingTrackingValue ?: null]);
+
+            $this->dispatch('order-updated', message: "Tracking number updated for order {$order->order_number}");
+        }
+
+        $this->cancelEditingTracking();
+    }
+
+    public function cancelEditingTracking(): void
+    {
+        $this->editingTrackingOrderId = null;
+        $this->editingTrackingValue = '';
     }
 
     public function updatingSearch(): void
@@ -338,6 +367,160 @@ new class extends Component
             'processing' => ProductOrder::visibleInAdmin()->where('status', 'processing')->count(),
             'ready_to_ship' => ProductOrder::visibleInAdmin()->where('status', 'confirmed')->count(),
         ];
+    }
+
+    public function exportOrders()
+    {
+        return response()->streamDownload(function () {
+            $orders = ProductOrder::query()
+                ->visibleInAdmin()
+                ->with([
+                    'customer',
+                    'student',
+                    'agent',
+                    'items.product',
+                    'items.package',
+                    'payments',
+                    'platform',
+                    'platformAccount',
+                ])
+                ->when($this->search, function ($query) {
+                    $query->where(function ($q) {
+                        $q->where('order_number', 'like', '%'.$this->search.'%')
+                            ->orWhere('platform_order_id', 'like', '%'.$this->search.'%')
+                            ->orWhere('platform_order_number', 'like', '%'.$this->search.'%')
+                            ->orWhere('customer_name', 'like', '%'.$this->search.'%')
+                            ->orWhere('guest_email', 'like', '%'.$this->search.'%')
+                            ->orWhereHas('customer', function ($customerQuery) {
+                                $customerQuery->where('name', 'like', '%'.$this->search.'%')
+                                    ->orWhere('email', 'like', '%'.$this->search.'%');
+                            })
+                            ->orWhereRaw("JSON_EXTRACT(metadata, '$.package_name') LIKE ?", ['%'.$this->search.'%']);
+                    });
+                })
+                ->when($this->activeTab !== 'all', function ($query) {
+                    $query->where('status', $this->activeTab);
+                })
+                ->when($this->sourceTab !== 'all', function ($query) {
+                    match ($this->sourceTab) {
+                        'platform' => $query->whereNotNull('platform_id'),
+                        'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
+                            $q->whereNotIn('source', ['funnel', 'pos'])
+                              ->orWhereNull('source');
+                        }),
+                        'funnel' => $query->where('source', 'funnel'),
+                        'pos' => $query->where('source', 'pos'),
+                        default => $query
+                    };
+                })
+                ->when($this->productFilter, function ($query) {
+                    if (str_starts_with($this->productFilter, 'package:')) {
+                        $packageId = str_replace('package:', '', $this->productFilter);
+                        $query->whereHas('items', function ($itemQuery) use ($packageId) {
+                            $itemQuery->where('package_id', $packageId);
+                        });
+                    } else {
+                        $query->whereHas('items', function ($itemQuery) {
+                            $itemQuery->where('product_id', $this->productFilter);
+                        });
+                    }
+                })
+                ->when($this->dateFilter, function ($query) {
+                    match ($this->dateFilter) {
+                        'today' => $query->whereDate('created_at', today()),
+                        'week' => $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                        'month' => $query->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year),
+                        'year' => $query->whereYear('created_at', now()->year),
+                        default => $query
+                    };
+                })
+                ->orderBy($this->sortBy, $this->sortDirection)
+                ->get();
+
+            $handle = fopen('php://output', 'w');
+
+            // CSV headers
+            fputcsv($handle, [
+                'Order Number',
+                'Date',
+                'Source',
+                'Status',
+                'Payment Status',
+                'Customer Name',
+                'Customer Email',
+                'Customer Phone',
+                'Items',
+                'Quantities',
+                'Unit Prices',
+                'Subtotal',
+                'Discount',
+                'Shipping Cost',
+                'Tax',
+                'Total Amount',
+                'Currency',
+                'Payment Method',
+                'Tracking Number',
+                'Shipping Provider',
+                'Shipping Address',
+                'Platform',
+                'Platform Order ID',
+                'Agent',
+                'Coupon Code',
+                'Customer Notes',
+                'Internal Notes',
+            ]);
+
+            foreach ($orders as $order) {
+                $source = $this->getOrderSource($order);
+                $itemNames = $order->items->map(fn ($item) => $item->product_name ?? $item->product?->name ?? 'N/A')->implode('; ');
+                $quantities = $order->items->map(fn ($item) => $item->quantity_ordered)->implode('; ');
+                $unitPrices = $order->items->map(fn ($item) => number_format($item->unit_price, 2))->implode('; ');
+
+                $shippingAddress = '';
+                if (is_array($order->shipping_address)) {
+                    $addr = $order->shipping_address;
+                    $shippingAddress = implode(', ', array_filter([
+                        $addr['address'] ?? $addr['address_line1'] ?? '',
+                        $addr['city'] ?? '',
+                        $addr['state'] ?? '',
+                        $addr['postcode'] ?? $addr['zip'] ?? '',
+                        $addr['country'] ?? '',
+                    ]));
+                }
+
+                fputcsv($handle, [
+                    $order->order_number,
+                    $order->created_at?->format('Y-m-d H:i:s'),
+                    $source['label'],
+                    ucfirst($order->status),
+                    $order->isPaid() ? 'Paid' : 'Unpaid',
+                    $order->getCustomerName(),
+                    $order->getCustomerEmail(),
+                    $order->getCustomerPhone(),
+                    $itemNames,
+                    $quantities,
+                    $unitPrices,
+                    number_format($order->subtotal, 2),
+                    number_format($order->total_discount, 2),
+                    number_format($order->shipping_cost, 2),
+                    number_format($order->tax_amount, 2),
+                    number_format($order->total_amount, 2),
+                    $order->currency ?? 'MYR',
+                    $order->payment_method_label,
+                    $order->tracking_id,
+                    $order->shipping_provider,
+                    $shippingAddress,
+                    $order->platform?->name,
+                    $order->platform_order_id,
+                    $order->agent?->name ?? '',
+                    $order->coupon_code,
+                    $order->customer_notes,
+                    $order->internal_notes,
+                ]);
+            }
+
+            fclose($handle);
+        }, 'orders-export-'.now()->format('Y-m-d-His').'.csv');
     }
 
     public function getSourceCounts(): array
@@ -637,7 +820,7 @@ new class extends Component
                         Refresh
                     </div>
                 </flux:button>
-                <flux:button variant="outline" size="sm">
+                <flux:button variant="outline" wire:click="exportOrders" size="sm">
                     <div class="flex items-center justify-center">
                         <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
                         Export
@@ -686,6 +869,12 @@ new class extends Component
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Payment
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Notes
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Tracking No.
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300">
@@ -868,6 +1057,56 @@ new class extends Component
                                 @endif
                             </td>
 
+                            <!-- Notes -->
+                            <td class="px-6 py-4">
+                                @php
+                                    $notes = $order->internal_notes ?: $order->customer_notes;
+                                @endphp
+                                @if($notes)
+                                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title="{{ $notes }}">
+                                        {{ Str::limit($notes, 40) }}
+                                    </flux:text>
+                                @else
+                                    <flux:text size="sm" class="text-gray-400 dark:text-gray-500">—</flux:text>
+                                @endif
+                            </td>
+
+                            <!-- Tracking Number -->
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                @if($editingTrackingOrderId === $order->id)
+                                    <div class="flex items-center space-x-1">
+                                        <input
+                                            type="text"
+                                            wire:model="editingTrackingValue"
+                                            wire:keydown.enter="saveTracking"
+                                            wire:keydown.escape="cancelEditingTracking"
+                                            class="w-36 px-2 py-1 text-sm border border-gray-300 dark:border-zinc-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
+                                            placeholder="Tracking number"
+                                            autofocus
+                                        />
+                                        <button wire:click="saveTracking" class="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded">
+                                            <flux:icon name="check" class="w-4 h-4" />
+                                        </button>
+                                        <button wire:click="cancelEditingTracking" class="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
+                                            <flux:icon name="x-mark" class="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                @else
+                                    <button
+                                        wire:click="startEditingTracking({{ $order->id }}, {{ json_encode($order->tracking_id ?? '') }})"
+                                        class="group flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                                        title="Click to edit tracking number"
+                                    >
+                                        @if($order->tracking_id)
+                                            <flux:text size="sm">{{ $order->tracking_id }}</flux:text>
+                                        @else
+                                            <flux:text size="sm" class="text-gray-400 dark:text-gray-500">Add tracking</flux:text>
+                                        @endif
+                                        <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" />
+                                    </button>
+                                @endif
+                            </td>
+
                             <!-- Date -->
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <flux:text>{{ $order->created_at->format('M j, Y') }}</flux:text>
@@ -930,7 +1169,7 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="px-6 py-12 text-center">
+                            <td colspan="12" class="px-6 py-12 text-center">
                                 <div class="text-gray-500 dark:text-gray-400">
                                     <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                                     <flux:text>No orders found</flux:text>

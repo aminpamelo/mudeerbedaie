@@ -1,19 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import { saleApi } from '../services/api';
 
-export default function SalesHistory({ onBack }) {
+const STATUS_OPTIONS = [
+    { value: 'paid', label: 'Paid', color: 'bg-green-100 text-green-700' },
+    { value: 'pending', label: 'Pending', color: 'bg-yellow-100 text-yellow-700' },
+    { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-700' },
+];
+
+function getDisplayStatus(sale) {
+    if (sale.paid_time) return 'paid';
+    if (sale.status === 'cancelled') return 'cancelled';
+    return 'pending';
+}
+
+const PERIOD_OPTIONS = [
+    { value: '', label: 'All Time' },
+    { value: 'today', label: 'Today' },
+    { value: 'this_week', label: 'This Week' },
+    { value: 'this_month', label: 'This Month' },
+];
+
+const PAYMENT_OPTIONS = [
+    { value: '', label: 'All Payments' },
+    { value: 'cash', label: 'Cash' },
+    { value: 'card', label: 'Card' },
+    { value: 'bank_transfer', label: 'Bank Transfer' },
+    { value: 'ewallet', label: 'E-Wallet' },
+];
+
+export default function SalesHistory() {
     const [sales, setSales] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [paymentFilter, setPaymentFilter] = useState('');
+    const [periodFilter, setPeriodFilter] = useState('');
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
     const [selectedSale, setSelectedSale] = useState(null);
+    const [updating, setUpdating] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    const fetchSales = async (searchTerm, pageNum) => {
+    const fetchSales = async (searchTerm, pageNum, filters = {}) => {
         setLoading(true);
         try {
             const params = { page: pageNum, per_page: 15 };
             if (searchTerm) params.search = searchTerm;
+            if (filters.status) params.status = filters.status;
+            if (filters.payment_method) params.payment_method = filters.payment_method;
+            if (filters.period) params.period = filters.period;
 
             const response = await saleApi.list(params);
             const data = response.data || [];
@@ -31,37 +67,113 @@ export default function SalesHistory({ onBack }) {
         }
     };
 
+    const currentFilters = { status: statusFilter, payment_method: paymentFilter, period: periodFilter };
+    const hasActiveFilters = statusFilter || paymentFilter || periodFilter;
+
     useEffect(() => {
         setPage(1);
-        const timer = setTimeout(() => fetchSales(search, 1), 300);
+        const timer = setTimeout(() => fetchSales(search, 1, currentFilters), 300);
         return () => clearTimeout(timer);
-    }, [search]);
+    }, [search, statusFilter, paymentFilter, periodFilter]);
+
+    const handleStatusChange = async (newStatus) => {
+        if (!selectedSale || updating) return;
+        setUpdating(true);
+        try {
+            const response = await saleApi.updateStatus(selectedSale.id, newStatus);
+            const updatedSale = response.data;
+
+            setSales(prev => prev.map(s => s.id === updatedSale.id ? updatedSale : s));
+            setSelectedSale(updatedSale);
+        } catch (err) {
+            console.error('Failed to update status:', err);
+            alert('Failed to update status: ' + err.message);
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!selectedSale || deleting) return;
+        setDeleting(true);
+        try {
+            await saleApi.delete(selectedSale.id);
+            setSales(prev => prev.filter(s => s.id !== selectedSale.id));
+            setSelectedSale(null);
+            setShowDeleteConfirm(false);
+        } catch (err) {
+            console.error('Failed to delete sale:', err);
+            alert('Failed to delete sale: ' + err.message);
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     return (
         <div className="h-full flex flex-col bg-gray-50">
-            {/* Header */}
-            <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                    <button onClick={onBack} className="p-1.5 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            {/* Search Bar & Filters */}
+            <div className="bg-white border-b border-gray-200 px-6 py-3 shrink-0">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative w-64">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                    </button>
-                    <h1 className="text-lg font-semibold text-gray-900">Sales History</h1>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search sales..."
+                            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className={`px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 ${
+                            statusFilter ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600'
+                        }`}
+                    >
+                        <option value="">All Status</option>
+                        {STATUS_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={paymentFilter}
+                        onChange={(e) => setPaymentFilter(e.target.value)}
+                        className={`px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 ${
+                            paymentFilter ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600'
+                        }`}
+                    >
+                        {PAYMENT_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={periodFilter}
+                        onChange={(e) => setPeriodFilter(e.target.value)}
+                        className={`px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 ${
+                            periodFilter ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600'
+                        }`}
+                    >
+                        {PERIOD_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+
+                    {hasActiveFilters && (
+                        <button
+                            onClick={() => { setStatusFilter(''); setPaymentFilter(''); setPeriodFilter(''); }}
+                            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                            Clear filters
+                        </button>
+                    )}
                 </div>
-                <div className="relative w-72">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search sales..."
-                        className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-            </header>
+            </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
@@ -92,49 +204,49 @@ export default function SalesHistory({ onBack }) {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {sales.map(sale => (
-                                            <tr
-                                                key={sale.id}
-                                                onClick={() => setSelectedSale(sale)}
-                                                className={`cursor-pointer hover:bg-gray-50 transition-colors ${
-                                                    selectedSale?.id === sale.id ? 'bg-blue-50' : ''
-                                                }`}
-                                            >
-                                                <td className="px-4 py-3 text-sm font-medium text-blue-600">{sale.sale_number}</td>
-                                                <td className="px-4 py-3 text-sm text-gray-900">
-                                                    {sale.customer?.name || sale.customer_name || 'Walk-in'}
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-gray-600">{sale.items?.length || 0}</td>
-                                                <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                                                    RM {parseFloat(sale.total_amount).toFixed(2)}
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-gray-600 capitalize">
-                                                    {sale.payment_method?.replace('_', ' ')}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
-                                                        sale.payment_status === 'paid'
-                                                            ? 'bg-green-100 text-green-700'
-                                                            : 'bg-yellow-100 text-yellow-700'
-                                                    }`}>
-                                                        {sale.payment_status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-gray-500">
-                                                    {new Date(sale.sale_date).toLocaleDateString('en-MY', {
-                                                        day: '2-digit', month: 'short', year: 'numeric',
-                                                        hour: '2-digit', minute: '2-digit',
-                                                    })}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {sales.map(sale => {
+                                            const displayStatus = getDisplayStatus(sale);
+                                            const statusOption = STATUS_OPTIONS.find(o => o.value === displayStatus);
+                                            return (
+                                                <tr
+                                                    key={sale.id}
+                                                    onClick={() => { setSelectedSale(sale); setShowDeleteConfirm(false); }}
+                                                    className={`cursor-pointer hover:bg-gray-50 transition-colors ${
+                                                        selectedSale?.id === sale.id ? 'bg-blue-50' : ''
+                                                    }`}
+                                                >
+                                                    <td className="px-4 py-3 text-sm font-medium text-blue-600">{sale.order_number}</td>
+                                                    <td className="px-4 py-3 text-sm text-gray-900">
+                                                        {sale.customer?.name || sale.customer_name || 'Walk-in'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600">{sale.items?.length || 0}</td>
+                                                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                                                        RM {parseFloat(sale.total_amount).toFixed(2)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                                                        {sale.payment_method?.replace('_', ' ')}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${statusOption?.color}`}>
+                                                            {statusOption?.label}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-500">
+                                                        {sale.order_date ? new Date(sale.order_date).toLocaleDateString('en-MY', {
+                                                            day: '2-digit', month: 'short', year: 'numeric',
+                                                            hour: '2-digit', minute: '2-digit',
+                                                        }) : '-'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
                             {hasMore && (
                                 <div className="mt-4 text-center">
                                     <button
-                                        onClick={() => { const next = page + 1; setPage(next); fetchSales(search, next); }}
+                                        onClick={() => { const next = page + 1; setPage(next); fetchSales(search, next, currentFilters); }}
                                         disabled={loading}
                                         className="px-4 py-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
                                     >
@@ -148,7 +260,7 @@ export default function SalesHistory({ onBack }) {
                         {selectedSale && (
                             <div className="w-80 shrink-0">
                                 <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-0">
-                                    <h3 className="font-semibold text-gray-900 mb-4">{selectedSale.sale_number}</h3>
+                                    <h3 className="font-semibold text-gray-900 mb-4">{selectedSale.order_number}</h3>
                                     <div className="space-y-3">
                                         <div>
                                             <p className="text-xs text-gray-500">Customer</p>
@@ -158,14 +270,14 @@ export default function SalesHistory({ onBack }) {
                                         </div>
                                         <div>
                                             <p className="text-xs text-gray-500">Salesperson</p>
-                                            <p className="text-sm font-medium text-gray-900">{selectedSale.salesperson?.name}</p>
+                                            <p className="text-sm font-medium text-gray-900">{selectedSale.metadata?.salesperson_name || '-'}</p>
                                         </div>
                                         <div className="border-t border-gray-100 pt-3">
                                             <p className="text-xs text-gray-500 mb-2">Items</p>
                                             {selectedSale.items?.map((item, i) => (
                                                 <div key={i} className="flex justify-between py-1">
                                                     <span className="text-sm text-gray-700">
-                                                        {item.item_name} {item.variant_name ? `(${item.variant_name})` : ''} x{item.quantity}
+                                                        {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''} x{item.quantity_ordered || item.quantity}
                                                     </span>
                                                     <span className="text-sm font-medium text-gray-900">
                                                         RM {parseFloat(item.total_price).toFixed(2)}
@@ -185,12 +297,69 @@ export default function SalesHistory({ onBack }) {
                                                 RM {parseFloat(selectedSale.total_amount).toFixed(2)}
                                             </span>
                                         </div>
-                                        {selectedSale.notes && (
+                                        {(selectedSale.internal_notes || selectedSale.notes) && (
                                             <div className="pt-2">
                                                 <p className="text-xs text-gray-500">Notes</p>
-                                                <p className="text-sm text-gray-700 mt-1">{selectedSale.notes}</p>
+                                                <p className="text-sm text-gray-700 mt-1">{selectedSale.internal_notes || selectedSale.notes}</p>
                                             </div>
                                         )}
+
+                                        {/* Status Update */}
+                                        <div className="border-t border-gray-200 pt-3">
+                                            <p className="text-xs text-gray-500 mb-2">Update Status</p>
+                                            <div className="flex gap-2 flex-wrap">
+                                                {STATUS_OPTIONS.map(option => {
+                                                    const currentStatus = getDisplayStatus(selectedSale);
+                                                    const isActive = currentStatus === option.value;
+                                                    return (
+                                                        <button
+                                                            key={option.value}
+                                                            onClick={() => !isActive && handleStatusChange(option.value)}
+                                                            disabled={isActive || updating}
+                                                            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                                                                isActive
+                                                                    ? 'border-blue-300 bg-blue-50 text-blue-700 cursor-default'
+                                                                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 cursor-pointer'
+                                                            } ${updating ? 'opacity-50' : ''}`}
+                                                        >
+                                                            {updating ? '...' : option.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Delete */}
+                                        <div className="border-t border-gray-200 pt-3">
+                                            {!showDeleteConfirm ? (
+                                                <button
+                                                    onClick={() => setShowDeleteConfirm(true)}
+                                                    className="w-full px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors"
+                                                >
+                                                    Delete Sale
+                                                </button>
+                                            ) : (
+                                                <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                                                    <p className="text-sm text-red-700 font-medium mb-2">Are you sure you want to delete this sale?</p>
+                                                    <p className="text-xs text-red-500 mb-3">This action cannot be undone.</p>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={handleDelete}
+                                                            disabled={deleting}
+                                                            className="flex-1 px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+                                                        >
+                                                            {deleting ? 'Deleting...' : 'Yes, Delete'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setShowDeleteConfirm(false)}
+                                                            className="flex-1 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

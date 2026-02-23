@@ -20,6 +20,8 @@ export default function CustomerSelect({ customer, onCustomerChange }) {
     const [walkIn, setWalkIn] = useState({ name: '', phone: '', email: '', addressLine: '', city: '', state: '', postcode: '' });
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+    const [editingExisting, setEditingExisting] = useState(false);
+    const [existingEdit, setExistingEdit] = useState({ name: '', phone: '', email: '', addressLine: '', city: '', state: '', postcode: '' });
     const dropdownRef = useRef(null);
 
     useEffect(() => {
@@ -55,6 +57,8 @@ export default function CustomerSelect({ customer, onCustomerChange }) {
 
     const selectCustomer = (c) => {
         onCustomerChange({ type: 'existing', id: c.id, name: c.name, email: c.email, phone: c.phone, address: c.address || '' });
+        setExistingEdit({ name: c.name || '', phone: c.phone || '', email: c.email || '', addressLine: '', city: '', state: '', postcode: '' });
+        setEditingExisting(false);
         setShowDropdown(false);
         setSearch('');
         setErrors({});
@@ -87,6 +91,19 @@ export default function CustomerSelect({ customer, onCustomerChange }) {
         return Object.keys(newErrors).length === 0;
     };
 
+    const handleExistingEditChange = (field, value) => {
+        const updated = { ...existingEdit, [field]: value };
+        setExistingEdit(updated);
+        const address = formatAddress(updated);
+        onCustomerChange({
+            ...customer,
+            name: updated.name,
+            phone: updated.phone,
+            email: updated.email,
+            address,
+        });
+    };
+
     const clearCustomer = () => {
         onCustomerChange(null);
         setSearch('');
@@ -105,12 +122,86 @@ export default function CustomerSelect({ customer, onCustomerChange }) {
                             {customer.phone}{customer.email ? ` | ${customer.email}` : ''}
                         </p>
                     </div>
-                    <button onClick={clearCustomer} className="p-1 text-blue-400 hover:text-blue-600 shrink-0">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <button
+                            onClick={() => setEditingExisting(!editingExisting)}
+                            className="p-1 text-blue-400 hover:text-blue-600"
+                            title={editingExisting ? 'Close edit' : 'Edit customer info'}
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                {editingExisting ? (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                ) : (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                )}
+                            </svg>
+                        </button>
+                        <button onClick={clearCustomer} className="p-1 text-blue-400 hover:text-blue-600">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
+                {editingExisting && (
+                    <div className="space-y-2 pt-1">
+                        <input
+                            type="text"
+                            value={existingEdit.name}
+                            onChange={(e) => handleExistingEditChange('name', e.target.value)}
+                            placeholder="Customer name"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <input
+                            type="tel"
+                            value={existingEdit.phone}
+                            onChange={(e) => handleExistingEditChange('phone', e.target.value)}
+                            placeholder="Phone number"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <input
+                            type="email"
+                            value={existingEdit.email}
+                            onChange={(e) => handleExistingEditChange('email', e.target.value)}
+                            placeholder="Email"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <input
+                            type="text"
+                            value={existingEdit.addressLine}
+                            onChange={(e) => handleExistingEditChange('addressLine', e.target.value)}
+                            placeholder="Address"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                            <input
+                                type="text"
+                                value={existingEdit.city}
+                                onChange={(e) => handleExistingEditChange('city', e.target.value)}
+                                placeholder="City"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <input
+                                type="text"
+                                value={existingEdit.postcode}
+                                onChange={(e) => handleExistingEditChange('postcode', e.target.value)}
+                                placeholder="Postcode"
+                                maxLength={5}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                        <select
+                            value={existingEdit.state}
+                            onChange={(e) => handleExistingEditChange('state', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500 bg-white text-gray-700"
+                        >
+                            <option value="">Select state</option>
+                            {MALAYSIAN_STATES.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
         );
     }

@@ -32,6 +32,7 @@ class StorePosSaleRequest extends FormRequest
             'payment_status' => ['required', 'in:paid,pending'],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'discount_type' => ['nullable', 'in:fixed,percentage'],
+            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.itemable_type' => ['required', 'in:product,package,course'],

@@ -2,13 +2,13 @@ import React from 'react';
 import CartItem from './CartItem';
 import CustomerSelect from './CustomerSelect';
 
-export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQuantity, onRemoveItem, onClearCart, onCharge, subtotal, discount, onDiscountChange }) {
+export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQuantity, onRemoveItem, onClearCart, onCharge, subtotal, discount, onDiscountChange, postage, onPostageChange }) {
 
     const discountValue = discount.type === 'percentage'
         ? (subtotal * discount.amount / 100)
         : discount.amount;
 
-    const total = Math.max(0, subtotal - discountValue);
+    const total = Math.max(0, subtotal - discountValue + (postage || 0));
 
     const canCharge = cart.length > 0 && customer !== null;
 
@@ -87,6 +87,25 @@ export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQu
                 </div>
             )}
 
+            {/* Postage / Delivery Cost */}
+            {cart.length > 0 && (
+                <div className="px-4 py-2 border-t border-gray-100 shrink-0">
+                    <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-gray-500 shrink-0">Postage</label>
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={postage || ''}
+                            onChange={(e) => onPostageChange(parseFloat(e.target.value) || 0)}
+                            placeholder="0"
+                            className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-sm text-right outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="px-2 py-1.5 text-sm text-gray-500">RM</span>
+                    </div>
+                </div>
+            )}
+
             {/* Totals & Charge */}
             <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 shrink-0">
                 <div className="space-y-1.5 mb-3">
@@ -98,6 +117,12 @@ export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQu
                         <div className="flex justify-between text-sm text-red-500">
                             <span>Discount</span>
                             <span>- RM {discountValue.toFixed(2)}</span>
+                        </div>
+                    )}
+                    {postage > 0 && (
+                        <div className="flex justify-between text-sm text-gray-600">
+                            <span>Postage</span>
+                            <span>+ RM {postage.toFixed(2)}</span>
                         </div>
                     )}
                     <div className="flex justify-between text-lg font-bold text-gray-900 pt-1 border-t border-gray-200">
