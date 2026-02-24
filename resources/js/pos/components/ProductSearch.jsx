@@ -176,7 +176,7 @@ function ItemCard({ item, type, onClick }) {
             className="bg-white border border-gray-200 rounded-xl p-2.5 sm:p-3 text-left hover:border-blue-400 hover:shadow-md transition-all group active:scale-[0.98]"
         >
             {/* Image or Placeholder */}
-            <div className="w-full aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+            <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
                 {item.primary_image?.url ? (
                     <img
                         src={item.primary_image.url}
@@ -184,7 +184,7 @@ function ItemCard({ item, type, onClick }) {
                         className="w-full h-full object-cover"
                     />
                 ) : (
-                    <span className="text-2xl">{getTypeIcon() || '🏷️'}</span>
+                    <span className="text-xl">{getTypeIcon() || '🏷️'}</span>
                 )}
             </div>
 

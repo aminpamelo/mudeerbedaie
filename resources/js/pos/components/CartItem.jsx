@@ -4,7 +4,7 @@ export default function CartItem({ item, onUpdateQuantity, onRemove }) {
     const typeLabel = item.type === 'package' ? 'PKG' : item.type === 'course' ? 'CRS' : null;
 
     return (
-        <div className="cart-item-enter bg-gray-50 rounded-lg p-3">
+        <div className="cart-item-enter bg-gray-50 rounded-lg p-2.5">
             <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">

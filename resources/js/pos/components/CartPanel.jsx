@@ -20,7 +20,7 @@ export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQu
     return (
         <div className="h-full flex flex-col">
             {/* Cart Header */}
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+            <div className="px-3 py-2.5 border-b border-gray-100 flex items-center justify-between shrink-0">
                 <h2 className="font-semibold text-gray-900">Cart</h2>
                 {cart.length > 0 && (
                     <button
@@ -33,12 +33,12 @@ export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQu
             </div>
 
             {/* Customer Selection */}
-            <div className="px-4 py-3 border-b border-gray-100 shrink-0">
-                <CustomerSelect customer={customer} onCustomerChange={onCustomerChange} />
+            <div className="px-3 py-2.5 border-b border-gray-100 shrink-0">
+                <CustomerSelect customer={customer} onCustomerChange={onCustomerChange} postage={postage} />
             </div>
 
             {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto pos-scroll px-4 py-2">
+            <div className="flex-1 overflow-y-auto pos-scroll px-3 py-2">
                 {cart.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-gray-400">
                         <svg className="w-16 h-16 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -63,7 +63,7 @@ export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQu
 
             {/* Discount */}
             {cart.length > 0 && (
-                <div className="px-4 py-2 border-t border-gray-100 shrink-0">
+                <div className="px-3 py-2 border-t border-gray-100 shrink-0">
                     <div className="flex items-center gap-2">
                         <label className="text-xs font-medium text-gray-500 shrink-0">Discount</label>
                         <input
@@ -89,7 +89,7 @@ export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQu
 
             {/* Postage / Delivery Cost */}
             {cart.length > 0 && (
-                <div className="px-4 py-2 border-t border-gray-100 shrink-0">
+                <div className="px-3 py-2 border-t border-gray-100 shrink-0">
                     <div className="flex items-center gap-2">
                         <label className="text-xs font-medium text-gray-500 shrink-0">Postage</label>
                         <input
@@ -107,7 +107,7 @@ export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQu
             )}
 
             {/* Totals & Charge */}
-            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 shrink-0">
+            <div className="px-3 py-2.5 border-t border-gray-200 bg-gray-50 shrink-0">
                 <div className="space-y-1.5 mb-3">
                     <div className="flex justify-between text-sm text-gray-600">
                         <span>Subtotal</span>

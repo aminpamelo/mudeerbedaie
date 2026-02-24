@@ -33,6 +33,8 @@ export default function App() {
     const config = window.posConfig || {};
     const isMobile = useMediaQuery('(max-width: 1023px)');
     const isSmallMobile = useMediaQuery('(max-width: 639px)');
+    const isSmallDesktop = useMediaQuery('(min-width: 1024px) and (max-width: 1365px)');
+    const isLargeDesktop = useMediaQuery('(min-width: 1920px)');
 
     const [view, setView] = useState(() => {
         const hash = window.location.hash.replace('#', '');
@@ -252,7 +254,9 @@ export default function App() {
 
                     {/* Desktop: Side-by-side Cart Panel */}
                     {!isMobile && (
-                        <div className="w-96 border-l border-gray-200 bg-white flex flex-col">
+                        <div className={`border-l border-gray-200 bg-white flex flex-col shrink-0 ${
+                        isLargeDesktop ? 'w-[440px]' : isSmallDesktop ? 'w-80' : 'w-96'
+                    }`}>
                             <CartPanel {...cartProps} />
                         </div>
                     )}

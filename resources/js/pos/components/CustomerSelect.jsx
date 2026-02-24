@@ -13,7 +13,7 @@ function formatAddress({ addressLine, city, state, postcode }) {
     return parts.join(', ');
 }
 
-export default function CustomerSelect({ customer, onCustomerChange }) {
+export default function CustomerSelect({ customer, onCustomerChange, postage = 0 }) {
     const [search, setSearch] = useState('');
     const [results, setResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -22,7 +22,17 @@ export default function CustomerSelect({ customer, onCustomerChange }) {
     const [errors, setErrors] = useState({});
     const [editingExisting, setEditingExisting] = useState(false);
     const [existingEdit, setExistingEdit] = useState({ name: '', phone: '', email: '', addressLine: '', city: '', state: '', postcode: '' });
+    const [showAddress, setShowAddress] = useState(false);
+    const [showExistingAddress, setShowExistingAddress] = useState(false);
     const dropdownRef = useRef(null);
+
+    // Auto-expand address when postage is set
+    useEffect(() => {
+        if (postage > 0) {
+            setShowAddress(true);
+            setShowExistingAddress(true);
+        }
+    }, [postage]);
 
     useEffect(() => {
         if (search.length < 2) {
@@ -166,40 +176,54 @@ export default function CustomerSelect({ customer, onCustomerChange }) {
                             placeholder="Email"
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
                         />
-                        <input
-                            type="text"
-                            value={existingEdit.addressLine}
-                            onChange={(e) => handleExistingEditChange('addressLine', e.target.value)}
-                            placeholder="Address"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                            <input
-                                type="text"
-                                value={existingEdit.city}
-                                onChange={(e) => handleExistingEditChange('city', e.target.value)}
-                                placeholder="City"
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                            <input
-                                type="text"
-                                value={existingEdit.postcode}
-                                onChange={(e) => handleExistingEditChange('postcode', e.target.value)}
-                                placeholder="Postcode"
-                                maxLength={5}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                        </div>
-                        <select
-                            value={existingEdit.state}
-                            onChange={(e) => handleExistingEditChange('state', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500 bg-white text-gray-700"
+                        <button
+                            type="button"
+                            onClick={() => setShowExistingAddress(!showExistingAddress)}
+                            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 font-medium py-1 transition-colors"
                         >
-                            <option value="">Select state</option>
-                            {MALAYSIAN_STATES.map(s => (
-                                <option key={s} value={s}>{s}</option>
-                            ))}
-                        </select>
+                            <svg className={`w-3.5 h-3.5 transition-transform ${showExistingAddress ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            {showExistingAddress ? 'Hide address fields' : 'Add address (optional)'}
+                        </button>
+                        {showExistingAddress && (
+                            <div className="space-y-2">
+                                <input
+                                    type="text"
+                                    value={existingEdit.addressLine}
+                                    onChange={(e) => handleExistingEditChange('addressLine', e.target.value)}
+                                    placeholder="Address"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                        type="text"
+                                        value={existingEdit.city}
+                                        onChange={(e) => handleExistingEditChange('city', e.target.value)}
+                                        placeholder="City"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={existingEdit.postcode}
+                                        onChange={(e) => handleExistingEditChange('postcode', e.target.value)}
+                                        placeholder="Postcode"
+                                        maxLength={5}
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <select
+                                    value={existingEdit.state}
+                                    onChange={(e) => handleExistingEditChange('state', e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500 bg-white text-gray-700"
+                                >
+                                    <option value="">Select state</option>
+                                    {MALAYSIAN_STATES.map(s => (
+                                        <option key={s} value={s}>{s}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -285,40 +309,54 @@ export default function CustomerSelect({ customer, onCustomerChange }) {
                     placeholder="Email (optional)"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
                 />
-                <input
-                    type="text"
-                    value={walkIn.addressLine}
-                    onChange={(e) => handleWalkInChange('addressLine', e.target.value)}
-                    placeholder="Address (optional)"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                    <input
-                        type="text"
-                        value={walkIn.city}
-                        onChange={(e) => handleWalkInChange('city', e.target.value)}
-                        placeholder="City"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    <input
-                        type="text"
-                        value={walkIn.postcode}
-                        onChange={(e) => handleWalkInChange('postcode', e.target.value)}
-                        placeholder="Postcode"
-                        maxLength={5}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                </div>
-                <select
-                    value={walkIn.state}
-                    onChange={(e) => handleWalkInChange('state', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500 bg-white text-gray-700"
+                <button
+                    type="button"
+                    onClick={() => setShowAddress(!showAddress)}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 font-medium py-1 transition-colors"
                 >
-                    <option value="">Select state</option>
-                    {MALAYSIAN_STATES.map(s => (
-                        <option key={s} value={s}>{s}</option>
-                    ))}
-                </select>
+                    <svg className={`w-3.5 h-3.5 transition-transform ${showAddress ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {showAddress ? 'Hide address fields' : 'Add address (optional)'}
+                </button>
+                {showAddress && (
+                    <div className="space-y-2">
+                        <input
+                            type="text"
+                            value={walkIn.addressLine}
+                            onChange={(e) => handleWalkInChange('addressLine', e.target.value)}
+                            placeholder="Address"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                            <input
+                                type="text"
+                                value={walkIn.city}
+                                onChange={(e) => handleWalkInChange('city', e.target.value)}
+                                placeholder="City"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <input
+                                type="text"
+                                value={walkIn.postcode}
+                                onChange={(e) => handleWalkInChange('postcode', e.target.value)}
+                                placeholder="Postcode"
+                                maxLength={5}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                        <select
+                            value={walkIn.state}
+                            onChange={(e) => handleWalkInChange('state', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-blue-500 bg-white text-gray-700"
+                        >
+                            <option value="">Select state</option>
+                            {MALAYSIAN_STATES.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
         </div>
     );
