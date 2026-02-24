@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import CartItem from './CartItem';
 import CustomerSelect from './CustomerSelect';
 
 export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQuantity, onRemoveItem, onClearCart, onCharge, subtotal, discount, onDiscountChange, postage, onPostageChange }) {
+
+    const [showCustomer, setShowCustomer] = useState(true);
 
     const discountValue = discount.type === 'percentage'
         ? (subtotal * discount.amount / 100)
@@ -32,12 +34,37 @@ export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQu
                 )}
             </div>
 
-            {/* Scrollable area: Customer Selection + Cart Items */}
+            {/* Collapsible Customer Section Header */}
+            <div className="shrink-0 border-b border-gray-100">
+                <button
+                    type="button"
+                    onClick={() => setShowCustomer(!showCustomer)}
+                    className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                >
+                    <div className="flex items-center gap-2 min-w-0">
+                        <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        {customer ? (
+                            <span className="text-sm font-medium text-gray-900 truncate">{customer.name}</span>
+                        ) : (
+                            <span className="text-sm text-gray-500">Customer Info</span>
+                        )}
+                    </div>
+                    <svg className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${showCustomer ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+            </div>
+
+            {/* Scrollable area: Customer Selection (collapsible) + Cart Items */}
             <div className="flex-1 overflow-y-auto pos-scroll">
                 {/* Customer Selection */}
-                <div className="px-3 py-2.5 border-b border-gray-100">
-                    <CustomerSelect customer={customer} onCustomerChange={onCustomerChange} postage={postage} />
-                </div>
+                {showCustomer && (
+                    <div className="px-3 py-2.5 border-b border-gray-100">
+                        <CustomerSelect customer={customer} onCustomerChange={onCustomerChange} postage={postage} />
+                    </div>
+                )}
 
                 {/* Cart Items */}
                 <div className="px-3 py-2">
