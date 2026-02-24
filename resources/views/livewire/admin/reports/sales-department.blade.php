@@ -498,29 +498,29 @@ new class extends Component
         @if($activeTab === 'history')
             <flux:card>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
                         <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Order #</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Customer</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Salesperson</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Items</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Total</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Payment</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                            <tr class="bg-gray-50 dark:bg-zinc-800">
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Order #</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Date</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Customer</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Salesperson</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Items</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Total</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Payment</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Status</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
+                        <tbody class="divide-y divide-gray-200 bg-white dark:divide-zinc-700 dark:bg-transparent">
                             @forelse($salesHistory as $order)
-                                <tr class="hover:bg-gray-50" wire:key="order-{{ $order->id }}">
-                                    <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">{{ $order->order_number }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{{ $order->order_date?->format('d M Y H:i') }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">{{ $order->getCustomerName() }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $order->metadata['salesperson_name'] ?? '-' }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-500">{{ $order->items->sum('quantity_ordered') }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900">RM {{ number_format((float) $order->total_amount, 2) }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-700">{{ ucfirst($order->payment_method ?? '-') }}</td>
+                                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800" wire:key="order-{{ $order->id }}">
+                                    <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900 dark:text-zinc-100">{{ $order->order_number }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">{{ $order->order_date?->format('d M Y H:i') }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-zinc-100">{{ $order->getCustomerName() }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-zinc-300">{{ $order->metadata['salesperson_name'] ?? '-' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-500 dark:text-zinc-400">{{ $order->items->sum('quantity_ordered') }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-zinc-100">RM {{ number_format((float) $order->total_amount, 2) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-zinc-300">{{ ucfirst($order->payment_method ?? '-') }}</td>
                                     <td class="whitespace-nowrap px-4 py-3">
                                         @if($order->paid_time)
                                             <flux:badge color="green" size="sm">Paid</flux:badge>
@@ -533,7 +533,7 @@ new class extends Component
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500">
+                                    <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-zinc-400">
                                         No sales found matching your filters.
                                     </td>
                                 </tr>
@@ -543,7 +543,7 @@ new class extends Component
                 </div>
 
                 @if($salesHistory->hasPages())
-                    <div class="mt-4 border-t border-gray-200 px-4 pt-4">
+                    <div class="mt-4 border-t border-gray-200 px-4 pt-4 dark:border-zinc-700">
                         {{ $salesHistory->links() }}
                     </div>
                 @endif
@@ -557,45 +557,45 @@ new class extends Component
                 <flux:card class="space-y-2">
                     <div class="flex items-center justify-between">
                         <flux:heading size="lg">RM {{ number_format($summary['total_revenue'] ?? 0, 2) }}</flux:heading>
-                        <div class="rounded-lg bg-green-100 p-2">
-                            <flux:icon name="banknotes" class="h-6 w-6 text-green-600" />
+                        <div class="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
+                            <flux:icon name="banknotes" class="h-6 w-6 text-green-600 dark:text-green-400" />
                         </div>
                     </div>
                     <flux:text>Total Revenue</flux:text>
-                    <flux:subheading class="text-xs text-gray-500">From paid POS orders</flux:subheading>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">From paid POS orders</flux:subheading>
                 </flux:card>
 
                 <flux:card class="space-y-2">
                     <div class="flex items-center justify-between">
                         <flux:heading size="lg">{{ number_format($summary['total_orders'] ?? 0) }}</flux:heading>
-                        <div class="rounded-lg bg-blue-100 p-2">
-                            <flux:icon name="shopping-cart" class="h-6 w-6 text-blue-600" />
+                        <div class="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30">
+                            <flux:icon name="shopping-cart" class="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         </div>
                     </div>
                     <flux:text>Total Orders</flux:text>
-                    <flux:subheading class="text-xs text-gray-500">Number of paid orders</flux:subheading>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">Number of paid orders</flux:subheading>
                 </flux:card>
 
                 <flux:card class="space-y-2">
                     <div class="flex items-center justify-between">
                         <flux:heading size="lg">RM {{ number_format($summary['avg_order_value'] ?? 0, 2) }}</flux:heading>
-                        <div class="rounded-lg bg-yellow-100 p-2">
-                            <flux:icon name="calculator" class="h-6 w-6 text-yellow-600" />
+                        <div class="rounded-lg bg-yellow-100 p-2 dark:bg-yellow-900/30">
+                            <flux:icon name="calculator" class="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                         </div>
                     </div>
                     <flux:text>Avg Order Value</flux:text>
-                    <flux:subheading class="text-xs text-gray-500">Average per order</flux:subheading>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">Average per order</flux:subheading>
                 </flux:card>
 
                 <flux:card class="space-y-2">
                     <div class="flex items-center justify-between">
                         <flux:heading size="lg">{{ number_format($summary['total_items'] ?? 0) }}</flux:heading>
-                        <div class="rounded-lg bg-purple-100 p-2">
-                            <flux:icon name="cube" class="h-6 w-6 text-purple-600" />
+                        <div class="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/30">
+                            <flux:icon name="cube" class="h-6 w-6 text-purple-600 dark:text-purple-400" />
                         </div>
                     </div>
                     <flux:text>Items Sold</flux:text>
-                    <flux:subheading class="text-xs text-gray-500">Total product units</flux:subheading>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">Total product units</flux:subheading>
                 </flux:card>
             </div>
 
@@ -631,7 +631,7 @@ new class extends Component
                     </div>
                     <div class="grid gap-4 sm:grid-cols-3">
                         @foreach($statusBreakdown as $statusData)
-                            <div class="rounded-lg border border-gray-200 p-4">
+                            <div class="rounded-lg border border-gray-200 p-4 dark:border-zinc-700">
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <flux:heading size="sm">{{ $statusData['count'] }} orders</flux:heading>
@@ -641,7 +641,7 @@ new class extends Component
                                         {{ $statusData['status'] }}
                                     </flux:badge>
                                 </div>
-                                <flux:text class="mt-2 text-xs text-gray-500">
+                                <flux:text class="mt-2 text-xs text-gray-500 dark:text-zinc-400">
                                     RM {{ number_format($statusData['revenue'], 2) }}
                                 </flux:text>
                             </div>
@@ -662,19 +662,19 @@ new class extends Component
                         @if(count($salespersonPerformance) > 0)
                             <div class="space-y-3">
                                 @foreach($salespersonPerformance as $index => $sp)
-                                    <div class="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+                                    <div class="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-zinc-700">
                                         <div class="flex items-center gap-3">
-                                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-sm font-semibold text-green-600">
+                                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-sm font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">
                                                 {{ $index + 1 }}
                                             </div>
                                             <div>
                                                 <flux:heading size="sm">{{ $sp['salesperson_name'] }}</flux:heading>
-                                                <flux:text class="text-xs text-gray-500">{{ $sp['sales_count'] }} sales &middot; Avg RM {{ number_format($sp['avg_order_value'], 2) }}</flux:text>
+                                                <flux:text class="text-xs text-gray-500 dark:text-zinc-400">{{ $sp['sales_count'] }} sales &middot; Avg RM {{ number_format($sp['avg_order_value'], 2) }}</flux:text>
                                             </div>
                                         </div>
                                         <div class="text-right">
                                             <flux:heading size="sm">RM {{ number_format($sp['revenue'], 2) }}</flux:heading>
-                                            <flux:text class="text-xs text-gray-500">Last: {{ $sp['last_sale'] ? \Carbon\Carbon::parse($sp['last_sale'])->format('d M Y') : '-' }}</flux:text>
+                                            <flux:text class="text-xs text-gray-500 dark:text-zinc-400">Last: {{ $sp['last_sale'] ? \Carbon\Carbon::parse($sp['last_sale'])->format('d M Y') : '-' }}</flux:text>
                                         </div>
                                     </div>
                                 @endforeach
@@ -693,19 +693,19 @@ new class extends Component
                         @if(count($salespersonPerformanceByVolume) > 0)
                             <div class="space-y-3">
                                 @foreach($salespersonPerformanceByVolume as $index => $sp)
-                                    <div class="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+                                    <div class="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-zinc-700">
                                         <div class="flex items-center gap-3">
-                                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-600">
+                                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                                                 {{ $index + 1 }}
                                             </div>
                                             <div>
                                                 <flux:heading size="sm">{{ $sp['salesperson_name'] }}</flux:heading>
-                                                <flux:text class="text-xs text-gray-500">RM {{ number_format($sp['revenue'], 2) }} revenue</flux:text>
+                                                <flux:text class="text-xs text-gray-500 dark:text-zinc-400">RM {{ number_format($sp['revenue'], 2) }} revenue</flux:text>
                                             </div>
                                         </div>
                                         <div class="text-right">
                                             <flux:heading size="sm">{{ $sp['sales_count'] }} sales</flux:heading>
-                                            <flux:text class="text-xs text-gray-500">Avg RM {{ number_format($sp['avg_order_value'], 2) }}</flux:text>
+                                            <flux:text class="text-xs text-gray-500 dark:text-zinc-400">Avg RM {{ number_format($sp['avg_order_value'], 2) }}</flux:text>
                                         </div>
                                     </div>
                                 @endforeach
@@ -724,20 +724,20 @@ new class extends Component
                     <flux:text>Click on a month to see per-salesperson breakdown</flux:text>
                 </div>
                 <div class="overflow-x-auto" x-data="{ expanded: {} }">
-                    <table class="min-w-full divide-y divide-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
                         <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"></th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Month</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Sales</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Revenue</th>
+                            <tr class="bg-gray-50 dark:bg-zinc-800">
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400"></th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Month</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Sales</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Revenue</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
+                        <tbody class="divide-y divide-gray-200 bg-white dark:divide-zinc-700 dark:bg-transparent">
                             @foreach($monthlyPivotData as $month)
                                 {{-- Main month row --}}
                                 <tr
-                                    class="cursor-pointer transition-colors {{ $month['total_sales'] > 0 ? 'hover:bg-gray-50' : 'opacity-40' }}"
+                                    class="cursor-pointer transition-colors {{ $month['total_sales'] > 0 ? 'hover:bg-gray-50 dark:hover:bg-zinc-800' : 'opacity-40' }}"
                                     @click="expanded[{{ $month['month'] }}] = !expanded[{{ $month['month'] }}]"
                                     wire:key="pivot-row-{{ $month['month'] }}"
                                 >
@@ -745,40 +745,40 @@ new class extends Component
                                         @if($month['total_sales'] > 0)
                                             <flux:icon
                                                 name="chevron-right"
-                                                class="h-4 w-4 text-gray-400 transition-transform duration-200"
+                                                class="h-4 w-4 text-gray-400 transition-transform duration-200 dark:text-zinc-500"
                                                 x-bind:class="expanded[{{ $month['month'] }}] ? 'rotate-90' : ''"
                                             />
                                         @endif
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">{{ $month['month_name'] }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900">{{ number_format($month['total_sales']) }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900">RM {{ number_format($month['total_revenue'], 2) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900 dark:text-zinc-100">{{ $month['month_name'] }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-zinc-100">{{ number_format($month['total_sales']) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-zinc-100">RM {{ number_format($month['total_revenue'], 2) }}</td>
                                 </tr>
 
                                 {{-- Expanded salesperson rows --}}
                                 @if($month['total_sales'] > 0)
                                     <tr x-show="expanded[{{ $month['month'] }}]" x-collapse wire:key="pivot-expand-{{ $month['month'] }}">
                                         <td colspan="4" class="p-0">
-                                            <div class="border-l-4 border-blue-200 bg-blue-50/50 px-4 py-2">
+                                            <div class="border-l-4 border-blue-200 bg-blue-50/50 px-4 py-2 dark:border-blue-700 dark:bg-blue-950/30">
                                                 <div class="space-y-2">
                                                     @foreach($pivotSalespersons as $spId => $spName)
                                                         @php
                                                             $spData = $month['salespersons'][$spId] ?? ['sales_count' => 0, 'revenue' => 0];
                                                         @endphp
                                                         @if($spData['sales_count'] > 0)
-                                                            <div class="flex items-center justify-between rounded-lg bg-white px-4 py-2.5 shadow-sm" wire:key="pivot-sp-{{ $month['month'] }}-{{ $spId }}">
+                                                            <div class="flex items-center justify-between rounded-lg bg-white px-4 py-2.5 shadow-sm dark:bg-zinc-800" wire:key="pivot-sp-{{ $month['month'] }}-{{ $spId }}">
                                                                 <div class="flex items-center gap-3">
-                                                                    <div class="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100">
-                                                                        <flux:icon name="user" class="h-3.5 w-3.5 text-blue-600" />
+                                                                    <div class="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+                                                                        <flux:icon name="user" class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                                                                     </div>
-                                                                    <span class="text-sm font-medium text-gray-900">{{ $spName }}</span>
+                                                                    <span class="text-sm font-medium text-gray-900 dark:text-zinc-100">{{ $spName }}</span>
                                                                 </div>
                                                                 <div class="flex items-center gap-6">
                                                                     <div class="text-right">
-                                                                        <div class="text-sm font-medium text-gray-900">{{ $spData['sales_count'] }} sales</div>
+                                                                        <div class="text-sm font-medium text-gray-900 dark:text-zinc-100">{{ $spData['sales_count'] }} sales</div>
                                                                     </div>
                                                                     <div class="text-right">
-                                                                        <div class="text-sm font-semibold text-gray-900">RM {{ number_format($spData['revenue'], 2) }}</div>
+                                                                        <div class="text-sm font-semibold text-gray-900 dark:text-zinc-100">RM {{ number_format($spData['revenue'], 2) }}</div>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -791,12 +791,12 @@ new class extends Component
                                 @endif
                             @endforeach
                         </tbody>
-                        <tfoot class="border-t-2 border-gray-300 bg-gray-50">
+                        <tfoot class="border-t-2 border-gray-300 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-800">
                             <tr>
                                 <td class="px-4 py-3"></td>
-                                <td class="px-4 py-3 text-sm font-bold text-gray-900">Total</td>
-                                <td class="px-4 py-3 text-right text-sm font-bold text-gray-900">{{ number_format(collect($monthlyPivotData)->sum('total_sales')) }}</td>
-                                <td class="px-4 py-3 text-right text-sm font-bold text-gray-900">RM {{ number_format(collect($monthlyPivotData)->sum('total_revenue'), 2) }}</td>
+                                <td class="px-4 py-3 text-sm font-bold text-gray-900 dark:text-zinc-100">Total</td>
+                                <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-zinc-100">{{ number_format(collect($monthlyPivotData)->sum('total_sales')) }}</td>
+                                <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-zinc-100">RM {{ number_format(collect($monthlyPivotData)->sum('total_revenue'), 2) }}</td>
                             </tr>
                         </tfoot>
                     </table>
