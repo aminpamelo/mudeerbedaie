@@ -4,7 +4,7 @@ import CustomerSelect from './CustomerSelect';
 
 export default function CartPanel({ cart, customer, onCustomerChange, onUpdateQuantity, onRemoveItem, onClearCart, onCharge, subtotal, discount, onDiscountChange, postage, onPostageChange }) {
 
-    const [showCustomer, setShowCustomer] = useState(true);
+    const [showCustomer, setShowCustomer] = useState(false);
 
     const discountValue = discount.type === 'percentage'
         ? (subtotal * discount.amount / 100)
