@@ -527,6 +527,17 @@ new class extends Component
                 ]);
                 $productOrder->markAsConfirmed();
 
+                // Track Facebook Pixel Purchase event (server-side)
+                if ($this->funnelSession) {
+                    app(\App\Services\Funnel\FacebookPixelService::class)->trackPurchase(
+                        $this->funnel,
+                        $productOrder,
+                        $this->funnelSession,
+                        null,
+                        url("/f/{$this->funnel->slug}")
+                    );
+                }
+
                 // Trigger funnel automations for purchase completed
                 app(\App\Services\Funnel\FunnelAutomationService::class)
                     ->triggerPurchaseCompleted($productOrder, $this->funnelSession);

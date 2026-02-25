@@ -372,13 +372,34 @@ class PublicFunnelController extends Controller
 
         // Track Purchase for thank you pages (get data from session's completed order)
         if ($step->type === 'thankyou') {
+            // Try to find order from session first, then fallback to order number in URL
             $funnelOrder = $session->orders()->with('productOrder.items')->latest()->first();
+            $order = $funnelOrder?->productOrder;
 
-            if ($funnelOrder && $funnelOrder->productOrder) {
-                $order = $funnelOrder->productOrder;
+            // Fallback: try to find order by order number from URL query parameter
+            if (! $order) {
+                $orderNumber = $request->query('order');
+                if ($orderNumber) {
+                    $order = \App\Models\ProductOrder::where('order_number', $orderNumber)
+                        ->with('items')
+                        ->first();
+                }
+            }
 
-                // Check if we already have an event ID from server-side tracking
+            if ($order && $order->items->isNotEmpty()) {
+                // Use existing event ID from server-side tracking, or generate a new one
                 $purchaseEventId = $order->metadata['fb_purchase_event_id'] ?? null;
+
+                if (! $purchaseEventId) {
+                    // Generate new event ID and track server-side if not already done
+                    $purchaseEventId = $this->pixelService->trackPurchase(
+                        $funnel,
+                        $order,
+                        $session,
+                        null,
+                        $request->url()
+                    );
+                }
 
                 if ($purchaseEventId) {
                     $contentIds = $order->items->pluck('product_id')->filter()->map(fn ($id) => (string) $id)->toArray();
