@@ -2844,28 +2844,56 @@ new class extends Component
         $this->importStudentProcessing = true;
 
         try {
-            // Save the uploaded file to storage
             $fileName = 'student_import_' . time() . '_' . uniqid() . '.csv';
-            $filePath = storage_path('app/temp/' . $fileName);
+            $relativePath = 'imports/students/' . $fileName;
 
-            // Ensure temp directory exists
-            if (! file_exists(storage_path('app/temp'))) {
-                mkdir(storage_path('app/temp'), 0755, true);
+            // CRITICAL: Read file contents IMMEDIATELY before temp file can be cleaned up
+            // On shared hosting, Livewire temp files may be deleted very quickly
+            $tempPath = $this->importStudentFile->getRealPath();
+            \Illuminate\Support\Facades\Log::info("Student import - Temp file path: {$tempPath}");
+
+            if (! $tempPath || ! file_exists($tempPath)) {
+                throw new \Exception('Temporary upload file not found. Please try uploading again.');
             }
 
-            // Copy file to temp location
-            copy($this->importStudentFile->getRealPath(), $filePath);
+            $fileContents = file_get_contents($tempPath);
+            \Illuminate\Support\Facades\Log::info("Student import - Read " . strlen($fileContents) . " bytes from temp file");
 
-            // Create import progress record
+            if ($fileContents === false || empty($fileContents)) {
+                throw new \Exception('Failed to read uploaded file contents.');
+            }
+
+            // Store using Storage facade with the contents we already read
+            $stored = \Illuminate\Support\Facades\Storage::disk('local')->put($relativePath, $fileContents);
+            \Illuminate\Support\Facades\Log::info("Student import - Storage put result: " . ($stored ? 'SUCCESS' : 'FAILED'));
+
+            if (! $stored) {
+                throw new \Exception('Failed to store the uploaded CSV file.');
+            }
+
+            // Verify file was actually stored
+            $fileExists = \Illuminate\Support\Facades\Storage::disk('local')->exists($relativePath);
+            \Illuminate\Support\Facades\Log::info("Student import - File exists after storage: " . ($fileExists ? 'YES' : 'NO'));
+
+            if (! $fileExists) {
+                throw new \Exception('File storage verification failed - file does not exist after upload.');
+            }
+
+            $storedSize = \Illuminate\Support\Facades\Storage::disk('local')->size($relativePath);
+            \Illuminate\Support\Facades\Log::info("Student import - Stored file size: {$storedSize} bytes");
+
+            // Create import progress record with relative path
             $importProgress = \App\Models\StudentImportProgress::create([
                 'class_id' => $this->class->id,
                 'user_id' => auth()->id(),
-                'file_path' => $filePath,
+                'file_path' => $relativePath,
                 'status' => 'pending',
                 'auto_enroll' => $this->autoEnrollImported,
                 'create_missing' => $this->createMissingStudents,
                 'default_password' => $this->createMissingStudents ? $this->importStudentPassword : null,
             ]);
+
+            \Illuminate\Support\Facades\Log::info("Student import - Created progress record ID: {$importProgress->id} with file_path: {$importProgress->file_path}");
 
             $this->currentStudentImportProgressId = $importProgress->id;
 
@@ -2935,6 +2963,12 @@ new class extends Component
             $this->studentImportProgress = null;
             $this->dispatch('stop-student-import-polling');
             session()->flash('error', 'Import failed: ' . ($progress->error_message ?? 'Unknown error'));
+        } elseif ($progress->isCancelled()) {
+            $this->importStudentProcessing = false;
+            $this->currentStudentImportProgressId = null;
+            $this->studentImportProgress = null;
+            $this->dispatch('stop-student-import-polling');
+            session()->flash('info', 'Import was cancelled.');
         }
     }
 
@@ -2942,9 +2976,9 @@ new class extends Component
     {
         if ($this->currentStudentImportProgressId) {
             $progress = \App\Models\StudentImportProgress::find($this->currentStudentImportProgressId);
-            if ($progress && $progress->isPending()) {
-                $progress->update(['status' => 'failed', 'error_message' => 'Cancelled by user']);
-                if (file_exists($progress->file_path)) {
+            if ($progress && !$progress->isCompleted() && !$progress->isFailed()) {
+                $progress->update(['status' => 'cancelled', 'error_message' => 'Cancelled by user']);
+                if ($progress->file_path && file_exists($progress->file_path)) {
                     unlink($progress->file_path);
                 }
             }
@@ -4962,15 +4996,15 @@ new class extends Component
 
                                         <div class="space-y-2 max-h-96 overflow-y-auto">
                                             @foreach($this->all_payment_period_columns as $period)
-                                                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-zinc-700 rounded cursor-pointer">
                                                     <flux:checkbox
                                                         wire:model.live="visiblePaymentPeriods"
                                                         value="{{ $period['label'] }}"
                                                     />
                                                     <div class="flex-1">
-                                                        <div class="text-sm font-medium text-gray-700">{{ $period['label'] }}</div>
+                                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $period['label'] }}</div>
                                                         @if($class->course->feeSettings && $class->course->feeSettings->billing_cycle !== 'yearly')
-                                                            <div class="text-xs text-gray-500">
+                                                            <div class="text-xs text-gray-500 dark:text-gray-400">
                                                                 {{ $period['period_start']->format('M j') }} - {{ $period['period_end']->format('M j') }}
                                                             </div>
                                                         @endif
@@ -4980,7 +5014,7 @@ new class extends Component
                                         </div>
 
                                         @if(count($visiblePaymentPeriods) === 0)
-                                            <div class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+                                            <div class="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded text-xs text-yellow-700 dark:text-yellow-400">
                                                 ⚠️ At least one column must be visible
                                             </div>
                                         @endif
@@ -5045,14 +5079,14 @@ new class extends Component
                     </div>
 
                     @if($class->course && $class->course->feeSettings)
-                        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
                             <div class="flex items-start space-x-2">
-                                <flux:icon.information-circle class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <flux:icon.information-circle class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                 <div>
-                                    <flux:text class="text-blue-800 font-medium text-sm">
+                                    <flux:text class="text-blue-800 dark:text-blue-300 font-medium text-sm">
                                         {{ $class->course->feeSettings->billing_cycle_label }} Billing Period
                                     </flux:text>
-                                    <flux:text class="text-blue-700 text-xs mt-0.5">
+                                    <flux:text class="text-blue-700 dark:text-blue-400 text-xs mt-0.5">
                                         {{ $class->course->feeSettings->formatted_fee }} per {{ strtolower($class->course->feeSettings->billing_cycle_label) }}
                                     </flux:text>
                                 </div>
@@ -5068,26 +5102,26 @@ new class extends Component
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="border-b border-gray-200">
+                                <tr class="border-b border-gray-200 dark:border-zinc-700">
                                     <th class="text-left py-3 px-4 sticky left-0 bg-white dark:bg-zinc-800 z-10 min-w-[250px]">
                                         Student Name
                                     </th>
-                                    <th class="text-left py-3 px-4 bg-white dark:bg-zinc-800 min-w-[150px] border-l border-gray-100">
+                                    <th class="text-left py-3 px-4 bg-white dark:bg-zinc-800 min-w-[150px] border-l border-gray-100 dark:border-zinc-700">
                                         PIC
                                     </th>
                                     @foreach($this->visible_payment_period_columns as $period)
-                                        <th class="text-center py-3 px-3 min-w-[100px] border-l border-gray-100">
+                                        <th class="text-center py-3 px-3 min-w-[100px] border-l border-gray-100 dark:border-zinc-700 bg-white dark:bg-zinc-800">
                                             <div class="font-medium">{{ $period['label'] }}</div>
                                             @if($class->course->feeSettings && $class->course->feeSettings->billing_cycle !== 'yearly')
-                                                <div class="text-xs text-gray-500 mt-1">
+                                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                     {{ $period['period_start']->format('M j') }} - {{ $period['period_end']->format('M j') }}
                                                 </div>
                                             @endif
                                         </th>
                                     @endforeach
-                                    <th class="text-center py-3 px-4 min-w-[150px] border-l-2 border-gray-300">
+                                    <th class="text-center py-3 px-4 min-w-[150px] border-l-2 border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800">
                                         <div class="font-medium">Summary</div>
-                                        <div class="text-xs text-gray-500 mt-1">Paid / Expected</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Paid / Expected</div>
                                     </th>
                                 </tr>
                             </thead>
@@ -5101,11 +5135,11 @@ new class extends Component
                                         $totalUnpaid = 0;
                                         $hasConsecutiveUnpaid = $this->hasConsecutiveUnpaidMonths($student->id);
                                     @endphp
-                                    <tr class="border-b border-gray-100 hover:bg-gray-50 {{ $hasConsecutiveUnpaid ? 'bg-red-50' : '' }}">
-                                        <td class="py-3 px-4 sticky left-0 {{ $hasConsecutiveUnpaid ? 'bg-red-50' : 'bg-white' }} z-10 border-r border-gray-100">
+                                    <tr class="border-b border-gray-100 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50 {{ $hasConsecutiveUnpaid ? 'bg-red-50 dark:bg-red-900/20' : '' }}">
+                                        <td class="py-3 px-4 sticky left-0 {{ $hasConsecutiveUnpaid ? 'bg-red-50 dark:bg-red-900/20' : 'bg-white dark:bg-zinc-800' }} z-10 border-r border-gray-100 dark:border-zinc-700">
                                             @if($hasConsecutiveUnpaid)
                                                 <div class="flex items-start gap-2 mb-2">
-                                                    <div class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-medium">
+                                                    <div class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-md text-xs font-medium">
                                                         <flux:icon.exclamation-triangle class="w-3 h-3" />
                                                         <span>2+ Months Unpaid</span>
                                                     </div>
@@ -5118,18 +5152,18 @@ new class extends Component
                                                         <a href="{{ route('enrollments.show', $enrollment) }}"
                                                            wire:navigate
                                                            class="block hover:opacity-80 transition-opacity">
-                                                            <div class="font-medium text-blue-600 hover:text-blue-800">{{ $student->user?->name ?? 'N/A' }}</div>
-                                                            <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
+                                                            <div class="font-medium text-blue-600 hover:text-blue-400">{{ $student->user?->name ?? 'N/A' }}</div>
+                                                            <div class="text-xs text-gray-600 dark:text-gray-400">{{ $student->phone ?: 'No phone' }}</div>
                                                         </a>
                                                     @else
                                                         <div>
-                                                            <div class="font-medium text-gray-900">{{ $student->user?->name ?? 'N/A' }}</div>
-                                                            <div class="text-xs text-gray-600">{{ $student->phone ?: 'No phone' }}</div>
+                                                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ $student->user?->name ?? 'N/A' }}</div>
+                                                            <div class="text-xs text-gray-600 dark:text-gray-400">{{ $student->phone ?: 'No phone' }}</div>
                                                         </div>
                                                     @endif
 
                                                     {{-- Class Enrollment Date --}}
-                                                    <div class="text-xs text-gray-500 mt-1">
+                                                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                         <flux:icon name="calendar" class="w-3 h-3 inline-block mr-1" />
                                                         Joined: {{ $classStudent->enrolled_at->format('M d, Y') }}
                                                     </div>
@@ -5155,27 +5189,27 @@ new class extends Component
                                                         @if($enrollment)
                                                             {{-- Subscription Status Badge --}}
                                                             @if($enrollment->subscription_status === 'active')
-                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-md text-xs font-medium">
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-md text-xs font-medium">
                                                                     <flux:icon name="check-circle" class="w-3 h-3" />
                                                                     <span>Active</span>
                                                                 </div>
                                                             @elseif($enrollment->subscription_status === 'canceled')
-                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-md text-xs font-medium">
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-md text-xs font-medium">
                                                                     <flux:icon name="x-circle" class="w-3 h-3" />
                                                                     <span>Canceled</span>
                                                                 </div>
                                                             @elseif($enrollment->subscription_status === 'trialing')
-                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md text-xs font-medium">
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 rounded-md text-xs font-medium">
                                                                     <flux:icon name="clock" class="w-3 h-3" />
                                                                     <span>Trial</span>
                                                                 </div>
                                                             @elseif($enrollment->subscription_status === 'past_due')
-                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-md text-xs font-medium">
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 rounded-md text-xs font-medium">
                                                                     <flux:icon name="exclamation-triangle" class="w-3 h-3" />
                                                                     <span>Past Due</span>
                                                                 </div>
                                                             @else
-                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 rounded-md text-xs font-medium">
                                                                     <flux:icon name="minus-circle" class="w-3 h-3" />
                                                                     <span>{{ ucfirst($enrollment->subscription_status ?? 'Inactive') }}</span>
                                                                 </div>
@@ -5183,12 +5217,12 @@ new class extends Component
 
                                                             {{-- Payment Method Type Badge --}}
                                                             @if($enrollment->payment_method_type === 'automatic')
-                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-md text-xs font-medium">
                                                                     <flux:icon name="credit-card" class="w-3 h-3" />
                                                                     <span>Auto</span>
                                                                 </div>
                                                             @else
-                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-md text-xs font-medium">
+                                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 rounded-md text-xs font-medium">
                                                                     <flux:icon name="banknotes" class="w-3 h-3" />
                                                                     <span>Manual</span>
                                                                 </div>
@@ -5256,19 +5290,19 @@ new class extends Component
                                                                      x-transition:leave-end="transform opacity-0 scale-95"
                                                                      class="absolute left-0 top-6 z-50 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 py-1">
                                                                     <button @click="copyLink(); showMenu = false"
-                                                                            class="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                                                                            class="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 flex items-center gap-2">
                                                                         <flux:icon name="clipboard-document" class="w-4 h-4" />
                                                                         Copy Link
                                                                     </button>
                                                                     <button wire:click="regenerateMagicLinkForStudent({{ $student->id }})"
                                                                             wire:confirm="This will invalidate the current magic link. The client will need to use the new link. Are you sure?"
                                                                             @click="showMenu = false"
-                                                                            class="w-full px-3 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2">
+                                                                            class="w-full px-3 py-2 text-left text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 flex items-center gap-2">
                                                                         <flux:icon name="arrow-path" class="w-4 h-4" />
                                                                         Regenerate Link
                                                                     </button>
-                                                                    <div class="border-t border-gray-100 my-1"></div>
-                                                                    <div class="px-3 py-2 text-xs text-gray-500">
+                                                                    <div class="border-t border-gray-100 dark:border-zinc-700 my-1"></div>
+                                                                    <div class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
                                                                         Expires: {{ $magicLink->expires_at->format('M d, Y') }}
                                                                     </div>
                                                                 </div>
@@ -5398,15 +5432,15 @@ new class extends Component
                                                 @endif
                                             </div>
                                         </td>
-                                        <td class="py-3 px-4 {{ $hasConsecutiveUnpaid ? 'bg-red-50' : 'bg-white' }} border-l border-gray-100">
+                                        <td class="py-3 px-4 {{ $hasConsecutiveUnpaid ? 'bg-red-50 dark:bg-red-900/20' : 'bg-white dark:bg-zinc-800' }} border-l border-gray-100 dark:border-zinc-700">
                                             @if($enrollment && $enrollment->enrolledBy)
                                                 <a href="{{ route('enrollments.show', $enrollment) }}"
                                                    wire:navigate
                                                    class="block hover:opacity-80 transition-opacity">
-                                                    <div class="text-sm text-blue-600 hover:text-blue-800">{{ $enrollment->enrolledBy?->name ?? 'N/A' }}</div>
+                                                    <div class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">{{ $enrollment->enrolledBy?->name ?? 'N/A' }}</div>
                                                 </a>
                                             @else
-                                                <div class="text-xs text-gray-400">N/A</div>
+                                                <div class="text-xs text-gray-400 dark:text-gray-500">N/A</div>
                                             @endif
                                         </td>
                                         @foreach($this->visible_payment_period_columns as $period)
@@ -5416,7 +5450,7 @@ new class extends Component
                                                 $totalExpected += $payment['expected_amount'] ?? 0;
                                                 $totalUnpaid += $payment['unpaid_amount'] ?? 0;
                                             @endphp
-                                            <td class="py-3 px-3 text-center border-l border-gray-100">
+                                            <td class="py-3 px-3 text-center border-l border-gray-100 dark:border-zinc-700">
                                                 @switch($payment['status'])
                                                     @case('paid')
                                                         <div class="space-y-1">
@@ -5424,16 +5458,16 @@ new class extends Component
                                                                 <a href="{{ route('orders.show', $payment['paid_orders']->first()) }}"
                                                                    class="block hover:opacity-80 cursor-pointer"
                                                                    wire:navigate>
-                                                                    <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full mb-1">
+                                                                    <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full mb-1">
                                                                         <flux:icon.check class="w-4 h-4" />
                                                                     </div>
                                                                 </a>
                                                             @else
-                                                                <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full mb-1">
+                                                                <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full mb-1">
                                                                     <flux:icon.check class="w-4 h-4" />
                                                                 </div>
                                                             @endif
-                                                            <div class="text-xs font-medium text-emerald-600">
+                                                            <div class="text-xs font-medium text-emerald-600 dark:text-emerald-400">
                                                                 RM {{ number_format($payment['paid_amount'] ?? 0, 2) }}
                                                             </div>
                                                         </div>
@@ -5442,43 +5476,43 @@ new class extends Component
                                                     @case('unpaid')
                                                         <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
                                                              wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['unpaid_amount'] ?? 0 }}, {{ $payment['paid_amount'] ?? 0 }}, {{ $payment['expected_amount'] ?? 0 }})">
-                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-600 rounded-full mb-1">
+                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-full mb-1">
                                                                 <flux:icon.exclamation-triangle class="w-4 h-4" />
                                                             </div>
-                                                            <div class="text-xs font-medium text-red-600">
+                                                            <div class="text-xs font-medium text-red-600 dark:text-red-400">
                                                                 RM {{ number_format($payment['unpaid_amount'] ?? 0, 2) }}
                                                             </div>
-                                                            <div class="text-xs text-gray-500 mt-1">Click to pay</div>
+                                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Click to pay</div>
                                                         </div>
                                                         @break
 
                                                     @case('partial_payment')
                                                         <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
                                                              wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['unpaid_amount'] ?? 0 }}, {{ $payment['paid_amount'] ?? 0 }}, {{ $payment['expected_amount'] ?? 0 }})">
-                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full mb-1">
+                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400 rounded-full mb-1">
                                                                 <flux:icon.minus class="w-4 h-4" />
                                                             </div>
-                                                            <div class="text-xs font-medium text-yellow-600">
+                                                            <div class="text-xs font-medium text-yellow-600 dark:text-yellow-400">
                                                                 RM {{ number_format($payment['paid_amount'] ?? 0, 2) }}
                                                             </div>
-                                                            <div class="text-xs text-red-500">
+                                                            <div class="text-xs text-red-500 dark:text-red-400">
                                                                 RM {{ number_format($payment['unpaid_amount'] ?? 0, 2) }} due
                                                             </div>
-                                                            <div class="text-xs text-gray-500 mt-1">Click to pay</div>
+                                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Click to pay</div>
                                                         </div>
                                                         @break
 
                                                     @case('pending_payment')
                                                         <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
                                                              wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['expected_amount'] ?? 0 }}, {{ $payment['paid_amount'] ?? 0 }}, {{ $payment['expected_amount'] ?? 0 }})">
-                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full mb-1">
+                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-full mb-1">
                                                                 <flux:icon.clock class="w-4 h-4" />
                                                             </div>
-                                                            <div class="text-xs font-medium text-purple-600">
+                                                            <div class="text-xs font-medium text-purple-600 dark:text-purple-400">
                                                                 Pending
                                                             </div>
                                                             @if($payment['expected_amount'] > 0)
-                                                                <div class="text-xs text-gray-500">
+                                                                <div class="text-xs text-gray-500 dark:text-gray-400">
                                                                     RM {{ number_format($payment['expected_amount'], 2) }}
                                                                 </div>
                                                             @endif
@@ -5488,14 +5522,14 @@ new class extends Component
                                                     @case('not_started')
                                                         <div class="space-y-1 cursor-pointer hover:opacity-75 transition-opacity"
                                                              wire:click="openManualPaymentModal({{ $student->id }}, '{{ $period['label'] }}', '{{ $period['period_start']->format('Y-m-d') }}', '{{ $period['period_end']->format('Y-m-d') }}', {{ $payment['expected_amount'] ?? 0 }}, {{ $payment['paid_amount'] ?? 0 }}, {{ $payment['expected_amount'] ?? 0 }})">
-                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full mb-1">
+                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full mb-1">
                                                                 <flux:icon.clock class="w-4 h-4" />
                                                             </div>
-                                                            <div class="text-xs text-blue-600">
+                                                            <div class="text-xs text-blue-600 dark:text-blue-400">
                                                                 Not started
                                                             </div>
                                                             @if($payment['expected_amount'] > 0)
-                                                                <div class="text-xs text-gray-500">
+                                                                <div class="text-xs text-gray-500 dark:text-gray-400">
                                                                     RM {{ number_format($payment['expected_amount'], 2) }}
                                                                 </div>
                                                             @endif
@@ -5504,10 +5538,10 @@ new class extends Component
 
                                                     @case('cancelled_this_period')
                                                         <div class="space-y-1">
-                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-orange-100 text-orange-600 rounded-full mb-1">
+                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-full mb-1">
                                                                 <flux:icon.x-circle class="w-4 h-4" />
                                                             </div>
-                                                            <div class="text-xs text-orange-600">
+                                                            <div class="text-xs text-orange-600 dark:text-orange-400">
                                                                 Canceled
                                                             </div>
                                                         </div>
@@ -5515,10 +5549,10 @@ new class extends Component
 
                                                     @case('cancelled_before')
                                                         <div class="space-y-1">
-                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 text-gray-500 rounded-full mb-1">
+                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-gray-400 rounded-full mb-1">
                                                                 <flux:icon.x-circle class="w-4 h-4" />
                                                             </div>
-                                                            <div class="text-xs text-gray-500">
+                                                            <div class="text-xs text-gray-500 dark:text-gray-400">
                                                                 Canceled
                                                             </div>
                                                         </div>
@@ -5526,10 +5560,10 @@ new class extends Component
 
                                                     @case('withdrawn')
                                                         <div class="space-y-1">
-                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-500 rounded-full mb-1">
+                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 dark:bg-red-900/40 text-red-500 dark:text-red-400 rounded-full mb-1">
                                                                 <flux:icon.user-minus class="w-4 h-4" />
                                                             </div>
-                                                            <div class="text-xs text-red-500">
+                                                            <div class="text-xs text-red-500 dark:text-red-400">
                                                                 Withdrawn
                                                             </div>
                                                         </div>
@@ -5537,52 +5571,52 @@ new class extends Component
 
                                                     @case('suspended')
                                                         <div class="space-y-1">
-                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-500 rounded-full mb-1">
+                                                            <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-500 dark:text-yellow-400 rounded-full mb-1">
                                                                 <flux:icon.pause class="w-4 h-4" />
                                                             </div>
-                                                            <div class="text-xs text-yellow-500">
+                                                            <div class="text-xs text-yellow-500 dark:text-yellow-400">
                                                                 Suspended
                                                             </div>
                                                         </div>
                                                         @break
 
                                                     @default
-                                                        <div class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 text-gray-400 rounded-full">
+                                                        <div class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 dark:bg-zinc-700 text-gray-400 rounded-full">
                                                             <flux:icon.x-mark class="w-4 h-4" />
                                                         </div>
                                                 @endswitch
 
                                                 <!-- Document Shipment Tracking -->
                                                 @if(isset($payment['shipment_item']))
-                                                    <div class="mt-2 pt-2 border-t border-gray-200">
+                                                    <div class="mt-2 pt-2 border-t border-gray-200 dark:border-zinc-700">
                                                         @if($payment['shipment_item']->tracking_number)
                                                             <div class="flex items-center justify-center gap-1 text-xs">
-                                                                <flux:icon name="truck" class="w-3 h-3 text-blue-600" />
-                                                                <span class="text-gray-600 font-medium">Tracking:</span>
+                                                                <flux:icon name="truck" class="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                                                                <span class="text-gray-600 dark:text-gray-400 font-medium">Tracking:</span>
                                                             </div>
-                                                            <div class="mt-1 px-2 py-1 bg-blue-50 rounded text-xs font-mono text-blue-700 hover:bg-blue-100 cursor-pointer transition-colors"
+                                                            <div class="mt-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 rounded text-xs font-mono text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer transition-colors"
                                                                  title="Click to copy tracking number"
                                                                  onclick="navigator.clipboard.writeText('{{ $payment['shipment_item']->tracking_number }}'); alert('Tracking number copied!');">
                                                                 {{ $payment['shipment_item']->tracking_number }}
                                                             </div>
                                                             <div class="mt-1 text-xs flex items-center justify-center gap-1.5 flex-wrap">
                                                                 @if($payment['shipment_item']->status === 'delivered')
-                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
+                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded">
                                                                         <flux:icon name="check-circle" class="w-3 h-3" />
                                                                         Delivered
                                                                     </span>
                                                                 @elseif($payment['shipment_item']->status === 'shipped')
-                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
+                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 rounded">
                                                                         <flux:icon name="truck" class="w-3 h-3" />
                                                                         Shipped
                                                                     </span>
                                                                 @elseif($payment['shipment_item']->status === 'pending')
-                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded">
+                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 rounded">
                                                                         <flux:icon name="clock" class="w-3 h-3" />
                                                                         Pending
                                                                     </span>
                                                                 @elseif($payment['shipment_item']->status === 'failed')
-                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-100 text-red-700 rounded">
+                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded">
                                                                         <flux:icon name="exclamation-triangle" class="w-3 h-3" />
                                                                         Failed
                                                                     </span>
@@ -5592,20 +5626,20 @@ new class extends Component
                                                             <div class="mt-2 flex items-center justify-center gap-1">
                                                                 <button wire:click="editShipmentItem({{ $payment['shipment_item']->id }})"
                                                                         title="Edit Tracking & Status"
-                                                                        class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">
+                                                                        class="inline-flex items-center justify-center w-6 h-6 bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 text-gray-600 dark:text-gray-300 rounded transition-colors">
                                                                     <flux:icon name="pencil" class="w-3 h-3" />
                                                                 </button>
                                                                 @if($payment['shipment_item']->product_order_id)
                                                                     <a href="{{ route('admin.orders.show', $payment['shipment_item']->product_order_id) }}"
                                                                        wire:navigate
                                                                        title="View Product Order"
-                                                                       class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition-colors">
+                                                                       class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 rounded transition-colors">
                                                                         <flux:icon name="eye" class="w-3 h-3" />
                                                                     </a>
                                                                 @endif
                                                             </div>
                                                         @else
-                                                            <div class="flex items-center justify-center gap-1.5 text-xs text-gray-500">
+                                                            <div class="flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                                                                 <flux:icon name="truck" class="w-3 h-3" />
                                                                 <span class="text-xs">{{ ucfirst($payment['shipment_item']->status) }}</span>
                                                             </div>
@@ -5613,7 +5647,7 @@ new class extends Component
                                                             <div class="mt-2 flex items-center justify-center gap-1">
                                                                 <button wire:click="editShipmentItem({{ $payment['shipment_item']->id }})"
                                                                         title="Add Tracking & Update Status"
-                                                                        class="inline-flex items-center justify-center gap-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors">
+                                                                        class="inline-flex items-center justify-center gap-1 px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-400 rounded transition-colors">
                                                                     <flux:icon name="pencil" class="w-3 h-3" />
                                                                     <span>Edit</span>
                                                                 </button>
@@ -5621,7 +5655,7 @@ new class extends Component
                                                                     <a href="{{ route('admin.orders.show', $payment['shipment_item']->product_order_id) }}"
                                                                        wire:navigate
                                                                        title="View Product Order"
-                                                                       class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded transition-colors">
+                                                                       class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 rounded transition-colors">
                                                                         <flux:icon name="eye" class="w-3 h-3" />
                                                                     </a>
                                                                 @endif
@@ -5629,8 +5663,8 @@ new class extends Component
                                                         @endif
                                                     </div>
                                                 @elseif(isset($payment['shipment']))
-                                                    <div class="mt-2 pt-2 border-t border-gray-200">
-                                                        <div class="text-xs text-gray-500">
+                                                    <div class="mt-2 pt-2 border-t border-gray-200 dark:border-zinc-700">
+                                                        <div class="text-xs text-gray-500 dark:text-gray-400">
                                                             <flux:icon name="information-circle" class="w-3 h-3 inline" />
                                                             Not in shipment
                                                         </div>
@@ -5638,16 +5672,16 @@ new class extends Component
                                                 @endif
                                             </td>
                                         @endforeach
-                                        <td class="py-3 px-4 text-center font-medium border-l-2 border-gray-300">
+                                        <td class="py-3 px-4 text-center font-medium border-l-2 border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800">
                                             <div class="space-y-1">
-                                                <div class="text-emerald-600 font-medium">
+                                                <div class="text-emerald-600 dark:text-emerald-400 font-medium">
                                                     RM {{ number_format($totalPaid, 2) }}
                                                 </div>
-                                                <div class="text-xs text-gray-500">
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">
                                                     Expected: RM {{ number_format($totalExpected, 2) }}
                                                 </div>
                                                 @if($totalUnpaid > 0)
-                                                    <div class="text-xs text-red-500 font-medium">
+                                                    <div class="text-xs text-red-500 dark:text-red-400 font-medium">
                                                         Unpaid: RM {{ number_format($totalUnpaid, 2) }}
                                                     </div>
                                                 @endif
@@ -5660,9 +5694,9 @@ new class extends Component
                     </div>
                 @else
                     <div class="text-center py-12">
-                        <flux:icon.users class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <flux:heading size="md" class="text-gray-600 mb-2">No students enrolled</flux:heading>
-                        <flux:text class="text-gray-600">
+                        <flux:icon.users class="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                        <flux:heading size="md" class="text-gray-600 dark:text-gray-400 mb-2">No students enrolled</flux:heading>
+                        <flux:text class="text-gray-600 dark:text-gray-400">
                             This class doesn't have any enrolled students yet.
                         </flux:text>
                     </div>
@@ -5682,15 +5716,15 @@ new class extends Component
                     <flux:heading size="md" class="mb-4">Payment Status Legend</flux:heading>
 
                     <!-- Consecutive Unpaid Warning -->
-                    <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                         <div class="flex items-start gap-3">
-                            <div class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-medium">
+                            <div class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-md text-xs font-medium">
                                 <flux:icon.exclamation-triangle class="w-3 h-3" />
                                 <span>2+ Months Unpaid</span>
                             </div>
                             <div class="flex-1">
-                                <flux:text class="text-sm text-red-900 font-medium">Critical Payment Alert</flux:text>
-                                <flux:text class="text-xs text-red-700 mt-1">
+                                <flux:text class="text-sm text-red-900 dark:text-red-300 font-medium">Critical Payment Alert</flux:text>
+                                <flux:text class="text-xs text-red-700 dark:text-red-400 mt-1">
                                     Students with this indicator have 2 or more consecutive months of unpaid or partial payments. The entire row is highlighted in light red for easy identification. Consider immediate follow-up action.
                                 </flux:text>
                             </div>
@@ -8492,7 +8526,7 @@ new class extends Component
     </flux:modal>
 
     <!-- Import Students Result Modal -->
-    <flux:modal name="import-students-result" :show="$showImportStudentResultModal" wire:model="showImportStudentResultModal">
+    <flux:modal name="import-students-result" :show="$showImportStudentResultModal" wire:model="showImportStudentResultModal" class="max-w-2xl">
         <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
             <flux:heading size="lg">Import Results</flux:heading>
             <flux:text class="mt-2">Summary of the student import process</flux:text>
@@ -8501,7 +8535,7 @@ new class extends Component
         <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             @if(!empty($importStudentResult))
                 <!-- Summary Stats -->
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-4 gap-4">
                     <div class="bg-green-50 rounded-lg p-3 text-center">
                         <div class="text-2xl font-bold text-green-600">{{ count($importStudentResult['enrolled'] ?? []) }}</div>
                         <div class="text-xs text-green-700">Enrolled</div>
@@ -8509,6 +8543,10 @@ new class extends Component
                     <div class="bg-blue-50 rounded-lg p-3 text-center">
                         <div class="text-2xl font-bold text-blue-600">{{ count($importStudentResult['created'] ?? []) }}</div>
                         <div class="text-xs text-blue-700">Created</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                        <div class="text-2xl font-bold text-gray-600">{{ count($importStudentResult['already_enrolled'] ?? []) }}</div>
+                        <div class="text-xs text-gray-700">Already Enrolled</div>
                     </div>
                     <div class="bg-yellow-50 rounded-lg p-3 text-center">
                         <div class="text-2xl font-bold text-yellow-600">{{ count($importStudentResult['skipped'] ?? []) }}</div>
@@ -8599,7 +8637,7 @@ new class extends Component
     </flux:modal>
 
     <!-- Student Import Progress Modal -->
-    <flux:modal name="student-import-progress" :show="$importStudentProcessing" wire:model="importStudentProcessing">
+    <flux:modal name="student-import-progress" :show="$importStudentProcessing" wire:model="importStudentProcessing" class="md:w-[600px]">
         <div class="pb-4 border-b border-gray-200 mb-4 pt-8">
             <flux:heading size="lg">Importing Students</flux:heading>
             <flux:text class="mt-2">Please wait while students are being imported...</flux:text>
@@ -8669,7 +8707,7 @@ new class extends Component
         </div>
 
         <div class="flex justify-end gap-2 mt-6">
-            <flux:button variant="ghost" wire:click="cancelStudentImport" :disabled="($studentImportProgress['status'] ?? 'pending') === 'processing'">
+            <flux:button variant="ghost" wire:click="cancelStudentImport">
                 Cancel
             </flux:button>
         </div>

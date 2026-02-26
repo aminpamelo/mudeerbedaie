@@ -72,10 +72,8 @@ class ProcessStripeInvoicePaymentFailed implements ShouldQueue
             $order = $stripeService->createOrderFromStripeInvoice($fullInvoiceData);
 
             if ($order) {
-                $failureReason = [
-                    'failure_code' => $this->stripeInvoice['last_finalization_error']['code'] ?? null,
-                    'failure_message' => $this->stripeInvoice['last_finalization_error']['message'] ?? 'Payment failed',
-                ];
+                // Try to get detailed failure reason from charge/payment intent
+                $failureReason = $this->extractFailureReason($stripeService);
 
                 $order->markAsFailed($failureReason);
 
@@ -102,6 +100,60 @@ class ProcessStripeInvoicePaymentFailed implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    private function extractFailureReason(StripeService $stripeService): array
+    {
+        // Try charge for detailed failure info
+        $chargeId = $this->stripeInvoice['charge'] ?? null;
+        if ($chargeId) {
+            try {
+                $charge = $stripeService->getStripe()->charges->retrieve($chargeId);
+                if ($charge->failure_code || $charge->failure_message) {
+                    return [
+                        'failure_code' => $charge->failure_code,
+                        'failure_message' => $charge->failure_message ?? 'Payment failed',
+                        'decline_code' => $charge->outcome->reason ?? null,
+                        'network_decline_code' => $charge->outcome->network_decline_code ?? null,
+                        'risk_level' => $charge->outcome->risk_level ?? null,
+                        'seller_message' => $charge->outcome->seller_message ?? null,
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch charge for failure details', [
+                    'charge_id' => $chargeId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Try payment intent
+        $paymentIntentId = $this->stripeInvoice['payment_intent'] ?? null;
+        if ($paymentIntentId) {
+            try {
+                $paymentIntent = $stripeService->getStripe()->paymentIntents->retrieve($paymentIntentId);
+                $lastError = $paymentIntent->last_payment_error;
+                if ($lastError) {
+                    return [
+                        'failure_code' => $lastError->code ?? null,
+                        'failure_message' => $lastError->message ?? 'Payment failed',
+                        'decline_code' => $lastError->decline_code ?? null,
+                        'type' => $lastError->type ?? null,
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch payment intent for failure details', [
+                    'payment_intent_id' => $paymentIntentId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Fall back to invoice finalization error
+        return [
+            'failure_code' => $this->stripeInvoice['last_finalization_error']['code'] ?? null,
+            'failure_message' => $this->stripeInvoice['last_finalization_error']['message'] ?? 'Payment failed',
+        ];
     }
 
     public function failed(\Throwable $exception): void

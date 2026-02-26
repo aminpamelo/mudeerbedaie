@@ -98,6 +98,13 @@ class Package extends Model
             ->orderBy('package_items.sort_order');
     }
 
+    public function classes(): MorphToMany
+    {
+        return $this->morphedByMany(ClassModel::class, 'itemable', 'package_items')
+            ->withPivot(['custom_price', 'original_price', 'sort_order'])
+            ->orderBy('package_items.sort_order');
+    }
+
     public function purchases(): HasMany
     {
         return $this->hasMany(PackagePurchase::class);
@@ -305,6 +312,11 @@ class Package extends Model
             $total += $coursePrice;
         }
 
+        foreach ($this->classes as $class) {
+            $classPrice = $class->pivot->custom_price ?? ($class->course?->feeSettings->fee_amount ?? 0);
+            $total += $classPrice;
+        }
+
         return $total;
     }
 
@@ -338,6 +350,11 @@ class Package extends Model
     public function getCourseCount(): int
     {
         return $this->courses()->count();
+    }
+
+    public function getClassCount(): int
+    {
+        return $this->classes()->count();
     }
 
     public function getFormattedPriceAttribute(): string

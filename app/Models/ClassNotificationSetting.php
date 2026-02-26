@@ -15,6 +15,7 @@ class ClassNotificationSetting extends Model
         'class_id',
         'notification_type',
         'is_enabled',
+        'email_enabled',
         'template_id',
         'custom_minutes_before',
         'send_to_students',
@@ -35,6 +36,7 @@ class ClassNotificationSetting extends Model
     {
         return [
             'is_enabled' => 'boolean',
+            'email_enabled' => 'boolean',
             'send_to_students' => 'boolean',
             'send_to_teacher' => 'boolean',
             'whatsapp_enabled' => 'boolean',

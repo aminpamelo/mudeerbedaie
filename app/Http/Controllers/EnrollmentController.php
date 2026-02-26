@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Course;
 use App\Models\Enrollment;
-use App\Models\Student;
 use Illuminate\View\View;
 
 class EnrollmentController extends Controller
@@ -22,10 +20,7 @@ class EnrollmentController extends Controller
      */
     public function create(): View
     {
-        $courses = Course::where('status', 'active')->get();
-        $students = Student::where('status', 'active')->with('user')->get();
-
-        return view('enrollments.create', compact('courses', 'students'));
+        return view('enrollments.create');
     }
 
     /**

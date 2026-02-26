@@ -9,18 +9,20 @@
         <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
             x-data="{
                 sections: {},
-                currentRoute: '{{ request()->route()->getName() }}',
+                currentRoute: '{{ request()->route()?->getName() }}',
                 sectionRoutes: {
                     'platform': ['dashboard'],
                     'administration': ['courses.*', 'users.*', 'students.*', 'teachers.*', 'classes.*', 'class-categories.*', 'admin.sessions.*', 'admin.payslips.*', 'enrollments.*'],
                     'subscription': ['orders.*', 'admin.payments*'],
                     'products': ['products.*', 'product-categories.*', 'product-attributes.*'],
                     'crm': ['crm.*'],
+                    'funnels': ['admin.funnels*', 'workflows.*', 'funnel-builder.*'],
                     'commerce': ['admin.orders.*', 'packages.*'],
                     'customerService': ['admin.customer-service.*'],
                     'certificates': ['certificates.*'],
                     'inventory': ['inventory.*', 'stock.*', 'warehouses.*'],
                     'agentCompany': ['agent-orders.*', 'agents.*'],
+                    'salesDept': ['pos.*', 'admin.reports.sales-department'],
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
@@ -170,6 +172,17 @@
 
                 <flux:navlist.group
                     expandable
+                    :heading="__('Sales Funnels')"
+                    data-section='funnels' x-init="if (!isExpanded('funnels')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('funnels', $event)"
+                >
+                    <flux:navlist.item icon="funnel" :href="route('admin.funnels')" :current="request()->routeIs('admin.funnels*')" wire:navigate>{{ __('All Funnels') }}</flux:navlist.item>
+                    <flux:navlist.item icon="plus-circle" :href="route('funnel-builder.index')" :current="request()->routeIs('funnel-builder.*')" wire:navigate>{{ __('Create Funnel') }}</flux:navlist.item>
+                    <flux:navlist.item icon="bolt" :href="route('workflows.index')" :current="request()->routeIs('workflows.*')" wire:navigate>{{ __('Workflows') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
                     :heading="__('Commerce & Packages')"
                     data-section='commerce' x-init="if (!isExpanded('commerce')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('commerce', $event)"
@@ -225,6 +238,18 @@
                     <flux:navlist.item icon="chart-bar" :href="route('agent-orders.report')" :current="request()->routeIs('agent-orders.report')" wire:navigate>{{ __('Monthly Report') }}</flux:navlist.item>
                 </flux:navlist.group>
 
+                @if(Route::has('pos.index'))
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Sales Department')"
+                    data-section='salesDept' x-init="if (!isExpanded('salesDept')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('salesDept', $event)"
+                >
+                    <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
+                    <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @endif
+
                 <flux:navlist.group
                     expandable
                     :heading="__('Platform Management')"
@@ -266,6 +291,7 @@
                     <flux:navlist.item icon="academic-cap" :href="route('admin.reports.student-class-enrollments')" :current="request()->routeIs('admin.reports.student-class-enrollments')" wire:navigate>{{ __('Student Class Enrollment Report') }}</flux:navlist.item>
                     <flux:navlist.item icon="chart-bar" :href="route('admin.reports.subscriptions')" :current="request()->routeIs('admin.reports.subscriptions')" wire:navigate>{{ __('Subscription Reports') }}</flux:navlist.item>
                     <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.student-payments')" :current="request()->routeIs('admin.reports.student-payments')" wire:navigate>{{ __('Student Payment Report') }}</flux:navlist.item>
+                    <flux:navlist.item icon="banknotes" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -366,6 +392,18 @@
                     <flux:navlist.item icon="calendar" :href="route('live-host.schedule')" :current="request()->routeIs('live-host.schedule')" wire:navigate>{{ __('My Schedule') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-up-tray" :href="route('live-host.session-slots')" :current="request()->routeIs('live-host.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
                     <flux:navlist.item icon="play-circle" :href="route('live-host.sessions.index')" :current="request()->routeIs('live-host.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
+                </flux:navlist.group>
+                @endif
+
+                @if(auth()->user()->isSales() && Route::has('pos.index'))
+                <flux:navlist.group
+                    expandable
+                    :heading="__('Sales Department')"
+                    data-section='salesDept' x-init="if (!isExpanded('salesDept')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('salesDept', $event)"
+                >
+                    <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
+                    <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 

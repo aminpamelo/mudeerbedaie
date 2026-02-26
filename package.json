@@ -6,8 +6,10 @@
         "dev": "vite"
     },
     "dependencies": {
+        "@puckeditor/core": "^0.21.0",
         "@tailwindcss/vite": "^4.1.11",
         "@vitejs/plugin-react": "^5.1.2",
+        "@xyflow/react": "^12.10.0",
         "autoprefixer": "^10.4.20",
         "axios": "^1.7.4",
         "chart.js": "^4.5.0",
@@ -18,8 +20,10 @@
         "react": "^19.2.3",
         "react-dom": "^19.2.3",
         "react-email-editor": "^1.7.11",
+        "react-hot-toast": "^2.6.0",
         "tailwindcss": "^4.0.7",
-        "vite": "^7.0.4"
+        "vite": "^7.0.4",
+        "zustand": "^5.0.10"
     },
     "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "4.9.5",

@@ -17,7 +17,7 @@ new class extends Component
 
     public string $activeTab = 'all';
 
-    public string $orderTypeFilter = '';
+    public string $sourceTab = 'all';
 
     public string $productFilter = '';
 
@@ -26,6 +26,64 @@ new class extends Component
     public string $sortBy = 'created_at';
 
     public string $sortDirection = 'desc';
+
+    // Inline phone editing
+    public ?int $editingPhoneOrderId = null;
+
+    public string $editingPhoneValue = '';
+
+    // Inline tracking number editing
+    public ?int $editingTrackingOrderId = null;
+
+    public string $editingTrackingValue = '';
+
+    public function startEditingPhone(int $orderId, ?string $currentPhone): void
+    {
+        $this->editingPhoneOrderId = $orderId;
+        $this->editingPhoneValue = $currentPhone ?? '';
+    }
+
+    public function savePhone(): void
+    {
+        if ($this->editingPhoneOrderId) {
+            $order = ProductOrder::findOrFail($this->editingPhoneOrderId);
+            $order->update(['customer_phone' => $this->editingPhoneValue]);
+
+            $this->dispatch('order-updated', message: "Phone number updated for order {$order->order_number}");
+        }
+
+        $this->cancelEditingPhone();
+    }
+
+    public function cancelEditingPhone(): void
+    {
+        $this->editingPhoneOrderId = null;
+        $this->editingPhoneValue = '';
+    }
+
+    public function startEditingTracking(int $orderId, ?string $currentTracking): void
+    {
+        $this->editingTrackingOrderId = $orderId;
+        $this->editingTrackingValue = $currentTracking ?? '';
+    }
+
+    public function saveTracking(): void
+    {
+        if ($this->editingTrackingOrderId) {
+            $order = ProductOrder::findOrFail($this->editingTrackingOrderId);
+            $order->update(['tracking_id' => $this->editingTrackingValue ?: null]);
+
+            $this->dispatch('order-updated', message: "Tracking number updated for order {$order->order_number}");
+        }
+
+        $this->cancelEditingTracking();
+    }
+
+    public function cancelEditingTracking(): void
+    {
+        $this->editingTrackingOrderId = null;
+        $this->editingTrackingValue = '';
+    }
 
     public function updatingSearch(): void
     {
@@ -42,7 +100,7 @@ new class extends Component
         $this->resetPage();
     }
 
-    public function updatingOrderTypeFilter(): void
+    public function updatingSourceTab(): void
     {
         $this->resetPage();
     }
@@ -84,8 +142,11 @@ new class extends Component
     public function getOrders()
     {
         return ProductOrder::query()
+            ->visibleInAdmin()
             ->with([
                 'customer',
+                'student',
+                'agent',
                 'items.product',
                 'items.warehouse',
                 'payments',
@@ -109,8 +170,17 @@ new class extends Component
             ->when($this->activeTab !== 'all', function ($query) {
                 $query->where('status', $this->activeTab);
             })
-            ->when($this->orderTypeFilter, function ($query) {
-                $query->where('order_type', $this->orderTypeFilter);
+            ->when($this->sourceTab !== 'all', function ($query) {
+                match ($this->sourceTab) {
+                    'platform' => $query->whereNotNull('platform_id'),
+                    'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
+                        $q->whereNotIn('source', ['funnel', 'pos'])
+                          ->orWhereNull('source');
+                    }),
+                    'funnel' => $query->where('source', 'funnel'),
+                    'pos' => $query->where('source', 'pos'),
+                    default => $query
+                };
             })
             ->when($this->productFilter, function ($query) {
                 if (str_starts_with($this->productFilter, 'package:')) {
@@ -170,6 +240,52 @@ new class extends Component
         };
     }
 
+    public function getOrderSource(ProductOrder $order): array
+    {
+        if ($order->platform_id) {
+            return [
+                'type' => 'platform',
+                'label' => $order->platform?->name ?? 'Platform',
+                'color' => 'purple',
+                'icon' => 'globe-alt',
+            ];
+        }
+
+        if ($order->agent_id) {
+            return [
+                'type' => 'agent',
+                'label' => 'Agent',
+                'color' => 'blue',
+                'icon' => 'user-group',
+            ];
+        }
+
+        if ($order->source === 'funnel') {
+            return [
+                'type' => 'funnel',
+                'label' => 'Sales Funnel',
+                'color' => 'green',
+                'icon' => 'funnel',
+            ];
+        }
+
+        if ($order->source === 'pos') {
+            return [
+                'type' => 'pos',
+                'label' => 'POS',
+                'color' => 'orange',
+                'icon' => 'calculator',
+            ];
+        }
+
+        return [
+            'type' => 'company',
+            'label' => 'Company',
+            'color' => 'cyan',
+            'icon' => 'building-office',
+        ];
+    }
+
     public function getProductsAndPackages(): array
     {
         $items = [];
@@ -217,22 +333,216 @@ new class extends Component
 
     public function getStatusCount(string $status): int
     {
-        if ($status === 'all') {
-            return ProductOrder::count();
+        $query = ProductOrder::query()->visibleInAdmin();
+
+        // Apply source filter based on current sourceTab
+        if ($this->sourceTab !== 'all') {
+            match ($this->sourceTab) {
+                'platform' => $query->whereNotNull('platform_id'),
+                'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
+                    $q->whereNotIn('source', ['funnel', 'pos'])
+                      ->orWhereNull('source');
+                }),
+                'funnel' => $query->where('source', 'funnel'),
+                'pos' => $query->where('source', 'pos'),
+                default => $query
+            };
         }
 
-        return ProductOrder::where('status', $status)->count();
+        // Apply status filter
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        return $query->count();
     }
 
     public function getActionNeededStats(): array
     {
         return [
-            'pending_confirmation' => ProductOrder::where('status', 'pending')->count(),
-            'unpaid_orders' => ProductOrder::whereHas('payments', function ($query) {
+            'pending_confirmation' => ProductOrder::visibleInAdmin()->where('status', 'pending')->count(),
+            'unpaid_orders' => ProductOrder::visibleInAdmin()->whereHas('payments', function ($query) {
                 $query->where('status', '!=', 'paid');
             })->whereNotIn('status', ['cancelled', 'refunded'])->count(),
-            'processing' => ProductOrder::where('status', 'processing')->count(),
-            'ready_to_ship' => ProductOrder::where('status', 'confirmed')->count(),
+            'processing' => ProductOrder::visibleInAdmin()->where('status', 'processing')->count(),
+            'ready_to_ship' => ProductOrder::visibleInAdmin()->where('status', 'confirmed')->count(),
+        ];
+    }
+
+    public function exportOrders()
+    {
+        return response()->streamDownload(function () {
+            $orders = ProductOrder::query()
+                ->visibleInAdmin()
+                ->with([
+                    'customer',
+                    'student',
+                    'agent',
+                    'items.product',
+                    'items.package',
+                    'payments',
+                    'platform',
+                    'platformAccount',
+                ])
+                ->when($this->search, function ($query) {
+                    $query->where(function ($q) {
+                        $q->where('order_number', 'like', '%'.$this->search.'%')
+                            ->orWhere('platform_order_id', 'like', '%'.$this->search.'%')
+                            ->orWhere('platform_order_number', 'like', '%'.$this->search.'%')
+                            ->orWhere('customer_name', 'like', '%'.$this->search.'%')
+                            ->orWhere('guest_email', 'like', '%'.$this->search.'%')
+                            ->orWhereHas('customer', function ($customerQuery) {
+                                $customerQuery->where('name', 'like', '%'.$this->search.'%')
+                                    ->orWhere('email', 'like', '%'.$this->search.'%');
+                            })
+                            ->orWhereRaw("JSON_EXTRACT(metadata, '$.package_name') LIKE ?", ['%'.$this->search.'%']);
+                    });
+                })
+                ->when($this->activeTab !== 'all', function ($query) {
+                    $query->where('status', $this->activeTab);
+                })
+                ->when($this->sourceTab !== 'all', function ($query) {
+                    match ($this->sourceTab) {
+                        'platform' => $query->whereNotNull('platform_id'),
+                        'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
+                            $q->whereNotIn('source', ['funnel', 'pos'])
+                              ->orWhereNull('source');
+                        }),
+                        'funnel' => $query->where('source', 'funnel'),
+                        'pos' => $query->where('source', 'pos'),
+                        default => $query
+                    };
+                })
+                ->when($this->productFilter, function ($query) {
+                    if (str_starts_with($this->productFilter, 'package:')) {
+                        $packageId = str_replace('package:', '', $this->productFilter);
+                        $query->whereHas('items', function ($itemQuery) use ($packageId) {
+                            $itemQuery->where('package_id', $packageId);
+                        });
+                    } else {
+                        $query->whereHas('items', function ($itemQuery) {
+                            $itemQuery->where('product_id', $this->productFilter);
+                        });
+                    }
+                })
+                ->when($this->dateFilter, function ($query) {
+                    match ($this->dateFilter) {
+                        'today' => $query->whereDate('created_at', today()),
+                        'week' => $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]),
+                        'month' => $query->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year),
+                        'year' => $query->whereYear('created_at', now()->year),
+                        default => $query
+                    };
+                })
+                ->orderBy($this->sortBy, $this->sortDirection)
+                ->get();
+
+            $handle = fopen('php://output', 'w');
+
+            // CSV headers
+            fputcsv($handle, [
+                'Order Number',
+                'Date',
+                'Source',
+                'Status',
+                'Payment Status',
+                'Customer Name',
+                'Customer Email',
+                'Customer Phone',
+                'Items',
+                'Quantities',
+                'Unit Prices',
+                'Subtotal',
+                'Discount',
+                'Shipping Cost',
+                'Tax',
+                'Total Amount',
+                'Currency',
+                'Payment Method',
+                'Tracking Number',
+                'Shipping Provider',
+                'Shipping Address',
+                'Platform',
+                'Platform Order ID',
+                'Agent',
+                'Coupon Code',
+                'Customer Notes',
+                'Internal Notes',
+            ]);
+
+            foreach ($orders as $order) {
+                $source = $this->getOrderSource($order);
+                $itemNames = $order->items->map(fn ($item) => $item->product_name ?? $item->product?->name ?? 'N/A')->implode('; ');
+                $quantities = $order->items->map(fn ($item) => $item->quantity_ordered)->implode('; ');
+                $unitPrices = $order->items->map(fn ($item) => number_format($item->unit_price, 2))->implode('; ');
+
+                $shippingAddress = '';
+                if (is_array($order->shipping_address)) {
+                    $addr = $order->shipping_address;
+                    if (! empty($addr['full_address'])) {
+                        $shippingAddress = $addr['full_address'];
+                    } else {
+                        $shippingAddress = implode(', ', array_filter([
+                            $addr['address'] ?? $addr['address_line1'] ?? '',
+                            $addr['city'] ?? '',
+                            $addr['state'] ?? '',
+                            $addr['postcode'] ?? $addr['zip'] ?? '',
+                            $addr['country'] ?? '',
+                        ]));
+                    }
+                }
+
+                fputcsv($handle, [
+                    $order->order_number,
+                    $order->created_at?->format('Y-m-d H:i:s'),
+                    $source['label'],
+                    ucfirst($order->status),
+                    $order->isPaid() ? 'Paid' : 'Unpaid',
+                    $order->getCustomerName(),
+                    $order->getCustomerEmail(),
+                    $order->getCustomerPhone(),
+                    $itemNames,
+                    $quantities,
+                    $unitPrices,
+                    number_format($order->subtotal, 2),
+                    number_format($order->total_discount, 2),
+                    number_format($order->shipping_cost, 2),
+                    number_format($order->tax_amount, 2),
+                    number_format($order->total_amount, 2),
+                    $order->currency ?? 'MYR',
+                    $order->payment_method_label,
+                    $order->tracking_id,
+                    $order->shipping_provider,
+                    $shippingAddress,
+                    $order->platform?->name,
+                    $order->platform_order_id,
+                    $order->agent?->name ?? '',
+                    $order->coupon_code,
+                    $order->customer_notes,
+                    $order->internal_notes,
+                ]);
+            }
+
+            fclose($handle);
+        }, 'orders-export-'.now()->format('Y-m-d-His').'.csv');
+    }
+
+    public function getSourceCounts(): array
+    {
+        $counts = ProductOrder::visibleInAdmin()->selectRaw("
+            COUNT(*) as total,
+            SUM(CASE WHEN platform_id IS NOT NULL THEN 1 ELSE 0 END) as platform,
+            SUM(CASE WHEN source = 'funnel' THEN 1 ELSE 0 END) as funnel,
+            SUM(CASE WHEN source = 'pos' THEN 1 ELSE 0 END) as pos,
+            SUM(CASE WHEN platform_id IS NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos')) THEN 1 ELSE 0 END) as agent_company
+        ")->first();
+
+        return [
+            'all' => $counts->total ?? 0,
+            'platform' => $counts->platform ?? 0,
+            'agent_company' => $counts->agent_company ?? 0,
+            'funnel' => $counts->funnel ?? 0,
+            'pos' => $counts->pos ?? 0,
         ];
     }
 }; ?>
@@ -255,64 +565,114 @@ new class extends Component
         </div>
     </div>
 
-    <!-- Action Needed Section -->
+    <!-- Action Needed Section - Compact Inline -->
     @php
         $actionStats = $this->getActionNeededStats();
         $totalActionNeeded = array_sum($actionStats);
     @endphp
 
     @if($totalActionNeeded > 0)
-        <div class="mb-6 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950 dark:to-blue-950 border-2 border-cyan-400 dark:border-cyan-600 rounded-lg p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-2">
-                    <flux:icon name="exclamation-triangle" class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-                    <flux:heading size="lg" class="text-cyan-900 dark:text-cyan-100">Action Needed</flux:heading>
+        <div class="mb-4 flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-2">
+                <flux:icon name="exclamation-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <flux:text size="sm" class="font-medium text-gray-700 dark:text-gray-300">Action Needed:</flux:text>
+            </div>
+
+            @if($actionStats['pending_confirmation'] > 0)
+                <button wire:click="$set('activeTab', 'pending')"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                           bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50">
+                    <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+                    Pending
+                    <flux:badge size="sm" color="yellow">{{ $actionStats['pending_confirmation'] }}</flux:badge>
+                </button>
+            @endif
+
+            @if($actionStats['unpaid_orders'] > 0)
+                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium
+                            bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                    Unpaid
+                    <flux:badge size="sm" color="red">{{ $actionStats['unpaid_orders'] }}</flux:badge>
                 </div>
-            </div>
+            @endif
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                @if($actionStats['pending_confirmation'] > 0)
-                    <button wire:click="$set('activeTab', 'pending')" class="bg-white dark:bg-zinc-800 rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200 dark:border-zinc-700">
-                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Pending Confirmation</flux:text>
-                        <div class="flex items-center justify-between mt-2">
-                            <flux:text class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ $actionStats['pending_confirmation'] }}</flux:text>
-                            <flux:badge color="yellow" size="sm">Action Required</flux:badge>
-                        </div>
-                    </button>
-                @endif
+            @if($actionStats['processing'] > 0)
+                <button wire:click="$set('activeTab', 'processing')"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                           bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:hover:bg-purple-900/50">
+                    <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                    Processing
+                    <flux:badge size="sm" color="purple">{{ $actionStats['processing'] }}</flux:badge>
+                </button>
+            @endif
 
-                @if($actionStats['unpaid_orders'] > 0)
-                    <div class="bg-white dark:bg-zinc-800 rounded-lg p-4 border border-gray-200 dark:border-zinc-700">
-                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Unpaid Orders</flux:text>
-                        <div class="flex items-center justify-between mt-2">
-                            <flux:text class="text-2xl font-bold text-red-600 dark:text-red-400">{{ $actionStats['unpaid_orders'] }}</flux:text>
-                            <flux:badge color="red" size="sm">Payment Due</flux:badge>
-                        </div>
-                    </div>
-                @endif
-
-                @if($actionStats['processing'] > 0)
-                    <button wire:click="$set('activeTab', 'processing')" class="bg-white dark:bg-zinc-800 rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200 dark:border-zinc-700">
-                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Processing</flux:text>
-                        <div class="flex items-center justify-between mt-2">
-                            <flux:text class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $actionStats['processing'] }}</flux:text>
-                            <flux:badge color="purple" size="sm">In Progress</flux:badge>
-                        </div>
-                    </button>
-                @endif
-
-                @if($actionStats['ready_to_ship'] > 0)
-                    <button wire:click="$set('activeTab', 'confirmed')" class="bg-white dark:bg-zinc-800 rounded-lg p-4 text-left hover:shadow-md transition-shadow border border-gray-200 dark:border-zinc-700">
-                        <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Ready to Ship</flux:text>
-                        <div class="flex items-center justify-between mt-2">
-                            <flux:text class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $actionStats['ready_to_ship'] }}</flux:text>
-                            <flux:badge color="blue" size="sm">Ready</flux:badge>
-                        </div>
-                    </button>
-                @endif
-            </div>
+            @if($actionStats['ready_to_ship'] > 0)
+                <button wire:click="$set('activeTab', 'confirmed')"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                           bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Ready to Ship
+                    <flux:badge size="sm" color="blue">{{ $actionStats['ready_to_ship'] }}</flux:badge>
+                </button>
+            @endif
         </div>
     @endif
+
+    <!-- Source Tabs -->
+    @php
+        $sourceCounts = $this->getSourceCounts();
+    @endphp
+    <div class="mb-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+        <div class="border-b border-gray-200 dark:border-zinc-700">
+            <nav class="flex gap-4 px-6" aria-label="Source Tabs">
+                <button wire:click="$set('sourceTab', 'all')"
+                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'all' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
+                    <div class="flex items-center gap-2">
+                        <flux:icon name="squares-2x2" class="w-4 h-4" />
+                        All Sources
+                        <flux:badge size="sm">{{ $sourceCounts['all'] }}</flux:badge>
+                    </div>
+                </button>
+
+                <button wire:click="$set('sourceTab', 'platform')"
+                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'platform' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
+                    <div class="flex items-center gap-2">
+                        <flux:icon name="globe-alt" class="w-4 h-4" />
+                        Platform Orders
+                        <flux:badge size="sm" color="purple">{{ $sourceCounts['platform'] }}</flux:badge>
+                    </div>
+                </button>
+
+                <button wire:click="$set('sourceTab', 'agent_company')"
+                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'agent_company' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
+                    <div class="flex items-center gap-2">
+                        <flux:icon name="building-office" class="w-4 h-4" />
+                        Agent & Company
+                        <flux:badge size="sm" color="blue">{{ $sourceCounts['agent_company'] }}</flux:badge>
+                    </div>
+                </button>
+
+                <button wire:click="$set('sourceTab', 'funnel')"
+                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'funnel' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
+                    <div class="flex items-center gap-2">
+                        <flux:icon name="funnel" class="w-4 h-4" />
+                        Sales Funnel
+                        <flux:badge size="sm" color="green">{{ $sourceCounts['funnel'] }}</flux:badge>
+                    </div>
+                </button>
+
+                <button wire:click="$set('sourceTab', 'pos')"
+                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'pos' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
+                    <div class="flex items-center gap-2">
+                        <flux:icon name="calculator" class="w-4 h-4" />
+                        POS
+                        <flux:badge size="sm" color="orange">{{ $sourceCounts['pos'] }}</flux:badge>
+                    </div>
+                </button>
+            </nav>
+        </div>
+    </div>
 
     <!-- Status Tabs -->
     <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
@@ -379,7 +739,7 @@ new class extends Component
 
     <!-- Filters -->
     <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Search -->
             <div class="md:col-span-2">
                 <flux:label>Search</flux:label>
@@ -388,18 +748,6 @@ new class extends Component
                     placeholder="Order number, customer name, email..."
                     class="w-full"
                 />
-            </div>
-
-            <!-- Order Type Filter -->
-            <div>
-                <flux:label>Order Type</flux:label>
-                <flux:select wire:model.live="orderTypeFilter" placeholder="All Types">
-                    <option value="">All Types</option>
-                    <option value="retail">Retail Orders</option>
-                    <option value="wholesale">Wholesale Orders</option>
-                    <option value="b2b">B2B Orders</option>
-                    <option value="package">Package Orders</option>
-                </flux:select>
             </div>
 
             <!-- Product/Package Filter -->
@@ -429,7 +777,7 @@ new class extends Component
         <!-- Filter Actions -->
         <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
             <div class="flex items-center gap-2">
-                @if($search || $orderTypeFilter || $productFilter || $dateFilter)
+                @if($search || $sourceTab !== 'all' || $productFilter || $dateFilter)
                     <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
                         Active filters:
                     </flux:text>
@@ -439,10 +787,16 @@ new class extends Component
                             <button wire:click="$set('search', '')" class="ml-1 hover:text-red-600">×</button>
                         </flux:badge>
                     @endif
-                    @if($orderTypeFilter)
+                    @if($sourceTab !== 'all')
                         <flux:badge color="gray">
-                            Type: {{ ucfirst($orderTypeFilter) }}
-                            <button wire:click="$set('orderTypeFilter', '')" class="ml-1 hover:text-red-600">×</button>
+                            Source: {{ match($sourceTab) {
+                                'platform' => 'Platform Orders',
+                                'agent_company' => 'Agent & Company',
+                                'funnel' => 'Sales Funnel',
+                                'pos' => 'POS',
+                                default => $sourceTab
+                            } }}
+                            <button wire:click="$set('sourceTab', 'all')" class="ml-1 hover:text-red-600">×</button>
                         </flux:badge>
                     @endif
                     @if($productFilter)
@@ -457,7 +811,7 @@ new class extends Component
                             <button wire:click="$set('dateFilter', '')" class="ml-1 hover:text-red-600">×</button>
                         </flux:badge>
                     @endif
-                    <flux:button variant="ghost" size="sm" wire:click="$set('search', ''); $set('orderTypeFilter', ''); $set('productFilter', ''); $set('dateFilter', '')">
+                    <flux:button variant="ghost" size="sm" wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('dateFilter', '')">
                         Clear all
                     </flux:button>
                 @endif
@@ -470,7 +824,7 @@ new class extends Component
                         Refresh
                     </div>
                 </flux:button>
-                <flux:button variant="outline" size="sm">
+                <flux:button variant="outline" wire:click="exportOrders" size="sm">
                     <div class="flex items-center justify-center">
                         <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
                         Export
@@ -495,7 +849,13 @@ new class extends Component
                             </button>
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Source
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Customer
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Phone
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Items
@@ -513,6 +873,12 @@ new class extends Component
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Payment
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Notes
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Tracking No.
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300">
@@ -547,12 +913,120 @@ new class extends Component
                                 </div>
                             </td>
 
+                            <!-- Source -->
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                @php
+                                    $source = $this->getOrderSource($order);
+                                @endphp
+                                @if($order->platform_id && $order->platformAccount)
+                                    <a href="{{ route('platforms.accounts.show', ['platform' => $order->platform, 'account' => $order->platformAccount]) }}?tab=orders" class="block group">
+                                        <div class="flex items-center space-x-2">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover:opacity-80 transition-opacity">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                        </div>
+                                        <flux:text size="xs" class="text-gray-500 mt-1 group-hover:text-blue-600 transition-colors">{{ $order->platformAccount->name }}</flux:text>
+                                    </a>
+                                @elseif($order->agent_id && $order->agent)
+                                    <a href="{{ route('agents.show', $order->agent) }}" class="block group">
+                                        <div class="flex items-center space-x-2">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover:opacity-80 transition-opacity">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                        </div>
+                                        <flux:text size="xs" class="text-gray-500 mt-1 group-hover:text-blue-600 transition-colors">{{ $order->agent->name }}</flux:text>
+                                    </a>
+                                @elseif($order->source === 'funnel')
+                                    <div>
+                                        <div class="flex items-center space-x-2">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                        </div>
+                                        @if($order->source_reference)
+                                            <flux:text size="xs" class="text-gray-500 mt-1">{{ $order->source_reference }}</flux:text>
+                                        @endif
+                                    </div>
+                                @elseif($order->source === 'pos')
+                                    <div>
+                                        <div class="flex items-center space-x-2">
+                                            <flux:badge size="sm" color="{{ $source['color'] }}">
+                                                <div class="flex items-center justify-center">
+                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                    {{ $source['label'] }}
+                                                </div>
+                                            </flux:badge>
+                                        </div>
+                                        @if($order->metadata['salesperson_name'] ?? null)
+                                            <flux:text size="xs" class="text-gray-500 mt-1">{{ $order->metadata['salesperson_name'] }}</flux:text>
+                                        @endif
+                                    </div>
+                                @else
+                                    <div class="flex items-center space-x-2">
+                                        <flux:badge size="sm" color="{{ $source['color'] }}">
+                                            <div class="flex items-center justify-center">
+                                                <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                {{ $source['label'] }}
+                                            </div>
+                                        </flux:badge>
+                                    </div>
+                                @endif
+                            </td>
+
                             <!-- Customer -->
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div>
-                                    <flux:text class="font-medium">{{ $order->getCustomerName() }}</flux:text>
-                                    <flux:text size="sm" class="text-gray-500">{{ $order->getCustomerEmail() }}</flux:text>
-                                </div>
+                                @if($order->student)
+                                    <a href="{{ route('students.show', $order->student) }}" class="block group">
+                                        <flux:text class="font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $order->getCustomerName() }}</flux:text>
+                                        <flux:text size="sm" class="text-gray-500">{{ $order->getCustomerEmail() }}</flux:text>
+                                    </a>
+                                @else
+                                    <div>
+                                        <flux:text class="font-medium">{{ $order->getCustomerName() }}</flux:text>
+                                        <flux:text size="sm" class="text-gray-500">{{ $order->getCustomerEmail() }}</flux:text>
+                                    </div>
+                                @endif
+                            </td>
+
+                            <!-- Phone -->
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                @if($editingPhoneOrderId === $order->id)
+                                    <div class="flex items-center space-x-1">
+                                        <input
+                                            type="text"
+                                            wire:model="editingPhoneValue"
+                                            wire:keydown.enter="savePhone"
+                                            wire:keydown.escape="cancelEditingPhone"
+                                            class="w-36 px-2 py-1 text-sm border border-gray-300 dark:border-zinc-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
+                                            placeholder="Phone number"
+                                            autofocus
+                                        />
+                                        <button wire:click="savePhone" class="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded">
+                                            <flux:icon name="check" class="w-4 h-4" />
+                                        </button>
+                                        <button wire:click="cancelEditingPhone" class="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
+                                            <flux:icon name="x-mark" class="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                @else
+                                    <button
+                                        wire:click="startEditingPhone({{ $order->id }}, {{ json_encode($order->customer_phone ?? '') }})"
+                                        class="group flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                                        title="Click to edit phone number"
+                                    >
+                                        <flux:text size="sm">{{ $order->getCustomerPhone() }}</flux:text>
+                                        <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" />
+                                    </button>
+                                @endif
                             </td>
 
                             <!-- Items -->
@@ -584,6 +1058,56 @@ new class extends Component
                                     <flux:badge size="sm" color="green">Paid</flux:badge>
                                 @else
                                     <flux:badge size="sm" color="red">Unpaid</flux:badge>
+                                @endif
+                            </td>
+
+                            <!-- Notes -->
+                            <td class="px-6 py-4">
+                                @php
+                                    $notes = $order->internal_notes ?: $order->customer_notes;
+                                @endphp
+                                @if($notes)
+                                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title="{{ $notes }}">
+                                        {{ Str::limit($notes, 40) }}
+                                    </flux:text>
+                                @else
+                                    <flux:text size="sm" class="text-gray-400 dark:text-gray-500">—</flux:text>
+                                @endif
+                            </td>
+
+                            <!-- Tracking Number -->
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                @if($editingTrackingOrderId === $order->id)
+                                    <div class="flex items-center space-x-1">
+                                        <input
+                                            type="text"
+                                            wire:model="editingTrackingValue"
+                                            wire:keydown.enter="saveTracking"
+                                            wire:keydown.escape="cancelEditingTracking"
+                                            class="w-36 px-2 py-1 text-sm border border-gray-300 dark:border-zinc-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
+                                            placeholder="Tracking number"
+                                            autofocus
+                                        />
+                                        <button wire:click="saveTracking" class="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded">
+                                            <flux:icon name="check" class="w-4 h-4" />
+                                        </button>
+                                        <button wire:click="cancelEditingTracking" class="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
+                                            <flux:icon name="x-mark" class="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                @else
+                                    <button
+                                        wire:click="startEditingTracking({{ $order->id }}, {{ json_encode($order->tracking_id ?? '') }})"
+                                        class="group flex items-center space-x-1 hover:text-blue-600 transition-colors"
+                                        title="Click to edit tracking number"
+                                    >
+                                        @if($order->tracking_id)
+                                            <flux:text size="sm">{{ $order->tracking_id }}</flux:text>
+                                        @else
+                                            <flux:text size="sm" class="text-gray-400 dark:text-gray-500">Add tracking</flux:text>
+                                        @endif
+                                        <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" />
+                                    </button>
                                 @endif
                             </td>
 
@@ -649,12 +1173,12 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-12 text-center">
+                            <td colspan="12" class="px-6 py-12 text-center">
                                 <div class="text-gray-500 dark:text-gray-400">
                                     <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                                     <flux:text>No orders found</flux:text>
-                                    @if($search || $activeTab !== 'all' || $dateFilter || $orderTypeFilter || $productFilter)
-                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('orderTypeFilter', ''); $set('productFilter', '')" class="mt-2">
+                                    @if($search || $activeTab !== 'all' || $dateFilter || $sourceTab !== 'all' || $productFilter)
+                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('sourceTab', 'all'); $set('productFilter', '')" class="mt-2">
                                             Clear filters
                                         </flux:button>
                                     @endif
@@ -703,13 +1227,24 @@ new class extends Component
             <flux:text class="text-2xl font-bold text-green-600 dark:text-green-400">MYR {{ number_format($totalRevenue, 2) }}</flux:text>
         </div>
     </div>
-</div>
 
-<script>
-    document.addEventListener('livewire:init', function () {
-        Livewire.on('order-updated', (event) => {
-            // You can replace this with toast notifications
-            alert(event.message);
-        });
-    });
-</script>
+    <!-- Toast Notification -->
+    <div
+        x-data="{ show: false, message: '' }"
+        x-on:order-updated.window="message = $event.detail.message; show = true; setTimeout(() => show = false, 3000)"
+        x-show="show"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 transform translate-y-2"
+        x-transition:enter-end="opacity-100 transform translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 transform translate-y-0"
+        x-transition:leave-end="opacity-0 transform translate-y-2"
+        class="fixed bottom-4 right-4 z-50"
+        style="display: none;"
+    >
+        <div class="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3">
+            <flux:icon name="check-circle" class="w-5 h-5" />
+            <span x-text="message"></span>
+        </div>
+    </div>
+</div>

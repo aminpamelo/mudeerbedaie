@@ -35,6 +35,14 @@ class PlatformAccount extends Model
         'is_active',
         'auto_sync_orders',
         'auto_sync_products',
+        'sync_status',
+        'last_order_sync_at',
+        'last_product_sync_at',
+        'last_inventory_sync_at',
+        'last_error_at',
+        'last_error_message',
+        'api_version',
+        'sync_settings',
     ];
 
     protected function casts(): array
@@ -42,8 +50,13 @@ class PlatformAccount extends Model
         return [
             'metadata' => 'array',
             'permissions' => 'array',
+            'sync_settings' => 'array',
             'connected_at' => 'datetime',
             'last_sync_at' => 'datetime',
+            'last_order_sync_at' => 'datetime',
+            'last_product_sync_at' => 'datetime',
+            'last_inventory_sync_at' => 'datetime',
+            'last_error_at' => 'datetime',
             'expires_at' => 'datetime',
             'is_active' => 'boolean',
             'auto_sync_orders' => 'boolean',
@@ -146,5 +159,64 @@ class PlatformAccount extends Model
         }
 
         return 'active';
+    }
+
+    /**
+     * Update the sync status for this account.
+     */
+    public function updateSyncStatus(string $status, ?string $type = null): void
+    {
+        $data = ['sync_status' => $status];
+
+        if ($type && $status === 'completed') {
+            $data["last_{$type}_sync_at"] = now();
+            $data['last_sync_at'] = now();
+        }
+
+        $this->update($data);
+    }
+
+    /**
+     * Record a sync error for this account.
+     */
+    public function recordSyncError(string $message): void
+    {
+        $this->update([
+            'sync_status' => 'error',
+            'last_error_at' => now(),
+            'last_error_message' => $message,
+        ]);
+    }
+
+    /**
+     * Check if the account is currently syncing.
+     */
+    public function isSyncing(): bool
+    {
+        return $this->sync_status === 'syncing';
+    }
+
+    /**
+     * Check if the account has a recent error.
+     */
+    public function hasRecentError(int $hours = 24): bool
+    {
+        return $this->last_error_at && $this->last_error_at->isAfter(now()->subHours($hours));
+    }
+
+    /**
+     * Get the sync schedules for this account.
+     */
+    public function syncSchedules(): HasMany
+    {
+        return $this->hasMany(PlatformSyncSchedule::class);
+    }
+
+    /**
+     * Check if this is a TikTok Shop account.
+     */
+    public function isTikTokShop(): bool
+    {
+        return $this->platform->slug === 'tiktok-shop';
     }
 }

@@ -79,4 +79,9 @@ class StudentImportProgress extends Model
     {
         return $this->status === 'pending';
     }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
+    }
 }

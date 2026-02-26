@@ -116,7 +116,7 @@ new class extends Component
             <div>
                 <flux:heading size="xl">{{ $student->user->name }}</flux:heading>
                 <div class="mt-1 flex items-center gap-3">
-                    <flux:text class="text-gray-600">{{ $student->student_id }}</flux:text>
+                    <flux:text class="text-gray-600">{{ $student->phone ?? 'No phone' }}</flux:text>
                     <flux:badge :class="match($student->status) {
                         'active' => 'badge-green',
                         'inactive' => 'badge-gray',

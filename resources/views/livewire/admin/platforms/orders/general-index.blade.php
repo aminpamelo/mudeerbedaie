@@ -3,7 +3,7 @@
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use App\Models\Platform;
-use App\Models\PlatformOrder;
+use App\Models\ProductOrder;
 use App\Models\PlatformAccount;
 use Carbon\Carbon;
 
@@ -29,10 +29,11 @@ new class extends Component {
 
     public function loadStats()
     {
-        $this->totalOrders = PlatformOrder::count();
-        $this->totalValue = PlatformOrder::sum('total_amount') ?? 0;
+        $this->totalOrders = ProductOrder::whereNotNull('platform_id')->count();
+        $this->totalValue = ProductOrder::whereNotNull('platform_id')->sum('total_amount') ?? 0;
 
-        $this->statusCounts = PlatformOrder::selectRaw('status, COUNT(*) as count')
+        $this->statusCounts = ProductOrder::whereNotNull('platform_id')
+            ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status')
             ->toArray();
@@ -76,7 +77,8 @@ new class extends Component {
 
     public function with()
     {
-        $query = PlatformOrder::with(['platform', 'platformAccount', 'platformCustomer'])
+        $query = ProductOrder::with(['platform', 'platformAccount'])
+            ->whereNotNull('platform_id')
             ->latest();
 
         // Apply platform filter
@@ -98,18 +100,18 @@ new class extends Component {
         if ($this->date_range) {
             switch ($this->date_range) {
                 case 'today':
-                    $query->whereDate('platform_created_at', today());
+                    $query->whereDate('order_date', today());
                     break;
                 case 'week':
-                    $query->whereBetween('platform_created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    $query->whereBetween('order_date', [now()->startOfWeek(), now()->endOfWeek()]);
                     break;
                 case 'month':
-                    $query->whereMonth('platform_created_at', now()->month)
-                          ->whereYear('platform_created_at', now()->year);
+                    $query->whereMonth('order_date', now()->month)
+                          ->whereYear('order_date', now()->year);
                     break;
                 case 'last_month':
-                    $query->whereMonth('platform_created_at', now()->subMonth()->month)
-                          ->whereYear('platform_created_at', now()->subMonth()->year);
+                    $query->whereMonth('order_date', now()->subMonth()->month)
+                          ->whereYear('order_date', now()->subMonth()->year);
                     break;
             }
         }
@@ -117,9 +119,10 @@ new class extends Component {
         // Apply search filter
         if ($this->search) {
             $query->where(function($q) {
-                $q->where('display_order_id', 'like', '%' . $this->search . '%')
+                $q->where('platform_order_id', 'like', '%' . $this->search . '%')
+                  ->orWhere('platform_order_number', 'like', '%' . $this->search . '%')
                   ->orWhere('customer_name', 'like', '%' . $this->search . '%')
-                  ->orWhere('customer_email', 'like', '%' . $this->search . '%')
+                  ->orWhere('buyer_username', 'like', '%' . $this->search . '%')
                   ->orWhereHas('platform', function($subq) {
                       $subq->where('name', 'like', '%' . $this->search . '%')
                            ->orWhere('display_name', 'like', '%' . $this->search . '%');
@@ -353,9 +356,9 @@ new class extends Component {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div>
-                                        <flux:text class="font-medium">{{ $order->customer_name }}</flux:text>
-                                        @if($order->customer_email)
-                                            <flux:text size="sm" class="text-zinc-600">{{ $order->customer_email }}</flux:text>
+                                        <flux:text class="font-medium">{{ $order->customer_name ?? 'N/A' }}</flux:text>
+                                        @if($order->buyer_username)
+                                            <flux:text size="sm" class="text-zinc-600">@{{ $order->buyer_username }}</flux:text>
                                         @endif
                                     </div>
                                 </td>
@@ -368,9 +371,9 @@ new class extends Component {
                                     </flux:badge>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    @if($order->platform_created_at)
-                                        <flux:text size="sm">{{ $order->platform_created_at->format('M j, Y') }}</flux:text>
-                                        <flux:text size="sm" class="text-zinc-500">{{ $order->platform_created_at->format('g:i A') }}</flux:text>
+                                    @if($order->order_date)
+                                        <flux:text size="sm">{{ $order->order_date->format('M j, Y') }}</flux:text>
+                                        <flux:text size="sm" class="text-zinc-500">{{ $order->order_date->format('g:i A') }}</flux:text>
                                     @else
                                         <flux:text size="sm" class="text-zinc-500">No date</flux:text>
                                     @endif

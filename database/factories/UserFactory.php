@@ -75,4 +75,14 @@ class UserFactory extends Factory
             'role' => 'student',
         ]);
     }
+
+    /**
+     * Create a sales user.
+     */
+    public function sales(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'sales',
+        ]);
+    }
 }

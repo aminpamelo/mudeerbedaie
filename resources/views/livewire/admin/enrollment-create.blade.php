@@ -30,30 +30,56 @@ new class extends Component
 
     public $studentSearch = '';
 
+    public $selectedStudentName = '';
+
     public function mount(): void
     {
         $this->enrollment_date = today()->format('Y-m-d');
         $this->enrolled_by = auth()->id(); // Default to current user
     }
 
+    public function selectStudent($id): void
+    {
+        $this->student_id = $id;
+        $student = Student::with('user')->find($id);
+        if ($student && $student->user) {
+            $this->selectedStudentName = $student->user->name.' ('.($student->phone ?: $student->user->phone ?? 'No phone').')';
+        }
+        $this->studentSearch = '';
+    }
+
+    public function clearStudent(): void
+    {
+        $this->student_id = '';
+        $this->selectedStudentName = '';
+        $this->studentSearch = '';
+    }
+
     public function with(): array
     {
-        $studentsQuery = Student::where('status', 'active')->with('user');
+        $students = collect();
 
-        // Search by name, phone, or student_id
         if ($this->studentSearch) {
             $search = $this->studentSearch;
-            $studentsQuery->where(function ($query) use ($search) {
-                $query->where('phone', 'like', "%{$search}%")
-                    ->orWhere('student_id', 'like', "%{$search}%")
-                    ->orWhereHas('user', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%");
-                    });
-            });
+            $students = Student::where('status', 'active')
+                ->with('user')
+                ->where(function ($query) use ($search) {
+                    $query->where('phone', 'like', "%{$search}%")
+                        ->orWhere('student_id', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%");
+                        });
+                })
+                ->limit(20)
+                ->get();
+        } elseif ($this->student_id) {
+            $students = Student::where('id', $this->student_id)
+                ->with('user')
+                ->get();
         }
 
         return [
-            'students' => $studentsQuery->get(),
+            'students' => $students,
             'courses' => Course::where('status', 'active')->get(),
             'pics' => \App\Models\User::whereIn('role', ['admin', 'staff'])
                 ->orderBy('name')
@@ -199,21 +225,48 @@ new class extends Component
             <flux:heading size="lg">Student and Course</flux:heading>
 
             <div class="mt-6 space-y-6">
-                <flux:input
-                    wire:model.live.debounce.300ms="studentSearch"
-                    label="Search Student"
-                    placeholder="Search by name or phone number..."
-                />
+                <div>
+                    <flux:field>
+                        <flux:label>Student <span class="text-red-500">*</span></flux:label>
 
-                <flux:select wire:model.live="student_id" label="Student" placeholder="Select a student" required>
-                    @foreach($students as $student)
-                        @if($student->user)
-                            <flux:select.option value="{{ $student->id }}">
-                                {{ $student->user->name }} ({{ $student->phone ?: $student->user->phone ?? 'No phone' }})
-                            </flux:select.option>
+                        @if($student_id && $selectedStudentName)
+                            <div class="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800">
+                                <span class="text-sm text-zinc-900 dark:text-zinc-100">{{ $selectedStudentName }}</span>
+                                <button type="button" wire:click="clearStudent" class="ml-2 text-zinc-400 hover:text-red-500 transition-colors">
+                                    <flux:icon name="x-mark" class="w-4 h-4" />
+                                </button>
+                            </div>
+                        @else
+                            <flux:input
+                                wire:model.live.debounce.300ms="studentSearch"
+                                placeholder="Search by name, phone, or student ID..."
+                                icon="magnifying-glass"
+                            />
+
+                            @if($studentSearch && $students->count() > 0)
+                                <div class="mt-1 rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-800 max-h-60 overflow-y-auto">
+                                    @foreach($students as $student)
+                                        @if($student->user)
+                                            <button
+                                                type="button"
+                                                wire:click="selectStudent({{ $student->id }})"
+                                                wire:key="student-{{ $student->id }}"
+                                                class="w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors border-b border-zinc-100 dark:border-zinc-700 last:border-b-0"
+                                            >
+                                                <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $student->user->name }}</span>
+                                                <span class="text-zinc-500 dark:text-zinc-400 ml-1">({{ $student->phone ?: $student->user->phone ?? 'No phone' }})</span>
+                                            </button>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @elseif($studentSearch && $students->isEmpty())
+                                <flux:text class="mt-1 text-sm text-zinc-500">No students found matching "{{ $studentSearch }}"</flux:text>
+                            @else
+                                <flux:text class="mt-1 text-sm text-zinc-500">Type to search students by name, phone, or student ID</flux:text>
+                            @endif
                         @endif
-                    @endforeach
-                </flux:select>
+                    </flux:field>
+                </div>
 
                 <flux:select wire:model.live="course_id" label="Course" placeholder="Select a course" required>
                     @foreach($courses as $course)
@@ -295,7 +348,7 @@ new class extends Component
                 @if($payment_method_type === 'manual')
                     <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                         <div class="flex items-start">
-                            <flux:icon icon="information-circle" class="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
+                            <flux:icon name="information-circle" class="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
                             <div>
                                 <flux:text class="text-amber-800 font-medium">Manual Payment Selected</flux:text>
                                 <ul class="mt-2 text-sm text-amber-700 space-y-1">
@@ -310,7 +363,7 @@ new class extends Component
                 @elseif($payment_method_type === 'automatic')
                     <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div class="flex items-start">
-                            <flux:icon icon="credit-card" class="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
+                            <flux:icon name="credit-card" class="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
                             <div>
                                 <flux:text class="text-blue-800 font-medium">Automatic Payment Selected</flux:text>
                                 <flux:text class="mt-2 text-sm text-blue-700">
@@ -330,10 +383,10 @@ new class extends Component
                 
                 <div class="mt-6">
                     @php
-                        $selectedStudent = $students->find($student_id);
+                        $selectedStudent = \App\Models\Student::with('user')->find($student_id);
                         $selectedCourse = $courses->find($course_id);
                     @endphp
-                    
+
                     @if($selectedStudent && $selectedCourse)
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>

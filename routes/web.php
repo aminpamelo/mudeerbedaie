@@ -35,6 +35,10 @@ Route::get('dashboard', function () {
         return redirect()->route('class-admin.dashboard');
     }
 
+    if ($user->isSales()) {
+        return redirect()->route('pos.index');
+    }
+
     return view('dashboard');
 })
     ->middleware(['auth', 'verified'])
@@ -229,6 +233,13 @@ Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(fu
 });
 
 // ============================================================================
+// SALES DEPARTMENT REPORT - Accessible by admin, class_admin, and sales roles
+// ============================================================================
+Route::middleware(['auth', 'role:admin,class_admin,sales'])->prefix('admin')->group(function () {
+    Volt::route('reports/sales-department', 'admin.reports.sales-department')->name('admin.reports.sales-department');
+});
+
+// ============================================================================
 // ADMIN-ONLY ROUTES - Accessible only by admin role
 // ============================================================================
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
@@ -334,10 +345,21 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('platforms/{platform}/accounts/{account}', 'admin.platforms.accounts.show')->name('platforms.accounts.show');
     Volt::route('platforms/{platform}/accounts/{account}/edit', 'admin.platforms.accounts.edit')->name('platforms.accounts.edit');
     Volt::route('platforms/{platform}/accounts/{account}/credentials', 'admin.platforms.accounts.credentials')->name('platforms.accounts.credentials');
+    Volt::route('platforms/{platform}/accounts/{account}/pending-products', 'admin.platforms.products.pending')->name('platforms.accounts.pending-products');
 
     // Platform-specific order routes
     Volt::route('platforms/{platform}/orders', 'admin.platforms.orders.index')->name('platforms.orders.platform.index');
     Volt::route('platforms/{platform}/orders/{order}', 'admin.platforms.orders.show')->name('platforms.orders.show');
+
+    // TikTok Shop OAuth routes
+    Route::prefix('tiktok')->name('tiktok.')->group(function () {
+        Route::get('connect', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'redirect'])->name('connect');
+        Route::get('callback', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'callback'])->name('callback');
+        Route::get('select-shop', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'selectShop'])->name('select-shop');
+        Route::post('confirm-shop', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'confirmShop'])->name('confirm-shop');
+        Route::post('disconnect/{account}', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'disconnect'])->name('disconnect');
+        Route::post('refresh-tokens/{account}', [\App\Http\Controllers\TikTok\TikTokAuthController::class, 'refreshTokens'])->name('refresh-tokens');
+    });
 
     // Certificate Management routes
     Volt::route('certificates', 'admin.certificates.certificate-list')->name('certificates.index');
@@ -372,7 +394,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('crm/broadcasts/{broadcast}/edit', 'crm.broadcast-edit')->name('crm.broadcasts.edit');
 
     // Admin Settings routes
-    Route::redirect('settings', 'admin/settings/general');
+    Route::get('settings', fn () => redirect()->route('admin.settings.general'));
     Volt::route('settings/general', 'admin.settings-general')->name('admin.settings.general');
     Volt::route('settings/appearance', 'admin.settings-appearance')->name('admin.settings.appearance');
     Volt::route('settings/payment', 'admin.settings-payment')->name('admin.settings.payment');
@@ -381,6 +403,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('settings/notifications', 'admin.settings-notifications')->name('admin.settings.notifications');
     Volt::route('settings/notifications/{template}/builder', 'admin.react-template-builder')->name('admin.settings.notifications.builder');
     Volt::route('settings/whatsapp', 'admin.settings-whatsapp')->name('admin.settings.whatsapp');
+    Volt::route('settings/shipping', 'admin.settings-shipping')->name('admin.settings.shipping');
 
     // Customer Service routes
     Volt::route('customer-service', 'admin.customer-service.dashboard')->name('admin.customer-service.dashboard');
@@ -392,6 +415,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('customer-service/tickets', 'admin.customer-service.tickets-index')->name('admin.customer-service.tickets.index');
     Volt::route('customer-service/tickets/create', 'admin.customer-service.tickets-create')->name('admin.customer-service.tickets.create');
     Volt::route('customer-service/tickets/{ticket}', 'admin.customer-service.tickets-show')->name('admin.customer-service.tickets.show');
+
+    // Sales Funnel Management routes
+    Volt::route('funnels', 'admin.funnel-list')->name('admin.funnels');
+    Volt::route('funnels/{funnel}', 'admin.funnel-show')->name('admin.funnels.show');
 
 });
 
@@ -425,8 +452,98 @@ Route::middleware(['auth', 'role:admin,admin_livehost'])->prefix('admin')->name(
     Volt::route('session-slots', 'admin.uploaded-sessions')->name('session-slots');
 });
 
+// ============================================================================
+// POS - Point of Sale React SPA
+// ============================================================================
+Route::middleware(['auth', 'role:admin,sales'])->group(function () {
+    Route::get('pos', fn () => view('pos.index'))->name('pos.index');
+    Route::get('pos/{any}', fn () => view('pos.index'))->where('any', '.*')->name('pos.catchall');
+});
+
+// ============================================================================
+// FUNNEL BUILDER - React SPA for sales funnel management
+// ============================================================================
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    // Funnel Builder SPA - catch all routes and serve the React app
+    Route::get('funnel-builder', fn () => view('funnel-builder.index'))->name('funnel-builder.index');
+    Route::get('funnel-builder/{any}', fn () => view('funnel-builder.index'))->where('any', '.*')->name('funnel-builder.catchall');
+});
+
+// ============================================================================
+// WORKFLOW BUILDER - React SPA for automation workflows
+// ============================================================================
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    // Workflow list page (Livewire)
+    Volt::route('workflows', 'admin.workflows.workflow-list')->name('workflows.index');
+
+    // Workflow Builder SPA - React app for visual workflow editing
+    Route::get('workflow-builder/{uuid}', fn () => view('workflow-builder.index'))->name('workflow-builder.edit');
+    Route::get('workflow-builder', fn () => view('workflow-builder.index'))->name('workflow-builder.index');
+});
+
+// ============================================================================
+// AFFILIATE DASHBOARD - React SPA for affiliate portal
+// ============================================================================
+Route::get('affiliate/{any?}', fn () => view('affiliate-dashboard.index'))
+    ->where('any', '.*')
+    ->middleware(\App\Http\Middleware\AffiliateSessionLifetime::class)
+    ->name('affiliate.spa');
+
+// ============================================================================
+// PUBLIC FUNNEL PAGES - No auth required, visitors can view published funnels
+// ============================================================================
+Route::prefix('f')->name('funnel.')->group(function () {
+    // Affiliate ref tracking (path-based)
+    Route::get('{slug}/ref/{refCode}', [App\Http\Controllers\PublicFunnelController::class, 'showWithRef'])->name('showWithRef');
+    Route::get('{slug}/{stepSlug}/ref/{refCode}', [App\Http\Controllers\PublicFunnelController::class, 'showStepWithRef'])->name('stepWithRef');
+
+    // Funnel landing page (first step)
+    Route::get('{slug}', [App\Http\Controllers\PublicFunnelController::class, 'show'])->name('show');
+
+    // Specific funnel step
+    Route::get('{slug}/{stepSlug}', [App\Http\Controllers\PublicFunnelController::class, 'showStep'])->name('step');
+
+    // Opt-in form submission
+    Route::post('{slug}/optin', [App\Http\Controllers\PublicFunnelController::class, 'submitOptin'])->name('optin');
+
+    // Cart recovery link
+    Route::get('{slug}/recover/{sessionUuid}', [App\Http\Controllers\PublicFunnelController::class, 'recoverCart'])->name('recover');
+});
+
+// ============================================================================
+// FUNNEL EMBED - Embeddable checkout forms for external websites
+// ============================================================================
+// Public embed routes (no auth required)
+Route::get('embed/funnel.js', [App\Http\Controllers\FunnelEmbedController::class, 'script'])->name('funnel.embed.script');
+Route::get('embed/{embedKey}', [App\Http\Controllers\FunnelEmbedController::class, 'show'])->name('funnel.embed');
+
+// Admin embed management routes
+Route::middleware(['auth', 'role:admin'])->prefix('api/v1')->group(function () {
+    Route::post('funnels/{funnel}/embed/code', [App\Http\Controllers\FunnelEmbedController::class, 'generateEmbedCode'])->name('api.funnels.embed.code');
+    Route::post('funnels/{funnel}/embed/toggle', [App\Http\Controllers\FunnelEmbedController::class, 'toggleEmbed'])->name('api.funnels.embed.toggle');
+    Route::put('funnels/{funnel}/embed/settings', [App\Http\Controllers\FunnelEmbedController::class, 'updateSettings'])->name('api.funnels.embed.settings');
+    Route::post('funnels/{funnel}/embed/regenerate-key', [App\Http\Controllers\FunnelEmbedController::class, 'regenerateKey'])->name('api.funnels.embed.regenerate');
+});
+
 // Stripe webhook route - no auth middleware needed
 Route::post('stripe/webhook', [App\Http\Controllers\StripeWebhookController::class, 'handle'])->name('stripe.webhook');
+
+// Bayarcash webhook routes - no auth middleware needed
+Route::post('bayarcash/callback', [App\Http\Controllers\BayarcashWebhookController::class, 'callback'])->name('bayarcash.callback');
+Route::get('bayarcash/return', [App\Http\Controllers\BayarcashWebhookController::class, 'return'])->name('bayarcash.return');
+
+// Payment failed fallback page - no auth middleware needed
+Route::get('payment/failed', function () {
+    $error = session('error', 'Payment was unsuccessful. Please try again.');
+
+    return response()->view('errors.payment-failed', ['error' => $error], 200);
+})->name('payment.failed');
+
+// TikTok Shop webhook route - no auth middleware needed
+Route::match(['get', 'post'], 'webhooks/tiktok', [App\Http\Controllers\TikTok\TikTokWebhookController::class, 'handle'])->name('tiktok.webhook');
+
+// TikTok OAuth callback - outside auth middleware to work with Expose/external redirects
+Route::get('tiktok/callback', [App\Http\Controllers\TikTok\TikTokAuthController::class, 'callback'])->name('tiktok.callback.public');
 
 // Payment processing routes - requires auth
 Route::middleware(['auth'])->group(function () {

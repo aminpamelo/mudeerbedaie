@@ -64,4 +64,32 @@ return [
         'message_variation_enabled' => env('ONSEND_MESSAGE_VARIATION', false), // false = disabled for safety
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | TikTok Shop API
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for TikTok Shop Open Platform API integration.
+    | Register your app at https://partner.tiktokshop.com to obtain credentials.
+    |
+    */
+
+    'tiktok' => [
+        'app_key' => env('TIKTOK_APP_KEY'),
+        'app_secret' => env('TIKTOK_APP_SECRET'),
+        'redirect_uri' => env('TIKTOK_REDIRECT_URI'),
+        'api_version' => env('TIKTOK_API_VERSION', '202309'),
+        'sandbox' => env('TIKTOK_SANDBOX', false),
+
+        // Sync settings
+        'order_sync_interval' => env('TIKTOK_ORDER_SYNC_INTERVAL', 15), // minutes
+        'inventory_sync_interval' => env('TIKTOK_INVENTORY_SYNC_INTERVAL', 60), // minutes
+        'token_refresh_days_before_expiry' => env('TIKTOK_TOKEN_REFRESH_DAYS', 7),
+
+        // Rate limiting
+        'rate_limit_per_minute' => env('TIKTOK_RATE_LIMIT', 60),
+        'retry_attempts' => env('TIKTOK_RETRY_ATTEMPTS', 3),
+        'retry_delay_seconds' => env('TIKTOK_RETRY_DELAY', 5),
+    ],
+
 ];

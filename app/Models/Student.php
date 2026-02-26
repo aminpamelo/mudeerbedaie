@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use App\Observers\StudentObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
+#[ObservedBy(StudentObserver::class)]
 class Student extends Model
 {
     use HasFactory;
@@ -42,7 +47,7 @@ class Student extends Model
 
         static::creating(function ($student) {
             if (empty($student->student_id)) {
-                $student->student_id = self::generateStudentId();
+                $student->student_id = self::generateUniqueStudentId();
             }
         });
     }
@@ -156,6 +161,43 @@ class Student extends Model
         return $this->hasMany(ProductOrder::class)->where('status', 'cancelled');
     }
 
+    // CRM & Workflow relationships
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class, 'student_tags')
+            ->withPivot(['applied_by', 'source', 'workflow_id', 'created_at']);
+    }
+
+    public function leadScore(): HasOne
+    {
+        return $this->hasOne(StudentLeadScore::class);
+    }
+
+    public function customFieldValues(): HasMany
+    {
+        return $this->hasMany(StudentCustomField::class);
+    }
+
+    public function contactActivities(): HasMany
+    {
+        return $this->hasMany(ContactActivity::class);
+    }
+
+    public function communicationLogs(): HasMany
+    {
+        return $this->hasMany(CommunicationLog::class);
+    }
+
+    public function workflowEnrollments(): HasMany
+    {
+        return $this->hasMany(WorkflowEnrollment::class);
+    }
+
+    public function activeWorkflowEnrollments(): HasMany
+    {
+        return $this->hasMany(WorkflowEnrollment::class)->where('status', 'active');
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';
@@ -203,11 +245,58 @@ class Student extends Model
 
     public static function generateStudentId(): string
     {
-        do {
-            $studentId = 'STU'.date('Y').str_pad(random_int(1, 9999), 4, '0', STR_PAD_LEFT);
-        } while (self::where('student_id', $studentId)->exists());
+        $year = date('Y');
+        $prefix = 'STU'.$year;
 
-        return $studentId;
+        // Get the max existing ID for this year more efficiently
+        $maxId = self::where('student_id', 'like', $prefix.'%')
+            ->selectRaw('MAX(CAST(SUBSTRING(student_id, 8) AS UNSIGNED)) as max_num')
+            ->value('max_num');
+
+        $nextNum = ($maxId ?? 0) + 1;
+
+        // If we somehow exceed 9999, add random suffix to avoid collision
+        if ($nextNum > 9999) {
+            $nextNum = random_int(10000, 99999);
+        }
+
+        return $prefix.str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Generate a unique student ID with retry mechanism to handle race conditions.
+     */
+    public static function generateUniqueStudentId(int $maxRetries = 5): string
+    {
+        $year = date('Y');
+        $prefix = 'STU'.$year;
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($prefix, $maxRetries) {
+            for ($attempt = 0; $attempt < $maxRetries; $attempt++) {
+                // Lock the table for reading to prevent race conditions
+                $maxId = self::where('student_id', 'like', $prefix.'%')
+                    ->lockForUpdate()
+                    ->selectRaw('MAX(CAST(SUBSTRING(student_id, 8) AS UNSIGNED)) as max_num')
+                    ->value('max_num');
+
+                $nextNum = ($maxId ?? 0) + 1;
+
+                // Add random offset on retry attempts to avoid collision
+                if ($attempt > 0) {
+                    $nextNum += random_int(1, 100);
+                }
+
+                $studentId = $prefix.str_pad((string) $nextNum, 4, '0', STR_PAD_LEFT);
+
+                // Check if this ID already exists (double-check)
+                if (! self::where('student_id', $studentId)->exists()) {
+                    return $studentId;
+                }
+            }
+
+            // Fallback: generate with timestamp-based suffix
+            return $prefix.date('His').random_int(10, 99);
+        });
     }
 
     // Order-related utility methods
