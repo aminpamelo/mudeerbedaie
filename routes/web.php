@@ -303,6 +303,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('agent-orders/report', 'admin.agent-orders.agent-performance-report')->name('agent-orders.report');
     Volt::route('agent-orders/{order}', 'admin.agent-orders.agent-orders-show')->name('agent-orders.show');
     Volt::route('agent-orders/{order}/edit', 'admin.agent-orders.agent-orders-edit')->name('agent-orders.edit');
+    Volt::route('agent-orders/{order}/receipt', 'admin.agent-orders.agent-orders-receipt')->name('agent-orders.receipt');
 
     // Product Order Management routes
     Volt::route('product-orders', 'admin.orders.order-list')->name('admin.orders.index');

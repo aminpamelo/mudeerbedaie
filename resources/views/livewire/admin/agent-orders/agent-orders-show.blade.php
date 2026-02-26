@@ -525,6 +525,14 @@ new class extends Component
 
                 <!-- Quick Actions -->
                 <div class="mt-6 space-y-2">
+                    <!-- Receipt/Invoice Actions -->
+                    <flux:button variant="outline" class="w-full" :href="route('agent-orders.receipt', $order)" wire:navigate>
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="document-text" class="w-4 h-4 mr-2" />
+                            View Receipt
+                        </div>
+                    </flux:button>
+
                     @if($order->status === 'pending')
                         <flux:button variant="primary" class="w-full" wire:click="updateStatus('processing')">
                             <flux:icon name="play" class="w-4 h-4 mr-2" />

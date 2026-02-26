@@ -1058,16 +1058,15 @@ new class extends Component
                                     style="object-fit: fill;"
                                 />
                             @endif
+                    @php
+                        $sampleData = [
+                            'student_name' => 'John Doe',
+                            'course_name' => 'Web Development Bootcamp',
+                            'certificate_number' => 'CERT-2025-0001',
+                            'issue_date' => now()->format('F j, Y'),
+                        ];
+                    @endphp
                     @foreach($elements as $element)
-                        @php
-                            $sampleData = [
-                                'student_name' => 'John Doe',
-                                'course_name' => 'Web Development Bootcamp',
-                                'certificate_number' => 'CERT-2025-0001',
-                                'issue_date' => now()->format('F j, Y'),
-                            ];
-                        @endphp
-
                         <div
                             class="absolute"
                             style="
@@ -1086,6 +1085,10 @@ new class extends Component
                                     font-weight: {{ $element['fontWeight'] }};
                                     color: {{ $element['color'] }};
                                     text-align: {{ $element['textAlign'] }};
+                                    line-height: {{ $element['lineHeight'] ?? 1.2 }};
+                                    letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
+                                    white-space: pre-wrap;
+                                    word-wrap: break-word;
                                 ">
                                     {{ $element['content'] }}
                                 </div>
@@ -1096,9 +1099,25 @@ new class extends Component
                                     font-weight: {{ $element['fontWeight'] }};
                                     color: {{ $element['color'] }};
                                     text-align: {{ $element['textAlign'] }};
+                                    line-height: {{ $element['lineHeight'] ?? 1.2 }};
+                                    letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
+                                    white-space: pre-wrap;
+                                    word-wrap: break-word;
                                 ">
-                                    {{ $element['prefix'] }}{{ $sampleData[$element['field']] ?? 'Sample Data' }}{{ $element['suffix'] }}
+                                    {{ $element['prefix'] ?? '' }}{{ $sampleData[$element['field']] ?? 'Sample Data' }}{{ $element['suffix'] ?? '' }}
                                 </div>
+                            @elseif($element['type'] === 'image')
+                                @if(!empty($element['src']))
+                                    <img
+                                        src="{{ Storage::url($element['src']) }}"
+                                        alt="{{ $element['alt'] ?? 'Image' }}"
+                                        style="
+                                            width: 100%;
+                                            height: 100%;
+                                            object-fit: {{ $element['objectFit'] ?? 'contain' }};
+                                        "
+                                    />
+                                @endif
                             @elseif($element['type'] === 'shape')
                                 <div style="
                                     width: 100%;

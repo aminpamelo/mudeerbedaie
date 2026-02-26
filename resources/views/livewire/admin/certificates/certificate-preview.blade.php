@@ -30,7 +30,7 @@ new class extends Component {
 
         $pdf = Pdf::loadHTML($html)
             ->setPaper(
-                $this->certificate->size === 'letter' ? [0, 0, 816, 1056] : [0, 0, 794, 1123],
+                $this->certificate->size === 'letter' ? 'letter' : 'a4',
                 $this->certificate->orientation
             )
             ->setOption('isHtml5ParserEnabled', true)
@@ -110,6 +110,8 @@ new class extends Component {
                                         top: {{ $element['y'] }}px;
                                         width: {{ $element['width'] }}px;
                                         height: {{ $element['height'] }}px;
+                                        transform: rotate({{ $element['rotation'] ?? 0 }}deg);
+                                        opacity: {{ $element['opacity'] ?? 1 }};
                                     "
                                 >
                                     @if($element['type'] === 'text')
@@ -122,6 +124,10 @@ new class extends Component {
                                                 color: {{ $element['color'] ?? '#000000' }};
                                                 text-align: {{ $element['textAlign'] ?? 'left' }};
                                                 font-family: {{ $element['fontFamily'] ?? 'Arial, sans-serif' }};
+                                                line-height: {{ $element['lineHeight'] ?? 1.2 }};
+                                                letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
+                                                white-space: pre-wrap;
+                                                word-wrap: break-word;
                                             "
                                         >
                                             {{ $element['content'] }}
@@ -136,6 +142,10 @@ new class extends Component {
                                                 color: {{ $element['color'] ?? '#000000' }};
                                                 text-align: {{ $element['textAlign'] ?? 'left' }};
                                                 font-family: {{ $element['fontFamily'] ?? 'Arial, sans-serif' }};
+                                                line-height: {{ $element['lineHeight'] ?? 1.2 }};
+                                                letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
+                                                white-space: pre-wrap;
+                                                word-wrap: break-word;
                                             "
                                         >
                                             {{ $element['prefix'] ?? '' }}{{ $previewData[$element['field']] ?? '' }}{{ $element['suffix'] ?? '' }}
@@ -143,13 +153,12 @@ new class extends Component {
                                     @elseif($element['type'] === 'image')
                                         @if(!empty($element['src']))
                                             <img
-                                                src="{{ $element['src'] }}"
+                                                src="{{ Storage::url($element['src']) }}"
                                                 alt="{{ $element['alt'] ?? 'Image' }}"
                                                 style="
                                                     width: 100%;
                                                     height: 100%;
-                                                    object-fit: {{ $element['objectFit'] ?? 'cover' }};
-                                                    opacity: {{ $element['opacity'] ?? 1 }};
+                                                    object-fit: {{ $element['objectFit'] ?? 'contain' }};
                                                 "
                                             />
                                         @endif
@@ -160,8 +169,7 @@ new class extends Component {
                                                 height: 100%;
                                                 background-color: {{ $element['fillColor'] ?? 'transparent' }};
                                                 border: {{ $element['borderWidth'] ?? 0 }}px {{ $element['borderStyle'] ?? 'solid' }} {{ $element['borderColor'] ?? '#000000' }};
-                                                border-radius: {{ $element['borderRadius'] ?? 0 }}px;
-                                                opacity: {{ $element['opacity'] ?? 1 }};
+                                                @if(($element['shape'] ?? 'rectangle') === 'circle') border-radius: 50%; @endif
                                             "
                                         ></div>
                                     @elseif($element['type'] === 'qr')
