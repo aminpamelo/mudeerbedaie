@@ -1149,34 +1149,16 @@ new class extends Component
     @vite('resources/js/reports-charts.js')
     @script
     <script>
-        // Initial render
-        if ($wire.activeTab === 'reports') {
-            if ($wire.reportSubTab === 'team_sales') {
-                setTimeout(() => {
-                    if (typeof window.initializeSalesDeptCharts === 'function') {
-                        window.initializeSalesDeptCharts($wire.monthlyData);
-                    }
-                }, 50);
-            } else if ($wire.reportSubTab === 'product_report') {
-                setTimeout(() => {
-                    if (typeof window.initializeProductReportCharts === 'function') {
-                        window.initializeProductReportCharts($wire.monthlyProductData, $wire.topProductsByRevenue);
-                    }
-                }, 50);
-            }
-        }
-
-        // Re-render when filters change or tab switches back (dispatched from PHP)
-        $wire.on('sales-dept-charts-update', (event) => {
-            setTimeout(() => {
+        $wire.on('sales-dept-charts-update', function(event) {
+            setTimeout(function() {
                 if (typeof window.initializeSalesDeptCharts === 'function') {
                     window.initializeSalesDeptCharts(event.monthlyData);
                 }
             }, 100);
         });
 
-        $wire.on('product-report-charts-update', (event) => {
-            setTimeout(() => {
+        $wire.on('product-report-charts-update', function(event) {
+            setTimeout(function() {
                 if (typeof window.initializeProductReportCharts === 'function') {
                     window.initializeProductReportCharts(event.monthlyProductData, event.topProductsByRevenue);
                 }

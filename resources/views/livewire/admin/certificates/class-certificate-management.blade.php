@@ -84,12 +84,23 @@ new class extends Component {
             ->orderBy('name')
             ->get();
 
+        // Get student IDs who already have an issued certificate for the selected template in this class
+        $issuedStudentIds = [];
+        if ($this->selectedCertificateId) {
+            $issuedStudentIds = CertificateIssue::where('class_id', $this->class->id)
+                ->where('certificate_id', $this->selectedCertificateId)
+                ->where('status', 'issued')
+                ->pluck('student_id')
+                ->toArray();
+        }
+
         return [
             'defaultCertificate' => $defaultCertificate,
             'assignedCertificates' => $assignedCertificates,
             'stats' => $stats,
             'issuedCertificates' => $issuedCertificates,
             'eligibleStudents' => $eligibleStudents,
+            'issuedStudentIds' => $issuedStudentIds,
             'previewCertificate' => $previewCertificate,
             'previewData' => $previewData,
             'availableCertificates' => $availableCertificates,
@@ -240,6 +251,58 @@ new class extends Component {
 
         $this->closeBulkIssueModal();
         $this->class->refresh();
+    }
+
+    public function regeneratePdf(int $certificateIssueId): void
+    {
+        $issue = CertificateIssue::with(['certificate', 'student.user', 'enrollment'])->findOrFail($certificateIssueId);
+
+        if (! $issue->certificate) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Certificate template not found.',
+            ]);
+
+            return;
+        }
+
+        try {
+            $pdfGenerator = app(\App\Services\CertificatePdfGenerator::class);
+
+            // Delete old file if it exists
+            $issue->deleteFile();
+
+            // Prepare data from snapshot or generate fresh
+            $data = $issue->data_snapshot ?? [];
+            $data['certificate_number'] = $issue->certificate_number;
+
+            try {
+                $data['verification_url'] = $issue->getVerificationUrl();
+            } catch (\Exception $e) {
+                $data['verification_url'] = '';
+            }
+
+            // Generate new PDF
+            $filePath = $pdfGenerator->generate(
+                certificate: $issue->certificate,
+                student: $issue->student,
+                enrollment: $issue->enrollment,
+                additionalData: $data
+            );
+
+            $issue->update(['file_path' => $filePath]);
+            $issue->logAction('regenerated', auth()->user());
+
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'message' => 'Certificate PDF regenerated successfully.',
+            ]);
+        } catch (\Exception $e) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Failed to regenerate PDF: '.$e->getMessage(),
+            ]);
+        }
     }
 
     public function revokeCertificate(int $certificateIssueId, string $reason = 'Revoked by admin'): void
@@ -825,6 +888,15 @@ new class extends Component {
                                                 <flux:button variant="ghost" size="sm" href="{{ $issue->getFileUrl() }}" target="_blank" icon="eye" />
                                                 <flux:button variant="ghost" size="sm" href="{{ $issue->getDownloadUrl() }}" icon="arrow-down-tray" />
                                             @endif
+                                            <flux:tooltip content="{{ $issue->hasFile() ? 'Regenerate PDF' : 'Generate PDF' }}">
+                                                <flux:button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    wire:click="regeneratePdf({{ $issue->id }})"
+                                                    wire:confirm="{{ $issue->hasFile() ? 'Regenerate this certificate PDF?' : 'Generate the PDF for this certificate?' }}"
+                                                    icon="{{ $issue->hasFile() ? 'arrow-path' : 'document-arrow-down' }}"
+                                                />
+                                            </flux:tooltip>
                                             @if($issue->canBeRevoked())
                                                 <flux:button
                                                     variant="ghost"
@@ -1071,16 +1143,20 @@ new class extends Component {
                     <div class="max-h-60 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg divide-y divide-zinc-100 dark:divide-zinc-800">
                         @foreach($eligibleStudents as $student)
                             @if($student && $student->user)
-                                <label class="flex items-center gap-3 cursor-pointer px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                @php $alreadyIssued = in_array($student->id, $issuedStudentIds); @endphp
+                                <label class="flex items-center gap-3 cursor-pointer px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors {{ $alreadyIssued ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : '' }}">
                                     <input
                                         type="checkbox"
                                         wire:model="selectedStudentIds"
                                         value="{{ $student->id }}"
                                         class="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
                                     >
-                                    <div class="flex-1 min-w-0">
+                                    <div class="flex-1 min-w-0 flex items-center gap-2">
                                         <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ $student->user->name }}</span>
-                                        <span class="text-xs text-zinc-400 ml-2">{{ $student->student_id }}</span>
+                                        <span class="text-xs text-zinc-400">{{ $student->student_id }}</span>
+                                        @if($alreadyIssued)
+                                            <flux:badge color="green" size="sm">Issued</flux:badge>
+                                        @endif
                                     </div>
                                 </label>
                             @endif

@@ -21,6 +21,10 @@ new class extends Component
 
     public string $sortDirection = 'desc';
 
+    public bool $showDeleteModal = false;
+
+    public ?int $selectedOrderForDeletion = null;
+
     protected $queryString = [
         'search' => ['except' => ''],
         'agentFilter' => ['except' => ''],
@@ -82,6 +86,42 @@ new class extends Component
         };
 
         session()->flash('success', "Order {$order->order_number} status updated to {$status}");
+    }
+
+    public function confirmDeleteOrder(int $orderId): void
+    {
+        $this->selectedOrderForDeletion = $orderId;
+        $this->showDeleteModal = true;
+    }
+
+    public function closeDeleteModal(): void
+    {
+        $this->showDeleteModal = false;
+        $this->selectedOrderForDeletion = null;
+    }
+
+    public function deleteOrder(): void
+    {
+        try {
+            $order = ProductOrder::findOrFail($this->selectedOrderForDeletion);
+            $orderNumber = $order->order_number;
+
+            $order->items()->delete();
+            $order->payments()->delete();
+            $order->notes()->delete();
+            $order->addresses()->delete();
+            $order->delete();
+
+            session()->flash('success', "Order #{$orderNumber} has been deleted successfully.");
+            $this->closeDeleteModal();
+        } catch (\Exception $e) {
+            \Log::error('Error deleting agent order', [
+                'order_id' => $this->selectedOrderForDeletion,
+                'error' => $e->getMessage(),
+            ]);
+            session()->flash('error', 'Failed to delete order: ' . $e->getMessage());
+            $this->closeDeleteModal();
+        }
     }
 
     public function getStatusColor(string $status): string
@@ -464,6 +504,10 @@ new class extends Component
                                         <flux:icon name="pencil" class="w-4 h-4" />
                                     </flux:button>
 
+                                    <flux:button variant="ghost" size="sm" wire:click="confirmDeleteOrder({{ $order->id }})" class="text-red-500 hover:text-red-700">
+                                        <flux:icon name="trash" class="w-4 h-4" />
+                                    </flux:button>
+
                                     @if($order->canBeCancelled())
                                         <flux:dropdown>
                                             <flux:button variant="ghost" size="sm">
@@ -541,4 +585,28 @@ new class extends Component
             </div>
         @endif
     </div>
+
+    <!-- Delete Order Confirmation Modal -->
+    <flux:modal wire:model="showDeleteModal" class="md:w-96 space-y-6">
+        <div>
+            <flux:heading size="lg">Padam Pesanan</flux:heading>
+            <flux:subheading>Adakah anda pasti mahu memadam pesanan ini?</flux:subheading>
+        </div>
+
+        <flux:callout variant="warning">
+            Tindakan ini tidak boleh dibatalkan. Pesanan beserta semua item, pembayaran, dan nota berkaitan akan dipadam secara kekal.
+        </flux:callout>
+
+        <div class="flex justify-between">
+            <flux:button wire:click="closeDeleteModal" variant="ghost">
+                Batal
+            </flux:button>
+            <flux:button wire:click="deleteOrder" variant="danger">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="trash" class="w-4 h-4 mr-1" />
+                    Padam Pesanan
+                </div>
+            </flux:button>
+        </div>
+    </flux:modal>
 </div>

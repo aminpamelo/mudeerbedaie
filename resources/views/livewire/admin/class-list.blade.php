@@ -77,18 +77,27 @@ new class extends Component {
         $this->viewMode = $mode;
     }
 
-    public function getClassesProperty()
+    private function baseClassQuery()
     {
         return ClassModel::query()
-            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories', 'pics'])
+            ->with(['course', 'teacher.user', 'categories', 'pics'])
+            ->withCount([
+                'activeStudents',
+                'sessions as total_sessions_count',
+                'sessions as completed_sessions_count' => function ($query) {
+                    $query->where('status', 'completed');
+                },
+            ])
             ->when($this->search, function ($query) {
-                $query->where('title', 'like', '%' . $this->search . '%')
-                    ->orWhereHas('course', function ($courseQuery) {
-                        $courseQuery->where('name', 'like', '%' . $this->search . '%');
-                    })
-                    ->orWhereHas('teacher.user', function ($teacherQuery) {
-                        $teacherQuery->where('name', 'like', '%' . $this->search . '%');
-                    });
+                $query->where(function ($q) {
+                    $q->where('title', 'like', '%' . $this->search . '%')
+                        ->orWhereHas('course', function ($courseQuery) {
+                            $courseQuery->where('name', 'like', '%' . $this->search . '%');
+                        })
+                        ->orWhereHas('teacher.user', function ($teacherQuery) {
+                            $teacherQuery->where('name', 'like', '%' . $this->search . '%');
+                        });
+                });
             })
             ->when($this->courseFilter, function ($query) {
                 $query->where('course_id', $this->courseFilter);
@@ -104,48 +113,23 @@ new class extends Component {
                     $catQuery->where('class_categories.id', $this->categoryFilter);
                 });
             })
-            ->orderBy('date_time', 'desc')
-            ->paginate($this->perPage);
+            ->orderBy('date_time', 'desc');
+    }
+
+    public function getClassesProperty()
+    {
+        return $this->baseClassQuery()->paginate($this->perPage);
     }
 
     public function getGroupedClassesProperty()
     {
-        $query = ClassModel::query()
-            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories', 'pics'])
-            ->when($this->search, function ($query) {
-                $query->where('title', 'like', '%' . $this->search . '%')
-                    ->orWhereHas('course', function ($courseQuery) {
-                        $courseQuery->where('name', 'like', '%' . $this->search . '%');
-                    })
-                    ->orWhereHas('teacher.user', function ($teacherQuery) {
-                        $teacherQuery->where('name', 'like', '%' . $this->search . '%');
-                    });
-            })
-            ->when($this->courseFilter, function ($query) {
-                $query->where('course_id', $this->courseFilter);
-            })
-            ->when($this->statusFilter, function ($query) {
-                $query->where('status', $this->statusFilter);
-            })
-            ->when($this->classTypeFilter, function ($query) {
-                $query->where('class_type', $this->classTypeFilter);
-            })
-            ->when($this->categoryFilter, function ($query) {
-                $query->whereHas('categories', function ($catQuery) {
-                    $catQuery->where('class_categories.id', $this->categoryFilter);
-                });
-            })
-            ->orderBy('date_time', 'desc')
-            ->get();
-
-        // Get all active categories with their classes
+        $classes = $this->baseClassQuery()->get();
         $categories = ClassCategory::active()->ordered()->get();
 
         $grouped = [];
 
-        // Group by categories
         foreach ($categories as $category) {
-            $categoryClasses = $query->filter(function ($class) use ($category) {
+            $categoryClasses = $classes->filter(function ($class) use ($category) {
                 return $class->categories->contains($category->id);
             });
 
@@ -157,9 +141,8 @@ new class extends Component {
             }
         }
 
-        // Get uncategorized classes
-        $uncategorizedClasses = $query->filter(function ($class) {
-            return $class->categories->count() === 0;
+        $uncategorizedClasses = $classes->filter(function ($class) {
+            return $class->categories->isEmpty();
         });
 
         if ($uncategorizedClasses->count() > 0) {
@@ -174,42 +157,13 @@ new class extends Component {
 
     public function getGroupedByPicClassesProperty()
     {
-        $query = ClassModel::query()
-            ->with(['course', 'teacher.user', 'sessions', 'activeStudents', 'categories', 'pics'])
-            ->when($this->search, function ($query) {
-                $query->where('title', 'like', '%' . $this->search . '%')
-                    ->orWhereHas('course', function ($courseQuery) {
-                        $courseQuery->where('name', 'like', '%' . $this->search . '%');
-                    })
-                    ->orWhereHas('teacher.user', function ($teacherQuery) {
-                        $teacherQuery->where('name', 'like', '%' . $this->search . '%');
-                    });
-            })
-            ->when($this->courseFilter, function ($query) {
-                $query->where('course_id', $this->courseFilter);
-            })
-            ->when($this->statusFilter, function ($query) {
-                $query->where('status', $this->statusFilter);
-            })
-            ->when($this->classTypeFilter, function ($query) {
-                $query->where('class_type', $this->classTypeFilter);
-            })
-            ->when($this->categoryFilter, function ($query) {
-                $query->whereHas('categories', function ($catQuery) {
-                    $catQuery->where('class_categories.id', $this->categoryFilter);
-                });
-            })
-            ->orderBy('date_time', 'desc')
-            ->get();
-
-        // Get all users who are PICs
+        $classes = $this->baseClassQuery()->get();
         $picUsers = User::whereHas('picClasses')->where('role', '!=', 'student')->orderBy('name')->get();
 
         $grouped = [];
 
-        // Group by PICs
         foreach ($picUsers as $pic) {
-            $picClasses = $query->filter(function ($class) use ($pic) {
+            $picClasses = $classes->filter(function ($class) use ($pic) {
                 return $class->pics->contains($pic->id);
             });
 
@@ -221,9 +175,8 @@ new class extends Component {
             }
         }
 
-        // Get classes without PICs
-        $noPicClasses = $query->filter(function ($class) {
-            return $class->pics->count() === 0;
+        $noPicClasses = $classes->filter(function ($class) {
+            return $class->pics->isEmpty();
         });
 
         if ($noPicClasses->count() > 0) {
@@ -236,29 +189,27 @@ new class extends Component {
         return $grouped;
     }
 
-    public function getTotalClassesProperty()
+    public function getStatsProperty(): array
     {
-        return ClassModel::count();
-    }
-
-    public function getActiveClassesProperty()
-    {
-        return ClassModel::where('status', 'active')->count();
-    }
-
-    public function getUpcomingClassesProperty()
-    {
-        return ClassModel::upcoming()->count();
+        return [
+            'total' => ClassModel::count(),
+            'active' => ClassModel::where('status', 'active')->count(),
+            'upcoming' => ClassModel::where('status', 'active')
+                ->whereHas('sessions', function ($q) {
+                    $q->where('session_date', '>', now()->toDateString())
+                        ->where('status', 'scheduled');
+                })->count(),
+        ];
     }
 
     public function getCoursesProperty()
     {
-        return Course::where('status', 'active')->orderBy('name')->get();
+        return Course::where('status', 'active')->orderBy('name')->get(['id', 'name']);
     }
 
     public function getCategoriesProperty()
     {
-        return ClassCategory::active()->ordered()->get();
+        return ClassCategory::active()->ordered()->get(['id', 'name']);
     }
 
     public function getAllCategoriesProperty()
@@ -459,7 +410,7 @@ new class extends Component {
                         <flux:icon.calendar-days class="h-6 w-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->totalClasses }}</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->stats['total'] }}</p>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Total Classes</p>
                     </div>
                 </div>
@@ -471,7 +422,7 @@ new class extends Component {
                         <flux:icon.clock class="h-6 w-6 text-green-600 dark:text-green-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->activeClasses }}</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->stats['active'] }}</p>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Active</p>
                     </div>
                 </div>
@@ -483,7 +434,7 @@ new class extends Component {
                         <flux:icon.forward class="h-6 w-6 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->upcomingClasses }}</p>
+                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->stats['upcoming'] }}</p>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Upcoming</p>
                     </div>
                 </div>
@@ -496,7 +447,7 @@ new class extends Component {
                 <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                     <div class="md:col-span-2">
                         <flux:input
-                            wire:model.live="search"
+                            wire:model.live.debounce.300ms="search"
                             placeholder="Search classes..."
                             icon="magnifying-glass"
                         />
@@ -690,10 +641,10 @@ new class extends Component {
 
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-900">
-                                            {{ $class->active_student_count }} student(s)
+                                            {{ $class->active_students_count }} student(s)
                                         </div>
                                         <div class="text-xs text-gray-500">
-                                            {{ $class->completed_sessions }}/{{ $class->total_sessions }} sessions
+                                            {{ $class->completed_sessions_count }}/{{ $class->total_sessions_count }} sessions
                                         </div>
                                     </td>
 
@@ -876,10 +827,10 @@ new class extends Component {
 
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <div class="text-sm text-gray-900 dark:text-gray-100">
-                                                    {{ $class->active_student_count }} student(s)
+                                                    {{ $class->active_students_count }} student(s)
                                                 </div>
                                                 <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                    {{ $class->completed_sessions }}/{{ $class->total_sessions }} sessions
+                                                    {{ $class->completed_sessions_count }}/{{ $class->total_sessions_count }} sessions
                                                 </div>
                                             </td>
 
@@ -1056,10 +1007,10 @@ new class extends Component {
 
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <div class="text-sm text-gray-900 dark:text-gray-100">
-                                                    {{ $class->active_student_count }} student(s)
+                                                    {{ $class->active_students_count }} student(s)
                                                 </div>
                                                 <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                    {{ $class->completed_sessions }}/{{ $class->total_sessions }} sessions
+                                                    {{ $class->completed_sessions_count }}/{{ $class->total_sessions_count }} sessions
                                                 </div>
                                             </td>
 

@@ -3,6 +3,7 @@
 use App\Models\ProductOrder;
 use App\Models\StockLevel;
 use App\Models\StockMovement;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 
@@ -81,6 +82,50 @@ new class extends Component
 
         session()->flash('success', 'Payment status updated successfully!');
         $this->order->refresh();
+    }
+
+    public function downloadPdf()
+    {
+        $order = $this->order;
+
+        $pdf = Pdf::loadView('livewire.admin.agent-orders.agent-orders-receipt-pdf', compact('order'))
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isHtml5ParserEnabled' => true,
+                'isPhpEnabled' => false,
+                'isRemoteEnabled' => false,
+            ]);
+
+        $filename = 'receipt-' . $order->order_number . '.pdf';
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->stream();
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    public function downloadDeliveryNote()
+    {
+        $order = $this->order;
+
+        $pdf = Pdf::loadView('livewire.admin.agent-orders.agent-orders-delivery-note-pdf', compact('order'))
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isHtml5ParserEnabled' => true,
+                'isPhpEnabled' => false,
+                'isRemoteEnabled' => false,
+            ]);
+
+        $filename = 'delivery-note-' . $order->order_number . '.pdf';
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->stream();
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
     }
 
     private function handleStockManagement(string $previousStatus, string $newStatus): void
@@ -199,14 +244,30 @@ new class extends Component
                 Created {{ $order->created_at->format('M j, Y \a\t g:i A') }}
             </flux:text>
         </div>
-        <div class="flex space-x-3">
-            <flux:button variant="outline" :href="route('agent-orders.edit', $order)" wire:navigate>
-                <flux:icon name="pencil" class="w-4 h-4 mr-2" />
-                Edit Order
+        <div class="flex flex-wrap gap-2">
+            <flux:button variant="outline" wire:click="downloadPdf" size="sm">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
+                    Download PDF
+                </div>
             </flux:button>
-            <flux:button variant="outline" :href="route('agent-orders.index')" wire:navigate>
-                <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
-                Back to List
+            <flux:button variant="outline" wire:click="downloadDeliveryNote" size="sm">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="truck" class="w-4 h-4 mr-1" />
+                    Delivery Note
+                </div>
+            </flux:button>
+            <flux:button variant="outline" :href="route('agent-orders.edit', $order)" wire:navigate size="sm">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="pencil" class="w-4 h-4 mr-1" />
+                    Edit Order
+                </div>
+            </flux:button>
+            <flux:button variant="outline" :href="route('agent-orders.index')" wire:navigate size="sm">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="arrow-left" class="w-4 h-4 mr-1" />
+                    Back to List
+                </div>
             </flux:button>
         </div>
     </div>

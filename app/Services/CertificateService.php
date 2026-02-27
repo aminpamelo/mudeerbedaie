@@ -8,6 +8,8 @@ use App\Models\ClassModel;
 use App\Models\Enrollment;
 use App\Models\Student;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CertificateService
 {
@@ -95,39 +97,48 @@ class CertificateService
         }
 
         try {
-            // Prepare data snapshot
-            $dataSnapshot = [
-                'student_name' => $student->full_name,
-                'student_id' => $student->student_id,
-                'course_name' => $class->course->name,
-                'class_name' => $class->title,
-                'certificate_name' => $certificate->name,
-                'teacher_name' => $class->teacher->user->name ?? 'N/A',
-                'completion_date' => $class->isCompleted() ? $class->updated_at->format('F j, Y') : now()->format('F j, Y'),
-            ];
+            $certificateIssue = DB::transaction(function () use ($certificate, $student, $class, $enrollmentId) {
+                // Prepare data snapshot
+                $dataSnapshot = [
+                    'student_name' => $student->full_name,
+                    'student_id' => $student->student_id,
+                    'course_name' => $class->course->name,
+                    'class_name' => $class->title,
+                    'certificate_name' => $certificate->name,
+                    'teacher_name' => $class->teacher->user->name ?? 'N/A',
+                    'completion_date' => $class->isCompleted() ? $class->updated_at->format('F j, Y') : now()->format('F j, Y'),
+                ];
 
-            // Create certificate issue (certificate_number is auto-generated in model boot)
-            $certificateIssue = CertificateIssue::create([
-                'certificate_id' => $certificate->id,
-                'student_id' => $student->id,
-                'enrollment_id' => $enrollmentId,
-                'class_id' => $class->id,
-                'issue_date' => now(),
-                'issued_by' => auth()->id(),
-                'data_snapshot' => $dataSnapshot,
-                'status' => 'issued',
-            ]);
+                // Create certificate issue (certificate_number is auto-generated in model boot)
+                $certificateIssue = CertificateIssue::create([
+                    'certificate_id' => $certificate->id,
+                    'student_id' => $student->id,
+                    'enrollment_id' => $enrollmentId,
+                    'class_id' => $class->id,
+                    'issue_date' => now(),
+                    'issued_by' => auth()->id(),
+                    'data_snapshot' => $dataSnapshot,
+                    'status' => 'issued',
+                ]);
 
-            // Add certificate number and verification URL to data for PDF generation
-            $dataSnapshot['certificate_number'] = $certificateIssue->certificate_number;
-            $dataSnapshot['verification_url'] = $certificateIssue->getVerificationUrl();
+                // Add certificate number and verification URL to data for PDF generation
+                $dataSnapshot['certificate_number'] = $certificateIssue->certificate_number;
 
-            // Resolve enrollment model from ID for the PDF generator
-            $enrollment = $enrollmentId ? Enrollment::find($enrollmentId) : null;
+                try {
+                    $dataSnapshot['verification_url'] = $certificateIssue->getVerificationUrl();
+                } catch (\Exception $e) {
+                    $dataSnapshot['verification_url'] = '';
+                }
 
-            // Generate PDF
-            $pdfPath = $this->pdfGenerator->generate($certificate, $student, $enrollment, $dataSnapshot);
-            $certificateIssue->update(['file_path' => $pdfPath]);
+                // Resolve enrollment model from ID for the PDF generator
+                $enrollment = $enrollmentId ? Enrollment::find($enrollmentId) : null;
+
+                // Generate PDF — if this fails, the transaction rolls back
+                $pdfPath = $this->pdfGenerator->generate($certificate, $student, $enrollment, $dataSnapshot);
+                $certificateIssue->update(['file_path' => $pdfPath]);
+
+                return $certificateIssue;
+            });
 
             return [
                 'success' => true,
@@ -135,6 +146,13 @@ class CertificateService
                 'certificate_issue' => $certificateIssue,
             ];
         } catch (\Exception $e) {
+            Log::error('Failed to issue certificate', [
+                'certificate_id' => $certificate->id,
+                'student_id' => $student->id,
+                'class_id' => $class->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return [
                 'success' => false,
                 'message' => 'Failed to issue certificate: '.$e->getMessage(),
