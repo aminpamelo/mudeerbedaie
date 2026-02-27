@@ -376,7 +376,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
             abort(404, 'Certificate file not found');
         }
 
-        return \Storage::download($certificateIssue->file_path, $certificateIssue->certificate_number.'.pdf');
+        return \Storage::disk('public')->download($certificateIssue->file_path, $certificateIssue->getDownloadFilename());
     })->name('certificates.download');
 
     // CRM & Automation routes

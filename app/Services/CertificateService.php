@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Certificate;
 use App\Models\CertificateIssue;
 use App\Models\ClassModel;
+use App\Models\Enrollment;
 use App\Models\Student;
 use Illuminate\Support\Collection;
 
@@ -105,7 +106,7 @@ class CertificateService
                 'completion_date' => $class->isCompleted() ? $class->updated_at->format('F j, Y') : now()->format('F j, Y'),
             ];
 
-            // Create certificate issue
+            // Create certificate issue (certificate_number is auto-generated in model boot)
             $certificateIssue = CertificateIssue::create([
                 'certificate_id' => $certificate->id,
                 'student_id' => $student->id,
@@ -117,8 +118,15 @@ class CertificateService
                 'status' => 'issued',
             ]);
 
+            // Add certificate number and verification URL to data for PDF generation
+            $dataSnapshot['certificate_number'] = $certificateIssue->certificate_number;
+            $dataSnapshot['verification_url'] = $certificateIssue->getVerificationUrl();
+
+            // Resolve enrollment model from ID for the PDF generator
+            $enrollment = $enrollmentId ? Enrollment::find($enrollmentId) : null;
+
             // Generate PDF
-            $pdfPath = $this->pdfGenerator->generate($certificate, $student, $enrollmentId, $dataSnapshot);
+            $pdfPath = $this->pdfGenerator->generate($certificate, $student, $enrollment, $dataSnapshot);
             $certificateIssue->update(['file_path' => $pdfPath]);
 
             return [

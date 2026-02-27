@@ -655,3 +655,473 @@ export function initializeSalesDeptCharts(monthlyData) {
 }
 
 window.initializeSalesDeptCharts = initializeSalesDeptCharts;
+
+// Product Report Charts
+let productMonthlyTrendChartInstance = null;
+let productRevenueBarChartInstance = null;
+
+export function initProductMonthlyTrendChart(monthlyProductData) {
+    const months = monthlyProductData.map(item => item.month_name);
+    const revenue = monthlyProductData.map(item => item.revenue);
+    const units = monthlyProductData.map(item => item.units_sold);
+
+    const ctx = document.getElementById('productMonthlyTrendChart');
+    if (!ctx) return;
+
+    if (productMonthlyTrendChartInstance) {
+        productMonthlyTrendChartInstance.destroy();
+        productMonthlyTrendChartInstance = null;
+    }
+
+    productMonthlyTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Revenue',
+                    data: revenue,
+                    borderColor: 'rgb(99, 102, 241)',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Units Sold',
+                    data: units,
+                    borderColor: 'rgb(20, 184, 166)',
+                    backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.datasetIndex === 0) {
+                                return 'Revenue: RM ' + context.parsed.y.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            } else {
+                                return 'Units: ' + context.parsed.y;
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Revenue (RM)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return 'RM ' + value.toLocaleString('en-MY');
+                        }
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Units Sold'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+export function initProductRevenueBarChart(topProducts) {
+    if (!topProducts || topProducts.length === 0) return;
+
+    const labels = topProducts.map(p => {
+        const name = p.display_name || p.product_name;
+        return name.length > 20 ? name.substring(0, 20) + '...' : name;
+    });
+    const revenue = topProducts.map(p => p.revenue);
+
+    const ctx = document.getElementById('productRevenueBarChart');
+    if (!ctx) return;
+
+    if (productRevenueBarChartInstance) {
+        productRevenueBarChartInstance.destroy();
+        productRevenueBarChartInstance = null;
+    }
+
+    const colors = [
+        'rgba(99, 102, 241, 0.8)',
+        'rgba(20, 184, 166, 0.8)',
+        'rgba(245, 158, 11, 0.8)',
+        'rgba(239, 68, 68, 0.8)',
+        'rgba(34, 197, 94, 0.8)',
+        'rgba(168, 85, 247, 0.8)',
+        'rgba(59, 130, 246, 0.8)',
+        'rgba(236, 72, 153, 0.8)',
+        'rgba(251, 146, 60, 0.8)',
+        'rgba(14, 165, 233, 0.8)',
+    ];
+
+    productRevenueBarChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Revenue',
+                    data: revenue,
+                    backgroundColor: colors.slice(0, revenue.length),
+                    borderWidth: 0,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false,
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: RM ' + context.parsed.x.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'RM ' + value.toLocaleString('en-MY');
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+export function initializeProductReportCharts(monthlyProductData, topProducts) {
+    initProductMonthlyTrendChart(monthlyProductData);
+    initProductRevenueBarChart(topProducts);
+}
+
+window.initializeProductReportCharts = initializeProductReportCharts;
+
+// Agent Product Insights Charts
+let agentProductTrendInstance = null;
+let agentProductBarInstance = null;
+
+export function initAgentProductMonthlyTrend(monthlyProductData) {
+    const months = monthlyProductData.map(item => item.month_name);
+    const revenue = monthlyProductData.map(item => item.revenue);
+    const units = monthlyProductData.map(item => item.units_sold);
+
+    const ctx = document.getElementById('agentProductMonthlyTrendChart');
+    if (!ctx) return;
+
+    if (agentProductTrendInstance) {
+        agentProductTrendInstance.destroy();
+        agentProductTrendInstance = null;
+    }
+
+    agentProductTrendInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Revenue',
+                    data: revenue,
+                    borderColor: 'rgb(99, 102, 241)',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Units Sold',
+                    data: units,
+                    borderColor: 'rgb(20, 184, 166)',
+                    backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.datasetIndex === 0) {
+                                return 'Revenue: RM ' + context.parsed.y.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                            return 'Units: ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear', display: true, position: 'left', beginAtZero: true,
+                    title: { display: true, text: 'Revenue (RM)' },
+                    ticks: { callback: function(value) { return 'RM ' + value.toLocaleString('en-MY'); } }
+                },
+                y1: {
+                    type: 'linear', display: true, position: 'right', beginAtZero: true,
+                    title: { display: true, text: 'Units Sold' },
+                    grid: { drawOnChartArea: false },
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+}
+
+export function initAgentProductRevenueBar(topProducts) {
+    if (!topProducts || topProducts.length === 0) return;
+
+    const labels = topProducts.map(p => {
+        const name = p.product_name || '';
+        return name.length > 20 ? name.substring(0, 20) + '...' : name;
+    });
+    const revenue = topProducts.map(p => p.total_revenue);
+
+    const ctx = document.getElementById('agentProductRevenueBarChart');
+    if (!ctx) return;
+
+    if (agentProductBarInstance) {
+        agentProductBarInstance.destroy();
+        agentProductBarInstance = null;
+    }
+
+    const colors = [
+        'rgba(99, 102, 241, 0.8)', 'rgba(20, 184, 166, 0.8)', 'rgba(245, 158, 11, 0.8)',
+        'rgba(239, 68, 68, 0.8)', 'rgba(34, 197, 94, 0.8)', 'rgba(168, 85, 247, 0.8)',
+        'rgba(59, 130, 246, 0.8)', 'rgba(236, 72, 153, 0.8)', 'rgba(251, 146, 60, 0.8)',
+        'rgba(14, 165, 233, 0.8)',
+    ];
+
+    agentProductBarInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Revenue',
+                data: revenue,
+                backgroundColor: colors.slice(0, revenue.length),
+                borderWidth: 0,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: RM ' + context.parsed.x.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { callback: function(value) { return 'RM ' + value.toLocaleString('en-MY'); } }
+                }
+            }
+        }
+    });
+}
+
+export function initializeAgentProductCharts(monthlyProductData, topProducts) {
+    requestAnimationFrame(() => {
+        initAgentProductMonthlyTrend(monthlyProductData);
+        initAgentProductRevenueBar(topProducts);
+    });
+}
+
+export function destroyAgentProductCharts() {
+    if (agentProductTrendInstance) { agentProductTrendInstance.destroy(); agentProductTrendInstance = null; }
+    if (agentProductBarInstance) { agentProductBarInstance.destroy(); agentProductBarInstance = null; }
+}
+
+window.initializeAgentProductCharts = initializeAgentProductCharts;
+window.destroyAgentProductCharts = destroyAgentProductCharts;
+
+// Agent Leaderboard Charts
+let agentLeaderboardTrendInstance = null;
+let agentLeaderboardBarInstance = null;
+
+export function initAgentLeaderboardTrend(monthlyAgentData) {
+    const months = monthlyAgentData.map(item => item.month_name);
+    const agentRevenue = monthlyAgentData.map(item => item.agent_revenue);
+    const companyRevenue = monthlyAgentData.map(item => item.company_revenue);
+
+    const ctx = document.getElementById('agentLeaderboardTrendChart');
+    if (!ctx) return;
+
+    if (agentLeaderboardTrendInstance) {
+        agentLeaderboardTrendInstance.destroy();
+        agentLeaderboardTrendInstance = null;
+    }
+
+    agentLeaderboardTrendInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Agent Revenue',
+                    data: agentRevenue,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Company Revenue',
+                    data: companyRevenue,
+                    borderColor: 'rgb(168, 85, 247)',
+                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': RM ' + context.parsed.y.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: function(value) { return 'RM ' + value.toLocaleString('en-MY'); } }
+                }
+            }
+        }
+    });
+}
+
+export function initAgentLeaderboardBar(topAgents) {
+    if (!topAgents || topAgents.length === 0) return;
+
+    const labels = topAgents.map(a => {
+        const name = a.name || '';
+        return name.length > 20 ? name.substring(0, 20) + '...' : name;
+    });
+    const revenue = topAgents.map(a => a.total_revenue);
+
+    const ctx = document.getElementById('agentLeaderboardBarChart');
+    if (!ctx) return;
+
+    if (agentLeaderboardBarInstance) {
+        agentLeaderboardBarInstance.destroy();
+        agentLeaderboardBarInstance = null;
+    }
+
+    const colors = topAgents.map(a =>
+        a.type === 'company' ? 'rgba(168, 85, 247, 0.8)' : 'rgba(59, 130, 246, 0.8)'
+    );
+
+    agentLeaderboardBarInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Revenue',
+                data: revenue,
+                backgroundColor: colors,
+                borderWidth: 0,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: RM ' + context.parsed.x.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { callback: function(value) { return 'RM ' + value.toLocaleString('en-MY'); } }
+                }
+            }
+        }
+    });
+}
+
+export function initializeAgentLeaderboardCharts(monthlyAgentData, topAgents) {
+    requestAnimationFrame(() => {
+        initAgentLeaderboardTrend(monthlyAgentData);
+        initAgentLeaderboardBar(topAgents);
+    });
+}
+
+export function destroyAgentLeaderboardCharts() {
+    if (agentLeaderboardTrendInstance) { agentLeaderboardTrendInstance.destroy(); agentLeaderboardTrendInstance = null; }
+    if (agentLeaderboardBarInstance) { agentLeaderboardBarInstance.destroy(); agentLeaderboardBarInstance = null; }
+}
+
+window.initializeAgentLeaderboardCharts = initializeAgentLeaderboardCharts;
+window.destroyAgentLeaderboardCharts = destroyAgentLeaderboardCharts;

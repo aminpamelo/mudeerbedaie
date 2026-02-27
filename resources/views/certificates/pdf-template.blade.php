@@ -7,6 +7,8 @@
     <meta charset="utf-8">
     <title>{{ $data['certificate_name'] ?? 'Certificate' }}</title>
     <style>
+        @import url('https://fonts.bunny.net/css?family=montserrat:400,500,600,700|playfair-display:400,700|lora:400,700|poppins:400,500,600,700|raleway:400,500,600,700|roboto:400,500,700|open-sans:400,600,700|nunito:400,600,700|merriweather:400,700|oswald:400,500,600,700|dancing-script:400,700|amiri:400,700|scheherazade-new:400,700|noto-sans-arabic:400,700');
+
         * {
             margin: 0;
             padding: 0;
@@ -116,9 +118,7 @@
                     letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
                     transform: rotate({{ $rotation }}deg);
                     opacity: {{ $opacity }};
-                ">
-                    {{ $element['content'] ?? '' }}
-                </div>
+                ">{{ $element['content'] ?? '' }}</div>
 
             @elseif($elementType === 'dynamic')
                 {{-- Dynamic data element --}}
@@ -141,11 +141,10 @@
                     color: {{ $element['color'] ?? '#000000' }};
                     text-align: {{ $element['textAlign'] ?? 'left' }};
                     line-height: {{ $element['lineHeight'] ?? 1.2 }};
+                    letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
                     transform: rotate({{ $rotation }}deg);
                     opacity: {{ $opacity }};
-                ">
-                    {{ $displayContent }}
-                </div>
+                ">{{ $displayContent }}</div>
 
             @elseif($elementType === 'image')
                 {{-- Image element --}}

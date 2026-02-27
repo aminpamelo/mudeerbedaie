@@ -71,7 +71,7 @@ new class extends Component
         // Log the download
         $issue->logAction('downloaded', auth()->user());
 
-        return \Storage::disk('public')->download($issue->file_path, $issue->certificate_number.'.pdf');
+        return \Storage::disk('public')->download($issue->file_path, $issue->getDownloadFilename());
     }
 
     public function revokeCertificate(int $id): void

@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Certificate;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
@@ -36,6 +38,7 @@ new class extends Component
     // UI state
     public ?int $selectedElementIndex = null;
 
+    #[Url(as: 'tab')]
     public string $activeTab = 'design';
 
     // Assignment properties
@@ -254,8 +257,6 @@ new class extends Component
             'type' => 'success',
             'message' => 'Certificate template updated successfully.',
         ]);
-
-        $this->redirect(route('certificates.index'));
     }
 
     public function assignToCourse(): void
@@ -364,6 +365,33 @@ new class extends Component
         }
     }
 
+    public function downloadPreviewPdf()
+    {
+        $previewData = $this->certificate->generatePreview();
+
+        $html = view('certificates.pdf-template', [
+            'certificate' => $this->certificate,
+            'width' => $this->width,
+            'height' => $this->height,
+            'backgroundColor' => $this->backgroundColor,
+            'backgroundImage' => $this->backgroundImagePath,
+            'elements' => $this->elements,
+            'data' => $previewData,
+        ])->render();
+
+        $pdf = Pdf::loadHTML($html)
+            ->setPaper(
+                $this->size === 'letter' ? 'letter' : 'a4',
+                $this->orientation
+            )
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true);
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, 'certificate-preview.pdf');
+    }
+
     public function with(): array
     {
         $assignedCourses = $this->certificate->courses()
@@ -378,6 +406,7 @@ new class extends Component
         $availableCourses = \App\Models\Course::query()
             ->when($this->searchCourses, fn ($q) => $q->where('name', 'like', "%{$this->searchCourses}%"))
             ->whereNotIn('id', $this->certificate->courses()->pluck('courses.id'))
+            ->limit(20)
             ->get();
 
         $availableClasses = \App\Models\ClassModel::query()
@@ -387,6 +416,7 @@ new class extends Component
                     ->orWhereHas('course', fn ($q) => $q->where('name', 'like', "%{$this->searchClasses}%"));
             })
             ->whereNotIn('id', $this->certificate->classes()->pluck('classes.id'))
+            ->limit(20)
             ->get();
 
         return [
@@ -398,8 +428,13 @@ new class extends Component
     }
 }; ?>
 
+@push('styles')
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link href="https://fonts.bunny.net/css?family=montserrat:400,500,600,700|playfair-display:400,700|lora:400,700|poppins:400,500,600,700|raleway:400,500,600,700|roboto:400,500,700|open-sans:400,600,700|nunito:400,600,700|merriweather:400,700|oswald:400,500,600,700|dancing-script:400,700|amiri:400,700|scheherazade-new:400,700|noto-sans-arabic:400,700" rel="stylesheet" />
+@endpush
+
 <div>
-    <div class="mb-6">
+    <div class="mb-6 flex items-center justify-between">
         <div class="flex items-center gap-4">
             <a href="{{ route('certificates.index') }}" class="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
                 <flux:icon name="arrow-left" class="h-5 w-5" />
@@ -409,6 +444,9 @@ new class extends Component
                 <flux:text class="mt-2">{{ $certificate->name }}</flux:text>
             </div>
         </div>
+        <flux:button variant="outline" wire:click="downloadPreviewPdf" icon="arrow-down-tray">
+            Download Preview
+        </flux:button>
     </div>
 
     {{-- Tabs --}}
@@ -417,44 +455,28 @@ new class extends Component
             <button
                 type="button"
                 wire:click="$set('activeTab', 'design')"
-                @class([
-                    'px-4 py-2 font-medium text-sm transition-colors',
-                    'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' => $activeTab === 'design',
-                    'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' => $activeTab !== 'design',
-                ])
+                class="px-4 py-2 font-medium text-sm transition-colors {{ $activeTab === 'design' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}"
             >
                 Design
             </button>
             <button
                 type="button"
                 wire:click="$set('activeTab', 'settings')"
-                @class([
-                    'px-4 py-2 font-medium text-sm transition-colors',
-                    'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' => $activeTab === 'settings',
-                    'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' => $activeTab !== 'settings',
-                ])
+                class="px-4 py-2 font-medium text-sm transition-colors {{ $activeTab === 'settings' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}"
             >
                 Settings
             </button>
             <button
                 type="button"
                 wire:click="$set('activeTab', 'assignments')"
-                @class([
-                    'px-4 py-2 font-medium text-sm transition-colors',
-                    'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' => $activeTab === 'assignments',
-                    'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' => $activeTab !== 'assignments',
-                ])
+                class="px-4 py-2 font-medium text-sm transition-colors {{ $activeTab === 'assignments' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}"
             >
                 Assignments
             </button>
             <button
                 type="button"
                 wire:click="$set('activeTab', 'preview')"
-                @class([
-                    'px-4 py-2 font-medium text-sm transition-colors',
-                    'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' => $activeTab === 'preview',
-                    'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' => $activeTab !== 'preview',
-                ])
+                class="px-4 py-2 font-medium text-sm transition-colors {{ $activeTab === 'preview' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}"
             >
                 Preview
             </button>
@@ -534,32 +556,39 @@ new class extends Component
                                     @endif
                             @foreach($elements as $index => $element)
                                 <div
+                                    wire:key="element-{{ $index }}"
                                     x-data="{
                                         isDragging: false,
-                                        startX: 0,
-                                        startY: 0,
+                                        isHovered: false,
+                                        offsetX: 0,
+                                        offsetY: 0,
                                         currentX: {{ $element['x'] }},
                                         currentY: {{ $element['y'] }},
-                                        getScale() {
-                                            return this.$el.closest('[x-data]')?.scale || 1;
-                                        }
                                     }"
-                                    x-on:mousedown="
+                                    x-on:mouseenter="isHovered = true"
+                                    x-on:mouseleave="isHovered = false"
+                                    x-init="
+                                        $wire.$watch('elements.{{ $index }}.x', v => { if (!isDragging) currentX = v });
+                                        $wire.$watch('elements.{{ $index }}.y', v => { if (!isDragging) currentY = v });
+                                    "
+                                    x-on:mousedown.stop.prevent="
                                         isDragging = true;
-                                        const scale = getScale();
                                         const rect = $el.parentElement.getBoundingClientRect();
-                                        startX = ($event.clientX - rect.left) / scale;
-                                        startY = ($event.clientY - rect.top) / scale;
+                                        const scale = rect.width / {{ $width }};
+                                        const mouseX = ($event.clientX - rect.left) / scale;
+                                        const mouseY = ($event.clientY - rect.top) / scale;
+                                        offsetX = mouseX - currentX;
+                                        offsetY = mouseY - currentY;
                                         $wire.selectElement({{ $index }});
                                     "
                                     x-on:mousemove.window="
                                         if (isDragging) {
-                                            const scale = getScale();
                                             const rect = $el.parentElement.getBoundingClientRect();
+                                            const scale = rect.width / {{ $width }};
                                             const mouseX = ($event.clientX - rect.left) / scale;
                                             const mouseY = ($event.clientY - rect.top) / scale;
-                                            currentX = Math.max(0, Math.min({{ $width - $element['width'] }}, mouseX - (startX - currentX)));
-                                            currentY = Math.max(0, Math.min({{ $height - $element['height'] }}, mouseY - (startY - currentY)));
+                                            currentX = Math.max(0, Math.min({{ $width - (int)$element['width'] }}, mouseX - offsetX));
+                                            currentY = Math.max(0, Math.min({{ $height - (int)$element['height'] }}, mouseY - offsetY));
                                         }
                                     "
                                     x-on:mouseup.window="
@@ -569,7 +598,9 @@ new class extends Component
                                             $wire.set('elements.{{ $index }}.y', Math.round(currentY));
                                         }
                                     "
-                                    class="absolute cursor-move border-2 hover:border-blue-500 {{ $selectedElementIndex === $index ? 'border-blue-500 ring-2 ring-blue-300' : 'border-transparent' }}" :style="`
+                                    class="absolute cursor-move select-none" :style="`
+                                        outline: 2px solid ${ {{ $selectedElementIndex === $index ? 'true' : 'false' }} ? '#3b82f6' : (isHovered ? '#3b82f6' : 'transparent') };
+                                        ${ {{ $selectedElementIndex === $index ? 'true' : 'false' }} ? 'box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);' : '' }
                                         left: ${currentX}px;
                                         top: ${currentY}px;
                                         width: {{ $element['width'] }}px;
@@ -580,25 +611,34 @@ new class extends Component
                                 >
                                     @if($element['type'] === 'text')
                                         <div style="
+                                            width: 100%;
+                                            height: 100%;
                                             font-size: {{ $element['fontSize'] }}px;
                                             font-family: {{ $element['fontFamily'] }};
                                             font-weight: {{ $element['fontWeight'] }};
                                             color: {{ $element['color'] }};
                                             text-align: {{ $element['textAlign'] }};
-                                            line-height: {{ $element['lineHeight'] }};
-                                        ">
-                                            {{ $element['content'] }}
-                                        </div>
+                                            line-height: {{ $element['lineHeight'] ?? 1.2 }};
+                                            letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
+                                            white-space: pre-wrap;
+                                            word-wrap: break-word;
+                                        ">{{ $element['content'] }}</div>
                                     @elseif($element['type'] === 'dynamic')
                                         <div style="
+                                            width: 100%;
+                                            height: 100%;
                                             font-size: {{ $element['fontSize'] }}px;
                                             font-family: {{ $element['fontFamily'] }};
                                             font-weight: {{ $element['fontWeight'] }};
                                             color: {{ $element['color'] }};
                                             text-align: {{ $element['textAlign'] }};
-                                        " class="italic text-gray-400">
-                                            {{ $element['prefix'] }}{{ '{' . $element['field'] . '}' }}{{ $element['suffix'] }}
-                                        </div>
+                                            line-height: {{ $element['lineHeight'] ?? 1.2 }};
+                                            letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
+                                            white-space: pre-wrap;
+                                            word-wrap: break-word;
+                                            font-style: italic;
+                                            opacity: 0.5;
+                                        ">{{ $element['prefix'] }}{{ '{' . $element['field'] . '}' }}{{ $element['suffix'] }}</div>
                                     @elseif($element['type'] === 'shape')
                                         <div style="
                                             width: 100%;
@@ -683,9 +723,42 @@ new class extends Component
                                 </div>
 
                                 <flux:field>
+                                    <flux:label>Font Family</flux:label>
+                                    <flux:select wire:model.live="elements.{{ $selectedElementIndex }}.fontFamily">
+                                        <optgroup label="Sans-Serif">
+                                            <option value="Arial, sans-serif">Arial</option>
+                                            <option value="'Montserrat', sans-serif">Montserrat</option>
+                                            <option value="'Poppins', sans-serif">Poppins</option>
+                                            <option value="'Raleway', sans-serif">Raleway</option>
+                                            <option value="'Roboto', sans-serif">Roboto</option>
+                                            <option value="'Open Sans', sans-serif">Open Sans</option>
+                                            <option value="'Nunito', sans-serif">Nunito</option>
+                                            <option value="'Oswald', sans-serif">Oswald</option>
+                                        </optgroup>
+                                        <optgroup label="Serif">
+                                            <option value="Georgia, serif">Georgia</option>
+                                            <option value="'Playfair Display', serif">Playfair Display</option>
+                                            <option value="'Lora', serif">Lora</option>
+                                            <option value="'Merriweather', serif">Merriweather</option>
+                                            <option value="'Times New Roman', serif">Times New Roman</option>
+                                        </optgroup>
+                                        <optgroup label="Script">
+                                            <option value="'Dancing Script', cursive">Dancing Script</option>
+                                        </optgroup>
+                                        <optgroup label="Arabic">
+                                            <option value="'Amiri', serif">Amiri</option>
+                                            <option value="'Scheherazade New', serif">Scheherazade New</option>
+                                            <option value="'Noto Sans Arabic', sans-serif">Noto Sans Arabic</option>
+                                        </optgroup>
+                                    </flux:select>
+                                </flux:field>
+
+                                <flux:field>
                                     <flux:label>Font Weight</flux:label>
                                     <flux:select wire:model.live="elements.{{ $selectedElementIndex }}.fontWeight">
                                         <option value="normal">Normal</option>
+                                        <option value="500">Medium</option>
+                                        <option value="600">Semi Bold</option>
                                         <option value="bold">Bold</option>
                                     </flux:select>
                                 </flux:field>
@@ -814,86 +887,189 @@ new class extends Component
                         {{-- Assignment Type Selector --}}
                         <div>
                             <flux:text class="text-sm font-medium mb-2">Assignment Type</flux:text>
-                            <div class="space-y-2">
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="radio" wire:model.live="assignmentType" value="course" class="mr-2">
-                                    <span class="text-sm">Assign to Course</span>
-                                </label>
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="radio" wire:model.live="assignmentType" value="class" class="mr-2">
-                                    <span class="text-sm">Assign to Class</span>
-                                </label>
-                            </div>
+                            <flux:radio.group wire:model.live="assignmentType">
+                                <flux:radio value="course" label="Assign to Course" />
+                                <flux:radio value="class" label="Assign to Class" />
+                            </flux:radio.group>
                         </div>
 
                         @if($assignmentType === 'course')
-                            {{-- Course Assignment --}}
-                            <div>
-                                <flux:field>
-                                    <flux:label>Search Course</flux:label>
-                                    <flux:input
-                                        wire:model.live.debounce.300ms="searchCourses"
-                                        placeholder="Search by course name..."
-                                        icon="magnifying-glass"
-                                    />
-                                </flux:field>
-                            </div>
-
-                            <div>
+                            {{-- Course Assignment - Searchable Combobox --}}
+                            <div
+                                wire:key="combobox-course"
+                                x-data="{
+                                    open: false,
+                                    selectedName: '',
+                                    init() {
+                                        this.$watch('$wire.selectedCourseId', (value) => {
+                                            if (!value) this.selectedName = '';
+                                        });
+                                    },
+                                    selectCourse(id, name) {
+                                        $wire.set('selectedCourseId', id);
+                                        this.selectedName = name;
+                                        this.open = false;
+                                        $wire.set('searchCourses', '');
+                                    }
+                                }"
+                                @click.outside="open = false"
+                            >
                                 <flux:field>
                                     <flux:label>Select Course</flux:label>
-                                    <flux:select wire:model="selectedCourseId">
-                                        <option value="">Choose a course...</option>
-                                        @foreach($availableCourses as $course)
-                                            <option value="{{ $course->id }}">{{ $course->name }}</option>
-                                        @endforeach
-                                    </flux:select>
+                                    <div class="relative">
+                                        {{-- Selected display / Search input --}}
+                                        <div
+                                            x-show="!open && selectedName"
+                                            @click="open = true; $nextTick(() => $refs.courseSearch.focus())"
+                                            class="flex items-center justify-between w-full cursor-pointer rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-700"
+                                        >
+                                            <span x-text="selectedName" class="truncate text-zinc-900 dark:text-zinc-100"></span>
+                                            <flux:icon name="chevron-down" class="w-4 h-4 text-zinc-400 shrink-0 ml-2" />
+                                        </div>
+
+                                        <div x-show="open || !selectedName">
+                                            <div class="relative">
+                                                <flux:icon name="magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                                                <input
+                                                    x-ref="courseSearch"
+                                                    type="text"
+                                                    wire:model.live.debounce.300ms="searchCourses"
+                                                    @focus="open = true"
+                                                    placeholder="Type to search courses..."
+                                                    class="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {{-- Dropdown results --}}
+                                        <div
+                                            x-show="open"
+                                            x-transition:enter="transition ease-out duration-100"
+                                            x-transition:enter-start="opacity-0 -translate-y-1"
+                                            x-transition:enter-end="opacity-100 translate-y-0"
+                                            x-transition:leave="transition ease-in duration-75"
+                                            x-transition:leave-start="opacity-100 translate-y-0"
+                                            x-transition:leave-end="opacity-0 -translate-y-1"
+                                            class="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-700"
+                                        >
+                                            <ul class="max-h-48 overflow-y-auto py-1">
+                                                @forelse($availableCourses as $course)
+                                                    <li
+                                                        wire:key="course-option-{{ $course->id }}"
+                                                        @click="selectCourse({{ $course->id }}, '{{ addslashes($course->name) }}')"
+                                                        class="flex items-center gap-2 cursor-pointer px-3 py-2 text-sm text-zinc-700 hover:bg-blue-50 hover:text-blue-700 dark:text-zinc-200 dark:hover:bg-zinc-600 dark:hover:text-white"
+                                                    >
+                                                        <flux:icon name="academic-cap" class="w-4 h-4 text-zinc-400 shrink-0" />
+                                                        <span class="truncate">{{ $course->name }}</span>
+                                                    </li>
+                                                @empty
+                                                    <li class="px-3 py-4 text-center text-sm text-zinc-400">
+                                                        @if($searchCourses)
+                                                            No courses found for "{{ $searchCourses }}"
+                                                        @else
+                                                            No available courses to assign
+                                                        @endif
+                                                    </li>
+                                                @endforelse
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </flux:field>
                             </div>
 
-                            <div>
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="checkbox" wire:model="isDefaultAssignment" class="mr-2">
-                                    <span class="text-sm">Set as default certificate for this course</span>
-                                </label>
-                            </div>
+                            <flux:checkbox wire:model="isDefaultAssignment" label="Set as default certificate for this course" />
 
                             <flux:button variant="primary" wire:click="assignToCourse" class="w-full">
                                 Assign to Course
                             </flux:button>
                         @else
-                            {{-- Class Assignment --}}
-                            <div>
-                                <flux:field>
-                                    <flux:label>Search Class</flux:label>
-                                    <flux:input
-                                        wire:model.live.debounce.300ms="searchClasses"
-                                        placeholder="Search by class or course name..."
-                                        icon="magnifying-glass"
-                                    />
-                                </flux:field>
-                            </div>
-
-                            <div>
+                            {{-- Class Assignment - Searchable Combobox --}}
+                            <div
+                                wire:key="combobox-class"
+                                x-data="{
+                                    open: false,
+                                    selectedName: '',
+                                    init() {
+                                        this.$watch('$wire.selectedClassId', (value) => {
+                                            if (!value) this.selectedName = '';
+                                        });
+                                    },
+                                    selectClass(id, name) {
+                                        $wire.set('selectedClassId', id);
+                                        this.selectedName = name;
+                                        this.open = false;
+                                        $wire.set('searchClasses', '');
+                                    }
+                                }"
+                                @click.outside="open = false"
+                            >
                                 <flux:field>
                                     <flux:label>Select Class</flux:label>
-                                    <flux:select wire:model="selectedClassId">
-                                        <option value="">Choose a class...</option>
-                                        @foreach($availableClasses as $class)
-                                            <option value="{{ $class->id }}">
-                                                {{ $class->title }} ({{ $class->course->name }})
-                                            </option>
-                                        @endforeach
-                                    </flux:select>
+                                    <div class="relative">
+                                        {{-- Selected display / Search input --}}
+                                        <div
+                                            x-show="!open && selectedName"
+                                            @click="open = true; $nextTick(() => $refs.classSearch.focus())"
+                                            class="flex items-center justify-between w-full cursor-pointer rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-700"
+                                        >
+                                            <span x-text="selectedName" class="truncate text-zinc-900 dark:text-zinc-100"></span>
+                                            <flux:icon name="chevron-down" class="w-4 h-4 text-zinc-400 shrink-0 ml-2" />
+                                        </div>
+
+                                        <div x-show="open || !selectedName">
+                                            <div class="relative">
+                                                <flux:icon name="magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                                                <input
+                                                    x-ref="classSearch"
+                                                    type="text"
+                                                    wire:model.live.debounce.300ms="searchClasses"
+                                                    @focus="open = true"
+                                                    placeholder="Type to search classes..."
+                                                    class="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {{-- Dropdown results --}}
+                                        <div
+                                            x-show="open"
+                                            x-transition:enter="transition ease-out duration-100"
+                                            x-transition:enter-start="opacity-0 -translate-y-1"
+                                            x-transition:enter-end="opacity-100 translate-y-0"
+                                            x-transition:leave="transition ease-in duration-75"
+                                            x-transition:leave-start="opacity-100 translate-y-0"
+                                            x-transition:leave-end="opacity-0 -translate-y-1"
+                                            class="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-700"
+                                        >
+                                            <ul class="max-h-48 overflow-y-auto py-1">
+                                                @forelse($availableClasses as $class)
+                                                    <li
+                                                        wire:key="class-option-{{ $class->id }}"
+                                                        @click="selectClass({{ $class->id }}, '{{ addslashes($class->title) }} ({{ addslashes($class->course->name) }})')"
+                                                        class="flex items-center gap-2 cursor-pointer px-3 py-2 text-sm text-zinc-700 hover:bg-blue-50 hover:text-blue-700 dark:text-zinc-200 dark:hover:bg-zinc-600 dark:hover:text-white"
+                                                    >
+                                                        <flux:icon name="user-group" class="w-4 h-4 text-zinc-400 shrink-0" />
+                                                        <div class="min-w-0">
+                                                            <span class="block truncate">{{ $class->title }}</span>
+                                                            <span class="block truncate text-xs text-zinc-400 dark:text-zinc-500">{{ $class->course->name }}</span>
+                                                        </div>
+                                                    </li>
+                                                @empty
+                                                    <li class="px-3 py-4 text-center text-sm text-zinc-400">
+                                                        @if($searchClasses)
+                                                            No classes found for "{{ $searchClasses }}"
+                                                        @else
+                                                            No available classes to assign
+                                                        @endif
+                                                    </li>
+                                                @endforelse
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </flux:field>
                             </div>
 
-                            <div>
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="checkbox" wire:model="isDefaultAssignment" class="mr-2">
-                                    <span class="text-sm">Set as default certificate for this class</span>
-                                </label>
-                            </div>
+                            <flux:checkbox wire:model="isDefaultAssignment" label="Set as default certificate for this class" />
 
                             <flux:button variant="primary" wire:click="assignToClass" class="w-full">
                                 Assign to Class
@@ -1080,6 +1256,8 @@ new class extends Component
                         >
                             @if($element['type'] === 'text')
                                 <div style="
+                                    width: 100%;
+                                    height: 100%;
                                     font-size: {{ $element['fontSize'] }}px;
                                     font-family: {{ $element['fontFamily'] }};
                                     font-weight: {{ $element['fontWeight'] }};
@@ -1089,11 +1267,11 @@ new class extends Component
                                     letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
                                     white-space: pre-wrap;
                                     word-wrap: break-word;
-                                ">
-                                    {{ $element['content'] }}
-                                </div>
+                                ">{{ $element['content'] }}</div>
                             @elseif($element['type'] === 'dynamic')
                                 <div style="
+                                    width: 100%;
+                                    height: 100%;
                                     font-size: {{ $element['fontSize'] }}px;
                                     font-family: {{ $element['fontFamily'] }};
                                     font-weight: {{ $element['fontWeight'] }};
@@ -1103,9 +1281,7 @@ new class extends Component
                                     letter-spacing: {{ $element['letterSpacing'] ?? 0 }}px;
                                     white-space: pre-wrap;
                                     word-wrap: break-word;
-                                ">
-                                    {{ $element['prefix'] ?? '' }}{{ $sampleData[$element['field']] ?? 'Sample Data' }}{{ $element['suffix'] ?? '' }}
-                                </div>
+                                ">{{ $element['prefix'] ?? '' }}{{ $sampleData[$element['field']] ?? 'Sample Data' }}{{ $element['suffix'] ?? '' }}</div>
                             @elseif($element['type'] === 'image')
                                 @if(!empty($element['src']))
                                     <img
@@ -1151,5 +1327,40 @@ new class extends Component
                 Save & Activate
             </flux:button>
         @endif
+    </div>
+
+    <!-- Toast Notification -->
+    <div
+        x-data="{ show: false, message: '', type: 'success' }"
+        x-on:notify.window="
+            show = true;
+            message = $event.detail.message || 'Operation successful';
+            type = $event.detail.type || 'success';
+            setTimeout(() => show = false, 4000)
+        "
+        x-show="show"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 transform translate-y-2"
+        x-transition:enter-end="opacity-100 transform translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 transform translate-y-0"
+        x-transition:leave-end="opacity-0 transform translate-y-2"
+        class="fixed bottom-4 right-4 z-50"
+        style="display: none;"
+    >
+        <div
+            x-show="type === 'success'"
+            class="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg shadow-lg"
+        >
+            <flux:icon.check-circle class="w-5 h-5 text-green-600" />
+            <span x-text="message"></span>
+        </div>
+        <div
+            x-show="type === 'error'"
+            class="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 text-red-800 rounded-lg shadow-lg"
+        >
+            <flux:icon.exclamation-circle class="w-5 h-5 text-red-600" />
+            <span x-text="message"></span>
+        </div>
     </div>
 </div>

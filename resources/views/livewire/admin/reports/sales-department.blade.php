@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ProductOrder;
+use App\Models\ProductOrderItem;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,8 @@ new class extends Component
     use WithPagination;
 
     public string $activeTab = 'reports';
+
+    public string $reportSubTab = 'team_sales';
 
     public string $selectedSalesperson = 'all';
 
@@ -40,6 +43,17 @@ new class extends Component
     public array $monthlyPivotData = [];
 
     public array $pivotSalespersons = [];
+
+    // Product Report data
+    public array $productSummary = [];
+
+    public array $topProductsByRevenue = [];
+
+    public array $topProductsByVolume = [];
+
+    public array $monthlyProductData = [];
+
+    public array $productDetailTable = [];
 
     public function mount(): void
     {
@@ -83,6 +97,25 @@ new class extends Component
     public function setActiveTab(string $tab): void
     {
         $this->activeTab = $tab;
+
+        if ($tab === 'reports') {
+            $this->dispatchChartsForSubTab();
+        }
+    }
+
+    public function setReportSubTab(string $subTab): void
+    {
+        $this->reportSubTab = $subTab;
+        $this->dispatchChartsForSubTab();
+    }
+
+    private function dispatchChartsForSubTab(): void
+    {
+        if ($this->reportSubTab === 'team_sales') {
+            $this->dispatch('sales-dept-charts-update', monthlyData: $this->monthlyData);
+        } elseif ($this->reportSubTab === 'product_report') {
+            $this->dispatch('product-report-charts-update', monthlyProductData: $this->monthlyProductData, topProductsByRevenue: $this->topProductsByRevenue);
+        }
     }
 
     private function loadSalespersonOptions(): void
@@ -140,7 +173,14 @@ new class extends Component
         $this->loadSalespersonPerformance();
         $this->loadMonthlyData();
         $this->loadMonthlyPivotData();
-        $this->dispatch('sales-dept-charts-update', monthlyData: $this->monthlyData);
+        $this->loadProductReportData();
+        $this->dispatchChartsForSubTab();
+    }
+
+    private function loadProductReportData(): void
+    {
+        $this->loadProductSummary();
+        $this->loadMonthlyProductData();
     }
 
     private function loadSummary(): void
@@ -349,6 +389,98 @@ new class extends Component
         }
     }
 
+    private function productGroupKey(ProductOrderItem $item): string
+    {
+        if ($item->product_id) {
+            return $item->product_id.'-'.($item->product_variant_id ?? '0');
+        }
+
+        return 'name-'.$item->product_name.'-'.($item->variant_name ?? '');
+    }
+
+    private function loadProductSummary(): void
+    {
+        $orderIds = $this->baseQuery()
+            ->whereNotNull('paid_time')
+            ->pluck('id');
+
+        $items = ProductOrderItem::query()->whereIn('order_id', $orderIds)->get();
+
+        $uniqueProducts = $items->unique(fn ($item) => $this->productGroupKey($item))->count();
+        $totalUnits = (int) $items->sum('quantity_ordered');
+        $totalRevenue = (float) $items->sum('total_price');
+
+        $this->productSummary = [
+            'unique_products' => $uniqueProducts,
+            'total_units' => $totalUnits,
+            'total_revenue' => $totalRevenue,
+            'avg_revenue_per_product' => $uniqueProducts > 0 ? round($totalRevenue / $uniqueProducts, 2) : 0,
+        ];
+
+        $this->buildProductRankings($items);
+    }
+
+    private function buildProductRankings(\Illuminate\Support\Collection $items): void
+    {
+        $grouped = $items->groupBy(fn ($item) => $this->productGroupKey($item));
+
+        $products = [];
+        foreach ($grouped as $key => $group) {
+            $first = $group->first();
+            $revenue = (float) $group->sum('total_price');
+            $units = (int) $group->sum('quantity_ordered');
+
+            $products[] = [
+                'product_name' => $first->product_name,
+                'variant_name' => $first->variant_name,
+                'sku' => $first->sku ?? '-',
+                'display_name' => $first->variant_name ? $first->product_name.' - '.$first->variant_name : $first->product_name,
+                'units_sold' => $units,
+                'revenue' => $revenue,
+                'avg_price' => $units > 0 ? round($revenue / $units, 2) : 0,
+                'order_count' => $group->unique('order_id')->count(),
+            ];
+        }
+
+        $byRevenue = $products;
+        usort($byRevenue, fn ($a, $b) => $b['revenue'] <=> $a['revenue']);
+        $this->topProductsByRevenue = array_slice($byRevenue, 0, 10);
+        $this->productDetailTable = $byRevenue;
+
+        $byVolume = $products;
+        usort($byVolume, fn ($a, $b) => $b['units_sold'] <=> $a['units_sold']);
+        $this->topProductsByVolume = array_slice($byVolume, 0, 10);
+    }
+
+    private function loadMonthlyProductData(): void
+    {
+        $orderIds = $this->baseQuery()
+            ->whereNotNull('paid_time')
+            ->whereYear('order_date', $this->selectedYear)
+            ->pluck('id');
+
+        $items = ProductOrderItem::query()
+            ->whereIn('order_id', $orderIds)
+            ->join('product_orders', 'product_order_items.order_id', '=', 'product_orders.id')
+            ->select('product_order_items.*', 'product_orders.order_date')
+            ->get();
+
+        $monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        $this->monthlyProductData = [];
+
+        for ($m = 1; $m <= 12; $m++) {
+            $monthItems = $items->filter(fn ($item) => (int) Carbon::parse($item->order_date)->format('m') === $m);
+
+            $this->monthlyProductData[] = [
+                'month' => $m,
+                'month_name' => $monthNames[$m - 1],
+                'units_sold' => (int) $monthItems->sum('quantity_ordered'),
+                'revenue' => round((float) $monthItems->sum('total_price'), 2),
+                'unique_products' => $monthItems->unique(fn ($item) => $this->productGroupKey($item))->count(),
+            ];
+        }
+    }
+
     public function exportCsv()
     {
         $query = $this->baseQuery()
@@ -552,6 +684,24 @@ new class extends Component
 
         {{-- Reports Tab --}}
         @if($activeTab === 'reports')
+            {{-- Report Sub-Tabs --}}
+            <div class="flex gap-1 rounded-lg bg-gray-50 p-1 dark:bg-zinc-800/50">
+                <button
+                    wire:click="setReportSubTab('team_sales')"
+                    class="rounded-md px-4 py-1.5 text-sm font-medium transition-colors {{ $reportSubTab === 'team_sales' ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+                >
+                    Team Sales
+                </button>
+                <button
+                    wire:click="setReportSubTab('product_report')"
+                    class="rounded-md px-4 py-1.5 text-sm font-medium transition-colors {{ $reportSubTab === 'product_report' ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+                >
+                    Product Report
+                </button>
+            </div>
+
+            {{-- Team Sales Sub-Tab --}}
+            @if($reportSubTab === 'team_sales')
             {{-- Summary Stats Grid --}}
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <flux:card class="space-y-2">
@@ -802,37 +952,236 @@ new class extends Component
                     </table>
                 </div>
             </flux:card>
+            @endif {{-- end team_sales sub-tab --}}
+
+            {{-- Product Report Sub-Tab --}}
+            @if($reportSubTab === 'product_report')
+            {{-- Product Summary Cards --}}
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <flux:card class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <flux:heading size="lg">{{ number_format($productSummary['unique_products'] ?? 0) }}</flux:heading>
+                        <div class="rounded-lg bg-indigo-100 p-2 dark:bg-indigo-900/30">
+                            <flux:icon name="cube" class="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                    </div>
+                    <flux:text>Unique Products</flux:text>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">Distinct products sold</flux:subheading>
+                </flux:card>
+
+                <flux:card class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <flux:heading size="lg">{{ number_format($productSummary['total_units'] ?? 0) }}</flux:heading>
+                        <div class="rounded-lg bg-teal-100 p-2 dark:bg-teal-900/30">
+                            <flux:icon name="shopping-cart" class="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                        </div>
+                    </div>
+                    <flux:text>Total Units Sold</flux:text>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">Across all products</flux:subheading>
+                </flux:card>
+
+                <flux:card class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <flux:heading size="lg">RM {{ number_format($productSummary['total_revenue'] ?? 0, 2) }}</flux:heading>
+                        <div class="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
+                            <flux:icon name="banknotes" class="h-6 w-6 text-green-600 dark:text-green-400" />
+                        </div>
+                    </div>
+                    <flux:text>Product Revenue</flux:text>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">Total from product sales</flux:subheading>
+                </flux:card>
+
+                <flux:card class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <flux:heading size="lg">RM {{ number_format($productSummary['avg_revenue_per_product'] ?? 0, 2) }}</flux:heading>
+                        <div class="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/30">
+                            <flux:icon name="calculator" class="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                        </div>
+                    </div>
+                    <flux:text>Avg Revenue / Product</flux:text>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">Average per unique product</flux:subheading>
+                </flux:card>
+            </div>
+
+            {{-- Product Charts --}}
+            <div class="grid gap-6 lg:grid-cols-2">
+                <flux:card>
+                    <div class="mb-4">
+                        <flux:heading size="lg">Monthly Product Sales Trend &mdash; {{ $selectedYear }}</flux:heading>
+                        <flux:text>Units sold and revenue throughout the year</flux:text>
+                    </div>
+                    <div style="height: 300px;">
+                        <canvas id="productMonthlyTrendChart"></canvas>
+                    </div>
+                </flux:card>
+
+                <flux:card>
+                    <div class="mb-4">
+                        <flux:heading size="lg">Top Products by Revenue</flux:heading>
+                        <flux:text>Top 10 products ranked by sales revenue</flux:text>
+                    </div>
+                    <div style="height: 300px;">
+                        <canvas id="productRevenueBarChart"></canvas>
+                    </div>
+                </flux:card>
+            </div>
+
+            {{-- Top Products Ranked Cards --}}
+            @if(count($topProductsByRevenue) > 0)
+                <div class="grid gap-6 lg:grid-cols-2">
+                    {{-- Top by Revenue --}}
+                    <flux:card>
+                        <div class="mb-4">
+                            <flux:heading size="lg">Top Products by Revenue</flux:heading>
+                            <flux:text>Ranked by total sales revenue</flux:text>
+                        </div>
+                        <div class="space-y-3">
+                            @foreach($topProductsByRevenue as $index => $product)
+                                <div class="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-zinc-700" wire:key="top-rev-{{ $index }}">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                            {{ $index + 1 }}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <flux:heading size="sm" class="truncate">{{ $product['display_name'] }}</flux:heading>
+                                            <flux:text class="text-xs text-gray-500 dark:text-zinc-400">{{ $product['units_sold'] }} units &middot; {{ $product['order_count'] }} orders</flux:text>
+                                        </div>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <flux:heading size="sm">RM {{ number_format($product['revenue'], 2) }}</flux:heading>
+                                        <flux:text class="text-xs text-gray-500 dark:text-zinc-400">Avg RM {{ number_format($product['avg_price'], 2) }}</flux:text>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </flux:card>
+
+                    {{-- Top by Volume --}}
+                    <flux:card>
+                        <div class="mb-4">
+                            <flux:heading size="lg">Top Products by Volume</flux:heading>
+                            <flux:text>Ranked by units sold</flux:text>
+                        </div>
+                        <div class="space-y-3">
+                            @foreach($topProductsByVolume as $index => $product)
+                                <div class="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-zinc-700" wire:key="top-vol-{{ $index }}">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">
+                                            {{ $index + 1 }}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <flux:heading size="sm" class="truncate">{{ $product['display_name'] }}</flux:heading>
+                                            <flux:text class="text-xs text-gray-500 dark:text-zinc-400">RM {{ number_format($product['revenue'], 2) }} revenue</flux:text>
+                                        </div>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <flux:heading size="sm">{{ number_format($product['units_sold']) }} units</flux:heading>
+                                        <flux:text class="text-xs text-gray-500 dark:text-zinc-400">{{ $product['order_count'] }} orders</flux:text>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </flux:card>
+                </div>
+            @endif
+
+            {{-- Product Detail Table --}}
+            <flux:card>
+                <div class="mb-4">
+                    <flux:heading size="lg">Product Sales Detail</flux:heading>
+                    <flux:text>Complete breakdown of all products sold</flux:text>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-zinc-800">
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">#</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Product</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">SKU</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Units Sold</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Orders</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Avg Price</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white dark:divide-zinc-700 dark:bg-transparent">
+                            @forelse($productDetailTable as $index => $product)
+                                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800" wire:key="product-detail-{{ $index }}">
+                                    <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">{{ $index + 1 }}</td>
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-zinc-100">
+                                        {{ $product['display_name'] }}
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">{{ $product['sku'] }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900 dark:text-zinc-100">{{ number_format($product['units_sold']) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-500 dark:text-zinc-400">{{ number_format($product['order_count']) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-500 dark:text-zinc-400">RM {{ number_format($product['avg_price'], 2) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-zinc-100">RM {{ number_format($product['revenue'], 2) }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-zinc-400">
+                                        No product data found matching your filters.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                        @if(count($productDetailTable) > 0)
+                            <tfoot class="border-t-2 border-gray-300 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-800">
+                                <tr>
+                                    <td class="px-4 py-3"></td>
+                                    <td class="px-4 py-3 text-sm font-bold text-gray-900 dark:text-zinc-100">Total</td>
+                                    <td class="px-4 py-3"></td>
+                                    <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-zinc-100">{{ number_format(collect($productDetailTable)->sum('units_sold')) }}</td>
+                                    <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-zinc-100">{{ number_format(collect($productDetailTable)->sum('order_count')) }}</td>
+                                    <td class="px-4 py-3"></td>
+                                    <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-zinc-100">RM {{ number_format(collect($productDetailTable)->sum('revenue'), 2) }}</td>
+                                </tr>
+                            </tfoot>
+                        @endif
+                    </table>
+                </div>
+            </flux:card>
+            @endif {{-- end product_report sub-tab --}}
         @endif
 
     </div>
 
-    @if($activeTab === 'reports')
-        @vite('resources/js/reports-charts.js')
-        <script>
-            function renderSalesDeptCharts(monthlyData) {
+    @vite('resources/js/reports-charts.js')
+    @script
+    <script>
+        // Initial render
+        if ($wire.activeTab === 'reports') {
+            if ($wire.reportSubTab === 'team_sales') {
+                setTimeout(() => {
+                    if (typeof window.initializeSalesDeptCharts === 'function') {
+                        window.initializeSalesDeptCharts($wire.monthlyData);
+                    }
+                }, 50);
+            } else if ($wire.reportSubTab === 'product_report') {
+                setTimeout(() => {
+                    if (typeof window.initializeProductReportCharts === 'function') {
+                        window.initializeProductReportCharts($wire.monthlyProductData, $wire.topProductsByRevenue);
+                    }
+                }, 50);
+            }
+        }
+
+        // Re-render when filters change or tab switches back (dispatched from PHP)
+        $wire.on('sales-dept-charts-update', (event) => {
+            setTimeout(() => {
                 if (typeof window.initializeSalesDeptCharts === 'function') {
-                    window.initializeSalesDeptCharts(monthlyData);
+                    window.initializeSalesDeptCharts(event.monthlyData);
                 }
-            }
+            }, 100);
+        });
 
-            // Initial render with current data
-            const initialData = @json($monthlyData);
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => renderSalesDeptCharts(initialData));
-            } else {
-                setTimeout(() => renderSalesDeptCharts(initialData), 50);
-            }
-
-            // Re-render after Livewire navigations
-            document.addEventListener('livewire:navigated', () => renderSalesDeptCharts(initialData));
-
-            // Re-render when filters change (dispatched from PHP)
-            document.addEventListener('livewire:init', () => {
-                Livewire.on('sales-dept-charts-update', (event) => {
-                    setTimeout(() => renderSalesDeptCharts(event.monthlyData), 50);
-                });
-            });
-        </script>
-    @endif
+        $wire.on('product-report-charts-update', (event) => {
+            setTimeout(() => {
+                if (typeof window.initializeProductReportCharts === 'function') {
+                    window.initializeProductReportCharts(event.monthlyProductData, event.topProductsByRevenue);
+                }
+            }, 100);
+        });
+    </script>
+    @endscript
 </div>

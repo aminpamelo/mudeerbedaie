@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\ProductOrder;
+use App\Models\ProductOrderItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Volt\Volt;
@@ -221,4 +222,231 @@ test('export csv returns downloadable response', function () {
         ->set('selectedPeriod', 'all')
         ->call('exportCsv')
         ->assertFileDownloaded();
+});
+
+// ===== Product Report Sub-Tab Tests =====
+
+test('report sub-tab defaults to team sales', function () {
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin);
+
+    Volt::test('admin.reports.sales-department')
+        ->assertSet('reportSubTab', 'team_sales');
+});
+
+test('can switch to product report sub-tab', function () {
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin);
+
+    Volt::test('admin.reports.sales-department')
+        ->call('setReportSubTab', 'product_report')
+        ->assertSet('reportSubTab', 'product_report');
+});
+
+test('product report shows product summary data', function () {
+    $admin = User::factory()->admin()->create();
+
+    $order = ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 150.00,
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $admin->id, 'salesperson_name' => $admin->name],
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_name' => 'Test Product A',
+        'quantity_ordered' => 3,
+        'unit_price' => 30.00,
+        'total_price' => 90.00,
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_name' => 'Test Product B',
+        'quantity_ordered' => 2,
+        'unit_price' => 30.00,
+        'total_price' => 60.00,
+    ]);
+
+    $this->actingAs($admin);
+
+    $component = Volt::test('admin.reports.sales-department')
+        ->set('selectedPeriod', 'all');
+
+    $summary = $component->get('productSummary');
+
+    expect($summary['unique_products'])->toBe(2);
+    expect($summary['total_units'])->toBe(5);
+    expect($summary['total_revenue'])->toBe(150.0);
+});
+
+test('product report shows top products by revenue', function () {
+    $admin = User::factory()->admin()->create();
+
+    $order = ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 300.00,
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $admin->id, 'salesperson_name' => $admin->name],
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_name' => 'Expensive Product',
+        'quantity_ordered' => 1,
+        'unit_price' => 200.00,
+        'total_price' => 200.00,
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_name' => 'Cheap Product',
+        'quantity_ordered' => 5,
+        'unit_price' => 20.00,
+        'total_price' => 100.00,
+    ]);
+
+    $this->actingAs($admin);
+
+    $component = Volt::test('admin.reports.sales-department')
+        ->set('selectedPeriod', 'all');
+
+    $topByRevenue = $component->get('topProductsByRevenue');
+
+    expect($topByRevenue)->toHaveCount(2);
+    expect($topByRevenue[0]['product_name'])->toBe('Expensive Product');
+    expect($topByRevenue[0]['revenue'])->toBe(200.0);
+    expect($topByRevenue[1]['product_name'])->toBe('Cheap Product');
+});
+
+test('product report shows top products by volume', function () {
+    $admin = User::factory()->admin()->create();
+
+    $order = ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 300.00,
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $admin->id, 'salesperson_name' => $admin->name],
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_name' => 'Expensive Product',
+        'quantity_ordered' => 1,
+        'unit_price' => 200.00,
+        'total_price' => 200.00,
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_name' => 'Popular Product',
+        'quantity_ordered' => 10,
+        'unit_price' => 10.00,
+        'total_price' => 100.00,
+    ]);
+
+    $this->actingAs($admin);
+
+    $component = Volt::test('admin.reports.sales-department')
+        ->set('selectedPeriod', 'all');
+
+    $topByVolume = $component->get('topProductsByVolume');
+
+    expect($topByVolume)->toHaveCount(2);
+    expect($topByVolume[0]['product_name'])->toBe('Popular Product');
+    expect($topByVolume[0]['units_sold'])->toBe(10);
+});
+
+test('product report filters by salesperson', function () {
+    $admin = User::factory()->admin()->create();
+    $salesUser1 = User::factory()->sales()->create();
+    $salesUser2 = User::factory()->sales()->create();
+
+    $order1 = ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 100.00,
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $salesUser1->id, 'salesperson_name' => $salesUser1->name],
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order1->id,
+        'product_name' => 'Product From Sales 1',
+        'quantity_ordered' => 2,
+        'unit_price' => 50.00,
+        'total_price' => 100.00,
+    ]);
+
+    $order2 = ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 200.00,
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $salesUser2->id, 'salesperson_name' => $salesUser2->name],
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order2->id,
+        'product_name' => 'Product From Sales 2',
+        'quantity_ordered' => 4,
+        'unit_price' => 50.00,
+        'total_price' => 200.00,
+    ]);
+
+    $this->actingAs($admin);
+
+    $component = Volt::test('admin.reports.sales-department')
+        ->set('selectedSalesperson', (string) $salesUser1->id)
+        ->set('selectedPeriod', 'all');
+
+    $summary = $component->get('productSummary');
+
+    expect($summary['total_units'])->toBe(2);
+    expect($summary['total_revenue'])->toBe(100.0);
+});
+
+test('product detail table contains all products sorted by revenue', function () {
+    $admin = User::factory()->admin()->create();
+
+    $order = ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 300.00,
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $admin->id, 'salesperson_name' => $admin->name],
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_name' => 'Low Revenue',
+        'quantity_ordered' => 1,
+        'unit_price' => 50.00,
+        'total_price' => 50.00,
+    ]);
+
+    ProductOrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_name' => 'High Revenue',
+        'quantity_ordered' => 5,
+        'unit_price' => 50.00,
+        'total_price' => 250.00,
+    ]);
+
+    $this->actingAs($admin);
+
+    $component = Volt::test('admin.reports.sales-department')
+        ->set('selectedPeriod', 'all');
+
+    $table = $component->get('productDetailTable');
+
+    expect($table)->toHaveCount(2);
+    expect($table[0]['product_name'])->toBe('High Revenue');
+    expect($table[1]['product_name'])->toBe('Low Revenue');
 });

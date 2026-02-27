@@ -109,6 +109,11 @@ class CertificateIssue extends Model
         return $this->isIssued();
     }
 
+    public function canBeReinstated(): bool
+    {
+        return $this->isRevoked();
+    }
+
     public function revoke(string $reason, User $user): void
     {
         if (! $this->canBeRevoked()) {
@@ -123,6 +128,22 @@ class CertificateIssue extends Model
         ]);
 
         $this->logAction('revoked', $user);
+    }
+
+    public function reinstate(User $user): void
+    {
+        if (! $this->canBeReinstated()) {
+            throw new \Exception('Certificate cannot be reinstated.');
+        }
+
+        $this->update([
+            'status' => 'issued',
+            'revoked_at' => null,
+            'revoked_by' => null,
+            'revocation_reason' => null,
+        ]);
+
+        $this->logAction('reinstated', $user);
     }
 
     // Certificate number generation
@@ -207,6 +228,19 @@ class CertificateIssue extends Model
         }
 
         return \Storage::disk('public')->url($this->file_path);
+    }
+
+    public function getDownloadFilename(): string
+    {
+        $studentName = preg_replace('/[^a-zA-Z0-9\s]/', '', $this->getStudentName());
+        $studentName = str_replace(' ', '_', trim($studentName));
+
+        $phone = $this->student?->phone_number;
+        $phone = $phone ? preg_replace('/[^0-9]/', '', $phone) : null;
+
+        $parts = array_filter([$studentName, $phone, $this->certificate_number]);
+
+        return implode('_', $parts).'.pdf';
     }
 
     public function getDownloadUrl(): string

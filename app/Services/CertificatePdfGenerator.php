@@ -173,8 +173,6 @@ class CertificatePdfGenerator
         // Log download
         $certificateIssue->logAction('downloaded', auth()->user());
 
-        $fileName = "{$certificateIssue->certificate_number}_Certificate.pdf";
-
-        return Storage::disk('public')->download($certificateIssue->file_path, $fileName);
+        return Storage::disk('public')->download($certificateIssue->file_path, $certificateIssue->getDownloadFilename());
     }
 }
