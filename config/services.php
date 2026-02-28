@@ -47,6 +47,28 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | WhatsApp Provider
+    |--------------------------------------------------------------------------
+    |
+    | Controls which WhatsApp provider is active: 'onsend' (unofficial) or
+    | 'meta' (official Meta Cloud API). Can be overridden via admin settings.
+    |
+    */
+
+    'whatsapp' => [
+        'provider' => env('WHATSAPP_PROVIDER', 'onsend'),
+        'meta' => [
+            'phone_number_id' => env('META_WHATSAPP_PHONE_NUMBER_ID', ''),
+            'access_token' => env('META_WHATSAPP_ACCESS_TOKEN', ''),
+            'waba_id' => env('META_WHATSAPP_WABA_ID', ''),
+            'app_secret' => env('META_WHATSAPP_APP_SECRET', ''),
+            'verify_token' => env('META_WHATSAPP_VERIFY_TOKEN', ''),
+            'api_version' => env('META_WHATSAPP_API_VERSION', 'v21.0'),
+        ],
+    ],
+
     'onsend' => [
         'api_url' => env('ONSEND_API_URL', 'https://onsend.io/api/v1'),
         'api_token' => env('ONSEND_API_TOKEN'),
