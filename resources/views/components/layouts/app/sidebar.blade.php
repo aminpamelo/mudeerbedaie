@@ -355,6 +355,15 @@
                     </flux:navlist.item>
 
                     <flux:navlist.item
+                        icon="chat-bubble-left-right"
+                        :href="route('admin.whatsapp-inbox')"
+                        :current="request()->routeIs('admin.whatsapp-inbox')"
+                        wire:navigate
+                    >
+                        {{ __('WhatsApp Inbox') }}
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
                         icon="device-phone-mobile"
                         :href="route('admin.settings.whatsapp')"
                         :current="request()->routeIs('admin.settings.whatsapp')"

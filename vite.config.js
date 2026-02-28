@@ -23,6 +23,8 @@ export default defineConfig({
                 'resources/js/affiliate-dashboard/index.jsx',
                 'resources/js/pos/index.jsx',
                 'resources/js/pos/styles/pos.css',
+                'resources/js/whatsapp-inbox/index.jsx',
+                'resources/js/whatsapp-inbox/styles/whatsapp-inbox.css',
             ],
             refresh: true,
         }),
