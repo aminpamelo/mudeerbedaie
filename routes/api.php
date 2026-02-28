@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\V1\FunnelPixelController;
 use App\Http\Controllers\Api\V1\FunnelProductController;
 use App\Http\Controllers\Api\V1\FunnelStepController;
 use App\Http\Controllers\Api\WorkflowController;
+use App\Http\Controllers\WhatsAppWebhookController;
+use App\Http\Middleware\VerifyWhatsAppWebhook;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -274,3 +276,13 @@ Route::middleware(['auth:sanctum'])->prefix('workflows')->group(function () {
     Route::post('/{uuid}/pause', [WorkflowController::class, 'pause'])->name('api.workflows.pause');
     Route::get('/{uuid}/stats', [WorkflowController::class, 'stats'])->name('api.workflows.stats');
 });
+
+/*
+|--------------------------------------------------------------------------
+| WhatsApp Webhook Routes (Public - No Auth Required)
+|--------------------------------------------------------------------------
+*/
+Route::get('whatsapp/webhook', [WhatsAppWebhookController::class, 'verify'])->name('api.whatsapp.webhook.verify');
+Route::post('whatsapp/webhook', [WhatsAppWebhookController::class, 'handle'])
+    ->middleware(VerifyWhatsAppWebhook::class)
+    ->name('api.whatsapp.webhook.handle');
