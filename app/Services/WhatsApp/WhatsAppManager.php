@@ -59,12 +59,14 @@ class WhatsAppManager
     }
 
     /**
-     * Create a MetaCloudProvider instance.
-     *
-     * @throws \RuntimeException MetaCloudProvider is not yet implemented.
+     * Create a MetaCloudProvider instance using settings from the database.
      */
-    private function createMetaCloudProvider(): WhatsAppProviderInterface
+    private function createMetaCloudProvider(): MetaCloudProvider
     {
-        throw new \RuntimeException('MetaCloudProvider not yet implemented. Complete Task 2.1 first.');
+        return new MetaCloudProvider(
+            phoneNumberId: $this->settings->get('meta_phone_number_id', ''),
+            accessToken: $this->settings->get('meta_access_token', ''),
+            apiVersion: $this->settings->get('meta_api_version', 'v21.0'),
+        );
     }
 }

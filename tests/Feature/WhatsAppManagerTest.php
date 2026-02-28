@@ -103,12 +103,28 @@ test('creates OnsendProvider with custom api_url from config', function () {
     expect($provider->apiUrl)->toBe('https://custom-onsend.io/api/v2');
 });
 
-test('meta provider throws RuntimeException as not yet implemented', function () {
+test('resolves meta provider when configured', function () {
     $settings = Mockery::mock(SettingsService::class);
     $settings->shouldReceive('get')
         ->with('whatsapp_provider', 'onsend')
         ->andReturn('meta');
+    $settings->shouldReceive('get')
+        ->with('meta_phone_number_id', '')
+        ->andReturn('123456');
+    $settings->shouldReceive('get')
+        ->with('meta_access_token', '')
+        ->andReturn('test-access-token');
+    $settings->shouldReceive('get')
+        ->with('meta_api_version', 'v21.0')
+        ->andReturn('v21.0');
 
     $manager = new WhatsAppManager($settings);
-    $manager->provider();
-})->throws(RuntimeException::class, 'MetaCloudProvider not yet implemented');
+    $provider = $manager->provider();
+
+    expect($provider)
+        ->toBeInstanceOf(WhatsAppProviderInterface::class)
+        ->toBeInstanceOf(\App\Services\WhatsApp\MetaCloudProvider::class)
+        ->and($provider->phoneNumberId)->toBe('123456')
+        ->and($provider->accessToken)->toBe('test-access-token')
+        ->and($provider->apiVersion)->toBe('v21.0');
+});
