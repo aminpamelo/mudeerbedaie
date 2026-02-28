@@ -26,6 +26,7 @@
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
+                    'itBoard': ['admin.it-board.*'],
                     'settings': ['admin.settings.*'],
                     'teaching': ['teacher.courses.*', 'teacher.classes.*', 'teacher.sessions.*', 'teacher.payslips.*', 'teacher.students.*', 'teacher.timetable'],
                     'liveStreaming': ['live-host.*'],
@@ -200,6 +201,15 @@
                     <flux:navlist.item icon="lifebuoy" :href="route('admin.customer-service.dashboard')" :current="request()->routeIs('admin.customer-service.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-path" :href="route('admin.customer-service.return-refunds.index')" :current="request()->routeIs('admin.customer-service.return-refunds.*')" wire:navigate>{{ __('Return & Refunds') }}</flux:navlist.item>
                     <flux:navlist.item icon="ticket" :href="route('admin.customer-service.tickets.index')" :current="request()->routeIs('admin.customer-service.tickets.*')" wire:navigate>{{ __('Tickets') }}</flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
+                    :heading="__('IT Board')"
+                    data-section='itBoard' x-init="if (!isExpanded('itBoard')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('itBoard', $event)"
+                >
+                    <flux:navlist.item icon="clipboard-document-list" :href="route('admin.it-board.index')" :current="request()->routeIs('admin.it-board.*')" wire:navigate>{{ __('Kanban Board') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
@@ -387,6 +397,7 @@
                     <flux:navlist.item icon="banknotes" :href="route('teacher.payslips.index')" :current="request()->routeIs('teacher.payslips.*')" wire:navigate>{{ __('My Payslips') }}</flux:navlist.item>
                     <flux:navlist.item icon="users" :href="route('teacher.students.index')" :current="request()->routeIs('teacher.students.*')" wire:navigate>{{ __('Students') }}</flux:navlist.item>
                     <flux:navlist.item icon="calendar" :href="route('teacher.timetable')" :current="request()->routeIs('teacher.timetable')" wire:navigate>{{ __('Timetable') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clipboard-document-list" :href="route('it-request.create')" :current="request()->routeIs('it-request.*')" wire:navigate>{{ __('IT Request') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
@@ -401,6 +412,7 @@
                     <flux:navlist.item icon="calendar" :href="route('live-host.schedule')" :current="request()->routeIs('live-host.schedule')" wire:navigate>{{ __('My Schedule') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-up-tray" :href="route('live-host.session-slots')" :current="request()->routeIs('live-host.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
                     <flux:navlist.item icon="play-circle" :href="route('live-host.sessions.index')" :current="request()->routeIs('live-host.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clipboard-document-list" :href="route('it-request.create')" :current="request()->routeIs('it-request.*')" wire:navigate>{{ __('IT Request') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
@@ -448,6 +460,7 @@
                     @click="saveState('classAdminFinance', $event)"
                 >
                     <flux:navlist.item icon="banknotes" :href="route('admin.payslips.index')" :current="request()->routeIs('admin.payslips.*')" wire:navigate>{{ __('Payslips') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clipboard-document-list" :href="route('it-request.create')" :current="request()->routeIs('it-request.*')" wire:navigate>{{ __('IT Request') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
 
@@ -481,6 +494,7 @@
                     <flux:navlist.item icon="clipboard-document-list" :href="route('student.orders')" :current="request()->routeIs('student.orders*')" wire:navigate>{{ __('Order History') }}</flux:navlist.item>
                     <flux:navlist.item icon="arrow-path" :href="route('student.refund-requests')" :current="request()->routeIs('student.refund-requests*')" wire:navigate>{{ __('Refund Requests') }}</flux:navlist.item>
                     <flux:navlist.item icon="credit-card" :href="route('student.payment-methods')" :current="request()->routeIs('student.payment-methods*')" wire:navigate>{{ __('Payment Methods') }}</flux:navlist.item>
+                    <flux:navlist.item icon="clipboard-document-list" :href="route('it-request.create')" :current="request()->routeIs('it-request.*')" wire:navigate>{{ __('IT Request') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
             </flux:navlist>
