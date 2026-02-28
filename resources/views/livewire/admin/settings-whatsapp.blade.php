@@ -9,7 +9,21 @@ new class extends Component
 {
     public bool $enabled = false;
 
+    public string $provider = 'onsend';
+
     public string $apiToken = '';
+
+    public string $metaPhoneNumberId = '';
+
+    public string $metaAccessToken = '';
+
+    public string $metaWabaId = '';
+
+    public string $metaAppSecret = '';
+
+    public string $metaVerifyToken = '';
+
+    public string $metaApiVersion = 'v21.0';
 
     public int $minDelay = 10;
 
@@ -41,9 +55,22 @@ new class extends Component
     {
         $settingsService = app(SettingsService::class);
 
+        // Load provider selection
+        $this->provider = $settingsService->get('whatsapp_provider', 'onsend');
+
         // Load current settings values
         $this->enabled = (bool) $settingsService->get('whatsapp_enabled', false);
         $this->apiToken = $settingsService->get('whatsapp_api_token', '');
+
+        // Load Meta Cloud API settings
+        $this->metaPhoneNumberId = $settingsService->get('meta_phone_number_id', '');
+        $this->metaAccessToken = $settingsService->get('meta_access_token', '');
+        $this->metaWabaId = $settingsService->get('meta_waba_id', '');
+        $this->metaAppSecret = $settingsService->get('meta_app_secret', '');
+        $this->metaVerifyToken = $settingsService->get('meta_verify_token', '');
+        $this->metaApiVersion = $settingsService->get('meta_api_version', 'v21.0');
+
+        // Load anti-ban settings
         $this->minDelay = (int) $settingsService->get('whatsapp_min_delay', 10);
         $this->maxDelay = (int) $settingsService->get('whatsapp_max_delay', 30);
         $this->batchSize = (int) $settingsService->get('whatsapp_batch_size', 15);
@@ -66,16 +93,31 @@ new class extends Component
 
     public function save(): void
     {
-        $this->validate([
-            'apiToken' => 'nullable|string|max:500',
+        $rules = [
+            'provider' => 'required|in:onsend,meta',
             'minDelay' => 'required|integer|min:5|max:60',
             'maxDelay' => 'required|integer|min:10|max:120',
             'batchSize' => 'required|integer|min:5|max:50',
             'batchPauseMinutes' => 'required|integer|min:1|max:10',
-            'dailyLimit' => 'required|integer|min:0|max:10000', // 0 = unlimited
+            'dailyLimit' => 'required|integer|min:0|max:10000',
             'sendHoursStart' => 'required|integer|min:0|max:23',
             'sendHoursEnd' => 'required|integer|min:1|max:24',
-        ]);
+        ];
+
+        if ($this->provider === 'onsend') {
+            $rules['apiToken'] = 'nullable|string|max:500';
+        }
+
+        if ($this->provider === 'meta') {
+            $rules['metaPhoneNumberId'] = 'required|string|max:255';
+            $rules['metaAccessToken'] = 'required|string|max:1000';
+            $rules['metaWabaId'] = 'nullable|string|max:255';
+            $rules['metaAppSecret'] = 'nullable|string|max:500';
+            $rules['metaVerifyToken'] = 'nullable|string|max:255';
+            $rules['metaApiVersion'] = 'required|string|max:20';
+        }
+
+        $this->validate($rules);
 
         // Validate max delay is greater than min delay
         if ($this->maxDelay <= $this->minDelay) {
@@ -93,8 +135,22 @@ new class extends Component
 
         // Save WhatsApp settings
         $settingsService = app(SettingsService::class);
+        $settingsService->set('whatsapp_provider', $this->provider, 'string', 'whatsapp');
         $settingsService->set('whatsapp_enabled', $this->enabled, 'boolean', 'whatsapp');
-        $settingsService->set('whatsapp_api_token', $this->apiToken, 'encrypted', 'whatsapp');
+
+        if ($this->provider === 'onsend') {
+            $settingsService->set('whatsapp_api_token', $this->apiToken, 'encrypted', 'whatsapp');
+        }
+
+        if ($this->provider === 'meta') {
+            $settingsService->set('meta_phone_number_id', $this->metaPhoneNumberId, 'string', 'whatsapp');
+            $settingsService->set('meta_access_token', $this->metaAccessToken, 'encrypted', 'whatsapp');
+            $settingsService->set('meta_waba_id', $this->metaWabaId, 'string', 'whatsapp');
+            $settingsService->set('meta_app_secret', $this->metaAppSecret, 'encrypted', 'whatsapp');
+            $settingsService->set('meta_verify_token', $this->metaVerifyToken, 'string', 'whatsapp');
+            $settingsService->set('meta_api_version', $this->metaApiVersion, 'string', 'whatsapp');
+        }
+
         $settingsService->set('whatsapp_min_delay', $this->minDelay, 'number', 'whatsapp');
         $settingsService->set('whatsapp_max_delay', $this->maxDelay, 'number', 'whatsapp');
         $settingsService->set('whatsapp_batch_size', $this->batchSize, 'number', 'whatsapp');
@@ -105,7 +161,8 @@ new class extends Component
         $settingsService->set('whatsapp_send_hours_end', $this->sendHoursEnd, 'number', 'whatsapp');
         $settingsService->set('whatsapp_message_variation', $this->messageVariationEnabled, 'boolean', 'whatsapp');
 
-        // Also update env-based config (for runtime use)
+        // Update runtime config
+        config(['services.whatsapp.provider' => $this->provider]);
         config(['services.onsend.api_token' => $this->apiToken]);
         config(['services.onsend.enabled' => $this->enabled]);
         config(['services.onsend.min_delay_seconds' => $this->minDelay]);
@@ -135,7 +192,9 @@ new class extends Component
         ]);
 
         // Temporarily update config BEFORE instantiating service
-        if (! empty($this->apiToken)) {
+        if ($this->provider === 'meta' && ! empty($this->metaAccessToken)) {
+            config(['services.whatsapp.provider' => 'meta']);
+        } elseif (! empty($this->apiToken)) {
             config(['services.onsend.api_token' => $this->apiToken]);
             config(['services.onsend.enabled' => true]);
         }
@@ -177,26 +236,99 @@ new class extends Component
 }; ?>
 
 <div class="space-y-6">
-    <!-- Warning Banner -->
-    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-        <div class="flex items-start gap-3">
-            <div class="flex-shrink-0">
-                <flux:icon.exclamation-triangle class="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-                <h3 class="font-semibold text-amber-800">Amaran: API Tidak Rasmi</h3>
-                <div class="text-sm text-amber-700 mt-1 space-y-1">
-                    <p>WhatsApp menggunakan API tidak rasmi (OnSend.io). Risiko termasuk:</p>
-                    <ul class="list-disc list-inside ml-2 space-y-0.5">
-                        <li>Nombor telefon mungkin disekat oleh WhatsApp</li>
-                        <li>Perkhidmatan mungkin terganggu tanpa notis</li>
-                        <li>Melanggar Terma Perkhidmatan WhatsApp</li>
-                    </ul>
-                    <p class="font-medium mt-2">Disyorkan: Gunakan untuk mesej penting sahaja.</p>
+    <!-- Warning Banner - Conditional based on provider -->
+    @if($provider === 'onsend')
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                    <flux:icon.exclamation-triangle class="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                    <h3 class="font-semibold text-amber-800">Amaran: API Tidak Rasmi</h3>
+                    <div class="text-sm text-amber-700 mt-1 space-y-1">
+                        <p>WhatsApp menggunakan API tidak rasmi (OnSend.io). Risiko termasuk:</p>
+                        <ul class="list-disc list-inside ml-2 space-y-0.5">
+                            <li>Nombor telefon mungkin disekat oleh WhatsApp</li>
+                            <li>Perkhidmatan mungkin terganggu tanpa notis</li>
+                            <li>Melanggar Terma Perkhidmatan WhatsApp</li>
+                        </ul>
+                        <p class="font-medium mt-2">Disyorkan: Gunakan untuk mesej penting sahaja.</p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    @else
+        <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                    <flux:icon.check-badge class="w-6 h-6 text-green-600" />
+                </div>
+                <div>
+                    <h3 class="font-semibold text-green-800">Meta Cloud API (Rasmi)</h3>
+                    <div class="text-sm text-green-700 mt-1 space-y-1">
+                        <p>Anda menggunakan API rasmi WhatsApp Business Platform oleh Meta. Kelebihan:</p>
+                        <ul class="list-disc list-inside ml-2 space-y-0.5">
+                            <li>Tiada risiko akaun disekat</li>
+                            <li>Sokongan template mesej dan media</li>
+                            <li>Kebolehpercayaan dan kelajuan tinggi</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Provider Selection -->
+    <flux:card>
+        <div class="p-6">
+            <div class="mb-6">
+                <flux:heading size="lg">Pembekal WhatsApp</flux:heading>
+                <flux:text class="text-gray-500 mt-1">Pilih pembekal API untuk penghantaran mesej WhatsApp</flux:text>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="relative flex cursor-pointer rounded-lg border p-4 transition-colors {{ $provider === 'onsend' ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500' : 'border-gray-200 hover:border-gray-300' }}">
+                    <input type="radio" wire:model.live="provider" value="onsend" class="sr-only" />
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 mt-0.5">
+                            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center {{ $provider === 'onsend' ? 'border-blue-500' : 'border-gray-300' }}">
+                                @if($provider === 'onsend')
+                                    <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                                @endif
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-gray-900">OnSend.io</span>
+                                <flux:badge color="amber" size="sm">Tidak Rasmi</flux:badge>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">API tidak rasmi melalui OnSend.io. Mudah disediakan tetapi mempunyai risiko akaun disekat.</p>
+                        </div>
+                    </div>
+                </label>
+
+                <label class="relative flex cursor-pointer rounded-lg border p-4 transition-colors {{ $provider === 'meta' ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500' : 'border-gray-200 hover:border-gray-300' }}">
+                    <input type="radio" wire:model.live="provider" value="meta" class="sr-only" />
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 mt-0.5">
+                            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center {{ $provider === 'meta' ? 'border-blue-500' : 'border-gray-300' }}">
+                                @if($provider === 'meta')
+                                    <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                                @endif
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-gray-900">Meta Cloud API</span>
+                                <flux:badge color="green" size="sm">Rasmi</flux:badge>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">API rasmi WhatsApp Business Platform oleh Meta. Selamat dan boleh dipercayai.</p>
+                        </div>
+                    </div>
+                </label>
+            </div>
+        </div>
+    </flux:card>
 
     <!-- Device Status & Statistics -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -278,7 +410,7 @@ new class extends Component
             <div class="flex items-center justify-between mb-6">
                 <div>
                     <flux:heading size="lg">Konfigurasi API</flux:heading>
-                    <flux:text class="text-gray-500 mt-1">Tetapkan token API dan aktifkan perkhidmatan WhatsApp</flux:text>
+                    <flux:text class="text-gray-500 mt-1">Tetapkan kelayakan API dan aktifkan perkhidmatan WhatsApp</flux:text>
                 </div>
                 <div class="flex items-center gap-3">
                     @if($enabled)
@@ -291,24 +423,108 @@ new class extends Component
             </div>
 
             <div class="space-y-6">
-                <!-- API Token -->
-                <flux:field>
-                    <flux:label>Token API (OnSend.io)</flux:label>
-                    <flux:input
-                        type="password"
-                        wire:model="apiToken"
-                        placeholder="Masukkan token API dari dashboard OnSend.io"
-                    />
-                    <flux:description>
-                        Dapatkan token dari <a href="https://onsend.io" target="_blank" class="text-blue-600 hover:underline">OnSend.io</a> > Devices > View > Token
-                    </flux:description>
-                    @error('apiToken') <flux:error>{{ $message }}</flux:error> @enderror
-                </flux:field>
+                @if($provider === 'onsend')
+                    <!-- OnSend API Token -->
+                    <flux:field>
+                        <flux:label>Token API (OnSend.io)</flux:label>
+                        <flux:input
+                            type="password"
+                            wire:model="apiToken"
+                            placeholder="Masukkan token API dari dashboard OnSend.io"
+                        />
+                        <flux:description>
+                            Dapatkan token dari <a href="https://onsend.io" target="_blank" class="text-blue-600 hover:underline">OnSend.io</a> > Devices > View > Token
+                        </flux:description>
+                        @error('apiToken') <flux:error>{{ $message }}</flux:error> @enderror
+                    </flux:field>
+                @else
+                    <!-- Meta Cloud API Fields -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <flux:field>
+                            <flux:label>ID Nombor Telefon</flux:label>
+                            <flux:input
+                                type="text"
+                                wire:model="metaPhoneNumberId"
+                                placeholder="Contoh: 123456789012345"
+                            />
+                            <flux:description>
+                                Dapatkan dari Meta Business Suite > WhatsApp > API Setup
+                            </flux:description>
+                            @error('metaPhoneNumberId') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Token Akses</flux:label>
+                            <flux:input
+                                type="password"
+                                wire:model="metaAccessToken"
+                                placeholder="Masukkan token akses Meta"
+                            />
+                            <flux:description>
+                                Token akses kekal dari Meta Business Suite
+                            </flux:description>
+                            @error('metaAccessToken') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>ID Akaun Perniagaan WhatsApp (WABA ID)</flux:label>
+                            <flux:input
+                                type="text"
+                                wire:model="metaWabaId"
+                                placeholder="Contoh: 123456789012345"
+                            />
+                            <flux:description>
+                                ID akaun perniagaan WhatsApp anda
+                            </flux:description>
+                            @error('metaWabaId') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Rahsia Aplikasi</flux:label>
+                            <flux:input
+                                type="password"
+                                wire:model="metaAppSecret"
+                                placeholder="Masukkan rahsia aplikasi"
+                            />
+                            <flux:description>
+                                Dapatkan dari Meta Developers > App Settings > Basic
+                            </flux:description>
+                            @error('metaAppSecret') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Token Pengesahan (Webhook)</flux:label>
+                            <flux:input
+                                type="text"
+                                wire:model="metaVerifyToken"
+                                placeholder="Token untuk pengesahan webhook"
+                            />
+                            <flux:description>
+                                Token tersuai untuk pengesahan webhook Meta
+                            </flux:description>
+                            @error('metaVerifyToken') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>Versi API</flux:label>
+                            <flux:input
+                                type="text"
+                                wire:model="metaApiVersion"
+                                placeholder="v21.0"
+                            />
+                            <flux:description>
+                                Versi Graph API Meta (contoh: v21.0)
+                            </flux:description>
+                            @error('metaApiVersion') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+                    </div>
+                @endif
             </div>
         </div>
     </flux:card>
 
-    <!-- Anti-Ban Settings -->
+    <!-- Anti-Ban Settings (OnSend only) -->
+    @if($provider === 'onsend')
     <flux:card>
         <div class="p-6">
             <div class="mb-6">
@@ -459,6 +675,16 @@ new class extends Component
             </div>
         </div>
     </flux:card>
+    @endif
+
+    <!-- Save Button (when anti-ban is hidden for Meta provider) -->
+    @if($provider === 'meta')
+        <div class="flex justify-end">
+            <flux:button variant="primary" wire:click="save" icon="check">
+                Simpan Tetapan
+            </flux:button>
+        </div>
+    @endif
 
     <!-- Test Message -->
     <flux:card>
