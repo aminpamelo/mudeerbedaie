@@ -53,6 +53,10 @@ Route::middleware(['auth'])->group(function () {
 
     // Stop impersonation route (accessible when impersonating any role)
     Route::post('stop-impersonation', [ImpersonationController::class, 'stop'])->name('impersonation.stop');
+
+    // IT Request - accessible by all authenticated users
+    Volt::route('it-request', 'it-request.create')->name('it-request.create');
+    Volt::route('it-request/my', 'it-request.index')->name('it-request.index');
 });
 
 // Product Cart routes - accessible by authenticated and guest users
@@ -417,6 +421,11 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('customer-service/tickets', 'admin.customer-service.tickets-index')->name('admin.customer-service.tickets.index');
     Volt::route('customer-service/tickets/create', 'admin.customer-service.tickets-create')->name('admin.customer-service.tickets.create');
     Volt::route('customer-service/tickets/{ticket}', 'admin.customer-service.tickets-show')->name('admin.customer-service.tickets.show');
+
+    // IT Ticket Board
+    Volt::route('it-board', 'admin.it-board.index')->name('admin.it-board.index');
+    Volt::route('it-board/create', 'admin.it-board.create')->name('admin.it-board.create');
+    Volt::route('it-board/{itTicket}', 'admin.it-board.show')->name('admin.it-board.show');
 
     // Sales Funnel Management routes
     Volt::route('funnels', 'admin.funnel-list')->name('admin.funnels');
