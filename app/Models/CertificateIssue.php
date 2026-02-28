@@ -114,6 +114,11 @@ class CertificateIssue extends Model
         return $this->isRevoked();
     }
 
+    public function canBeSent(): bool
+    {
+        return $this->isIssued() && $this->hasFile();
+    }
+
     public function revoke(string $reason, User $user): void
     {
         if (! $this->canBeRevoked()) {

@@ -36,6 +36,8 @@ class CertificateLog extends Model
             'viewed' => 'Certificate Viewed',
             'downloaded' => 'Certificate Downloaded',
             'revoked' => 'Certificate Revoked',
+            'sent_email' => 'Sent via Email',
+            'sent_whatsapp' => 'Sent via WhatsApp',
             default => ucfirst($this->action),
         };
     }
@@ -47,6 +49,8 @@ class CertificateLog extends Model
             'viewed' => 'eye',
             'downloaded' => 'download',
             'revoked' => 'x-circle',
+            'sent_email' => 'envelope',
+            'sent_whatsapp' => 'phone',
             default => 'activity',
         };
     }
@@ -58,6 +62,8 @@ class CertificateLog extends Model
             'viewed' => 'blue',
             'downloaded' => 'indigo',
             'revoked' => 'red',
+            'sent_email' => 'blue',
+            'sent_whatsapp' => 'emerald',
             default => 'gray',
         };
     }

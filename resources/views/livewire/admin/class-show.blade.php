@@ -4338,58 +4338,66 @@ new class extends Component
             @if($class->activeStudents->count() > 0)
                 <flux:card>
                     <div class="overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                            <div>
-                                <flux:heading size="lg">Enrolled Students</flux:heading>
-                                <flux:text size="sm" class="text-gray-500">
-                                    {{ $class->activeStudents->count() }} student(s) enrolled
-                                    @if($class->max_capacity)
-                                        / {{ $class->max_capacity }} max capacity
-                                    @endif
-                                </flux:text>
-                            </div>
+                        <div class="px-6 py-5 border-b border-gray-200 dark:border-zinc-700">
+                            <div class="flex items-start justify-between">
+                                <div class="space-y-1">
+                                    <flux:heading size="lg">Enrolled Students</flux:heading>
+                                    <div class="flex items-center gap-3">
+                                        <flux:text size="sm" class="text-gray-500 dark:text-zinc-400">
+                                            {{ $class->activeStudents->count() }} student(s) enrolled
+                                            @if($class->max_capacity)
+                                                / {{ $class->max_capacity }} max capacity
+                                            @endif
+                                        </flux:text>
+                                        @if($class->max_capacity)
+                                            @php
+                                                $capacityPercent = round(($class->activeStudents->count() / $class->max_capacity) * 100);
+                                            @endphp
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-24 bg-gray-200 dark:bg-zinc-600 rounded-full h-1.5">
+                                                    <div class="h-1.5 rounded-full transition-all {{ $capacityPercent >= 90 ? 'bg-red-500' : ($capacityPercent >= 70 ? 'bg-yellow-500' : 'bg-green-500') }}"
+                                                         style="width: {{ min($capacityPercent, 100) }}%"></div>
+                                                </div>
+                                                <span class="text-xs font-medium {{ $capacityPercent >= 90 ? 'text-red-600 dark:text-red-400' : ($capacityPercent >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400') }}">{{ $capacityPercent }}%</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
 
-                            <div class="flex items-center gap-2">
-                                <flux:button variant="outline" size="sm" wire:click="openImportStudentModal">
-                                    <div class="flex items-center justify-center">
-                                        <flux:icon name="arrow-up-tray" class="w-4 h-4 mr-1" />
+                                <div class="flex items-center gap-2">
+                                    <flux:button variant="outline" size="sm" wire:click="openImportStudentModal" icon="arrow-up-tray">
                                         Import
-                                    </div>
-                                </flux:button>
-                                <flux:button variant="outline" size="sm" wire:click="openCreateStudentModal">
-                                    <div class="flex items-center justify-center">
-                                        <flux:icon name="plus" class="w-4 h-4 mr-1" />
-                                        Create Student
-                                    </div>
-                                </flux:button>
-                                @if($class->class_type === 'group' && (!$class->max_capacity || $class->activeStudents->count() < $class->max_capacity))
-                                    <flux:button variant="primary" size="sm" icon="user-plus" wire:click="openEnrollStudentsModal">
-                                        Add Students
                                     </flux:button>
-                                @endif
+                                    <flux:button variant="outline" size="sm" wire:click="openCreateStudentModal" icon="plus">
+                                        Create Student
+                                    </flux:button>
+                                    <flux:button variant="primary" size="sm" wire:click="openEnrollStudentsModal" icon="user-plus">
+                                        Enroll Student
+                                    </flux:button>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Flash Messages -->
                         @if(session('success'))
                             <div class="mx-6 mt-4">
-                                <flux:card class="p-4 bg-green-50 border-green-200">
-                                    <flux:text class="text-green-800">{{ session('success') }}</flux:text>
-                                </flux:card>
+                                <flux:callout variant="success" icon="check-circle">
+                                    {{ session('success') }}
+                                </flux:callout>
                             </div>
                         @endif
 
                         @if(session('error'))
                             <div class="mx-6 mt-4">
-                                <flux:card class="p-4 bg-red-50 border-red-200">
-                                    <flux:text class="text-red-800">{{ session('error') }}</flux:text>
-                                </flux:card>
+                                <flux:callout variant="danger" icon="exclamation-triangle">
+                                    {{ session('error') }}
+                                </flux:callout>
                             </div>
                         @endif
 
                         <!-- Search Bar and Per Page Filter -->
-                        <div class="px-6 py-4 border-b border-gray-200">
-                            <div class="flex flex-col sm:flex-row gap-4">
+                        <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
+                            <div class="flex flex-col sm:flex-row gap-3">
                                 <div class="flex-1">
                                     <flux:input
                                         wire:model.live.debounce.300ms="enrolledStudentSearch"
@@ -4397,7 +4405,7 @@ new class extends Component
                                         icon="magnifying-glass"
                                     />
                                 </div>
-                                <div class="w-full sm:w-40">
+                                <div class="w-full sm:w-36">
                                     <flux:select wire:model.live="studentsPerPage">
                                         <flux:select.option value="20">20 per page</flux:select.option>
                                         <flux:select.option value="30">30 per page</flux:select.option>
@@ -4411,16 +4419,15 @@ new class extends Component
                         </div>
 
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                                <thead class="bg-gray-50 dark:bg-zinc-800/50">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sessions Attended</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Rate</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Enrolled</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Order ID</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Attendance</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider"></th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
@@ -4442,97 +4449,81 @@ new class extends Component
                                             $totalRecords = $studentAttendances->count();
                                             $attendanceRate = $totalRecords > 0 ? round(($presentCount / $totalRecords) * 100, 1) : 0;
                                         @endphp
-                                        <tr>
-                                            <td class="px-6 py-4 whitespace-nowrap">
+                                        <tr wire:key="enrolled-{{ $classStudent->id }}" class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                            <td class="px-6 py-3.5 whitespace-nowrap">
                                                 <div class="flex items-center gap-3">
                                                     <flux:avatar size="sm" :name="$student->fullName" />
                                                     <div>
-                                                        <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
-                                                        <div class="text-sm text-gray-500">{{ $student->phone ?? '-' }}</div>
+                                                        <div class="font-medium text-gray-900 dark:text-zinc-100">{{ $student->fullName }}</div>
+                                                        <div class="text-xs text-gray-500 dark:text-zinc-400">{{ $student->phone ?? '-' }}</div>
                                                     </div>
                                                 </div>
                                             </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-zinc-400">
                                                 {{ $classStudent->enrolled_at->format('M d, Y') }}
                                             </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td class="px-4 py-3.5 whitespace-nowrap text-sm">
                                                 <input
                                                     type="text"
                                                     value="{{ $classStudent->order_id }}"
-                                                    placeholder="-"
-                                                    class="w-28 px-2 py-1 text-xs font-mono border border-gray-200 rounded bg-white dark:bg-zinc-700 dark:text-white hover:border-gray-300 dark:hover:border-zinc-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-colors"
+                                                    placeholder="--"
+                                                    class="w-24 px-2 py-1 text-xs font-mono border border-transparent rounded bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 hover:border-gray-300 dark:hover:border-zinc-500 focus:border-blue-500 focus:bg-white dark:focus:bg-zinc-600 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-all"
                                                     wire:blur="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
                                                     wire:keydown.enter="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
                                                 />
                                             </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="font-medium text-green-600">{{ $presentCount }}</span>
-                                                    <span>/</span>
-                                                    <span>{{ $totalRecords }}</span>
-                                                </div>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td class="px-4 py-3.5 whitespace-nowrap">
                                                 @if($totalRecords > 0)
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="font-medium {{ $attendanceRate >= 80 ? 'text-green-600' : ($attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
-                                                            {{ $attendanceRate }}%
-                                                        </span>
-                                                        <div class="w-12 bg-gray-200 rounded-full h-2">
-                                                            <div class="h-2 rounded-full {{ $attendanceRate >= 80 ? 'bg-green-500' : ($attendanceRate >= 60 ? 'bg-yellow-500' : 'bg-red-500') }}"
+                                                    <div class="space-y-1">
+                                                        <div class="flex items-center justify-between text-xs">
+                                                            <span class="font-medium {{ $attendanceRate >= 80 ? 'text-green-600 dark:text-green-400' : ($attendanceRate >= 60 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400') }}">
+                                                                {{ $attendanceRate }}%
+                                                            </span>
+                                                            <span class="text-gray-400 dark:text-zinc-500">{{ $presentCount }}/{{ $totalRecords }}</span>
+                                                        </div>
+                                                        <div class="w-full bg-gray-200 dark:bg-zinc-600 rounded-full h-1.5">
+                                                            <div class="h-1.5 rounded-full transition-all {{ $attendanceRate >= 80 ? 'bg-green-500' : ($attendanceRate >= 60 ? 'bg-yellow-500' : 'bg-red-500') }}"
                                                                  style="width: {{ $attendanceRate }}%"></div>
                                                         </div>
                                                     </div>
                                                 @else
-                                                    <span class="text-gray-400">No records</span>
+                                                    <span class="text-xs text-gray-400 dark:text-zinc-500">No records</span>
                                                 @endif
                                             </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <flux:badge size="sm" class="badge-green">
+                                            <td class="px-4 py-3.5 whitespace-nowrap">
+                                                <flux:badge size="sm" color="green">
                                                     Active
                                                 </flux:badge>
                                             </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div class="flex items-center justify-end gap-2">
-                                                    <flux:button variant="ghost" size="sm"
-                                                        wire:click="viewStudent({{ $classStudent->id }})"
-                                                        title="View Details">
-                                                        <div class="flex items-center justify-center">
-                                                            <flux:icon name="eye" class="w-4 h-4 mr-1" />
-                                                            View
-                                                        </div>
-                                                    </flux:button>
-                                                    <flux:button variant="ghost" size="sm"
-                                                        wire:click="editStudent({{ $classStudent->id }})"
-                                                        title="Edit Enrollment">
-                                                        <div class="flex items-center justify-center">
-                                                            <flux:icon name="pencil" class="w-4 h-4 mr-1" />
-                                                            Edit
-                                                        </div>
-                                                    </flux:button>
-                                                    <flux:button variant="ghost" size="sm"
-                                                        wire:click="confirmUnenroll({{ $classStudent->id }})"
-                                                        class="text-red-600 hover:text-red-700"
-                                                        title="Unenroll Student">
-                                                        <div class="flex items-center justify-center">
-                                                            <flux:icon name="trash" class="w-4 h-4 mr-1" />
+                                            <td class="px-4 py-3.5 whitespace-nowrap text-right">
+                                                <flux:dropdown position="bottom" align="end">
+                                                    <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" />
+
+                                                    <flux:menu class="min-w-40">
+                                                        <flux:menu.item icon="eye" wire:click="viewStudent({{ $classStudent->id }})">
+                                                            View Details
+                                                        </flux:menu.item>
+                                                        <flux:menu.item icon="pencil" wire:click="editStudent({{ $classStudent->id }})">
+                                                            Edit Enrollment
+                                                        </flux:menu.item>
+                                                        <flux:separator />
+                                                        <flux:menu.item icon="trash" variant="danger" wire:click="confirmUnenroll({{ $classStudent->id }})">
                                                             Unenroll
-                                                        </div>
-                                                    </flux:button>
-                                                </div>
+                                                        </flux:menu.item>
+                                                    </flux:menu>
+                                                </flux:dropdown>
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
                                             <td colspan="6" class="px-6 py-12 text-center">
-                                                <div class="text-gray-500">
-                                                    <flux:icon.magnifying-glass class="mx-auto h-8 w-8 text-gray-400 mb-4" />
+                                                <div class="text-gray-500 dark:text-zinc-400">
+                                                    <flux:icon.magnifying-glass class="mx-auto h-8 w-8 text-gray-400 dark:text-zinc-500 mb-4" />
                                                     <p>No students found matching "{{ $enrolledStudentSearch }}"</p>
                                                     <flux:button variant="ghost" size="sm" class="mt-3" wire:click="$set('enrolledStudentSearch', '')">
                                                         Clear Search
@@ -4547,7 +4538,7 @@ new class extends Component
 
                         <!-- Pagination -->
                         @if($this->filtered_enrolled_students->hasPages())
-                            <div class="px-6 py-4 border-t border-gray-200">
+                            <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700">
                                 {{ $this->filtered_enrolled_students->links() }}
                             </div>
                         @endif
@@ -4556,10 +4547,12 @@ new class extends Component
             @elseif($class->isDraft() || $class->isActive())
                 <!-- No Students Enrolled -->
                 <flux:card>
-                    <div class="p-6 text-center">
-                        <flux:icon.users class="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <div class="p-8 text-center">
+                        <div class="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-zinc-700 flex items-center justify-center mb-4">
+                            <flux:icon.users class="h-6 w-6 text-gray-400 dark:text-zinc-500" />
+                        </div>
                         <flux:heading size="lg" class="mb-2">No Students Enrolled</flux:heading>
-                        <flux:text class="mb-4">This class doesn't have any students enrolled yet.</flux:text>
+                        <flux:text class="mb-5 text-gray-500 dark:text-zinc-400">This class doesn't have any students enrolled yet.</flux:text>
                         <flux:button variant="primary" icon="user-plus" wire:click="openEnrollStudentsModal">
                             Enroll Students
                         </flux:button>
@@ -4572,12 +4565,17 @@ new class extends Component
                 <div class="mt-6">
                     <flux:card>
                         <div class="overflow-hidden">
-                            <div class="px-6 py-4 border-b border-gray-200">
-                                <div class="flex items-center justify-between mb-4">
-                                    <div>
-                                        <flux:heading size="lg">Students with Active Enrollment</flux:heading>
-                                        <flux:text size="sm" class="text-gray-500 mt-2">
-                                            {{ $this->eligible_enrollments->count() }} student(s) have active course enrollment but are not enrolled in this class
+                            <div class="px-6 py-5 border-b border-gray-200 dark:border-zinc-700">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="space-y-1">
+                                        <div class="flex items-center gap-2">
+                                            <flux:heading size="lg">Students with Active Enrollment</flux:heading>
+                                            <flux:badge size="sm" color="yellow">
+                                                {{ $this->eligible_enrollments->count() }}
+                                            </flux:badge>
+                                        </div>
+                                        <flux:text size="sm" class="text-gray-500 dark:text-zinc-400">
+                                            These students have active course enrollment but are not enrolled in this class
                                         </flux:text>
                                     </div>
 
@@ -4597,26 +4595,23 @@ new class extends Component
                                     wire:model.live.debounce.300ms="eligibleStudentSearch"
                                     placeholder="Search students by name, email or phone..."
                                     icon="magnifying-glass"
-                                    class="w-full"
                                 />
                             </div>
 
                             <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                                    <thead class="bg-gray-50 dark:bg-zinc-800/50">
                                         <tr>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                <input
-                                                    type="checkbox"
-                                                    class="rounded border-gray-300"
+                                            <th class="w-10 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                <flux:checkbox
                                                     wire:click="$set('selectedEligibleStudents', {{ $this->eligible_enrollments->count() > 0 && count($selectedEligibleStudents) === $this->eligible_enrollments->count() ? '[]' : json_encode($this->eligible_enrollments->pluck('id')->toArray()) }})"
-                                                    {{ $this->eligible_enrollments->count() > 0 && count($selectedEligibleStudents) === $this->eligible_enrollments->count() ? 'checked' : '' }}
+                                                    :checked="$this->eligible_enrollments->count() > 0 && count($selectedEligibleStudents) === $this->eligible_enrollments->count()"
                                                 />
                                             </th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollment Date</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollment Status</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Enrollment Date</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Payment</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
@@ -4624,63 +4619,55 @@ new class extends Component
                                             @php
                                                 $student = $enrollment->student;
                                             @endphp
-                                            <tr class="hover:bg-gray-50">
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <input
-                                                        type="checkbox"
-                                                        class="rounded border-gray-300"
+                                            <tr wire:key="eligible-{{ $enrollment->id }}" class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                                <td class="w-10 px-6 py-3.5 whitespace-nowrap">
+                                                    <flux:checkbox
                                                         wire:click="toggleEligibleStudent({{ $enrollment->id }})"
-                                                        {{ in_array($enrollment->id, $selectedEligibleStudents) ? 'checked' : '' }}
+                                                        :checked="in_array($enrollment->id, $selectedEligibleStudents)"
                                                     />
                                                 </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                <td class="px-6 py-3.5 whitespace-nowrap">
                                                     <div class="flex items-center gap-3">
                                                         <flux:avatar size="sm" :name="$student->fullName" />
                                                         <div>
-                                                            <div class="font-medium text-gray-900">{{ $student->fullName }}</div>
-                                                            <div class="text-sm text-gray-500">{{ $student->phone ?? '-' }}</div>
+                                                            <div class="font-medium text-gray-900 dark:text-zinc-100">{{ $student->fullName }}</div>
+                                                            <div class="text-xs text-gray-500 dark:text-zinc-400">{{ $student->phone ?? '-' }}</div>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-zinc-400">
                                                     {{ $enrollment->enrollment_date->format('M d, Y') }}
                                                 </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                <td class="px-4 py-3.5 whitespace-nowrap">
                                                     @if($enrollment->status === 'active')
-                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                            Active
-                                                        </span>
+                                                        <flux:badge size="sm" color="green">Active</flux:badge>
                                                     @elseif($enrollment->status === 'enrolled')
-                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                            Enrolled
-                                                        </span>
+                                                        <flux:badge size="sm" color="blue">Enrolled</flux:badge>
                                                     @else
-                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                            {{ ucfirst($enrollment->status) }}
-                                                        </span>
+                                                        <flux:badge size="sm">{{ ucfirst($enrollment->status) }}</flux:badge>
                                                     @endif
                                                 </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-zinc-400">
                                                     @if($enrollment->payment_method_type === 'card')
-                                                        <span class="flex items-center gap-1">
+                                                        <span class="flex items-center gap-1.5">
                                                             <flux:icon name="credit-card" class="w-4 h-4" />
                                                             Card
                                                         </span>
                                                     @elseif($enrollment->payment_method_type === 'manual')
-                                                        <span class="flex items-center gap-1">
+                                                        <span class="flex items-center gap-1.5">
                                                             <flux:icon name="banknotes" class="w-4 h-4" />
                                                             Manual
                                                         </span>
                                                     @else
-                                                        <span class="text-gray-400">Not set</span>
+                                                        <span class="text-gray-400 dark:text-zinc-500">Not set</span>
                                                     @endif
                                                 </td>
                                             </tr>
                                         @empty
                                             <tr>
                                                 <td colspan="5" class="px-6 py-12 text-center">
-                                                    <div class="text-gray-500">
-                                                        <flux:icon.magnifying-glass class="mx-auto h-8 w-8 text-gray-400 mb-4" />
+                                                    <div class="text-gray-500 dark:text-zinc-400">
+                                                        <flux:icon.magnifying-glass class="mx-auto h-8 w-8 text-gray-400 dark:text-zinc-500 mb-4" />
                                                         <p>No students found matching "{{ $eligibleStudentSearch }}"</p>
                                                         <flux:button variant="ghost" size="sm" class="mt-3" wire:click="$set('eligibleStudentSearch', '')">
                                                             Clear Search

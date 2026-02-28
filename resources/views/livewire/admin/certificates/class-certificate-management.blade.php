@@ -4,6 +4,7 @@ use App\Models\ClassModel;
 use App\Models\Certificate;
 use App\Models\CertificateIssue;
 use App\Services\CertificateService;
+use App\Services\WhatsAppService;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -44,6 +45,17 @@ new class extends Component {
     public ?int $editingNameIssueId = null;
 
     public string $editingName = '';
+
+    // Send certificate modal state
+    public bool $showSendModal = false;
+
+    public array $sendIssueIds = [];
+
+    public string $sendChannel = 'email';
+
+    public string $sendMessage = '';
+
+    public bool $isBulkSend = false;
 
     public function mount(ClassModel $class): void
     {
@@ -547,6 +559,217 @@ new class extends Component {
         ]);
     }
 
+    // Send Certificate Methods
+
+    public function openSendModal(int $issueId): void
+    {
+        $issue = CertificateIssue::with(['student.user', 'certificate'])->find($issueId);
+
+        if (! $issue || ! $issue->canBeSent()) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Certificate cannot be sent. It must be issued with a generated PDF.',
+            ]);
+
+            return;
+        }
+
+        $this->sendIssueIds = [$issueId];
+        $this->isBulkSend = false;
+        $this->sendChannel = 'email';
+        $this->sendMessage = $this->getDefaultSendMessage($issue);
+        $this->showSendModal = true;
+    }
+
+    public function openBulkSendModal(): void
+    {
+        if (empty($this->selectedIssueIds)) {
+            return;
+        }
+
+        $validIds = CertificateIssue::whereIn('id', $this->selectedIssueIds)
+            ->where('class_id', $this->class->id)
+            ->where('status', 'issued')
+            ->get()
+            ->filter(fn ($issue) => $issue->hasFile())
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($validIds)) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'None of the selected certificates can be sent. They must be issued with generated PDFs.',
+            ]);
+
+            return;
+        }
+
+        $this->sendIssueIds = $validIds;
+        $this->isBulkSend = true;
+        $this->sendChannel = 'email';
+        $this->sendMessage = $this->getDefaultBulkSendMessage();
+        $this->showSendModal = true;
+    }
+
+    public function closeSendModal(): void
+    {
+        $this->showSendModal = false;
+        $this->sendIssueIds = [];
+        $this->sendChannel = 'email';
+        $this->sendMessage = '';
+        $this->isBulkSend = false;
+    }
+
+    protected function getDefaultSendMessage(CertificateIssue $issue): string
+    {
+        $studentName = $issue->student?->user?->name ?? 'Student';
+        $certName = $issue->getCertificateName();
+        $appName = config('app.name');
+
+        return "Assalamualaikum {$studentName},\n\nTahniah! Your certificate ({$certName}) has been issued.\n\nPlease find your certificate attached.\n\nTerima kasih,\n{$appName}";
+    }
+
+    protected function getDefaultBulkSendMessage(): string
+    {
+        $className = $this->class->title ?? 'the class';
+        $appName = config('app.name');
+
+        return "Assalamualaikum,\n\nTahniah! Your certificate for {$className} has been issued.\n\nPlease find your certificate attached.\n\nTerima kasih,\n{$appName}";
+    }
+
+    public function getSendRecipientsProperty(): array
+    {
+        if (empty($this->sendIssueIds)) {
+            return [];
+        }
+
+        return CertificateIssue::with(['student.user'])
+            ->whereIn('id', $this->sendIssueIds)
+            ->get()
+            ->map(function ($issue) {
+                $student = $issue->student;
+                $user = $student?->user;
+
+                return [
+                    'issue_id' => $issue->id,
+                    'name' => $user?->name ?? 'Unknown',
+                    'email' => $user?->email,
+                    'phone' => $student?->phone_number,
+                    'has_email' => ! empty($user?->email),
+                    'has_phone' => ! empty($student?->phone_number),
+                    'certificate_number' => $issue->certificate_number,
+                ];
+            })
+            ->toArray();
+    }
+
+    public function sendCertificates(): void
+    {
+        $this->validate([
+            'sendChannel' => 'required|in:email,whatsapp,both',
+            'sendMessage' => 'required|string|min:10',
+        ]);
+
+        $issues = CertificateIssue::with(['student.user'])
+            ->whereIn('id', $this->sendIssueIds)
+            ->where('class_id', $this->class->id)
+            ->where('status', 'issued')
+            ->get()
+            ->filter(fn ($issue) => $issue->hasFile());
+
+        if ($issues->isEmpty()) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'No valid certificates to send.',
+            ]);
+
+            return;
+        }
+
+        $whatsApp = app(WhatsAppService::class);
+        $emailCount = 0;
+        $whatsappCount = 0;
+        $skippedEmail = 0;
+        $skippedWhatsapp = 0;
+        $delay = 0;
+
+        foreach ($issues as $issue) {
+            $student = $issue->student;
+            $user = $student?->user;
+
+            // Personalize message for bulk send
+            $message = $this->isBulkSend
+                ? str_replace('Assalamualaikum,', 'Assalamualaikum '.($user?->name ?? '').',', $this->sendMessage)
+                : $this->sendMessage;
+
+            // Email channel
+            if (in_array($this->sendChannel, ['email', 'both'])) {
+                $email = $user?->email;
+                if ($email) {
+                    \App\Jobs\SendCertificateEmailJob::dispatch(
+                        $issue->id,
+                        $email,
+                        $user->name ?? 'Student',
+                        $message,
+                        auth()->id()
+                    );
+                    $emailCount++;
+                } else {
+                    $skippedEmail++;
+                }
+            }
+
+            // WhatsApp channel
+            if (in_array($this->sendChannel, ['whatsapp', 'both'])) {
+                $phone = $student?->phone_number;
+                if ($phone && $whatsApp->isEnabled()) {
+                    $randomDelay = $whatsApp->getRandomDelay();
+                    \App\Jobs\SendCertificateWhatsAppJob::dispatch(
+                        $issue->id,
+                        $phone,
+                        $message,
+                        auth()->id()
+                    )->delay(now()->addSeconds($delay))
+                        ->onQueue('whatsapp');
+                    $delay += $randomDelay;
+                    $whatsappCount++;
+                } else {
+                    $skippedWhatsapp++;
+                }
+            }
+        }
+
+        // Build feedback message
+        $parts = [];
+        if ($emailCount > 0) {
+            $parts[] = "{$emailCount} ".Str::plural('email', $emailCount).' queued';
+        }
+        if ($whatsappCount > 0) {
+            $parts[] = "{$whatsappCount} WhatsApp ".Str::plural('message', $whatsappCount).' queued';
+        }
+        $skippedParts = [];
+        if ($skippedEmail > 0) {
+            $skippedParts[] = "{$skippedEmail} without email";
+        }
+        if ($skippedWhatsapp > 0) {
+            $skippedParts[] = "{$skippedWhatsapp} without phone";
+        }
+
+        $successMsg = implode(', ', $parts) ?: 'No messages sent';
+        if (! empty($skippedParts)) {
+            $successMsg .= ' (skipped: '.implode(', ', $skippedParts).')';
+        }
+
+        $this->dispatch('notify', [
+            'type' => ($emailCount > 0 || $whatsappCount > 0) ? 'success' : 'warning',
+            'message' => $successMsg,
+        ]);
+
+        $this->closeSendModal();
+        $this->selectedIssueIds = [];
+        $this->selectAllIssued = false;
+    }
+
     protected function getFilteredIssuedQuery()
     {
         return CertificateIssue::where('class_id', $this->class->id)
@@ -777,6 +1000,20 @@ new class extends Component {
                             </flux:button>
 
                             <flux:button
+                                variant="outline"
+                                size="sm"
+                                wire:click="openBulkSendModal"
+                                wire:loading.attr="disabled"
+                                wire:target="openBulkSendModal"
+                            >
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="paper-airplane" class="w-4 h-4 mr-1 text-blue-500" />
+                                    <span wire:loading.remove wire:target="openBulkSendModal">Send</span>
+                                    <span wire:loading wire:target="openBulkSendModal">Loading...</span>
+                                </div>
+                            </flux:button>
+
+                            <flux:button
                                 variant="ghost"
                                 size="sm"
                                 wire:click="$set('selectedIssueIds', [])"
@@ -887,6 +1124,11 @@ new class extends Component {
                                             @if($issue->hasFile())
                                                 <flux:button variant="ghost" size="sm" href="{{ $issue->getFileUrl() }}" target="_blank" icon="eye" />
                                                 <flux:button variant="ghost" size="sm" href="{{ $issue->getDownloadUrl() }}" icon="arrow-down-tray" />
+                                                @if($issue->isIssued())
+                                                    <flux:tooltip content="Send Certificate">
+                                                        <flux:button variant="ghost" size="sm" wire:click="openSendModal({{ $issue->id }})" icon="paper-airplane" />
+                                                    </flux:tooltip>
+                                                @endif
                                             @endif
                                             <flux:tooltip content="{{ $issue->hasFile() ? 'Regenerate PDF' : 'Generate PDF' }}">
                                                 <flux:button
@@ -1174,6 +1416,108 @@ new class extends Component {
                 </flux:button>
                 <flux:button variant="primary" wire:click="bulkIssueCertificates" icon="document-plus">
                     Issue {{ count($selectedStudentIds) > 0 ? count($selectedStudentIds) : '' }} {{ Str::plural('Certificate', max(count($selectedStudentIds), 2)) }}
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <!-- Send Certificate Modal -->
+    <flux:modal wire:model="showSendModal" class="max-w-lg">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">
+                    {{ $isBulkSend ? 'Send Certificates' : 'Send Certificate' }}
+                </flux:heading>
+                <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                    {{ $isBulkSend ? count($sendIssueIds) . ' ' . Str::plural('certificate', count($sendIssueIds)) . ' will be sent' : 'Send this certificate to the student' }}
+                </flux:text>
+            </div>
+
+            <flux:separator />
+
+            {{-- Recipients Preview --}}
+            <div>
+                <flux:label>Recipients</flux:label>
+                <div class="mt-2 max-h-40 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-100 dark:divide-zinc-800">
+                    @foreach($this->sendRecipients as $recipient)
+                        <div wire:key="send-recipient-{{ $recipient['issue_id'] }}" class="flex items-center justify-between px-3 py-2 text-sm">
+                            <div class="min-w-0">
+                                <span class="font-medium text-zinc-900 dark:text-white">{{ $recipient['name'] }}</span>
+                                <span class="text-zinc-400 ml-1 text-xs">{{ $recipient['certificate_number'] }}</span>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0 ml-2">
+                                @if($recipient['has_email'])
+                                    <flux:tooltip content="{{ $recipient['email'] }}">
+                                        <flux:icon name="envelope" class="size-4 text-emerald-500" />
+                                    </flux:tooltip>
+                                @else
+                                    <flux:tooltip content="No email address">
+                                        <flux:icon name="envelope" class="size-4 text-zinc-300 dark:text-zinc-600" />
+                                    </flux:tooltip>
+                                @endif
+                                @if($recipient['has_phone'])
+                                    <flux:tooltip content="{{ $recipient['phone'] }}">
+                                        <flux:icon name="phone" class="size-4 text-emerald-500" />
+                                    </flux:tooltip>
+                                @else
+                                    <flux:tooltip content="No phone number">
+                                        <flux:icon name="phone" class="size-4 text-zinc-300 dark:text-zinc-600" />
+                                    </flux:tooltip>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- Channel Selection --}}
+            <flux:field>
+                <flux:label>Delivery Channel</flux:label>
+                <flux:radio.group wire:model.live="sendChannel">
+                    <flux:radio value="email" label="Email (PDF attachment)" />
+                    <flux:radio value="whatsapp" label="WhatsApp (PDF document)" />
+                    <flux:radio value="both" label="Both Email & WhatsApp" />
+                </flux:radio.group>
+                <flux:error name="sendChannel" />
+            </flux:field>
+
+            {{-- WhatsApp warning if not enabled --}}
+            @if(in_array($sendChannel, ['whatsapp', 'both']))
+                @php $whatsAppEnabled = app(WhatsAppService::class)->isEnabled(); @endphp
+                @if(!$whatsAppEnabled)
+                    <flux:callout variant="warning">
+                        <flux:callout.heading>WhatsApp Not Configured</flux:callout.heading>
+                        <flux:callout.text>WhatsApp service is not enabled. Configure it in Settings to send via WhatsApp.</flux:callout.text>
+                    </flux:callout>
+                @endif
+            @endif
+
+            {{-- Message --}}
+            <flux:field>
+                <flux:label>Message</flux:label>
+                <flux:textarea wire:model="sendMessage" rows="6" placeholder="Enter the message to send with the certificate..." />
+                <flux:error name="sendMessage" />
+                <flux:text class="text-xs text-zinc-400 mt-1">
+                    This message will be included in the email body and/or WhatsApp text message. The certificate PDF will be attached automatically.
+                </flux:text>
+            </flux:field>
+
+            {{-- Action Buttons --}}
+            <div class="flex justify-end gap-3 pt-2">
+                <flux:button variant="ghost" wire:click="closeSendModal">
+                    Cancel
+                </flux:button>
+                <flux:button
+                    variant="primary"
+                    wire:click="sendCertificates"
+                    wire:loading.attr="disabled"
+                    wire:target="sendCertificates"
+                    icon="paper-airplane"
+                >
+                    <span wire:loading.remove wire:target="sendCertificates">
+                        Send {{ count($sendIssueIds) > 1 ? count($sendIssueIds) . ' ' . Str::plural('Certificate', count($sendIssueIds)) : 'Certificate' }}
+                    </span>
+                    <span wire:loading wire:target="sendCertificates">Sending...</span>
                 </flux:button>
             </div>
         </div>
