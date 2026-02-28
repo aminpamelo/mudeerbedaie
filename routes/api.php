@@ -279,6 +279,21 @@ Route::middleware(['auth:sanctum'])->prefix('workflows')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
+| WhatsApp Inbox API Routes (Admin)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum'])->prefix('admin/whatsapp')->group(function () {
+    Route::get('conversations', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'index'])->name('api.admin.whatsapp.conversations');
+    Route::get('conversations/{conversation}', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'show'])->name('api.admin.whatsapp.conversations.show');
+    Route::post('conversations/{conversation}/reply', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'reply'])->name('api.admin.whatsapp.conversations.reply');
+    Route::post('conversations/{conversation}/template', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'sendTemplate'])->name('api.admin.whatsapp.conversations.template');
+    Route::post('conversations/{conversation}/archive', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'archive'])->name('api.admin.whatsapp.conversations.archive');
+    Route::get('templates', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'templates'])->name('api.admin.whatsapp.templates');
+    Route::post('templates/sync', [\App\Http\Controllers\Admin\WhatsAppInboxController::class, 'syncTemplates'])->name('api.admin.whatsapp.templates.sync');
+});
+
+/*
+|--------------------------------------------------------------------------
 | WhatsApp Webhook Routes (Public - No Auth Required)
 |--------------------------------------------------------------------------
 */
