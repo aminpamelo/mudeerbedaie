@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 use App\Jobs\ProcessWhatsAppWebhookJob;
 use App\Models\NotificationLog;
+use App\Models\Student;
+use App\Models\User;
+use App\Models\WhatsAppConversation;
+use App\Models\WhatsAppMessage;
 use Illuminate\Support\Facades\Queue;
 
 /*
@@ -184,7 +188,7 @@ it('skips unknown message ids gracefully', function () {
     expect(true)->toBeTrue();
 });
 
-it('handles incoming message payload without error', function () {
+it('incoming text message creates conversation and message', function () {
     $payload = [
         'entry' => [[
             'id' => '123',
@@ -195,7 +199,7 @@ it('handles incoming message payload without error', function () {
                         'from' => '60123456789',
                         'timestamp' => (string) now()->timestamp,
                         'type' => 'text',
-                        'text' => ['body' => 'Hello!'],
+                        'text' => ['body' => 'Hello there!'],
                     ]],
                     'contacts' => [[
                         'profile' => ['name' => 'Test User'],
@@ -207,7 +211,119 @@ it('handles incoming message payload without error', function () {
         ]],
     ];
 
-    // Should not throw - incoming messages will be handled in Task 4.3
     (new ProcessWhatsAppWebhookJob($payload))->handle();
-    expect(true)->toBeTrue();
+
+    $conversation = WhatsAppConversation::where('phone_number', '60123456789')->first();
+    expect($conversation)->not->toBeNull()
+        ->and($conversation->contact_name)->toBe('Test User')
+        ->and($conversation->unread_count)->toBe(1)
+        ->and($conversation->last_message_preview)->toBe('Hello there!')
+        ->and($conversation->last_message_at)->not->toBeNull();
+
+    $message = WhatsAppMessage::where('wamid', 'wamid.incoming123')->first();
+    expect($message)->not->toBeNull()
+        ->and($message->direction)->toBe('inbound')
+        ->and($message->type)->toBe('text')
+        ->and($message->body)->toBe('Hello there!')
+        ->and($message->conversation_id)->toBe($conversation->id);
+});
+
+it('incoming message from known student links to student', function () {
+    $user = User::factory()->create();
+    $student = Student::factory()->create([
+        'user_id' => $user->id,
+        'phone' => '0123456789',
+    ]);
+
+    $payload = [
+        'entry' => [[
+            'id' => '123',
+            'changes' => [[
+                'value' => [
+                    'messages' => [[
+                        'id' => 'wamid.student-msg-1',
+                        'from' => '60123456789',
+                        'timestamp' => (string) now()->timestamp,
+                        'type' => 'text',
+                        'text' => ['body' => 'Hi from student'],
+                    ]],
+                    'contacts' => [[
+                        'profile' => ['name' => 'Student Name'],
+                        'wa_id' => '60123456789',
+                    ]],
+                ],
+                'field' => 'messages',
+            ]],
+        ]],
+    ];
+
+    (new ProcessWhatsAppWebhookJob($payload))->handle();
+
+    $conversation = WhatsAppConversation::where('phone_number', '60123456789')->first();
+    expect($conversation)->not->toBeNull()
+        ->and($conversation->student_id)->toBe($student->id);
+});
+
+it('incoming message updates service window', function () {
+    $payload = [
+        'entry' => [[
+            'id' => '123',
+            'changes' => [[
+                'value' => [
+                    'messages' => [[
+                        'id' => 'wamid.window-test',
+                        'from' => '60198765432',
+                        'timestamp' => (string) now()->timestamp,
+                        'type' => 'text',
+                        'text' => ['body' => 'Test message'],
+                    ]],
+                    'contacts' => [[
+                        'profile' => ['name' => 'Window Test'],
+                        'wa_id' => '60198765432',
+                    ]],
+                ],
+                'field' => 'messages',
+            ]],
+        ]],
+    ];
+
+    (new ProcessWhatsAppWebhookJob($payload))->handle();
+
+    $conversation = WhatsAppConversation::where('phone_number', '60198765432')->first();
+    expect($conversation)->not->toBeNull()
+        ->and($conversation->is_service_window_open)->toBeTrue()
+        ->and($conversation->service_window_expires_at)->not->toBeNull()
+        ->and($conversation->isServiceWindowOpen())->toBeTrue();
+});
+
+it('delivery status updates WhatsAppMessage status too', function () {
+    $conversation = WhatsAppConversation::factory()->create();
+    $whatsappMessage = WhatsAppMessage::factory()->outbound()->create([
+        'conversation_id' => $conversation->id,
+        'wamid' => 'wamid.outbound-status-test',
+        'status' => 'sent',
+    ]);
+
+    $payload = [
+        'entry' => [[
+            'id' => '123',
+            'changes' => [[
+                'value' => [
+                    'statuses' => [[
+                        'id' => 'wamid.outbound-status-test',
+                        'status' => 'delivered',
+                        'timestamp' => (string) now()->timestamp,
+                        'recipient_id' => '60123456789',
+                    ]],
+                ],
+                'field' => 'messages',
+            ]],
+        ]],
+    ];
+
+    (new ProcessWhatsAppWebhookJob($payload))->handle();
+
+    $whatsappMessage->refresh();
+    expect($whatsappMessage->status)->toBe('delivered')
+        ->and($whatsappMessage->status_updated_at)->not->toBeNull();
 });
