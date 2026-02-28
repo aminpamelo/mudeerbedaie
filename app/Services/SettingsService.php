@@ -454,7 +454,12 @@ class SettingsService
      */
     public function isWhatsAppConfigured(): bool
     {
-        return ! empty($this->get('whatsapp_api_token'));
+        $provider = $this->get('whatsapp_provider', 'onsend');
+
+        return match ($provider) {
+            'meta' => ! empty($this->get('meta_phone_number_id')) && ! empty($this->get('meta_access_token')),
+            default => ! empty($this->get('whatsapp_api_token')),
+        };
     }
 
     /**

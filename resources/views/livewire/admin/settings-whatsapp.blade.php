@@ -191,13 +191,8 @@ new class extends Component
             'testMessage' => 'required|string|min:1|max:1000',
         ]);
 
-        // Temporarily update config BEFORE instantiating service
-        if ($this->provider === 'meta' && ! empty($this->metaAccessToken)) {
-            config(['services.whatsapp.provider' => 'meta']);
-        } elseif (! empty($this->apiToken)) {
-            config(['services.onsend.api_token' => $this->apiToken]);
-            config(['services.onsend.enabled' => true]);
-        }
+        // Save current settings first so WhatsAppManager reads fresh credentials
+        $this->save();
 
         // Resolve via container so WhatsAppManager is injected
         $whatsApp = app(WhatsAppService::class);
@@ -213,7 +208,7 @@ new class extends Component
         $this->refreshStatus();
     }
 
-    public function getRecentLogsProperty()
+    public function getRecentLogsProperty(): \Illuminate\Database\Eloquent\Collection
     {
         return WhatsAppSendLog::orderByDesc('send_date')
             ->limit(7)
@@ -753,7 +748,7 @@ new class extends Component
                         </thead>
                         <tbody>
                             @foreach($this->recentLogs as $log)
-                                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                <tr wire:key="log-{{ $log->id }}" class="border-b border-gray-100 hover:bg-gray-50">
                                     <td class="py-3 px-4">
                                         <span class="font-medium text-gray-900">{{ $log->send_date->format('d M Y') }}</span>
                                         <span class="text-xs text-gray-500 ml-2">({{ $log->send_date->locale('ms')->dayName }})</span>

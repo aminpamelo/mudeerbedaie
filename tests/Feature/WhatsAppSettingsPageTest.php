@@ -115,6 +115,13 @@ it('shows official meta banner when meta provider is selected', function () {
         ->assertSee('Meta Cloud API (Rasmi)');
 });
 
+it('validates test phone number is required', function () {
+    Volt::test('admin.settings-whatsapp')
+        ->set('testPhoneNumber', '')
+        ->call('sendTestMessage')
+        ->assertHasErrors(['testPhoneNumber']);
+});
+
 it('does not save meta settings when onsend provider is selected', function () {
     Volt::test('admin.settings-whatsapp')
         ->set('provider', 'onsend')
