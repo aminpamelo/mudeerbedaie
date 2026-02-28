@@ -67,7 +67,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             match ($statusValue) {
                 'sent' => $this->handleSentStatus($log),
                 'delivered' => $log->markAsDelivered(),
-                'read' => $log->update(['status' => 'read']),
+                'read' => $log->markAsRead(),
                 'failed' => $this->handleFailedStatus($log, $status['errors'] ?? []),
                 default => Log::info('WhatsApp webhook: unhandled status', [
                     'message_id' => $messageId,

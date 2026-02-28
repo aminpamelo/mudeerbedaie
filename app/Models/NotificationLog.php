@@ -113,6 +113,13 @@ class NotificationLog extends Model
         ]);
     }
 
+    public function markAsRead(): void
+    {
+        $this->update([
+            'status' => 'read',
+        ]);
+    }
+
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
@@ -149,6 +156,7 @@ class NotificationLog extends Model
             'pending' => 'zinc',
             'sent' => 'blue',
             'delivered' => 'green',
+            'read' => 'emerald',
             'failed' => 'red',
             'bounced' => 'yellow',
             'skipped' => 'amber',
@@ -162,6 +170,7 @@ class NotificationLog extends Model
             'pending' => 'Menunggu',
             'sent' => 'Dihantar',
             'delivered' => 'Diterima',
+            'read' => 'Dibaca',
             'failed' => 'Gagal',
             'bounced' => 'Ditolak',
             'skipped' => 'Dilangkau',
