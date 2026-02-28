@@ -140,8 +140,8 @@ new class extends Component
             config(['services.onsend.enabled' => true]);
         }
 
-        // Now instantiate the service with updated config
-        $whatsApp = new WhatsAppService();
+        // Resolve via container so WhatsAppManager is injected
+        $whatsApp = app(WhatsAppService::class);
 
         $result = $whatsApp->send($this->testPhoneNumber, $this->testMessage);
 

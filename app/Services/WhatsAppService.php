@@ -3,23 +3,19 @@
 namespace App\Services;
 
 use App\Models\WhatsAppSendLog;
+use App\Services\WhatsApp\WhatsAppManager;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppService
 {
-    protected string $apiUrl;
-
-    protected ?string $apiToken;
-
     protected int $messagesSentInBatch = 0;
 
     protected array $config = [];
 
-    public function __construct()
-    {
-        $this->apiUrl = config('services.onsend.api_url', 'https://onsend.io/api/v1');
+    public function __construct(
+        private WhatsAppManager $manager,
+    ) {
         $this->loadConfig();
     }
 
@@ -28,16 +24,9 @@ class WhatsAppService
      */
     protected function loadConfig(): void
     {
-        // Try to get settings from database first
         $settingsService = app(SettingsService::class);
         $dbConfig = $settingsService->getWhatsAppConfig();
 
-        // Use database token if available, otherwise fall back to env
-        $this->apiToken = ! empty($dbConfig['api_token'])
-            ? $dbConfig['api_token']
-            : config('services.onsend.api_token');
-
-        // Merge config: database settings take precedence over env defaults
         $this->config = [
             'enabled' => $dbConfig['enabled'] || config('services.onsend.enabled', false),
             'min_delay_seconds' => $dbConfig['min_delay_seconds'] ?: config('services.onsend.min_delay_seconds', 10),
@@ -65,51 +54,15 @@ class WhatsAppService
      */
     public function isEnabled(): bool
     {
-        return $this->getConfig('enabled', false) && ! empty($this->apiToken);
+        return $this->getConfig('enabled', false) && $this->manager->provider()->isConfigured();
     }
 
     /**
-     * Check device connection status.
+     * Check device connection status via the active provider.
      */
     public function checkDeviceStatus(): array
     {
-        if (! $this->apiToken) {
-            return [
-                'success' => false,
-                'status' => 'not_configured',
-                'message' => 'API token not configured',
-            ];
-        }
-
-        try {
-            $response = Http::withToken($this->apiToken)
-                ->timeout(10)
-                ->get("{$this->apiUrl}/status");
-
-            if ($response->successful()) {
-                $data = $response->json();
-
-                return [
-                    'success' => true,
-                    'status' => $data['status'] ?? 'unknown',
-                    'message' => $data['message'] ?? 'Status retrieved',
-                ];
-            }
-
-            return [
-                'success' => false,
-                'status' => 'error',
-                'message' => 'Failed to get device status: '.$response->status(),
-            ];
-        } catch (\Exception $e) {
-            Log::error('WhatsApp status check failed', ['error' => $e->getMessage()]);
-
-            return [
-                'success' => false,
-                'status' => 'error',
-                'message' => $e->getMessage(),
-            ];
-        }
+        return $this->manager->provider()->checkStatus();
     }
 
     /**
@@ -295,7 +248,7 @@ class WhatsAppService
     }
 
     /**
-     * Send a text message via WhatsApp.
+     * Send a text message via WhatsApp, delegating to the active provider.
      */
     public function send(string $phoneNumber, string $message, string $type = 'text'): array
     {
@@ -308,49 +261,16 @@ class WhatsAppService
 
         $formattedPhone = $this->formatPhoneNumber($phoneNumber);
 
-        // Add message variation to avoid detection
-        $variedMessage = $this->addMessageVariation($message);
+        // Only apply message variation for onsend provider (anti-ban)
+        if ($this->manager->getProviderName() === 'onsend') {
+            $message = $this->addMessageVariation($message);
+        }
 
         try {
-            $payload = [
-                'phone_number' => $formattedPhone,
-                'message' => $variedMessage,
-                'type' => $type,
-            ];
+            $result = $this->manager->provider()->send($formattedPhone, $message);
+            $this->logSendAttempt($result['success']);
 
-            $response = Http::withToken($this->apiToken)
-                ->timeout(30)
-                ->post("{$this->apiUrl}/send", $payload);
-
-            $data = $response->json();
-
-            // Log the attempt
-            $this->logSendAttempt($response->successful());
-
-            if ($response->successful() && ($data['success'] ?? false)) {
-                Log::info('WhatsApp message sent', [
-                    'phone' => $formattedPhone,
-                    'message_id' => $data['message_id'] ?? null,
-                ]);
-
-                return [
-                    'success' => true,
-                    'message_id' => $data['message_id'] ?? null,
-                    'message' => $data['message'] ?? 'Message sent',
-                ];
-            }
-
-            $errorMessage = $data['message'] ?? 'Unknown error';
-            Log::warning('WhatsApp message failed', [
-                'phone' => $formattedPhone,
-                'error' => $errorMessage,
-                'status' => $response->status(),
-            ]);
-
-            return [
-                'success' => false,
-                'error' => $errorMessage,
-            ];
+            return $result;
         } catch (\Exception $e) {
             $this->logSendAttempt(false);
 
@@ -367,7 +287,7 @@ class WhatsAppService
     }
 
     /**
-     * Send an image with optional caption.
+     * Send an image with optional caption, delegating to the active provider.
      */
     public function sendImage(string $phoneNumber, string $imageUrl, ?string $caption = null): array
     {
@@ -380,37 +300,23 @@ class WhatsAppService
 
         $formattedPhone = $this->formatPhoneNumber($phoneNumber);
 
+        // Only apply caption variation for onsend provider (anti-ban)
+        if ($caption && $this->manager->getProviderName() === 'onsend') {
+            $caption = $this->addMessageVariation($caption);
+        }
+
         try {
-            $payload = [
-                'phone_number' => $formattedPhone,
-                'type' => 'image',
-                'url' => $imageUrl,
-            ];
+            $result = $this->manager->provider()->sendImage($formattedPhone, $imageUrl, $caption);
+            $this->logSendAttempt($result['success']);
 
-            if ($caption) {
-                $payload['message'] = $this->addMessageVariation($caption);
-            }
-
-            $response = Http::withToken($this->apiToken)
-                ->timeout(30)
-                ->post("{$this->apiUrl}/send", $payload);
-
-            $data = $response->json();
-            $this->logSendAttempt($response->successful());
-
-            if ($response->successful() && ($data['success'] ?? false)) {
-                return [
-                    'success' => true,
-                    'message_id' => $data['message_id'] ?? null,
-                ];
-            }
-
-            return [
-                'success' => false,
-                'error' => $data['message'] ?? 'Failed to send image',
-            ];
+            return $result;
         } catch (\Exception $e) {
             $this->logSendAttempt(false);
+
+            Log::error('WhatsApp sendImage exception', [
+                'phone' => $formattedPhone,
+                'error' => $e->getMessage(),
+            ]);
 
             return [
                 'success' => false,
@@ -420,7 +326,7 @@ class WhatsAppService
     }
 
     /**
-     * Send a document/file.
+     * Send a document/file, delegating to the active provider.
      */
     public function sendDocument(string $phoneNumber, string $documentUrl, string $mimeType, ?string $filename = null): array
     {
@@ -434,37 +340,51 @@ class WhatsAppService
         $formattedPhone = $this->formatPhoneNumber($phoneNumber);
 
         try {
-            $payload = [
-                'phone_number' => $formattedPhone,
-                'type' => 'document',
-                'url' => $documentUrl,
-                'mimetype' => $mimeType,
-            ];
+            $result = $this->manager->provider()->sendDocument($formattedPhone, $documentUrl, $mimeType, $filename);
+            $this->logSendAttempt($result['success']);
 
-            if ($filename) {
-                $payload['filename'] = $filename;
-            }
+            return $result;
+        } catch (\Exception $e) {
+            $this->logSendAttempt(false);
 
-            $response = Http::withToken($this->apiToken)
-                ->timeout(30)
-                ->post("{$this->apiUrl}/send", $payload);
-
-            $data = $response->json();
-            $this->logSendAttempt($response->successful());
-
-            if ($response->successful() && ($data['success'] ?? false)) {
-                return [
-                    'success' => true,
-                    'message_id' => $data['message_id'] ?? null,
-                ];
-            }
+            Log::error('WhatsApp sendDocument exception', [
+                'phone' => $formattedPhone,
+                'error' => $e->getMessage(),
+            ]);
 
             return [
                 'success' => false,
-                'error' => $data['message'] ?? 'Failed to send document',
+                'error' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Send a template message, delegating to the active provider.
+     */
+    public function sendTemplate(string $phoneNumber, string $templateName, string $language, array $components = []): array
+    {
+        if (! $this->isEnabled()) {
+            return [
+                'success' => false,
+                'error' => 'WhatsApp service is not enabled',
+            ];
+        }
+
+        $formattedPhone = $this->formatPhoneNumber($phoneNumber);
+
+        try {
+            $result = $this->manager->provider()->sendTemplate($formattedPhone, $templateName, $language, $components);
+            $this->logSendAttempt($result['success']);
+
+            return $result;
         } catch (\Exception $e) {
             $this->logSendAttempt(false);
+
+            Log::error('WhatsApp sendTemplate exception', [
+                'phone' => $formattedPhone,
+                'error' => $e->getMessage(),
+            ]);
 
             return [
                 'success' => false,
