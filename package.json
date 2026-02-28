@@ -21,6 +21,7 @@
         "react-dom": "^19.2.3",
         "react-email-editor": "^1.7.11",
         "react-hot-toast": "^2.6.0",
+        "sortablejs": "^1.15.7",
         "tailwindcss": "^4.0.7",
         "vite": "^7.0.4",
         "zustand": "^5.0.10"
