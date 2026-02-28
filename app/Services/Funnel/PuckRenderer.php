@@ -7,6 +7,46 @@ use Illuminate\Support\HtmlString;
 class PuckRenderer
 {
     /**
+     * Check if the Puck content is a single TextBlock containing a full HTML document.
+     * When true, the page should be rendered as raw HTML instead of through the Puck template.
+     */
+    public function isFullPageHtml(array $content): bool
+    {
+        $components = $content['content'] ?? [];
+
+        if (count($components) !== 1) {
+            return false;
+        }
+
+        $component = $components[0];
+        if (($component['type'] ?? '') !== 'TextBlock') {
+            return false;
+        }
+
+        $textContent = trim($component['props']['content'] ?? '');
+
+        return (bool) preg_match('/^<!DOCTYPE\s|^<html[\s>]/i', $textContent);
+    }
+
+    /**
+     * Extract the raw full-page HTML from a single-TextBlock Puck content.
+     * Injects funnel tracking config into the HTML before the closing </body> tag.
+     */
+    public function extractFullPageHtml(array $content, array $trackingScripts = []): string
+    {
+        $components = $content['content'] ?? [];
+        $html = $components[0]['props']['content'] ?? '';
+
+        // Inject tracking scripts before </body> if provided
+        if (! empty($trackingScripts)) {
+            $injection = implode("\n", $trackingScripts);
+            $html = preg_replace('/<\/body>/i', $injection."\n</body>", $html, 1);
+        }
+
+        return $html;
+    }
+
+    /**
      * Render Puck JSON content to HTML.
      */
     public function render(array $content, array $context = []): HtmlString

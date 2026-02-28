@@ -25,7 +25,7 @@ class PublicFunnelController extends Controller
     /**
      * Show funnel landing page with affiliate ref code (path-based).
      */
-    public function showWithRef(Request $request, string $slug, string $refCode): View
+    public function showWithRef(Request $request, string $slug, string $refCode): View|\Illuminate\Http\Response
     {
         $this->storeAffiliateRef($request, $slug, $refCode);
 
@@ -35,7 +35,7 @@ class PublicFunnelController extends Controller
     /**
      * Show specific funnel step with affiliate ref code (path-based).
      */
-    public function showStepWithRef(Request $request, string $slug, string $stepSlug, string $refCode): View
+    public function showStepWithRef(Request $request, string $slug, string $stepSlug, string $refCode): View|\Illuminate\Http\Response
     {
         $this->storeAffiliateRef($request, $slug, $refCode);
 
@@ -70,7 +70,7 @@ class PublicFunnelController extends Controller
     /**
      * Show funnel landing page (first step).
      */
-    public function show(Request $request, string $slug): View
+    public function show(Request $request, string $slug): View|\Illuminate\Http\Response
     {
         $funnel = Funnel::where('slug', $slug)
             ->where('status', 'published')
@@ -90,7 +90,7 @@ class PublicFunnelController extends Controller
     /**
      * Show specific funnel step.
      */
-    public function showStep(Request $request, string $slug, string $stepSlug): View
+    public function showStep(Request $request, string $slug, string $stepSlug): View|\Illuminate\Http\Response
     {
         $funnel = Funnel::where('slug', $slug)
             ->where('status', 'published')
@@ -107,7 +107,7 @@ class PublicFunnelController extends Controller
     /**
      * Render a funnel step.
      */
-    protected function renderStep(Request $request, Funnel $funnel, FunnelStep $step): View
+    protected function renderStep(Request $request, Funnel $funnel, FunnelStep $step): View|\Illuminate\Http\Response
     {
         // Get or create session
         $session = $this->getOrCreateSession($request, $funnel);
@@ -121,6 +121,11 @@ class PublicFunnelController extends Controller
         if (! $content) {
             // Fallback to draft content if no published version
             $content = $step->draftContent;
+        }
+
+        // Check if content is a full standalone HTML page
+        if ($content && ! empty($content->content) && $this->renderer->isFullPageHtml($content->content)) {
+            return $this->renderFullPageHtml($request, $funnel, $step, $session, $content);
         }
 
         // Render Puck content to HTML
@@ -179,6 +184,79 @@ class PublicFunnelController extends Controller
             'purchaseEventId' => $pixelData['purchaseEventId'] ?? null,
             'purchaseData' => $pixelData['purchaseData'] ?? null,
         ]);
+    }
+
+    /**
+     * Render a full standalone HTML page directly, injecting tracking scripts.
+     */
+    protected function renderFullPageHtml(
+        Request $request,
+        Funnel $funnel,
+        FunnelStep $step,
+        FunnelSession $session,
+        \App\Models\FunnelStepContent $content
+    ): \Illuminate\Http\Response {
+        $nextStep = $step->next_step_id
+            ? $funnel->steps()->find($step->next_step_id)
+            : $funnel->steps()->where('sort_order', '>', $step->sort_order)->first();
+
+        // Build tracking scripts to inject before </body>
+        $trackingScripts = [];
+
+        // Funnel config script
+        $nextStepUrl = $nextStep ? "/f/{$funnel->slug}/{$nextStep->slug}" : '';
+        $trackingScripts[] = '<script>';
+        $trackingScripts[] = 'window.funnelConfig = {';
+        $trackingScripts[] = "  funnelId: {$funnel->id},";
+        $trackingScripts[] = "  funnelUuid: '".e($funnel->uuid)."',";
+        $trackingScripts[] = "  funnelSlug: '".e($funnel->slug)."',";
+        $trackingScripts[] = "  stepId: {$step->id},";
+        $trackingScripts[] = "  stepSlug: '".e($step->slug)."',";
+        $trackingScripts[] = "  stepType: '".e($step->type)."',";
+        $trackingScripts[] = "  sessionUuid: '".e($session->uuid)."',";
+        $trackingScripts[] = "  nextStepUrl: '".e($nextStepUrl)."',";
+        $trackingScripts[] = "  csrfToken: '".csrf_token()."',";
+        $trackingScripts[] = '};';
+        $trackingScripts[] = '</script>';
+
+        // Custom CSS
+        if ($content->custom_css) {
+            $trackingScripts[] = '<style>'.$content->custom_css.'</style>';
+        }
+
+        // Custom JS
+        if ($content->custom_js) {
+            $trackingScripts[] = '<script>'.$content->custom_js.'</script>';
+        }
+
+        // Facebook Pixel
+        $products = $step->products()->with(['package.items'])->where('is_active', true)->orderBy('sort_order')->get();
+        $pixelData = $this->trackPixelEvents($request, $funnel, $step, $session, $products);
+        if ($this->pixelService->isEnabled($funnel)) {
+            $pixelHtml = view('funnel.partials.facebook-pixel', compact('funnel', 'step', 'session')
+                + $pixelData)->render();
+            $trackingScripts[] = $pixelHtml;
+        }
+
+        // Tracking codes from funnel settings
+        if ($funnel->settings['tracking_codes']['body'] ?? null) {
+            $trackingScripts[] = $funnel->settings['tracking_codes']['body'];
+        }
+
+        $html = $this->renderer->extractFullPageHtml($content->content, $trackingScripts);
+
+        // Inject head tracking codes before </head>
+        if ($funnel->settings['tracking_codes']['head'] ?? null) {
+            $html = preg_replace('/<\/head>/i', $funnel->settings['tracking_codes']['head']."\n</head>", $html, 1);
+        }
+
+        // Replace content placeholders
+        $orderNumber = $request->query('order');
+        if ($orderNumber) {
+            $html = str_replace('[ORDER_NUMBER]', e($orderNumber), $html);
+        }
+
+        return response($html);
     }
 
     /**

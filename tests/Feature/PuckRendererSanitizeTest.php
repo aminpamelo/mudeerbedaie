@@ -100,3 +100,122 @@ it('renders TextBlock with full HTML document through the render method', functi
         ->not->toContain('var x=1')
         ->toContain('transform: translateZ(0)');
 });
+
+it('detects full page HTML when single TextBlock has DOCTYPE', function () {
+    $content = [
+        'content' => [
+            [
+                'type' => 'TextBlock',
+                'props' => [
+                    'content' => '<!DOCTYPE html><html><head></head><body><p>Full page</p></body></html>',
+                ],
+            ],
+        ],
+    ];
+
+    expect($this->renderer->isFullPageHtml($content))->toBeTrue();
+});
+
+it('detects full page HTML when single TextBlock starts with html tag', function () {
+    $content = [
+        'content' => [
+            [
+                'type' => 'TextBlock',
+                'props' => [
+                    'content' => '<html lang="en"><head></head><body><p>Full page</p></body></html>',
+                ],
+            ],
+        ],
+    ];
+
+    expect($this->renderer->isFullPageHtml($content))->toBeTrue();
+});
+
+it('does not detect full page HTML when multiple components exist', function () {
+    $content = [
+        'content' => [
+            [
+                'type' => 'TextBlock',
+                'props' => [
+                    'content' => '<!DOCTYPE html><html><body><p>Page</p></body></html>',
+                ],
+            ],
+            [
+                'type' => 'ButtonBlock',
+                'props' => ['text' => 'Click'],
+            ],
+        ],
+    ];
+
+    expect($this->renderer->isFullPageHtml($content))->toBeFalse();
+});
+
+it('does not detect full page HTML for regular TextBlock content', function () {
+    $content = [
+        'content' => [
+            [
+                'type' => 'TextBlock',
+                'props' => [
+                    'content' => '<p>Just a paragraph</p>',
+                ],
+            ],
+        ],
+    ];
+
+    expect($this->renderer->isFullPageHtml($content))->toBeFalse();
+});
+
+it('does not detect full page HTML when component is not TextBlock', function () {
+    $content = [
+        'content' => [
+            [
+                'type' => 'HeroSection',
+                'props' => [
+                    'title' => '<!DOCTYPE html>',
+                ],
+            ],
+        ],
+    ];
+
+    expect($this->renderer->isFullPageHtml($content))->toBeFalse();
+});
+
+it('extracts raw HTML from full page content', function () {
+    $fullHtml = '<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"></script></head><body><p>Hello</p><script>alert(1)</script></body></html>';
+    $content = [
+        'content' => [
+            [
+                'type' => 'TextBlock',
+                'props' => ['content' => $fullHtml],
+            ],
+        ],
+    ];
+
+    $result = $this->renderer->extractFullPageHtml($content);
+
+    expect($result)
+        ->toBe($fullHtml)
+        ->toContain('cdn.tailwindcss.com')
+        ->toContain('<script>alert(1)</script>');
+});
+
+it('injects tracking scripts before closing body tag', function () {
+    $fullHtml = '<!DOCTYPE html><html><body><p>Page</p></body></html>';
+    $content = [
+        'content' => [
+            [
+                'type' => 'TextBlock',
+                'props' => ['content' => $fullHtml],
+            ],
+        ],
+    ];
+
+    $result = $this->renderer->extractFullPageHtml($content, [
+        '<script>window.funnelConfig = {};</script>',
+    ]);
+
+    expect($result)
+        ->toContain('window.funnelConfig')
+        ->toContain('<script>window.funnelConfig = {};</script>')
+        ->toContain('</body>');
+});
