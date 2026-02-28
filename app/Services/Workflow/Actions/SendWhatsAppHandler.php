@@ -5,15 +5,16 @@ namespace App\Services\Workflow\Actions;
 use App\Models\MessageTemplate;
 use App\Models\Student;
 use App\Services\MergeTag\MergeTagEngine;
-use Illuminate\Support\Facades\Http;
+use App\Services\WhatsApp\WhatsAppManager;
 use Illuminate\Support\Facades\Log;
 
 class SendWhatsAppHandler implements ActionHandlerInterface
 {
     protected MergeTagEngine $mergeTagEngine;
 
-    public function __construct()
-    {
+    public function __construct(
+        private WhatsAppManager $whatsAppManager,
+    ) {
         $this->mergeTagEngine = new MergeTagEngine;
     }
 
@@ -66,7 +67,7 @@ class SendWhatsAppHandler implements ActionHandlerInterface
             // Format phone number (remove non-digits, ensure country code)
             $formattedPhone = $this->formatPhoneNumber($phone);
 
-            // Send via WhatsApp API (OnSend API)
+            // Send via configured WhatsApp provider
             $sent = $this->sendWhatsAppMessage($formattedPhone, $message);
 
             if (! $sent) {
@@ -161,64 +162,40 @@ class SendWhatsAppHandler implements ActionHandlerInterface
     }
 
     /**
-     * Send WhatsApp message via OnSend API.
+     * Send WhatsApp message via the configured provider.
      */
     protected function sendWhatsAppMessage(string $phone, string $message): bool
     {
-        // Check if WhatsApp API is configured
-        $apiUrl = config('services.whatsapp.api_url') ?? config('services.onsend.api_url');
-        $apiToken = config('services.whatsapp.api_token') ?? config('services.onsend.api_token');
-        $deviceId = config('services.whatsapp.device_id') ?? config('services.onsend.device_id');
+        $provider = $this->whatsAppManager->provider();
 
-        if (! $apiUrl || ! $apiToken) {
-            Log::warning('WhatsApp API not configured, logging message instead', [
+        if (! $provider->isConfigured()) {
+            Log::warning('WhatsApp provider not configured, logging message instead', [
+                'provider' => $provider->getName(),
                 'phone' => $phone,
                 'message' => substr($message, 0, 100).'...',
             ]);
 
-            // Return true for development/testing
             return true;
         }
 
-        try {
-            // OnSend API format
-            $payload = [
+        $result = $provider->send($phone, $message);
+
+        if ($result['success']) {
+            Log::info('WhatsApp message sent via provider', [
+                'provider' => $provider->getName(),
                 'phone' => $phone,
-                'message' => $message,
-            ];
-
-            if ($deviceId) {
-                $payload['device_id'] = $deviceId;
-            }
-
-            $response = Http::withToken($apiToken)
-                ->timeout(30)
-                ->post($apiUrl, $payload);
-
-            if ($response->successful()) {
-                Log::info('WhatsApp message sent via API', [
-                    'phone' => $phone,
-                    'response' => $response->json(),
-                ]);
-
-                return true;
-            }
-
-            Log::error('WhatsApp API returned error', [
-                'phone' => $phone,
-                'status' => $response->status(),
-                'response' => $response->body(),
+                'message_id' => $result['message_id'] ?? null,
             ]);
 
-            return false;
-
-        } catch (\Exception $e) {
-            Log::error('WhatsApp API error', [
-                'phone' => $phone,
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
+            return true;
         }
+
+        Log::error('WhatsApp provider send failed', [
+            'provider' => $provider->getName(),
+            'phone' => $phone,
+            'error' => $result['error'] ?? 'Unknown error',
+        ]);
+
+        return false;
     }
 }
