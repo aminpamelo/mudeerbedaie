@@ -564,9 +564,10 @@ new class extends Component
                         <flux:field>
                             <flux:label>Shipping Cost (RM)</flux:label>
                             <flux:input
-                                type="text"
-                                inputmode="decimal"
-                                wire:model.live.debounce.500ms="shippingCost"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                wire:model.blur="shippingCost"
                                 placeholder="0.00"
                             />
                         </flux:field>
