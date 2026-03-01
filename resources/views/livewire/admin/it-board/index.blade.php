@@ -133,85 +133,90 @@ new class extends Component
     </div>
 
     <!-- Filters -->
-    <div class="mb-4 flex flex-wrap items-center gap-3">
-        <div class="w-64">
+    <div class="mb-4 flex items-center gap-2">
+        <div class="w-52">
             <flux:input wire:model.live.debounce.300ms="search" placeholder="Search tickets..." icon="magnifying-glass" size="sm" />
         </div>
-        <flux:select wire:model.live="typeFilter" size="sm">
-            <option value="">All Types</option>
-            @foreach(ItTicket::types() as $type)
-                <option value="{{ $type }}">{{ ucfirst($type) }}</option>
-            @endforeach
-        </flux:select>
-        <flux:select wire:model.live="priorityFilter" size="sm">
-            <option value="">All Priorities</option>
-            @foreach(ItTicket::priorities() as $priority)
-                <option value="{{ $priority }}">{{ ucfirst($priority) }}</option>
-            @endforeach
-        </flux:select>
-        <flux:select wire:model.live="assigneeFilter" size="sm">
-            <option value="">All Assignees</option>
-            @foreach($this->adminUsers as $user)
-                <option value="{{ $user->id }}">{{ $user->name }}</option>
-            @endforeach
-        </flux:select>
+        <div class="w-36">
+            <flux:select wire:model.live="typeFilter" size="sm">
+                <option value="">All Types</option>
+                @foreach(ItTicket::types() as $type)
+                    <option value="{{ $type }}">{{ ucfirst($type) }}</option>
+                @endforeach
+            </flux:select>
+        </div>
+        <div class="w-36">
+            <flux:select wire:model.live="priorityFilter" size="sm">
+                <option value="">All Priorities</option>
+                @foreach(ItTicket::priorities() as $priority)
+                    <option value="{{ $priority }}">{{ ucfirst($priority) }}</option>
+                @endforeach
+            </flux:select>
+        </div>
+        <div class="w-40">
+            <flux:select wire:model.live="assigneeFilter" size="sm">
+                <option value="">All Assignees</option>
+                @foreach($this->adminUsers as $user)
+                    <option value="{{ $user->id }}">{{ $user->name }}</option>
+                @endforeach
+            </flux:select>
+        </div>
     </div>
 
     <!-- Kanban Board -->
-    <div class="flex gap-4 overflow-x-auto pb-4" x-data="kanbanBoard()" x-init="initBoard()">
+    <div class="flex gap-2 overflow-x-auto pb-4">
         @foreach($this->columns as $status => $column)
             @php $columnTickets = $this->tickets[$status] ?? collect(); @endphp
-            <div class="flex-shrink-0 w-72">
+            <div class="shrink-0 w-[calc((100%-40px)/6)] min-w-[180px]">
                 <!-- Column Header -->
-                <div class="flex items-center justify-between mb-3 px-1">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500"></div>
-                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ $column['label'] }}</h3>
-                        <span class="text-xs text-gray-400 bg-gray-100 dark:bg-zinc-700 px-1.5 py-0.5 rounded-full">{{ $columnTickets->count() }}</span>
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-2 h-2 rounded-full bg-{{ $column['color'] }}-500"></div>
+                        <h3 class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">{{ $column['label'] }}</h3>
+                        <span class="text-[10px] text-gray-400 bg-gray-100 dark:bg-zinc-700 px-1.5 py-0.5 rounded-full">{{ $columnTickets->count() }}</span>
                     </div>
                     <button wire:click="openQuickCreate('{{ $status }}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                        <flux:icon name="plus" class="w-4 h-4" />
+                        <flux:icon name="plus" class="w-3.5 h-3.5" />
                     </button>
                 </div>
 
                 <!-- Column Body (drop zone) -->
                 <div
-                    class="space-y-2 min-h-[200px] p-2 bg-gray-50 dark:bg-zinc-800/50 rounded-lg border border-gray-200 dark:border-zinc-700"
+                    wire:ignore
+                    class="space-y-2 min-h-[300px] max-h-[calc(100vh-260px)] overflow-y-auto p-1.5 bg-gray-50 dark:bg-zinc-800/50 rounded-lg border border-gray-200 dark:border-zinc-700"
                     data-status="{{ $status }}"
-                    x-ref="column_{{ $status }}"
                 >
                     @foreach($columnTickets as $ticket)
                         <div
-                            wire:key="ticket-{{ $ticket->id }}"
                             data-ticket-id="{{ $ticket->id }}"
-                            class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-3 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow"
+                            class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-2.5 cursor-grab active:cursor-grabbing shadow-sm hover:shadow transition-shadow"
                         >
                             <!-- Card Header: Type + Priority -->
-                            <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center justify-between mb-1.5">
                                 <flux:badge size="sm" :color="$ticket->getTypeColor()">{{ $ticket->getTypeLabel() }}</flux:badge>
-                                <div class="flex items-center gap-1.5">
-                                    <div class="w-2 h-2 rounded-full bg-{{ $ticket->getPriorityColor() }}-500" title="{{ ucfirst($ticket->priority) }} priority"></div>
-                                    <span class="text-[10px] text-gray-400">{{ $ticket->ticket_number }}</span>
+                                <div class="flex items-center gap-1">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-{{ $ticket->getPriorityColor() }}-500" title="{{ ucfirst($ticket->priority) }} priority"></div>
+                                    <span class="text-[9px] text-gray-400">{{ $ticket->ticket_number }}</span>
                                 </div>
                             </div>
 
                             <!-- Title -->
-                            <a href="{{ route('admin.it-board.show', $ticket) }}" class="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2 block" wire:navigate>
+                            <a href="{{ route('admin.it-board.show', $ticket) }}" class="text-xs font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2 block" wire:navigate>
                                 {{ $ticket->title }}
                             </a>
 
                             <!-- Footer: Assignee + Due Date -->
-                            <div class="flex items-center justify-between mt-3">
+                            <div class="flex items-center justify-between mt-2">
                                 <div>
                                     @if($ticket->assignee)
                                         <flux:avatar size="xs" :name="$ticket->assignee->name" />
                                     @else
-                                        <span class="text-[10px] text-gray-400">Unassigned</span>
+                                        <span class="text-[9px] text-gray-400">Unassigned</span>
                                     @endif
                                 </div>
                                 @if($ticket->due_date)
-                                    <span class="text-[10px] {{ $ticket->isOverdue() ? 'text-red-600 font-semibold' : 'text-gray-400' }}">
-                                        <flux:icon name="calendar" class="w-3 h-3 inline" />
+                                    <span class="text-[9px] {{ $ticket->isOverdue() ? 'text-red-600 font-semibold' : 'text-gray-400' }}">
+                                        <flux:icon name="calendar" class="w-2.5 h-2.5 inline" />
                                         {{ $ticket->due_date->format('M j') }}
                                     </span>
                                 @endif
@@ -266,36 +271,25 @@ new class extends Component
 
 @script
 <script>
-    function kanbanBoard() {
-        return {
-            sortables: [],
-            initBoard() {
-                this.$nextTick(() => {
-                    const columns = this.$el.querySelectorAll('[data-status]');
-                    columns.forEach(column => {
-                        const sortable = new Sortable(column, {
-                            group: 'kanban',
-                            animation: 150,
-                            ghostClass: 'opacity-50',
-                            dragClass: 'rotate-2',
-                            handle: '.cursor-grab',
-                            onEnd: (evt) => {
-                                const ticketId = parseInt(evt.item.dataset.ticketId);
-                                const newStatus = evt.to.dataset.status;
-                                const newPosition = evt.newIndex;
+    queueMicrotask(() => {
+        const columns = $wire.$el.querySelectorAll('[data-status]');
+        columns.forEach(column => {
+            new Sortable(column, {
+                group: 'kanban',
+                animation: 150,
+                ghostClass: 'opacity-50',
+                dragClass: 'rotate-2',
+                onEnd: (evt) => {
+                    const ticketId = parseInt(evt.item.dataset.ticketId);
+                    const newStatus = evt.to.dataset.status;
+                    const newPosition = evt.newIndex;
+                    const orderedIds = Array.from(evt.to.children).map(el => parseInt(el.dataset.ticketId));
 
-                                // Get all ticket IDs in the target column
-                                const orderedIds = Array.from(evt.to.children).map(el => parseInt(el.dataset.ticketId));
-
-                                this.$wire.updateTicketStatus(ticketId, newStatus, newPosition);
-                                this.$wire.reorderColumn(newStatus, orderedIds);
-                            },
-                        });
-                        this.sortables.push(sortable);
-                    });
-                });
-            }
-        };
-    }
+                    $wire.updateTicketStatus(ticketId, newStatus, newPosition);
+                    $wire.reorderColumn(newStatus, orderedIds);
+                },
+            });
+        });
+    });
 </script>
 @endscript
