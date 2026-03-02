@@ -3454,14 +3454,35 @@ new class extends Component
 
     // Class Assignment Approvals
     public string $studentSubTab = 'enrolled';
+    public string $approvalSearch = '';
     public array $approvalSubscriptionToggles = [];
     public array $selectedApprovalIds = [];
+
+    public function updatedApprovalSearch(): void
+    {
+        $this->selectedApprovalIds = [];
+    }
 
     public function getPendingApprovalsProperty()
     {
         return \App\Models\ClassAssignmentApproval::where('class_id', $this->class->id)
             ->pending()
             ->with(['student.user', 'productOrder', 'assignedByUser'])
+            ->when($this->approvalSearch, function ($query) {
+                $search = '%' . $this->approvalSearch . '%';
+                $query->where(function ($q) use ($search) {
+                    $q->whereHas('student.user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', $search)
+                            ->orWhere('phone', 'like', $search);
+                    })
+                    ->orWhereHas('student', function ($studentQuery) use ($search) {
+                        $studentQuery->where('phone', 'like', $search);
+                    })
+                    ->orWhereHas('productOrder', function ($orderQuery) use ($search) {
+                        $orderQuery->where('order_number', 'like', $search);
+                    });
+                });
+            })
             ->latest()
             ->get();
     }
@@ -4803,6 +4824,14 @@ new class extends Component
                             @endif
                         </div>
 
+                        <div class="mb-4">
+                            <flux:input
+                                wire:model.live.debounce.300ms="approvalSearch"
+                                placeholder="Search by student name, phone, or order number..."
+                                icon="magnifying-glass"
+                            />
+                        </div>
+
                         @if($this->pendingApprovals->count() > 0)
                             <div class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
@@ -4880,8 +4909,13 @@ new class extends Component
                         @else
                             <div class="text-center py-8">
                                 <flux:icon.clipboard-document-check class="h-12 w-12 text-gray-300 dark:text-zinc-600 mx-auto mb-3" />
-                                <p class="text-sm text-gray-500 dark:text-gray-400">No pending approvals.</p>
-                                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Assignments from orders will appear here.</p>
+                                @if(empty($approvalSearch))
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">No pending approvals.</p>
+                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Assignments from orders will appear here.</p>
+                                @else
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">No approvals found matching "{{ $approvalSearch }}"</p>
+                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Try a different search term.</p>
+                                @endif
                             </div>
                         @endif
                     </div>

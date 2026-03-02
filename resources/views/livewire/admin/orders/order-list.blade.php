@@ -23,6 +23,10 @@ new class extends Component
 
     public string $dateFilter = '';
 
+    public string $dateFrom = '';
+
+    public string $dateTo = '';
+
     public string $sortBy = 'created_at';
 
     public string $sortDirection = 'desc';
@@ -97,6 +101,20 @@ new class extends Component
 
     public function updatingDateFilter(): void
     {
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->resetPage();
+    }
+
+    public function updatingDateFrom(): void
+    {
+        $this->dateFilter = '';
+        $this->resetPage();
+    }
+
+    public function updatingDateTo(): void
+    {
+        $this->dateFilter = '';
         $this->resetPage();
     }
 
@@ -110,7 +128,7 @@ new class extends Component
         $this->resetPage();
     }
 
-    public function sortBy(string $field): void
+    public function setSortBy(string $field): void
     {
         if ($this->sortBy === $field) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
@@ -206,6 +224,8 @@ new class extends Component
                     default => $query
                 };
             })
+            ->when($this->dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
+            ->when($this->dateTo, fn ($query) => $query->whereDate('created_at', '<=', $this->dateTo))
             ->orderBy($this->sortBy, $this->sortDirection)
             ->paginate(20);
     }
@@ -435,6 +455,8 @@ new class extends Component
                         default => $query
                     };
                 })
+                ->when($this->dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
+                ->when($this->dateTo, fn ($query) => $query->whereDate('created_at', '<=', $this->dateTo))
                 ->orderBy($this->sortBy, $this->sortDirection)
                 ->get();
 
@@ -585,7 +607,7 @@ new class extends Component
         $this->newStudentName = '';
         $this->newStudentPhone = '';
 
-        // Pre-fill from order data
+        // Always pre-fill from order data so admin can see current values
         $order = ProductOrder::find($orderId);
         if ($order) {
             $this->newStudentName = $order->customer_name ?? '';
@@ -595,14 +617,49 @@ new class extends Component
         $this->showClassAssignModal = true;
     }
 
+    public function getMatchingStudentsProperty()
+    {
+        $phone = trim($this->newStudentPhone);
+        if (strlen($phone) < 5 || str_contains($phone, '*')) {
+            return collect();
+        }
+
+        return \App\Models\Student::query()
+            ->whereHas('user', fn ($q) => $q->where('phone', $phone))
+            ->orWhere('phone', $phone)
+            ->with('user')
+            ->limit(5)
+            ->get();
+    }
+
+    public function linkExistingStudent(int $studentId): void
+    {
+        $order = ProductOrder::find($this->classAssignOrderId);
+        if (! $order) {
+            return;
+        }
+
+        $student = \App\Models\Student::with('user')->find($studentId);
+        if (! $student) {
+            return;
+        }
+
+        $order->update(['student_id' => $student->id]);
+        $this->newStudentName = '';
+        $this->newStudentPhone = '';
+        $this->dispatch('order-updated', message: "Student '{$student->user->name}' linked to order.");
+    }
+
     public function createStudentForOrder(): void
     {
         $this->validate([
             'newStudentName' => 'required|string|min:2|max:255',
-            'newStudentPhone' => 'nullable|string|max:20',
+            'newStudentPhone' => ['required', 'string', 'max:20', 'regex:/^\+?[0-9]+$/'],
         ], [
             'newStudentName.required' => 'Student name is required.',
             'newStudentName.min' => 'Student name must be at least 2 characters.',
+            'newStudentPhone.required' => 'A valid phone number is required.',
+            'newStudentPhone.regex' => 'Phone number must only contain digits. Remove any masked characters (*).',
         ]);
 
         $order = ProductOrder::find($this->classAssignOrderId);
@@ -611,30 +668,6 @@ new class extends Component
         }
 
         $phone = $this->newStudentPhone ?: null;
-
-        // Check if a user with this phone already exists
-        $existingUser = $phone
-            ? \App\Models\User::where('phone', $phone)->first()
-            : null;
-
-        if ($existingUser) {
-            // Try to find existing student for this user
-            $student = \App\Models\Student::where('user_id', $existingUser->id)->first();
-            if (! $student) {
-                $student = \App\Models\Student::create([
-                    'user_id' => $existingUser->id,
-                    'phone' => $phone,
-                    'status' => 'active',
-                ]);
-            }
-
-            $order->update(['student_id' => $student->id]);
-            $this->newStudentName = '';
-            $this->newStudentPhone = '';
-            $this->dispatch('order-updated', message: "Existing student '{$existingUser->name}' linked to order.");
-
-            return;
-        }
 
         // Create new user
         $baseEmail = $phone
@@ -1024,6 +1057,13 @@ new class extends Component
                             <option value="year">This Year</option>
                         </flux:select>
                     </div>
+                    <div class="flex items-center gap-1.5">
+                        <input type="date" wire:model.live="dateFrom"
+                            class="w-36 px-2.5 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                        <span class="text-zinc-400 text-xs">to</span>
+                        <input type="date" wire:model.live="dateTo"
+                            class="w-36 px-2.5 py-1.5 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    </div>
                     <flux:button variant="ghost" wire:click="$refresh" size="sm" class="shrink-0">
                         <flux:icon name="arrow-path" class="w-4 h-4" />
                     </flux:button>
@@ -1031,7 +1071,7 @@ new class extends Component
             </div>
 
             <!-- Active Filter Tags -->
-            @if($search || $sourceTab !== 'all' || $productFilter || $dateFilter)
+            @if($search || $sourceTab !== 'all' || $productFilter || $dateFilter || $dateFrom || $dateTo)
                 <div class="flex items-center gap-2 mt-3 flex-wrap">
                     <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">Filters:</flux:text>
                     @if($search)
@@ -1058,7 +1098,13 @@ new class extends Component
                             <button wire:click="$set('dateFilter', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
                         </span>
                     @endif
-                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('dateFilter', '')"
+                    @if($dateFrom || $dateTo)
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                            {{ $dateFrom ?: '...' }} — {{ $dateTo ?: '...' }}
+                            <button wire:click="$set('dateFrom', ''); $set('dateTo', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
+                        </span>
+                    @endif
+                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', '')"
                         class="text-xs text-zinc-400 hover:text-red-500 transition-colors font-medium">
                         Clear all
                     </button>
@@ -1074,7 +1120,7 @@ new class extends Component
                 <thead>
                     <tr class="border-b border-zinc-200 dark:border-zinc-700">
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
-                            <button wire:click="sortBy('order_number')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                            <button wire:click="setSortBy('order_number')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                                 Order
                                 @if($sortBy === 'order_number')
                                     <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
@@ -1082,24 +1128,38 @@ new class extends Component
                             </button>
                         </th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Source</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Customer</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                            <button wire:click="setSortBy('customer_name')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                                Customer
+                                @if($sortBy === 'customer_name')
+                                    <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
+                                @endif
+                            </button>
+                        </th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Phone</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Items</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
-                            <button wire:click="sortBy('total_amount')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                            <button wire:click="setSortBy('total_amount')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                                 Total
                                 @if($sortBy === 'total_amount')
                                     <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Status</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                            <button wire:click="setSortBy('status')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                                Status
+                                @if($sortBy === 'status')
+                                    <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
+                                @endif
+                            </button>
+                        </th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Class</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Payment</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Notes</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Tracking</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
-                            <button wire:click="sortBy('created_at')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                            <button wire:click="setSortBy('created_at')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                                 Date
                                 @if($sortBy === 'created_at')
                                     <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
@@ -1428,8 +1488,8 @@ new class extends Component
                                     </div>
                                     <flux:text class="font-medium text-zinc-600 dark:text-zinc-400">No orders found</flux:text>
                                     <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 mt-1">Try adjusting your filters or search terms</flux:text>
-                                    @if($search || $activeTab !== 'all' || $dateFilter || $sourceTab !== 'all' || $productFilter)
-                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('sourceTab', 'all'); $set('productFilter', '')" class="mt-3">
+                                    @if($search || $activeTab !== 'all' || $dateFilter || $dateFrom || $dateTo || $sourceTab !== 'all' || $productFilter)
+                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('dateFrom', ''); $set('dateTo', ''); $set('sourceTab', 'all'); $set('productFilter', '')" class="mt-3">
                                             Clear all filters
                                         </flux:button>
                                     @endif
@@ -1618,13 +1678,55 @@ new class extends Component
                                 </div>
                             </div>
 
+                            @php
+                                $hasMaskedPhone = str_contains($newStudentPhone, '*');
+                                $matchingStudents = $this->matchingStudents;
+                            @endphp
+
                             <div class="space-y-3">
-                                <flux:input wire:model="newStudentName" label="Student Name" placeholder="Enter student name" size="sm" />
-                                @error('newStudentName') <flux:text size="sm" class="text-red-600 dark:text-red-400">{{ $message }}</flux:text> @enderror
+                                <div>
+                                    <flux:input wire:model="newStudentName" label="Student Name" placeholder="Enter student name" size="sm" />
+                                    @error('newStudentName') <flux:text size="sm" class="text-red-600 dark:text-red-400 mt-1">{{ $message }}</flux:text> @enderror
+                                </div>
 
-                                <flux:input wire:model="newStudentPhone" label="Phone Number" placeholder="e.g. 0123456789" size="sm" />
+                                <div>
+                                    <flux:input wire:model.live.debounce.500ms="newStudentPhone" label="Phone Number" placeholder="+60123456789" size="sm" />
+                                    @if($hasMaskedPhone)
+                                        <flux:text size="sm" class="text-red-600 dark:text-red-400 mt-1">Phone contains masked data (*). Enter the full phone number to search or create.</flux:text>
+                                    @endif
+                                    @error('newStudentPhone') <flux:text size="sm" class="text-red-600 dark:text-red-400 mt-1">{{ $message }}</flux:text> @enderror
+                                </div>
 
-                                <flux:button variant="primary" wire:click="createStudentForOrder" class="w-full" size="sm">
+                                {{-- Matching existing students by phone --}}
+                                @if($matchingStudents->isNotEmpty())
+                                    <div>
+                                        <flux:text size="sm" class="font-semibold text-zinc-600 dark:text-zinc-400 mb-1.5">Existing student found — link to this order?</flux:text>
+                                        <div class="rounded-xl border border-blue-200 dark:border-blue-800/50 divide-y divide-blue-100 dark:divide-blue-800/30 overflow-hidden">
+                                            @foreach($matchingStudents as $match)
+                                                <button wire:click="linkExistingStudent({{ $match->id }})" wire:key="match-student-{{ $match->id }}"
+                                                    class="w-full flex items-center justify-between px-3 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left">
+                                                    <div class="flex items-center gap-2.5 min-w-0">
+                                                        <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                                                            <flux:icon name="user" class="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                                        </div>
+                                                        <div class="min-w-0">
+                                                            <flux:text size="sm" class="font-medium text-zinc-900 dark:text-white">{{ $match->user->name ?? 'Unknown' }}</flux:text>
+                                                            <flux:text size="sm" class="text-zinc-400">{{ $match->phone ?? $match->user->phone ?? 'No phone' }} &middot; {{ $match->student_id }}</flux:text>
+                                                        </div>
+                                                    </div>
+                                                    <flux:icon name="link" class="w-4 h-4 text-blue-500 shrink-0" />
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+
+                                    <div class="relative">
+                                        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-zinc-200 dark:border-zinc-700"></div></div>
+                                        <div class="relative flex justify-center"><span class="bg-amber-50 dark:bg-amber-900/20 px-3 text-xs text-zinc-400 dark:text-zinc-500">or create new</span></div>
+                                    </div>
+                                @endif
+
+                                <flux:button variant="primary" wire:click="createStudentForOrder" class="w-full" size="sm" :disabled="$hasMaskedPhone">
                                     <div class="flex items-center justify-center">
                                         <flux:icon name="user-plus" class="w-4 h-4 mr-1.5" />
                                         Create Student & Link to Order
