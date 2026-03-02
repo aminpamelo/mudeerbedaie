@@ -573,12 +573,99 @@ new class extends Component
     public string $classAssignSearch = '';
     public array $classAssignSelectedIds = [];
 
+    // Create student from modal
+    public string $newStudentName = '';
+    public string $newStudentPhone = '';
+
     public function openClassAssignModal(int $orderId): void
     {
         $this->classAssignOrderId = $orderId;
         $this->classAssignSearch = '';
         $this->classAssignSelectedIds = [];
+        $this->newStudentName = '';
+        $this->newStudentPhone = '';
+
+        // Pre-fill from order data
+        $order = ProductOrder::find($orderId);
+        if ($order) {
+            $this->newStudentName = $order->customer_name ?? '';
+            $this->newStudentPhone = $order->customer_phone ?? '';
+        }
+
         $this->showClassAssignModal = true;
+    }
+
+    public function createStudentForOrder(): void
+    {
+        $this->validate([
+            'newStudentName' => 'required|string|min:2|max:255',
+            'newStudentPhone' => 'nullable|string|max:20',
+        ], [
+            'newStudentName.required' => 'Student name is required.',
+            'newStudentName.min' => 'Student name must be at least 2 characters.',
+        ]);
+
+        $order = ProductOrder::find($this->classAssignOrderId);
+        if (! $order) {
+            return;
+        }
+
+        $phone = $this->newStudentPhone ?: null;
+
+        // Check if a user with this phone already exists
+        $existingUser = $phone
+            ? \App\Models\User::where('phone', $phone)->first()
+            : null;
+
+        if ($existingUser) {
+            // Try to find existing student for this user
+            $student = \App\Models\Student::where('user_id', $existingUser->id)->first();
+            if (! $student) {
+                $student = \App\Models\Student::create([
+                    'user_id' => $existingUser->id,
+                    'phone' => $phone,
+                    'status' => 'active',
+                ]);
+            }
+
+            $order->update(['student_id' => $student->id]);
+            $this->newStudentName = '';
+            $this->newStudentPhone = '';
+            $this->dispatch('order-updated', message: "Existing student '{$existingUser->name}' linked to order.");
+
+            return;
+        }
+
+        // Create new user
+        $baseEmail = $phone
+            ? preg_replace('/[^0-9]/', '', $phone) . '@student.local'
+            : \Illuminate\Support\Str::slug($this->newStudentName) . '-' . \Illuminate\Support\Str::random(4) . '@student.local';
+
+        // Ensure unique email
+        while (\App\Models\User::where('email', $baseEmail)->exists()) {
+            $baseEmail = \Illuminate\Support\Str::slug($this->newStudentName) . '-' . \Illuminate\Support\Str::random(6) . '@student.local';
+        }
+
+        $user = \App\Models\User::create([
+            'name' => $this->newStudentName,
+            'email' => $baseEmail,
+            'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+            'role' => 'student',
+            'phone' => $phone,
+        ]);
+
+        $student = \App\Models\Student::create([
+            'user_id' => $user->id,
+            'phone' => $phone,
+            'status' => 'active',
+        ]);
+
+        // Link student to order
+        $order->update(['student_id' => $student->id]);
+
+        $this->newStudentName = '';
+        $this->newStudentPhone = '';
+        $this->dispatch('order-updated', message: "Student '{$user->name}' created and linked to order.");
     }
 
     public function getClassAssignOrderProperty(): ?ProductOrder
@@ -589,6 +676,20 @@ new class extends Component
 
         return ProductOrder::with(['classAssignmentApprovals.class.course', 'classAssignmentApprovals.assignedByUser'])
             ->find($this->classAssignOrderId);
+    }
+
+    public function getClassAssignHasStudentProperty(): bool
+    {
+        if (! $this->classAssignOrderId) {
+            return false;
+        }
+
+        $order = ProductOrder::find($this->classAssignOrderId);
+        if (! $order) {
+            return false;
+        }
+
+        return $this->resolveStudentForOrder($order) !== null;
     }
 
     public function getClassAssignAvailableProperty()
@@ -1502,52 +1603,83 @@ new class extends Component
                 <div>
                     <flux:text size="sm" class="font-semibold text-zinc-700 dark:text-zinc-300 mb-2">Assign New Classes</flux:text>
 
-                    <!-- Search -->
-                    <flux:input wire:model.live.debounce.300ms="classAssignSearch" placeholder="Search classes or courses..." size="sm" class="mb-3" />
-
-                    <!-- Available Classes -->
-                    @php
-                        $availableClasses = $this->classAssignAvailable;
-                    @endphp
-                    @if($availableClasses->isNotEmpty())
-                        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 max-h-60 overflow-y-auto">
-                            @foreach($availableClasses as $courseName => $classes)
-                                <div>
-                                    <div class="px-4 py-2 bg-zinc-50 dark:bg-zinc-700/50 sticky top-0">
-                                        <flux:text size="sm" class="font-semibold text-zinc-500 dark:text-zinc-400">{{ $courseName }}</flux:text>
-                                    </div>
-                                    @foreach($classes as $class)
-                                        <div wire:click="toggleClassAssignSelection({{ $class->id }})" wire:key="class-assign-{{ $class->id }}"
-                                            class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700/30 transition-colors border-t border-zinc-100 dark:border-zinc-700">
-                                            <div class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0
-                                                {{ in_array($class->id, $classAssignSelectedIds) ? 'bg-blue-500 border-blue-500' : 'border-zinc-300 dark:border-zinc-600' }}">
-                                                @if(in_array($class->id, $classAssignSelectedIds))
-                                                    <flux:icon name="check" class="w-3 h-3 text-white" />
-                                                @endif
-                                            </div>
-                                            <div class="min-w-0">
-                                                <flux:text size="sm" class="font-medium text-zinc-900 dark:text-white">{{ $class->title }}</flux:text>
-                                                <flux:text size="sm" class="text-zinc-400">{{ $class->schedule ?? 'No schedule' }}</flux:text>
-                                            </div>
-                                        </div>
-                                    @endforeach
+                    @if(!$this->classAssignHasStudent)
+                        <!-- No Student - Create Student Form -->
+                        <div class="rounded-xl border border-amber-200 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/20 p-4">
+                            <div class="flex gap-3 mb-4">
+                                <div class="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                                    <flux:icon name="exclamation-triangle" class="w-5 h-5 text-amber-600 dark:text-amber-400" />
                                 </div>
-                            @endforeach
+                                <div>
+                                    <flux:text size="sm" class="font-semibold text-amber-800 dark:text-amber-300">No student linked to this order</flux:text>
+                                    <flux:text size="sm" class="text-amber-700 dark:text-amber-400 mt-1">
+                                        Create a student account to link to this order and assign classes.
+                                    </flux:text>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <flux:input wire:model="newStudentName" label="Student Name" placeholder="Enter student name" size="sm" />
+                                @error('newStudentName') <flux:text size="sm" class="text-red-600 dark:text-red-400">{{ $message }}</flux:text> @enderror
+
+                                <flux:input wire:model="newStudentPhone" label="Phone Number" placeholder="e.g. 0123456789" size="sm" />
+
+                                <flux:button variant="primary" wire:click="createStudentForOrder" class="w-full" size="sm">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="user-plus" class="w-4 h-4 mr-1.5" />
+                                        Create Student & Link to Order
+                                    </div>
+                                </flux:button>
+                            </div>
                         </div>
                     @else
-                        <div class="text-center py-6 text-zinc-400 dark:text-zinc-500">
-                            <flux:icon name="academic-cap" class="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <flux:text size="sm">{{ $classAssignSearch ? 'No classes found' : 'All classes already assigned' }}</flux:text>
-                        </div>
-                    @endif
+                        <!-- Search -->
+                        <flux:input wire:model.live.debounce.300ms="classAssignSearch" placeholder="Search classes or courses..." size="sm" class="mb-3" />
 
-                    <!-- Submit Button -->
-                    @if(!empty($classAssignSelectedIds))
-                        <div class="mt-3">
-                            <flux:button variant="primary" wire:click="submitClassAssignment" class="w-full">
-                                Assign to {{ count($classAssignSelectedIds) }} Class{{ count($classAssignSelectedIds) !== 1 ? 'es' : '' }}
-                            </flux:button>
-                        </div>
+                        <!-- Available Classes -->
+                        @php
+                            $availableClasses = $this->classAssignAvailable;
+                        @endphp
+                        @if($availableClasses->isNotEmpty())
+                            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 max-h-60 overflow-y-auto">
+                                @foreach($availableClasses as $courseName => $classes)
+                                    <div>
+                                        <div class="px-4 py-2 bg-zinc-50 dark:bg-zinc-700/50 sticky top-0">
+                                            <flux:text size="sm" class="font-semibold text-zinc-500 dark:text-zinc-400">{{ $courseName }}</flux:text>
+                                        </div>
+                                        @foreach($classes as $class)
+                                            <div wire:click="toggleClassAssignSelection({{ $class->id }})" wire:key="class-assign-{{ $class->id }}"
+                                                class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700/30 transition-colors border-t border-zinc-100 dark:border-zinc-700">
+                                                <div class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0
+                                                    {{ in_array($class->id, $classAssignSelectedIds) ? 'bg-blue-500 border-blue-500' : 'border-zinc-300 dark:border-zinc-600' }}">
+                                                    @if(in_array($class->id, $classAssignSelectedIds))
+                                                        <flux:icon name="check" class="w-3 h-3 text-white" />
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <flux:text size="sm" class="font-medium text-zinc-900 dark:text-white">{{ $class->title }}</flux:text>
+                                                    <flux:text size="sm" class="text-zinc-400">{{ $class->schedule ?? 'No schedule' }}</flux:text>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="text-center py-6 text-zinc-400 dark:text-zinc-500">
+                                <flux:icon name="academic-cap" class="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                <flux:text size="sm">{{ $classAssignSearch ? 'No classes found' : 'All classes already assigned' }}</flux:text>
+                            </div>
+                        @endif
+
+                        <!-- Submit Button -->
+                        @if(!empty($classAssignSelectedIds))
+                            <div class="mt-3">
+                                <flux:button variant="primary" wire:click="submitClassAssignment" class="w-full">
+                                    Assign to {{ count($classAssignSelectedIds) }} Class{{ count($classAssignSelectedIds) !== 1 ? 'es' : '' }}
+                                </flux:button>
+                            </div>
+                        @endif
                     @endif
                 </div>
             </div>
