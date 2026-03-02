@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ProcessWhatsAppWebhookJob;
+use App\Services\SettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -17,7 +18,10 @@ class WhatsAppWebhookController extends Controller
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge');
 
-        if ($mode === 'subscribe' && $token === config('services.whatsapp.meta.verify_token')) {
+        $verifyToken = app(SettingsService::class)->get('meta_verify_token')
+            ?: config('services.whatsapp.meta.verify_token');
+
+        if ($mode === 'subscribe' && $token === $verifyToken) {
             return response($challenge, 200);
         }
 

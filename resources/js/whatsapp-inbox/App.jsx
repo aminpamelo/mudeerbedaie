@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ConversationList from './components/ConversationList';
 import ChatPanel from './components/ChatPanel';
 import TemplatePicker from './components/TemplatePicker';
+import useNotificationSound from './hooks/useNotificationSound';
 
 export default function App({ csrfToken, apiBase }) {
     const [conversations, setConversations] = useState([]);
@@ -15,6 +16,8 @@ export default function App({ csrfToken, apiBase }) {
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
     const [pagination, setPagination] = useState(null);
     const selectedConversationRef = useRef(null);
+    const prevUnreadMapRef = useRef(null);
+    const { muted, play, toggleMute } = useNotificationSound();
 
     const apiFetch = useCallback(async (path, options = {}) => {
         const url = `${apiBase}${path}`;
@@ -38,7 +41,27 @@ export default function App({ csrfToken, apiBase }) {
             if (searchQuery) params.set('search', searchQuery);
             if (statusFilter) params.set('status', statusFilter);
             const data = await apiFetch(`/conversations?${params.toString()}`);
-            setConversations(data.data || []);
+            const newConversations = data.data || [];
+
+            // Detect new inbound messages by comparing unread counts
+            if (prevUnreadMapRef.current) {
+                const currentSelectedId = selectedConversationRef.current;
+                const hasNewInbound = newConversations.some(c => {
+                    if (c.id === currentSelectedId) return false;
+                    const prev = prevUnreadMapRef.current.get(c.id);
+                    return prev !== undefined && c.unread_count > prev;
+                });
+                if (hasNewInbound) {
+                    play();
+                }
+            }
+
+            // Update the unread map for next comparison
+            prevUnreadMapRef.current = new Map(
+                newConversations.map(c => [c.id, c.unread_count])
+            );
+
+            setConversations(newConversations);
             setPagination({
                 current_page: data.current_page,
                 last_page: data.last_page,
@@ -49,17 +72,15 @@ export default function App({ csrfToken, apiBase }) {
         } finally {
             setLoadingConversations(false);
         }
-    }, [apiFetch, searchQuery, statusFilter]);
+    }, [apiFetch, searchQuery, statusFilter, play]);
 
     const fetchMessages = useCallback(async (conversationId) => {
         if (!conversationId) return;
         try {
             const data = await apiFetch(`/conversations/${conversationId}`);
             setMessages((data.messages?.data || []).reverse());
-            // Update conversation data for the selected conversation
             if (data.conversation) {
                 setSelectedConversation(prev => prev ? { ...prev, ...data.conversation, unread_count: 0 } : prev);
-                // Also update in the list
                 setConversations(prev =>
                     prev.map(c => c.id === conversationId ? { ...c, unread_count: 0 } : c)
                 );
@@ -71,14 +92,12 @@ export default function App({ csrfToken, apiBase }) {
         }
     }, [apiFetch]);
 
-    // Initial fetch and polling for conversations
     useEffect(() => {
         fetchConversations();
         const interval = setInterval(fetchConversations, 5000);
         return () => clearInterval(interval);
     }, [fetchConversations]);
 
-    // Fetch messages when conversation selected + polling
     useEffect(() => {
         selectedConversationRef.current = selectedConversation?.id;
         if (!selectedConversation) return;
@@ -107,7 +126,6 @@ export default function App({ csrfToken, apiBase }) {
             });
             if (data.success && data.message) {
                 setMessages(prev => [...prev, data.message]);
-                // Update conversation preview
                 setConversations(prev =>
                     prev.map(c =>
                         c.id === selectedConversation.id
@@ -160,22 +178,24 @@ export default function App({ csrfToken, apiBase }) {
     }, [apiFetch, selectedConversation, fetchConversations]);
 
     return (
-        <div className="flex h-[calc(100vh-200px)] rounded-lg border border-zinc-200 bg-white overflow-hidden">
-            {/* Left Panel - Conversation List */}
-            <div className={`w-full md:w-96 shrink-0 border-r border-zinc-200 flex flex-col ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+        <div className="flex h-[calc(100vh-180px)] rounded-xl overflow-hidden shadow-sm border border-zinc-200/70">
+            {/* Left Panel — Conversation List */}
+            <div className={`w-full md:w-[340px] lg:w-[380px] shrink-0 border-r border-zinc-200/70 flex flex-col bg-white ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
                 <ConversationList
                     conversations={conversations}
                     selectedId={selectedConversation?.id}
                     searchQuery={searchQuery}
                     statusFilter={statusFilter}
                     loading={loadingConversations}
+                    muted={muted}
                     onSelect={handleSelectConversation}
                     onSearchChange={setSearchQuery}
                     onStatusFilterChange={setStatusFilter}
+                    onToggleMute={toggleMute}
                 />
             </div>
 
-            {/* Right Panel - Chat */}
+            {/* Right Panel — Chat */}
             <div className={`flex-1 flex flex-col min-w-0 ${!selectedConversation ? 'hidden md:flex' : 'flex'}`}>
                 {selectedConversation ? (
                     <ChatPanel
@@ -189,13 +209,24 @@ export default function App({ csrfToken, apiBase }) {
                         onShowTemplatePicker={() => setShowTemplatePicker(true)}
                     />
                 ) : (
-                    <div className="flex-1 flex items-center justify-center text-zinc-400">
-                        <div className="text-center">
-                            <svg className="w-16 h-16 mx-auto mb-4 text-zinc-300" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-                            </svg>
-                            <p className="text-lg font-medium text-zinc-500">Pilih perbualan</p>
-                            <p className="text-sm text-zinc-400 mt-1">Pilih perbualan dari senarai untuk mula berbual</p>
+                    <div className="flex-1 flex items-center justify-center bg-[#f0f2f5]">
+                        <div className="text-center px-8">
+                            <div className="w-[180px] h-[180px] mx-auto mb-5 opacity-90">
+                                <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="100" cy="100" r="85" fill="#00A884" opacity="0.06" />
+                                    <circle cx="100" cy="100" r="60" fill="#00A884" opacity="0.08" />
+                                    <path d="M100 52C76.8 52 58 69.2 58 90.5C58 100.8 62.4 110 69.5 116.6L66 138L89.6 124.3C92.8 124.9 96.1 125.2 99.5 125.2C122.7 125.2 141.5 108 141.5 86.7C141.5 65.4 123.2 52 100 52Z" fill="#00A884" opacity="0.75" />
+                                    <circle cx="83" cy="88" r="4.5" fill="white" />
+                                    <circle cx="100" cy="88" r="4.5" fill="white" />
+                                    <circle cx="117" cy="88" r="4.5" fill="white" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-light text-[#41525d] tracking-tight">
+                                WhatsApp Inbox
+                            </h3>
+                            <p className="text-[13px] text-[#667781] mt-2.5 max-w-xs mx-auto leading-relaxed">
+                                Pilih perbualan dari senarai untuk mula berbual dengan pelajar dan ibu bapa
+                            </p>
                         </div>
                     </div>
                 )}

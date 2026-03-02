@@ -198,6 +198,11 @@ class Student extends Model
         return $this->hasMany(WorkflowEnrollment::class)->where('status', 'active');
     }
 
+    public function classAssignmentApprovals(): HasMany
+    {
+        return $this->hasMany(ClassAssignmentApproval::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';

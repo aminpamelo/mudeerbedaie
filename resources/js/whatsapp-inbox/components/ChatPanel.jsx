@@ -3,6 +3,18 @@ import ConversationHeader from './ConversationHeader';
 import MessageBubble from './MessageBubble';
 import ReplyInput from './ReplyInput';
 
+function formatDateLabel(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Hari Ini';
+    if (date.toDateString() === yesterday.toDateString()) return 'Semalam';
+    return date.toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 export default function ChatPanel({
     conversation,
     messages,
@@ -16,7 +28,6 @@ export default function ChatPanel({
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
 
-    // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
         if (messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -38,22 +49,39 @@ export default function ChatPanel({
             {/* Messages Area */}
             <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto p-4 space-y-3 bg-zinc-50 whatsapp-scrollbar"
+                className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-20 py-3 wa-chat-bg wa-scroll"
             >
                 {loading ? (
                     <div className="flex items-center justify-center h-32">
-                        <svg className="w-5 h-5 animate-spin text-zinc-400" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
-                        </svg>
+                        <div className="w-5 h-5 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
                     </div>
                 ) : messages.length === 0 ? (
-                    <div className="flex items-center justify-center h-32 text-sm text-zinc-400">
-                        Tiada mesej dalam perbualan ini
+                    <div className="flex items-center justify-center h-32">
+                        <span className="px-4 py-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm text-sm text-[#54656f]">
+                            Tiada mesej dalam perbualan ini
+                        </span>
                     </div>
                 ) : (
-                    messages.map(message => (
-                        <MessageBubble key={message.id} message={message} />
-                    ))
+                    <div className="space-y-1">
+                        {messages.map((message, index) => {
+                            const showDate = index === 0 ||
+                                new Date(message.created_at).toDateString() !==
+                                new Date(messages[index - 1].created_at).toDateString();
+
+                            return (
+                                <React.Fragment key={message.id}>
+                                    {showDate && (
+                                        <div className="flex justify-center my-3">
+                                            <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-md shadow-sm text-[11px] font-medium text-[#54656f] uppercase tracking-wide">
+                                                {formatDateLabel(message.created_at)}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <MessageBubble message={message} />
+                                </React.Fragment>
+                            );
+                        })}
+                    </div>
                 )}
                 <div ref={messagesEndRef} />
             </div>

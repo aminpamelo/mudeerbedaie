@@ -431,36 +431,48 @@ new class extends Component
     <div class="mb-6 flex items-center justify-between">
         <div>
             <flux:heading size="xl">Edit Order #{{ $order->order_number }}</flux:heading>
-            <flux:text class="mt-2">Update order details and information</flux:text>
+            <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">Update order details and information</flux:text>
         </div>
         <flux:button variant="outline" :href="route('admin.orders.show', $order)" wire:navigate>
-            <flux:icon name="arrow-left" class="w-4 h-4 mr-2" />
-            Back to Order
+            <div class="flex items-center justify-center">
+                <flux:icon name="arrow-left" class="w-4 h-4 mr-1.5" />
+                Back to Order
+            </div>
         </flux:button>
     </div>
+
+    @if(session('error'))
+        <div class="mb-5 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-900/10 px-4 py-3">
+            <div class="flex items-center gap-2">
+                <flux:icon name="exclamation-circle" class="w-5 h-5 text-red-500" />
+                <flux:text size="sm" class="text-red-700 dark:text-red-400">{{ session('error') }}</flux:text>
+            </div>
+        </div>
+    @endif
 
     <div class="grid lg:grid-cols-3 gap-6">
         <!-- Left Column - Order Details -->
         <div class="lg:col-span-2 space-y-6">
 
             <!-- Customer Information -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                <flux:heading size="lg" class="mb-4">Customer Information</flux:heading>
+            <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-700">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                            <flux:icon name="user" class="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <flux:heading size="lg">Customer Information</flux:heading>
+                    </div>
+                </div>
 
-                <div class="space-y-4">
+                <div class="p-6 space-y-4">
                     <div>
                         <flux:field>
                             <flux:label>Customer Type</flux:label>
-                            <div class="flex space-x-4">
-                                <label class="flex items-center">
-                                    <input type="radio" wire:model.live="form.customer_type" value="existing" class="mr-2">
-                                    Existing Customer
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="radio" wire:model.live="form.customer_type" value="new" class="mr-2">
-                                    New Customer
-                                </label>
-                            </div>
+                            <flux:radio.group wire:model.live="form.customer_type" variant="segmented">
+                                <flux:radio value="existing" label="Existing Customer" />
+                                <flux:radio value="new" label="New Customer" />
+                            </flux:radio.group>
                         </flux:field>
                     </div>
 
@@ -478,79 +490,74 @@ new class extends Component
                     @endif
 
                     <div class="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <flux:field>
-                                <flux:label>Email</flux:label>
-                                <flux:input
-                                    wire:model.live="form.customer_email"
-                                    type="email"
-                                    placeholder="customer@example.com"
-                                    :readonly="$form['customer_type'] === 'existing'"
-                                />
-                            </flux:field>
-                        </div>
-                        <div>
-                            <flux:field>
-                                <flux:label>Full Name</flux:label>
-                                <flux:input
-                                    wire:model.live="form.customer_name"
-                                    placeholder="Customer Name"
-                                    :readonly="$form['customer_type'] === 'existing'"
-                                />
-                            </flux:field>
-                        </div>
-                    </div>
-
-                    <div>
                         <flux:field>
-                            <flux:label>Phone (Optional)</flux:label>
-                            <flux:input wire:model.live="form.customer_phone" placeholder="+60123456789" />
+                            <flux:label>Email</flux:label>
+                            <flux:input
+                                wire:model.live="form.customer_email"
+                                type="email"
+                                placeholder="customer@example.com"
+                                :readonly="$form['customer_type'] === 'existing'"
+                            />
+                        </flux:field>
+                        <flux:field>
+                            <flux:label>Full Name</flux:label>
+                            <flux:input
+                                wire:model.live="form.customer_name"
+                                placeholder="Customer Name"
+                                :readonly="$form['customer_type'] === 'existing'"
+                            />
                         </flux:field>
                     </div>
+
+                    <flux:field>
+                        <flux:label>Phone (Optional)</flux:label>
+                        <flux:input wire:model.live="form.customer_phone" placeholder="+60123456789" />
+                    </flux:field>
                 </div>
             </div>
 
             <!-- Order Items -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <flux:heading size="lg">Order Items</flux:heading>
-                    <flux:button variant="outline" wire:click="addItem">
-                        <flux:icon name="plus" class="w-4 h-4 mr-2" />
-                        <div class="flex items-center justify-center">
-                            <flux:icon name="plus" class="w-4 h-4 mr-1" />
-                            Add Item
+            <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-700">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
+                                <flux:icon name="shopping-bag" class="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <flux:heading size="lg">Order Items</flux:heading>
+                            <flux:badge size="sm" color="zinc">{{ count($orderItems) }}</flux:badge>
                         </div>
-                    </flux:button>
+                        <flux:button variant="outline" size="sm" wire:click="addItem">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                                Add Item
+                            </div>
+                        </flux:button>
+                    </div>
                 </div>
 
-                <div class="space-y-4">
+                <div class="p-6 space-y-4">
                     @foreach($orderItems as $index => $item)
-                        <div class="border rounded-lg p-4 bg-gray-50">
-                            <!-- Item Type Selection -->
-                            <div class="mb-4">
-                                <flux:field>
-                                    <flux:label>Item Type</flux:label>
-                                    <div class="flex gap-4">
-                                        <label class="flex items-center">
-                                            <input type="radio" wire:model.live="orderItems.{{ $index }}.item_type"
-                                                   wire:change="itemTypeChanged({{ $index }})"
-                                                   value="product" class="mr-2">
-                                            Product
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="radio" wire:model.live="orderItems.{{ $index }}.item_type"
-                                                   wire:change="itemTypeChanged({{ $index }})"
-                                                   value="package" class="mr-2">
-                                            Package
-                                        </label>
-                                    </div>
-                                </flux:field>
+                        <div wire:key="item-{{ $index }}" class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/30 overflow-hidden">
+                            <!-- Item Header -->
+                            <div class="px-4 py-3 bg-zinc-100/50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-6 h-6 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-600 dark:text-zinc-400">{{ $index + 1 }}</span>
+                                    <flux:radio.group wire:model.live="orderItems.{{ $index }}.item_type" wire:change="itemTypeChanged({{ $index }})" variant="segmented">
+                                        <flux:radio value="product" label="Product" />
+                                        <flux:radio value="package" label="Package" />
+                                    </flux:radio.group>
+                                </div>
+                                @if(count($orderItems) > 1)
+                                    <flux:button variant="ghost" size="sm" wire:click="removeItem({{ $index }})">
+                                        <flux:icon name="trash" class="w-4 h-4 text-red-500" />
+                                    </flux:button>
+                                @endif
                             </div>
 
-                            <div class="grid md:grid-cols-4 gap-4 items-end">
-                                <!-- Product or Package Selection -->
-                                @if($item['item_type'] === 'product')
-                                    <div>
+                            <div class="p-4">
+                                <div class="grid md:grid-cols-4 gap-4 items-end">
+                                    @if($item['item_type'] === 'product')
                                         <flux:field>
                                             <flux:label>Product</flux:label>
                                             <flux:select wire:model.live="orderItems.{{ $index }}.product_id" wire:change="updateItemPrice({{ $index }})">
@@ -560,9 +567,7 @@ new class extends Component
                                                 @endforeach
                                             </flux:select>
                                         </flux:field>
-                                    </div>
-                                @else
-                                    <div>
+                                    @else
                                         <flux:field>
                                             <flux:label>Package</flux:label>
                                             <flux:select wire:model.live="orderItems.{{ $index }}.package_id" wire:change="updatePackagePrice({{ $index }})">
@@ -570,17 +575,13 @@ new class extends Component
                                                 @foreach($packages as $package)
                                                     <option value="{{ $package->id }}">
                                                         {{ $package->name }} (RM {{ $package->price }})
-                                                        @if($package->track_stock)
-                                                            - Stock Tracked
-                                                        @endif
+                                                        @if($package->track_stock) - Stock Tracked @endif
                                                     </option>
                                                 @endforeach
                                             </flux:select>
                                         </flux:field>
-                                    </div>
-                                @endif
+                                    @endif
 
-                                <div>
                                     <flux:field>
                                         <flux:label>Warehouse</flux:label>
                                         <flux:select wire:model.live="orderItems.{{ $index }}.warehouse_id">
@@ -590,8 +591,6 @@ new class extends Component
                                             @endforeach
                                         </flux:select>
                                     </flux:field>
-                                </div>
-                                <div>
                                     <flux:field>
                                         <flux:label>Quantity</flux:label>
                                         <flux:input
@@ -601,10 +600,8 @@ new class extends Component
                                             min="1"
                                         />
                                     </flux:field>
-                                </div>
-                                <div>
                                     <flux:field>
-                                        <flux:label>Unit Price</flux:label>
+                                        <flux:label>Unit Price (RM)</flux:label>
                                         <flux:input
                                             type="number"
                                             step="0.01"
@@ -613,39 +610,37 @@ new class extends Component
                                         />
                                     </flux:field>
                                 </div>
+
+                                <div class="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end">
+                                    <flux:text size="sm" class="font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                                        Item Total: <span class="text-zinc-900 dark:text-white">MYR {{ number_format($item['total_price'], 2) }}</span>
+                                    </flux:text>
+                                </div>
                             </div>
 
-                            <div class="flex justify-between items-center mt-4">
-                                <p class="font-medium">Total: MYR {{ number_format($item['total_price'], 2) }}</p>
-                                @if(count($orderItems) > 1)
-                                    <flux:button variant="outline" size="sm" wire:click="removeItem({{ $index }})">
-                                        <flux:icon name="trash" class="w-4 h-4" />
-                                    </flux:button>
-                                @endif
-                            </div>
-
-                            <!-- Show package items if package is selected -->
                             @if($item['item_type'] === 'package' && !empty($item['package_id']))
                                 @php
                                     $selectedPackage = $packages->find($item['package_id']);
                                 @endphp
                                 @if($selectedPackage)
-                                    <div class="mt-4 p-3 bg-white rounded border">
-                                        <flux:text class="font-semibold mb-2">Package Contents:</flux:text>
-                                        <ul class="space-y-1 text-sm">
-                                            @foreach($selectedPackage->products as $product)
-                                                <li class="flex justify-between">
-                                                    <span>• {{ $product->name }}</span>
-                                                    <span class="text-gray-600">Qty: {{ $product->pivot->quantity }}</span>
-                                                </li>
-                                            @endforeach
-                                            @foreach($selectedPackage->courses as $course)
-                                                <li class="flex justify-between">
-                                                    <span>• {{ $course->name }}</span>
-                                                    <span class="text-gray-600">(Course)</span>
-                                                </li>
-                                            @endforeach
-                                        </ul>
+                                    <div class="px-4 pb-4">
+                                        <div class="rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/30 p-3">
+                                            <flux:text size="sm" class="font-semibold text-purple-700 dark:text-purple-400 mb-2">Package Contents</flux:text>
+                                            <div class="space-y-1">
+                                                @foreach($selectedPackage->products as $product)
+                                                    <div class="flex justify-between text-sm">
+                                                        <flux:text size="sm" class="text-purple-600 dark:text-purple-300">{{ $product->name }}</flux:text>
+                                                        <flux:text size="sm" class="text-purple-500 dark:text-purple-400">Qty: {{ $product->pivot->quantity }}</flux:text>
+                                                    </div>
+                                                @endforeach
+                                                @foreach($selectedPackage->courses as $course)
+                                                    <div class="flex justify-between text-sm">
+                                                        <flux:text size="sm" class="text-purple-600 dark:text-purple-300">{{ $course->name }}</flux:text>
+                                                        <flux:badge size="sm" color="purple">Course</flux:badge>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
                                     </div>
                                 @endif
                             @endif
@@ -655,31 +650,32 @@ new class extends Component
             </div>
 
             <!-- Billing Address -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                <flux:heading size="lg" class="mb-4">Billing Address</flux:heading>
-
-                <div class="space-y-4">
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <flux:field>
-                                <flux:label>First Name</flux:label>
-                                <flux:input wire:model.live="form.billing_address.first_name" />
-                            </flux:field>
+            <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-700">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
+                            <flux:icon name="map-pin" class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         </div>
-                        <div>
-                            <flux:field>
-                                <flux:label>Last Name</flux:label>
-                                <flux:input wire:model.live="form.billing_address.last_name" />
-                            </flux:field>
-                        </div>
+                        <flux:heading size="lg">Billing Address</flux:heading>
                     </div>
+                </div>
 
-                    <div>
+                <div class="p-6 space-y-4">
+                    <div class="grid md:grid-cols-2 gap-4">
                         <flux:field>
-                            <flux:label>Company (Optional)</flux:label>
-                            <flux:input wire:model.live="form.billing_address.company" />
+                            <flux:label>First Name</flux:label>
+                            <flux:input wire:model.live="form.billing_address.first_name" />
+                        </flux:field>
+                        <flux:field>
+                            <flux:label>Last Name</flux:label>
+                            <flux:input wire:model.live="form.billing_address.last_name" />
                         </flux:field>
                     </div>
+
+                    <flux:field>
+                        <flux:label>Company (Optional)</flux:label>
+                        <flux:input wire:model.live="form.billing_address.company" />
+                    </flux:field>
 
                     <div class="space-y-2">
                         <flux:field>
@@ -690,148 +686,155 @@ new class extends Component
                     </div>
 
                     <div class="grid md:grid-cols-3 gap-4">
-                        <div>
-                            <flux:field>
-                                <flux:label>City</flux:label>
-                                <flux:input wire:model.live="form.billing_address.city" />
-                            </flux:field>
-                        </div>
-                        <div>
-                            <flux:field>
-                                <flux:label>State</flux:label>
-                                <flux:input wire:model.live="form.billing_address.state" />
-                            </flux:field>
-                        </div>
-                        <div>
-                            <flux:field>
-                                <flux:label>Postal Code</flux:label>
-                                <flux:input wire:model.live="form.billing_address.postal_code" />
-                            </flux:field>
-                        </div>
+                        <flux:field>
+                            <flux:label>City</flux:label>
+                            <flux:input wire:model.live="form.billing_address.city" />
+                        </flux:field>
+                        <flux:field>
+                            <flux:label>State</flux:label>
+                            <flux:input wire:model.live="form.billing_address.state" />
+                        </flux:field>
+                        <flux:field>
+                            <flux:label>Postal Code</flux:label>
+                            <flux:input wire:model.live="form.billing_address.postal_code" />
+                        </flux:field>
                     </div>
                 </div>
             </div>
 
             <!-- Order Notes -->
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                <flux:heading size="lg" class="mb-4">Order Notes</flux:heading>
-                <flux:textarea
-                    wire:model.live="form.notes"
-                    placeholder="Any special instructions or notes for this order..."
-                    rows="3"
-                />
+            <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-700">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                            <flux:icon name="chat-bubble-left-ellipsis" class="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <flux:heading size="lg">Order Notes</flux:heading>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <flux:textarea
+                        wire:model.live="form.notes"
+                        placeholder="Any special instructions or notes for this order..."
+                        rows="3"
+                    />
+                </div>
             </div>
         </div>
 
         <!-- Right Column - Order Summary -->
         <div class="lg:col-span-1">
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6 sticky top-6">
-                <flux:heading size="lg" class="mb-4">Order Summary</flux:heading>
-
-                <!-- Order Status -->
-                <div class="space-y-4 mb-6">
-                    <div>
-                        <flux:field>
-                            <flux:label>Order Status</flux:label>
-                            <flux:select wire:model.live="form.order_status">
-                                <option value="draft">Draft</option>
-                                <option value="pending">Pending</option>
-                                <option value="processing">Processing</option>
-                                <option value="shipped">Shipped</option>
-                                <option value="delivered">Delivered</option>
-                                <option value="cancelled">Cancelled</option>
-                                <option value="refunded">Refunded</option>
-                                <option value="returned">Returned</option>
-                            </flux:select>
-                        </flux:field>
-                    </div>
-                    <div>
-                        <flux:field>
-                            <flux:label>Payment Status</flux:label>
-                            <flux:select wire:model.live="paymentStatus">
-                                <option value="pending">Pending</option>
-                                <option value="completed">Completed</option>
-                                <option value="failed">Failed</option>
-                                <option value="refunded">Refunded</option>
-                            </flux:select>
-                        </flux:field>
-                    </div>
-                    <div>
-                        <flux:field>
-                            <flux:label>Payment Method</flux:label>
-                            <flux:select wire:model.live="paymentMethod">
-                                <option value="cash">Cash</option>
-                                <option value="credit_card">Credit Card</option>
-                                <option value="debit_card">Debit Card</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                                <option value="fpx">FPX Online Banking</option>
-                                <option value="grabpay">GrabPay</option>
-                                <option value="boost">Boost</option>
-                            </flux:select>
-                        </flux:field>
-                    </div>
-                </div>
-
-                <!-- Delivery Fees -->
-                <div class="mb-4">
-                    <flux:field>
-                        <flux:label>Delivery / Shipping Fees (MYR)</flux:label>
-                        <flux:input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            wire:model.live="shippingCost"
-                            placeholder="0.00"
-                        />
-                    </flux:field>
-                </div>
-
-                <!-- GST Configuration -->
-                <div class="mb-6">
-                    <flux:field>
-                        <flux:label>GST Rate (%)</flux:label>
-                        <flux:input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            wire:model.live="taxRate"
-                            placeholder="6.00"
-                        />
-                    </flux:field>
-                </div>
-
-                <!-- Order Totals -->
-                <div class="space-y-3 mb-6">
-                    <div class="flex justify-between">
-                        <flux:text>Subtotal</flux:text>
-                        <flux:text>MYR {{ number_format($subtotal, 2) }}</flux:text>
-                    </div>
-
-                    @if($shippingCost > 0)
-                        <div class="flex justify-between">
-                            <flux:text>Delivery / Shipping</flux:text>
-                            <flux:text>MYR {{ number_format($shippingCost, 2) }}</flux:text>
+            <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 sticky top-6 overflow-hidden">
+                <div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                            <flux:icon name="clipboard-document-list" class="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
                         </div>
-                    @endif
+                        <flux:heading size="lg">Order Summary</flux:heading>
+                    </div>
+                </div>
 
-                    <div class="flex justify-between">
-                        <flux:text>Tax (GST {{ number_format($taxRate, 1) }}%)</flux:text>
-                        <flux:text>MYR {{ number_format($taxAmount, 2) }}</flux:text>
+                <div class="p-6 space-y-5">
+                    <!-- Order Status -->
+                    <flux:field>
+                        <flux:label>Order Status</flux:label>
+                        <flux:select wire:model.live="form.order_status">
+                            <option value="draft">Draft</option>
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="refunded">Refunded</option>
+                            <option value="returned">Returned</option>
+                        </flux:select>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Payment Status</flux:label>
+                        <flux:select wire:model.live="paymentStatus">
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
+                        </flux:select>
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Payment Method</flux:label>
+                        <flux:select wire:model.live="paymentMethod">
+                            <option value="cash">Cash</option>
+                            <option value="credit_card">Credit Card</option>
+                            <option value="debit_card">Debit Card</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="fpx">FPX Online Banking</option>
+                            <option value="grabpay">GrabPay</option>
+                            <option value="boost">Boost</option>
+                        </flux:select>
+                    </flux:field>
+
+                    <div class="border-t border-zinc-100 dark:border-zinc-700"></div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <flux:field>
+                            <flux:label>Shipping (MYR)</flux:label>
+                            <flux:input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                wire:model.live="shippingCost"
+                                placeholder="0.00"
+                            />
+                        </flux:field>
+                        <flux:field>
+                            <flux:label>GST Rate (%)</flux:label>
+                            <flux:input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                                wire:model.live="taxRate"
+                                placeholder="6.00"
+                            />
+                        </flux:field>
                     </div>
 
-                    <div class="border-t pt-3">
-                        <div class="flex justify-between">
-                            <flux:text class="font-semibold text-lg">Total</flux:text>
-                            <flux:text class="font-semibold text-lg text-blue-600">MYR {{ number_format($total, 2) }}</flux:text>
+                    <div class="border-t border-zinc-100 dark:border-zinc-700"></div>
+
+                    <!-- Order Totals -->
+                    <div class="space-y-2.5">
+                        <div class="flex justify-between items-center">
+                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Subtotal</flux:text>
+                            <flux:text size="sm" class="tabular-nums text-zinc-700 dark:text-zinc-300">MYR {{ number_format($subtotal, 2) }}</flux:text>
+                        </div>
+
+                        @if($shippingCost > 0)
+                            <div class="flex justify-between items-center">
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Shipping</flux:text>
+                                <flux:text size="sm" class="tabular-nums text-zinc-700 dark:text-zinc-300">MYR {{ number_format($shippingCost, 2) }}</flux:text>
+                            </div>
+                        @endif
+
+                        <div class="flex justify-between items-center">
+                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Tax (GST {{ number_format($taxRate, 1) }}%)</flux:text>
+                            <flux:text size="sm" class="tabular-nums text-zinc-700 dark:text-zinc-300">MYR {{ number_format($taxAmount, 2) }}</flux:text>
                         </div>
                     </div>
-                </div>
 
-                <flux:button variant="primary" wire:click="updateOrder" class="w-full">
-                    <flux:icon name="check" class="w-4 h-4 mr-2" />
-                    Update Order
-                </flux:button>
+                    <div class="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700 p-4">
+                        <div class="flex justify-between items-center">
+                            <flux:text class="font-semibold text-zinc-900 dark:text-white">Total</flux:text>
+                            <flux:text class="font-bold text-lg text-emerald-600 dark:text-emerald-400 tabular-nums">MYR {{ number_format($total, 2) }}</flux:text>
+                        </div>
+                    </div>
+
+                    <flux:button variant="primary" wire:click="updateOrder" class="w-full">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="check" class="w-4 h-4 mr-1.5" />
+                            Update Order
+                        </div>
+                    </flux:button>
+                </div>
             </div>
         </div>
     </div>

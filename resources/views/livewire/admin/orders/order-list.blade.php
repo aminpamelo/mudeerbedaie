@@ -152,6 +152,7 @@ new class extends Component
                 'payments',
                 'platform',
                 'platformAccount',
+                'classAssignmentApprovals.class',
             ])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
@@ -545,6 +546,148 @@ new class extends Component
             'pos' => $counts->pos ?? 0,
         ];
     }
+
+    // Items modal
+    public bool $showItemsModal = false;
+
+    public ?int $selectedOrderId = null;
+
+    public function openItemsModal(int $orderId): void
+    {
+        $this->selectedOrderId = $orderId;
+        $this->showItemsModal = true;
+    }
+
+    public function getSelectedOrder(): ?ProductOrder
+    {
+        if (! $this->selectedOrderId) {
+            return null;
+        }
+
+        return ProductOrder::with(['items.product', 'items.package', 'payments'])->find($this->selectedOrderId);
+    }
+
+    // Class Assignment Modal
+    public bool $showClassAssignModal = false;
+    public ?int $classAssignOrderId = null;
+    public string $classAssignSearch = '';
+    public array $classAssignSelectedIds = [];
+
+    public function openClassAssignModal(int $orderId): void
+    {
+        $this->classAssignOrderId = $orderId;
+        $this->classAssignSearch = '';
+        $this->classAssignSelectedIds = [];
+        $this->showClassAssignModal = true;
+    }
+
+    public function getClassAssignOrderProperty(): ?ProductOrder
+    {
+        if (! $this->classAssignOrderId) {
+            return null;
+        }
+
+        return ProductOrder::with(['classAssignmentApprovals.class.course', 'classAssignmentApprovals.assignedByUser'])
+            ->find($this->classAssignOrderId);
+    }
+
+    public function getClassAssignAvailableProperty()
+    {
+        if (! $this->classAssignOrderId) {
+            return collect();
+        }
+
+        $order = ProductOrder::find($this->classAssignOrderId);
+        if (! $order) {
+            return collect();
+        }
+
+        $alreadyAssignedClassIds = $order->classAssignmentApprovals()
+            ->whereIn('status', ['pending', 'approved'])
+            ->pluck('class_id')
+            ->toArray();
+
+        $query = \App\Models\ClassModel::query()
+            ->where('status', 'active')
+            ->whereNotIn('id', $alreadyAssignedClassIds)
+            ->with('course');
+
+        if ($this->classAssignSearch) {
+            $query->where(function ($q) {
+                $q->where('title', 'like', "%{$this->classAssignSearch}%")
+                  ->orWhereHas('course', fn ($cq) => $cq->where('name', 'like', "%{$this->classAssignSearch}%"));
+            });
+        }
+
+        return $query->get()->groupBy(fn ($class) => $class->course?->name ?? 'No Course');
+    }
+
+    public function toggleClassAssignSelection(int $classId): void
+    {
+        if (in_array($classId, $this->classAssignSelectedIds)) {
+            $this->classAssignSelectedIds = array_values(array_diff($this->classAssignSelectedIds, [$classId]));
+        } else {
+            $this->classAssignSelectedIds[] = $classId;
+        }
+    }
+
+    public function resolveStudentForOrder(ProductOrder $order): ?\App\Models\Student
+    {
+        if ($order->student_id) {
+            return $order->student;
+        }
+
+        if ($order->customer_id) {
+            return \App\Models\Student::where('user_id', $order->customer_id)->first();
+        }
+
+        return null;
+    }
+
+    public function submitClassAssignment(): void
+    {
+        if (empty($this->classAssignSelectedIds) || ! $this->classAssignOrderId) {
+            return;
+        }
+
+        $order = ProductOrder::find($this->classAssignOrderId);
+        if (! $order) {
+            return;
+        }
+
+        $student = $this->resolveStudentForOrder($order);
+        if (! $student) {
+            session()->flash('error', 'No student could be found for this order.');
+            return;
+        }
+
+        $count = count($this->classAssignSelectedIds);
+
+        foreach ($this->classAssignSelectedIds as $classId) {
+            \App\Models\ClassAssignmentApproval::firstOrCreate(
+                [
+                    'class_id' => $classId,
+                    'student_id' => $student->id,
+                    'product_order_id' => $order->id,
+                ],
+                [
+                    'status' => 'pending',
+                    'assigned_by' => auth()->id(),
+                ]
+            );
+        }
+
+        $this->classAssignSelectedIds = [];
+        $this->dispatch('order-updated', message: "Assigned to {$count} class(es).");
+    }
+
+    public function removeClassAssignment(int $approvalId): void
+    {
+        $approval = \App\Models\ClassAssignmentApproval::find($approvalId);
+        if ($approval && $approval->product_order_id === $this->classAssignOrderId) {
+            $approval->delete();
+        }
+    }
 }; ?>
 
 <div>
@@ -552,577 +695,581 @@ new class extends Component
     <div class="mb-6 flex items-center justify-between">
         <div>
             <flux:heading size="xl">Orders & Package Sales</flux:heading>
-            <flux:text class="mt-2">Manage customer orders including product purchases and package sales</flux:text>
+            <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">Manage customer orders including product purchases and package sales</flux:text>
         </div>
-
-        <div class="flex gap-3">
+        <div class="flex items-center gap-3">
+            <flux:button variant="outline" wire:click="exportOrders" size="sm">
+                <div class="flex items-center justify-center">
+                    <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1.5" />
+                    Export
+                </div>
+            </flux:button>
             <flux:button variant="primary" :href="route('admin.orders.create')" wire:navigate>
                 <div class="flex items-center justify-center">
-                    <flux:icon name="plus" class="w-4 h-4 mr-2" />
+                    <flux:icon name="plus" class="w-4 h-4 mr-1.5" />
                     Create Order
                 </div>
             </flux:button>
         </div>
     </div>
 
-    <!-- Action Needed Section - Compact Inline -->
+    <!-- Action Needed Alert -->
     @php
         $actionStats = $this->getActionNeededStats();
         $totalActionNeeded = array_sum($actionStats);
     @endphp
 
     @if($totalActionNeeded > 0)
-        <div class="mb-4 flex items-center gap-3 flex-wrap">
-            <div class="flex items-center gap-2">
-                <flux:icon name="exclamation-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <flux:text size="sm" class="font-medium text-gray-700 dark:text-gray-300">Action Needed:</flux:text>
-            </div>
-
-            @if($actionStats['pending_confirmation'] > 0)
-                <button wire:click="$set('activeTab', 'pending')"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
-                           bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50">
-                    <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
-                    Pending
-                    <flux:badge size="sm" color="yellow">{{ $actionStats['pending_confirmation'] }}</flux:badge>
-                </button>
-            @endif
-
-            @if($actionStats['unpaid_orders'] > 0)
-                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium
-                            bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                    Unpaid
-                    <flux:badge size="sm" color="red">{{ $actionStats['unpaid_orders'] }}</flux:badge>
+        <div class="mb-5 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10 px-4 py-3">
+            <div class="flex items-center gap-4 flex-wrap">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                        <flux:icon name="exclamation-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <flux:text size="sm" class="font-semibold text-amber-800 dark:text-amber-300">Action Needed</flux:text>
                 </div>
-            @endif
-
-            @if($actionStats['processing'] > 0)
-                <button wire:click="$set('activeTab', 'processing')"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
-                           bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:hover:bg-purple-900/50">
-                    <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-                    Processing
-                    <flux:badge size="sm" color="purple">{{ $actionStats['processing'] }}</flux:badge>
-                </button>
-            @endif
-
-            @if($actionStats['ready_to_ship'] > 0)
-                <button wire:click="$set('activeTab', 'confirmed')"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
-                           bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
-                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                    Ready to Ship
-                    <flux:badge size="sm" color="blue">{{ $actionStats['ready_to_ship'] }}</flux:badge>
-                </button>
-            @endif
+                <div class="flex items-center gap-2 flex-wrap">
+                    @if($actionStats['pending_confirmation'] > 0)
+                        <button wire:click="$set('activeTab', 'pending')"
+                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all
+                                   bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50 shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                            {{ $actionStats['pending_confirmation'] }} Pending
+                        </button>
+                    @endif
+                    @if($actionStats['unpaid_orders'] > 0)
+                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium
+                                    bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                            {{ $actionStats['unpaid_orders'] }} Unpaid
+                        </div>
+                    @endif
+                    @if($actionStats['processing'] > 0)
+                        <button wire:click="$set('activeTab', 'processing')"
+                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all
+                                   bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:hover:bg-purple-900/50 shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                            {{ $actionStats['processing'] }} Processing
+                        </button>
+                    @endif
+                    @if($actionStats['ready_to_ship'] > 0)
+                        <button wire:click="$set('activeTab', 'confirmed')"
+                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all
+                                   bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                            {{ $actionStats['ready_to_ship'] }} Ready to Ship
+                        </button>
+                    @endif
+                </div>
+            </div>
         </div>
     @endif
 
-    <!-- Source Tabs -->
+    <!-- Unified Navigation & Filters Card -->
     @php
         $sourceCounts = $this->getSourceCounts();
     @endphp
-    <div class="mb-4 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
-        <div class="border-b border-gray-200 dark:border-zinc-700">
-            <nav class="flex gap-4 px-6" aria-label="Source Tabs">
-                <button wire:click="$set('sourceTab', 'all')"
-                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'all' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
-                    <div class="flex items-center gap-2">
-                        <flux:icon name="squares-2x2" class="w-4 h-4" />
-                        All Sources
-                        <flux:badge size="sm">{{ $sourceCounts['all'] }}</flux:badge>
-                    </div>
-                </button>
+    <div class="mb-5 bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+        <!-- Source Tabs - Compact pill style -->
+        <div class="px-5 pt-4 pb-3">
+            <div class="flex items-center gap-2 flex-wrap">
+                <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 font-medium mr-1">Source:</flux:text>
+                @php
+                    $sourceTabs = [
+                        'all' => ['label' => 'All', 'icon' => 'squares-2x2', 'count' => $sourceCounts['all'], 'color' => 'zinc'],
+                        'platform' => ['label' => 'Platform', 'icon' => 'globe-alt', 'count' => $sourceCounts['platform'], 'color' => 'purple'],
+                        'agent_company' => ['label' => 'Agent & Co', 'icon' => 'building-office', 'count' => $sourceCounts['agent_company'], 'color' => 'blue'],
+                        'funnel' => ['label' => 'Funnel', 'icon' => 'funnel', 'count' => $sourceCounts['funnel'], 'color' => 'green'],
+                        'pos' => ['label' => 'POS', 'icon' => 'calculator', 'count' => $sourceCounts['pos'], 'color' => 'orange'],
+                    ];
+                @endphp
+                @foreach($sourceTabs as $key => $tab)
+                    @php
+                        $sourceActiveStyles = match($tab['color']) {
+                            'purple' => 'bg-purple-600 text-white dark:bg-purple-500 shadow-sm',
+                            'blue' => 'bg-blue-600 text-white dark:bg-blue-500 shadow-sm',
+                            'green' => 'bg-green-600 text-white dark:bg-green-500 shadow-sm',
+                            'orange' => 'bg-orange-500 text-white dark:bg-orange-500 shadow-sm',
+                            default => 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm',
+                        };
+                        $sourceInactiveStyles = match($tab['color']) {
+                            'purple' => 'bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30',
+                            'blue' => 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30',
+                            'green' => 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30',
+                            'orange' => 'bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:hover:bg-orange-900/30',
+                            default => 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-600',
+                        };
+                        $sourceCountStyles = match($tab['color']) {
+                            'purple' => $sourceTab === $key ? 'text-purple-200' : 'text-purple-400 dark:text-purple-500',
+                            'blue' => $sourceTab === $key ? 'text-blue-200' : 'text-blue-400 dark:text-blue-500',
+                            'green' => $sourceTab === $key ? 'text-green-200' : 'text-green-400 dark:text-green-500',
+                            'orange' => $sourceTab === $key ? 'text-orange-200' : 'text-orange-400 dark:text-orange-500',
+                            default => $sourceTab === $key ? 'text-zinc-300 dark:text-zinc-600' : 'text-zinc-400 dark:text-zinc-500',
+                        };
+                    @endphp
+                    <button wire:click="$set('sourceTab', '{{ $key }}')"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                               {{ $sourceTab === $key ? $sourceActiveStyles : $sourceInactiveStyles }}">
+                        <flux:icon name="{{ $tab['icon'] }}" class="w-3.5 h-3.5" />
+                        {{ $tab['label'] }}
+                        <span class="tabular-nums {{ $sourceCountStyles }}">{{ $tab['count'] }}</span>
+                    </button>
+                @endforeach
+            </div>
+        </div>
 
-                <button wire:click="$set('sourceTab', 'platform')"
-                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'platform' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
-                    <div class="flex items-center gap-2">
-                        <flux:icon name="globe-alt" class="w-4 h-4" />
-                        Platform Orders
-                        <flux:badge size="sm" color="purple">{{ $sourceCounts['platform'] }}</flux:badge>
-                    </div>
-                </button>
+        <div class="border-t border-zinc-100 dark:border-zinc-700/50"></div>
 
-                <button wire:click="$set('sourceTab', 'agent_company')"
-                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'agent_company' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
-                    <div class="flex items-center gap-2">
-                        <flux:icon name="building-office" class="w-4 h-4" />
-                        Agent & Company
-                        <flux:badge size="sm" color="blue">{{ $sourceCounts['agent_company'] }}</flux:badge>
-                    </div>
-                </button>
-
-                <button wire:click="$set('sourceTab', 'funnel')"
-                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'funnel' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
-                    <div class="flex items-center gap-2">
-                        <flux:icon name="funnel" class="w-4 h-4" />
-                        Sales Funnel
-                        <flux:badge size="sm" color="green">{{ $sourceCounts['funnel'] }}</flux:badge>
-                    </div>
-                </button>
-
-                <button wire:click="$set('sourceTab', 'pos')"
-                    class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $sourceTab === 'pos' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}">
-                    <div class="flex items-center gap-2">
-                        <flux:icon name="calculator" class="w-4 h-4" />
-                        POS
-                        <flux:badge size="sm" color="orange">{{ $sourceCounts['pos'] }}</flux:badge>
-                    </div>
-                </button>
+        <!-- Status Tabs -->
+        <div class="px-5">
+            <nav class="flex gap-1 overflow-x-auto -mb-px" aria-label="Status Tabs">
+                @php
+                    $statusTabs = [
+                        'all' => ['label' => 'All', 'color' => 'zinc'],
+                        'pending' => ['label' => 'Pending', 'color' => 'amber'],
+                        'confirmed' => ['label' => 'Confirmed', 'color' => 'blue'],
+                        'processing' => ['label' => 'Processing', 'color' => 'purple'],
+                        'shipped' => ['label' => 'Shipped', 'color' => 'cyan'],
+                        'delivered' => ['label' => 'Delivered', 'color' => 'emerald'],
+                        'cancelled' => ['label' => 'Cancelled', 'color' => 'red'],
+                    ];
+                @endphp
+                @foreach($statusTabs as $key => $tab)
+                    @php
+                        $badgeColors = match($tab['color']) {
+                            'amber' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                            'blue' => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                            'purple' => 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+                            'cyan' => 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+                            'emerald' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                            'red' => 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                            default => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400',
+                        };
+                        $activeBadgeColors = match($tab['color']) {
+                            'amber' => 'bg-amber-500 text-white dark:bg-amber-500',
+                            'blue' => 'bg-blue-500 text-white dark:bg-blue-500',
+                            'purple' => 'bg-purple-500 text-white dark:bg-purple-500',
+                            'cyan' => 'bg-cyan-500 text-white dark:bg-cyan-500',
+                            'emerald' => 'bg-emerald-500 text-white dark:bg-emerald-500',
+                            'red' => 'bg-red-500 text-white dark:bg-red-500',
+                            default => 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900',
+                        };
+                        $activeTextColor = match($tab['color']) {
+                            'amber' => 'text-amber-700 dark:text-amber-400',
+                            'blue' => 'text-blue-700 dark:text-blue-400',
+                            'purple' => 'text-purple-700 dark:text-purple-400',
+                            'cyan' => 'text-cyan-700 dark:text-cyan-400',
+                            'emerald' => 'text-emerald-700 dark:text-emerald-400',
+                            'red' => 'text-red-700 dark:text-red-400',
+                            default => 'text-zinc-900 dark:text-white',
+                        };
+                        $activeUnderline = match($tab['color']) {
+                            'amber' => 'bg-amber-500',
+                            'blue' => 'bg-blue-500',
+                            'purple' => 'bg-purple-500',
+                            'cyan' => 'bg-cyan-500',
+                            'emerald' => 'bg-emerald-500',
+                            'red' => 'bg-red-500',
+                            default => 'bg-zinc-900 dark:bg-white',
+                        };
+                    @endphp
+                    <button wire:click="$set('activeTab', '{{ $key }}')"
+                        class="relative py-3 px-3 text-sm font-medium transition-colors whitespace-nowrap
+                               {{ $activeTab === $key
+                                   ? $activeTextColor
+                                   : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}">
+                        <span class="flex items-center gap-1.5">
+                            {{ $tab['label'] }}
+                            <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-xs font-semibold tabular-nums
+                                {{ $activeTab === $key ? $activeBadgeColors : $badgeColors }}">
+                                {{ $this->getStatusCount($key) }}
+                            </span>
+                        </span>
+                        @if($activeTab === $key)
+                            <span class="absolute bottom-0 inset-x-0 h-0.5 {{ $activeUnderline }} rounded-full"></span>
+                        @endif
+                    </button>
+                @endforeach
             </nav>
         </div>
-    </div>
 
-    <!-- Status Tabs -->
-    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
-        <div class="border-b border-gray-200 dark:border-zinc-700">
-            <nav class="flex gap-4 px-6" aria-label="Tabs">
-                <button
-                    wire:click="$set('activeTab', 'all')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'all' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
-                >
-                    All
-                    <flux:badge size="sm" class="ml-2">{{ $this->getStatusCount('all') }}</flux:badge>
-                </button>
+        <div class="border-t border-zinc-200 dark:border-zinc-700"></div>
 
-                <button
-                    wire:click="$set('activeTab', 'pending')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'pending' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
-                >
-                    Pending
-                    <flux:badge size="sm" color="yellow" class="ml-2">{{ $this->getStatusCount('pending') }}</flux:badge>
-                </button>
-
-                <button
-                    wire:click="$set('activeTab', 'confirmed')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'confirmed' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
-                >
-                    Confirmed
-                    <flux:badge size="sm" color="blue" class="ml-2">{{ $this->getStatusCount('confirmed') }}</flux:badge>
-                </button>
-
-                <button
-                    wire:click="$set('activeTab', 'processing')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'processing' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
-                >
-                    Processing
-                    <flux:badge size="sm" color="purple" class="ml-2">{{ $this->getStatusCount('processing') }}</flux:badge>
-                </button>
-
-                <button
-                    wire:click="$set('activeTab', 'shipped')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'shipped' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
-                >
-                    Shipped
-                    <flux:badge size="sm" color="cyan" class="ml-2">{{ $this->getStatusCount('shipped') }}</flux:badge>
-                </button>
-
-                <button
-                    wire:click="$set('activeTab', 'delivered')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'delivered' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
-                >
-                    Delivered
-                    <flux:badge size="sm" color="green" class="ml-2">{{ $this->getStatusCount('delivered') }}</flux:badge>
-                </button>
-
-                <button
-                    wire:click="$set('activeTab', 'cancelled')"
-                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'cancelled' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-600' }}"
-                >
-                    Cancelled
-                    <flux:badge size="sm" color="red" class="ml-2">{{ $this->getStatusCount('cancelled') }}</flux:badge>
-                </button>
-            </nav>
-        </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="mb-6 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <!-- Search -->
-            <div class="md:col-span-2">
-                <flux:label>Search</flux:label>
-                <flux:input
-                    wire:model.live.debounce.300ms="search"
-                    placeholder="Order number, customer name, email..."
-                    class="w-full"
-                />
+        <!-- Search & Filters -->
+        <div class="p-4">
+            <div class="flex flex-col md:flex-row gap-3">
+                <div class="flex-1">
+                    <flux:input
+                        wire:model.live.debounce.300ms="search"
+                        placeholder="Search orders, customers, emails..."
+                        icon="magnifying-glass"
+                    />
+                </div>
+                <div class="flex gap-3">
+                    <div class="w-48">
+                        <flux:select wire:model.live="productFilter" placeholder="All Products">
+                            <option value="">All Products</option>
+                            @foreach($this->getProductsAndPackages() as $item)
+                                <option value="{{ $item['value'] }}">{{ $item['label'] }}</option>
+                            @endforeach
+                        </flux:select>
+                    </div>
+                    <div class="w-36">
+                        <flux:select wire:model.live="dateFilter" placeholder="All Time">
+                            <option value="">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                        </flux:select>
+                    </div>
+                    <flux:button variant="ghost" wire:click="$refresh" size="sm" class="shrink-0">
+                        <flux:icon name="arrow-path" class="w-4 h-4" />
+                    </flux:button>
+                </div>
             </div>
 
-            <!-- Product/Package Filter -->
-            <div>
-                <flux:label>Product/Package</flux:label>
-                <flux:select wire:model.live="productFilter" placeholder="All Products">
-                    <option value="">All Products & Packages</option>
-                    @foreach($this->getProductsAndPackages() as $item)
-                        <option value="{{ $item['value'] }}">{{ $item['label'] }}</option>
-                    @endforeach
-                </flux:select>
-            </div>
-
-            <!-- Date Filter -->
-            <div>
-                <flux:label>Period</flux:label>
-                <flux:select wire:model.live="dateFilter" placeholder="All Time">
-                    <option value="">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                    <option value="year">This Year</option>
-                </flux:select>
-            </div>
-        </div>
-
-        <!-- Filter Actions -->
-        <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
-            <div class="flex items-center gap-2">
-                @if($search || $sourceTab !== 'all' || $productFilter || $dateFilter)
-                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400">
-                        Active filters:
-                    </flux:text>
+            <!-- Active Filter Tags -->
+            @if($search || $sourceTab !== 'all' || $productFilter || $dateFilter)
+                <div class="flex items-center gap-2 mt-3 flex-wrap">
+                    <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">Filters:</flux:text>
                     @if($search)
-                        <flux:badge color="gray">
-                            Search: {{ Str::limit($search, 20) }}
-                            <button wire:click="$set('search', '')" class="ml-1 hover:text-red-600">×</button>
-                        </flux:badge>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                            "{{ Str::limit($search, 20) }}"
+                            <button wire:click="$set('search', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
+                        </span>
                     @endif
                     @if($sourceTab !== 'all')
-                        <flux:badge color="gray">
-                            Source: {{ match($sourceTab) {
-                                'platform' => 'Platform Orders',
-                                'agent_company' => 'Agent & Company',
-                                'funnel' => 'Sales Funnel',
-                                'pos' => 'POS',
-                                default => $sourceTab
-                            } }}
-                            <button wire:click="$set('sourceTab', 'all')" class="ml-1 hover:text-red-600">×</button>
-                        </flux:badge>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                            {{ match($sourceTab) { 'platform' => 'Platform', 'agent_company' => 'Agent & Co', 'funnel' => 'Funnel', 'pos' => 'POS', default => $sourceTab } }}
+                            <button wire:click="$set('sourceTab', 'all')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
+                        </span>
                     @endif
                     @if($productFilter)
-                        <flux:badge color="gray">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
                             Product/Package
-                            <button wire:click="$set('productFilter', '')" class="ml-1 hover:text-red-600">×</button>
-                        </flux:badge>
+                            <button wire:click="$set('productFilter', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
+                        </span>
                     @endif
                     @if($dateFilter)
-                        <flux:badge color="gray">
-                            Period: {{ ucfirst($dateFilter) }}
-                            <button wire:click="$set('dateFilter', '')" class="ml-1 hover:text-red-600">×</button>
-                        </flux:badge>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                            {{ ucfirst($dateFilter) }}
+                            <button wire:click="$set('dateFilter', '')" class="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors">&times;</button>
+                        </span>
                     @endif
-                    <flux:button variant="ghost" size="sm" wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('dateFilter', '')">
+                    <button wire:click="$set('search', ''); $set('sourceTab', 'all'); $set('productFilter', ''); $set('dateFilter', '')"
+                        class="text-xs text-zinc-400 hover:text-red-500 transition-colors font-medium">
                         Clear all
-                    </flux:button>
-                @endif
-            </div>
-
-            <div class="flex items-center gap-2">
-                <flux:button variant="outline" wire:click="$refresh" size="sm">
-                    <div class="flex items-center justify-center">
-                        <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
-                        Refresh
-                    </div>
-                </flux:button>
-                <flux:button variant="outline" wire:click="exportOrders" size="sm">
-                    <div class="flex items-center justify-center">
-                        <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
-                        Export
-                    </div>
-                </flux:button>
-            </div>
+                    </button>
+                </div>
+            @endif
         </div>
     </div>
 
     <!-- Orders Table -->
-    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 overflow-hidden">
+    <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full border-collapse border-0">
-                <thead class="bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-200 dark:border-zinc-700">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            <button wire:click="sortBy('order_number')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300">
-                                <span>Order</span>
+                <thead>
+                    <tr class="border-b border-zinc-200 dark:border-zinc-700">
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                            <button wire:click="sortBy('order_number')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                                Order
                                 @if($sortBy === 'order_number')
-                                    <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                    <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Source
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Customer
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Phone
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Items
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            <button wire:click="sortBy('total_amount')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300">
-                                <span>Total</span>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Source</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Customer</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Phone</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Items</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                            <button wire:click="sortBy('total_amount')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                                Total
                                 @if($sortBy === 'total_amount')
-                                    <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                    <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Status
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Payment
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Notes
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Tracking No.
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            <button wire:click="sortBy('created_at')" class="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300">
-                                <span>Date</span>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Status</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Class</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Payment</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Notes</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">Tracking</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800">
+                            <button wire:click="sortBy('created_at')" class="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                                Date
                                 @if($sortBy === 'created_at')
-                                    <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-4 h-4" />
+                                    <flux:icon name="{{ $sortDirection === 'asc' ? 'chevron-up' : 'chevron-down' }}" class="w-3.5 h-3.5" />
                                 @endif
                             </button>
                         </th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Actions
-                        </th>
+                        <th class="px-5 py-3 text-right text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-800"></th>
                     </tr>
                 </thead>
-                <tbody class="bg-white dark:bg-zinc-800">
+                <tbody>
                     @forelse($this->getOrders() as $order)
-                        <tr class="border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50" wire:key="order-{{ $order->id }}">
+                        <tr class="border-b border-zinc-100 dark:border-zinc-700/50 hover:bg-zinc-50/70 dark:hover:bg-zinc-700/30 transition-colors" wire:key="order-{{ $order->id }}">
                             <!-- Order Number -->
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div>
-                                    <div class="flex items-center space-x-2">
-                                        <flux:text class="font-semibold">{{ $order->order_number }}</flux:text>
+                            <td class="px-5 py-3.5 whitespace-nowrap">
+                                <a href="{{ route('admin.orders.show', $order) }}" wire:navigate class="block group">
+                                    <div class="flex items-center gap-2">
+                                        <flux:text class="font-semibold text-zinc-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $order->order_number }}</flux:text>
                                         @if($order->order_type === 'package')
-                                            <flux:badge size="xs" color="purple">Package</flux:badge>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">PKG</span>
                                         @endif
                                     </div>
                                     @if($order->order_type === 'package' && isset($order->metadata['package_name']))
-                                        <flux:text size="sm" class="text-purple-600">{{ $order->metadata['package_name'] }}</flux:text>
+                                        <flux:text size="sm" class="text-purple-600 dark:text-purple-400">{{ Str::limit($order->metadata['package_name'], 25) }}</flux:text>
                                     @elseif($order->customer_notes)
-                                        <flux:text size="sm" class="text-gray-500">{{ Str::limit($order->customer_notes, 30) }}</flux:text>
+                                        <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">{{ Str::limit($order->customer_notes, 25) }}</flux:text>
                                     @endif
-                                </div>
+                                </a>
                             </td>
 
                             <!-- Source -->
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-5 py-3.5 whitespace-nowrap">
                                 @php
                                     $source = $this->getOrderSource($order);
                                 @endphp
                                 @if($order->platform_id && $order->platformAccount)
                                     <a href="{{ route('platforms.accounts.show', ['platform' => $order->platform, 'account' => $order->platformAccount]) }}?tab=orders" class="block group">
-                                        <div class="flex items-center space-x-2">
-                                            <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover:opacity-80 transition-opacity">
-                                                <div class="flex items-center justify-center">
-                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
-                                                    {{ $source['label'] }}
-                                                </div>
-                                            </flux:badge>
-                                        </div>
-                                        <flux:text size="xs" class="text-gray-500 mt-1 group-hover:text-blue-600 transition-colors">{{ $order->platformAccount->name }}</flux:text>
+                                        <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover:opacity-80 transition-opacity">
+                                            <div class="flex items-center justify-center">
+                                                <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                {{ $source['label'] }}
+                                            </div>
+                                        </flux:badge>
+                                        <flux:text size="xs" class="text-zinc-400 mt-0.5 group-hover:text-blue-600 transition-colors">{{ $order->platformAccount->name }}</flux:text>
                                     </a>
                                 @elseif($order->agent_id && $order->agent)
                                     <a href="{{ route('agents.show', $order->agent) }}" class="block group">
-                                        <div class="flex items-center space-x-2">
-                                            <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover:opacity-80 transition-opacity">
-                                                <div class="flex items-center justify-center">
-                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
-                                                    {{ $source['label'] }}
-                                                </div>
-                                            </flux:badge>
-                                        </div>
-                                        <flux:text size="xs" class="text-gray-500 mt-1 group-hover:text-blue-600 transition-colors">{{ $order->agent->name }}</flux:text>
+                                        <flux:badge size="sm" color="{{ $source['color'] }}" class="group-hover:opacity-80 transition-opacity">
+                                            <div class="flex items-center justify-center">
+                                                <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                {{ $source['label'] }}
+                                            </div>
+                                        </flux:badge>
+                                        <flux:text size="xs" class="text-zinc-400 mt-0.5 group-hover:text-blue-600 transition-colors">{{ $order->agent->name }}</flux:text>
                                     </a>
                                 @elseif($order->source === 'funnel')
                                     <div>
-                                        <div class="flex items-center space-x-2">
-                                            <flux:badge size="sm" color="{{ $source['color'] }}">
-                                                <div class="flex items-center justify-center">
-                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
-                                                    {{ $source['label'] }}
-                                                </div>
-                                            </flux:badge>
-                                        </div>
-                                        @if($order->source_reference)
-                                            <flux:text size="xs" class="text-gray-500 mt-1">{{ $order->source_reference }}</flux:text>
-                                        @endif
-                                    </div>
-                                @elseif($order->source === 'pos')
-                                    <div>
-                                        <div class="flex items-center space-x-2">
-                                            <flux:badge size="sm" color="{{ $source['color'] }}">
-                                                <div class="flex items-center justify-center">
-                                                    <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
-                                                    {{ $source['label'] }}
-                                                </div>
-                                            </flux:badge>
-                                        </div>
-                                        @if($order->metadata['salesperson_name'] ?? null)
-                                            <flux:text size="xs" class="text-gray-500 mt-1">{{ $order->metadata['salesperson_name'] }}</flux:text>
-                                        @endif
-                                    </div>
-                                @else
-                                    <div class="flex items-center space-x-2">
                                         <flux:badge size="sm" color="{{ $source['color'] }}">
                                             <div class="flex items-center justify-center">
                                                 <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
                                                 {{ $source['label'] }}
                                             </div>
                                         </flux:badge>
+                                        @if($order->source_reference)
+                                            <flux:text size="xs" class="text-zinc-400 mt-0.5">{{ $order->source_reference }}</flux:text>
+                                        @endif
                                     </div>
+                                @elseif($order->source === 'pos')
+                                    <div>
+                                        <flux:badge size="sm" color="{{ $source['color'] }}">
+                                            <div class="flex items-center justify-center">
+                                                <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                                {{ $source['label'] }}
+                                            </div>
+                                        </flux:badge>
+                                        @if($order->metadata['salesperson_name'] ?? null)
+                                            <flux:text size="xs" class="text-zinc-400 mt-0.5">{{ $order->metadata['salesperson_name'] }}</flux:text>
+                                        @endif
+                                    </div>
+                                @else
+                                    <flux:badge size="sm" color="{{ $source['color'] }}">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="{{ $source['icon'] }}" class="w-3 h-3 mr-1" />
+                                            {{ $source['label'] }}
+                                        </div>
+                                    </flux:badge>
                                 @endif
                             </td>
 
                             <!-- Customer -->
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-5 py-3.5 whitespace-nowrap">
                                 @if($order->student)
                                     <a href="{{ route('students.show', $order->student) }}" class="block group">
-                                        <flux:text class="font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $order->getCustomerName() }}</flux:text>
-                                        <flux:text size="sm" class="text-gray-500">{{ $order->getCustomerEmail() }}</flux:text>
+                                        <flux:text class="font-medium text-zinc-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $order->getCustomerName() }}</flux:text>
+                                        <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">{{ $order->getCustomerEmail() }}</flux:text>
                                     </a>
                                 @else
                                     <div>
-                                        <flux:text class="font-medium">{{ $order->getCustomerName() }}</flux:text>
-                                        <flux:text size="sm" class="text-gray-500">{{ $order->getCustomerEmail() }}</flux:text>
+                                        <flux:text class="font-medium text-zinc-900 dark:text-white">{{ $order->getCustomerName() }}</flux:text>
+                                        <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">{{ $order->getCustomerEmail() }}</flux:text>
                                     </div>
                                 @endif
                             </td>
 
                             <!-- Phone -->
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-5 py-3.5 whitespace-nowrap">
                                 @if($editingPhoneOrderId === $order->id)
-                                    <div class="flex items-center space-x-1">
+                                    <div class="flex items-center gap-1">
                                         <input
                                             type="text"
                                             wire:model="editingPhoneValue"
                                             wire:keydown.enter="savePhone"
                                             wire:keydown.escape="cancelEditingPhone"
-                                            class="w-36 px-2 py-1 text-sm border border-gray-300 dark:border-zinc-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
+                                            class="w-32 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
                                             placeholder="Phone number"
                                             autofocus
                                         />
-                                        <button wire:click="savePhone" class="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded">
-                                            <flux:icon name="check" class="w-4 h-4" />
+                                        <button wire:click="savePhone" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors">
+                                            <flux:icon name="check" class="w-3.5 h-3.5" />
                                         </button>
-                                        <button wire:click="cancelEditingPhone" class="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
-                                            <flux:icon name="x-mark" class="w-4 h-4" />
+                                        <button wire:click="cancelEditingPhone" class="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
+                                            <flux:icon name="x-mark" class="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 @else
                                     <button
                                         wire:click="startEditingPhone({{ $order->id }}, {{ json_encode($order->customer_phone ?? '') }})"
-                                        class="group flex items-center space-x-1 hover:text-blue-600 transition-colors"
-                                        title="Click to edit phone number"
+                                        class="group flex items-center gap-1 hover:text-blue-600 transition-colors"
+                                        title="Click to edit"
                                     >
-                                        <flux:text size="sm">{{ $order->getCustomerPhone() }}</flux:text>
-                                        <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" />
+                                        <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">{{ $order->getCustomerPhone() }}</flux:text>
+                                        <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400" />
                                     </button>
                                 @endif
                             </td>
 
                             <!-- Items -->
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <flux:text>{{ $order->items->count() }} item{{ $order->items->count() !== 1 ? 's' : '' }}</flux:text>
-                                <flux:text size="sm" class="text-gray-500">
-                                    {{ $order->items->sum('quantity_ordered') }} qty
-                                </flux:text>
+                            <td class="px-5 py-3.5 whitespace-nowrap">
+                                <button
+                                    wire:click="openItemsModal({{ $order->id }})"
+                                    class="group text-left cursor-pointer"
+                                    title="Click to view items"
+                                >
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-zinc-100 dark:bg-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-400 group-hover:bg-blue-100 group-hover:text-blue-600 dark:group-hover:bg-blue-900/30 dark:group-hover:text-blue-400 transition-colors">
+                                            {{ $order->items->count() }}
+                                        </span>
+                                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                            item{{ $order->items->count() !== 1 ? 's' : '' }}
+                                        </flux:text>
+                                    </div>
+                                </button>
                             </td>
 
                             <!-- Total -->
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <flux:text class="font-semibold">MYR {{ number_format($order->total_amount, 2) }}</flux:text>
+                            <td class="px-5 py-3.5 whitespace-nowrap">
+                                <flux:text class="font-semibold text-zinc-900 dark:text-white tabular-nums">MYR {{ number_format($order->total_amount, 2) }}</flux:text>
                                 @if($order->discount_amount > 0)
-                                    <flux:text size="sm" class="text-green-600">-MYR {{ number_format($order->discount_amount, 2) }}</flux:text>
+                                    <flux:text size="sm" class="text-emerald-600 dark:text-emerald-400 tabular-nums">-{{ number_format($order->discount_amount, 2) }}</flux:text>
                                 @endif
                             </td>
 
                             <!-- Status -->
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-5 py-3.5 whitespace-nowrap">
                                 <flux:badge size="sm" color="{{ $this->getStatusColor($order->status) }}">
                                     {{ $this->getOrderStatuses()[$order->status] ?? $order->status }}
                                 </flux:badge>
                             </td>
 
+                            <!-- Class Assignment -->
+                            <td class="px-5 py-3.5">
+                                <button wire:click="openClassAssignModal({{ $order->id }})" class="group text-left w-full cursor-pointer">
+                                    @if($order->classAssignmentApprovals->isNotEmpty())
+                                        <div class="flex flex-col gap-1">
+                                            @foreach($order->classAssignmentApprovals->take(2) as $assignment)
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="w-1.5 h-1.5 rounded-full shrink-0 {{ match($assignment->status) { 'approved' => 'bg-emerald-500', 'rejected' => 'bg-red-500', default => 'bg-amber-500' } }}"></span>
+                                                    <span class="text-xs text-zinc-700 dark:text-zinc-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate max-w-[120px] transition-colors" title="{{ $assignment->class->title }}">
+                                                        {{ Str::limit($assignment->class->title, 18) }}
+                                                    </span>
+                                                </div>
+                                            @endforeach
+                                            @if($order->classAssignmentApprovals->count() > 2)
+                                                <span class="text-xs text-zinc-400 dark:text-zinc-500">+{{ $order->classAssignmentApprovals->count() - 2 }} more</span>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <span class="text-xs text-zinc-400 dark:text-zinc-500 group-hover:text-blue-500 transition-colors">
+                                            <flux:icon name="plus-circle" class="w-4 h-4 inline" /> Assign
+                                        </span>
+                                    @endif
+                                </button>
+                            </td>
+
                             <!-- Payment Status -->
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-5 py-3.5 whitespace-nowrap">
                                 @if($order->isPaid())
-                                    <flux:badge size="sm" color="green">Paid</flux:badge>
+                                    <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        Paid
+                                    </span>
                                 @else
-                                    <flux:badge size="sm" color="red">Unpaid</flux:badge>
+                                    <span class="inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                        Unpaid
+                                    </span>
                                 @endif
                             </td>
 
                             <!-- Notes -->
-                            <td class="px-6 py-4">
+                            <td class="px-5 py-3.5">
                                 @php
                                     $notes = $order->internal_notes ?: $order->customer_notes;
                                 @endphp
                                 @if($notes)
-                                    <flux:text size="sm" class="text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title="{{ $notes }}">
-                                        {{ Str::limit($notes, 40) }}
+                                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 max-w-[180px] truncate" title="{{ $notes }}">
+                                        {{ Str::limit($notes, 35) }}
                                     </flux:text>
                                 @else
-                                    <flux:text size="sm" class="text-gray-400 dark:text-gray-500">—</flux:text>
+                                    <span class="text-zinc-300 dark:text-zinc-600">&mdash;</span>
                                 @endif
                             </td>
 
                             <!-- Tracking Number -->
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-5 py-3.5 whitespace-nowrap">
                                 @if($editingTrackingOrderId === $order->id)
-                                    <div class="flex items-center space-x-1">
+                                    <div class="flex items-center gap-1">
                                         <input
                                             type="text"
                                             wire:model="editingTrackingValue"
                                             wire:keydown.enter="saveTracking"
                                             wire:keydown.escape="cancelEditingTracking"
-                                            class="w-36 px-2 py-1 text-sm border border-gray-300 dark:border-zinc-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
+                                            class="w-32 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-zinc-700 dark:text-white"
                                             placeholder="Tracking number"
                                             autofocus
                                         />
-                                        <button wire:click="saveTracking" class="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded">
-                                            <flux:icon name="check" class="w-4 h-4" />
+                                        <button wire:click="saveTracking" class="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors">
+                                            <flux:icon name="check" class="w-3.5 h-3.5" />
                                         </button>
-                                        <button wire:click="cancelEditingTracking" class="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
-                                            <flux:icon name="x-mark" class="w-4 h-4" />
+                                        <button wire:click="cancelEditingTracking" class="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
+                                            <flux:icon name="x-mark" class="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                 @else
                                     <button
                                         wire:click="startEditingTracking({{ $order->id }}, {{ json_encode($order->tracking_id ?? '') }})"
-                                        class="group flex items-center space-x-1 hover:text-blue-600 transition-colors"
-                                        title="Click to edit tracking number"
+                                        class="group flex items-center gap-1 hover:text-blue-600 transition-colors"
+                                        title="Click to edit"
                                     >
                                         @if($order->tracking_id)
-                                            <flux:text size="sm">{{ $order->tracking_id }}</flux:text>
+                                            <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400 font-mono">{{ $order->tracking_id }}</flux:text>
                                         @else
-                                            <flux:text size="sm" class="text-gray-400 dark:text-gray-500">Add tracking</flux:text>
+                                            <flux:text size="sm" class="text-zinc-300 dark:text-zinc-600 italic">Add tracking</flux:text>
                                         @endif
-                                        <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400" />
+                                        <flux:icon name="pencil" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400" />
                                     </button>
                                 @endif
                             </td>
 
                             <!-- Date -->
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <flux:text>{{ $order->created_at->format('M j, Y') }}</flux:text>
-                                <flux:text size="sm" class="text-gray-500">{{ $order->created_at->format('g:i A') }}</flux:text>
+                            <td class="px-5 py-3.5 whitespace-nowrap">
+                                <flux:text size="sm" class="text-zinc-700 dark:text-zinc-300">{{ $order->created_at->format('M j, Y') }}</flux:text>
+                                <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500">{{ $order->created_at->format('g:i A') }}</flux:text>
                             </td>
 
                             <!-- Actions -->
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="flex items-center justify-end space-x-2">
-                                    <flux:button variant="ghost" size="sm" href="{{ route('admin.orders.show', $order) }}">
+                            <td class="px-5 py-3.5 whitespace-nowrap text-right">
+                                <div class="flex items-center justify-end gap-1">
+                                    <a href="{{ route('admin.orders.show', $order) }}" wire:navigate
+                                       class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-300 dark:hover:bg-zinc-700 transition-colors">
                                         <flux:icon name="eye" class="w-4 h-4" />
-                                    </flux:button>
+                                    </a>
 
                                     @if($order->canBeCancelled())
                                         <flux:dropdown>
@@ -1173,13 +1320,16 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="12" class="px-6 py-12 text-center">
-                                <div class="text-gray-500 dark:text-gray-400">
-                                    <flux:icon name="shopping-bag" class="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                                    <flux:text>No orders found</flux:text>
+                            <td colspan="12" class="px-6 py-16 text-center">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center mb-4">
+                                        <flux:icon name="shopping-bag" class="w-7 h-7 text-zinc-400 dark:text-zinc-500" />
+                                    </div>
+                                    <flux:text class="font-medium text-zinc-600 dark:text-zinc-400">No orders found</flux:text>
+                                    <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 mt-1">Try adjusting your filters or search terms</flux:text>
                                     @if($search || $activeTab !== 'all' || $dateFilter || $sourceTab !== 'all' || $productFilter)
-                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('sourceTab', 'all'); $set('productFilter', '')" class="mt-2">
-                                            Clear filters
+                                        <flux:button variant="ghost" wire:click="$set('search', ''); $set('activeTab', 'all'); $set('dateFilter', ''); $set('sourceTab', 'all'); $set('productFilter', '')" class="mt-3">
+                                            Clear all filters
                                         </flux:button>
                                     @endif
                                 </div>
@@ -1192,41 +1342,217 @@ new class extends Component
 
         <!-- Pagination -->
         @if($this->getOrders()->hasPages())
-            <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-700/50">
+            <div class="px-5 py-3.5 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800">
                 {{ $this->getOrders()->links() }}
             </div>
         @endif
     </div>
 
-    <!-- Order Summary Stats -->
-    <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+    <!-- Items Modal -->
+    <flux:modal wire:model.self="showItemsModal" class="md:w-2xl">
+        @if($selectedOrderId && $selectedOrder = $this->getSelectedOrder())
+            <div class="space-y-5">
+                <!-- Header -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <flux:heading size="lg">Order Items</flux:heading>
+                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 mt-1">{{ $selectedOrder->order_number }} &middot; {{ $selectedOrder->items->count() }} item{{ $selectedOrder->items->count() !== 1 ? 's' : '' }}</flux:text>
+                    </div>
+                    <flux:badge size="sm" color="{{ $selectedOrder->isPaid() ? 'green' : 'red' }}">{{ $selectedOrder->isPaid() ? 'Paid' : 'Unpaid' }}</flux:badge>
+                </div>
+
+                <!-- Items List -->
+                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-zinc-50 dark:bg-zinc-700/50 text-left">
+                                <th class="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Product</th>
+                                <th class="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-center">Qty</th>
+                                <th class="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-right">Price</th>
+                                <th class="px-4 py-2.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700">
+                            @foreach($selectedOrder->items as $item)
+                                <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div class="shrink-0 w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center">
+                                                @if($item->isPackage())
+                                                    <flux:icon name="cube" class="w-4 h-4 text-purple-500" />
+                                                @else
+                                                    <flux:icon name="shopping-bag" class="w-4 h-4 text-blue-500" />
+                                                @endif
+                                            </div>
+                                            <div class="min-w-0">
+                                                <flux:text class="font-medium text-zinc-900 dark:text-white">{{ $item->display_name }}</flux:text>
+                                                <div class="flex items-center gap-2 mt-0.5">
+                                                    @if($item->sku)
+                                                        <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 font-mono">{{ $item->sku }}</flux:text>
+                                                    @endif
+                                                    @if($item->isPackage())
+                                                        <flux:badge size="sm" color="purple">Package</flux:badge>
+                                                    @endif
+                                                    @if($item->variant_name)
+                                                        <flux:badge size="sm" color="zinc">{{ $item->variant_name }}</flux:badge>
+                                                    @endif
+                                                </div>
+                                                @if($item->warehouse)
+                                                    <div class="flex items-center gap-1 mt-0.5">
+                                                        <flux:icon name="building-storefront" class="w-3 h-3 text-zinc-400" />
+                                                        <flux:text size="sm" class="text-zinc-400">{{ $item->warehouse->name }}</flux:text>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-zinc-100 dark:bg-zinc-700 text-sm font-semibold text-zinc-700 dark:text-zinc-300">{{ $item->quantity_ordered }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right">
+                                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 tabular-nums">MYR {{ number_format($item->unit_price, 2) }}</flux:text>
+                                    </td>
+                                    <td class="px-4 py-3 text-right">
+                                        <flux:text class="font-semibold tabular-nums">MYR {{ number_format($item->total_price, 2) }}</flux:text>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Totals -->
+                <div class="space-y-2 px-1">
+                    <div class="flex justify-between">
+                        <flux:text size="sm" class="text-zinc-500">Subtotal</flux:text>
+                        <flux:text size="sm" class="tabular-nums">MYR {{ number_format($selectedOrder->subtotal, 2) }}</flux:text>
+                    </div>
+                    @if($selectedOrder->shipping_cost > 0)
+                        <div class="flex justify-between">
+                            <flux:text size="sm" class="text-zinc-500">Shipping</flux:text>
+                            <flux:text size="sm" class="tabular-nums">MYR {{ number_format($selectedOrder->shipping_cost, 2) }}</flux:text>
+                        </div>
+                    @endif
+                    @if($selectedOrder->total_discount > 0)
+                        <div class="flex justify-between">
+                            <flux:text size="sm" class="text-emerald-600">Discount</flux:text>
+                            <flux:text size="sm" class="text-emerald-600 tabular-nums">-MYR {{ number_format($selectedOrder->total_discount, 2) }}</flux:text>
+                        </div>
+                    @endif
+                    <div class="flex justify-between pt-2.5 border-t border-zinc-200 dark:border-zinc-700">
+                        <flux:text class="font-semibold">Total</flux:text>
+                        <flux:text class="text-lg font-bold tabular-nums">MYR {{ number_format($selectedOrder->total_amount, 2) }}</flux:text>
+                    </div>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
+
+    <!-- Class Assignment Modal -->
+    <flux:modal wire:model.self="showClassAssignModal" class="md:w-2xl">
         @php
-            $totalOrders = ProductOrder::count();
-            $pendingOrders = ProductOrder::where('status', 'pending')->count();
-            $todayOrders = ProductOrder::whereDate('created_at', today())->count();
-            $totalRevenue = ProductOrder::whereNotIn('status', ['cancelled', 'refunded'])->sum('total_amount');
+            $classAssignOrder = $this->classAssignOrder;
         @endphp
+        @if($classAssignOrder)
+            <div class="space-y-5">
+                <!-- Header -->
+                <div>
+                    <flux:heading size="lg">Class Assignment</flux:heading>
+                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 mt-1">
+                        {{ $classAssignOrder->order_number }} &middot; {{ $classAssignOrder->getCustomerName() }}
+                    </flux:text>
+                </div>
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
-            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Total Orders</flux:text>
-            <flux:text class="text-2xl font-bold">{{ number_format($totalOrders) }}</flux:text>
-        </div>
+                <!-- Existing Assignments -->
+                @if($classAssignOrder->classAssignmentApprovals->isNotEmpty())
+                    <div>
+                        <flux:text size="sm" class="font-semibold text-zinc-700 dark:text-zinc-300 mb-2">Assigned Classes</flux:text>
+                        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-100 dark:divide-zinc-700">
+                            @foreach($classAssignOrder->classAssignmentApprovals as $approval)
+                                <div class="flex items-center justify-between px-4 py-2.5">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-8 h-8 rounded-lg {{ match($approval->status) { 'approved' => 'bg-emerald-100 dark:bg-emerald-900/30', 'rejected' => 'bg-red-100 dark:bg-red-900/30', default => 'bg-amber-100 dark:bg-amber-900/30' } }} flex items-center justify-center shrink-0">
+                                            <flux:icon name="{{ match($approval->status) { 'approved' => 'check-circle', 'rejected' => 'x-circle', default => 'clock' } }}"
+                                                class="w-4 h-4 {{ match($approval->status) { 'approved' => 'text-emerald-600 dark:text-emerald-400', 'rejected' => 'text-red-600 dark:text-red-400', default => 'text-amber-600 dark:text-amber-400' } }}" />
+                                        </div>
+                                        <div class="min-w-0">
+                                            <flux:text class="font-medium text-zinc-900 dark:text-white truncate">{{ $approval->class->title }}</flux:text>
+                                            <div class="flex items-center gap-2 mt-0.5">
+                                                @if($approval->class->course)
+                                                    <flux:text size="sm" class="text-zinc-400">{{ $approval->class->course->name }}</flux:text>
+                                                @endif
+                                                <flux:badge size="sm" color="{{ match($approval->status) { 'approved' => 'green', 'rejected' => 'red', default => 'yellow' } }}">
+                                                    {{ ucfirst($approval->status) }}
+                                                </flux:badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if($approval->status === 'pending')
+                                        <button wire:click="removeClassAssignment({{ $approval->id }})" class="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Remove">
+                                            <flux:icon name="x-mark" class="w-4 h-4" />
+                                        </button>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
-            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Pending Orders</flux:text>
-            <flux:text class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ number_format($pendingOrders) }}</flux:text>
-        </div>
+                <!-- Assign New Classes -->
+                <div>
+                    <flux:text size="sm" class="font-semibold text-zinc-700 dark:text-zinc-300 mb-2">Assign New Classes</flux:text>
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
-            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Today's Orders</flux:text>
-            <flux:text class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ number_format($todayOrders) }}</flux:text>
-        </div>
+                    <!-- Search -->
+                    <flux:input wire:model.live.debounce.300ms="classAssignSearch" placeholder="Search classes or courses..." size="sm" class="mb-3" />
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-4">
-            <flux:text size="sm" class="text-gray-600 dark:text-gray-400">Total Revenue</flux:text>
-            <flux:text class="text-2xl font-bold text-green-600 dark:text-green-400">MYR {{ number_format($totalRevenue, 2) }}</flux:text>
-        </div>
-    </div>
+                    <!-- Available Classes -->
+                    @php
+                        $availableClasses = $this->classAssignAvailable;
+                    @endphp
+                    @if($availableClasses->isNotEmpty())
+                        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 max-h-60 overflow-y-auto">
+                            @foreach($availableClasses as $courseName => $classes)
+                                <div>
+                                    <div class="px-4 py-2 bg-zinc-50 dark:bg-zinc-700/50 sticky top-0">
+                                        <flux:text size="sm" class="font-semibold text-zinc-500 dark:text-zinc-400">{{ $courseName }}</flux:text>
+                                    </div>
+                                    @foreach($classes as $class)
+                                        <div wire:click="toggleClassAssignSelection({{ $class->id }})" wire:key="class-assign-{{ $class->id }}"
+                                            class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700/30 transition-colors border-t border-zinc-100 dark:border-zinc-700">
+                                            <div class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0
+                                                {{ in_array($class->id, $classAssignSelectedIds) ? 'bg-blue-500 border-blue-500' : 'border-zinc-300 dark:border-zinc-600' }}">
+                                                @if(in_array($class->id, $classAssignSelectedIds))
+                                                    <flux:icon name="check" class="w-3 h-3 text-white" />
+                                                @endif
+                                            </div>
+                                            <div class="min-w-0">
+                                                <flux:text size="sm" class="font-medium text-zinc-900 dark:text-white">{{ $class->title }}</flux:text>
+                                                <flux:text size="sm" class="text-zinc-400">{{ $class->schedule ?? 'No schedule' }}</flux:text>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="text-center py-6 text-zinc-400 dark:text-zinc-500">
+                            <flux:icon name="academic-cap" class="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <flux:text size="sm">{{ $classAssignSearch ? 'No classes found' : 'All classes already assigned' }}</flux:text>
+                        </div>
+                    @endif
+
+                    <!-- Submit Button -->
+                    @if(!empty($classAssignSelectedIds))
+                        <div class="mt-3">
+                            <flux:button variant="primary" wire:click="submitClassAssignment" class="w-full">
+                                Assign to {{ count($classAssignSelectedIds) }} Class{{ count($classAssignSelectedIds) !== 1 ? 'es' : '' }}
+                            </flux:button>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @endif
+    </flux:modal>
 
     <!-- Toast Notification -->
     <div
@@ -1242,9 +1568,9 @@ new class extends Component
         class="fixed bottom-4 right-4 z-50"
         style="display: none;"
     >
-        <div class="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-3">
-            <flux:icon name="check-circle" class="w-5 h-5" />
-            <span x-text="message"></span>
+        <div class="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-5 py-3 rounded-xl shadow-lg flex items-center gap-3">
+            <flux:icon name="check-circle" class="w-5 h-5 text-emerald-400 dark:text-emerald-600" />
+            <span x-text="message" class="text-sm font-medium"></span>
         </div>
     </div>
 </div>

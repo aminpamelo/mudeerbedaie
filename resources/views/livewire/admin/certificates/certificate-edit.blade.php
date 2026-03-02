@@ -253,9 +253,79 @@ new class extends Component
             'status' => $saveStatus ?? $this->status,
         ]);
 
+        // Check if there are issued certificates that need regeneration
+        $issuedCount = $this->certificate->issues()->where('status', 'issued')->count();
+
+        if ($issuedCount > 0) {
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => "Template updated. {$issuedCount} issued " . \Illuminate\Support\Str::plural('certificate', $issuedCount) . " still use the old design. Go to the class management page and click \"Regenerate All\" to update them.",
+            ]);
+        } else {
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'message' => 'Certificate template updated successfully.',
+            ]);
+        }
+    }
+
+    public function regenerateAllIssuedPdfs(): void
+    {
+        $issues = $this->certificate->issues()
+            ->with(['certificate', 'student.user', 'enrollment'])
+            ->where('status', 'issued')
+            ->get();
+
+        if ($issues->isEmpty()) {
+            $this->dispatch('notify', [
+                'type' => 'info',
+                'message' => 'No issued certificates to regenerate.',
+            ]);
+
+            return;
+        }
+
+        $pdfGenerator = app(\App\Services\CertificatePdfGenerator::class);
+        $successCount = 0;
+        $failCount = 0;
+
+        foreach ($issues as $issue) {
+            try {
+                $issue->deleteFile();
+
+                $data = $issue->data_snapshot ?? [];
+                $data['certificate_number'] = $issue->certificate_number;
+
+                try {
+                    $data['verification_url'] = $issue->getVerificationUrl();
+                } catch (\Exception $e) {
+                    $data['verification_url'] = '';
+                }
+
+                $filePath = $pdfGenerator->generate(
+                    certificate: $this->certificate,
+                    student: $issue->student,
+                    enrollment: $issue->enrollment,
+                    additionalData: $data
+                );
+
+                $issue->update(['file_path' => $filePath]);
+                $issue->logAction('regenerated', auth()->user());
+                $successCount++;
+            } catch (\Exception $e) {
+                \Log::error("Failed to regenerate certificate {$issue->certificate_number}: {$e->getMessage()}");
+                $failCount++;
+            }
+        }
+
+        $message = "Regenerated {$successCount} " . \Illuminate\Support\Str::plural('certificate', $successCount) . '.';
+        if ($failCount > 0) {
+            $message .= " {$failCount} failed.";
+        }
+
         $this->dispatch('notify', [
-            'type' => 'success',
-            'message' => 'Certificate template updated successfully.',
+            'type' => $failCount > 0 ? 'warning' : 'success',
+            'message' => $message,
         ]);
     }
 
@@ -1315,18 +1385,37 @@ new class extends Component
     @endif
 
     {{-- Actions --}}
-    <div class="mt-6 flex justify-end gap-2">
-        <flux:button href="{{ route('certificates.index') }}" variant="ghost">
-            Cancel
-        </flux:button>
-        <flux:button wire:click="save" variant="outline">
-            Save Changes
-        </flux:button>
-        @if($certificate->isDraft())
-            <flux:button wire:click="save('active')" variant="primary">
-                Save & Activate
+    <div class="mt-6 flex items-center justify-between">
+        <div>
+            @if($certificate->issues()->where('status', 'issued')->count() > 0)
+                <flux:button
+                    wire:click="regenerateAllIssuedPdfs"
+                    wire:confirm="Regenerate ALL {{ $certificate->issues()->where('status', 'issued')->count() }} issued certificate PDFs with the current template design?"
+                    wire:loading.attr="disabled"
+                    wire:target="regenerateAllIssuedPdfs"
+                    variant="outline"
+                >
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="arrow-path" class="w-4 h-4 mr-1 text-orange-500" />
+                        <span wire:loading.remove wire:target="regenerateAllIssuedPdfs">Regenerate {{ $certificate->issues()->where('status', 'issued')->count() }} Issued PDFs</span>
+                        <span wire:loading wire:target="regenerateAllIssuedPdfs">Regenerating...</span>
+                    </div>
+                </flux:button>
+            @endif
+        </div>
+        <div class="flex gap-2">
+            <flux:button href="{{ route('certificates.index') }}" variant="ghost">
+                Cancel
             </flux:button>
-        @endif
+            <flux:button wire:click="save" variant="outline">
+                Save Changes
+            </flux:button>
+            @if($certificate->isDraft())
+                <flux:button wire:click="save('active')" variant="primary">
+                    Save & Activate
+                </flux:button>
+            @endif
+        </div>
     </div>
 
     <!-- Toast Notification -->

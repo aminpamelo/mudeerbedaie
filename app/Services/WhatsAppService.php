@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\Student;
+use App\Models\WhatsAppConversation;
+use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppSendLog;
 use App\Services\WhatsApp\WhatsAppManager;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class WhatsAppService
 {
@@ -449,5 +453,108 @@ class WhatsAppService
         $status = $this->checkDeviceStatus();
 
         return $status['success'] && $status['status'] === 'connected';
+    }
+
+    /**
+     * Store an outbound message in the WhatsApp inbox tables.
+     *
+     * Creates or finds a conversation for the phone number and stores
+     * the message so it appears in the WhatsApp Inbox UI.
+     *
+     * @param  array{success: bool, message_id: ?string, error: ?string}  $sendResult
+     * @return array{conversation: WhatsAppConversation, message: WhatsAppMessage}
+     */
+    public function storeOutboundMessage(
+        string $phoneNumber,
+        string $type,
+        ?string $body,
+        array $sendResult,
+        ?int $sentByUserId = null,
+        ?string $mediaUrl = null,
+        ?string $mediaMimeType = null,
+        ?string $mediaFilename = null,
+    ): array {
+        $formattedPhone = $this->formatPhoneNumber($phoneNumber);
+
+        // Find or create conversation
+        $conversation = WhatsAppConversation::firstOrCreate(
+            ['phone_number' => $formattedPhone],
+            [
+                'status' => 'active',
+            ]
+        );
+
+        // Try to match to a student if not already matched
+        if (! $conversation->student_id) {
+            $student = $this->findStudentByPhone($formattedPhone);
+            if ($student) {
+                $conversation->update([
+                    'student_id' => $student->id,
+                    'contact_name' => $student->user?->name,
+                ]);
+            }
+        }
+
+        // Create the outbound message
+        $message = WhatsAppMessage::create([
+            'conversation_id' => $conversation->id,
+            'direction' => 'outbound',
+            'wamid' => $sendResult['message_id'] ?? null,
+            'type' => $type,
+            'body' => $body,
+            'media_url' => $mediaUrl,
+            'media_mime_type' => $mediaMimeType,
+            'media_filename' => $mediaFilename,
+            'status' => $sendResult['success'] ? 'sent' : 'failed',
+            'status_updated_at' => now(),
+            'sent_by_user_id' => $sentByUserId,
+            'error_message' => $sendResult['error'] ?? null,
+        ]);
+
+        // Update conversation metadata
+        $preview = $body ? Str::limit($body, 255) : "[$type]";
+        $conversation->update([
+            'last_message_at' => now(),
+            'last_message_preview' => $preview,
+        ]);
+
+        return [
+            'conversation' => $conversation,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * Try to find a student by matching the phone number.
+     *
+     * Handles Malaysia format: 60123456789 vs 0123456789
+     */
+    public function findStudentByPhone(string $phoneNumber): ?Student
+    {
+        // Try direct match
+        $student = Student::where('phone', $phoneNumber)->first();
+        if ($student) {
+            return $student;
+        }
+
+        // Try Malaysia format: strip leading 60 and add leading 0
+        if (str_starts_with($phoneNumber, '60')) {
+            $localNumber = '0'.substr($phoneNumber, 2);
+            $student = Student::where('phone', $localNumber)->first();
+            if ($student) {
+                return $student;
+            }
+        }
+
+        // Try adding 60 prefix if number starts with 0
+        if (str_starts_with($phoneNumber, '0')) {
+            $internationalNumber = '60'.substr($phoneNumber, 1);
+            $student = Student::where('phone', $internationalNumber)->first();
+            if ($student) {
+                return $student;
+            }
+        }
+
+        return null;
     }
 }

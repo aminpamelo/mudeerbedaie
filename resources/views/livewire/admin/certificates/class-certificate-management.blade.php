@@ -57,6 +57,8 @@ new class extends Component {
 
     public bool $isBulkSend = false;
 
+    public string $modalStudentSearch = '';
+
     public function mount(ClassModel $class): void
     {
         $this->class = $class->load(['certificates', 'course.certificates', 'activeStudents.student.user']);
@@ -191,6 +193,7 @@ new class extends Component {
         $this->showBulkIssueModal = true;
         $this->selectedStudentIds = [];
         $this->selectAll = false;
+        $this->modalStudentSearch = '';
     }
 
     public function closeBulkIssueModal(): void
@@ -198,6 +201,7 @@ new class extends Component {
         $this->showBulkIssueModal = false;
         $this->selectedStudentIds = [];
         $this->selectAll = false;
+        $this->modalStudentSearch = '';
     }
 
     public function updatedSelectAll($value): void
@@ -515,6 +519,136 @@ new class extends Component {
         ]);
     }
 
+    public function bulkRegeneratePdfs(): void
+    {
+        if (empty($this->selectedIssueIds)) {
+            return;
+        }
+
+        $issues = CertificateIssue::with(['certificate', 'student.user', 'enrollment'])
+            ->whereIn('id', $this->selectedIssueIds)
+            ->where('class_id', $this->class->id)
+            ->get();
+
+        $pdfGenerator = app(\App\Services\CertificatePdfGenerator::class);
+        $successCount = 0;
+        $failCount = 0;
+
+        foreach ($issues as $issue) {
+            if (! $issue->certificate) {
+                $failCount++;
+
+                continue;
+            }
+
+            try {
+                $issue->deleteFile();
+
+                $data = $issue->data_snapshot ?? [];
+                $data['certificate_number'] = $issue->certificate_number;
+
+                try {
+                    $data['verification_url'] = $issue->getVerificationUrl();
+                } catch (\Exception $e) {
+                    $data['verification_url'] = '';
+                }
+
+                $filePath = $pdfGenerator->generate(
+                    certificate: $issue->certificate,
+                    student: $issue->student,
+                    enrollment: $issue->enrollment,
+                    additionalData: $data
+                );
+
+                $issue->update(['file_path' => $filePath]);
+                $issue->logAction('regenerated', auth()->user());
+                $successCount++;
+            } catch (\Exception $e) {
+                \Log::error("Failed to regenerate certificate {$issue->certificate_number}: {$e->getMessage()}");
+                $failCount++;
+            }
+        }
+
+        $this->selectedIssueIds = [];
+        $this->selectAllIssued = false;
+
+        $message = "Regenerated {$successCount} " . Str::plural('certificate', $successCount) . '.';
+        if ($failCount > 0) {
+            $message .= " {$failCount} failed.";
+        }
+
+        $this->dispatch('notify', [
+            'type' => $failCount > 0 ? 'warning' : 'success',
+            'message' => $message,
+        ]);
+    }
+
+    public function regenerateAllPdfs(): void
+    {
+        $issues = CertificateIssue::with(['certificate', 'student.user', 'enrollment'])
+            ->where('class_id', $this->class->id)
+            ->where('status', 'issued')
+            ->get();
+
+        if ($issues->isEmpty()) {
+            $this->dispatch('notify', [
+                'type' => 'info',
+                'message' => 'No issued certificates to regenerate.',
+            ]);
+
+            return;
+        }
+
+        $pdfGenerator = app(\App\Services\CertificatePdfGenerator::class);
+        $successCount = 0;
+        $failCount = 0;
+
+        foreach ($issues as $issue) {
+            if (! $issue->certificate) {
+                $failCount++;
+
+                continue;
+            }
+
+            try {
+                $issue->deleteFile();
+
+                $data = $issue->data_snapshot ?? [];
+                $data['certificate_number'] = $issue->certificate_number;
+
+                try {
+                    $data['verification_url'] = $issue->getVerificationUrl();
+                } catch (\Exception $e) {
+                    $data['verification_url'] = '';
+                }
+
+                $filePath = $pdfGenerator->generate(
+                    certificate: $issue->certificate,
+                    student: $issue->student,
+                    enrollment: $issue->enrollment,
+                    additionalData: $data
+                );
+
+                $issue->update(['file_path' => $filePath]);
+                $issue->logAction('regenerated', auth()->user());
+                $successCount++;
+            } catch (\Exception $e) {
+                \Log::error("Failed to regenerate certificate {$issue->certificate_number}: {$e->getMessage()}");
+                $failCount++;
+            }
+        }
+
+        $message = "Regenerated {$successCount} " . Str::plural('certificate', $successCount) . '.';
+        if ($failCount > 0) {
+            $message .= " {$failCount} failed.";
+        }
+
+        $this->dispatch('notify', [
+            'type' => $failCount > 0 ? 'warning' : 'success',
+            'message' => $message,
+        ]);
+    }
+
     public function bulkDownloadCertificates(): mixed
     {
         if (empty($this->selectedIssueIds)) {
@@ -626,7 +760,7 @@ new class extends Component {
         $certName = $issue->getCertificateName();
         $appName = config('app.name');
 
-        return "Assalamualaikum {$studentName},\n\nTahniah! Your certificate ({$certName}) has been issued.\n\nPlease find your certificate attached.\n\nTerima kasih,\n{$appName}";
+        return "Assalamualaikum {$studentName},\n\nTahniah! Sijil anda ({$certName}) telah dikeluarkan.\n\nSila rujuk sijil anda yang dilampirkan.\n\nTerima kasih,\n{$appName}";
     }
 
     protected function getDefaultBulkSendMessage(): string
@@ -634,7 +768,7 @@ new class extends Component {
         $className = $this->class->title ?? 'the class';
         $appName = config('app.name');
 
-        return "Assalamualaikum,\n\nTahniah! Your certificate for {$className} has been issued.\n\nPlease find your certificate attached.\n\nTerima kasih,\n{$appName}";
+        return "Assalamualaikum,\n\nTahniah! Sijil anda untuk {$className} telah dikeluarkan.\n\nSila rujuk sijil anda yang dilampirkan.\n\nTerima kasih,\n{$appName}";
     }
 
     public function getSendRecipientsProperty(): array
@@ -938,6 +1072,22 @@ new class extends Component {
                         <option value="issued">Issued</option>
                         <option value="revoked">Revoked</option>
                     </flux:select>
+                    @if($issuedCertificates->total() > 0)
+                        <flux:button
+                            variant="outline"
+                            size="sm"
+                            wire:click="regenerateAllPdfs"
+                            wire:confirm="Regenerate ALL issued certificate PDFs for this class? This will update them with the latest template design."
+                            wire:loading.attr="disabled"
+                            wire:target="regenerateAllPdfs"
+                        >
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
+                                <span wire:loading.remove wire:target="regenerateAllPdfs">Regenerate All</span>
+                                <span wire:loading wire:target="regenerateAllPdfs">Regenerating...</span>
+                            </div>
+                        </flux:button>
+                    @endif
                 </div>
             </div>
 
@@ -996,6 +1146,21 @@ new class extends Component {
                                     <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1" />
                                     <span wire:loading.remove wire:target="bulkDownloadCertificates">Download ZIP</span>
                                     <span wire:loading wire:target="bulkDownloadCertificates">Preparing...</span>
+                                </div>
+                            </flux:button>
+
+                            <flux:button
+                                variant="outline"
+                                size="sm"
+                                wire:click="bulkRegeneratePdfs"
+                                wire:confirm="Regenerate PDFs for selected certificates? This will update them with the latest template design."
+                                wire:loading.attr="disabled"
+                                wire:target="bulkRegeneratePdfs"
+                            >
+                                <div class="flex items-center justify-center">
+                                    <flux:icon name="arrow-path" class="w-4 h-4 mr-1 text-orange-500" />
+                                    <span wire:loading.remove wire:target="bulkRegeneratePdfs">Regenerate</span>
+                                    <span wire:loading wire:target="bulkRegeneratePdfs">Regenerating...</span>
                                 </div>
                             </flux:button>
 
@@ -1097,6 +1262,20 @@ new class extends Component {
                                                     </div>
                                                 @else
                                                     <span class="text-xs text-zinc-400">No phone</span>
+                                                @endif
+
+                                                {{-- Email --}}
+                                                @php $email = $issue->student->user?->email; @endphp
+                                                @if($email)
+                                                    <div class="flex items-center gap-1.5">
+                                                        <flux:icon name="envelope" class="size-3 text-zinc-400" />
+                                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $email }}</span>
+                                                    </div>
+                                                @else
+                                                    <div class="flex items-center gap-1.5">
+                                                        <flux:icon name="envelope" class="size-3 text-red-400" />
+                                                        <span class="text-xs text-red-500">No email</span>
+                                                    </div>
                                                 @endif
                                             </div>
                                         @else
@@ -1382,10 +1561,15 @@ new class extends Component {
                         <flux:label>Students ({{ count($selectedStudentIds) }} selected)</flux:label>
                         <flux:checkbox wire:model.live="selectAll" label="Select all" />
                     </div>
+                    <flux:input wire:model.live.debounce.300ms="modalStudentSearch" placeholder="Search student..." icon="magnifying-glass" size="sm" class="mb-2" />
                     <div class="max-h-60 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg divide-y divide-zinc-100 dark:divide-zinc-800">
                         @foreach($eligibleStudents as $student)
                             @if($student && $student->user)
-                                @php $alreadyIssued = in_array($student->id, $issuedStudentIds); @endphp
+                                @php
+                                    $alreadyIssued = in_array($student->id, $issuedStudentIds);
+                                    $matchesSearch = empty($modalStudentSearch) || str_contains(strtolower($student->user->name), strtolower($modalStudentSearch)) || str_contains(strtolower($student->student_id ?? ''), strtolower($modalStudentSearch));
+                                @endphp
+                                @if($matchesSearch)
                                 <label class="flex items-center gap-3 cursor-pointer px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors {{ $alreadyIssued ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : '' }}">
                                     <input
                                         type="checkbox"
@@ -1401,6 +1585,7 @@ new class extends Component {
                                         @endif
                                     </div>
                                 </label>
+                                @endif
                             @endif
                         @endforeach
                     </div>
@@ -1444,21 +1629,27 @@ new class extends Component {
                             <div class="min-w-0">
                                 <span class="font-medium text-zinc-900 dark:text-white">{{ $recipient['name'] }}</span>
                                 <span class="text-zinc-400 ml-1 text-xs">{{ $recipient['certificate_number'] }}</span>
+                                <div class="flex items-center gap-3 mt-0.5">
+                                    @if($recipient['has_email'])
+                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $recipient['email'] }}</span>
+                                    @else
+                                        <span class="text-xs text-red-500">No email address</span>
+                                    @endif
+                                    @if($recipient['has_phone'])
+                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $recipient['phone'] }}</span>
+                                    @endif
+                                </div>
                             </div>
                             <div class="flex items-center gap-2 shrink-0 ml-2">
                                 @if($recipient['has_email'])
-                                    <flux:tooltip content="{{ $recipient['email'] }}">
-                                        <flux:icon name="envelope" class="size-4 text-emerald-500" />
-                                    </flux:tooltip>
+                                    <flux:icon name="envelope" class="size-4 text-emerald-500" />
                                 @else
                                     <flux:tooltip content="No email address">
-                                        <flux:icon name="envelope" class="size-4 text-zinc-300 dark:text-zinc-600" />
+                                        <flux:icon name="envelope" class="size-4 text-red-400" />
                                     </flux:tooltip>
                                 @endif
                                 @if($recipient['has_phone'])
-                                    <flux:tooltip content="{{ $recipient['phone'] }}">
-                                        <flux:icon name="phone" class="size-4 text-emerald-500" />
-                                    </flux:tooltip>
+                                    <flux:icon name="phone" class="size-4 text-emerald-500" />
                                 @else
                                     <flux:tooltip content="No phone number">
                                         <flux:icon name="phone" class="size-4 text-zinc-300 dark:text-zinc-600" />
@@ -1481,6 +1672,17 @@ new class extends Component {
                 <flux:error name="sendChannel" />
             </flux:field>
 
+            {{-- Email warning if recipients missing email --}}
+            @if(in_array($sendChannel, ['email', 'both']))
+                @php $missingEmail = collect($this->sendRecipients)->where('has_email', false); @endphp
+                @if($missingEmail->isNotEmpty())
+                    <flux:callout variant="warning">
+                        <flux:callout.heading>Missing Email Address</flux:callout.heading>
+                        <flux:callout.text>{{ $missingEmail->count() }} {{ Str::plural('recipient', $missingEmail->count()) }} {{ $missingEmail->count() === 1 ? 'has' : 'have' }} no email address and will be skipped: {{ $missingEmail->pluck('name')->join(', ') }}</flux:callout.text>
+                    </flux:callout>
+                @endif
+            @endif
+
             {{-- WhatsApp warning if not enabled --}}
             @if(in_array($sendChannel, ['whatsapp', 'both']))
                 @php $whatsAppEnabled = app(WhatsAppService::class)->isEnabled(); @endphp
@@ -1488,6 +1690,14 @@ new class extends Component {
                     <flux:callout variant="warning">
                         <flux:callout.heading>WhatsApp Not Configured</flux:callout.heading>
                         <flux:callout.text>WhatsApp service is not enabled. Configure it in Settings to send via WhatsApp.</flux:callout.text>
+                    </flux:callout>
+                @endif
+
+                @php $missingPhone = collect($this->sendRecipients)->where('has_phone', false); @endphp
+                @if($missingPhone->isNotEmpty())
+                    <flux:callout variant="warning">
+                        <flux:callout.heading>Missing Phone Number</flux:callout.heading>
+                        <flux:callout.text>{{ $missingPhone->count() }} {{ Str::plural('recipient', $missingPhone->count()) }} {{ $missingPhone->count() === 1 ? 'has' : 'have' }} no phone number and will be skipped: {{ $missingPhone->pluck('name')->join(', ') }}</flux:callout.text>
                     </flux:callout>
                 @endif
             @endif
@@ -1522,4 +1732,46 @@ new class extends Component {
             </div>
         </div>
     </flux:modal>
+
+    <!-- Toast Notification -->
+    <div
+        x-data="{ show: false, message: '', type: 'success' }"
+        x-on:notify.window="
+            show = true;
+            message = $event.detail[0]?.message || $event.detail.message || 'Operation successful';
+            type = $event.detail[0]?.type || $event.detail.type || 'success';
+            setTimeout(() => show = false, 5000)
+        "
+        x-show="show"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 transform translate-y-2"
+        x-transition:enter-end="opacity-100 transform translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 transform translate-y-0"
+        x-transition:leave-end="opacity-0 transform translate-y-2"
+        class="fixed bottom-4 right-4 z-50"
+        style="display: none;"
+    >
+        <div
+            x-show="type === 'success'"
+            class="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg shadow-lg"
+        >
+            <flux:icon.check-circle class="w-5 h-5 text-green-600" />
+            <span x-text="message"></span>
+        </div>
+        <div
+            x-show="type === 'warning'"
+            class="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg shadow-lg"
+        >
+            <flux:icon.exclamation-triangle class="w-5 h-5 text-amber-600" />
+            <span x-text="message"></span>
+        </div>
+        <div
+            x-show="type === 'error'"
+            class="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 text-red-800 rounded-lg shadow-lg"
+        >
+            <flux:icon.exclamation-circle class="w-5 h-5 text-red-600" />
+            <span x-text="message"></span>
+        </div>
+    </div>
 </div>

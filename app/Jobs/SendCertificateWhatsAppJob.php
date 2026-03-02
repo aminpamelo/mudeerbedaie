@@ -81,7 +81,16 @@ class SendCertificateWhatsAppJob implements ShouldQueue
         }
 
         // Send the text message first
-        $whatsApp->send($this->phoneNumber, $this->customMessage);
+        $textResult = $whatsApp->send($this->phoneNumber, $this->customMessage);
+
+        // Store text message in inbox
+        $whatsApp->storeOutboundMessage(
+            phoneNumber: $this->phoneNumber,
+            type: 'text',
+            body: $this->customMessage,
+            sendResult: $textResult,
+            sentByUserId: $this->sentByUserId,
+        );
 
         // Small delay between text and document
         sleep(random_int(2, 5));
@@ -90,6 +99,18 @@ class SendCertificateWhatsAppJob implements ShouldQueue
         $documentUrl = Storage::disk('public')->url($issue->file_path);
         $filename = $issue->getDownloadFilename();
         $docResult = $whatsApp->sendDocument($this->phoneNumber, $documentUrl, 'application/pdf', $filename);
+
+        // Store document message in inbox
+        $whatsApp->storeOutboundMessage(
+            phoneNumber: $this->phoneNumber,
+            type: 'document',
+            body: $filename,
+            sendResult: $docResult,
+            sentByUserId: $this->sentByUserId,
+            mediaUrl: $documentUrl,
+            mediaMimeType: 'application/pdf',
+            mediaFilename: $filename,
+        );
 
         if ($docResult['success']) {
             $sentBy = User::find($this->sentByUserId);

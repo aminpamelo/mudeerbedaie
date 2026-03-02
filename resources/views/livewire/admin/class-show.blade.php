@@ -3451,6 +3451,74 @@ new class extends Component
         // Reset to first page when filter changes
         $this->picCurrentPages[$key] = 1;
     }
+
+    // Class Assignment Approvals
+    public string $studentSubTab = 'enrolled';
+    public array $approvalSubscriptionToggles = [];
+    public array $selectedApprovalIds = [];
+
+    public function getPendingApprovalsProperty()
+    {
+        return \App\Models\ClassAssignmentApproval::where('class_id', $this->class->id)
+            ->pending()
+            ->with(['student.user', 'productOrder', 'assignedByUser'])
+            ->latest()
+            ->get();
+    }
+
+    public function approveAssignment(int $approvalId): void
+    {
+        $approval = \App\Models\ClassAssignmentApproval::findOrFail($approvalId);
+        $enrollWithSubscription = $this->approvalSubscriptionToggles[$approvalId] ?? false;
+        $approval->approve(auth()->user(), $enrollWithSubscription);
+        session()->flash('message', 'Student enrolled successfully.');
+    }
+
+    public function rejectAssignment(int $approvalId, ?string $notes = null): void
+    {
+        $approval = \App\Models\ClassAssignmentApproval::findOrFail($approvalId);
+        $approval->reject(auth()->user(), $notes);
+        session()->flash('message', 'Assignment rejected.');
+    }
+
+    public function bulkApproveAssignments(): void
+    {
+        foreach ($this->selectedApprovalIds as $id) {
+            $approval = \App\Models\ClassAssignmentApproval::find($id);
+            if ($approval && $approval->status === 'pending') {
+                $enrollWithSubscription = $this->approvalSubscriptionToggles[$id] ?? false;
+                $approval->approve(auth()->user(), $enrollWithSubscription);
+            }
+        }
+        $this->selectedApprovalIds = [];
+        session()->flash('message', 'Selected students enrolled successfully.');
+    }
+
+    public function bulkRejectAssignments(): void
+    {
+        foreach ($this->selectedApprovalIds as $id) {
+            $approval = \App\Models\ClassAssignmentApproval::find($id);
+            if ($approval && $approval->status === 'pending') {
+                $approval->reject(auth()->user());
+            }
+        }
+        $this->selectedApprovalIds = [];
+        session()->flash('message', 'Selected assignments rejected.');
+    }
+
+    public function toggleApprovalSelection(int $approvalId): void
+    {
+        if (in_array($approvalId, $this->selectedApprovalIds)) {
+            $this->selectedApprovalIds = array_values(array_diff($this->selectedApprovalIds, [$approvalId]));
+        } else {
+            $this->selectedApprovalIds[] = $approvalId;
+        }
+    }
+
+    public function toggleApprovalSubscription(int $approvalId): void
+    {
+        $this->approvalSubscriptionToggles[$approvalId] = ! ($this->approvalSubscriptionToggles[$approvalId] ?? false);
+    }
 };
 
 ?>
@@ -4334,6 +4402,32 @@ new class extends Component
 
         <!-- Students Tab -->
         <div class="{{ $activeTab === 'students' ? 'block' : 'hidden' }}">
+            <!-- Student Sub-Tabs -->
+            <div class="flex items-center gap-1 mb-4">
+                <button
+                    wire:click="$set('studentSubTab', 'enrolled')"
+                    class="px-4 py-2 text-sm font-medium rounded-lg transition-colors {{ $studentSubTab === 'enrolled' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-zinc-700/50' }}"
+                >
+                    Enrolled Students
+                    <span class="ml-1 px-1.5 py-0.5 text-xs font-semibold rounded-full {{ $studentSubTab === 'enrolled' ? 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200' : 'bg-gray-200 text-gray-600 dark:bg-zinc-600 dark:text-gray-300' }}">
+                        {{ $class->activeStudents->count() }}
+                    </span>
+                </button>
+                <button
+                    wire:click="$set('studentSubTab', 'approvals')"
+                    class="px-4 py-2 text-sm font-medium rounded-lg transition-colors {{ $studentSubTab === 'approvals' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-zinc-700/50' }}"
+                >
+                    Approval List
+                    @if($this->pendingApprovals->count() > 0)
+                        <span class="ml-1 px-1.5 py-0.5 text-xs font-semibold rounded-full {{ $studentSubTab === 'approvals' ? 'bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' }}">
+                            {{ $this->pendingApprovals->count() }}
+                        </span>
+                    @endif
+                </button>
+            </div>
+
+            <!-- Enrolled Students Sub-Tab -->
+            <div class="{{ $studentSubTab === 'enrolled' ? 'block' : 'hidden' }}">
             <!-- Enrolled Students -->
             @if($class->activeStudents->count() > 0)
                 <flux:card>
@@ -4683,6 +4777,117 @@ new class extends Component
                     </flux:card>
                 </div>
             @endif
+            </div>
+            <!-- End Enrolled Students Sub-Tab -->
+
+            <!-- Approval List Sub-Tab -->
+            <div class="{{ $studentSubTab === 'approvals' ? 'block' : 'hidden' }}">
+                <flux:card>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <flux:heading size="lg">Pending Approvals</flux:heading>
+                                <flux:text class="mt-1">
+                                    Students assigned from orders awaiting enrollment approval.
+                                </flux:text>
+                            </div>
+                            @if($this->pendingApprovals->count() > 0 && count($selectedApprovalIds) > 0)
+                                <div class="flex gap-2">
+                                    <flux:button variant="primary" size="sm" wire:click="bulkApproveAssignments">
+                                        Approve Selected ({{ count($selectedApprovalIds) }})
+                                    </flux:button>
+                                    <flux:button variant="danger" size="sm" wire:click="bulkRejectAssignments">
+                                        Reject Selected ({{ count($selectedApprovalIds) }})
+                                    </flux:button>
+                                </div>
+                            @endif
+                        </div>
+
+                        @if($this->pendingApprovals->count() > 0)
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                                    <thead>
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                <flux:checkbox
+                                                    wire:click="$set('selectedApprovalIds', count($selectedApprovalIds) === $this->pendingApprovals->count() ? [] : $this->pendingApprovals->pluck('id')->toArray())"
+                                                    :checked="count($selectedApprovalIds) > 0 && count($selectedApprovalIds) === $this->pendingApprovals->count()"
+                                                />
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Order</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned By</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned Date</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subscription</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200 dark:divide-zinc-700">
+                                        @foreach($this->pendingApprovals as $approval)
+                                            <tr wire:key="approval-{{ $approval->id }}">
+                                                <td class="px-4 py-3">
+                                                    <flux:checkbox
+                                                        wire:click="toggleApprovalSelection({{ $approval->id }})"
+                                                        :checked="in_array($approval->id, $selectedApprovalIds)"
+                                                    />
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <div class="flex items-center gap-3">
+                                                        <flux:avatar size="sm" name="{{ $approval->student->user?->name ?? $approval->student->name ?? 'Unknown' }}" />
+                                                        <div>
+                                                            <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                                                {{ $approval->student->user?->name ?? $approval->student->name ?? 'Unknown' }}
+                                                            </p>
+                                                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                                                {{ $approval->student->phone ?? $approval->student->user?->phone ?? '' }}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <a href="{{ route('admin.orders.show', $approval->productOrder) }}"
+                                                       class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+                                                        {{ $approval->productOrder->order_number }}
+                                                    </a>
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <p class="text-sm text-gray-900 dark:text-white">{{ $approval->assignedByUser->name }}</p>
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $approval->created_at->format('M d, Y') }}</p>
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <flux:switch
+                                                        wire:click="toggleApprovalSubscription({{ $approval->id }})"
+                                                        :checked="$approvalSubscriptionToggles[$approval->id] ?? false"
+                                                    />
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <div class="flex gap-2">
+                                                        <flux:button variant="primary" size="sm" wire:click="approveAssignment({{ $approval->id }})">
+                                                            Approve
+                                                        </flux:button>
+                                                        <flux:button variant="danger" size="sm" wire:click="rejectAssignment({{ $approval->id }})">
+                                                            Reject
+                                                        </flux:button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <div class="text-center py-8">
+                                <flux:icon.clipboard-document-check class="h-12 w-12 text-gray-300 dark:text-zinc-600 mx-auto mb-3" />
+                                <p class="text-sm text-gray-500 dark:text-gray-400">No pending approvals.</p>
+                                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Assignments from orders will appear here.</p>
+                            </div>
+                        @endif
+                    </div>
+                </flux:card>
+            </div>
+            <!-- End Approval List Sub-Tab -->
         </div>
         <!-- End Students Tab -->
 

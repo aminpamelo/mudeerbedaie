@@ -669,6 +669,16 @@ class ClassModel extends Model
         return $this->hasMany(ScheduledNotification::class, 'class_id')->pending();
     }
 
+    public function assignmentApprovals(): HasMany
+    {
+        return $this->hasMany(ClassAssignmentApproval::class, 'class_id');
+    }
+
+    public function pendingApprovals(): HasMany
+    {
+        return $this->hasMany(ClassAssignmentApproval::class, 'class_id')->where('status', 'pending');
+    }
+
     public function initializeDefaultNotificationSettings(): void
     {
         $defaultTypes = [

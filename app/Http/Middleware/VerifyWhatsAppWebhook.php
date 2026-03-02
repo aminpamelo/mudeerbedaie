@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\SettingsService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,10 +22,13 @@ class VerifyWhatsAppWebhook
             return response('Forbidden', 403);
         }
 
+        $appSecret = app(SettingsService::class)->get('meta_app_secret')
+            ?: config('services.whatsapp.meta.app_secret');
+
         $expectedHash = hash_hmac(
             'sha256',
             $request->getContent(),
-            config('services.whatsapp.meta.app_secret')
+            $appSecret
         );
 
         $actualHash = str_replace('sha256=', '', $signature);

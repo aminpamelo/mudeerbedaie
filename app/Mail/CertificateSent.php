@@ -29,7 +29,7 @@ class CertificateSent extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.certificate-sent',
+            markdown: 'emails.certificate-sent',
         );
     }
 

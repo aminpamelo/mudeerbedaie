@@ -287,36 +287,41 @@ new class extends Component
         $this->variantPackageSearch = '';
         $this->variantLinkType = 'product';
 
+        // Guard: don't open modal if product not found or has no variants
+        if (! $this->variantLinkingProduct || ! $this->variantLinkingProduct->hasVariants()) {
+            $this->variantLinkingProduct = null;
+
+            return;
+        }
+
         // Load existing mappings for each variant
-        if ($this->variantLinkingProduct && $this->variantLinkingProduct->hasVariants()) {
-            foreach ($this->variantLinkingProduct->variants as $variant) {
-                $sku = $variant['sku'] ?? null;
-                if (! $sku) {
-                    continue;
-                }
+        foreach ($this->variantLinkingProduct->variants as $variant) {
+            $sku = PendingPlatformProduct::resolveVariantSku($variant);
+            if (! $sku) {
+                continue;
+            }
 
-                $existingMapping = PlatformSkuMapping::findMapping(
-                    $this->variantLinkingProduct->platform_id,
-                    $this->variantLinkingProduct->platform_account_id,
-                    $sku
-                );
+            $existingMapping = PlatformSkuMapping::findMapping(
+                $this->variantLinkingProduct->platform_id,
+                $this->variantLinkingProduct->platform_account_id,
+                $sku
+            );
 
-                if ($existingMapping) {
-                    if ($existingMapping->isPackageMapping()) {
-                        $this->variantMappings[$sku] = [
-                            'type' => 'package',
-                            'package_id' => $existingMapping->package_id,
-                            'package_name' => $existingMapping->package?->name,
-                        ];
-                    } else {
-                        $this->variantMappings[$sku] = [
-                            'type' => 'product',
-                            'product_id' => $existingMapping->product_id,
-                            'variant_id' => $existingMapping->product_variant_id,
-                            'product_name' => $existingMapping->product?->name,
-                            'variant_name' => $existingMapping->productVariant?->name,
-                        ];
-                    }
+            if ($existingMapping) {
+                if ($existingMapping->isPackageMapping()) {
+                    $this->variantMappings[$sku] = [
+                        'type' => 'package',
+                        'package_id' => $existingMapping->package_id,
+                        'package_name' => $existingMapping->package?->name,
+                    ];
+                } else {
+                    $this->variantMappings[$sku] = [
+                        'type' => 'product',
+                        'product_id' => $existingMapping->product_id,
+                        'variant_id' => $existingMapping->product_variant_id,
+                        'product_name' => $existingMapping->product?->name,
+                        'variant_name' => $existingMapping->productVariant?->name,
+                    ];
                 }
             }
         }
@@ -1128,16 +1133,15 @@ new class extends Component
                 <div class="space-y-3">
                     @foreach($variantLinkingProduct->variants as $index => $variant)
                         @php
-                            $vSku = !empty($variant['sku']) ? $variant['sku'] : ($variant['sku_id'] ?? null);
-                            $vName = $variant['name']
-                                ?? (collect($variant['attributes'] ?? [])->pluck('value')->filter()->implode(' / ') ?: null);
+                            $vSku = \App\Models\PendingPlatformProduct::resolveVariantSku($variant);
+                            $vName = $variantLinkingProduct->resolveVariantName($variant, $index);
                         @endphp
                         @if($vSku)
                             <div class="border border-gray-200 dark:border-zinc-700 rounded-lg p-4" wire:key="variant-{{ $index }}">
                                 <div class="flex items-center justify-between mb-2">
                                     <div>
                                         <p class="font-medium text-gray-900 dark:text-zinc-100">
-                                            {{ $vName ?? "Variant " . ($index + 1) }}
+                                            {{ $vName }}
                                         </p>
                                         <p class="text-sm text-zinc-500">
                                             SKU: <span class="font-mono text-xs">{{ $vSku }}</span>

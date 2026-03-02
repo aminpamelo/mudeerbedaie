@@ -17,7 +17,7 @@ class WhatsAppTemplateFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->slug(2),
+            'name' => str_replace('-', '_', fake()->unique()->slug(2)),
             'language' => 'ms',
             'category' => 'utility',
             'status' => 'APPROVED',

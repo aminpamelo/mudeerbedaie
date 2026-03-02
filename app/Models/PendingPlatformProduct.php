@@ -191,6 +191,65 @@ class PendingPlatformProduct extends Model
     }
 
     /**
+     * Resolve the effective SKU for a variant entry.
+     *
+     * Checks 'sku' first, then falls back to 'sku_id'. This must be used
+     * consistently everywhere variant SKUs are accessed to avoid mismatches.
+     */
+    public static function resolveVariantSku(array $variant): ?string
+    {
+        $sku = ! empty($variant['sku']) ? $variant['sku'] : null;
+
+        if ($sku !== null) {
+            return (string) $sku;
+        }
+
+        $skuId = $variant['sku_id'] ?? null;
+
+        return $skuId !== null ? (string) $skuId : null;
+    }
+
+    /**
+     * Resolve a display name for a variant entry from its attributes and raw data.
+     */
+    public function resolveVariantName(array $variant, int $index): string
+    {
+        // Check the extracted name field
+        if (! empty($variant['name'])) {
+            return $variant['name'];
+        }
+
+        // Check extracted attributes
+        $fromAttributes = collect($variant['attributes'] ?? [])
+            ->pluck('value')
+            ->filter()
+            ->implode(' / ');
+
+        if ($fromAttributes !== '') {
+            return $fromAttributes;
+        }
+
+        // Try to resolve from raw_data using the variant's sku_id
+        $skuId = $variant['sku_id'] ?? null;
+        if ($skuId && is_array($this->raw_data) && ! empty($this->raw_data['skus'])) {
+            foreach ($this->raw_data['skus'] as $rawSku) {
+                if (($rawSku['id'] ?? null) === $skuId && ! empty($rawSku['sales_attributes'])) {
+                    $attrName = collect($rawSku['sales_attributes'])
+                        ->pluck('value_name')
+                        ->filter()
+                        ->implode(' / ');
+
+                    if ($attrName !== '') {
+                        return $attrName;
+                    }
+                }
+            }
+        }
+
+        return 'Variant '.($index + 1);
+    }
+
+    /**
      * Get the TikTok SKU ID from raw_data for use in PlatformSkuMapping.
      *
      * TikTok orders reference items by SKU ID (skus[].id), not by seller_sku or product_id.
@@ -357,7 +416,7 @@ class PendingPlatformProduct extends Model
         }
 
         foreach ($this->variants as $variant) {
-            $sku = $variant['sku'] ?? null;
+            $sku = static::resolveVariantSku($variant);
             if (! $sku) {
                 continue;
             }
@@ -387,7 +446,7 @@ class PendingPlatformProduct extends Model
 
         $count = 0;
         foreach ($this->variants as $variant) {
-            $sku = $variant['sku'] ?? null;
+            $sku = static::resolveVariantSku($variant);
             if (! $sku) {
                 continue;
             }

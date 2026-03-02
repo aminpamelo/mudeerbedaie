@@ -107,6 +107,15 @@ class SendWhatsAppNotificationJob implements ShouldQueue
                     'error' => $imageResult['error'] ?? 'Unknown error',
                 ]);
             } else {
+                // Store image message in inbox
+                $whatsApp->storeOutboundMessage(
+                    phoneNumber: $this->phoneNumber,
+                    type: 'image',
+                    body: null,
+                    sendResult: $imageResult,
+                    mediaUrl: $imageUrl,
+                );
+
                 // Add small delay between image and text message
                 sleep(random_int(2, 5));
             }
@@ -114,6 +123,14 @@ class SendWhatsAppNotificationJob implements ShouldQueue
 
         // Send the text message
         $result = $whatsApp->send($this->phoneNumber, $this->message);
+
+        // Store text message in inbox
+        $whatsApp->storeOutboundMessage(
+            phoneNumber: $this->phoneNumber,
+            type: 'text',
+            body: $this->message,
+            sendResult: $result,
+        );
 
         // Update notification log if provided
         if ($this->notificationLogId) {

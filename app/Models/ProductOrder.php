@@ -183,6 +183,11 @@ class ProductOrder extends Model
         return $this->hasMany(ProductOrderNote::class, 'order_id');
     }
 
+    public function classAssignmentApprovals(): HasMany
+    {
+        return $this->hasMany(ClassAssignmentApproval::class);
+    }
+
     // Platform relationships
     public function platform(): BelongsTo
     {

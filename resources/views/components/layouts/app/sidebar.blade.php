@@ -27,6 +27,7 @@
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
                     'itBoard': ['admin.it-board.*'],
+                    'whatsappMgmt': ['admin.whatsapp-inbox', 'admin.whatsapp.templates'],
                     'settings': ['admin.settings.*'],
                     'teaching': ['teacher.courses.*', 'teacher.classes.*', 'teacher.sessions.*', 'teacher.payslips.*', 'teacher.students.*', 'teacher.timetable'],
                     'liveStreaming': ['live-host.*'],
@@ -308,28 +309,53 @@
 
                 <flux:navlist.group
                     expandable
+                    heading="WhatsApp Management"
+                    data-section='whatsappMgmt' x-init="if (!isExpanded('whatsappMgmt')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
+                    @click="saveState('whatsappMgmt', $event)"
+                >
+                    <flux:navlist.item
+                        icon="chat-bubble-left-right"
+                        :href="route('admin.whatsapp-inbox')"
+                        :current="request()->routeIs('admin.whatsapp-inbox')"
+                        wire:navigate
+                    >
+                        {{ __('WhatsApp Inbox') }}
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="document-text"
+                        :href="route('admin.whatsapp.templates')"
+                        :current="request()->routeIs('admin.whatsapp.templates')"
+                        wire:navigate
+                    >
+                        {{ __('WhatsApp Templates') }}
+                    </flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group
+                    expandable
                     heading="Settings"
                     data-section='settings' x-init="if (!isExpanded('settings')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('settings', $event)"
                 >
-                    <flux:navlist.item 
-                        icon="information-circle" 
-                        :href="route('admin.settings.general')" 
-                        :current="request()->routeIs('admin.settings.general')" 
+                    <flux:navlist.item
+                        icon="information-circle"
+                        :href="route('admin.settings.general')"
+                        :current="request()->routeIs('admin.settings.general')"
                         wire:navigate
                     >
                         {{ __('General') }}
                     </flux:navlist.item>
-                    
-                    <flux:navlist.item 
-                        icon="paint-brush" 
-                        :href="route('admin.settings.appearance')" 
-                        :current="request()->routeIs('admin.settings.appearance')" 
+
+                    <flux:navlist.item
+                        icon="paint-brush"
+                        :href="route('admin.settings.appearance')"
+                        :current="request()->routeIs('admin.settings.appearance')"
                         wire:navigate
                     >
                         {{ __('Appearance') }}
                     </flux:navlist.item>
-                    
+
                     <flux:navlist.item
                         icon="credit-card"
                         :href="route('admin.settings.payment')"
@@ -364,15 +390,6 @@
                         wire:navigate
                     >
                         {{ __('Notifications') }}
-                    </flux:navlist.item>
-
-                    <flux:navlist.item
-                        icon="chat-bubble-left-right"
-                        :href="route('admin.whatsapp-inbox')"
-                        :current="request()->routeIs('admin.whatsapp-inbox')"
-                        wire:navigate
-                    >
-                        {{ __('WhatsApp Inbox') }}
                     </flux:navlist.item>
 
                     <flux:navlist.item
