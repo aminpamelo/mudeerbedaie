@@ -199,10 +199,13 @@ new class extends Component
                     <div class="max-w-xs">
                         <p class="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Bill To (Agent)</p>
                         <p class="font-bold text-gray-900 text-sm">
-                            {{ $order->agent?->company_name ?? $order->agent?->name ?? 'Agent' }}
+                            {{ $order->agent?->company_name ?: ($order->agent?->name ?: 'Agent') }}
                         </p>
-                        @if($order->agent?->company_name && $order->agent?->name !== $order->agent?->company_name)
-                            <p class="text-gray-700 text-xs">Attn: {{ $order->agent->contact_person ?? $order->agent->name }}</p>
+                        @if($order->agent?->name && $order->agent?->name !== $order->agent?->company_name)
+                            <p class="text-gray-700 text-xs">{{ $order->agent->name }}</p>
+                        @endif
+                        @if($order->agent?->contact_person && $order->agent?->contact_person !== $order->agent?->name)
+                            <p class="text-gray-700 text-xs">Attn: {{ $order->agent->contact_person }}</p>
                         @endif
                         @if($order->agent?->address)
                             @php $agentAddress = $order->agent->address; @endphp

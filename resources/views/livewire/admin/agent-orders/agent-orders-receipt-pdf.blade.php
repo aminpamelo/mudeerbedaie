@@ -224,10 +224,13 @@
                         <td class="billing-column">
                             <div class="section-label">Bill To (Agent)</div>
                             <div class="billing-name">
-                                {{ $order->agent?->company_name ?? $order->agent?->name ?? 'Agent' }}
+                                {{ $order->agent?->company_name ?: ($order->agent?->name ?: 'Agent') }}
                             </div>
-                            @if($order->agent?->company_name && $order->agent?->name !== $order->agent?->company_name)
-                                <div class="billing-detail">Attn: {{ $order->agent->contact_person ?? $order->agent->name }}</div>
+                            @if($order->agent?->name && $order->agent?->name !== $order->agent?->company_name)
+                                <div class="billing-detail">{{ $order->agent->name }}</div>
+                            @endif
+                            @if($order->agent?->contact_person && $order->agent?->contact_person !== $order->agent?->name)
+                                <div class="billing-detail">Attn: {{ $order->agent->contact_person }}</div>
                             @endif
                             @if($order->agent?->address)
                                 @php $agentAddress = $order->agent->address; @endphp

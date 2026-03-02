@@ -301,8 +301,11 @@
                 <td class="address-column">
                     <div class="address-label">Bill To (Agent)</div>
                     <div class="address-company">
-                        {{ strtoupper($order->agent?->company_name ?? $order->agent?->name ?? 'AGENT') }}
+                        {{ strtoupper($order->agent?->company_name ?: ($order->agent?->name ?: 'AGENT')) }}
                     </div>
+                    @if($order->agent?->name && $order->agent?->name !== $order->agent?->company_name)
+                        <div class="address-detail">{{ strtoupper($order->agent->name) }}</div>
+                    @endif
                     @if($order->agent?->address)
                         @php $agentAddress = $order->agent->address; @endphp
                         <div class="address-detail">
@@ -318,7 +321,7 @@
                         </div>
                     @endif
                     <div class="contact-section">
-                        <div class="contact-row"><span class="contact-label">Attn</span> {{ $order->agent?->contact_person ?? '' }}</div>
+                        <div class="contact-row"><span class="contact-label">Attn</span> {{ $order->agent?->contact_person ?: ($order->agent?->name ?: '') }}</div>
                         <div class="contact-row"><span class="contact-label">Tel</span> {{ $order->agent?->phone ?? '' }}</div>
                         <div class="contact-row"><span class="contact-label">Fax</span></div>
                     </div>
@@ -328,8 +331,11 @@
                 <td class="address-column">
                     <div class="address-label">Delivery Address</div>
                     <div class="address-company">
-                        {{ strtoupper($order->agent?->company_name ?? $order->agent?->name ?? 'AGENT') }}
+                        {{ strtoupper($order->agent?->company_name ?: ($order->agent?->name ?: 'AGENT')) }}
                     </div>
+                    @if($order->agent?->name && $order->agent?->name !== $order->agent?->company_name)
+                        <div class="address-detail">{{ strtoupper($order->agent->name) }}</div>
+                    @endif
                     @if($order->agent?->address)
                         <div class="address-detail">
                             @if(!empty($agentAddress['street']))
@@ -344,7 +350,7 @@
                         </div>
                     @endif
                     <div class="contact-section">
-                        <div class="contact-row"><span class="contact-label">Attn</span> {{ $order->agent?->contact_person ?? '' }}</div>
+                        <div class="contact-row"><span class="contact-label">Attn</span> {{ $order->agent?->contact_person ?: ($order->agent?->name ?: '') }}</div>
                         <div class="contact-row"><span class="contact-label">Tel</span> {{ $order->agent?->phone ?? '' }}</div>
                         <div class="contact-row"><span class="contact-label">Fax</span></div>
                     </div>
