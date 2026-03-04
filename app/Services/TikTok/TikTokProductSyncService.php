@@ -186,15 +186,30 @@ class TikTokProductSyncService
     public function processProduct(PlatformAccount $account, array $tiktokProduct): string
     {
         $productId = $tiktokProduct['id'] ?? $tiktokProduct['product_id'];
+        $sellerSku = $tiktokProduct['skus'][0]['seller_sku'] ?? null;
 
         // Check if already linked (existing mapping)
-        $existingMapping = PlatformSkuMapping::where('platform_account_id', $account->id)
-            ->where(function ($query) use ($tiktokProduct) {
-                $query->whereJsonContains('mapping_metadata->platform_product_id', $tiktokProduct['id'] ?? $tiktokProduct['product_id'])
-                    ->orWhere('platform_sku', $tiktokProduct['skus'][0]['seller_sku'] ?? null);
+        $mappingQuery = PlatformSkuMapping::where('platform_account_id', $account->id)
+            ->where(function ($query) use ($productId, $sellerSku) {
+                $query->whereJsonContains('mapping_metadata->platform_product_id', $productId);
+
+                // Only match by seller_sku if it's not empty
+                if (! empty($sellerSku)) {
+                    $query->orWhere('platform_sku', $sellerSku);
+                }
             })
-            ->where('is_active', true)
-            ->exists();
+            ->where('is_active', true);
+
+        $existingMapping = $mappingQuery->exists();
+
+        Log::debug('[TikTok Product Sync] Processing product', [
+            'account_id' => $account->id,
+            'platform_product_id' => $productId,
+            'title' => $tiktokProduct['title'] ?? $tiktokProduct['product_name'] ?? 'unknown',
+            'seller_sku' => $sellerSku,
+            'tiktok_status' => $tiktokProduct['status'] ?? 'unknown',
+            'already_linked' => $existingMapping,
+        ]);
 
         if ($existingMapping) {
             // Update the pending product if it exists but is already linked
@@ -232,7 +247,11 @@ class TikTokProductSyncService
         MatchResult $match
     ): string {
         $productId = $tiktokProduct['id'] ?? $tiktokProduct['product_id'];
-        $platformSku = $tiktokProduct['skus'][0]['seller_sku'] ?? $productId;
+        $sellerSku = $tiktokProduct['skus'][0]['seller_sku'] ?? '';
+        // Use seller_sku if not empty, otherwise fall back to the TikTok SKU ID, then product ID
+        $platformSku = ! empty($sellerSku)
+            ? $sellerSku
+            : ($tiktokProduct['skus'][0]['id'] ?? $productId);
 
         DB::transaction(function () use ($account, $tiktokProduct, $match, $productId, $platformSku) {
             // Create the mapping
@@ -246,7 +265,7 @@ class TikTokProductSyncService
                     'product_id' => $match->product?->id,
                     'product_variant_id' => $match->variant?->id,
                     'package_id' => $match->package?->id,
-                    'platform_product_name' => $tiktokProduct['product_name'] ?? $tiktokProduct['name'] ?? null,
+                    'platform_product_name' => $tiktokProduct['title'] ?? $tiktokProduct['product_name'] ?? $tiktokProduct['name'] ?? null,
                     'is_active' => true,
                     'mapping_metadata' => [
                         'platform_product_id' => $productId,
