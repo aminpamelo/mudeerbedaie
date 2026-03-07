@@ -151,6 +151,7 @@ new class extends Component
             'shipped' => $order->markAsShipped(),
             'delivered' => $order->markAsDelivered(),
             'cancelled' => $order->markAsCancelled('Cancelled by admin'),
+            'returned' => $order->markAsReturned(),
             default => $order->update(['status' => $status])
         };
 
@@ -966,6 +967,7 @@ new class extends Component
                         'shipped' => ['label' => 'Shipped', 'color' => 'cyan'],
                         'delivered' => ['label' => 'Delivered', 'color' => 'emerald'],
                         'cancelled' => ['label' => 'Cancelled', 'color' => 'red'],
+                        'returned' => ['label' => 'Returned', 'color' => 'rose'],
                     ];
                 @endphp
                 @foreach($statusTabs as $key => $tab)
@@ -977,6 +979,7 @@ new class extends Component
                             'cyan' => 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
                             'emerald' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
                             'red' => 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                            'rose' => 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
                             default => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400',
                         };
                         $activeBadgeColors = match($tab['color']) {
@@ -986,6 +989,7 @@ new class extends Component
                             'cyan' => 'bg-cyan-500 text-white dark:bg-cyan-500',
                             'emerald' => 'bg-emerald-500 text-white dark:bg-emerald-500',
                             'red' => 'bg-red-500 text-white dark:bg-red-500',
+                            'rose' => 'bg-rose-500 text-white dark:bg-rose-500',
                             default => 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900',
                         };
                         $activeTextColor = match($tab['color']) {
@@ -995,6 +999,7 @@ new class extends Component
                             'cyan' => 'text-cyan-700 dark:text-cyan-400',
                             'emerald' => 'text-emerald-700 dark:text-emerald-400',
                             'red' => 'text-red-700 dark:text-red-400',
+                            'rose' => 'text-rose-700 dark:text-rose-400',
                             default => 'text-zinc-900 dark:text-white',
                         };
                         $activeUnderline = match($tab['color']) {
@@ -1004,6 +1009,7 @@ new class extends Component
                             'cyan' => 'bg-cyan-500',
                             'emerald' => 'bg-emerald-500',
                             'red' => 'bg-red-500',
+                            'rose' => 'bg-rose-500',
                             default => 'bg-zinc-900 dark:bg-white',
                         };
                     @endphp
@@ -1432,7 +1438,7 @@ new class extends Component
                                         <flux:icon name="eye" class="w-4 h-4" />
                                     </a>
 
-                                    @if($order->canBeCancelled())
+                                    @if($order->canBeCancelled() || $order->status === 'delivered')
                                         <flux:dropdown>
                                             <flux:button variant="ghost" size="sm">
                                                 <flux:icon name="ellipsis-horizontal" class="w-4 h-4" />
@@ -1464,6 +1470,13 @@ new class extends Component
                                                     <flux:menu.item wire:click="updateOrderStatus({{ $order->id }}, 'delivered')">
                                                         <flux:icon name="check-circle" class="w-4 h-4 mr-2" />
                                                         Mark as Delivered
+                                                    </flux:menu.item>
+                                                @endif
+
+                                                @if($order->status === 'delivered')
+                                                    <flux:menu.item wire:click="updateOrderStatus({{ $order->id }}, 'returned')">
+                                                        <flux:icon name="arrow-uturn-left" class="w-4 h-4 mr-2" />
+                                                        Mark as Returned
                                                     </flux:menu.item>
                                                 @endif
 

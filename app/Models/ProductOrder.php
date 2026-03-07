@@ -247,6 +247,15 @@ class ProductOrder extends Model
         $this->addSystemNote('Order delivered');
     }
 
+    public function markAsReturned(): void
+    {
+        $this->update([
+            'status' => 'returned',
+        ]);
+
+        $this->addSystemNote('Order marked as returned');
+    }
+
     public function markAsCancelled(?string $reason = null): void
     {
         $this->update([
