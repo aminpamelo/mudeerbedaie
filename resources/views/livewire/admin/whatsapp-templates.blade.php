@@ -24,12 +24,17 @@ new class extends Component {
     public bool $showPreviewModal = false;
     public ?int $previewTemplateId = null;
 
+    public bool $showDeleteFromMetaModal = false;
+    public ?int $deletingFromMetaTemplateId = null;
+    public string $deletingFromMetaTemplateName = '';
+
     // Form fields
     public string $name = '';
     public string $language = 'ms';
     public string $category = 'marketing';
     public string $status = 'PENDING';
     public array $components = [];
+    public array $variableMappings = [];
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -108,6 +113,7 @@ new class extends Component {
         $this->category = $template->category;
         $this->status = $template->status;
         $this->components = $template->components ?? [];
+        $this->variableMappings = $template->variable_mappings ?? [];
         $this->showModal = true;
     }
 
@@ -164,6 +170,7 @@ new class extends Component {
             'category' => $this->category,
             'status' => $this->status,
             'components' => $this->components,
+            'variable_mappings' => $this->variableMappings,
         ];
 
         if ($this->editingTemplateId) {
@@ -189,6 +196,18 @@ new class extends Component {
         $this->components = array_values($this->components);
     }
 
+    public function insertVariable(int $componentIndex): void
+    {
+        $text = $this->components[$componentIndex]['text'] ?? '';
+
+        // Find next available variable number
+        preg_match_all('/\{\{(\d+)\}\}/', $text, $matches);
+        $existingNums = array_map('intval', $matches[1] ?? []);
+        $nextNum = empty($existingNums) ? 1 : max($existingNums) + 1;
+
+        $this->components[$componentIndex]['text'] = rtrim($text) . ($text ? ' ' : '') . '{{' . $nextNum . '}}';
+    }
+
     public function closeModal(): void
     {
         $this->showModal = false;
@@ -202,6 +221,7 @@ new class extends Component {
         $this->category = 'marketing';
         $this->status = 'PENDING';
         $this->components = [];
+        $this->variableMappings = [];
         $this->editingTemplateId = null;
         $this->isMetaSynced = false;
         $this->resetValidation();
@@ -219,6 +239,84 @@ new class extends Component {
         $this->categoryFilter = '';
         $this->statusFilter = '';
         $this->resetPage();
+    }
+
+    public function submitTemplateToMeta(int $templateId): void
+    {
+        try {
+            $template = WhatsAppTemplate::findOrFail($templateId);
+            app(TemplateService::class)->submitToMeta($template);
+            session()->flash('success', 'Template submitted to Meta for approval.');
+        } catch (\RuntimeException $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    public function refreshTemplateStatus(int $templateId): void
+    {
+        try {
+            $template = WhatsAppTemplate::findOrFail($templateId);
+
+            if (! $template->meta_template_id) {
+                session()->flash('error', 'Template has not been submitted to Meta yet.');
+                return;
+            }
+
+            $settingsService = app(\App\Services\SettingsService::class);
+            $accessToken = $settingsService->get('meta_access_token');
+            $apiVersion = $settingsService->get('meta_api_version', 'v21.0');
+
+            $response = Http::withToken($accessToken)
+                ->get("https://graph.facebook.com/{$apiVersion}/{$template->meta_template_id}");
+
+            if ($response->successful()) {
+                $template->update([
+                    'status' => $response->json('status', $template->status),
+                    'components' => $response->json('components', $template->components),
+                    'last_synced_at' => now(),
+                ]);
+                session()->flash('success', "Template status refreshed: {$template->fresh()->status}");
+            } else {
+                session()->flash('error', 'Failed to refresh: '.($response->json('error.message') ?? 'Unknown error'));
+            }
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    public function updateTemplateOnMeta(int $templateId): void
+    {
+        try {
+            $template = WhatsAppTemplate::findOrFail($templateId);
+            app(TemplateService::class)->updateOnMeta($template);
+            session()->flash('success', 'Template updated on Meta.');
+        } catch (\RuntimeException $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    public function confirmDeleteFromMeta(WhatsAppTemplate $template): void
+    {
+        $this->deletingFromMetaTemplateId = $template->id;
+        $this->deletingFromMetaTemplateName = $template->name;
+        $this->showDeleteFromMetaModal = true;
+    }
+
+    public function deleteFromMeta(?int $templateId = null): void
+    {
+        $id = $templateId ?? $this->deletingFromMetaTemplateId;
+
+        try {
+            $template = WhatsAppTemplate::findOrFail($id);
+            app(TemplateService::class)->deleteFromMeta($template);
+            session()->flash('success', 'Template deleted from Meta.');
+        } catch (\RuntimeException $e) {
+            session()->flash('error', $e->getMessage());
+        }
+
+        $this->showDeleteFromMetaModal = false;
+        $this->deletingFromMetaTemplateId = null;
+        $this->deletingFromMetaTemplateName = '';
     }
 };
 
@@ -414,6 +512,44 @@ new class extends Component {
                                     {{-- Actions --}}
                                     <td class="px-5 py-3.5 text-right">
                                         <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {{-- Meta sync actions --}}
+                                            @if(! $template->meta_template_id)
+                                                <flux:button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    icon="cloud-arrow-up"
+                                                    wire:click="submitTemplateToMeta({{ $template->id }})"
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="submitTemplateToMeta({{ $template->id }})"
+                                                    class="text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                >
+                                                    <flux:tooltip content="Submit to Meta" />
+                                                </flux:button>
+                                            @else
+                                                <flux:button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    icon="arrow-path"
+                                                    wire:click="refreshTemplateStatus({{ $template->id }})"
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="refreshTemplateStatus({{ $template->id }})"
+                                                    class="text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                                                >
+                                                    <flux:tooltip content="Refresh Status" />
+                                                </flux:button>
+                                                <flux:button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    icon="cloud-arrow-up"
+                                                    wire:click="updateTemplateOnMeta({{ $template->id }})"
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="updateTemplateOnMeta({{ $template->id }})"
+                                                    class="text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                >
+                                                    <flux:tooltip content="Push Update to Meta" />
+                                                </flux:button>
+                                            @endif
+
                                             <flux:button
                                                 size="sm"
                                                 variant="ghost"
@@ -430,6 +566,19 @@ new class extends Component {
                                             >
                                                 <flux:tooltip content="Edit" />
                                             </flux:button>
+
+                                            @if($template->meta_template_id)
+                                                <flux:button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    icon="cloud-arrow-down"
+                                                    class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                    wire:click="confirmDeleteFromMeta({{ $template->id }})"
+                                                >
+                                                    <flux:tooltip content="Delete from Meta" />
+                                                </flux:button>
+                                            @endif
+
                                             <flux:button
                                                 size="sm"
                                                 variant="ghost"
@@ -437,7 +586,7 @@ new class extends Component {
                                                 class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                 wire:click="confirmDelete({{ $template->id }})"
                                             >
-                                                <flux:tooltip content="Delete" />
+                                                <flux:tooltip content="Delete locally" />
                                             </flux:button>
                                         </div>
                                     </td>
@@ -590,7 +739,7 @@ new class extends Component {
                                     <div class="flex items-center justify-between px-3 py-2 border-b border-zinc-200/50 dark:border-zinc-700/50 bg-white dark:bg-zinc-800/50">
                                         <div class="flex items-center gap-2">
                                             <span class="text-xs font-medium text-zinc-400 uppercase tracking-wide">{{ $index + 1 }}.</span>
-                                            <flux:select wire:model="components.{{ $index }}.type" class="!w-32 !text-sm !py-1">
+                                            <flux:select wire:model.live="components.{{ $index }}.type" class="!w-32 !text-sm !py-1">
                                                 <option value="HEADER">Header</option>
                                                 <option value="BODY">Body</option>
                                                 <option value="FOOTER">Footer</option>
@@ -606,13 +755,24 @@ new class extends Component {
                                             wire:click="removeComponent({{ $index }})"
                                         />
                                     </div>
-                                    <div class="p-3">
+                                    <div class="p-3 space-y-2">
                                         <flux:textarea
-                                            wire:model="components.{{ $index }}.text"
+                                            wire:model.live.debounce.500ms="components.{{ $index }}.text"
                                             placeholder="Component text content... Use {{1}}, {{2}} for variables"
                                             rows="2"
                                             class="!bg-white dark:!bg-zinc-800 !text-sm"
                                         />
+                                        @if(($component['type'] ?? '') === 'BODY')
+                                            <div class="flex items-center gap-2">
+                                                <flux:button type="button" size="sm" variant="ghost" wire:click="insertVariable({{ $index }})">
+                                                    <div class="flex items-center gap-1">
+                                                        <flux:icon name="plus" class="w-3 h-3" />
+                                                        <span class="text-xs">Insert Variable</span>
+                                                    </div>
+                                                </flux:button>
+                                                <flux:text class="text-xs text-zinc-400">Click to add dynamic tags like @{{ '{{1}}' }}, @{{ '{{2}}' }}</flux:text>
+                                            </div>
+                                        @endif
                                     </div>
                                     @error("components.{$index}.type") <div class="px-3 pb-2"><flux:text class="text-red-500 text-xs">{{ $message }}</flux:text></div> @enderror
                                     @error("components.{$index}.text") <div class="px-3 pb-2"><flux:text class="text-red-500 text-xs">{{ $message }}</flux:text></div> @enderror
@@ -622,6 +782,35 @@ new class extends Component {
                     @endif
                     @error('components') <flux:text class="text-red-500 text-sm mt-1">{{ $message }}</flux:text> @enderror
                 </div>
+
+                {{-- Variable Mappings --}}
+                @php
+                    $bodyTexts = collect($components)->where('type', 'BODY')->pluck('text')->implode(' ');
+                    preg_match_all('/\{\{(\d+)\}\}/', $bodyTexts, $varMatches);
+                    $detectedVars = array_unique($varMatches[1] ?? []);
+                    sort($detectedVars);
+                @endphp
+                @if(!empty($detectedVars))
+                    <div class="space-y-2">
+                        <flux:label>Variable Mappings</flux:label>
+                        <flux:text class="text-xs text-zinc-500">Map template variables to data fields for auto-fill when sending.</flux:text>
+                        @foreach($detectedVars as $varNum)
+                            <div class="flex items-center gap-2">
+                                <flux:badge size="sm">{!! '&#123;&#123;' . $varNum . '&#125;&#125;' !!}</flux:badge>
+                                <flux:select wire:model="variableMappings.body.{{ $varNum }}" class="flex-1">
+                                    <flux:select.option value="">-- Select field --</flux:select.option>
+                                    <flux:select.option value="student_name">Student Name</flux:select.option>
+                                    <flux:select.option value="certificate_name">Certificate Name</flux:select.option>
+                                    <flux:select.option value="certificate_number">Certificate Number</flux:select.option>
+                                    <flux:select.option value="class_name">Class Name</flux:select.option>
+                                    <flux:select.option value="course_name">Course Name</flux:select.option>
+                                    <flux:select.option value="issue_date">Issue Date</flux:select.option>
+                                    <flux:select.option value="custom">Custom Text</flux:select.option>
+                                </flux:select>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
 
                 {{-- Actions --}}
                 <div class="flex justify-end gap-2 pt-2">
@@ -658,10 +847,18 @@ new class extends Component {
                             <div class="bg-[#dcf8c6] dark:bg-[#005c4b] rounded-lg rounded-tr-none p-3 shadow-sm">
                                 @if($previewTemplate->components)
                                     @foreach($previewTemplate->components as $comp)
-                                        @if($comp['type'] === 'HEADER' && !empty($comp['text']))
+                                        @if($comp['type'] === 'HEADER' && ($comp['format'] ?? '') === 'DOCUMENT')
+                                            <div class="flex items-center gap-2 p-2 mb-2 rounded bg-white/50 dark:bg-black/20 border border-zinc-300/30">
+                                                <flux:icon name="document-text" class="w-8 h-8 text-red-500 shrink-0" />
+                                                <div class="min-w-0">
+                                                    <p class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">document.pdf</p>
+                                                    <p class="text-[10px] text-zinc-500">PDF</p>
+                                                </div>
+                                            </div>
+                                        @elseif($comp['type'] === 'HEADER' && !empty($comp['text']))
                                             <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{{ $comp['text'] }}</p>
                                         @elseif($comp['type'] === 'BODY' && !empty($comp['text']))
-                                            <p class="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">{{ $comp['text'] }}</p>
+                                            <p class="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-line">{!! e($comp['text']) !!}</p>
                                         @elseif($comp['type'] === 'FOOTER' && !empty($comp['text']))
                                             <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-2">{{ $comp['text'] }}</p>
                                         @endif
@@ -712,6 +909,28 @@ new class extends Component {
                 </div>
             @endif
         @endif
+    </flux:modal>
+
+    {{-- Delete from Meta Confirmation Modal --}}
+    <flux:modal wire:model="showDeleteFromMetaModal" class="max-w-sm">
+        <div class="p-6 text-center">
+            <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+                <flux:icon name="cloud-arrow-down" class="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <flux:heading size="lg" class="mb-2">Delete from Meta</flux:heading>
+            <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
+                Are you sure you want to delete <strong class="text-zinc-700 dark:text-zinc-300">{{ $deletingFromMetaTemplateName }}</strong> from Meta? This will remove the template from Meta and delete it locally. All language versions will be deleted on Meta.
+            </flux:text>
+            <div class="flex items-center justify-center gap-2 mt-5">
+                <flux:button variant="ghost" wire:click="$set('showDeleteFromMetaModal', false)">
+                    Cancel
+                </flux:button>
+                <flux:button variant="danger" wire:click="deleteFromMeta">
+                    <span wire:loading.remove wire:target="deleteFromMeta">Delete from Meta</span>
+                    <span wire:loading wire:target="deleteFromMeta">Deleting...</span>
+                </flux:button>
+            </div>
+        </div>
     </flux:modal>
 
     {{-- Delete Confirmation Modal --}}

@@ -21,12 +21,14 @@ class WhatsAppTemplate extends Model
         'components',
         'meta_template_id',
         'last_synced_at',
+        'variable_mappings',
     ];
 
     protected function casts(): array
     {
         return [
             'components' => 'array',
+            'variable_mappings' => 'array',
             'last_synced_at' => 'datetime',
         ];
     }

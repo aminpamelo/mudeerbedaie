@@ -59,6 +59,14 @@ class WhatsAppManager
     }
 
     /**
+     * Get a MetaCloudProvider instance (always Meta, regardless of active provider setting).
+     */
+    public function metaProvider(): MetaCloudProvider
+    {
+        return $this->createMetaCloudProvider();
+    }
+
+    /**
      * Create a MetaCloudProvider instance using settings from the database.
      */
     private function createMetaCloudProvider(): MetaCloudProvider

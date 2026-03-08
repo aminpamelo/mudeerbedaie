@@ -19,6 +19,8 @@ new class extends Component
 
     public string $metaWabaId = '';
 
+    public string $metaAppId = '';
+
     public string $metaAppSecret = '';
 
     public string $metaVerifyToken = '';
@@ -66,6 +68,7 @@ new class extends Component
         $this->metaPhoneNumberId = $settingsService->get('meta_phone_number_id', '');
         $this->metaAccessToken = $settingsService->get('meta_access_token', '');
         $this->metaWabaId = $settingsService->get('meta_waba_id', '');
+        $this->metaAppId = $settingsService->get('meta_app_id', '');
         $this->metaAppSecret = $settingsService->get('meta_app_secret', '');
         $this->metaVerifyToken = $settingsService->get('meta_verify_token', '');
         $this->metaApiVersion = $settingsService->get('meta_api_version', 'v21.0');
@@ -112,6 +115,7 @@ new class extends Component
             $rules['metaPhoneNumberId'] = 'required|string|max:255';
             $rules['metaAccessToken'] = 'required|string|max:1000';
             $rules['metaWabaId'] = 'nullable|string|max:255';
+            $rules['metaAppId'] = 'nullable|string|max:255';
             $rules['metaAppSecret'] = 'nullable|string|max:500';
             $rules['metaVerifyToken'] = 'nullable|string|max:255';
             $rules['metaApiVersion'] = 'required|string|max:20';
@@ -146,6 +150,7 @@ new class extends Component
             $settingsService->set('meta_phone_number_id', $this->metaPhoneNumberId, 'string', 'whatsapp');
             $settingsService->set('meta_access_token', $this->metaAccessToken, 'encrypted', 'whatsapp');
             $settingsService->set('meta_waba_id', $this->metaWabaId, 'string', 'whatsapp');
+            $settingsService->set('meta_app_id', $this->metaAppId, 'string', 'whatsapp');
             $settingsService->set('meta_app_secret', $this->metaAppSecret, 'encrypted', 'whatsapp');
             $settingsService->set('meta_verify_token', $this->metaVerifyToken, 'string', 'whatsapp');
             $settingsService->set('meta_api_version', $this->metaApiVersion, 'string', 'whatsapp');
@@ -472,6 +477,19 @@ new class extends Component
                                 Your WhatsApp Business Account ID
                             </flux:description>
                             @error('metaWabaId') <flux:error>{{ $message }}</flux:error> @enderror
+                        </flux:field>
+
+                        <flux:field>
+                            <flux:label>App ID</flux:label>
+                            <flux:input
+                                type="text"
+                                wire:model="metaAppId"
+                                placeholder="Example: 123456789012345"
+                            />
+                            <flux:description>
+                                Get from Meta Developers > App Settings > Basic. Required for template document uploads.
+                            </flux:description>
+                            @error('metaAppId') <flux:error>{{ $message }}</flux:error> @enderror
                         </flux:field>
 
                         <flux:field>

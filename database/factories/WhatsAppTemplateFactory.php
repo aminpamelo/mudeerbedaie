@@ -59,4 +59,12 @@ class WhatsAppTemplateFactory extends Factory
     {
         return $this->state(fn (array $attributes) => ['category' => 'authentication']);
     }
+
+    public function metaSynced(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'meta_template_id' => (string) fake()->unique()->numberBetween(100000, 999999),
+            'last_synced_at' => now(),
+        ]);
+    }
 }

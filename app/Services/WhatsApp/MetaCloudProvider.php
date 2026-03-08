@@ -160,6 +160,59 @@ class MetaCloudProvider implements WhatsAppProviderInterface
     }
 
     /**
+     * Upload a media file to Meta and return the media ID.
+     *
+     * @return array{success: bool, media_id: ?string, error: ?string}
+     */
+    public function uploadMedia(string $filePath, string $mimeType, string $filename): array
+    {
+        try {
+            $response = Http::withToken($this->accessToken)
+                ->timeout(60)
+                ->attach('file', file_get_contents($filePath), $filename, ['Content-Type' => $mimeType])
+                ->post("https://graph.facebook.com/{$this->apiVersion}/{$this->phoneNumberId}/media", [
+                    'messaging_product' => 'whatsapp',
+                    'type' => $mimeType,
+                ]);
+
+            if ($response->successful() && $response->json('id')) {
+                Log::info('Meta Cloud API: media uploaded', [
+                    'media_id' => $response->json('id'),
+                    'filename' => $filename,
+                ]);
+
+                return [
+                    'success' => true,
+                    'media_id' => $response->json('id'),
+                ];
+            }
+
+            $error = $response->json('error.message', 'Unknown error');
+            Log::error('Meta Cloud API: media upload failed', [
+                'error' => $error,
+                'filename' => $filename,
+            ]);
+
+            return [
+                'success' => false,
+                'media_id' => null,
+                'error' => $error,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Meta Cloud API: media upload exception', [
+                'error' => $e->getMessage(),
+                'filename' => $filename,
+            ]);
+
+            return [
+                'success' => false,
+                'media_id' => null,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Check the provider's connection/device status.
      *
      * @return array{success: bool, status: string, message: string}
