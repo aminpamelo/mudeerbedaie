@@ -44,8 +44,8 @@ new class extends Component
         $this->student->load('user');
 
         // Load user data
-        $this->name = $this->student->user->name;
-        $this->email = $this->student->user->email;
+        $this->name = $this->student->user?->name ?? '';
+        $this->email = $this->student->user?->email ?? '';
 
         // Load student data
         $this->ic_number = $this->student->ic_number ?? '';
@@ -96,7 +96,7 @@ new class extends Component
         $this->validate([
             // User validation
             'name' => 'required|string|min:3|max:255',
-            'email' => 'nullable|string|email|max:255|unique:users,email,'.$this->student->user->id,
+            'email' => 'nullable|string|email|max:255|unique:users,email,'.$this->student->user?->id,
 
             // Student validation
             'ic_number' => 'nullable|string|size:12|regex:/^[0-9]{12}$/|unique:students,ic_number,'.$this->student->id,
@@ -115,10 +115,12 @@ new class extends Component
         ]);
 
         // Update user
-        $this->student->user->update([
-            'name' => $this->name,
-            'email' => $this->email ?: null,
-        ]);
+        if ($this->student->user) {
+            $this->student->user->update([
+                'name' => $this->name,
+                'email' => $this->email ?: null,
+            ]);
+        }
 
         // Update student
         // Combine country code and phone number (remove + symbol and spaces)
@@ -152,7 +154,7 @@ new class extends Component
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">Edit Student: {{ $student->user->name }}</flux:heading>
+            <flux:heading size="xl">Edit Student: {{ $student->user?->name ?? $student->ic_number ?? 'Unknown' }}</flux:heading>
             <flux:text class="mt-2">Update student profile information</flux:text>
         </div>
     </div>
