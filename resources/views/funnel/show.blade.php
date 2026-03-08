@@ -96,6 +96,305 @@
             margin-top: 4px;
         }
 
+        /* Checkout form scoped styles - prevent Puck/LadiPage CSS conflicts */
+        /* Force checkout above LadiPage BODY_BACKGROUND overlay */
+        .puck-checkout,
+        #funnel-checkout-form,
+        #funnel-checkout-container {
+            position: relative !important;
+            z-index: 100 !important;
+        }
+
+        .funnel-checkout {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 32px 16px;
+            background-color: #f9fafb;
+            color: #111827;
+            line-height: 1.5;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 100;
+        }
+
+        .funnel-checkout *, .funnel-checkout *::before, .funnel-checkout *::after {
+            box-sizing: border-box !important;
+        }
+
+        /* Force base styles on ALL descendants to prevent LadiPage/Puck CSS interference */
+        .funnel-checkout * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            visibility: visible !important;
+        }
+
+        /* Default text color for elements without explicit color classes */
+        .funnel-checkout h1, .funnel-checkout h2, .funnel-checkout h3,
+        .funnel-checkout h4, .funnel-checkout h5, .funnel-checkout h6 {
+            color: #111827 !important;
+            margin: 0 !important;
+        }
+
+        .funnel-checkout p, .funnel-checkout span, .funnel-checkout div,
+        .funnel-checkout label, .funnel-checkout a {
+            color: #111827;
+        }
+
+        .funnel-checkout button {
+            color: #111827;
+        }
+
+        /* Display */
+        .funnel-checkout .flex { display: flex !important; }
+        .funnel-checkout .grid { display: grid !important; }
+        .funnel-checkout .inline-block { display: inline-block !important; }
+        .funnel-checkout .inline-flex { display: inline-flex !important; }
+        .funnel-checkout .block { display: block !important; }
+        .funnel-checkout .hidden { display: none !important; }
+
+        /* Flexbox */
+        .funnel-checkout .items-center { align-items: center !important; }
+        .funnel-checkout .items-start { align-items: flex-start !important; }
+        .funnel-checkout .justify-center { justify-content: center !important; }
+        .funnel-checkout .justify-between { justify-content: space-between !important; }
+        .funnel-checkout .flex-1 { flex: 1 1 0% !important; }
+        .funnel-checkout .flex-shrink-0 { flex-shrink: 0 !important; }
+        .funnel-checkout .min-w-0 { min-width: 0 !important; }
+
+        /* Grid */
+        .funnel-checkout .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+        .funnel-checkout .gap-8 { gap: 32px !important; }
+        .funnel-checkout .gap-4 { gap: 16px !important; }
+        .funnel-checkout .gap-2 { gap: 8px !important; }
+        .funnel-checkout .gap-1\.5 { gap: 6px !important; }
+
+        /* Spacing utilities */
+        .funnel-checkout .space-y-6 > * + * { margin-top: 24px !important; }
+        .funnel-checkout .space-y-4 > * + * { margin-top: 16px !important; }
+        .funnel-checkout .space-y-3 > * + * { margin-top: 12px !important; }
+        .funnel-checkout .space-y-1 > * + * { margin-top: 4px !important; }
+        .funnel-checkout .space-x-4 > * + * { margin-left: 16px !important; }
+        .funnel-checkout .space-x-6 > * + * { margin-left: 24px !important; }
+
+        /* Margin */
+        .funnel-checkout .mb-1 { margin-bottom: 4px !important; }
+        .funnel-checkout .mb-2 { margin-bottom: 8px !important; }
+        .funnel-checkout .mb-4 { margin-bottom: 16px !important; }
+        .funnel-checkout .mb-6 { margin-bottom: 24px !important; }
+        .funnel-checkout .mb-8 { margin-bottom: 32px !important; }
+        .funnel-checkout .mt-1 { margin-top: 4px !important; }
+        .funnel-checkout .mt-2 { margin-top: 8px !important; }
+        .funnel-checkout .mt-3 { margin-top: 12px !important; }
+        .funnel-checkout .mt-4 { margin-top: 16px !important; }
+        .funnel-checkout .mt-6 { margin-top: 24px !important; }
+        .funnel-checkout .mt-8 { margin-top: 32px !important; }
+        .funnel-checkout .ml-1 { margin-left: 4px !important; }
+        .funnel-checkout .ml-2 { margin-left: 8px !important; }
+        .funnel-checkout .ml-4 { margin-left: 16px !important; }
+        .funnel-checkout .mr-1 { margin-right: 4px !important; }
+        .funnel-checkout .mr-2 { margin-right: 8px !important; }
+        .funnel-checkout .mr-3 { margin-right: 12px !important; }
+
+        /* Padding */
+        .funnel-checkout .p-2 { padding: 8px !important; }
+        .funnel-checkout .p-3 { padding: 12px !important; }
+        .funnel-checkout .p-4 { padding: 16px !important; }
+        .funnel-checkout .p-6 { padding: 24px !important; }
+        .funnel-checkout .px-2 { padding-left: 8px !important; padding-right: 8px !important; }
+        .funnel-checkout .px-3 { padding-left: 12px !important; padding-right: 12px !important; }
+        .funnel-checkout .px-4 { padding-left: 16px !important; padding-right: 16px !important; }
+        .funnel-checkout .px-6 { padding-left: 24px !important; padding-right: 24px !important; }
+        .funnel-checkout .px-8 { padding-left: 32px !important; padding-right: 32px !important; }
+        .funnel-checkout .py-1 { padding-top: 4px !important; padding-bottom: 4px !important; }
+        .funnel-checkout .py-1\.5 { padding-top: 6px !important; padding-bottom: 6px !important; }
+        .funnel-checkout .py-2 { padding-top: 8px !important; padding-bottom: 8px !important; }
+        .funnel-checkout .py-3 { padding-top: 12px !important; padding-bottom: 12px !important; }
+        .funnel-checkout .py-8 { padding-top: 32px !important; padding-bottom: 32px !important; }
+        .funnel-checkout .pt-2 { padding-top: 8px !important; }
+        .funnel-checkout .pt-3 { padding-top: 12px !important; }
+        .funnel-checkout .pt-4 { padding-top: 16px !important; }
+
+        /* Width & Height */
+        .funnel-checkout .w-full { width: 100% !important; }
+        .funnel-checkout .w-8 { width: 32px !important; }
+        .funnel-checkout .w-5 { width: 20px !important; }
+        .funnel-checkout .w-4 { width: 16px !important; }
+        .funnel-checkout .w-3\.5 { width: 14px !important; }
+        .funnel-checkout .w-3 { width: 12px !important; }
+        .funnel-checkout .w-2\.5 { width: 10px !important; }
+        .funnel-checkout .w-1 { width: 4px !important; }
+        .funnel-checkout .w-64 { width: 256px !important; }
+        .funnel-checkout .h-8 { height: 32px !important; }
+        .funnel-checkout .h-5 { height: 20px !important; }
+        .funnel-checkout .h-4 { height: 16px !important; }
+        .funnel-checkout .h-3\.5 { height: 14px !important; }
+        .funnel-checkout .h-3 { height: 12px !important; }
+        .funnel-checkout .h-2\.5 { height: 10px !important; }
+        .funnel-checkout .h-1 { height: 4px !important; }
+        .funnel-checkout .h-px { height: 1px !important; }
+        .funnel-checkout .max-w-16 { max-width: 64px !important; }
+        .funnel-checkout .max-h-48 { max-height: 192px !important; }
+
+        /* Typography */
+        .funnel-checkout .text-lg { font-size: 18px !important; line-height: 28px !important; }
+        .funnel-checkout .text-sm { font-size: 14px !important; line-height: 20px !important; }
+        .funnel-checkout .text-xs { font-size: 12px !important; line-height: 16px !important; }
+        .funnel-checkout .font-semibold { font-weight: 600 !important; }
+        .funnel-checkout .font-bold { font-weight: 700 !important; }
+        .funnel-checkout .font-medium { font-weight: 500 !important; }
+        .funnel-checkout .line-through { text-decoration: line-through !important; }
+        .funnel-checkout .uppercase { text-transform: uppercase !important; }
+        .funnel-checkout .whitespace-nowrap { white-space: nowrap !important; }
+        .funnel-checkout .text-center { text-align: center !important; }
+        .funnel-checkout .text-right { text-align: right !important; }
+        .funnel-checkout .text-left { text-align: left !important; }
+
+        /* Colors - Text */
+        .funnel-checkout .text-white { color: #ffffff !important; }
+        .funnel-checkout .text-gray-900 { color: #111827 !important; }
+        .funnel-checkout .text-gray-700 { color: #374151 !important; }
+        .funnel-checkout .text-gray-600 { color: #4b5563 !important; }
+        .funnel-checkout .text-gray-500 { color: #6b7280 !important; }
+        .funnel-checkout .text-gray-400 { color: #9ca3af !important; }
+        .funnel-checkout .text-blue-600 { color: #2563eb !important; }
+        .funnel-checkout .text-blue-700 { color: #1d4ed8 !important; }
+        .funnel-checkout .text-blue-800 { color: #1e40af !important; }
+        .funnel-checkout .text-green-500 { color: #22c55e !important; }
+        .funnel-checkout .text-green-600 { color: #16a34a !important; }
+        .funnel-checkout .text-green-700 { color: #15803d !important; }
+        .funnel-checkout .text-green-800 { color: #166534 !important; }
+        .funnel-checkout .text-yellow-900 { color: #713f12 !important; }
+        .funnel-checkout .text-yellow-800 { color: #854d0e !important; }
+        .funnel-checkout .text-red-500 { color: #ef4444 !important; }
+        .funnel-checkout .text-red-700 { color: #b91c1c !important; }
+        .funnel-checkout .text-purple-800 { color: #6b21a8 !important; }
+
+        /* Colors - Background */
+        .funnel-checkout .bg-white { background-color: #ffffff !important; }
+        .funnel-checkout .bg-blue-600 { background-color: #2563eb !important; }
+        .funnel-checkout .bg-blue-50 { background-color: #eff6ff !important; }
+        .funnel-checkout .bg-gray-200 { background-color: #e5e7eb !important; }
+        .funnel-checkout .bg-gray-50 { background-color: #f9fafb !important; }
+        .funnel-checkout .bg-gray-100 { background-color: #f3f4f6 !important; }
+        .funnel-checkout .bg-yellow-50 { background-color: #fefce8 !important; }
+        .funnel-checkout .bg-yellow-400 { background-color: #facc15 !important; }
+        .funnel-checkout .bg-red-50 { background-color: #fef2f2 !important; }
+        .funnel-checkout .bg-green-50 { background-color: #f0fdf4 !important; }
+        .funnel-checkout .bg-green-100 { background-color: #dcfce7 !important; }
+        .funnel-checkout .bg-green-600 { background-color: #16a34a !important; }
+        .funnel-checkout .bg-purple-100 { background-color: #f3e8ff !important; }
+
+        /* Border */
+        .funnel-checkout .border { border: 1px solid #e5e7eb !important; }
+        .funnel-checkout .border-2 { border-width: 2px !important; border-style: solid !important; }
+        .funnel-checkout .border-t { border-top: 1px solid #e5e7eb !important; }
+        .funnel-checkout .border-b { border-bottom: 1px solid #e5e7eb !important; }
+        .funnel-checkout .border-r-0 { border-right-width: 0 !important; }
+        .funnel-checkout .border-dashed { border-style: dashed !important; }
+        .funnel-checkout .border-gray-200 { border-color: #e5e7eb !important; }
+        .funnel-checkout .border-gray-300 { border-color: #d1d5db !important; }
+        .funnel-checkout .border-gray-100 { border-color: #f3f4f6 !important; }
+        .funnel-checkout .border-blue-600 { border-color: #2563eb !important; }
+        .funnel-checkout .border-blue-200 { border-color: #bfdbfe !important; }
+        .funnel-checkout .border-green-600 { border-color: #16a34a !important; }
+        .funnel-checkout .border-green-200 { border-color: #bbf7d0 !important; }
+        .funnel-checkout .border-red-200 { border-color: #fecaca !important; }
+        .funnel-checkout .border-yellow-400 { border-color: #facc15 !important; }
+        .funnel-checkout .border-yellow-200 { border-color: #fef08a !important; }
+
+        /* Border Radius */
+        .funnel-checkout .rounded-lg { border-radius: 8px !important; }
+        .funnel-checkout .rounded-full { border-radius: 9999px !important; }
+        .funnel-checkout .rounded { border-radius: 4px !important; }
+        .funnel-checkout .rounded-md { border-radius: 6px !important; }
+        .funnel-checkout .rounded-l-lg { border-radius: 8px 0 0 8px !important; }
+        .funnel-checkout .rounded-r-lg { border-radius: 0 8px 8px 0 !important; }
+
+        /* Shadow & Ring */
+        .funnel-checkout .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important; }
+        .funnel-checkout .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important; }
+        .funnel-checkout .ring-2 { box-shadow: 0 0 0 2px var(--ring-color, #2563eb) !important; }
+        .funnel-checkout .ring-blue-600 { --ring-color: #2563eb !important; }
+        .funnel-checkout .ring-green-600 { --ring-color: #16a34a !important; }
+        .funnel-checkout .ring-blue-500 { --ring-color: #3b82f6 !important; }
+
+        /* Position */
+        .funnel-checkout .sticky { position: sticky !important; }
+        .funnel-checkout .absolute { position: absolute !important; }
+        .funnel-checkout .relative { position: relative !important; }
+        .funnel-checkout .top-6 { top: 24px !important; }
+        .funnel-checkout .z-50 { z-index: 50 !important; }
+
+        /* Overflow */
+        .funnel-checkout .overflow-hidden { overflow: hidden !important; }
+        .funnel-checkout .overflow-y-auto { overflow-y: auto !important; }
+
+        /* Interactivity */
+        .funnel-checkout .cursor-pointer { cursor: pointer !important; }
+        .funnel-checkout .cursor-not-allowed { cursor: not-allowed !important; }
+        .funnel-checkout .transition-all { transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1) !important; }
+        .funnel-checkout .transition-colors { transition: color 150ms, background-color 150ms, border-color 150ms !important; }
+        .funnel-checkout .transition-transform { transition: transform 150ms !important; }
+        .funnel-checkout .opacity-75 { opacity: 0.75 !important; }
+        .funnel-checkout button { cursor: pointer; font-family: inherit; }
+
+        /* Form inputs */
+        .funnel-checkout input[type="text"],
+        .funnel-checkout input[type="email"],
+        .funnel-checkout input[type="tel"],
+        .funnel-checkout select {
+            width: 100% !important;
+            padding: 8px 12px !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            line-height: 20px !important;
+            background-color: #ffffff !important;
+            color: #111827 !important;
+            font-family: inherit !important;
+            appearance: auto !important;
+        }
+        .funnel-checkout input[type="text"]:focus,
+        .funnel-checkout input[type="email"]:focus,
+        .funnel-checkout input[type="tel"]:focus,
+        .funnel-checkout select:focus {
+            outline: none !important;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+        }
+        .funnel-checkout input[type="radio"],
+        .funnel-checkout input[type="checkbox"] {
+            width: 20px !important;
+            height: 20px !important;
+            accent-color: #2563eb !important;
+            cursor: pointer !important;
+        }
+        .funnel-checkout label { display: block; cursor: default; }
+
+        /* Hover states */
+        .funnel-checkout .hover\:bg-blue-700:hover { background-color: #1d4ed8 !important; }
+        .funnel-checkout .hover\:bg-green-700:hover { background-color: #15803d !important; }
+        .funnel-checkout .hover\:bg-gray-50:hover { background-color: #f9fafb !important; }
+        .funnel-checkout .hover\:bg-gray-100:hover { background-color: #f3f4f6 !important; }
+        .funnel-checkout .hover\:bg-blue-50:hover { background-color: #eff6ff !important; }
+        .funnel-checkout .hover\:border-gray-300:hover { border-color: #d1d5db !important; }
+
+        /* Responsive */
+        @media (min-width: 768px) {
+            .funnel-checkout .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            .funnel-checkout .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+            .funnel-checkout .md\:col-span-2 { grid-column: span 2 / span 2 !important; }
+        }
+
+        @media (min-width: 1024px) {
+            .funnel-checkout .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+            .funnel-checkout .lg\:col-span-2 { grid-column: span 2 / span 2 !important; }
+            .funnel-checkout .lg\:col-span-1 { grid-column: span 1 / span 1 !important; }
+        }
+
+        /* SVG icons */
+        .funnel-checkout svg { display: inline-block; vertical-align: middle; }
+
         /* Responsive grid */
         @media (max-width: 768px) {
             .puck-columns {
@@ -169,13 +468,26 @@
 
     <!-- Livewire Checkout Component (for checkout steps) -->
     @if($step->type === 'checkout')
-        <div id="funnel-checkout-container" style="max-width: 1200px; margin: 0 auto; padding: 32px 16px; background-color: #f9fafb;">
+        <div id="funnel-checkout-container" style="max-width: 1200px; margin: 0 auto; padding: 32px 16px;">
             @livewire('funnel.checkout-form', [
                 'funnel' => $funnel,
                 'step' => $step,
                 'session' => $session,
             ])
         </div>
+
+        {{-- Move checkout form into the Puck placeholder if it exists --}}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const placeholder = document.getElementById('funnel-checkout-form');
+                const checkoutContainer = document.getElementById('funnel-checkout-container');
+                if (placeholder && checkoutContainer) {
+                    placeholder.appendChild(checkoutContainer);
+                    checkoutContainer.style.padding = '0';
+                    checkoutContainer.style.maxWidth = '100%';
+                }
+            });
+        </script>
     @endif
 
     <!-- Exit Intent Popup (if enabled) -->

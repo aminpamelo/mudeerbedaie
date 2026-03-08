@@ -207,7 +207,7 @@ export const FUNNEL_ACTION_CONFIGS = {
         icon: '📧',
         color: '#3B82F6',
         category: 'communication',
-        config: { subject: '', content: '', template_id: null },
+        config: { email_source: 'custom', subject: '', content: '', template_id: null },
     },
     [FUNNEL_ACTION_TYPES.SEND_WHATSAPP]: {
         label: 'Send WhatsApp',
@@ -215,7 +215,7 @@ export const FUNNEL_ACTION_CONFIGS = {
         icon: '💬',
         color: '#25D366',
         category: 'communication',
-        config: { message: '', template_id: null },
+        config: { provider: 'onsend', message: '', template_id: null, template_name: '', template_language: '', template_variables: {} },
     },
     [FUNNEL_ACTION_TYPES.SEND_SMS]: {
         label: 'Send SMS',

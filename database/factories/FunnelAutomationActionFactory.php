@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\FunnelAutomation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -9,15 +10,18 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class FunnelAutomationActionFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
-            //
+            'automation_id' => FunnelAutomation::factory(),
+            'action_type' => 'send_email',
+            'action_config' => [
+                'subject' => 'Test Subject',
+                'content' => 'Test Content',
+                'email_field' => 'contact.email',
+            ],
+            'delay_minutes' => 0,
+            'sort_order' => 0,
         ];
     }
 }

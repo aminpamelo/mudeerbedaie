@@ -10,7 +10,9 @@ use App\Models\FunnelAutomationLog;
 use App\Models\FunnelOrder;
 use App\Models\FunnelSession;
 use App\Models\ProductOrder;
+use App\Models\WhatsAppTemplate;
 use App\Services\MergeTag\MergeTagEngine;
+use App\Services\WhatsApp\WhatsAppManager;
 use App\Services\WhatsAppService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +22,8 @@ class FunnelAutomationService
 {
     public function __construct(
         protected MergeTagEngine $mergeTagEngine,
-        protected WhatsAppService $whatsAppService
+        protected WhatsAppService $whatsAppService,
+        protected WhatsAppManager $whatsAppManager
     ) {}
 
     /**
@@ -156,7 +159,7 @@ class FunnelAutomationService
     protected function executeSendWhatsApp(FunnelAutomationAction $action, array $context): array
     {
         $config = $action->action_config ?? [];
-        $message = $config['message'] ?? $config['template'] ?? '';
+        $provider = $config['provider'] ?? 'onsend';
         $phoneField = $config['phone_field'] ?? 'contact.phone';
 
         // Get phone number from context
@@ -169,15 +172,26 @@ class FunnelAutomationService
             ];
         }
 
-        // Process merge tags in message
+        if ($provider === 'waba') {
+            return $this->executeSendWhatsAppWaba($config, $phone, $context);
+        }
+
+        return $this->executeSendWhatsAppOnsend($config, $phone);
+    }
+
+    /**
+     * Execute WhatsApp send via Onsend provider.
+     */
+    protected function executeSendWhatsAppOnsend(array $config, string $phone): array
+    {
+        $message = $config['message'] ?? $config['template'] ?? '';
         $processedMessage = $this->mergeTagEngine->resolve($message);
 
-        Log::info('FunnelAutomation: Sending WhatsApp', [
+        Log::info('FunnelAutomation: Sending WhatsApp via Onsend', [
             'phone' => $phone,
             'message_length' => strlen($processedMessage),
         ]);
 
-        // Send via WhatsApp service
         $result = $this->whatsAppService->send($phone, $processedMessage);
 
         return [
@@ -185,7 +199,131 @@ class FunnelAutomationService
             'message_id' => $result['message_id'] ?? null,
             'error' => $result['error'] ?? null,
             'phone' => $phone,
+            'provider' => 'onsend',
         ];
+    }
+
+    /**
+     * Execute WhatsApp send via WABA template provider.
+     */
+    protected function executeSendWhatsAppWaba(array $config, string $phone, array $context): array
+    {
+        // Look up template
+        $template = null;
+        if (! empty($config['template_id'])) {
+            $template = WhatsAppTemplate::find($config['template_id']);
+        }
+
+        $templateName = $template?->name ?? $config['template_name'] ?? '';
+        $templateLanguage = $template?->language ?? $config['template_language'] ?? 'en';
+
+        if (empty($templateName)) {
+            return [
+                'success' => false,
+                'error' => 'No WhatsApp template configured',
+            ];
+        }
+
+        // Check template is approved (if we found it locally)
+        if ($template && $template->status !== 'APPROVED') {
+            return [
+                'success' => false,
+                'error' => "Template '{$templateName}' is not approved (status: {$template->status})",
+            ];
+        }
+
+        // Resolve merge tags in template variables
+        $templateVariables = $config['template_variables'] ?? [];
+        $components = $this->buildWabaComponents($templateVariables, $context);
+
+        Log::info('FunnelAutomation: Sending WhatsApp via WABA template', [
+            'phone' => $phone,
+            'template' => $templateName,
+            'language' => $templateLanguage,
+        ]);
+
+        // Send via Meta Cloud Provider directly
+        $metaProvider = $this->whatsAppManager->provider();
+        if (! ($metaProvider instanceof \App\Services\WhatsApp\MetaCloudProvider)) {
+            // Force Meta provider for WABA sends
+            $metaProvider = app(\App\Services\WhatsApp\MetaCloudProvider::class);
+        }
+
+        $result = $metaProvider->sendTemplate($phone, $templateName, $templateLanguage, $components);
+
+        return [
+            'success' => $result['success'],
+            'message_id' => $result['message_id'] ?? null,
+            'error' => $result['error'] ?? null,
+            'phone' => $phone,
+            'provider' => 'waba',
+            'template_name' => $templateName,
+        ];
+    }
+
+    /**
+     * Build WABA components array from template variables config.
+     *
+     * Resolves merge tags like {{contact.name}} to actual values from context,
+     * then formats them into the Meta API components structure.
+     */
+    protected function buildWabaComponents(array $templateVariables, array $context): array
+    {
+        $components = [];
+
+        foreach ($templateVariables as $componentType => $variables) {
+            if (empty($variables)) {
+                continue;
+            }
+
+            $parameters = [];
+            // Sort by key to ensure correct order (1, 2, 3...)
+            ksort($variables);
+
+            foreach ($variables as $index => $mergeTag) {
+                $resolved = $this->resolveContextValue($mergeTag, $context);
+                $parameters[] = [
+                    'type' => 'text',
+                    'text' => $resolved,
+                ];
+            }
+
+            if (! empty($parameters)) {
+                $components[] = [
+                    'type' => $componentType,
+                    'parameters' => $parameters,
+                ];
+            }
+        }
+
+        return $components;
+    }
+
+    /**
+     * Resolve a merge tag or plain value from context.
+     *
+     * Handles {{contact.name}}, {{order.number}}, etc.
+     * Falls back to the raw string if not a merge tag pattern.
+     */
+    protected function resolveContextValue(string $value, array $context): string
+    {
+        // Check if it's a merge tag pattern like {{contact.name}} or {{contact.name|default:"there"}}
+        if (preg_match('/^\{\{(.+?)\}\}$/', trim($value), $matches)) {
+            $key = $matches[1];
+
+            // Handle default values: contact.name|default:"there"
+            $default = '';
+            if (str_contains($key, '|default:')) {
+                [$key, $defaultPart] = explode('|default:', $key, 2);
+                $default = trim($defaultPart, '"\'');
+            }
+
+            $resolved = $this->getValueFromContext(trim($key), $context);
+
+            return ! empty($resolved) ? (string) $resolved : $default;
+        }
+
+        return $value;
     }
 
     /**
@@ -194,8 +332,7 @@ class FunnelAutomationService
     protected function executeSendEmail(FunnelAutomationAction $action, array $context): array
     {
         $config = $action->action_config ?? [];
-        $subject = $config['subject'] ?? 'Notification';
-        $body = $config['body'] ?? $config['template'] ?? '';
+        $emailSource = $config['email_source'] ?? 'custom';
         $emailField = $config['email_field'] ?? 'contact.email';
 
         // Get email from context
@@ -208,15 +345,45 @@ class FunnelAutomationService
             ];
         }
 
+        // Resolve subject and body based on source
+        if ($emailSource === 'template' && ! empty($config['template_id'])) {
+            $template = \App\Models\FunnelEmailTemplate::find($config['template_id']);
+
+            if (! $template) {
+                return [
+                    'success' => false,
+                    'error' => 'Email template not found (ID: '.$config['template_id'].')',
+                    'email' => $email,
+                ];
+            }
+
+            // Subject: use override if provided, else template subject
+            $subject = ! empty($config['subject']) ? $config['subject'] : ($template->subject ?? 'Notification');
+            $body = $template->getEffectiveContent();
+            $isHtml = $template->isVisualEditor() && $template->html_content;
+        } else {
+            // Inline/custom content (backward compatible)
+            $subject = $config['subject'] ?? 'Notification';
+            $body = $config['body'] ?? $config['content'] ?? $config['template'] ?? '';
+            $isHtml = false;
+        }
+
         // Process merge tags
         $processedSubject = $this->mergeTagEngine->resolve($subject);
         $processedBody = $this->mergeTagEngine->resolve($body);
 
         try {
-            Mail::raw($processedBody, function ($message) use ($email, $processedSubject) {
-                $message->to($email)
-                    ->subject($processedSubject);
-            });
+            if ($isHtml) {
+                Mail::html($processedBody, function ($message) use ($email, $processedSubject) {
+                    $message->to($email)
+                        ->subject($processedSubject);
+                });
+            } else {
+                Mail::raw($processedBody, function ($message) use ($email, $processedSubject) {
+                    $message->to($email)
+                        ->subject($processedSubject);
+                });
+            }
 
             return [
                 'success' => true,

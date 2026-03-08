@@ -703,7 +703,7 @@ new class extends Component
                     @enderror
 
                     <div class="space-y-4">
-                        @foreach($step->products as $product)
+                        @forelse($step->products as $product)
                             <div
                                 wire:click="toggleProduct({{ $product->id }})"
                                 class="border rounded-lg p-4 cursor-pointer transition-all {{ isset($selectedProducts[$product->id]) ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-600' : 'border-gray-200 hover:border-gray-300' }}"
@@ -774,7 +774,11 @@ new class extends Component
                                     </div>
                                 </div>
                             </div>
-                        @endforeach
+                        @empty
+                            <div class="text-center py-8 text-gray-500">
+                                <p class="text-sm">Tiada produk tersedia untuk dipilih.</p>
+                            </div>
+                        @endforelse
                     </div>
                 </div>
 

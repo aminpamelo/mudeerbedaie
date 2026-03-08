@@ -321,6 +321,25 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
     const [showNodePalette, setShowNodePalette] = useState(true);
     const [isDirty, setIsDirty] = useState(false);
     const [connectionFeedback, setConnectionFeedback] = useState(null);
+    const [wabaTemplates, setWabaTemplates] = useState([]);
+    const [wabaTemplatesLoading, setWabaTemplatesLoading] = useState(false);
+
+    // Fetch WABA templates when needed
+    const fetchWabaTemplates = useCallback(async () => {
+        if (wabaTemplates.length > 0) return; // already fetched
+        setWabaTemplatesLoading(true);
+        try {
+            const response = await fetch('/api/v1/funnel-builder/whatsapp-templates', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const data = await response.json();
+            setWabaTemplates(data.data || []);
+        } catch (err) {
+            console.error('Failed to fetch WABA templates:', err);
+        } finally {
+            setWabaTemplatesLoading(false);
+        }
+    }, [wabaTemplates.length]);
 
     // Initialize nodes and edges from automation canvas data
     const initialNodes = useMemo(() => {
@@ -731,6 +750,9 @@ function BuilderContent({ funnelUuid, automation, steps, onClose, showToast }) {
                         onUpdate={updateSelectedNode}
                         onDelete={deleteSelectedNode}
                         onClose={() => setSelectedNode(null)}
+                        wabaTemplates={wabaTemplates}
+                        wabaTemplatesLoading={wabaTemplatesLoading}
+                        fetchWabaTemplates={fetchWabaTemplates}
                     />
                 )}
             </div>
@@ -902,8 +924,265 @@ function NodePalette({ onAddNode, steps }) {
     );
 }
 
+// Email Action Config - handles template selection and custom email
+function EmailActionConfig({ data, onUpdate, triggerType }) {
+    const [templates, setTemplates] = React.useState([]);
+    const [loadingTemplates, setLoadingTemplates] = React.useState(false);
+    const [selectedTemplate, setSelectedTemplate] = React.useState(null);
+    const emailSource = data.config?.email_source || 'custom';
+
+    // Fetch templates when switching to template mode
+    React.useEffect(() => {
+        if (emailSource === 'template' && templates.length === 0) {
+            fetchTemplates();
+        }
+    }, [emailSource]);
+
+    // Load selected template details
+    React.useEffect(() => {
+        if (emailSource === 'template' && data.config?.template_id) {
+            const found = templates.find(t => t.id === data.config.template_id);
+            setSelectedTemplate(found || null);
+        } else {
+            setSelectedTemplate(null);
+        }
+    }, [data.config?.template_id, templates]);
+
+    const fetchTemplates = async () => {
+        setLoadingTemplates(true);
+        try {
+            const response = await fetch('/api/v1/funnel-email-templates?active=true', {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+            const result = await response.json();
+            setTemplates(result.data || []);
+        } catch (error) {
+            console.error('Failed to fetch email templates:', error);
+        } finally {
+            setLoadingTemplates(false);
+        }
+    };
+
+    const handleSourceChange = (source) => {
+        if (source === 'template') {
+            onUpdate({
+                config: {
+                    ...data.config,
+                    email_source: 'template',
+                    template_id: data.config?.template_id || null,
+                    subject: data.config?.subject || '',
+                }
+            });
+            if (templates.length === 0) fetchTemplates();
+        } else {
+            onUpdate({
+                config: {
+                    ...data.config,
+                    email_source: 'custom',
+                    template_id: null,
+                    subject: data.config?.subject || '',
+                    content: data.config?.content || '',
+                }
+            });
+        }
+    };
+
+    const handleTemplateSelect = (templateId) => {
+        const template = templates.find(t => t.id === parseInt(templateId));
+        onUpdate({
+            config: {
+                ...data.config,
+                template_id: template ? template.id : null,
+                subject: template?.subject || data.config?.subject || '',
+            }
+        });
+        setSelectedTemplate(template || null);
+    };
+
+    return (
+        <>
+            {/* Email Source Toggle */}
+            <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Email Source
+                </label>
+                <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                    <button
+                        type="button"
+                        onClick={() => handleSourceChange('custom')}
+                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            emailSource === 'custom'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        Write Custom
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleSourceChange('template')}
+                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            emailSource === 'template'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        Use Template
+                    </button>
+                </div>
+            </div>
+
+            {emailSource === 'template' ? (
+                <>
+                    {/* Template Selector */}
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Template
+                        </label>
+                        {loadingTemplates ? (
+                            <div className="text-xs text-gray-500 py-2">Loading templates...</div>
+                        ) : (
+                            <select
+                                value={data.config?.template_id || ''}
+                                onChange={(e) => handleTemplateSelect(e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                                <option value="">Select a template...</option>
+                                {templates.map((template) => (
+                                    <option key={template.id} value={template.id}>
+                                        {template.name}
+                                        {template.category ? ` (${template.category})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                        {templates.length === 0 && !loadingTemplates && (
+                            <p className="text-xs text-amber-600 mt-1">
+                                No templates found. Create templates in the Funnel Email Templates page.
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Subject Override */}
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-medium text-gray-700">
+                                Subject {selectedTemplate && <span className="text-gray-400 font-normal">(override)</span>}
+                            </label>
+                            <VariablePicker
+                                triggerType={triggerType}
+                                buttonText="Insert"
+                                buttonClassName="text-xs py-0.5 px-2"
+                                onSelect={(tag) => {
+                                    const newSubject = (data.config?.subject || '') + tag;
+                                    onUpdate({ config: { ...data.config, subject: newSubject } });
+                                }}
+                            />
+                        </div>
+                        <input
+                            type="text"
+                            value={data.config?.subject || ''}
+                            onChange={(e) => onUpdate({ config: { ...data.config, subject: e.target.value } })}
+                            className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder={selectedTemplate?.subject || "Email subject with {{contact.name}}"}
+                        />
+                    </div>
+
+                    {/* Content Preview */}
+                    {selectedTemplate && (
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Content Preview
+                                <span className="ml-1 text-gray-400 font-normal">
+                                    ({selectedTemplate.editor_type === 'visual' ? 'HTML' : 'Text'})
+                                </span>
+                            </label>
+                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
+                                {selectedTemplate.editor_type === 'visual' && selectedTemplate.html_content ? (
+                                    <div className="text-xs text-gray-500 italic">
+                                        Visual HTML template - preview available on templates page
+                                    </div>
+                                ) : (
+                                    <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">
+                                        {selectedTemplate.content || 'No content'}
+                                    </pre>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Link to manage templates */}
+                    <div className="pt-1">
+                        <a
+                            href="/admin/funnel-email-templates"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                        >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            Manage Email Templates
+                        </a>
+                    </div>
+                </>
+            ) : (
+                <>
+                    {/* Custom Subject */}
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-medium text-gray-700">
+                                Subject
+                            </label>
+                            <VariablePicker
+                                triggerType={triggerType}
+                                buttonText="Insert"
+                                buttonClassName="text-xs py-0.5 px-2"
+                                onSelect={(tag) => {
+                                    const newSubject = (data.config?.subject || '') + tag;
+                                    onUpdate({ config: { ...data.config, subject: newSubject } });
+                                }}
+                            />
+                        </div>
+                        <input
+                            type="text"
+                            value={data.config?.subject || ''}
+                            onChange={(e) => onUpdate({ config: { ...data.config, subject: e.target.value } })}
+                            className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Email subject with {{contact.name}}"
+                        />
+                    </div>
+                    {/* Custom Content */}
+                    <div>
+                        <TextareaWithVariables
+                            label="Content"
+                            value={data.config?.content || ''}
+                            onChange={(value) => onUpdate({ config: { ...data.config, content: value } })}
+                            triggerType={triggerType}
+                            rows={6}
+                            placeholder={"Hi {{contact.first_name}},\n\nThank you for your order #{{order.number}}!\n\nTotal: {{order.total}}"}
+                            helpText="Use merge tags to personalize your email"
+                        />
+                    </div>
+                    {/* Preview */}
+                    {data.config?.content && (
+                        <VariablePreview
+                            text={data.config.content}
+                            className="mt-2"
+                        />
+                    )}
+                </>
+            )}
+        </>
+    );
+}
+
 // Node Config Panel Component
-function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose }) {
+function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose, wabaTemplates, wabaTemplatesLoading, fetchWabaTemplates }) {
     const nodeType = node.type;
     const data = node.data || {};
 
@@ -1029,64 +1308,161 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose }) {
 
                     {/* Email Action Config */}
                     {nodeType === 'action' && data.actionType === FUNNEL_ACTION_TYPES.SEND_EMAIL && (
-                        <>
-                            <div>
-                                <div className="flex items-center justify-between mb-1">
-                                    <label className="block text-xs font-medium text-gray-700">
-                                        Subject
-                                    </label>
-                                    <VariablePicker
-                                        triggerType={triggerType}
-                                        buttonText="Insert"
-                                        buttonClassName="text-xs py-0.5 px-2"
-                                        onSelect={(tag) => {
-                                            const newSubject = (data.config?.subject || '') + tag;
-                                            onUpdate({ config: { ...data.config, subject: newSubject } });
-                                        }}
-                                    />
-                                </div>
-                                <input
-                                    type="text"
-                                    value={data.config?.subject || ''}
-                                    onChange={(e) => onUpdate({ config: { ...data.config, subject: e.target.value } })}
-                                    className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="Email subject with {{contact.name}}"
-                                />
-                            </div>
-                            <div>
-                                <TextareaWithVariables
-                                    label="Content"
-                                    value={data.config?.content || ''}
-                                    onChange={(value) => onUpdate({ config: { ...data.config, content: value } })}
-                                    triggerType={triggerType}
-                                    rows={6}
-                                    placeholder="Hi {{contact.first_name}},&#10;&#10;Thank you for your order #{{order.number}}!&#10;&#10;Total: {{order.total}}"
-                                    helpText="Use merge tags to personalize your email"
-                                />
-                            </div>
-                            {/* Preview */}
-                            {data.config?.content && (
-                                <VariablePreview
-                                    text={data.config.content}
-                                    className="mt-2"
-                                />
-                            )}
-                        </>
+                        <EmailActionConfig
+                            data={data}
+                            onUpdate={onUpdate}
+                            triggerType={triggerType}
+                        />
                     )}
 
                     {/* WhatsApp Action Config */}
                     {nodeType === 'action' && data.actionType === FUNNEL_ACTION_TYPES.SEND_WHATSAPP && (
                         <div className="space-y-3">
-                            <TextareaWithVariables
-                                label="Message"
-                                value={data.config?.message || ''}
-                                onChange={(value) => onUpdate({ config: { ...data.config, message: value } })}
-                                triggerType={triggerType}
-                                rows={6}
-                                placeholder="Hi {{contact.name|default:&quot;there&quot;}}!&#10;&#10;Thank you for your purchase!&#10;&#10;Order #: {{order.number}}&#10;Total: {{order.total}}&#10;&#10;{{order.items_list}}"
-                                helpText="Use merge tags to personalize your message"
-                            />
-                            {/* Phone Number Field Info */}
+                            {/* Provider Toggle */}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Provider</label>
+                                <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                                    <button
+                                        type="button"
+                                        className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                                            (data.config?.provider || 'onsend') === 'onsend'
+                                                ? 'bg-green-500 text-white'
+                                                : 'bg-white text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                        onClick={() => onUpdate({ config: { ...data.config, provider: 'onsend' } })}
+                                    >
+                                        Onsend
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                                            data.config?.provider === 'waba'
+                                                ? 'bg-green-500 text-white'
+                                                : 'bg-white text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                        onClick={() => {
+                                            onUpdate({ config: { ...data.config, provider: 'waba' } });
+                                            fetchWabaTemplates();
+                                        }}
+                                    >
+                                        WABA (Official)
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Onsend Mode: Free-text message */}
+                            {(data.config?.provider || 'onsend') === 'onsend' && (
+                                <>
+                                    <TextareaWithVariables
+                                        label="Message"
+                                        value={data.config?.message || ''}
+                                        onChange={(value) => onUpdate({ config: { ...data.config, message: value } })}
+                                        triggerType={triggerType}
+                                        rows={6}
+                                        placeholder="Hi {{contact.name|default:&quot;there&quot;}}!&#10;&#10;Thank you for your purchase!&#10;&#10;Order #: {{order.number}}&#10;Total: {{order.total}}&#10;&#10;{{order.items_list}}"
+                                        helpText="Use merge tags to personalize your message"
+                                    />
+                                    {data.config?.message && (
+                                        <VariablePreview text={data.config.message} className="mt-2" />
+                                    )}
+                                </>
+                            )}
+
+                            {/* WABA Mode: Template selection + variable mapping */}
+                            {data.config?.provider === 'waba' && (
+                                <>
+                                    {/* Template Dropdown */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Template</label>
+                                        {wabaTemplatesLoading ? (
+                                            <div className="text-xs text-gray-500 py-2">Loading templates...</div>
+                                        ) : (
+                                            <select
+                                                value={data.config?.template_id || ''}
+                                                onChange={(e) => {
+                                                    const tpl = wabaTemplates.find(t => t.id === Number(e.target.value));
+                                                    if (tpl) {
+                                                        onUpdate({
+                                                            config: {
+                                                                ...data.config,
+                                                                template_id: tpl.id,
+                                                                template_name: tpl.name,
+                                                                template_language: tpl.language,
+                                                                template_variables: data.config?.template_variables || {},
+                                                            },
+                                                        });
+                                                    }
+                                                }}
+                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            >
+                                                <option value="">Select template...</option>
+                                                {wabaTemplates.map((tpl) => (
+                                                    <option key={tpl.id} value={tpl.id}>
+                                                        {tpl.name} ({tpl.language})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+
+                                    {/* Template Preview + Variable Mapping */}
+                                    {data.config?.template_id && (() => {
+                                        const selectedTpl = wabaTemplates.find(t => t.id === Number(data.config.template_id));
+                                        if (!selectedTpl) return null;
+
+                                        const bodyComponent = selectedTpl.components?.find(c => c.type === 'BODY');
+                                        const bodyText = bodyComponent?.text || '';
+                                        const variableMatches = bodyText.match(/\{\{\d+\}\}/g) || [];
+                                        const variableNumbers = variableMatches.map(m => m.replace(/[{}]/g, ''));
+
+                                        return (
+                                            <>
+                                                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                                    <label className="block text-xs font-medium text-gray-500 mb-1">Template Preview</label>
+                                                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{bodyText}</p>
+                                                </div>
+
+                                                {variableNumbers.length > 0 && (
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-700 mb-2">Variable Mapping</label>
+                                                        <div className="space-y-2">
+                                                            {variableNumbers.map((num) => (
+                                                                <div key={num} className="flex items-center gap-2">
+                                                                    <span className="text-xs font-mono text-gray-500 w-10 shrink-0">{`{{${num}}}`}</span>
+                                                                    <TextareaWithVariables
+                                                                        value={data.config?.template_variables?.body?.[num] || ''}
+                                                                        onChange={(value) => {
+                                                                            const vars = { ...(data.config?.template_variables || {}) };
+                                                                            vars.body = { ...(vars.body || {}), [num]: value };
+                                                                            onUpdate({ config: { ...data.config, template_variables: vars } });
+                                                                        }}
+                                                                        triggerType={triggerType}
+                                                                        rows={1}
+                                                                        placeholder={`Value for {{${num}}}`}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+
+                                    {!wabaTemplatesLoading && wabaTemplates.length === 0 && (
+                                        <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                                            <p className="text-xs text-yellow-700">
+                                                No approved templates found. Sync templates from Meta in{' '}
+                                                <a href="/admin/whatsapp/templates" target="_blank" className="underline font-medium">
+                                                    WhatsApp Templates
+                                                </a>.
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Phone Number Field Info (shown for both providers) */}
                             <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                                 <div className="flex items-start gap-2">
                                     <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1098,13 +1474,6 @@ function NodeConfigPanel({ node, nodes, steps, onUpdate, onDelete, onClose }) {
                                     </div>
                                 </div>
                             </div>
-                            {/* Preview */}
-                            {data.config?.message && (
-                                <VariablePreview
-                                    text={data.config.message}
-                                    className="mt-2"
-                                />
-                            )}
                         </div>
                     )}
 
