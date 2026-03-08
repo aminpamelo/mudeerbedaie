@@ -898,3 +898,6 @@ $pages->assertNoJavascriptErrors()->assertNoConsoleLogs();
 </laravel-boost-guidelines>
 
 ## Dont Use PESTEST use php artisan tinker
+
+
+# Whever want to ask User remember to use AskUserQuestion.

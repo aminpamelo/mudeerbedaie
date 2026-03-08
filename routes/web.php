@@ -432,6 +432,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('funnels', 'admin.funnel-list')->name('admin.funnels');
     Volt::route('funnels/{funnel}', 'admin.funnel-show')->name('admin.funnels.show');
 
+    // Funnel Email Templates
+    Volt::route('funnel-email-templates', 'admin.funnel-email-templates')->name('admin.funnel-email-templates');
+    Volt::route('funnel-email-templates/{template}/builder', 'admin.funnel-email-template-builder')->name('admin.funnel-email-templates.builder');
+
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)

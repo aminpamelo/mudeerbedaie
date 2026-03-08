@@ -835,6 +835,40 @@ new class extends Component
                 </div>
             </div>
 
+            <!-- Receipt Attachment -->
+            @if($order->receipt_attachment)
+                <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <flux:icon name="paper-clip" class="w-5 h-5 text-amber-500" />
+                        <flux:heading size="lg">Receipt Attachment</flux:heading>
+                    </div>
+                    <div>
+                        @if(str_ends_with($order->receipt_attachment, '.pdf'))
+                            <div class="flex items-center gap-3">
+                                <flux:icon name="document" class="w-5 h-5 text-red-600" />
+                                <flux:text class="text-sm text-zinc-700 dark:text-zinc-300">PDF Receipt</flux:text>
+                                <a href="{{ $order->receipt_attachment_url }}" target="_blank">
+                                    <flux:button variant="outline" size="sm">
+                                        <div class="flex items-center justify-center">
+                                            <flux:icon name="arrow-top-right-on-square" class="w-4 h-4 mr-1" />
+                                            View
+                                        </div>
+                                    </flux:button>
+                                </a>
+                            </div>
+                        @else
+                            <a href="{{ $order->receipt_attachment_url }}" target="_blank" class="block">
+                                <img
+                                    src="{{ $order->receipt_attachment_url }}"
+                                    alt="Receipt"
+                                    class="max-w-xs rounded-lg border border-zinc-200 dark:border-zinc-700 hover:opacity-90 transition-opacity"
+                                />
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
             <!-- Platform & Shipping Information (if platform order) -->
             @if($order->isPlatformOrder())
                 <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">

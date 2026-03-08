@@ -102,6 +102,34 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::get('funnel-builder/variables', [FunnelAutomationController::class, 'variables'])->name('api.funnel-builder.variables');
     Route::get('funnel-builder/variables/all', [FunnelAutomationController::class, 'allVariables'])->name('api.funnel-builder.variables.all');
 
+    // WhatsApp Templates for Funnel Builder
+    Route::get('funnel-builder/whatsapp-templates', function () {
+        return response()->json([
+            'data' => \App\Models\WhatsAppTemplate::approved()
+                ->orderBy('name')
+                ->get()
+                ->map(fn ($t) => [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'language' => $t->language,
+                    'category' => $t->category,
+                    'components' => $t->components,
+                    'body_preview' => collect($t->components)
+                        ->firstWhere('type', 'BODY')['text'] ?? '',
+                ]),
+        ]);
+    })->name('api.funnel-builder.whatsapp-templates');
+
+    // Funnel Email Templates (admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('funnel-email-templates', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'index'])->name('api.funnel-email-templates.index');
+        Route::get('funnel-email-templates/{id}', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'show'])->name('api.funnel-email-templates.show');
+        Route::post('funnel-email-templates', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'store'])->name('api.funnel-email-templates.store');
+        Route::put('funnel-email-templates/{id}', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'update'])->name('api.funnel-email-templates.update');
+        Route::delete('funnel-email-templates/{id}', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'destroy'])->name('api.funnel-email-templates.destroy');
+        Route::post('funnel-email-templates/{id}/duplicate', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'duplicate'])->name('api.funnel-email-templates.duplicate');
+    });
+
     // Funnel Steps
     Route::get('funnels/{funnelUuid}/steps', [FunnelStepController::class, 'index'])->name('api.funnels.steps.index');
     Route::post('funnels/{funnelUuid}/steps', [FunnelStepController::class, 'store'])->name('api.funnels.steps.store');
