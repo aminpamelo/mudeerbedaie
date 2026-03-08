@@ -2,61 +2,159 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import EmailEditor from 'react-email-editor';
 
-// Available placeholders for the email templates
-const PLACEHOLDERS = {
-    '{{student_name}}': 'Nama Pelajar',
-    '{{teacher_name}}': 'Nama Guru',
-    '{{class_name}}': 'Tajuk Kelas',
-    '{{course_name}}': 'Nama Kursus',
-    '{{session_date}}': 'Tarikh Sesi',
-    '{{session_time}}': 'Masa Sesi',
-    '{{session_datetime}}': 'Tarikh & Masa',
-    '{{location}}': 'Lokasi',
-    '{{meeting_url}}': 'URL Mesyuarat',
-    '{{whatsapp_link}}': 'Pautan WhatsApp',
-    '{{duration}}': 'Tempoh',
-    '{{remaining_sessions}}': 'Sesi Tinggal',
-    '{{total_sessions}}': 'Jumlah Sesi',
-    '{{attendance_rate}}': 'Kadar Kehadiran'
+// Grouped placeholders by template type
+const PLACEHOLDER_SETS = {
+    class_notification: {
+        'Pelajar & Guru': {
+            '{{student_name}}': 'Nama Pelajar',
+            '{{teacher_name}}': 'Nama Guru',
+        },
+        'Kelas & Kursus': {
+            '{{class_name}}': 'Tajuk Kelas',
+            '{{course_name}}': 'Nama Kursus',
+        },
+        'Sesi': {
+            '{{session_date}}': 'Tarikh Sesi',
+            '{{session_time}}': 'Masa Sesi',
+            '{{session_datetime}}': 'Tarikh & Masa',
+        },
+        'Lokasi & Pautan': {
+            '{{location}}': 'Lokasi',
+            '{{meeting_url}}': 'URL Mesyuarat',
+            '{{whatsapp_link}}': 'Pautan WhatsApp',
+        },
+        'Statistik': {
+            '{{duration}}': 'Tempoh',
+            '{{remaining_sessions}}': 'Sesi Tinggal',
+            '{{total_sessions}}': 'Jumlah Sesi',
+            '{{attendance_rate}}': 'Kadar Kehadiran',
+        },
+    },
+    funnel_email_template: {
+        'Contact': {
+            '{{contact.name}}': 'Full name',
+            '{{contact.first_name}}': 'First name',
+            '{{contact.email}}': 'Email',
+            '{{contact.phone}}': 'Phone',
+        },
+        'Order': {
+            '{{order.number}}': 'Order number',
+            '{{order.total}}': 'Order total',
+            '{{order.date}}': 'Order date',
+            '{{order.items_list}}': 'Order items list',
+        },
+        'Payment': {
+            '{{payment.method}}': 'Payment method',
+            '{{payment.status}}': 'Payment status',
+        },
+        'Product': {
+            '{{product.name}}': 'Product name',
+            '{{product.price}}': 'Product price',
+            '{{product.description}}': 'Product description',
+            '{{product.image_url}}': 'Product image URL',
+        },
+        'Funnel': {
+            '{{funnel.name}}': 'Funnel name',
+            '{{funnel.url}}': 'Funnel URL',
+        },
+        'General': {
+            '{{current_date}}': 'Current date',
+            '{{current_time}}': 'Current time',
+            '{{company_name}}': 'Company name',
+            '{{company_email}}': 'Company email',
+        },
+    },
 };
 
-// Unlayer editor options
-const editorOptions = {
-    displayMode: 'email',
-    locale: 'ms-MY',
-    appearance: {
-        theme: 'modern_light',
-        panels: {
-            tools: {
-                dock: 'left'
+// Helper: get Unlayer mergeTags from a grouped set
+function getMergeTags(templateType) {
+    const groups = PLACEHOLDER_SETS[templateType] || PLACEHOLDER_SETS.class_notification;
+    return Object.entries(groups).map(([groupName, items]) => ({
+        name: groupName,
+        mergeTags: Object.entries(items).map(([value, name]) => ({
+            name: name,
+            value: value,
+        })),
+    }));
+}
+
+// Unlayer editor options (dynamic based on template type)
+function getEditorOptions(templateType) {
+    return {
+        displayMode: 'email',
+        locale: 'ms-MY',
+        appearance: {
+            theme: 'modern_light',
+            panels: {
+                tools: {
+                    dock: 'left'
+                }
             }
-        }
-    },
-    features: {
-        stockImages: false,
-        userUploads: true,
-        textEditor: {
-            spellChecker: false
-        }
-    },
-    tools: {
-        // Enable/disable specific tools
-        image: { enabled: true },
-        button: { enabled: true },
-        divider: { enabled: true },
-        heading: { enabled: true },
-        html: { enabled: true },
-        menu: { enabled: false },
-        social: { enabled: true },
-        text: { enabled: true },
-        timer: { enabled: false },
-        video: { enabled: false }
-    },
-    mergeTags: Object.entries(PLACEHOLDERS).map(([value, name]) => ({
-        name: name,
-        value: value
-    }))
-};
+        },
+        features: {
+            stockImages: false,
+            userUploads: true,
+            textEditor: {
+                spellChecker: false
+            }
+        },
+        tools: {
+            image: { enabled: true },
+            button: { enabled: true },
+            divider: { enabled: true },
+            heading: { enabled: true },
+            html: { enabled: true },
+            menu: { enabled: false },
+            social: { enabled: true },
+            text: { enabled: true },
+            timer: { enabled: false },
+            video: { enabled: false }
+        },
+        mergeTags: getMergeTags(templateType),
+    };
+}
+
+// Collapsible placeholder group for the dropdown
+function PlaceholderGroup({ groupName, items, onSelect }) {
+    const [isExpanded, setIsExpanded] = useState(true);
+
+    return (
+        <div className="reb-placeholder-group">
+            <button
+                type="button"
+                className="reb-placeholder-group-header"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(!isExpanded);
+                }}
+            >
+                <svg
+                    className={`reb-placeholder-chevron ${isExpanded ? 'reb-placeholder-chevron-open' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <span>{groupName}</span>
+                <span className="reb-placeholder-count">{Object.keys(items).length}</span>
+            </button>
+            {isExpanded && (
+                <div className="reb-placeholder-group-items">
+                    {Object.entries(items).map(([value, name]) => (
+                        <button
+                            key={value}
+                            type="button"
+                            onClick={() => onSelect(value)}
+                            className="reb-dropdown-item"
+                        >
+                            <code>{value}</code>
+                            <span>{name}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
 function EmailBuilderApp({ templateId, templateName, templateType, templateLanguage, initialDesign, backUrl }) {
     const emailEditorRef = useRef(null);
@@ -240,16 +338,10 @@ function EmailBuilderApp({ templateId, templateName, templateType, templateLangu
     // Insert placeholder into editor
     const insertPlaceholder = useCallback((placeholder) => {
         if (emailEditorRef.current?.editor) {
-            // Use Unlayer's merge tag insertion
-            emailEditorRef.current.editor.setMergeTags(
-                Object.entries(PLACEHOLDERS).map(([value, name]) => ({
-                    name: name,
-                    value: value
-                }))
-            );
+            emailEditorRef.current.editor.setMergeTags(getMergeTags(templateType));
         }
         setShowPlaceholders(false);
-    }, []);
+    }, [templateType]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -325,20 +417,19 @@ function EmailBuilderApp({ templateId, templateName, templateType, templateLangu
                         </button>
                         {showPlaceholders && (
                             <div className="reb-dropdown-menu">
-                                <div className="reb-dropdown-header">Klik untuk menyalin</div>
-                                {Object.entries(PLACEHOLDERS).map(([value, name]) => (
-                                    <button
-                                        key={value}
-                                        type="button"
-                                        onClick={() => {
+                                <div className="reb-dropdown-header">
+                                    {templateType === 'funnel_email_template' ? 'Click to copy' : 'Klik untuk menyalin'}
+                                </div>
+                                {Object.entries(PLACEHOLDER_SETS[templateType] || PLACEHOLDER_SETS.class_notification).map(([groupName, items]) => (
+                                    <PlaceholderGroup
+                                        key={groupName}
+                                        groupName={groupName}
+                                        items={items}
+                                        onSelect={(value) => {
                                             navigator.clipboard.writeText(value);
                                             setShowPlaceholders(false);
                                         }}
-                                        className="reb-dropdown-item"
-                                    >
-                                        <code>{value}</code>
-                                        <span>{name}</span>
-                                    </button>
+                                    />
                                 ))}
                             </div>
                         )}
@@ -406,7 +497,7 @@ function EmailBuilderApp({ templateId, templateName, templateType, templateLangu
                     ref={emailEditorRef}
                     onReady={onReady}
                     onLoad={onDesignChange}
-                    options={editorOptions}
+                    options={getEditorOptions(templateType)}
                     minHeight="100%"
                     style={{
                         height: '100%',
@@ -549,4 +640,4 @@ if (document.readyState === 'loading') {
     initEmailBuilder();
 }
 
-export { EmailBuilderApp, PLACEHOLDERS };
+export { EmailBuilderApp, PLACEHOLDER_SETS };
