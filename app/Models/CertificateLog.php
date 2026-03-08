@@ -13,7 +13,15 @@ class CertificateLog extends Model
         'user_id',
         'ip_address',
         'user_agent',
+        'metadata',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+        ];
+    }
 
     // Relationships
 
@@ -38,6 +46,7 @@ class CertificateLog extends Model
             'revoked' => 'Certificate Revoked',
             'sent_email' => 'Sent via Email',
             'sent_whatsapp' => 'Sent via WhatsApp',
+            'sent_waba' => 'Sent via WABA',
             default => ucfirst($this->action),
         };
     }
@@ -51,6 +60,7 @@ class CertificateLog extends Model
             'revoked' => 'x-circle',
             'sent_email' => 'envelope',
             'sent_whatsapp' => 'phone',
+            'sent_waba' => 'phone',
             default => 'activity',
         };
     }
@@ -64,6 +74,7 @@ class CertificateLog extends Model
             'revoked' => 'red',
             'sent_email' => 'blue',
             'sent_whatsapp' => 'emerald',
+            'sent_waba' => 'emerald',
             default => 'gray',
         };
     }

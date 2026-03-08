@@ -187,13 +187,14 @@ class CertificateIssue extends Model
 
     // Logging
 
-    public function logAction(string $action, ?User $user = null): void
+    public function logAction(string $action, ?User $user = null, ?array $metadata = null): void
     {
         $this->logs()->create([
             'action' => $action,
             'user_id' => $user?->id,
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
+            'metadata' => $metadata,
         ]);
     }
 

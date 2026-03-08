@@ -59,6 +59,19 @@ new class extends Component {
 
     public string $modalStudentSearch = '';
 
+    // WABA state
+    public string $whatsappProvider = 'onsend';
+    public ?int $selectedWabaTemplateId = null;
+
+    // Log modal state
+    public bool $showLogModal = false;
+    public ?int $logIssueId = null;
+
+    // Send Logs tab
+    public string $activeSection = 'certificates';
+    public string $logSearch = '';
+    public string $logActionFilter = 'all';
+
     public function mount(ClassModel $class): void
     {
         $this->class = $class->load(['certificates', 'course.certificates', 'activeStudents.student.user']);
@@ -75,7 +88,7 @@ new class extends Component {
         $stats = $this->class->getCertificateIssuanceStats($defaultCertificate);
 
         $issuedCertificates = $this->getFilteredIssuedQuery()
-            ->with(['certificate', 'student.user', 'issuedBy'])
+            ->with(['certificate', 'student.user', 'issuedBy', 'logs' => fn ($q) => $q->latest()->with('user')])
             ->paginate(10);
 
         $eligibleStudents = $this->class->activeStudents()
@@ -752,6 +765,44 @@ new class extends Component {
         $this->sendChannel = 'email';
         $this->sendMessage = '';
         $this->isBulkSend = false;
+        $this->whatsappProvider = 'onsend';
+        $this->selectedWabaTemplateId = null;
+    }
+
+    public function openLogModal(int $issueId): void
+    {
+        $this->logIssueId = $issueId;
+        $this->showLogModal = true;
+    }
+
+    public function closeLogModal(): void
+    {
+        $this->showLogModal = false;
+        $this->logIssueId = null;
+    }
+
+    public function getLogIssueProperty(): ?CertificateIssue
+    {
+        if (! $this->logIssueId) {
+            return null;
+        }
+
+        return CertificateIssue::with(['logs' => fn ($q) => $q->latest()->with('user'), 'student.user', 'certificate'])
+            ->find($this->logIssueId);
+    }
+
+    public function getSendLogsProperty(): \Illuminate\Pagination\LengthAwarePaginator
+    {
+        return \App\Models\CertificateLog::query()
+            ->whereHas('certificateIssue', fn ($q) => $q->where('class_id', $this->class->id))
+            ->whereIn('action', ['sent_email', 'sent_whatsapp', 'sent_waba'])
+            ->with(['certificateIssue.student.user', 'certificateIssue.certificate', 'user'])
+            ->when($this->logSearch, function ($q) {
+                $q->whereHas('certificateIssue.student.user', fn ($sq) => $sq->where('name', 'like', "%{$this->logSearch}%"));
+            })
+            ->when($this->logActionFilter !== 'all', fn ($q) => $q->where('action', $this->logActionFilter))
+            ->latest()
+            ->paginate(15, pageName: 'logPage');
     }
 
     protected function getDefaultSendMessage(CertificateIssue $issue): string
@@ -797,12 +848,46 @@ new class extends Component {
             ->toArray();
     }
 
+    public function getWabaTemplatesProperty(): array
+    {
+        return \App\Models\WhatsAppTemplate::query()
+            ->orderByRaw("CASE WHEN status = 'APPROVED' THEN 0 ELSE 1 END")
+            ->orderBy('name')
+            ->get()
+            ->toArray();
+    }
+
     public function sendCertificates(): void
     {
-        $this->validate([
+        $isWaba = in_array($this->sendChannel, ['whatsapp', 'both']) && $this->whatsappProvider === 'waba';
+
+        $rules = [
             'sendChannel' => 'required|in:email,whatsapp,both',
-            'sendMessage' => 'required|string|min:10',
-        ]);
+        ];
+
+        // Message required for email, or onsend whatsapp, or email part of both
+        if (! ($this->sendChannel === 'whatsapp' && $this->whatsappProvider === 'waba')) {
+            $rules['sendMessage'] = 'required|string|min:10';
+        }
+
+        if ($isWaba) {
+            $rules['selectedWabaTemplateId'] = 'required|exists:whatsapp_templates,id';
+        }
+
+        $this->validate($rules);
+
+        // Verify WABA template is approved before dispatching
+        if ($isWaba) {
+            $wabaTemplate = \App\Models\WhatsAppTemplate::find($this->selectedWabaTemplateId);
+            if (! $wabaTemplate || $wabaTemplate->status !== 'APPROVED') {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => 'The selected WABA template is not approved by Meta yet. Status: '.($wabaTemplate?->status ?? 'unknown'),
+                ]);
+
+                return;
+            }
+        }
 
         $issues = CertificateIssue::with(['student.user'])
             ->whereIn('id', $this->sendIssueIds)
@@ -856,7 +941,16 @@ new class extends Component {
             // WhatsApp channel
             if (in_array($this->sendChannel, ['whatsapp', 'both'])) {
                 $phone = $student?->phone_number;
-                if ($phone && $whatsApp->isEnabled()) {
+
+                if ($phone && $this->whatsappProvider === 'waba' && $this->selectedWabaTemplateId) {
+                    \App\Jobs\SendCertificateWabaJob::dispatch(
+                        $issue->id,
+                        $phone,
+                        $this->selectedWabaTemplateId,
+                        auth()->id()
+                    )->onQueue('whatsapp');
+                    $whatsappCount++;
+                } elseif ($phone && $this->whatsappProvider === 'onsend' && $whatsApp->isEnabled()) {
                     $randomDelay = $whatsApp->getRandomDelay();
                     \App\Jobs\SendCertificateWhatsAppJob::dispatch(
                         $issue->id,
@@ -1050,7 +1144,32 @@ new class extends Component {
         </div>
     </flux:card>
 
+    <!-- Section Tabs -->
+    <div class="flex items-center gap-1 border-b border-zinc-200 dark:border-zinc-700 mb-4">
+        <button
+            wire:click="$set('activeSection', 'certificates')"
+            class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {{ $activeSection === 'certificates' ? 'border-blue-500 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
+        >
+            Issued Certificates
+        </button>
+        <button
+            wire:click="$set('activeSection', 'send-logs')"
+            class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {{ $activeSection === 'send-logs' ? 'border-blue-500 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
+        >
+            Send Logs
+            @php
+                $totalSendLogs = \App\Models\CertificateLog::whereHas('certificateIssue', fn ($q) => $q->where('class_id', $class->id))
+                    ->whereIn('action', ['sent_email', 'sent_whatsapp', 'sent_waba'])
+                    ->count();
+            @endphp
+            @if($totalSendLogs > 0)
+                <flux:badge size="sm" class="ml-1">{{ $totalSendLogs }}</flux:badge>
+            @endif
+        </button>
+    </div>
+
     <!-- Issued Certificates List -->
+    @if($activeSection === 'certificates')
     <flux:card>
         <div class="p-5">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
@@ -1209,6 +1328,7 @@ new class extends Component {
                                 <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Number</th>
                                 <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Issue Date</th>
                                 <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                                <th class="px-5 py-2.5 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Sent</th>
                                 <th class="px-5 py-2.5 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -1298,6 +1418,27 @@ new class extends Component {
                                             <flux:badge color="red" size="sm">{{ ucfirst($issue->status) }}</flux:badge>
                                         @endif
                                     </td>
+                                    <td class="px-5 py-3 whitespace-nowrap text-center">
+                                        @php
+                                            $sendLogs = $issue->logs->whereIn('action', ['sent_email', 'sent_whatsapp', 'sent_waba']);
+                                            $hasSent = $sendLogs->isNotEmpty();
+                                        @endphp
+                                        @if($hasSent)
+                                            <button wire:click="openLogModal({{ $issue->id }})" class="inline-flex items-center gap-1 group">
+                                                <div class="flex items-center gap-0.5">
+                                                    @if($sendLogs->where('action', 'sent_email')->isNotEmpty())
+                                                        <flux:icon name="envelope" class="size-3.5 text-blue-500" />
+                                                    @endif
+                                                    @if($sendLogs->where('action', 'sent_whatsapp')->isNotEmpty() || $sendLogs->where('action', 'sent_waba')->isNotEmpty())
+                                                        <svg class="size-3.5 text-emerald-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                                    @endif
+                                                </div>
+                                                <span class="text-xs text-zinc-500 group-hover:text-blue-600 transition-colors">{{ $sendLogs->count() }}x</span>
+                                            </button>
+                                        @else
+                                            <span class="text-xs text-zinc-400">—</span>
+                                        @endif
+                                    </td>
                                     <td class="px-5 py-3 whitespace-nowrap text-right">
                                         <div class="flex items-center justify-end gap-1">
                                             @if($issue->hasFile())
@@ -1350,6 +1491,194 @@ new class extends Component {
             @endif
         </div>
     </flux:card>
+    @endif
+
+    <!-- Send Logs Section -->
+    @if($activeSection === 'send-logs')
+    <flux:card>
+        <div class="p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div>
+                    <flux:heading size="lg">Send Logs</flux:heading>
+                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">History of all certificate deliveries for this class</flux:text>
+                </div>
+                <div class="flex items-center gap-2">
+                    <flux:input
+                        wire:model.live.debounce.300ms="logSearch"
+                        placeholder="Search student..."
+                        icon="magnifying-glass"
+                        size="sm"
+                    />
+                    <flux:select wire:model.live="logActionFilter" size="sm">
+                        <option value="all">All Channels</option>
+                        <option value="sent_email">Email</option>
+                        <option value="sent_whatsapp">WhatsApp (Onsend)</option>
+                        <option value="sent_waba">WhatsApp (WABA)</option>
+                    </flux:select>
+                </div>
+            </div>
+
+            @if($this->sendLogs->isEmpty())
+                <div class="text-center py-12">
+                    <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 mb-3">
+                        <flux:icon name="paper-airplane" class="size-6 text-zinc-400" />
+                    </div>
+                    <flux:heading size="sm" class="text-zinc-600 dark:text-zinc-300">No send logs yet</flux:heading>
+                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Logs will appear here when certificates are sent to students</flux:text>
+                </div>
+            @else
+                <div class="overflow-x-auto -mx-5">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="border-y border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50">
+                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
+                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Certificate</th>
+                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Channel</th>
+                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Sent By</th>
+                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            @foreach($this->sendLogs as $log)
+                                <tr wire:key="send-log-{{ $log->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <td class="px-5 py-3">
+                                        <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ $log->certificateIssue?->student?->user?->name ?? 'Unknown' }}</span>
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $log->certificateIssue?->certificate?->name ?? '-' }}</span>
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        @if($log->action === 'sent_email')
+                                            <flux:badge color="blue" size="sm">Email</flux:badge>
+                                        @elseif($log->action === 'sent_whatsapp')
+                                            <flux:badge color="green" size="sm">WhatsApp</flux:badge>
+                                        @elseif($log->action === 'sent_waba')
+                                            <flux:badge color="emerald" size="sm">WABA</flux:badge>
+                                        @endif
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        @php $logMeta = $log->metadata ?? []; @endphp
+                                        @if(($logMeta['status'] ?? '') === 'sent')
+                                            <flux:badge color="green" size="sm">Sent</flux:badge>
+                                        @elseif(($logMeta['status'] ?? '') === 'delivered')
+                                            <flux:badge color="blue" size="sm">Delivered</flux:badge>
+                                        @elseif(($logMeta['status'] ?? '') === 'read')
+                                            <flux:badge color="indigo" size="sm">Read</flux:badge>
+                                        @elseif(($logMeta['status'] ?? '') === 'failed')
+                                            <flux:badge color="red" size="sm">Failed</flux:badge>
+                                        @else
+                                            <span class="text-xs text-zinc-400">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <span class="text-sm text-zinc-500 dark:text-zinc-400">{{ $log->user?->name ?? 'System' }}</span>
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <span class="text-sm text-zinc-500 dark:text-zinc-400">{{ $log->created_at->format('M d, Y H:i') }}</span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-4 px-5">
+                    {{ $this->sendLogs->links() }}
+                </div>
+            @endif
+        </div>
+    </flux:card>
+    @endif
+
+    <!-- Certificate Log Modal -->
+    <flux:modal wire:model="showLogModal" class="max-w-lg">
+        <div class="space-y-4">
+            <div>
+                <flux:heading size="lg">Certificate Send History</flux:heading>
+                @if($this->logIssue)
+                    <flux:text class="mt-1 text-sm text-zinc-500">{{ $this->logIssue->student?->user?->name ?? 'Unknown' }} — {{ $this->logIssue->certificate?->name ?? '' }}</flux:text>
+                @endif
+            </div>
+
+            <flux:separator />
+
+            @if($this->logIssue && $this->logIssue->logs->isNotEmpty())
+                <div class="space-y-3 max-h-96 overflow-y-auto">
+                    @foreach($this->logIssue->logs as $log)
+                        <div class="flex items-start gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                            <div class="flex-shrink-0 mt-0.5">
+                                @if($log->action === 'sent_email')
+                                    <flux:icon name="envelope" class="size-4 text-blue-500" />
+                                @elseif(in_array($log->action, ['sent_whatsapp', 'sent_waba']))
+                                    <svg class="size-4 text-emerald-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                @elseif($log->action === 'issued')
+                                    <flux:icon name="check-circle" class="size-4 text-green-500" />
+                                @elseif($log->action === 'revoked')
+                                    <flux:icon name="x-circle" class="size-4 text-red-500" />
+                                @elseif($log->action === 'downloaded')
+                                    <flux:icon name="arrow-down-tray" class="size-4 text-indigo-500" />
+                                @elseif($log->action === 'viewed')
+                                    <flux:icon name="eye" class="size-4 text-blue-500" />
+                                @else
+                                    <flux:icon name="clock" class="size-4 text-zinc-400" />
+                                @endif
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ $log->formatted_action }}</span>
+                                        @if($log->metadata)
+                                            @php $meta = $log->metadata; @endphp
+                                            @if(($meta['status'] ?? '') === 'sent')
+                                                <flux:badge color="green" size="sm">Sent</flux:badge>
+                                            @elseif(($meta['status'] ?? '') === 'delivered')
+                                                <flux:badge color="blue" size="sm">Delivered</flux:badge>
+                                            @elseif(($meta['status'] ?? '') === 'read')
+                                                <flux:badge color="indigo" size="sm">Read</flux:badge>
+                                            @elseif(($meta['status'] ?? '') === 'failed')
+                                                <flux:badge color="red" size="sm">Failed</flux:badge>
+                                            @endif
+                                        @endif
+                                    </div>
+                                    <span class="text-xs text-zinc-400">{{ $log->created_at->diffForHumans() }}</span>
+                                </div>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="text-xs text-zinc-500">{{ $log->user?->name ?? 'System' }}</span>
+                                    <span class="text-xs text-zinc-400">{{ $log->created_at->format('M d, Y H:i') }}</span>
+                                </div>
+                                @if($log->metadata)
+                                    @php $meta = $log->metadata; @endphp
+                                    <div class="flex items-center gap-2 mt-1 text-xs text-zinc-400">
+                                        @if(!empty($meta['email']))
+                                            <span>{{ $meta['email'] }}</span>
+                                        @endif
+                                        @if(!empty($meta['phone']))
+                                            <span>{{ $meta['phone'] }}</span>
+                                        @endif
+                                        @if(!empty($meta['template']))
+                                            <span>Template: {{ $meta['template'] }}</span>
+                                        @endif
+                                        @if(!empty($meta['error']))
+                                            <span class="text-red-500">{{ $meta['error'] }}</span>
+                                        @endif
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="text-center py-6">
+                    <flux:text class="text-sm text-zinc-500">No logs found for this certificate</flux:text>
+                </div>
+            @endif
+
+            <div class="flex justify-end pt-2">
+                <flux:button variant="ghost" wire:click="closeLogModal">Close</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 
     <!-- Assign Certificate Modal -->
     <flux:modal wire:model="showAssignModal" class="max-w-lg">
@@ -1672,6 +2001,66 @@ new class extends Component {
                 <flux:error name="sendChannel" />
             </flux:field>
 
+            {{-- WhatsApp Provider Sub-option --}}
+            @if(in_array($sendChannel, ['whatsapp', 'both']))
+                <flux:field>
+                    <flux:label>WhatsApp Provider</flux:label>
+                    <flux:radio.group wire:model.live="whatsappProvider">
+                        <flux:radio value="onsend" label="Onsend (Free-form message)" />
+                        <flux:radio value="waba" label="WABA Official (Template message)" />
+                    </flux:radio.group>
+                </flux:field>
+
+                @if($whatsappProvider === 'waba')
+                    {{-- WABA Template Picker --}}
+                    <flux:field>
+                        <flux:label>WhatsApp Template</flux:label>
+                        <flux:select wire:model.live="selectedWabaTemplateId" placeholder="Select a template...">
+                            @foreach($this->wabaTemplates as $tpl)
+                                <flux:select.option value="{{ $tpl['id'] }}">
+                                    {{ $tpl['name'] }} ({{ $tpl['language'] }}) — {{ $tpl['status'] }}
+                                </flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        <flux:error name="selectedWabaTemplateId" />
+
+                        @if(empty($this->wabaTemplates))
+                            <flux:text class="text-xs text-amber-600 mt-1">
+                                No templates found. Create one in <a href="{{ route('admin.whatsapp.templates') }}" class="underline" target="_blank">WhatsApp Templates</a>.
+                            </flux:text>
+                        @elseif(!collect($this->wabaTemplates)->contains('status', 'APPROVED'))
+                            <flux:text class="text-xs text-amber-600 mt-1">
+                                No approved templates yet. Templates must be approved by Meta before sending.
+                            </flux:text>
+                        @endif
+                    </flux:field>
+
+                    {{-- Template Preview --}}
+                    @if($selectedWabaTemplateId)
+                        @php
+                            $selectedTemplate = collect($this->wabaTemplates)->firstWhere('id', (int) $selectedWabaTemplateId);
+                            $bodyComponent = collect($selectedTemplate['components'] ?? [])->firstWhere('type', 'BODY');
+                        @endphp
+                        @if($bodyComponent)
+                            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 bg-zinc-50 dark:bg-zinc-800/50">
+                                <flux:text class="text-xs font-medium text-zinc-500 mb-1">Template Preview</flux:text>
+                                <p class="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-line">{!! e($bodyComponent['text'] ?? '') !!}</p>
+                                @if(!empty($selectedTemplate['variable_mappings']['body'] ?? []))
+                                    <div class="mt-2 flex flex-wrap gap-1">
+                                        @foreach($selectedTemplate['variable_mappings']['body'] as $num => $field)
+                                            @php $varLabel = '{'.'{'.$num.'}'.'}'; @endphp
+                                            <flux:badge size="sm" color="blue">
+                                                {{ $varLabel }} → {{ str_replace('_', ' ', $field) }}
+                                            </flux:badge>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+                    @endif
+                @endif
+            @endif
+
             {{-- Email warning if recipients missing email --}}
             @if(in_array($sendChannel, ['email', 'both']))
                 @php $missingEmail = collect($this->sendRecipients)->where('has_email', false); @endphp
@@ -1683,8 +2072,8 @@ new class extends Component {
                 @endif
             @endif
 
-            {{-- WhatsApp warning if not enabled --}}
-            @if(in_array($sendChannel, ['whatsapp', 'both']))
+            {{-- WhatsApp warning if not enabled (only for Onsend) --}}
+            @if(in_array($sendChannel, ['whatsapp', 'both']) && $whatsappProvider === 'onsend')
                 @php $whatsAppEnabled = app(WhatsAppService::class)->isEnabled(); @endphp
                 @if(!$whatsAppEnabled)
                     <flux:callout variant="warning">
@@ -1692,7 +2081,10 @@ new class extends Component {
                         <flux:callout.text>WhatsApp service is not enabled. Configure it in Settings to send via WhatsApp.</flux:callout.text>
                     </flux:callout>
                 @endif
+            @endif
 
+            {{-- Missing phone warning --}}
+            @if(in_array($sendChannel, ['whatsapp', 'both']))
                 @php $missingPhone = collect($this->sendRecipients)->where('has_phone', false); @endphp
                 @if($missingPhone->isNotEmpty())
                     <flux:callout variant="warning">
@@ -1702,15 +2094,21 @@ new class extends Component {
                 @endif
             @endif
 
-            {{-- Message --}}
-            <flux:field>
-                <flux:label>Message</flux:label>
-                <flux:textarea wire:model="sendMessage" rows="6" placeholder="Enter the message to send with the certificate..." />
-                <flux:error name="sendMessage" />
-                <flux:text class="text-xs text-zinc-400 mt-1">
-                    This message will be included in the email body and/or WhatsApp text message. The certificate PDF will be attached automatically.
-                </flux:text>
-            </flux:field>
+            {{-- Message (hidden when WABA-only WhatsApp, shown for email or onsend) --}}
+            @if(!($whatsappProvider === 'waba' && $sendChannel === 'whatsapp'))
+                <flux:field>
+                    <flux:label>Message</flux:label>
+                    <flux:textarea wire:model="sendMessage" rows="6" placeholder="Enter the message to send with the certificate..." />
+                    <flux:error name="sendMessage" />
+                    <flux:text class="text-xs text-zinc-400 mt-1">
+                        @if($sendChannel === 'both' && $whatsappProvider === 'waba')
+                            This message will be used for the email body. WhatsApp will use the selected template.
+                        @else
+                            This message will be included in the email body and/or WhatsApp text message. The certificate PDF will be attached automatically.
+                        @endif
+                    </flux:text>
+                </flux:field>
+            @endif
 
             {{-- Action Buttons --}}
             <div class="flex justify-end gap-3 pt-2">

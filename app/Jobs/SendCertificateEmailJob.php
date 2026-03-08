@@ -42,7 +42,10 @@ class SendCertificateEmailJob implements ShouldQueue
             ->send(new CertificateSent($issue, $this->customMessage));
 
         $sentBy = User::find($this->sentByUserId);
-        $issue->logAction('sent_email', $sentBy);
+        $issue->logAction('sent_email', $sentBy, [
+            'status' => 'sent',
+            'email' => $this->recipientEmail,
+        ]);
 
         Log::info('Certificate email sent', [
             'issue_id' => $this->certificateIssueId,

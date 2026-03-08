@@ -112,15 +112,26 @@ class SendCertificateWhatsAppJob implements ShouldQueue
             mediaFilename: $filename,
         );
 
+        $sentBy = User::find($this->sentByUserId);
+
         if ($docResult['success']) {
-            $sentBy = User::find($this->sentByUserId);
-            $issue->logAction('sent_whatsapp', $sentBy);
+            $issue->logAction('sent_whatsapp', $sentBy, [
+                'status' => 'sent',
+                'phone' => $this->phoneNumber,
+                'message_id' => $docResult['message_id'] ?? null,
+            ]);
 
             Log::info('Certificate WhatsApp sent', [
                 'issue_id' => $this->certificateIssueId,
                 'phone' => $this->phoneNumber,
             ]);
         } else {
+            $issue->logAction('sent_whatsapp', $sentBy, [
+                'status' => 'failed',
+                'phone' => $this->phoneNumber,
+                'error' => $docResult['error'] ?? 'Unknown error',
+            ]);
+
             Log::warning('Certificate WhatsApp document send failed', [
                 'issue_id' => $this->certificateIssueId,
                 'phone' => $this->phoneNumber,

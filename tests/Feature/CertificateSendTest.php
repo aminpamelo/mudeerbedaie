@@ -301,7 +301,9 @@ test('close send modal resets state', function () {
         ->assertSet('sendIssueIds', [])
         ->assertSet('sendChannel', 'email')
         ->assertSet('sendMessage', '')
-        ->assertSet('isBulkSend', false);
+        ->assertSet('isBulkSend', false)
+        ->assertSet('whatsappProvider', 'onsend')
+        ->assertSet('selectedWabaTemplateId', null);
 });
 
 test('bulk send with empty selection does nothing', function () {
