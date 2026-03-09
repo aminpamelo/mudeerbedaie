@@ -381,13 +381,21 @@ new class extends Component
 
     public function getActionNeededStats(): array
     {
+        $counts = ProductOrder::visibleInAdmin()->selectRaw("
+            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_confirmation,
+            SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing,
+            SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as ready_to_ship
+        ")->first();
+
+        $unpaidOrders = ProductOrder::visibleInAdmin()->whereHas('payments', function ($query) {
+            $query->where('status', '!=', 'paid');
+        })->whereNotIn('status', ['cancelled', 'refunded'])->count();
+
         return [
-            'pending_confirmation' => ProductOrder::visibleInAdmin()->where('status', 'pending')->count(),
-            'unpaid_orders' => ProductOrder::visibleInAdmin()->whereHas('payments', function ($query) {
-                $query->where('status', '!=', 'paid');
-            })->whereNotIn('status', ['cancelled', 'refunded'])->count(),
-            'processing' => ProductOrder::visibleInAdmin()->where('status', 'processing')->count(),
-            'ready_to_ship' => ProductOrder::visibleInAdmin()->where('status', 'confirmed')->count(),
+            'pending_confirmation' => $counts->pending_confirmation ?? 0,
+            'unpaid_orders' => $unpaidOrders,
+            'processing' => $counts->processing ?? 0,
+            'ready_to_ship' => $counts->ready_to_ship ?? 0,
         ];
     }
 
@@ -1176,7 +1184,8 @@ new class extends Component
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($this->getOrders() as $order)
+                    @php $orders = $this->getOrders(); @endphp
+                    @forelse($orders as $order)
                         <tr class="border-b border-zinc-100 dark:border-zinc-700/50 hover:bg-zinc-50/70 dark:hover:bg-zinc-700/30 transition-colors" wire:key="order-{{ $order->id }}">
                             <!-- Order Number -->
                             <td class="px-5 py-3.5 whitespace-nowrap">
@@ -1515,9 +1524,9 @@ new class extends Component
         </div>
 
         <!-- Pagination -->
-        @if($this->getOrders()->hasPages())
+        @if($orders->hasPages())
             <div class="px-5 py-3.5 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800">
-                {{ $this->getOrders()->links() }}
+                {{ $orders->links() }}
             </div>
         @endif
     </div>
