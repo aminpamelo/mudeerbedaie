@@ -393,7 +393,7 @@ new class extends Component
 
     public function exportOrders()
     {
-        return $this->streamDownload(function () {
+        return response()->streamDownload(function () {
             $orders = ProductOrder::query()
                 ->visibleInAdmin()
                 ->with([
