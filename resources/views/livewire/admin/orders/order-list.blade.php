@@ -1,6 +1,8 @@
 <?php
 
+use App\Jobs\ExportProductOrders;
 use App\Models\ProductOrder;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -399,164 +401,53 @@ new class extends Component
         ];
     }
 
-    public function exportOrders()
+    public string $exportStatus = '';
+
+    public string $exportFilename = '';
+
+    public function exportOrders(): void
     {
-        return response()->streamDownload(function () {
-            $orders = ProductOrder::query()
-                ->visibleInAdmin()
-                ->with([
-                    'customer',
-                    'student',
-                    'agent',
-                    'items.product',
-                    'items.package',
-                    'payments',
-                    'platform',
-                    'platformAccount',
-                ])
-                ->when($this->search, function ($query) {
-                    $query->where(function ($q) {
-                        $q->where('order_number', 'like', '%'.$this->search.'%')
-                            ->orWhere('platform_order_id', 'like', '%'.$this->search.'%')
-                            ->orWhere('platform_order_number', 'like', '%'.$this->search.'%')
-                            ->orWhere('customer_name', 'like', '%'.$this->search.'%')
-                            ->orWhere('guest_email', 'like', '%'.$this->search.'%')
-                            ->orWhereHas('customer', function ($customerQuery) {
-                                $customerQuery->where('name', 'like', '%'.$this->search.'%')
-                                    ->orWhere('email', 'like', '%'.$this->search.'%');
-                            })
-                            ->orWhereRaw("JSON_EXTRACT(metadata, '$.package_name') LIKE ?", ['%'.$this->search.'%']);
-                    });
-                })
-                ->when($this->activeTab !== 'all', function ($query) {
-                    $query->where('status', $this->activeTab);
-                })
-                ->when($this->sourceTab !== 'all', function ($query) {
-                    match ($this->sourceTab) {
-                        'platform' => $query->whereNotNull('platform_id'),
-                        'agent_company' => $query->whereNull('platform_id')->where(function ($q) {
-                            $q->whereNotIn('source', ['funnel', 'pos'])
-                              ->orWhereNull('source');
-                        }),
-                        'funnel' => $query->where('source', 'funnel'),
-                        'pos' => $query->where('source', 'pos'),
-                        default => $query
-                    };
-                })
-                ->when($this->productFilter, function ($query) {
-                    if (str_starts_with($this->productFilter, 'package:')) {
-                        $packageId = str_replace('package:', '', $this->productFilter);
-                        $query->whereHas('items', function ($itemQuery) use ($packageId) {
-                            $itemQuery->where('package_id', $packageId);
-                        });
-                    } else {
-                        $query->whereHas('items', function ($itemQuery) {
-                            $itemQuery->where('product_id', $this->productFilter);
-                        });
-                    }
-                })
-                ->when($this->dateFilter, function ($query) {
-                    match ($this->dateFilter) {
-                        'today' => $query->whereDate('created_at', today()),
-                        'week' => $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]),
-                        'month' => $query->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year),
-                        'year' => $query->whereYear('created_at', now()->year),
-                        default => $query
-                    };
-                })
-                ->when($this->dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $this->dateFrom))
-                ->when($this->dateTo, fn ($query) => $query->whereDate('created_at', '<=', $this->dateTo))
-                ->orderBy($this->sortBy, $this->sortDirection)
-                ->get();
+        $filename = 'orders-export-'.now()->format('Y-m-d-His').'.csv';
 
-            $handle = fopen('php://output', 'w');
+        ExportProductOrders::dispatch(
+            userId: auth()->id(),
+            filename: $filename,
+            filters: [
+                'search' => $this->search,
+                'activeTab' => $this->activeTab,
+                'sourceTab' => $this->sourceTab,
+                'productFilter' => $this->productFilter,
+                'dateFilter' => $this->dateFilter,
+                'dateFrom' => $this->dateFrom,
+                'dateTo' => $this->dateTo,
+                'sortBy' => $this->sortBy,
+                'sortDirection' => $this->sortDirection,
+            ],
+        );
 
-            // CSV headers
-            fputcsv($handle, [
-                'Order Number',
-                'Date',
-                'Source',
-                'Status',
-                'Payment Status',
-                'Customer Name',
-                'Customer Email',
-                'Customer Phone',
-                'Items',
-                'Quantities',
-                'Unit Prices',
-                'Subtotal',
-                'Discount',
-                'Shipping Cost',
-                'Tax',
-                'Total Amount',
-                'Currency',
-                'Payment Method',
-                'Tracking Number',
-                'Shipping Provider',
-                'Shipping Address',
-                'Platform',
-                'Platform Order ID',
-                'Agent',
-                'Coupon Code',
-                'Customer Notes',
-                'Internal Notes',
-            ]);
+        $this->exportStatus = 'processing';
+        $this->exportFilename = $filename;
 
-            foreach ($orders as $order) {
-                $source = $this->getOrderSource($order);
-                $itemNames = $order->items->map(fn ($item) => $item->product_name ?? $item->product?->name ?? 'N/A')->implode('; ');
-                $quantities = $order->items->map(fn ($item) => $item->quantity_ordered)->implode('; ');
-                $unitPrices = $order->items->map(fn ($item) => number_format($item->unit_price, 2))->implode('; ');
+        $this->dispatch('order-updated', message: 'Export started! The file will be ready shortly. Click "Download Export" when available.');
+    }
 
-                $shippingAddress = '';
-                if (is_array($order->shipping_address)) {
-                    $addr = $order->shipping_address;
-                    if (! empty($addr['full_address'])) {
-                        $shippingAddress = $addr['full_address'];
-                    } else {
-                        $shippingAddress = implode(', ', array_filter([
-                            $addr['address'] ?? $addr['address_line1'] ?? '',
-                            $addr['city'] ?? '',
-                            $addr['state'] ?? '',
-                            $addr['postcode'] ?? $addr['zip'] ?? '',
-                            $addr['country'] ?? '',
-                        ]));
-                    }
-                }
+    public function checkExportReady(): void
+    {
+        if ($this->exportFilename && Storage::disk('local')->exists('exports/'.$this->exportFilename)) {
+            $this->exportStatus = 'ready';
+        }
+    }
 
-                fputcsv($handle, [
-                    $order->order_number,
-                    $order->created_at?->format('Y-m-d H:i:s'),
-                    $source['label'],
-                    ucfirst($order->status),
-                    $order->isPaid() ? 'Paid' : 'Unpaid',
-                    $order->getCustomerName(),
-                    $order->getCustomerEmail(),
-                    $order->getCustomerPhone(),
-                    $itemNames,
-                    $quantities,
-                    $unitPrices,
-                    number_format($order->subtotal, 2),
-                    number_format($order->total_discount, 2),
-                    number_format($order->shipping_cost, 2),
-                    number_format($order->tax_amount, 2),
-                    number_format($order->total_amount, 2),
-                    $order->currency ?? 'MYR',
-                    $order->payment_method_label,
-                    $order->tracking_id,
-                    $order->shipping_provider,
-                    $shippingAddress,
-                    $order->platform?->name,
-                    $order->platform_order_id,
-                    $order->agent?->name ?? '',
-                    $order->coupon_code,
-                    $order->customer_notes,
-                    $order->internal_notes,
-                ]);
-            }
+    public function downloadExport()
+    {
+        if ($this->exportFilename && Storage::disk('local')->exists('exports/'.$this->exportFilename)) {
+            $this->exportStatus = '';
+            $path = Storage::disk('local')->path('exports/'.$this->exportFilename);
 
-            fclose($handle);
-        }, 'orders-export-'.now()->format('Y-m-d-His').'.csv');
+            return response()->download($path, $this->exportFilename)->deleteFileAfterSend(true);
+        }
+
+        $this->dispatch('order-updated', message: 'Export file not ready yet. Please wait a moment and try again.');
     }
 
     public function getSourceCounts(): array
@@ -841,12 +732,28 @@ new class extends Component
             <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">Manage customer orders including product purchases and package sales</flux:text>
         </div>
         <div class="flex items-center gap-3">
-            <flux:button variant="outline" wire:click="exportOrders" size="sm">
-                <div class="flex items-center justify-center">
-                    <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1.5" />
-                    Export
-                </div>
-            </flux:button>
+            @if($exportStatus === 'processing')
+                <flux:button variant="outline" wire:click="checkExportReady" wire:poll.5s="checkExportReady" size="sm">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="arrow-path" class="w-4 h-4 mr-1.5 animate-spin" />
+                        Preparing...
+                    </div>
+                </flux:button>
+            @elseif($exportStatus === 'ready')
+                <flux:button variant="primary" wire:click="downloadExport" size="sm">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1.5" />
+                        Download Export
+                    </div>
+                </flux:button>
+            @else
+                <flux:button variant="outline" wire:click="exportOrders" size="sm">
+                    <div class="flex items-center justify-center">
+                        <flux:icon name="arrow-down-tray" class="w-4 h-4 mr-1.5" />
+                        Export
+                    </div>
+                </flux:button>
+            @endif
             <flux:button variant="primary" :href="route('admin.orders.create')" wire:navigate>
                 <div class="flex items-center justify-center">
                     <flux:icon name="plus" class="w-4 h-4 mr-1.5" />
