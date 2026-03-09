@@ -22,6 +22,7 @@ class ExportProductOrders implements ShouldQueue
     public function handle(): void
     {
         $path = 'exports/'.$this->filename;
+        Storage::disk('local')->makeDirectory('exports');
         $handle = fopen(Storage::disk('local')->path($path), 'w');
 
         fputcsv($handle, [
