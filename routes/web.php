@@ -410,6 +410,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Volt::route('whatsapp-inbox', 'admin.whatsapp-inbox')->name('admin.whatsapp-inbox');
     Volt::route('whatsapp/templates', 'admin.whatsapp-templates')->name('admin.whatsapp.templates');
     Volt::route('settings/whatsapp', 'admin.settings-whatsapp')->name('admin.settings.whatsapp');
+    Volt::route('whatsapp/costs', 'admin.whatsapp-cost-monitoring')->name('admin.whatsapp.costs');
     Volt::route('settings/shipping', 'admin.settings-shipping')->name('admin.settings.shipping');
 
     // Customer Service routes

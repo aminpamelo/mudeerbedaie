@@ -30,6 +30,7 @@ class WhatsAppMessage extends Model
         'error_message',
         'sent_by_user_id',
         'metadata',
+        'estimated_cost_usd',
     ];
 
     protected function casts(): array
@@ -37,6 +38,7 @@ class WhatsAppMessage extends Model
         return [
             'status_updated_at' => 'datetime',
             'metadata' => 'array',
+            'estimated_cost_usd' => 'decimal:6',
         ];
     }
 

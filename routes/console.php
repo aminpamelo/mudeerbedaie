@@ -26,6 +26,9 @@ Schedule::command('tiktok:sync-orders --all --queue --days=1')
     ->withoutOverlapping()
     ->runInBackground();
 
+// WhatsApp cost analytics sync - fetches previous day's costs from Meta API
+Schedule::job(new \App\Jobs\SyncWhatsAppCostAnalyticsJob)->dailyAt('06:00');
+
 // TikTok token refresh - runs daily to ensure tokens don't expire
 Schedule::command(\App\Console\Commands\TikTokRefreshTokens::class)
     ->daily()

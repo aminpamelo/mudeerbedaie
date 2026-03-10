@@ -331,6 +331,15 @@
                     >
                         {{ __('WhatsApp Templates') }}
                     </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="currency-dollar"
+                        :href="route('admin.whatsapp.costs')"
+                        :current="request()->routeIs('admin.whatsapp.costs')"
+                        wire:navigate
+                    >
+                        {{ __('Cost Monitoring') }}
+                    </flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
