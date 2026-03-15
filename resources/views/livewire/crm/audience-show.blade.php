@@ -22,8 +22,7 @@ new class extends Component {
 
         if ($this->search) {
             $studentsQuery->where(function ($q) {
-                $q->where('email', 'like', '%' . $this->search . '%')
-                    ->orWhere('phone', 'like', '%' . $this->search . '%')
+                $q->where('students.phone', 'like', '%' . $this->search . '%')
                     ->orWhereHas('user', function ($uq) {
                         $uq->where('name', 'like', '%' . $this->search . '%')
                             ->orWhere('email', 'like', '%' . $this->search . '%');
@@ -146,7 +145,7 @@ new class extends Component {
                                 </a>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-500">{{ $student->email ?: ($student->user->email ?? '-') }}</div>
+                                <div class="text-sm text-gray-500">{{ $student->user->email ?? '-' }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-500">{{ $student->phone ?: '-' }}</div>
