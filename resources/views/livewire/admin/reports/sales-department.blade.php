@@ -206,8 +206,8 @@ new class extends Component
 
     private function loadSummary(): void
     {
-        $paidQuery = $this->baseQuery()->whereNotNull('paid_time');
-        $orders = $paidQuery->with('items')->get();
+        $activeQuery = $this->baseQuery()->where('status', '!=', 'cancelled');
+        $orders = $activeQuery->with('items')->get();
 
         $totalRevenue = (float) $orders->sum('total_amount');
         $totalOrders = $orders->count();
@@ -254,7 +254,7 @@ new class extends Component
     private function loadSalespersonPerformance(): void
     {
         $orders = $this->baseQuery()
-            ->whereNotNull('paid_time')
+            ->where('status', '!=', 'cancelled')
             ->get();
 
         $grouped = $orders->groupBy(fn ($order) => $order->metadata['salesperson_id'] ?? 'unassigned');
@@ -291,7 +291,7 @@ new class extends Component
         $monthGroup = $isSqlite ? "strftime('%m', order_date)" : 'MONTH(order_date)';
 
         $query = $this->baseQuery()
-            ->whereNotNull('paid_time')
+            ->where('status', '!=', 'cancelled')
             ->whereYear('order_date', $this->selectedYear);
 
         $stats = $query->selectRaw("
@@ -325,7 +325,7 @@ new class extends Component
     private function loadMonthlyPivotData(): void
     {
         $query = $this->baseQuery()
-            ->whereNotNull('paid_time')
+            ->where('status', '!=', 'cancelled')
             ->whereYear('order_date', $this->selectedYear);
 
         $orders = $query->get();
@@ -389,7 +389,7 @@ new class extends Component
     private function loadProductSummary(): void
     {
         $orderIds = $this->baseQuery()
-            ->whereNotNull('paid_time')
+            ->where('status', '!=', 'cancelled')
             ->pluck('id');
 
         $items = ProductOrderItem::query()->whereIn('order_id', $orderIds)->get();
@@ -443,7 +443,7 @@ new class extends Component
     private function loadMonthlyProductData(): void
     {
         $orderIds = $this->baseQuery()
-            ->whereNotNull('paid_time')
+            ->where('status', '!=', 'cancelled')
             ->whereYear('order_date', $this->selectedYear)
             ->pluck('id');
 
