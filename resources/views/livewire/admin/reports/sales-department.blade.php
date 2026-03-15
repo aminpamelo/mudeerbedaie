@@ -590,7 +590,7 @@ new class extends Component
             </div>
 
             <div class="w-full sm:w-36">
-                <flux:select wire:model.live="selectedStatus" label="Status">
+                <flux:select wire:model.live="selectedStatus" label="Payment Status">
                     <option value="all">All Statuses</option>
                     <option value="paid">Paid</option>
                     <option value="pending">Pending</option>
@@ -701,7 +701,7 @@ new class extends Component
                         </div>
                     </div>
                     <flux:text>Total Revenue</flux:text>
-                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">From paid orders</flux:subheading>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">From all active orders</flux:subheading>
                 </flux:card>
 
                 <flux:card class="space-y-2">
@@ -712,7 +712,7 @@ new class extends Component
                         </div>
                     </div>
                     <flux:text>Total Orders</flux:text>
-                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">Number of paid orders</flux:subheading>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">Number of active orders</flux:subheading>
                 </flux:card>
 
                 <flux:card class="space-y-2">
