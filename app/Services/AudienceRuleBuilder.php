@@ -17,7 +17,7 @@ class AudienceRuleBuilder
         return [
             // Spending & Orders
             'total_spending' => [
-                'label' => 'Total Spending (RM)',
+                'label' => 'Total Revenue (RM)',
                 'group' => 'Spending & Orders',
                 'operators' => ['>' => 'greater than', '<' => 'less than', '>=' => 'at least', '<=' => 'at most', '=' => 'equals', 'between' => 'between'],
                 'type' => 'number',
