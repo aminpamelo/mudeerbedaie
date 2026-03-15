@@ -312,6 +312,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Product Order Management routes
     Volt::route('product-orders', 'admin.orders.order-list')->name('admin.orders.index');
     Volt::route('product-orders/create', 'admin.orders.order-create')->name('admin.orders.create');
+    Volt::route('product-orders/report', 'admin.orders.order-report')->name('admin.orders.report');
     Volt::route('product-orders/{order}', 'admin.orders.order-show')->name('admin.orders.show');
     Volt::route('product-orders/{order}/edit', 'admin.orders.order-edit')->name('admin.orders.edit');
     Volt::route('product-orders/{order}/receipt', 'admin.orders.order-receipt')->name('admin.orders.receipt');

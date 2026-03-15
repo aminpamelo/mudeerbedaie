@@ -1125,3 +1125,453 @@ export function destroyAgentLeaderboardCharts() {
 
 window.initializeAgentLeaderboardCharts = initializeAgentLeaderboardCharts;
 window.destroyAgentLeaderboardCharts = destroyAgentLeaderboardCharts;
+
+// Order Report Charts
+let orderReportRevenueInstance = null;
+let orderReportSourceInstance = null;
+
+export function initOrderReportRevenueTrend(monthlyData) {
+    const months = Object.values(monthlyData).map(item => item.month_name);
+    const revenue = Object.values(monthlyData).map(item => item.total_revenue);
+    const orders = Object.values(monthlyData).map(item => item.total_orders);
+
+    const ctx = document.getElementById('orderReportRevenueTrendChart');
+    if (!ctx) return;
+
+    if (orderReportRevenueInstance) {
+        orderReportRevenueInstance.destroy();
+        orderReportRevenueInstance = null;
+    }
+
+    orderReportRevenueInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Revenue (RM)',
+                    data: revenue,
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Orders',
+                    data: orders,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: false,
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.datasetIndex === 0) {
+                                return 'Revenue: RM ' + context.parsed.y.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                            return 'Orders: ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear', display: true, position: 'left', beginAtZero: true,
+                    title: { display: true, text: 'Revenue (RM)' },
+                    ticks: { callback: function(value) { return 'RM ' + value.toLocaleString('en-MY'); } }
+                },
+                y1: {
+                    type: 'linear', display: true, position: 'right', beginAtZero: true,
+                    title: { display: true, text: 'Orders' },
+                    grid: { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}
+
+export function initOrderReportBySourceChart(monthlyData) {
+    const months = Object.values(monthlyData).map(item => item.month_name);
+    const platformOrders = Object.values(monthlyData).map(item => item.by_source.platform.orders);
+    const agentOrders = Object.values(monthlyData).map(item => item.by_source.agent_company.orders);
+    const funnelOrders = Object.values(monthlyData).map(item => item.by_source.funnel.orders);
+    const posOrders = Object.values(monthlyData).map(item => item.by_source.pos.orders);
+
+    const ctx = document.getElementById('orderReportBySourceChart');
+    if (!ctx) return;
+
+    if (orderReportSourceInstance) {
+        orderReportSourceInstance.destroy();
+        orderReportSourceInstance = null;
+    }
+
+    orderReportSourceInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Platform',
+                    data: platformOrders,
+                    backgroundColor: 'rgba(249, 115, 22, 0.8)',
+                    borderColor: 'rgb(249, 115, 22)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Agent & Co',
+                    data: agentOrders,
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Funnel',
+                    data: funnelOrders,
+                    backgroundColor: 'rgba(168, 85, 247, 0.8)',
+                    borderColor: 'rgb(168, 85, 247)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'POS',
+                    data: posOrders,
+                    backgroundColor: 'rgba(236, 72, 153, 0.8)',
+                    borderColor: 'rgb(236, 72, 153)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y + ' orders';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { stacked: true },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 },
+                    title: { display: true, text: 'Number of Orders' }
+                }
+            }
+        }
+    });
+}
+
+export function initializeOrderReportCharts(monthlyData) {
+    requestAnimationFrame(() => {
+        initOrderReportRevenueTrend(monthlyData);
+        initOrderReportBySourceChart(monthlyData);
+    });
+}
+
+export function destroyOrderReportCharts() {
+    if (orderReportRevenueInstance) { orderReportRevenueInstance.destroy(); orderReportRevenueInstance = null; }
+    if (orderReportSourceInstance) { orderReportSourceInstance.destroy(); orderReportSourceInstance = null; }
+}
+
+window.initializeOrderReportCharts = initializeOrderReportCharts;
+window.destroyOrderReportCharts = destroyOrderReportCharts;
+
+// Order Report Product Charts
+let orderReportProductTrendInstance = null;
+let orderReportProductBarInstance = null;
+
+export function initOrderReportProductTrend(monthlyProductData) {
+    const months = monthlyProductData.map(item => item.month_name);
+    const revenue = monthlyProductData.map(item => item.revenue);
+    const units = monthlyProductData.map(item => item.units_sold);
+
+    const ctx = document.getElementById('orderReportProductTrendChart');
+    if (!ctx) return;
+
+    if (orderReportProductTrendInstance) {
+        orderReportProductTrendInstance.destroy();
+        orderReportProductTrendInstance = null;
+    }
+
+    orderReportProductTrendInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Revenue',
+                    data: revenue,
+                    borderColor: 'rgb(99, 102, 241)',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Units Sold',
+                    data: units,
+                    borderColor: 'rgb(20, 184, 166)',
+                    backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.datasetIndex === 0) {
+                                return 'Revenue: RM ' + context.parsed.y.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                            return 'Units: ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear', display: true, position: 'left', beginAtZero: true,
+                    title: { display: true, text: 'Revenue (RM)' },
+                    ticks: { callback: function(value) { return 'RM ' + value.toLocaleString('en-MY'); } }
+                },
+                y1: {
+                    type: 'linear', display: true, position: 'right', beginAtZero: true,
+                    title: { display: true, text: 'Units Sold' },
+                    grid: { drawOnChartArea: false },
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+}
+
+export function initOrderReportProductBar(topProducts) {
+    if (!topProducts || topProducts.length === 0) return;
+
+    const labels = topProducts.map(p => {
+        const name = p.product_name || '';
+        return name.length > 20 ? name.substring(0, 20) + '...' : name;
+    });
+    const revenue = topProducts.map(p => p.total_revenue);
+
+    const ctx = document.getElementById('orderReportProductBarChart');
+    if (!ctx) return;
+
+    if (orderReportProductBarInstance) {
+        orderReportProductBarInstance.destroy();
+        orderReportProductBarInstance = null;
+    }
+
+    const colors = [
+        'rgba(99, 102, 241, 0.8)', 'rgba(20, 184, 166, 0.8)', 'rgba(245, 158, 11, 0.8)',
+        'rgba(239, 68, 68, 0.8)', 'rgba(34, 197, 94, 0.8)', 'rgba(168, 85, 247, 0.8)',
+        'rgba(59, 130, 246, 0.8)', 'rgba(236, 72, 153, 0.8)', 'rgba(251, 146, 60, 0.8)',
+        'rgba(14, 165, 233, 0.8)',
+    ];
+
+    orderReportProductBarInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Revenue',
+                data: revenue,
+                backgroundColor: colors.slice(0, revenue.length),
+                borderWidth: 0,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: RM ' + context.parsed.x.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { callback: function(value) { return 'RM ' + value.toLocaleString('en-MY'); } }
+                }
+            }
+        }
+    });
+}
+
+export function initializeOrderReportProductCharts(monthlyProductData, topProducts) {
+    requestAnimationFrame(() => {
+        initOrderReportProductTrend(monthlyProductData);
+        initOrderReportProductBar(topProducts);
+    });
+}
+
+export function destroyOrderReportProductCharts() {
+    if (orderReportProductTrendInstance) { orderReportProductTrendInstance.destroy(); orderReportProductTrendInstance = null; }
+    if (orderReportProductBarInstance) { orderReportProductBarInstance.destroy(); orderReportProductBarInstance = null; }
+}
+
+window.initializeOrderReportProductCharts = initializeOrderReportProductCharts;
+window.destroyOrderReportProductCharts = destroyOrderReportProductCharts;
+
+// Order Report Customer Charts
+let orderReportCustomerTrendInstance = null;
+let orderReportCustomerBarInstance = null;
+
+export function initOrderReportCustomerTrend(monthlyCustomerData) {
+    const months = monthlyCustomerData.map(item => item.month_name);
+    const customers = monthlyCustomerData.map(item => item.unique_customers);
+    const revenue = monthlyCustomerData.map(item => item.revenue);
+
+    const ctx = document.getElementById('orderReportCustomerTrendChart');
+    if (!ctx) return;
+
+    if (orderReportCustomerTrendInstance) {
+        orderReportCustomerTrendInstance.destroy();
+        orderReportCustomerTrendInstance = null;
+    }
+
+    orderReportCustomerTrendInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: 'Unique Customers',
+                    data: customers,
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Customers: ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 },
+                    title: { display: true, text: 'Number of Customers' }
+                }
+            }
+        }
+    });
+}
+
+export function initOrderReportCustomerBar(topCustomers) {
+    if (!topCustomers || topCustomers.length === 0) return;
+
+    const labels = topCustomers.map(c => {
+        const name = c.customer_name || 'Guest';
+        return name.length > 20 ? name.substring(0, 20) + '...' : name;
+    });
+    const revenue = topCustomers.map(c => c.total_revenue);
+
+    const ctx = document.getElementById('orderReportCustomerBarChart');
+    if (!ctx) return;
+
+    if (orderReportCustomerBarInstance) {
+        orderReportCustomerBarInstance.destroy();
+        orderReportCustomerBarInstance = null;
+    }
+
+    const colors = [
+        'rgba(59, 130, 246, 0.8)', 'rgba(34, 197, 94, 0.8)', 'rgba(245, 158, 11, 0.8)',
+        'rgba(239, 68, 68, 0.8)', 'rgba(168, 85, 247, 0.8)', 'rgba(99, 102, 241, 0.8)',
+        'rgba(236, 72, 153, 0.8)', 'rgba(20, 184, 166, 0.8)', 'rgba(251, 146, 60, 0.8)',
+        'rgba(14, 165, 233, 0.8)',
+    ];
+
+    orderReportCustomerBarInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Revenue',
+                data: revenue,
+                backgroundColor: colors.slice(0, revenue.length),
+                borderWidth: 0,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: RM ' + context.parsed.x.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { callback: function(value) { return 'RM ' + value.toLocaleString('en-MY'); } }
+                }
+            }
+        }
+    });
+}
+
+export function initializeOrderReportCustomerCharts(monthlyCustomerData, topCustomers) {
+    requestAnimationFrame(() => {
+        initOrderReportCustomerTrend(monthlyCustomerData);
+        initOrderReportCustomerBar(topCustomers);
+    });
+}
+
+export function destroyOrderReportCustomerCharts() {
+    if (orderReportCustomerTrendInstance) { orderReportCustomerTrendInstance.destroy(); orderReportCustomerTrendInstance = null; }
+    if (orderReportCustomerBarInstance) { orderReportCustomerBarInstance.destroy(); orderReportCustomerBarInstance = null; }
+}
+
+window.initializeOrderReportCustomerCharts = initializeOrderReportCustomerCharts;
+window.destroyOrderReportCustomerCharts = destroyOrderReportCustomerCharts;
