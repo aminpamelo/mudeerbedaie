@@ -16,9 +16,8 @@ new class extends Component
     {
         $this->student->load([
             'user',
-            'enrollments.course',
-            'activeEnrollments.course',
-            'completedEnrollments.course',
+            'classes.course',
+            'activeClasses.course',
             'user.paymentMethods',
             'classAttendances.session.class.course',
             'classAttendances' => function ($query) {
@@ -152,15 +151,15 @@ new class extends Component
     <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         <flux:card class="p-6">
             <div class="text-center">
-                <p class="text-2xl font-semibold text-blue-600">{{ $student->enrollments->count() }}</p>
+                <p class="text-2xl font-semibold text-blue-600">{{ $student->classes->count() }}</p>
                 <p class="text-sm text-gray-500 mt-1">Total Enrollments</p>
             </div>
         </flux:card>
 
         <flux:card class="p-6">
             <div class="text-center">
-                <p class="text-2xl font-semibold text-green-600">{{ $student->activeEnrollments->count() }}</p>
-                <p class="text-sm text-gray-500 mt-1">Active Courses</p>
+                <p class="text-2xl font-semibold text-green-600">{{ $student->activeClasses->count() }}</p>
+                <p class="text-sm text-gray-500 mt-1">Active Classes</p>
             </div>
         </flux:card>
 
@@ -223,8 +222,8 @@ new class extends Component
                     {{ $activeTab === 'enrollments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
                 <flux:icon name="book-open" class="w-4 h-4" />
                 Enrollments
-                @if($student->activeEnrollments->count() > 0)
-                    <flux:badge size="sm" class="badge-green">{{ $student->activeEnrollments->count() }}</flux:badge>
+                @if($student->activeClasses->count() > 0)
+                    <flux:badge size="sm" class="badge-green">{{ $student->activeClasses->count() }}</flux:badge>
                 @endif
             </button>
 
@@ -429,41 +428,39 @@ new class extends Component
         {{-- Enrollments Tab --}}
         @if($activeTab === 'enrollments')
             <div class="space-y-6">
-                {{-- Current Enrollments --}}
-                @if($student->activeEnrollments->count() > 0)
+                {{-- Active Class Enrollments --}}
+                @if($student->activeClasses->count() > 0)
                     <flux:card>
-                        <flux:heading size="lg">Current Enrollments</flux:heading>
-                        <flux:text class="text-gray-600">Active course enrollments</flux:text>
+                        <flux:heading size="lg">Active Classes</flux:heading>
+                        <flux:text class="text-gray-600">Currently enrolled classes</flux:text>
 
                         <div class="mt-6 overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled Date</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
-                                    @foreach($student->activeEnrollments as $enrollment)
+                                    @foreach($student->activeClasses as $class)
                                         <tr>
                                             <td class="px-6 py-4">
-                                                <div class="text-sm font-medium text-gray-900">{{ $enrollment->course->name }}</div>
-                                                <div class="text-sm text-gray-500">{{ $enrollment->course->description }}</div>
+                                                <div class="text-sm font-medium text-gray-900">{{ $class->title }}</div>
+                                                <div class="text-sm text-gray-500">{{ $class->class_type ? ucfirst($class->class_type) : '' }}</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <flux:badge :class="$enrollment->status_badge_class">
-                                                    {{ ucfirst($enrollment->status) }}
+                                                <div class="text-sm text-gray-900">{{ $class->course->name ?? 'N/A' }}</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <flux:badge class="badge-green">
+                                                    {{ ucfirst($class->pivot->status) }}
                                                 </flux:badge>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {{ $enrollment->enrollment_date->format('M d, Y') }}
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <flux:button size="sm" variant="ghost" href="{{ route('enrollments.show', $enrollment) }}">
-                                                    View Details
-                                                </flux:button>
+                                                {{ $class->pivot->enrolled_at ? \Carbon\Carbon::parse($class->pivot->enrolled_at)->format('M d, Y') : 'N/A' }}
                                             </td>
                                         </tr>
                                     @endforeach
@@ -473,38 +470,49 @@ new class extends Component
                     </flux:card>
                 @endif
 
-                {{-- Enrollment History --}}
-                @if($student->enrollments->count() > $student->activeEnrollments->count())
+                {{-- Inactive/Past Class Enrollments --}}
+                @php
+                    $inactiveClasses = $student->classes->reject(fn($class) => $class->pivot->status === 'active');
+                @endphp
+                @if($inactiveClasses->count() > 0)
                     <flux:card>
-                        <flux:heading size="lg">Enrollment History</flux:heading>
-                        <flux:text class="text-gray-600">Past course enrollments</flux:text>
+                        <flux:heading size="lg">Past Enrollments</flux:heading>
+                        <flux:text class="text-gray-600">Previous class enrollments</flux:text>
 
                         <div class="mt-6 overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled Date</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Left Date</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
-                                    @foreach($student->enrollments->reject(fn($enrollment) => $enrollment->isActive()) as $enrollment)
+                                    @foreach($inactiveClasses as $class)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm font-medium text-gray-900">{{ $enrollment->course->name }}</div>
+                                                <div class="text-sm font-medium text-gray-900">{{ $class->title }}</div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <flux:badge :class="$enrollment->status_badge_class">
-                                                    {{ ucfirst($enrollment->status) }}
+                                                <div class="text-sm text-gray-900">{{ $class->course->name ?? 'N/A' }}</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <flux:badge :class="match($class->pivot->status) {
+                                                    'completed' => 'badge-blue',
+                                                    'dropped', 'removed' => 'badge-red',
+                                                    default => 'badge-gray'
+                                                }">
+                                                    {{ ucfirst($class->pivot->status) }}
                                                 </flux:badge>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {{ $enrollment->enrollment_date->format('M d, Y') }}
+                                                {{ $class->pivot->enrolled_at ? \Carbon\Carbon::parse($class->pivot->enrolled_at)->format('M d, Y') : 'N/A' }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {{ $enrollment->completion_date?->format('M d, Y') ?? 'N/A' }}
+                                                {{ $class->pivot->left_at ? \Carbon\Carbon::parse($class->pivot->left_at)->format('M d, Y') : 'N/A' }}
                                             </td>
                                         </tr>
                                     @endforeach
@@ -514,12 +522,12 @@ new class extends Component
                     </flux:card>
                 @endif
 
-                @if($student->enrollments->count() === 0)
+                @if($student->classes->count() === 0)
                     <flux:card>
                         <div class="text-center py-12">
                             <flux:icon name="book-open" class="mx-auto h-12 w-12 text-gray-400" />
                             <flux:heading size="lg" class="mt-2">No enrollments</flux:heading>
-                            <flux:text class="mt-1 text-gray-500">This student hasn't enrolled in any courses yet.</flux:text>
+                            <flux:text class="mt-1 text-gray-500">This student hasn't been enrolled in any classes yet.</flux:text>
                         </div>
                     </flux:card>
                 @endif
