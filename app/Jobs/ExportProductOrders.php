@@ -102,7 +102,7 @@ class ExportProductOrders implements ShouldQueue
                 $order->created_at?->format('Y-m-d H:i:s'),
                 $source['label'],
                 ucfirst($order->status),
-                $order->isPaid() ? 'Paid' : 'Unpaid',
+                $order->isPaid() ? 'Paid' : ($order->status === 'cancelled' ? 'Cancelled' : 'Pending'),
                 $order->getCustomerName(),
                 $order->getCustomerEmail(),
                 $order->getCustomerPhone(),
