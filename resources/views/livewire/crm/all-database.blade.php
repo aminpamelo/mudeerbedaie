@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Course;
+use App\Models\ClassModel;
 use App\Models\Student;
 use App\Services\AudienceRuleBuilder;
 use Livewire\Volt\Component;
@@ -126,7 +126,7 @@ new class extends Component {
             'totalRevenue' => $totalRevenue,
             'groupedFields' => $groupedFields,
             'allFields' => $fields,
-            'courses' => Course::orderBy('name')->pluck('name', 'id'),
+            'classes' => ClassModel::orderBy('title')->pluck('title', 'id'),
         ];
     }
 
@@ -310,11 +310,11 @@ new class extends Component {
                                                         <flux:select.option value="yes">Yes</flux:select.option>
                                                         <flux:select.option value="no">No</flux:select.option>
                                                     </flux:select>
-                                                @elseif($fieldType === 'course')
+                                                @elseif($fieldType === 'class')
                                                     <flux:select wire:model="rules.{{ $index }}.value">
-                                                        <flux:select.option value="">Select course...</flux:select.option>
-                                                        @foreach($courses as $courseId => $courseName)
-                                                            <flux:select.option value="{{ $courseId }}">{{ $courseName }}</flux:select.option>
+                                                        <flux:select.option value="">Select class...</flux:select.option>
+                                                        @foreach($classes as $classId => $classTitle)
+                                                            <flux:select.option value="{{ $classId }}">{{ $classTitle }}</flux:select.option>
                                                         @endforeach
                                                     </flux:select>
                                                 @elseif($fieldType === 'enrollment_status')

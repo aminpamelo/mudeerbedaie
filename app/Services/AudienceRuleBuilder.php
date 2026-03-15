@@ -48,11 +48,11 @@ class AudienceRuleBuilder
                 'operators' => ['>' => 'greater than', '<' => 'less than', '>=' => 'at least', '<=' => 'at most', '=' => 'equals'],
                 'type' => 'number',
             ],
-            'enrolled_in_course' => [
-                'label' => 'Enrolled In Course',
+            'enrolled_in_class' => [
+                'label' => 'Enrolled In Class',
                 'group' => 'Enrollment & Courses',
                 'operators' => ['is' => 'is', 'is_not' => 'is not'],
-                'type' => 'course',
+                'type' => 'class',
             ],
             'enrollment_status' => [
                 'label' => 'Enrollment Status',
@@ -153,7 +153,7 @@ class AudienceRuleBuilder
             'last_order_date' => self::applyLastOrderDateRule($query, $operator, $value),
             'has_paid_orders' => self::applyHasPaidOrdersRule($query, $value),
             'enrollment_count' => self::applyEnrollmentCountRule($query, $operator, $value),
-            'enrolled_in_course' => self::applyEnrolledInCourseRule($query, $operator, $value),
+            'enrolled_in_class' => self::applyEnrolledInClassRule($query, $operator, $value),
             'enrollment_status' => self::applyEnrollmentStatusRule($query, $operator, $value),
             'subscription_status' => self::applySubscriptionStatusRule($query, $operator, $value),
             'student_status' => self::applyStudentStatusRule($query, $operator, $value),
@@ -229,12 +229,12 @@ class AudienceRuleBuilder
         $query->has('enrollments', $sqlOp, (int) $value);
     }
 
-    private static function applyEnrolledInCourseRule(Builder $query, string $operator, mixed $value): void
+    private static function applyEnrolledInClassRule(Builder $query, string $operator, mixed $value): void
     {
         if ($operator === 'is') {
-            $query->whereHas('classes', fn (Builder $q) => $q->where('classes.course_id', $value));
+            $query->whereHas('classes', fn (Builder $q) => $q->where('classes.id', $value));
         } else {
-            $query->whereDoesntHave('classes', fn (Builder $q) => $q->where('classes.course_id', $value));
+            $query->whereDoesntHave('classes', fn (Builder $q) => $q->where('classes.id', $value));
         }
     }
 
