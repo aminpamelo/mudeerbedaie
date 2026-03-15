@@ -232,9 +232,9 @@ class AudienceRuleBuilder
     private static function applyEnrolledInCourseRule(Builder $query, string $operator, mixed $value): void
     {
         if ($operator === 'is') {
-            $query->whereHas('enrollments', fn (Builder $q) => $q->where('course_id', $value));
+            $query->whereHas('classes', fn (Builder $q) => $q->where('classes.course_id', $value));
         } else {
-            $query->whereDoesntHave('enrollments', fn (Builder $q) => $q->where('course_id', $value));
+            $query->whereDoesntHave('classes', fn (Builder $q) => $q->where('classes.course_id', $value));
         }
     }
 
