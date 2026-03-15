@@ -121,8 +121,8 @@ new class extends Component
     private function loadSalespersonOptions(): void
     {
         $salespersonIds = ProductOrder::query()
-            ->where('source', 'pos')
             ->whereNotNull('metadata')
+            ->whereRaw("json_extract(metadata, '$.salesperson_id') IS NOT NULL")
             ->get()
             ->pluck('metadata.salesperson_id')
             ->filter()
@@ -138,7 +138,9 @@ new class extends Component
 
     private function baseQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $query = ProductOrder::query()->where('source', 'pos');
+        $query = ProductOrder::query()
+            ->whereNotNull('metadata')
+            ->whereRaw("json_extract(metadata, '$.salesperson_id') IS NOT NULL");
 
         if ($this->selectedSalesperson !== 'all') {
             $query->whereJsonContains('metadata->salesperson_id', (int) $this->selectedSalesperson);
@@ -274,7 +276,8 @@ new class extends Component
         $monthGroup = $isSqlite ? "strftime('%m', order_date)" : 'MONTH(order_date)';
 
         $query = ProductOrder::query()
-            ->where('source', 'pos')
+            ->whereNotNull('metadata')
+            ->whereRaw("json_extract(metadata, '$.salesperson_id') IS NOT NULL")
             ->whereNotNull('paid_time')
             ->whereYear('order_date', $this->selectedYear);
 
@@ -321,7 +324,8 @@ new class extends Component
     private function loadMonthlyPivotData(): void
     {
         $query = ProductOrder::query()
-            ->where('source', 'pos')
+            ->whereNotNull('metadata')
+            ->whereRaw("json_extract(metadata, '$.salesperson_id') IS NOT NULL")
             ->whereNotNull('paid_time')
             ->whereYear('order_date', $this->selectedYear);
 
@@ -556,7 +560,7 @@ new class extends Component
         <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <flux:heading size="xl">Sales Department Report</flux:heading>
-                <flux:text class="mt-2">POS sales data across all salespersons</flux:text>
+                <flux:text class="mt-2">Sales data across all salespersons</flux:text>
             </div>
 
             <flux:button wire:click="exportCsv" variant="outline" icon="arrow-down-tray">
@@ -712,7 +716,7 @@ new class extends Component
                         </div>
                     </div>
                     <flux:text>Total Revenue</flux:text>
-                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">From paid POS orders</flux:subheading>
+                    <flux:subheading class="text-xs text-gray-500 dark:text-zinc-400">From paid orders</flux:subheading>
                 </flux:card>
 
                 <flux:card class="space-y-2">
@@ -777,7 +781,7 @@ new class extends Component
                 <flux:card>
                     <div class="mb-4">
                         <flux:heading size="lg">Order Status Distribution</flux:heading>
-                        <flux:text>Breakdown of POS orders by status</flux:text>
+                        <flux:text>Breakdown of orders by status</flux:text>
                     </div>
                     <div class="grid gap-4 sm:grid-cols-3">
                         @foreach($statusBreakdown as $statusData)

@@ -27,7 +27,7 @@ class StorePosSaleRequest extends FormRequest
             'customer_phone' => ['required_without:customer_id', 'nullable', 'string', 'max:20'],
             'customer_email' => ['nullable', 'email', 'max:255'],
             'customer_address' => ['nullable', 'string', 'max:500'],
-            'payment_method' => ['required', 'in:cash,bank_transfer'],
+            'payment_method' => ['required', 'in:cash,bank_transfer,cod'],
             'payment_reference' => ['nullable', 'required_if:payment_method,bank_transfer', 'string', 'max:255'],
             'payment_status' => ['required', 'in:paid,pending'],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],

@@ -384,6 +384,34 @@ test('sale with pending status is created correctly', function () {
     expect($order->paid_time)->toBeNull();
 });
 
+test('cod payment method creates sale successfully', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $product = Product::factory()->create(['status' => 'active']);
+
+    $response = $this->actingAs($admin)->postJson(route('api.pos.sales.store'), [
+        'customer_name' => 'COD Customer',
+        'customer_phone' => '0123456789',
+        'payment_method' => 'cod',
+        'payment_status' => 'pending',
+        'items' => [
+            [
+                'itemable_type' => 'product',
+                'itemable_id' => $product->id,
+                'quantity' => 1,
+                'unit_price' => 75.00,
+            ],
+        ],
+    ]);
+
+    $response->assertCreated();
+    $response->assertJsonPath('data.payment_method', 'cod');
+    $response->assertJsonPath('data.total_amount', '75.00');
+
+    $order = ProductOrder::where('source', 'pos')->where('payment_method', 'cod')->first();
+    expect($order)->not->toBeNull();
+    expect($order->payment_method)->toBe('cod');
+});
+
 test('pos sale is stored as product order with pos source', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $product = Product::factory()->create(['status' => 'active']);

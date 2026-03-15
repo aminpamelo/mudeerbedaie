@@ -277,7 +277,7 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
                     {/* Payment Method */}
                     <div>
                         <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Payment Method</label>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                             <button
                                 onClick={() => setPaymentMethod('cash')}
                                 className={`py-2.5 px-4 rounded-xl border-2 text-sm font-medium transition-all ${
@@ -297,6 +297,16 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
                                 }`}
                             >
                                 Bank Transfer
+                            </button>
+                            <button
+                                onClick={() => setPaymentMethod('cod')}
+                                className={`py-2.5 px-4 rounded-xl border-2 text-sm font-medium transition-all ${
+                                    paymentMethod === 'cod'
+                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                }`}
+                            >
+                                COD
                             </button>
                         </div>
                     </div>

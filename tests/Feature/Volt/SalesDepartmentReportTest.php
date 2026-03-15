@@ -224,6 +224,74 @@ test('export csv returns downloadable response', function () {
         ->assertFileDownloaded();
 });
 
+test('report includes orders from all sources with salesperson assigned', function () {
+    $admin = User::factory()->admin()->create();
+    $salesUser = User::factory()->sales()->create();
+
+    // POS order with salesperson
+    ProductOrder::factory()->create([
+        'source' => 'pos',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 100.00,
+        'metadata' => ['pos_sale' => true, 'salesperson_id' => $salesUser->id, 'salesperson_name' => $salesUser->name],
+    ]);
+
+    // Funnel order with salesperson (e.g. COD)
+    ProductOrder::factory()->create([
+        'source' => 'funnel',
+        'payment_method' => 'cod',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 200.00,
+        'metadata' => ['salesperson_id' => $salesUser->id, 'salesperson_name' => $salesUser->name],
+    ]);
+
+    // Website order WITHOUT salesperson (should be excluded)
+    ProductOrder::factory()->create([
+        'source' => 'website',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 500.00,
+        'metadata' => null,
+    ]);
+
+    $this->actingAs($admin);
+
+    $component = Volt::test('admin.reports.sales-department')
+        ->set('selectedPeriod', 'all');
+
+    $summary = $component->get('summary');
+
+    // Should include POS (100) + funnel (200) = 300, but NOT website (500)
+    expect($summary['total_revenue'])->toBe(300.0);
+    expect($summary['total_orders'])->toBe(2);
+});
+
+test('report excludes orders without salesperson metadata', function () {
+    $admin = User::factory()->admin()->create();
+
+    // Order without salesperson metadata
+    ProductOrder::factory()->create([
+        'source' => 'platform_import',
+        'payment_method' => 'Cash on delivery',
+        'paid_time' => now(),
+        'order_date' => now(),
+        'total_amount' => 300.00,
+        'metadata' => ['imported' => true],
+    ]);
+
+    $this->actingAs($admin);
+
+    $component = Volt::test('admin.reports.sales-department')
+        ->set('selectedPeriod', 'all');
+
+    $summary = $component->get('summary');
+
+    expect($summary['total_revenue'])->toBe(0.0);
+    expect($summary['total_orders'])->toBe(0);
+});
+
 // ===== Product Report Sub-Tab Tests =====
 
 test('report sub-tab defaults to team sales', function () {
