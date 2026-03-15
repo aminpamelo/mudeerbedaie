@@ -42,6 +42,14 @@ new class extends Component
 
     public array $customerSummary = [];
 
+    public int $customerPage = 1;
+
+    public int $customerPerPage = 50;
+
+    public int $customerTotalPages = 1;
+
+    public string $customerSearch = '';
+
     /** Lightweight counts for tab badges (loaded with core data) */
     public array $tabCounts = ['products' => 0, 'status' => 0, 'customers' => 0];
 
@@ -489,10 +497,21 @@ new class extends Component
         usort($this->statusBreakdown, fn ($a, $b) => $b['count'] <=> $a['count']);
     }
 
-    private function loadTopCustomers(): void
+    public function updatedCustomerSearch(): void
+    {
+        $this->customerPage = 1;
+        $this->loadCustomerDetailPage();
+    }
+
+    public function setCustomerPage(int $page): void
+    {
+        $this->customerPage = max(1, min($page, $this->customerTotalPages));
+        $this->loadCustomerDetailPage();
+    }
+
+    private function buildCustomerBaseQuery()
     {
         $yearExpr = $this->yearExpression('po.order_date');
-        $monthExpr = $this->monthExpression('po.order_date');
 
         $query = DB::table('product_orders as po')
             ->leftJoin('users as u', 'po.customer_id', '=', 'u.id')
@@ -502,7 +521,16 @@ new class extends Component
         $this->applyVisibleInAdminRaw($query);
         $this->applySourceFilterRaw($query);
 
-        $customers = (clone $query)->select([
+        return $query;
+    }
+
+    private function loadTopCustomers(): void
+    {
+        $monthExpr = $this->monthExpression('po.order_date');
+        $query = $this->buildCustomerBaseQuery();
+
+        // Top 10 customers only (for charts and leaderboard)
+        $topCustomersQuery = (clone $query)->select([
             DB::raw("COALESCE(po.customer_id, 0) as customer_id"),
             DB::raw("COALESCE(u.name, po.customer_name, 'Guest Customer') as customer_name"),
             DB::raw("u.email as customer_email"),
@@ -513,13 +541,14 @@ new class extends Component
         ])
             ->groupByRaw("COALESCE(po.customer_id, 0), COALESCE(u.name, po.customer_name, 'Guest Customer'), u.email")
             ->orderByDesc('total_revenue')
+            ->limit(10)
             ->get();
 
-        $allCustomers = [];
-        $maxRevenue = $customers->isNotEmpty() ? (float) $customers->first()->total_revenue : 0;
+        $maxRevenue = $topCustomersQuery->isNotEmpty() ? (float) $topCustomersQuery->first()->total_revenue : 0;
 
-        foreach ($customers as $customer) {
-            $allCustomers[] = [
+        $this->topCustomers = [];
+        foreach ($topCustomersQuery as $customer) {
+            $this->topCustomers[] = [
                 'customer_id' => $customer->customer_id,
                 'customer_name' => $customer->customer_name,
                 'customer_email' => $customer->customer_email,
@@ -531,10 +560,7 @@ new class extends Component
             ];
         }
 
-        $this->topCustomers = array_slice($allCustomers, 0, 10);
-        $this->customerDetailTable = $allCustomers;
-
-        // Monthly customer data
+        // Monthly customer data (lightweight aggregation)
         $monthlyCustomers = (clone $query)->select([
             DB::raw("{$monthExpr} as month"),
             DB::raw('COUNT(DISTINCT COALESCE(po.customer_id, po.id)) as unique_customers'),
@@ -563,8 +589,14 @@ new class extends Component
             }
         }
 
-        $totalCustomers = count($allCustomers);
-        $totalCustomerRevenue = collect($allCustomers)->sum('total_revenue');
+        // Summary via aggregate query (no need to load all rows)
+        $summaryRow = (clone $query)->selectRaw("
+            COUNT(DISTINCT COALESCE(po.customer_id, po.id)) as total_customers,
+            SUM(po.total_amount) as total_revenue
+        ")->first();
+
+        $totalCustomers = (int) $summaryRow->total_customers;
+        $totalCustomerRevenue = (float) $summaryRow->total_revenue;
 
         $this->customerSummary = [
             'total_customers' => $totalCustomers,
@@ -572,6 +604,62 @@ new class extends Component
             'avg_revenue_per_customer' => $totalCustomers > 0 ? round($totalCustomerRevenue / $totalCustomers, 2) : 0,
             'top_customer_revenue' => $maxRevenue,
         ];
+
+        // Load first page of the detail table
+        $this->customerPage = 1;
+        $this->loadCustomerDetailPage();
+    }
+
+    private function loadCustomerDetailPage(): void
+    {
+        $query = $this->buildCustomerBaseQuery();
+
+        $baseSelect = (clone $query)->select([
+            DB::raw("COALESCE(po.customer_id, 0) as customer_id"),
+            DB::raw("COALESCE(u.name, po.customer_name, 'Guest Customer') as customer_name"),
+            DB::raw("u.email as customer_email"),
+            DB::raw('COUNT(*) as total_orders'),
+            DB::raw('SUM(po.total_amount) as total_revenue'),
+            DB::raw('AVG(po.total_amount) as avg_order_value'),
+            DB::raw("SUM(CASE WHEN po.status = 'delivered' THEN 1 ELSE 0 END) as completed_orders"),
+        ])
+            ->groupByRaw("COALESCE(po.customer_id, 0), COALESCE(u.name, po.customer_name, 'Guest Customer'), u.email");
+
+        // Apply search filter
+        if ($this->customerSearch) {
+            $search = $this->customerSearch;
+            $baseSelect->having(DB::raw("COALESCE(u.name, po.customer_name, 'Guest Customer')"), 'like', "%{$search}%");
+        }
+
+        // Get total count for pagination
+        $countQuery = DB::query()->fromSub($baseSelect, 'customers_sub');
+        $totalRows = $countQuery->count();
+        $this->customerTotalPages = max(1, (int) ceil($totalRows / $this->customerPerPage));
+        $this->customerPage = min($this->customerPage, $this->customerTotalPages);
+
+        // Paginated results
+        $offset = ($this->customerPage - 1) * $this->customerPerPage;
+        $customers = (clone $baseSelect)
+            ->orderByDesc('total_revenue')
+            ->offset($offset)
+            ->limit($this->customerPerPage)
+            ->get();
+
+        $maxRevenue = $this->topCustomers[0]['total_revenue'] ?? 0;
+
+        $this->customerDetailTable = [];
+        foreach ($customers as $customer) {
+            $this->customerDetailTable[] = [
+                'customer_id' => $customer->customer_id,
+                'customer_name' => $customer->customer_name,
+                'customer_email' => $customer->customer_email,
+                'total_orders' => (int) $customer->total_orders,
+                'total_revenue' => (float) $customer->total_revenue,
+                'avg_order_value' => (float) $customer->avg_order_value,
+                'completed_orders' => (int) $customer->completed_orders,
+                'revenue_percentage' => $maxRevenue > 0 ? ((float) $customer->total_revenue / $maxRevenue) * 100 : 0,
+            ];
+        }
     }
 
     public function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
@@ -1261,13 +1349,19 @@ new class extends Component
                 @endif
             </flux:card>
 
-            {{-- Full Customer Detail Table --}}
-            @if(count($customerDetailTable) > 0)
+            {{-- Full Customer Detail Table (Paginated) --}}
             <flux:card>
-                <div class="mb-4">
-                    <flux:heading size="lg">Customer Detail</flux:heading>
-                    <flux:text>Complete breakdown of all customers in {{ $selectedYear }}</flux:text>
+                <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <flux:heading size="lg">Customer Detail</flux:heading>
+                        <flux:text>Complete breakdown of all customers in {{ $selectedYear }}</flux:text>
+                    </div>
+                    <div class="w-full sm:w-64">
+                        <flux:input wire:model.live.debounce.400ms="customerSearch" placeholder="Search customers..." icon="magnifying-glass" />
+                    </div>
                 </div>
+
+                @if(count($customerDetailTable) > 0)
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
                         <thead>
@@ -1283,8 +1377,8 @@ new class extends Component
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white dark:divide-zinc-700 dark:bg-transparent">
                             @foreach($customerDetailTable as $index => $customer)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800" wire:key="customer-detail-{{ $index }}">
-                                    <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">{{ $index + 1 }}</td>
+                                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800" wire:key="customer-detail-{{ $customerPage }}-{{ $index }}">
+                                    <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">{{ (($customerPage - 1) * $customerPerPage) + $index + 1 }}</td>
                                     <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-zinc-100">{{ $customer['customer_name'] }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">{{ $customer['customer_email'] ?? '-' }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900 dark:text-zinc-100">{{ number_format($customer['total_orders']) }}</td>
@@ -1294,20 +1388,54 @@ new class extends Component
                                 </tr>
                             @endforeach
                         </tbody>
-                        <tfoot class="border-t-2 border-gray-300 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-800">
-                            <tr>
-                                <td class="px-4 py-3"></td>
-                                <td class="px-4 py-3 text-sm font-bold text-gray-900 dark:text-zinc-100">Total</td>
-                                <td class="px-4 py-3"></td>
-                                <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-zinc-100">{{ number_format(collect($customerDetailTable)->sum('total_orders')) }}</td>
-                                <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-zinc-100">RM {{ number_format(collect($customerDetailTable)->sum('total_revenue'), 2) }}</td>
-                                <td class="px-4 py-3" colspan="2"></td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
+
+                {{-- Pagination Controls --}}
+                @if($customerTotalPages > 1)
+                <div class="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 dark:border-zinc-700">
+                    <flux:text class="text-sm text-gray-500 dark:text-zinc-400">
+                        Showing {{ (($customerPage - 1) * $customerPerPage) + 1 }} - {{ min($customerPage * $customerPerPage, $customerSummary['total_customers'] ?? 0) }}
+                        of {{ number_format($customerSummary['total_customers'] ?? 0) }} customers
+                    </flux:text>
+                    <div class="flex items-center gap-2">
+                        <flux:button wire:click="setCustomerPage(1)" variant="outline" size="sm" :disabled="$customerPage <= 1">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="chevron-double-left" class="h-4 w-4" />
+                            </div>
+                        </flux:button>
+                        <flux:button wire:click="setCustomerPage({{ $customerPage - 1 }})" variant="outline" size="sm" :disabled="$customerPage <= 1">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="chevron-left" class="h-4 w-4" />
+                            </div>
+                        </flux:button>
+                        <flux:text class="px-3 text-sm font-medium">Page {{ $customerPage }} of {{ $customerTotalPages }}</flux:text>
+                        <flux:button wire:click="setCustomerPage({{ $customerPage + 1 }})" variant="outline" size="sm" :disabled="$customerPage >= $customerTotalPages">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="chevron-right" class="h-4 w-4" />
+                            </div>
+                        </flux:button>
+                        <flux:button wire:click="setCustomerPage({{ $customerTotalPages }})" variant="outline" size="sm" :disabled="$customerPage >= $customerTotalPages">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="chevron-double-right" class="h-4 w-4" />
+                            </div>
+                        </flux:button>
+                    </div>
+                </div>
+                @endif
+                @else
+                <div class="py-8 text-center">
+                    <flux:icon name="user-group" class="mx-auto h-12 w-12 text-gray-300 dark:text-zinc-600" />
+                    <flux:text class="mt-2 text-sm text-gray-500 dark:text-zinc-400">
+                        @if($customerSearch)
+                            No customers found matching "{{ $customerSearch }}"
+                        @else
+                            No customer data available for {{ $selectedYear }}
+                        @endif
+                    </flux:text>
+                </div>
+                @endif
             </flux:card>
-            @endif
         </div>
         @endif
 
