@@ -25,7 +25,7 @@ test('filters by total spending greater than', function () {
     ]);
 
     $query = AudienceRuleBuilder::buildQuery([
-        ['field' => 'total_spending', 'operator' => '>', 'value' => '500'],
+        ['field' => 'total_spending', 'operator' => 'gt', 'value' => '500'],
     ]);
 
     // Use toRawSql() to work around SQLite float binding limitation
@@ -155,7 +155,7 @@ test('filters by enrollment count', function () {
     Student::factory()->create();
 
     $results = AudienceRuleBuilder::buildQuery([
-        ['field' => 'enrollment_count', 'operator' => '>=', 'value' => '2'],
+        ['field' => 'enrollment_count', 'operator' => 'gte', 'value' => '2'],
     ])->get();
 
     expect($results)->toHaveCount(1)

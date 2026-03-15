@@ -19,13 +19,13 @@ class AudienceRuleBuilder
             'total_spending' => [
                 'label' => 'Total Revenue (RM)',
                 'group' => 'Spending & Orders',
-                'operators' => ['>' => 'greater than', '<' => 'less than', '>=' => 'at least', '<=' => 'at most', '=' => 'equals', 'between' => 'between'],
+                'operators' => ['gt' => 'greater than', 'lt' => 'less than', 'gte' => 'at least', 'lte' => 'at most', 'eq' => 'equals', 'between' => 'between'],
                 'type' => 'number',
             ],
             'order_count' => [
                 'label' => 'Order Count',
                 'group' => 'Spending & Orders',
-                'operators' => ['>' => 'greater than', '<' => 'less than', '>=' => 'at least', '<=' => 'at most', '=' => 'equals', 'between' => 'between'],
+                'operators' => ['gt' => 'greater than', 'lt' => 'less than', 'gte' => 'at least', 'lte' => 'at most', 'eq' => 'equals', 'between' => 'between'],
                 'type' => 'number',
             ],
             'last_order_date' => [
@@ -45,7 +45,7 @@ class AudienceRuleBuilder
             'enrollment_count' => [
                 'label' => 'Class Enrollment Count',
                 'group' => 'Enrollment & Courses',
-                'operators' => ['>' => 'greater than', '<' => 'less than', '>=' => 'at least', '<=' => 'at most', '=' => 'equals'],
+                'operators' => ['gt' => 'greater than', 'lt' => 'less than', 'gte' => 'at least', 'lte' => 'at most', 'eq' => 'equals'],
                 'type' => 'number',
             ],
             'enrolled_in_class' => [
@@ -95,7 +95,7 @@ class AudienceRuleBuilder
             'age' => [
                 'label' => 'Age',
                 'group' => 'Demographics & Profile',
-                'operators' => ['>' => 'greater than', '<' => 'less than', '>=' => 'at least', '<=' => 'at most', 'between' => 'between'],
+                'operators' => ['gt' => 'greater than', 'lt' => 'less than', 'gte' => 'at least', 'lte' => 'at most', 'between' => 'between'],
                 'type' => 'number',
             ],
             'registered_date' => [
@@ -331,11 +331,11 @@ class AudienceRuleBuilder
     private static function mapOperator(string $operator): string
     {
         return match ($operator) {
-            '>' => '>',
-            '<' => '<',
-            '>=' => '>=',
-            '<=' => '<=',
-            '=' => '=',
+            'gt', '>' => '>',
+            'lt', '<' => '<',
+            'gte', '>=' => '>=',
+            'lte', '<=' => '<=',
+            'eq', '=' => '=',
             default => '=',
         };
     }
