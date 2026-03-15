@@ -29,13 +29,14 @@ class ImpersonationService
             'user_agent' => request()->userAgent(),
         ]);
 
-        // Store impersonator info in session
+        // Login as the target user FIRST (this regenerates the session)
+        Auth::login($targetUser);
+
+        // Store impersonator info in session AFTER login
+        // (Auth::login regenerates the session, which would wipe data set before it)
         Session::put(self::SESSION_KEY_IMPERSONATOR, $admin->id);
         Session::put(self::SESSION_KEY_TIMESTAMP, now()->toIso8601String());
         Session::put(self::SESSION_KEY_LOG, $log->id);
-
-        // Login as the target user
-        Auth::login($targetUser);
 
         return $log;
     }
