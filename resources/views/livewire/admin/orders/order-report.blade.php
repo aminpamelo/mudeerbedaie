@@ -120,7 +120,7 @@ new class extends Component
         $this->loadedTabs = [];
         $this->loadCoreData();
         $this->loadActiveTabData();
-        $this->dispatch('order-report-charts-updated', monthlyData: $this->monthlyData);
+        $this->dispatchActiveTabCharts();
     }
 
     public function updatedSourceFilter(): void
@@ -128,7 +128,18 @@ new class extends Component
         $this->loadedTabs = [];
         $this->loadCoreData();
         $this->loadActiveTabData();
-        $this->dispatch('order-report-charts-updated', monthlyData: $this->monthlyData);
+        $this->dispatchActiveTabCharts();
+    }
+
+    private function dispatchActiveTabCharts(): void
+    {
+        match ($this->activeTab) {
+            'orders' => $this->dispatch('order-report-charts-updated', monthlyData: $this->monthlyData),
+            'products' => $this->dispatch('order-report-product-charts-update', monthlyProductData: $this->monthlyProductData, topProductsByRevenue: $this->topProductsByRevenue),
+            'status' => $this->dispatch('order-report-status-charts-update', statusBreakdown: $this->statusBreakdown),
+            'customers' => $this->dispatch('order-report-customer-charts-update', monthlyCustomerData: $this->monthlyCustomerData, topCustomers: $this->topCustomers),
+            default => null,
+        };
     }
 
     private function applySourceFilter($query, string $tableAlias = 'product_orders'): void
