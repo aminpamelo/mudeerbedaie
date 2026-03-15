@@ -139,10 +139,29 @@ new class extends Component
     private function baseQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $query = ProductOrder::query()
-            ->whereNotNull('metadata')
-            ->whereRaw("json_extract(metadata, '$.salesperson_id') IS NOT NULL");
+            ->where(function ($q) {
+                // Orders with a salesperson assigned
+                $q->where(function ($sub) {
+                    $sub->whereNotNull('metadata')
+                        ->whereRaw("json_extract(metadata, '$.salesperson_id') IS NOT NULL");
+                })
+                // OR POS orders without a salesperson (unassigned)
+                ->orWhere(function ($sub) {
+                    $sub->where('source', 'pos')
+                        ->where(function ($inner) {
+                            $inner->whereNull('metadata')
+                                ->orWhereRaw("json_extract(metadata, '$.salesperson_id') IS NULL");
+                        });
+                });
+            });
 
-        if ($this->selectedSalesperson !== 'all') {
+        if ($this->selectedSalesperson === 'unassigned') {
+            $query->where('source', 'pos')
+                ->where(function ($q) {
+                    $q->whereNull('metadata')
+                        ->orWhereRaw("json_extract(metadata, '$.salesperson_id') IS NULL");
+                });
+        } elseif ($this->selectedSalesperson !== 'all') {
             $query->whereJsonContains('metadata->salesperson_id', (int) $this->selectedSalesperson);
         }
 
@@ -238,20 +257,16 @@ new class extends Component
             ->whereNotNull('paid_time')
             ->get();
 
-        $grouped = $orders->groupBy(fn ($order) => $order->metadata['salesperson_id'] ?? 'unknown');
+        $grouped = $orders->groupBy(fn ($order) => $order->metadata['salesperson_id'] ?? 'unassigned');
 
         $performance = [];
         foreach ($grouped as $spId => $spOrders) {
-            if ($spId === 'unknown') {
-                continue;
-            }
-
             $revenue = (float) $spOrders->sum('total_amount');
             $count = $spOrders->count();
 
             $performance[] = [
                 'salesperson_id' => $spId,
-                'salesperson_name' => $spOrders->first()->metadata['salesperson_name'] ?? 'Unknown',
+                'salesperson_name' => $spId === 'unassigned' ? 'Unassigned' : ($spOrders->first()->metadata['salesperson_name'] ?? 'Unknown'),
                 'sales_count' => $count,
                 'revenue' => $revenue,
                 'avg_order_value' => $count > 0 ? round($revenue / $count, 2) : 0,
@@ -275,23 +290,9 @@ new class extends Component
         $monthExpr = $isSqlite ? "CAST(strftime('%m', order_date) AS INTEGER)" : 'MONTH(order_date)';
         $monthGroup = $isSqlite ? "strftime('%m', order_date)" : 'MONTH(order_date)';
 
-        $query = ProductOrder::query()
-            ->whereNotNull('metadata')
-            ->whereRaw("json_extract(metadata, '$.salesperson_id') IS NOT NULL")
+        $query = $this->baseQuery()
             ->whereNotNull('paid_time')
             ->whereYear('order_date', $this->selectedYear);
-
-        if ($this->selectedSalesperson !== 'all') {
-            $query->whereJsonContains('metadata->salesperson_id', (int) $this->selectedSalesperson);
-        }
-
-        if ($this->selectedStatus === 'paid') {
-            $query->whereNotNull('paid_time');
-        } elseif ($this->selectedStatus === 'pending') {
-            $query->whereNull('paid_time')->where('status', '!=', 'cancelled');
-        } elseif ($this->selectedStatus === 'cancelled') {
-            $query->where('status', 'cancelled');
-        }
 
         $stats = $query->selectRaw("
                 {$monthExpr} as month_number,
@@ -323,23 +324,9 @@ new class extends Component
 
     private function loadMonthlyPivotData(): void
     {
-        $query = ProductOrder::query()
-            ->whereNotNull('metadata')
-            ->whereRaw("json_extract(metadata, '$.salesperson_id') IS NOT NULL")
+        $query = $this->baseQuery()
             ->whereNotNull('paid_time')
             ->whereYear('order_date', $this->selectedYear);
-
-        if ($this->selectedSalesperson !== 'all') {
-            $query->whereJsonContains('metadata->salesperson_id', (int) $this->selectedSalesperson);
-        }
-
-        if ($this->selectedStatus === 'paid') {
-            $query->whereNotNull('paid_time');
-        } elseif ($this->selectedStatus === 'pending') {
-            $query->whereNull('paid_time')->where('status', '!=', 'cancelled');
-        } elseif ($this->selectedStatus === 'cancelled') {
-            $query->where('status', 'cancelled');
-        }
 
         $orders = $query->get();
 
@@ -347,11 +334,8 @@ new class extends Component
         $monthData = [];
 
         foreach ($orders as $order) {
-            $spId = $order->metadata['salesperson_id'] ?? null;
-            $spName = $order->metadata['salesperson_name'] ?? 'Unknown';
-            if (! $spId) {
-                continue;
-            }
+            $spId = $order->metadata['salesperson_id'] ?? 'unassigned';
+            $spName = $spId === 'unassigned' ? 'Unassigned' : ($order->metadata['salesperson_name'] ?? 'Unknown');
 
             $month = (int) $order->order_date->format('m');
 
@@ -521,7 +505,7 @@ new class extends Component
                     $order->order_number,
                     $order->order_date?->format('Y-m-d H:i'),
                     $order->getCustomerName(),
-                    $order->metadata['salesperson_name'] ?? 'Unknown',
+                    $order->metadata['salesperson_name'] ?? 'Unassigned',
                     $order->items->sum('quantity_ordered'),
                     number_format((float) $order->total_amount, 2),
                     $order->payment_method ?? '-',
@@ -589,6 +573,7 @@ new class extends Component
             <div class="w-full sm:w-48">
                 <flux:select wire:model.live="selectedSalesperson" label="Salesperson">
                     <option value="all">All Salespersons</option>
+                    <option value="unassigned">Unassigned</option>
                     @foreach($salespersonOptions as $sp)
                         <option value="{{ $sp['id'] }}">{{ $sp['name'] }}</option>
                     @endforeach
@@ -653,7 +638,7 @@ new class extends Component
                                     <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900 dark:text-zinc-100">{{ $order->order_number }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">{{ $order->order_date?->format('d M Y H:i') }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-900 dark:text-zinc-100">{{ $order->getCustomerName() }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-zinc-300">{{ $order->metadata['salesperson_name'] ?? '-' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700 dark:text-zinc-300">{{ $order->metadata['salesperson_name'] ?? 'Unassigned' }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-500 dark:text-zinc-400">{{ $order->items->sum('quantity_ordered') }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-zinc-100">RM {{ number_format((float) $order->total_amount, 2) }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-zinc-300">{{ ucfirst($order->payment_method ?? '-') }}</td>
