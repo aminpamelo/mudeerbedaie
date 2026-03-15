@@ -42,12 +42,19 @@ new class extends Component
 
     public array $customerSummary = [];
 
+    /** Lightweight counts for tab badges (loaded with core data) */
+    public array $tabCounts = ['products' => 0, 'status' => 0, 'customers' => 0];
+
     #[Url(as: 'tab')]
     public string $activeTab = 'orders';
+
+    /** Track which tabs have been loaded to avoid re-querying */
+    private array $loadedTabs = [];
 
     public function setActiveTab(string $tab): void
     {
         $this->activeTab = $tab;
+        $this->loadActiveTabData();
 
         if ($tab === 'orders') {
             $this->dispatch('order-report-charts-updated', monthlyData: $this->monthlyData);
@@ -83,18 +90,12 @@ new class extends Component
     {
         $yearExpr = $this->yearExpression('order_date');
 
-        $orderYears = DB::table('product_orders')
+        $this->availableYears = DB::table('product_orders')
             ->selectRaw("DISTINCT {$yearExpr} as year")
             ->whereNotNull('order_date')
             ->orderBy('year', 'desc')
             ->pluck('year')
-            ->toArray();
-
-        $this->availableYears = collect($orderYears)
             ->filter()
-            ->unique()
-            ->sort()
-            ->reverse()
             ->values()
             ->toArray();
 
@@ -102,18 +103,23 @@ new class extends Component
             ? (int) $this->availableYears[0]
             : (int) date('Y');
 
-        $this->loadReportData();
+        $this->loadCoreData();
+        $this->loadActiveTabData();
     }
 
     public function updatedSelectedYear(): void
     {
-        $this->loadReportData();
+        $this->loadedTabs = [];
+        $this->loadCoreData();
+        $this->loadActiveTabData();
         $this->dispatch('order-report-charts-updated', monthlyData: $this->monthlyData);
     }
 
     public function updatedSourceFilter(): void
     {
-        $this->loadReportData();
+        $this->loadedTabs = [];
+        $this->loadCoreData();
+        $this->loadActiveTabData();
         $this->dispatch('order-report-charts-updated', monthlyData: $this->monthlyData);
     }
 
@@ -135,15 +141,43 @@ new class extends Component
         };
     }
 
-    private function loadReportData(): void
+    private function applySourceFilterRaw($query, string $tableAlias = 'po'): void
     {
+        if (! $this->sourceFilter) {
+            return;
+        }
+
+        match ($this->sourceFilter) {
+            'platform' => $query->whereNotNull("{$tableAlias}.platform_id"),
+            'agent_company' => $query->whereNull("{$tableAlias}.platform_id")->where(function ($q) use ($tableAlias) {
+                $q->whereNotIn("{$tableAlias}.source", ['funnel', 'pos'])
+                    ->whereNotNull("{$tableAlias}.agent_id");
+            }),
+            'funnel' => $query->where("{$tableAlias}.source", 'funnel'),
+            'pos' => $query->where("{$tableAlias}.source", 'pos'),
+            default => null,
+        };
+    }
+
+    private function applyVisibleInAdminRaw($query, string $tableAlias = 'po'): void
+    {
+        $query->where(function ($q) use ($tableAlias) {
+            $q->where("{$tableAlias}.hidden_from_admin", false)
+                ->orWhereNull("{$tableAlias}.hidden_from_admin");
+        });
+    }
+
+    /** Load only the data needed for summary cards, source breakdown, and monthly overview (always needed) */
+    private function loadCoreData(): void
+    {
+        $yearExpr = $this->yearExpression('order_date');
+        $monthExpr = $this->monthExpression('order_date');
+
+        // Initialize monthly data structure
         $this->monthlyData = [];
-
         for ($month = 1; $month <= 12; $month++) {
-            $monthName = Carbon::create($this->selectedYear, $month, 1)->format('F');
-
             $this->monthlyData[$month] = [
-                'month_name' => $monthName,
+                'month_name' => Carbon::create($this->selectedYear, $month, 1)->format('F'),
                 'month_number' => $month,
                 'total_orders' => 0,
                 'completed_orders' => 0,
@@ -160,15 +194,13 @@ new class extends Component
             ];
         }
 
-        $yearExpr = $this->yearExpression('order_date');
-        $monthExpr = $this->monthExpression('order_date');
-
         $baseQuery = ProductOrder::query()
             ->visibleInAdmin()
             ->whereRaw("{$yearExpr} = ?", [$this->selectedYear]);
 
         $this->applySourceFilter($baseQuery);
 
+        // Monthly orders — single query
         $monthlyOrders = (clone $baseQuery)
             ->selectRaw("
                 {$monthExpr} as month,
@@ -195,110 +227,41 @@ new class extends Component
             }
         }
 
-        // Source breakdown per month
-        $this->loadSourceBreakdownPerMonth();
-
-        $this->calculateSummary();
-        $this->calculateSourceBreakdown();
-        $this->loadTopProducts();
-        $this->loadStatusBreakdown();
-        $this->loadTopCustomers();
-    }
-
-    private function loadSourceBreakdownPerMonth(): void
-    {
-        $yearExpr = $this->yearExpression('order_date');
-        $monthExpr = $this->monthExpression('order_date');
-
-        // Platform orders
-        $platformOrders = ProductOrder::query()
-            ->visibleInAdmin()
+        // Source breakdown per month — single consolidated query instead of 4 separate queries
+        $sourceQuery = DB::table('product_orders')
             ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
-            ->whereNotNull('platform_id')
-            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
-            ->selectRaw("{$monthExpr} as month, COUNT(*) as orders, SUM(total_amount) as revenue")
+            ->whereNotIn('status', ['cancelled', 'refunded', 'draft']);
+
+        $this->applyVisibleInAdminRaw($sourceQuery, 'product_orders');
+
+        $sourceRows = $sourceQuery->selectRaw("
+                {$monthExpr} as month,
+                SUM(CASE WHEN platform_id IS NOT NULL THEN 1 ELSE 0 END) as platform_orders,
+                SUM(CASE WHEN platform_id IS NOT NULL THEN total_amount ELSE 0 END) as platform_revenue,
+                SUM(CASE WHEN platform_id IS NULL AND agent_id IS NOT NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos')) THEN 1 ELSE 0 END) as agent_orders,
+                SUM(CASE WHEN platform_id IS NULL AND agent_id IS NOT NULL AND (source IS NULL OR source NOT IN ('funnel', 'pos')) THEN total_amount ELSE 0 END) as agent_revenue,
+                SUM(CASE WHEN source = 'funnel' THEN 1 ELSE 0 END) as funnel_orders,
+                SUM(CASE WHEN source = 'funnel' THEN total_amount ELSE 0 END) as funnel_revenue,
+                SUM(CASE WHEN source = 'pos' THEN 1 ELSE 0 END) as pos_orders,
+                SUM(CASE WHEN source = 'pos' THEN total_amount ELSE 0 END) as pos_revenue
+            ")
             ->groupByRaw($monthExpr)
             ->get();
 
-        foreach ($platformOrders as $row) {
+        foreach ($sourceRows as $row) {
             $month = (int) $row->month;
             if ($month >= 1 && $month <= 12) {
-                $this->monthlyData[$month]['by_source']['platform'] = [
-                    'orders' => (int) $row->orders,
-                    'revenue' => (float) $row->revenue,
+                $this->monthlyData[$month]['by_source'] = [
+                    'platform' => ['orders' => (int) $row->platform_orders, 'revenue' => (float) $row->platform_revenue],
+                    'agent_company' => ['orders' => (int) $row->agent_orders, 'revenue' => (float) $row->agent_revenue],
+                    'funnel' => ['orders' => (int) $row->funnel_orders, 'revenue' => (float) $row->funnel_revenue],
+                    'pos' => ['orders' => (int) $row->pos_orders, 'revenue' => (float) $row->pos_revenue],
                 ];
             }
         }
 
-        // Agent orders
-        $agentOrders = ProductOrder::query()
-            ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
-            ->whereNull('platform_id')
-            ->whereNotNull('agent_id')
-            ->whereNotIn('source', ['funnel', 'pos'])
-            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
-            ->selectRaw("{$monthExpr} as month, COUNT(*) as orders, SUM(total_amount) as revenue")
-            ->groupByRaw($monthExpr)
-            ->get();
-
-        foreach ($agentOrders as $row) {
-            $month = (int) $row->month;
-            if ($month >= 1 && $month <= 12) {
-                $this->monthlyData[$month]['by_source']['agent_company'] = [
-                    'orders' => (int) $row->orders,
-                    'revenue' => (float) $row->revenue,
-                ];
-            }
-        }
-
-        // Funnel orders
-        $funnelOrders = ProductOrder::query()
-            ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
-            ->where('source', 'funnel')
-            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
-            ->selectRaw("{$monthExpr} as month, COUNT(*) as orders, SUM(total_amount) as revenue")
-            ->groupByRaw($monthExpr)
-            ->get();
-
-        foreach ($funnelOrders as $row) {
-            $month = (int) $row->month;
-            if ($month >= 1 && $month <= 12) {
-                $this->monthlyData[$month]['by_source']['funnel'] = [
-                    'orders' => (int) $row->orders,
-                    'revenue' => (float) $row->revenue,
-                ];
-            }
-        }
-
-        // POS orders
-        $posOrders = ProductOrder::query()
-            ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
-            ->where('source', 'pos')
-            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
-            ->selectRaw("{$monthExpr} as month, COUNT(*) as orders, SUM(total_amount) as revenue")
-            ->groupByRaw($monthExpr)
-            ->get();
-
-        foreach ($posOrders as $row) {
-            $month = (int) $row->month;
-            if ($month >= 1 && $month <= 12) {
-                $this->monthlyData[$month]['by_source']['pos'] = [
-                    'orders' => (int) $row->orders,
-                    'revenue' => (float) $row->revenue,
-                ];
-            }
-        }
-    }
-
-    private function calculateSummary(): void
-    {
-        $totalOrders = 0;
-        $completedOrders = 0;
-        $pendingOrders = 0;
-        $cancelledOrders = 0;
+        // Calculate summary from monthly data (no extra queries)
+        $totalOrders = $completedOrders = $pendingOrders = $cancelledOrders = 0;
         $totalRevenue = 0;
 
         foreach ($this->monthlyData as $data) {
@@ -318,12 +281,8 @@ new class extends Component
             'avg_order_value' => $totalOrders > 0 ? $totalRevenue / $totalOrders : 0,
             'completion_rate' => $totalOrders > 0 ? ($completedOrders / $totalOrders) * 100 : 0,
         ];
-    }
 
-    private function calculateSourceBreakdown(): void
-    {
-        $yearExpr = $this->yearExpression('order_date');
-
+        // Derive source breakdown totals from monthly data (no extra queries)
         $this->sourceBreakdown = [
             'platform' => ['orders' => 0, 'revenue' => 0],
             'agent_company' => ['orders' => 0, 'revenue' => 0],
@@ -331,63 +290,59 @@ new class extends Component
             'pos' => ['orders' => 0, 'revenue' => 0],
         ];
 
-        // Platform
-        $platform = ProductOrder::query()
+        foreach ($this->monthlyData as $data) {
+            foreach (['platform', 'agent_company', 'funnel', 'pos'] as $source) {
+                $this->sourceBreakdown[$source]['orders'] += $data['by_source'][$source]['orders'];
+                $this->sourceBreakdown[$source]['revenue'] += $data['by_source'][$source]['revenue'];
+            }
+        }
+
+        // Lightweight badge counts — 3 fast COUNT queries
+        $countBase = ProductOrder::query()
             ->visibleInAdmin()
             ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
-            ->whereNotNull('platform_id')
-            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
-            ->selectRaw('COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue')
-            ->first();
+            ->whereNotIn('status', ['cancelled', 'refunded', 'draft']);
 
-        $this->sourceBreakdown['platform'] = [
-            'orders' => (int) $platform->orders,
-            'revenue' => (float) $platform->revenue,
-        ];
+        $this->applySourceFilter($countBase);
 
-        // Agent & Company
-        $agent = ProductOrder::query()
+        $productCount = DB::table('product_order_items as poi')
+            ->join('product_orders as po', 'poi.order_id', '=', 'po.id')
+            ->whereRaw("{$this->yearExpression('po.order_date')} = ?", [$this->selectedYear])
+            ->whereNotIn('po.status', ['cancelled', 'refunded', 'draft']);
+        $this->applyVisibleInAdminRaw($productCount);
+        $this->applySourceFilterRaw($productCount);
+
+        $statusCount = ProductOrder::query()
             ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
-            ->whereNull('platform_id')
-            ->whereNotNull('agent_id')
-            ->whereNotIn('source', ['funnel', 'pos'])
-            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
-            ->selectRaw('COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue')
-            ->first();
+            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear]);
+        $this->applySourceFilter($statusCount);
 
-        $this->sourceBreakdown['agent_company'] = [
-            'orders' => (int) $agent->orders,
-            'revenue' => (float) $agent->revenue,
+        $customerCount = (clone $countBase);
+
+        $this->tabCounts = [
+            'products' => (int) $productCount->selectRaw('COUNT(DISTINCT COALESCE(poi.product_id, poi.product_name)) as cnt')->value('cnt'),
+            'status' => (int) $statusCount->selectRaw('COUNT(DISTINCT status) as cnt')->value('cnt'),
+            'customers' => (int) $customerCount->selectRaw('COUNT(DISTINCT COALESCE(customer_id, id)) as cnt')->value('cnt'),
         ];
+    }
 
-        // Funnel
-        $funnel = ProductOrder::query()
-            ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
-            ->where('source', 'funnel')
-            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
-            ->selectRaw('COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue')
-            ->first();
+    /** Load data only for the currently active tab */
+    private function loadActiveTabData(): void
+    {
+        $tab = $this->activeTab;
 
-        $this->sourceBreakdown['funnel'] = [
-            'orders' => (int) $funnel->orders,
-            'revenue' => (float) $funnel->revenue,
-        ];
+        if (in_array($tab, $this->loadedTabs)) {
+            return;
+        }
 
-        // POS
-        $pos = ProductOrder::query()
-            ->visibleInAdmin()
-            ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
-            ->where('source', 'pos')
-            ->whereNotIn('status', ['cancelled', 'refunded', 'draft'])
-            ->selectRaw('COUNT(*) as orders, COALESCE(SUM(total_amount), 0) as revenue')
-            ->first();
+        match ($tab) {
+            'products' => $this->loadTopProducts(),
+            'status' => $this->loadStatusBreakdown(),
+            'customers' => $this->loadTopCustomers(),
+            default => null, // 'orders' tab uses core data only
+        };
 
-        $this->sourceBreakdown['pos'] = [
-            'orders' => (int) $pos->orders,
-            'revenue' => (float) $pos->revenue,
-        ];
+        $this->loadedTabs[] = $tab;
     }
 
     private function loadTopProducts(): void
@@ -401,24 +356,12 @@ new class extends Component
             ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
             ->whereNotIn('po.status', ['cancelled', 'refunded', 'draft']);
 
-        // Apply visible in admin
-        $query->where(function ($q) {
-            $q->where('po.hidden_from_admin', false)
-                ->orWhereNull('po.hidden_from_admin');
-        });
+        $this->applyVisibleInAdminRaw($query);
+        $this->applySourceFilterRaw($query);
 
-        if ($this->sourceFilter) {
-            match ($this->sourceFilter) {
-                'platform' => $query->whereNotNull('po.platform_id'),
-                'agent_company' => $query->whereNull('po.platform_id')->where(function ($q) {
-                    $q->whereNotIn('po.source', ['funnel', 'pos'])
-                        ->whereNotNull('po.agent_id');
-                }),
-                'funnel' => $query->where('po.source', 'funnel'),
-                'pos' => $query->where('po.source', 'pos'),
-                default => null,
-            };
-        }
+        // When poi.total_price is 0 (common in platform imports), fall back to
+        // po.total_amount divided by the number of items in that order
+        $revenueExpr = "SUM(CASE WHEN poi.total_price > 0 THEN poi.total_price ELSE (po.total_amount * 1.0 / (SELECT COUNT(*) FROM product_order_items AS sub WHERE sub.order_id = po.id)) END)";
 
         $allData = $query->select([
             DB::raw('COALESCE(p.id, 0) as product_id'),
@@ -427,7 +370,7 @@ new class extends Component
             DB::raw("{$monthExpr} as month"),
             DB::raw('COUNT(DISTINCT po.id) as order_count'),
             DB::raw('SUM(poi.quantity_ordered) as total_quantity'),
-            DB::raw('SUM(poi.total_price) as total_revenue'),
+            DB::raw("{$revenueExpr} as total_revenue"),
         ])
             ->groupByRaw("COALESCE(p.id, 0), COALESCE(p.name, poi.product_name), p.sku, {$monthExpr}")
             ->get();
@@ -526,7 +469,7 @@ new class extends Component
 
         $this->applySourceFilter($query);
 
-        $statuses = (clone $query)
+        $statuses = $query
             ->selectRaw('status, COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue')
             ->groupBy('status')
             ->get();
@@ -556,24 +499,8 @@ new class extends Component
             ->whereRaw("{$yearExpr} = ?", [$this->selectedYear])
             ->whereNotIn('po.status', ['cancelled', 'refunded', 'draft']);
 
-        // Apply visible in admin
-        $query->where(function ($q) {
-            $q->where('po.hidden_from_admin', false)
-                ->orWhereNull('po.hidden_from_admin');
-        });
-
-        if ($this->sourceFilter) {
-            match ($this->sourceFilter) {
-                'platform' => $query->whereNotNull('po.platform_id'),
-                'agent_company' => $query->whereNull('po.platform_id')->where(function ($q) {
-                    $q->whereNotIn('po.source', ['funnel', 'pos'])
-                        ->whereNotNull('po.agent_id');
-                }),
-                'funnel' => $query->where('po.source', 'funnel'),
-                'pos' => $query->where('po.source', 'pos'),
-                default => null,
-            };
-        }
+        $this->applyVisibleInAdminRaw($query);
+        $this->applySourceFilterRaw($query);
 
         $customers = (clone $query)->select([
             DB::raw("COALESCE(po.customer_id, 0) as customer_id"),
@@ -592,13 +519,11 @@ new class extends Component
         $maxRevenue = $customers->isNotEmpty() ? (float) $customers->first()->total_revenue : 0;
 
         foreach ($customers as $customer) {
-            $totalOrders = (int) $customer->total_orders;
-
             $allCustomers[] = [
                 'customer_id' => $customer->customer_id,
                 'customer_name' => $customer->customer_name,
                 'customer_email' => $customer->customer_email,
-                'total_orders' => $totalOrders,
+                'total_orders' => (int) $customer->total_orders,
                 'total_revenue' => (float) $customer->total_revenue,
                 'avg_order_value' => (float) $customer->avg_order_value,
                 'completed_orders' => (int) $customer->completed_orders,
@@ -721,7 +646,7 @@ new class extends Component
 }; ?>
 
 <div>
-    <div class="mx-auto max-w-7xl space-y-6 p-6 lg:p-8">
+    <div class="space-y-6 p-6 lg:p-8">
         <div class="flex items-center justify-between">
             <div>
                 <flux:heading size="xl">Orders & Package Sales Report</flux:heading>
@@ -834,9 +759,9 @@ new class extends Component
             @php
                 $tabs = [
                     'orders' => ['label' => 'Orders Overview', 'icon' => 'chart-bar'],
-                    'products' => ['label' => 'Product Insights', 'count' => $productSummary['unique_products'] ?? 0, 'icon' => 'cube'],
-                    'status' => ['label' => 'Order Status', 'count' => count($statusBreakdown), 'icon' => 'clipboard-document-list'],
-                    'customers' => ['label' => 'Customer Insights', 'count' => $customerSummary['total_customers'] ?? 0, 'icon' => 'users'],
+                    'products' => ['label' => 'Product Insights', 'count' => $tabCounts['products'] ?? 0, 'icon' => 'cube'],
+                    'status' => ['label' => 'Order Status', 'count' => $tabCounts['status'] ?? 0, 'icon' => 'clipboard-document-list'],
+                    'customers' => ['label' => 'Customer Insights', 'count' => $tabCounts['customers'] ?? 0, 'icon' => 'users'],
                 ];
             @endphp
             @foreach($tabs as $tabKey => $tab)
