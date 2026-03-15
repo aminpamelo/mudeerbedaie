@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Enrollment;
+use App\Models\ClassStudent;
 use App\Models\ProductOrder;
 use App\Models\Student;
 use App\Services\AudienceRuleBuilder;
@@ -150,7 +150,7 @@ test('ignores incomplete rules', function () {
 
 test('filters by enrollment count', function () {
     $enrolled = Student::factory()->create();
-    Enrollment::factory()->count(3)->create(['student_id' => $enrolled->id]);
+    ClassStudent::factory()->count(3)->create(['student_id' => $enrolled->id, 'status' => 'active']);
 
     Student::factory()->create();
 

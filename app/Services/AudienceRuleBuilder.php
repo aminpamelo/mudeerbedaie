@@ -43,7 +43,7 @@ class AudienceRuleBuilder
 
             // Enrollment & Courses
             'enrollment_count' => [
-                'label' => 'Enrollment Count',
+                'label' => 'Class Enrollment Count',
                 'group' => 'Enrollment & Courses',
                 'operators' => ['>' => 'greater than', '<' => 'less than', '>=' => 'at least', '<=' => 'at most', '=' => 'equals'],
                 'type' => 'number',
@@ -226,7 +226,7 @@ class AudienceRuleBuilder
     private static function applyEnrollmentCountRule(Builder $query, string $operator, mixed $value): void
     {
         $sqlOp = self::mapOperator($operator);
-        $query->has('enrollments', $sqlOp, (int) $value);
+        $query->has('classes', $sqlOp, (int) $value);
     }
 
     private static function applyEnrolledInClassRule(Builder $query, string $operator, mixed $value): void
