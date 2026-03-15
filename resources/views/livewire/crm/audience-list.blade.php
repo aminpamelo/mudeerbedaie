@@ -87,7 +87,9 @@ new class extends Component {
                         @forelse($audiences as $audience)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">{{ $audience->name }}</div>
+                                    <a href="{{ route('crm.audiences.show', $audience) }}" class="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors">
+                                        {{ $audience->name }}
+                                    </a>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">{{ $audience->created_at->format('M d, Y') }}</div>
@@ -104,6 +106,9 @@ new class extends Component {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div class="flex space-x-2">
+                                        <flux:button size="sm" variant="ghost" href="{{ route('crm.audiences.show', $audience) }}">
+                                            View
+                                        </flux:button>
                                         <flux:button size="sm" variant="ghost" href="{{ route('crm.audiences.edit', $audience) }}">
                                             Edit
                                         </flux:button>

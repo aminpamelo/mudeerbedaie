@@ -390,6 +390,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     // Audience routes
     Volt::route('crm/audiences', 'crm.audience-list')->name('crm.audiences.index');
     Volt::route('crm/audiences/create', 'crm.audience-create')->name('crm.audiences.create');
+    Volt::route('crm/audiences/{audience}', 'crm.audience-show')->name('crm.audiences.show');
     Volt::route('crm/audiences/{audience}/edit', 'crm.audience-edit')->name('crm.audiences.edit');
 
     // Broadcast routes
