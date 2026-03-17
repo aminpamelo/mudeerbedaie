@@ -55,6 +55,11 @@ new class extends Component
 
     public array $productDetailTable = [];
 
+    // Source Report data
+    public array $sourceReportData = [];
+
+    public array $sourceSummary = [];
+
     public function mount(): void
     {
         if (! auth()->user()->hasAnyRole(['admin', 'class_admin', 'sales'])) {
@@ -106,7 +111,58 @@ new class extends Component
     public function setReportSubTab(string $subTab): void
     {
         $this->reportSubTab = $subTab;
+
+        if ($subTab === 'source_report') {
+            $this->loadSourceReportData();
+        }
+
         $this->dispatchChartsForSubTab();
+    }
+
+    public function loadSourceReportData(): void
+    {
+        $query = $this->baseQuery();
+
+        $sources = \App\Models\SalesSource::ordered()->get();
+        $sourceData = [];
+
+        foreach ($sources as $source) {
+            $sourceQuery = (clone $query)->where('sales_source_id', $source->id);
+            $revenue = (float) $sourceQuery->sum('total_amount');
+            $orderCount = $sourceQuery->count();
+
+            $sourceData[] = [
+                'id' => $source->id,
+                'name' => $source->name,
+                'color' => $source->color,
+                'description' => $source->description,
+                'revenue' => round($revenue, 2),
+                'order_count' => $orderCount,
+                'avg_order_value' => $orderCount > 0 ? round($revenue / $orderCount, 2) : 0,
+            ];
+        }
+
+        // Also count orders with no source (legacy orders)
+        $noSourceQuery = (clone $query)->whereNull('sales_source_id');
+        $noSourceRevenue = (float) $noSourceQuery->sum('total_amount');
+        $noSourceCount = $noSourceQuery->count();
+        if ($noSourceCount > 0) {
+            $sourceData[] = [
+                'id' => null,
+                'name' => 'Unassigned',
+                'color' => '#9CA3AF',
+                'description' => 'Orders without a sales source',
+                'revenue' => round($noSourceRevenue, 2),
+                'order_count' => $noSourceCount,
+                'avg_order_value' => round($noSourceRevenue / $noSourceCount, 2),
+            ];
+        }
+
+        $this->sourceReportData = $sourceData;
+        $this->sourceSummary = [
+            'total_revenue' => round(array_sum(array_column($sourceData, 'revenue')), 2),
+            'total_orders' => array_sum(array_column($sourceData, 'order_count')),
+        ];
     }
 
     private function dispatchChartsForSubTab(): void
@@ -687,6 +743,12 @@ new class extends Component
                 >
                     Product Report
                 </button>
+                <button
+                    wire:click="setReportSubTab('source_report')"
+                    class="rounded-md px-4 py-1.5 text-sm font-medium transition-colors {{ $reportSubTab === 'source_report' ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200' }}"
+                >
+                    Source Report
+                </button>
             </div>
 
             {{-- Team Sales Sub-Tab --}}
@@ -1131,6 +1193,88 @@ new class extends Component
                 </div>
             </flux:card>
             @endif {{-- end product_report sub-tab --}}
+
+            @if($reportSubTab === 'source_report')
+            {{-- Summary Cards --}}
+            <div class="grid gap-4 sm:grid-cols-2">
+                <flux:card class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <flux:heading size="lg">RM {{ number_format($sourceSummary['total_revenue'] ?? 0, 2) }}</flux:heading>
+                        <div class="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
+                            <flux:icon name="banknotes" class="h-6 w-6 text-green-600 dark:text-green-400" />
+                        </div>
+                    </div>
+                    <flux:text>Total Revenue</flux:text>
+                </flux:card>
+
+                <flux:card class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <flux:heading size="lg">{{ $sourceSummary['total_orders'] ?? 0 }}</flux:heading>
+                        <div class="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30">
+                            <flux:icon name="shopping-cart" class="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                        </div>
+                    </div>
+                    <flux:text>Total Orders</flux:text>
+                </flux:card>
+            </div>
+
+            {{-- Source Table --}}
+            <flux:card>
+                <div class="mb-4">
+                    <flux:heading size="lg">Revenue by Source</flux:heading>
+                    <flux:text>Breakdown of sales by source channel</flux:text>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-zinc-800">
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Source</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Revenue</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Orders</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-zinc-400">Avg Order Value</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white dark:divide-zinc-700 dark:bg-transparent">
+                            @forelse($sourceReportData as $source)
+                                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800" wire:key="source-{{ $source['id'] ?? 'none' }}">
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <span class="h-3 w-3 shrink-0 rounded-full" style="background-color: {{ $source['color'] }}"></span>
+                                            <span class="text-sm font-medium text-gray-900 dark:text-zinc-100">{{ $source['name'] }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-zinc-100">
+                                        RM {{ number_format($source['revenue'], 2) }}
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-600 dark:text-zinc-400">
+                                        {{ $source['order_count'] }}
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-600 dark:text-zinc-400">
+                                        RM {{ number_format($source['avg_order_value'], 2) }}
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-zinc-400">
+                                        No source data available for the selected period.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                        @if(count($sourceReportData) > 0)
+                            <tfoot class="border-t-2 border-gray-300 bg-gray-50 dark:border-zinc-600 dark:bg-zinc-800">
+                                <tr>
+                                    <td class="px-4 py-3 text-sm font-bold text-gray-900 dark:text-zinc-100">Total</td>
+                                    <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-zinc-100">RM {{ number_format($sourceSummary['total_revenue'] ?? 0, 2) }}</td>
+                                    <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-zinc-100">{{ $sourceSummary['total_orders'] ?? 0 }}</td>
+                                    <td class="px-4 py-3"></td>
+                                </tr>
+                            </tfoot>
+                        @endif
+                    </table>
+                </div>
+            </flux:card>
+            @endif {{-- end source_report sub-tab --}}
         @endif
 
     </div>
