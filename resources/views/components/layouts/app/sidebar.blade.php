@@ -22,7 +22,7 @@
                     'certificates': ['certificates.*'],
                     'inventory': ['inventory.*', 'stock.*', 'warehouses.*'],
                     'agentCompany': ['agent-orders.*', 'agents.*'],
-                    'salesDept': ['pos.*', 'admin.reports.sales-department'],
+                    'salesDept': ['pos.*', 'admin.reports.sales-department', 'admin.sales-sources'],
                     'platformMgmt': ['platforms.*'],
                     'liveHost': ['admin.live-hosts*', 'admin.live-schedule-calendar', 'admin.live-time-slots', 'admin.session-slots', 'admin.live-schedules.*', 'admin.live-sessions.*'],
                     'reports': ['admin.reports.*'],
@@ -261,6 +261,7 @@
                     @click="saveState('salesDept', $event)"
                 >
                     <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
+                    <flux:navlist.item icon="tag" :href="route('admin.sales-sources')" :current="request()->routeIs('admin.sales-sources')" wire:navigate>{{ __('Sales Sources') }}</flux:navlist.item>
                     <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif
@@ -458,6 +459,7 @@
                     @click="saveState('salesDept', $event)"
                 >
                     <flux:navlist.item icon="calculator" :href="route('pos.index')" :current="request()->routeIs('pos.*')">{{ __('POS - Point of Sale') }}</flux:navlist.item>
+                    <flux:navlist.item icon="tag" :href="route('admin.sales-sources')" :current="request()->routeIs('admin.sales-sources')" wire:navigate>{{ __('Sales Sources') }}</flux:navlist.item>
                     <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.sales-department')" :current="request()->routeIs('admin.reports.sales-department')" wire:navigate>{{ __('Sales Department Report') }}</flux:navlist.item>
                 </flux:navlist.group>
                 @endif

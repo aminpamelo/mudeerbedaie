@@ -241,6 +241,7 @@ Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(fu
 // ============================================================================
 Route::middleware(['auth', 'role:admin,class_admin,sales'])->prefix('admin')->group(function () {
     Volt::route('reports/sales-department', 'admin.reports.sales-department')->name('admin.reports.sales-department');
+    Volt::route('sales-sources', 'admin.sales-sources')->name('admin.sales-sources');
 });
 
 // ============================================================================
