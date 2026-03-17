@@ -273,6 +273,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum'])->prefix('pos')->group(function () {
+    Route::get('sales-sources', [\App\Http\Controllers\Api\PosController::class, 'salesSources'])->name('api.pos.sales-sources');
     Route::get('products', [\App\Http\Controllers\Api\PosController::class, 'products'])->name('api.pos.products');
     Route::get('packages', [\App\Http\Controllers\Api\PosController::class, 'packages'])->name('api.pos.packages');
     Route::get('courses', [\App\Http\Controllers\Api\PosController::class, 'courses'])->name('api.pos.courses');

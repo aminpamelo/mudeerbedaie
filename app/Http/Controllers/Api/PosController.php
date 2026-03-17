@@ -9,6 +9,7 @@ use App\Models\Course;
 use App\Models\Package;
 use App\Models\Product;
 use App\Models\ProductOrder;
+use App\Models\SalesSource;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,16 @@ use Illuminate\Support\Facades\DB;
 
 class PosController extends Controller
 {
+    /**
+     * List active sales sources for POS dropdown.
+     */
+    public function salesSources(): JsonResponse
+    {
+        $sources = SalesSource::active()->ordered()->get(['id', 'name', 'description', 'color']);
+
+        return response()->json(['data' => $sources]);
+    }
+
     /**
      * Search/list products with variants and stock info.
      */
@@ -231,6 +242,7 @@ class PosController extends Controller
                 'shipping_address' => $shippingAddress,
                 'source' => 'pos',
                 'source_reference' => 'salesperson:'.$request->user()->id,
+                'sales_source_id' => $validated['sales_source_id'],
                 'status' => 'pending',
                 'order_type' => 'product',
                 'subtotal' => $subtotal,
@@ -295,6 +307,7 @@ class PosController extends Controller
                     'payment_reference' => $order->metadata['payment_reference'] ?? null,
                     'payment_status' => $order->metadata['payment_status'] ?? 'pending',
                     'receipt_attachment_url' => $order->receipt_attachment_url,
+                    'sales_source_id' => $order->sales_source_id,
                     'items' => $order->items,
                 ],
             ], 201);

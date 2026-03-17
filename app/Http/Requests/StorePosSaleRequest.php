@@ -22,6 +22,7 @@ class StorePosSaleRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'sales_source_id' => ['required', 'exists:sales_sources,id'],
             'customer_id' => ['nullable', 'exists:users,id'],
             'customer_name' => ['required_without:customer_id', 'nullable', 'string', 'max:255'],
             'customer_phone' => ['required_without:customer_id', 'nullable', 'string', 'max:20'],
@@ -51,6 +52,8 @@ class StorePosSaleRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'sales_source_id.required' => 'Please select a sales source.',
+            'sales_source_id.exists' => 'The selected sales source is invalid.',
             'items.required' => 'At least one item is required.',
             'items.min' => 'At least one item is required.',
             'payment_reference.required_if' => 'Payment reference is required for bank transfer.',
