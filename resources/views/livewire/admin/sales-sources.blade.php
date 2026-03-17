@@ -181,32 +181,51 @@ new class extends Component
         </table>
     </div>
 
-    <flux:modal wire:model="showModal" class="max-w-lg">
-        <div class="space-y-6">
-            <flux:heading size="lg">{{ $editingId ? 'Edit Source' : 'Create Source' }}</flux:heading>
+    <flux:modal wire:model="showModal" class="max-w-md">
+        <div class="p-6">
+            <flux:heading size="lg" class="mb-4">{{ $editingId ? 'Edit Source' : 'Create Source' }}</flux:heading>
 
-            <flux:input label="Name" wire:model="name" placeholder="e.g. Walk-in, Social Media, Referral" />
+            <form wire:submit="save" class="space-y-4">
+                <flux:field>
+                    <flux:label>Name</flux:label>
+                    <flux:input wire:model="name" placeholder="e.g. Walk-in, Social Media, Referral" />
+                    @error('name') <flux:text class="text-sm text-red-500">{{ $message }}</flux:text> @enderror
+                </flux:field>
 
-            <flux:textarea label="Description" wire:model="description" placeholder="Optional description for this source" rows="3" />
+                <flux:field>
+                    <flux:label>Description</flux:label>
+                    <flux:textarea wire:model="description" placeholder="Optional description" rows="2" />
+                    @error('description') <flux:text class="text-sm text-red-500">{{ $message }}</flux:text> @enderror
+                </flux:field>
 
-            <flux:field>
-                <flux:label>Color</flux:label>
-                <div class="flex items-center gap-3">
-                    <input type="color" wire:model="color" class="h-10 w-14 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600" />
-                    <flux:input wire:model="color" class="max-w-[8rem]" placeholder="#3B82F6" />
+                <div class="grid grid-cols-2 gap-4">
+                    <flux:field>
+                        <flux:label>Color</flux:label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" wire:model="color" class="h-10 w-10 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600" />
+                            <flux:input wire:model="color" class="flex-1" placeholder="#3B82F6" />
+                        </div>
+                        @error('color') <flux:text class="text-sm text-red-500">{{ $message }}</flux:text> @enderror
+                    </flux:field>
+
+                    <flux:field>
+                        <flux:label>Sort Order</flux:label>
+                        <flux:input type="number" wire:model="sortOrder" min="0" />
+                        @error('sortOrder') <flux:text class="text-sm text-red-500">{{ $message }}</flux:text> @enderror
+                    </flux:field>
                 </div>
-            </flux:field>
 
-            <flux:switch label="Active" wire:model="isActive" />
+                <flux:field>
+                    <flux:checkbox wire:model="isActive" label="Active" />
+                </flux:field>
 
-            <flux:input label="Sort Order" type="number" wire:model="sortOrder" min="0" />
-
-            <div class="flex justify-end gap-3">
-                <flux:button variant="ghost" wire:click="$set('showModal', false)">Cancel</flux:button>
-                <flux:button variant="primary" wire:click="save">
-                    {{ $editingId ? 'Update' : 'Create' }}
-                </flux:button>
-            </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <flux:button type="button" variant="ghost" wire:click="$set('showModal', false)">Cancel</flux:button>
+                    <flux:button type="submit" variant="primary">
+                        {{ $editingId ? 'Update' : 'Create' }}
+                    </flux:button>
+                </div>
+            </form>
         </div>
     </flux:modal>
 </section>

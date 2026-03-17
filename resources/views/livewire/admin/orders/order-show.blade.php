@@ -39,6 +39,7 @@ new class extends Component
             'platform',
             'platformAccount',
             'notes.user',
+            'salesSource',
         ]);
 
         // Get payment status from payments table, fallback to paid_time for POS orders
@@ -830,6 +831,15 @@ new class extends Component
                                 <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Currency</flux:text>
                                 <flux:text class="font-medium text-sm">{{ $order->currency }}</flux:text>
                             </div>
+                            @if($order->salesSource)
+                                <div>
+                                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Source</flux:text>
+                                    <div class="flex items-center gap-1.5 mt-0.5">
+                                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $order->salesSource->color }}"></span>
+                                        <flux:text class="font-medium text-sm">{{ $order->salesSource->name }}</flux:text>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
