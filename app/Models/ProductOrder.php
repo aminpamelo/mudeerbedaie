@@ -51,6 +51,7 @@ class ProductOrder extends Model
         'reference_number',
         'source',
         'source_reference',
+        'sales_source_id',
         'hidden_from_admin',
         // Platform discount breakdown
         'sku_platform_discount',
@@ -186,6 +187,11 @@ class ProductOrder extends Model
     public function classAssignmentApprovals(): HasMany
     {
         return $this->hasMany(ClassAssignmentApproval::class);
+    }
+
+    public function salesSource(): BelongsTo
+    {
+        return $this->belongsTo(SalesSource::class);
     }
 
     // Platform relationships
