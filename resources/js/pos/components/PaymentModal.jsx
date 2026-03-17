@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { saleApi } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { saleApi, salesSourceApi } from '../services/api';
 
 const MALAYSIAN_STATES = [
     'Johor', 'Kedah', 'Kelantan', 'Melaka', 'Negeri Sembilan',
@@ -23,6 +23,9 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [editingCustomer, setEditingCustomer] = useState(false);
+    const [salesSourceId, setSalesSourceId] = useState(null);
+    const [salesSources, setSalesSources] = useState([]);
+    const [loadingSources, setLoadingSources] = useState(true);
     const [customerEdit, setCustomerEdit] = useState({
         name: customer?.name || '',
         phone: customer?.phone || '',
@@ -32,6 +35,13 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
         postcode: '',
         state: '',
     });
+
+    useEffect(() => {
+        salesSourceApi.list().then(res => {
+            setSalesSources(res.data || []);
+            setLoadingSources(false);
+        }).catch(() => setLoadingSources(false));
+    }, []);
 
     const handleReceiptChange = (e) => {
         const file = e.target.files[0];
@@ -76,6 +86,7 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
                 payment_method: paymentMethod,
                 payment_reference: paymentMethod === 'bank_transfer' ? paymentReference : null,
                 payment_status: paymentStatus,
+                sales_source_id: salesSourceId,
                 notes: notes || null,
                 items: cart.map(item => ({
                     itemable_type: item.type,
@@ -274,6 +285,36 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
                         </div>
                     </div>
 
+                    {/* Sales Source */}
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Sales Source</label>
+                        {loadingSources ? (
+                            <div className="text-sm text-gray-400">Loading sources...</div>
+                        ) : salesSources.length === 0 ? (
+                            <div className="text-sm text-red-500">No sales sources configured. Please add sources first.</div>
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                {salesSources.map(source => (
+                                    <button
+                                        key={source.id}
+                                        onClick={() => setSalesSourceId(source.id)}
+                                        className={`py-2 px-4 rounded-xl border-2 text-sm font-medium transition-all flex items-center gap-2 ${
+                                            salesSourceId === source.id
+                                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <span
+                                            className="w-3 h-3 rounded-full shrink-0"
+                                            style={{ backgroundColor: source.color }}
+                                        />
+                                        {source.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Payment Method */}
                     <div>
                         <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Payment Method</label>
@@ -431,7 +472,7 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={loading || (paymentMethod === 'bank_transfer' && !paymentReference)}
+                        disabled={loading || !salesSourceId || (paymentMethod === 'bank_transfer' && !paymentReference)}
                         className="flex-1 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm transition-colors"
                     >
                         {loading ? 'Processing...' : `Confirm RM ${total.toFixed(2)}`}

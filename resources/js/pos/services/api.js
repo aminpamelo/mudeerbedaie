@@ -59,6 +59,10 @@ export const customerApi = {
     search: (search) => request(`/customers?search=${encodeURIComponent(search)}`),
 };
 
+export const salesSourceApi = {
+    list: () => request('/sales-sources'),
+};
+
 export const saleApi = {
     create: (data, receiptFile = null) => {
         if (receiptFile) {
