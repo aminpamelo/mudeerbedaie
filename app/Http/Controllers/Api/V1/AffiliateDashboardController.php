@@ -273,8 +273,7 @@ class AffiliateDashboardController extends Controller
 
         $thankyouClicks = $clicks > 0
             ? FunnelSessionEvent::whereIn('session_id', $sessionIds)
-                ->where('event_type', 'page_view')
-                ->whereHas('step', fn ($q) => $q->where('type', 'thankyou'))
+                ->where('event_type', 'thankyou_button_click')
                 ->count()
             : 0;
 
@@ -335,8 +334,7 @@ class AffiliateDashboardController extends Controller
 
             $thankyouClicks = $views > 0
                 ? FunnelSessionEvent::whereIn('session_id', $sessionIds)
-                    ->where('event_type', 'page_view')
-                    ->whereHas('step', fn ($q) => $q->where('type', 'thankyou'))
+                    ->where('event_type', 'thankyou_button_click')
                     ->count()
                 : 0;
 
