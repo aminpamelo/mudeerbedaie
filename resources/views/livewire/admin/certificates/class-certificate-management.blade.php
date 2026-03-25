@@ -376,7 +376,6 @@ new class extends Component {
     {
         if ($value) {
             $this->selectedIssueIds = $this->getFilteredIssuedQuery()
-                ->paginate(10)
                 ->pluck('id')
                 ->map(fn ($id) => (string) $id)
                 ->toArray();
@@ -387,14 +386,13 @@ new class extends Component {
 
     public function updatedSelectedIssueIds(): void
     {
-        $currentPageIds = $this->getFilteredIssuedQuery()
-            ->paginate(10)
+        $allFilteredIds = $this->getFilteredIssuedQuery()
             ->pluck('id')
             ->map(fn ($id) => (string) $id)
             ->toArray();
 
         $this->selectAllIssued = count($this->selectedIssueIds) > 0
-            && count(array_intersect($this->selectedIssueIds, $currentPageIds)) === count($currentPageIds);
+            && count(array_intersect($this->selectedIssueIds, $allFilteredIds)) === count($allFilteredIds);
     }
 
     public function updatingFilterStatus(): void
