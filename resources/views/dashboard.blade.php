@@ -90,6 +90,8 @@
         $savedPaymentMethods = $user->paymentMethods()->active()->count();
     }
     
+    $isEmployee = $user->isEmployee();
+
     if ($isTeacher) {
         $teacherCourses = $user->createdCourses()->withCount(['enrollments', 'activeEnrollments'])->get();
         $totalTeacherEnrollments = \App\Models\Enrollment::whereHas('course', function($q) use ($user) {
@@ -134,6 +136,8 @@
                     <flux:badge size="sm" color="zinc">Admin</flux:badge>
                 @elseif($isTeacher)
                     <flux:badge size="sm" color="blue">Teacher</flux:badge>
+                @elseif($isEmployee)
+                    <flux:badge size="sm" color="green">Employee</flux:badge>
                 @elseif($isStudent)
                     <flux:badge size="sm" color="emerald">Student</flux:badge>
                 @endif
@@ -449,6 +453,29 @@
                     <flux:text class="text-gray-600">You're not enrolled in any courses yet.</flux:text>
                 @endif
             </flux:card>
+        @endif
+
+        @if($isEmployee)
+            <!-- Employee Dashboard -->
+            <div class="grid gap-6">
+                <flux:card class="text-center p-8">
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                            <flux:icon.briefcase class="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                            <flux:heading size="lg">HR Portal</flux:heading>
+                            <flux:text class="mt-1 text-gray-600">View your profile, employment details, and manage your information</flux:text>
+                        </div>
+                        <flux:button variant="primary" href="/hr" class="mt-2">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="arrow-right" class="w-4 h-4 mr-1" />
+                                Go to HR Portal
+                            </div>
+                        </flux:button>
+                    </div>
+                </flux:card>
+            </div>
         @endif
 
         @if($isTeacher)
