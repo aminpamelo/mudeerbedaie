@@ -1564,7 +1564,12 @@ new class extends Component {
                                         @elseif(($logMeta['status'] ?? '') === 'read')
                                             <flux:badge color="indigo" size="sm">Read</flux:badge>
                                         @elseif(($logMeta['status'] ?? '') === 'failed')
-                                            <flux:badge color="red" size="sm">Failed</flux:badge>
+                                            <div>
+                                                <flux:badge color="red" size="sm">Failed</flux:badge>
+                                                @if(!empty($logMeta['error']))
+                                                    <p class="text-xs text-red-500 dark:text-red-400 mt-1 max-w-xs truncate" title="{{ $logMeta['error'] }}">{{ $logMeta['error'] }}</p>
+                                                @endif
+                                            </div>
                                         @else
                                             <span class="text-xs text-zinc-400">—</span>
                                         @endif

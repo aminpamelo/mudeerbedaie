@@ -60,5 +60,15 @@ class SendCertificateEmailJob implements ShouldQueue
             'email' => $this->recipientEmail,
             'error' => $exception->getMessage(),
         ]);
+
+        $issue = CertificateIssue::find($this->certificateIssueId);
+        if ($issue) {
+            $sentBy = User::find($this->sentByUserId);
+            $issue->logAction('sent_email', $sentBy, [
+                'status' => 'failed',
+                'email' => $this->recipientEmail,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 }

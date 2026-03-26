@@ -155,5 +155,15 @@ class SendCertificateWhatsAppJob implements ShouldQueue
             'phone' => $this->phoneNumber,
             'error' => $exception->getMessage(),
         ]);
+
+        $issue = CertificateIssue::find($this->certificateIssueId);
+        if ($issue) {
+            $sentBy = User::find($this->sentByUserId);
+            $issue->logAction('sent_whatsapp', $sentBy, [
+                'status' => 'failed',
+                'phone' => $this->phoneNumber,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 }

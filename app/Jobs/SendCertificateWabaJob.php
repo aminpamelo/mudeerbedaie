@@ -192,5 +192,15 @@ class SendCertificateWabaJob implements ShouldQueue
             'template_id' => $this->templateId,
             'error' => $exception->getMessage(),
         ]);
+
+        $issue = CertificateIssue::find($this->certificateIssueId);
+        if ($issue) {
+            $sentBy = User::find($this->sentByUserId);
+            $issue->logAction('sent_waba', $sentBy, [
+                'status' => 'failed',
+                'phone' => $this->phoneNumber,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 }
