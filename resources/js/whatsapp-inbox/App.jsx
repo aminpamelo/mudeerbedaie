@@ -15,6 +15,8 @@ export default function App({ csrfToken, apiBase }) {
     const [sending, setSending] = useState(false);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
     const [pagination, setPagination] = useState(null);
+    const [messagePagination, setMessagePagination] = useState(null);
+    const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
     const selectedConversationRef = useRef(null);
     const prevUnreadMapRef = useRef(null);
     const { muted, play, toggleMute } = useNotificationSound();
@@ -79,6 +81,10 @@ export default function App({ csrfToken, apiBase }) {
         try {
             const data = await apiFetch(`/conversations/${conversationId}`);
             setMessages((data.messages?.data || []).reverse());
+            setMessagePagination({
+                current_page: data.messages?.current_page,
+                last_page: data.messages?.last_page,
+            });
             if (data.conversation) {
                 setSelectedConversation(prev => prev ? { ...prev, ...data.conversation, unread_count: 0 } : prev);
                 setConversations(prev =>
@@ -91,6 +97,26 @@ export default function App({ csrfToken, apiBase }) {
             setLoadingMessages(false);
         }
     }, [apiFetch]);
+
+    const loadMoreMessages = useCallback(async () => {
+        if (!selectedConversation || !messagePagination || loadingMoreMessages) return;
+        if (messagePagination.current_page >= messagePagination.last_page) return;
+        setLoadingMoreMessages(true);
+        try {
+            const nextPage = messagePagination.current_page + 1;
+            const data = await apiFetch(`/conversations/${selectedConversation.id}?page=${nextPage}`);
+            const olderMessages = (data.messages?.data || []).reverse();
+            setMessages(prev => [...olderMessages, ...prev]);
+            setMessagePagination({
+                current_page: data.messages?.current_page,
+                last_page: data.messages?.last_page,
+            });
+        } catch (err) {
+            console.error('Gagal memuatkan mesej lama:', err);
+        } finally {
+            setLoadingMoreMessages(false);
+        }
+    }, [apiFetch, selectedConversation, messagePagination, loadingMoreMessages]);
 
     useEffect(() => {
         fetchConversations();
@@ -207,6 +233,9 @@ export default function App({ csrfToken, apiBase }) {
                         onArchive={handleArchive}
                         onBack={() => setSelectedConversation(null)}
                         onShowTemplatePicker={() => setShowTemplatePicker(true)}
+                        hasMoreMessages={messagePagination && messagePagination.current_page < messagePagination.last_page}
+                        loadingMoreMessages={loadingMoreMessages}
+                        onLoadMoreMessages={loadMoreMessages}
                     />
                 ) : (
                     <div className="flex-1 flex items-center justify-center bg-[#f0f2f5]">

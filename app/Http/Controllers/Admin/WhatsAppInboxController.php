@@ -35,7 +35,7 @@ class WhatsAppInboxController extends Controller
         }
 
         $conversations = $query->orderByDesc('last_message_at')
-            ->paginate(15);
+            ->paginate(50);
 
         $conversations->getCollection()->transform(function (WhatsAppConversation $conversation) {
             return [
@@ -66,7 +66,7 @@ class WhatsAppInboxController extends Controller
         $messages = $conversation->messages()
             ->with('sentBy')
             ->orderByDesc('created_at')
-            ->paginate(50);
+            ->paginate(100);
 
         $messages->getCollection()->transform(function (WhatsAppMessage $message) {
             return [

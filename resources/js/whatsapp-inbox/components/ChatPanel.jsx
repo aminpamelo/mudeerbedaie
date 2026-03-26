@@ -24,6 +24,9 @@ export default function ChatPanel({
     onArchive,
     onBack,
     onShowTemplatePicker,
+    hasMoreMessages,
+    loadingMoreMessages,
+    onLoadMoreMessages,
 }) {
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
@@ -63,6 +66,22 @@ export default function ChatPanel({
                     </div>
                 ) : (
                     <div className="space-y-1">
+                        {hasMoreMessages && (
+                            <div className="flex justify-center py-3">
+                                <button
+                                    onClick={onLoadMoreMessages}
+                                    disabled={loadingMoreMessages}
+                                    className="px-4 py-1.5 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm text-xs font-medium text-teal-700 hover:bg-white transition-colors disabled:opacity-50"
+                                >
+                                    {loadingMoreMessages ? (
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-3 h-3 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+                                            Memuatkan...
+                                        </span>
+                                    ) : 'Muatkan mesej lama'}
+                                </button>
+                            </div>
+                        )}
                         {messages.map((message, index) => {
                             const showDate = index === 0 ||
                                 new Date(message.created_at).toDateString() !==
