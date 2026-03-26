@@ -159,6 +159,7 @@ new class extends Component {
             'status' => ['required', Rule::in(['APPROVED', 'PENDING', 'REJECTED', 'PAUSED'])],
             'components' => 'array',
             'components.*.type' => ['required', Rule::in(['HEADER', 'BODY', 'FOOTER', 'BUTTONS'])],
+            'components.*.format' => ['nullable', Rule::in(['', 'DOCUMENT'])],
             'components.*.text' => 'nullable|string|max:1024',
         ], [
             'name.regex' => 'Template name must only contain lowercase letters, numbers, and underscores.',
@@ -756,12 +757,34 @@ new class extends Component {
                                         />
                                     </div>
                                     <div class="p-3 space-y-2">
-                                        <flux:textarea
-                                            wire:model.live.debounce.500ms="components.{{ $index }}.text"
-                                            placeholder="Component text content... Use {{1}}, {{2}} for variables"
-                                            rows="2"
-                                            class="!bg-white dark:!bg-zinc-800 !text-sm"
-                                        />
+                                        @if(($component['type'] ?? '') === 'HEADER')
+                                            <div class="mb-2">
+                                                <flux:select wire:model.live="components.{{ $index }}.format" class="!text-sm">
+                                                    <option value="">Text</option>
+                                                    <option value="DOCUMENT">Document (PDF)</option>
+                                                </flux:select>
+                                            </div>
+                                            @if(($component['format'] ?? '') === 'DOCUMENT')
+                                                <div class="flex items-center gap-2 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 p-3">
+                                                    <flux:icon name="document-text" class="w-5 h-5 text-zinc-400" />
+                                                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">PDF document will be attached automatically when sending certificates</flux:text>
+                                                </div>
+                                            @else
+                                                <flux:textarea
+                                                    wire:model.live.debounce.500ms="components.{{ $index }}.text"
+                                                    placeholder="Header text content..."
+                                                    rows="2"
+                                                    class="!bg-white dark:!bg-zinc-800 !text-sm"
+                                                />
+                                            @endif
+                                        @else
+                                            <flux:textarea
+                                                wire:model.live.debounce.500ms="components.{{ $index }}.text"
+                                                placeholder="Component text content... Use {{1}}, {{2}} for variables"
+                                                rows="2"
+                                                class="!bg-white dark:!bg-zinc-800 !text-sm"
+                                            />
+                                        @endif
                                         @if(($component['type'] ?? '') === 'BODY')
                                             <div class="flex items-center gap-2">
                                                 <flux:button type="button" size="sm" variant="ghost" wire:click="insertVariable({{ $index }})">
