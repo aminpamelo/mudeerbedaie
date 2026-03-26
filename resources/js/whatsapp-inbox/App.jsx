@@ -235,7 +235,7 @@ export default function App({ csrfToken, apiBase }) {
     }, [apiFetch, selectedConversation, fetchConversations]);
 
     return (
-        <div className="flex h-[calc(100vh-180px)] rounded-xl overflow-hidden shadow-sm border border-zinc-200/70">
+        <div className="flex h-full rounded-xl overflow-hidden shadow-sm border border-zinc-200/70">
             {/* Left Panel — Conversation List */}
             <div className={`w-full md:w-[340px] lg:w-[380px] shrink-0 border-r border-zinc-200/70 flex flex-col bg-white ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
                 <ConversationList
