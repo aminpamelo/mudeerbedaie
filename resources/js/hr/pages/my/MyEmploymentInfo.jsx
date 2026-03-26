@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Briefcase,
     Calendar,
@@ -7,10 +8,14 @@ import {
     FileText,
     Loader2,
     AlertCircle,
+    Pencil,
+    Check,
+    X,
 } from 'lucide-react';
-import { fetchMyProfile } from '../../lib/api';
+import { fetchMyProfile, updateMyProfile } from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
 import StatusBadge from '../../components/StatusBadge';
 
 function formatDate(dateStr) {
@@ -56,6 +61,33 @@ export default function MyEmploymentInfo() {
             </div>
         );
     }
+
+    const queryClient = useQueryClient();
+    const [editingBank, setEditingBank] = useState(false);
+    const [bankName, setBankName] = useState('');
+    const [bankAccount, setBankAccount] = useState('');
+
+    const bankMutation = useMutation({
+        mutationFn: updateMyProfile,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-profile'] });
+            setEditingBank(false);
+        },
+    });
+
+    const startEditBank = () => {
+        setBankName(employee.bank_name || '');
+        setBankAccount('');
+        setEditingBank(true);
+    };
+
+    const saveBank = () => {
+        const data = { bank_name: bankName };
+        if (bankAccount) {
+            data.bank_account_number = bankAccount;
+        }
+        bankMutation.mutate(data);
+    };
 
     const isProbation = employee.status === 'probation';
     const isContract = employee.employment_type === 'contract';
@@ -121,14 +153,78 @@ export default function MyEmploymentInfo() {
             {/* Bank Information */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                        <CreditCard className="h-4 w-4 text-zinc-500" />
-                        Bank Information
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <CreditCard className="h-4 w-4 text-zinc-500" />
+                            Bank Information
+                        </CardTitle>
+                        {!editingBank && (
+                            <button
+                                onClick={startEditBank}
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                            >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit
+                            </button>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <InfoRow label="Bank Name" value={employee.bank_name} />
-                    <InfoRow label="Account Number" value={employee.masked_bank_account} />
+                    {editingBank ? (
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-medium text-zinc-500 mb-1 block">Bank Name</label>
+                                <Input
+                                    value={bankName}
+                                    onChange={(e) => setBankName(e.target.value)}
+                                    placeholder="e.g. Maybank, CIMB, Hong Leong Bank"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-zinc-500 mb-1 block">Account Number</label>
+                                <Input
+                                    value={bankAccount}
+                                    onChange={(e) => setBankAccount(e.target.value)}
+                                    placeholder="Leave empty to keep current"
+                                />
+                                {employee.masked_bank_account && employee.masked_bank_account !== '-' && (
+                                    <p className="text-xs text-zinc-400 mt-1">Current: {employee.masked_bank_account}</p>
+                                )}
+                            </div>
+                            {bankMutation.isError && (
+                                <p className="text-xs text-red-500">
+                                    {bankMutation.error?.response?.data?.message || 'Failed to update'}
+                                </p>
+                            )}
+                            <div className="flex items-center gap-2 pt-1">
+                                <button
+                                    onClick={saveBank}
+                                    disabled={bankMutation.isPending}
+                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                >
+                                    {bankMutation.isPending ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                        <Check className="h-3 w-3" />
+                                    )}
+                                    Save
+                                </button>
+                                <button
+                                    onClick={() => setEditingBank(false)}
+                                    disabled={bankMutation.isPending}
+                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-zinc-600 bg-zinc-100 rounded-lg hover:bg-zinc-200 disabled:opacity-50 transition-colors"
+                                >
+                                    <X className="h-3 w-3" />
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <InfoRow label="Bank Name" value={employee.bank_name} />
+                            <InfoRow label="Account Number" value={employee.masked_bank_account} />
+                        </>
+                    )}
                 </CardContent>
             </Card>
 

@@ -52,6 +52,8 @@ class HrMyProfileController extends Controller
             'state' => ['sometimes', 'nullable', 'string', 'max:100'],
             'postcode' => ['sometimes', 'nullable', 'string', 'max:10'],
             'marital_status' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'bank_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'bank_account_number' => ['sometimes', 'nullable', 'string', 'max:50'],
         ]);
 
         foreach ($validated as $field => $newValue) {
