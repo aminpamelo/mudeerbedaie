@@ -1565,9 +1565,12 @@ new class extends Component {
                                             <flux:badge color="indigo" size="sm">Read</flux:badge>
                                         @elseif(($logMeta['status'] ?? '') === 'failed')
                                             <div>
-                                                <flux:badge color="red" size="sm">Failed</flux:badge>
                                                 @if(!empty($logMeta['error']))
-                                                    <p class="text-xs text-red-500 dark:text-red-400 mt-1 max-w-xs truncate" title="{{ $logMeta['error'] }}">{{ $logMeta['error'] }}</p>
+                                                    <button type="button" wire:click="$dispatch('show-send-error', { error: '{{ addslashes($logMeta['error']) }}', student: '{{ addslashes($log->certificateIssue?->student?->user?->name ?? 'Unknown') }}', channel: '{{ $log->action }}', date: '{{ $log->created_at->format('M d, Y H:i') }}' })" class="cursor-pointer">
+                                                        <flux:badge color="red" size="sm">Failed</flux:badge>
+                                                    </button>
+                                                @else
+                                                    <flux:badge color="red" size="sm">Failed</flux:badge>
                                                 @endif
                                             </div>
                                         @else
@@ -1593,6 +1596,47 @@ new class extends Component {
         </div>
     </flux:card>
     @endif
+
+    <!-- Send Error Detail Modal -->
+    <div x-data="{ showError: false, errorMsg: '', studentName: '', channelName: '', errorDate: '' }"
+         @show-send-error.window="showError = true; errorMsg = $event.detail.error; studentName = $event.detail.student; channelName = $event.detail.channel === 'sent_waba' ? 'WhatsApp (WABA)' : ($event.detail.channel === 'sent_whatsapp' ? 'WhatsApp' : 'Email'); errorDate = $event.detail.date">
+        <flux:modal x-model="showError" class="max-w-md">
+            <div class="space-y-4">
+                <div>
+                    <flux:heading size="lg">Send Failed</flux:heading>
+                    <flux:text class="mt-1 text-sm text-zinc-500">Details about the failed delivery</flux:text>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Student</span>
+                        <span class="text-sm text-zinc-900 dark:text-white" x-text="studentName"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Channel</span>
+                        <span class="text-sm text-zinc-900 dark:text-white" x-text="channelName"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Date</span>
+                        <span class="text-sm text-zinc-900 dark:text-white" x-text="errorDate"></span>
+                    </div>
+
+                    <flux:separator />
+
+                    <div>
+                        <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Error Message</span>
+                        <div class="mt-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
+                            <p class="text-sm text-red-700 dark:text-red-300 break-words" x-text="errorMsg"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <flux:button variant="ghost" @click="showError = false">Close</flux:button>
+                </div>
+            </div>
+        </flux:modal>
+    </div>
 
     <!-- Certificate Log Modal -->
     <flux:modal wire:model="showLogModal" class="max-w-lg">
