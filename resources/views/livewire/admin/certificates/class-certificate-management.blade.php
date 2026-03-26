@@ -1566,7 +1566,10 @@ new class extends Component {
                                         @elseif(($logMeta['status'] ?? '') === 'failed')
                                             <div>
                                                 @if(!empty($logMeta['error']))
-                                                    <button type="button" wire:click="$dispatch('show-send-error', { error: '{{ addslashes($logMeta['error']) }}', student: '{{ addslashes($log->certificateIssue?->student?->user?->name ?? 'Unknown') }}', channel: '{{ $log->action }}', date: '{{ $log->created_at->format('M d, Y H:i') }}' })" class="cursor-pointer">
+                                                    <button type="button" x-on:click="
+                                                        $dispatch('set-send-error', { error: @js($logMeta['error']), student: @js($log->certificateIssue?->student?->user?->name ?? 'Unknown'), channel: @js($log->action), date: @js($log->created_at->format('M d, Y H:i')) });
+                                                        $flux.modal('send-error-detail').show();
+                                                    " class="cursor-pointer">
                                                         <flux:badge color="red" size="sm">Failed</flux:badge>
                                                     </button>
                                                 @else
@@ -1598,9 +1601,9 @@ new class extends Component {
     @endif
 
     <!-- Send Error Detail Modal -->
-    <div x-data="{ showError: false, errorMsg: '', studentName: '', channelName: '', errorDate: '' }"
-         @show-send-error.window="showError = true; errorMsg = $event.detail.error; studentName = $event.detail.student; channelName = $event.detail.channel === 'sent_waba' ? 'WhatsApp (WABA)' : ($event.detail.channel === 'sent_whatsapp' ? 'WhatsApp' : 'Email'); errorDate = $event.detail.date">
-        <flux:modal x-model="showError" class="max-w-md">
+    <div x-data="{ errorMsg: '', studentName: '', channelName: '', errorDate: '' }"
+         @set-send-error.window="errorMsg = $event.detail.error; studentName = $event.detail.student; channelName = $event.detail.channel === 'sent_waba' ? 'WhatsApp (WABA)' : ($event.detail.channel === 'sent_whatsapp' ? 'WhatsApp' : 'Email'); errorDate = $event.detail.date">
+        <flux:modal name="send-error-detail" class="max-w-md">
             <div class="space-y-4">
                 <div>
                     <flux:heading size="lg">Send Failed</flux:heading>
@@ -1632,7 +1635,9 @@ new class extends Component {
                 </div>
 
                 <div class="flex justify-end">
-                    <flux:button variant="ghost" @click="showError = false">Close</flux:button>
+                    <flux:modal.close>
+                        <flux:button variant="ghost">Close</flux:button>
+                    </flux:modal.close>
                 </div>
             </div>
         </flux:modal>
