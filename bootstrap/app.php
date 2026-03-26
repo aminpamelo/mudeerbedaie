@@ -52,6 +52,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/crm/*',
             'api/v1/*',
             'api/funnel-events/*',
+            'api/hr/*',
+            'api/pos/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -162,7 +162,7 @@ Route::middleware(['auth', 'role:class_admin'])->prefix('class-admin')->name('cl
 // ============================================================================
 // SHARED ADMIN ROUTES - Accessible by both admin and class_admin roles
 // ============================================================================
-Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'role:admin,employee,class_admin'])->prefix('admin')->group(function () {
     // Course routes
     Route::get('courses', [CourseController::class, 'index'])->name('courses.index');
     Route::get('courses/create', [CourseController::class, 'create'])->name('courses.create');
@@ -239,7 +239,7 @@ Route::middleware(['auth', 'role:admin,class_admin'])->prefix('admin')->group(fu
 // ============================================================================
 // SALES DEPARTMENT REPORT - Accessible by admin, class_admin, and sales roles
 // ============================================================================
-Route::middleware(['auth', 'role:admin,class_admin,sales'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'role:admin,employee,class_admin,sales'])->prefix('admin')->group(function () {
     Volt::route('reports/sales-department', 'admin.reports.sales-department')->name('admin.reports.sales-department');
     Volt::route('sales-sources', 'admin.sales-sources')->name('admin.sales-sources');
 });
@@ -247,7 +247,7 @@ Route::middleware(['auth', 'role:admin,class_admin,sales'])->prefix('admin')->gr
 // ============================================================================
 // ADMIN-ONLY ROUTES - Accessible only by admin role
 // ============================================================================
-Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(function () {
     // User management routes
     Volt::route('users', 'admin.user-list')->name('users.index');
     Volt::route('users/create', 'admin.user-create')->name('users.create');
@@ -443,7 +443,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
 });
 
 // Live Host Management routes (Admin & Admin Livehost access)
-Route::middleware(['auth', 'role:admin,admin_livehost'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'role:admin,employee,admin_livehost'])->prefix('admin')->name('admin.')->group(function () {
     // Live Host CRUD
     Volt::route('live-hosts', 'admin.live-hosts-list')->name('live-hosts');
     Volt::route('live-hosts/create', 'admin.live-hosts-create')->name('live-hosts.create');
@@ -473,9 +473,17 @@ Route::middleware(['auth', 'role:admin,admin_livehost'])->prefix('admin')->name(
 });
 
 // ============================================================================
+// HR MODULE - React SPA (separate admin dashboard)
+// ============================================================================
+Route::middleware(['auth', 'role:admin,employee'])->group(function () {
+    Route::get('hr', fn () => view('hr.index'))->name('hr.dashboard');
+    Route::get('hr/{any}', fn () => view('hr.index'))->where('any', '.*')->name('hr.catchall');
+});
+
+// ============================================================================
 // POS - Point of Sale React SPA
 // ============================================================================
-Route::middleware(['auth', 'role:admin,sales'])->group(function () {
+Route::middleware(['auth', 'role:admin,employee,sales'])->group(function () {
     Route::get('pos', fn () => view('pos.index'))->name('pos.index');
     Route::get('pos/{any}', fn () => view('pos.index'))->where('any', '.*')->name('pos.catchall');
 });
@@ -483,7 +491,7 @@ Route::middleware(['auth', 'role:admin,sales'])->group(function () {
 // ============================================================================
 // FUNNEL BUILDER - React SPA for sales funnel management
 // ============================================================================
-Route::middleware(['auth', 'role:admin'])->group(function () {
+Route::middleware(['auth', 'role:admin,employee'])->group(function () {
     // Funnel Builder SPA - catch all routes and serve the React app
     Route::get('funnel-builder', fn () => view('funnel-builder.index'))->name('funnel-builder.index');
     Route::get('funnel-builder/{any}', fn () => view('funnel-builder.index'))->where('any', '.*')->name('funnel-builder.catchall');
@@ -492,7 +500,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 // ============================================================================
 // WORKFLOW BUILDER - React SPA for automation workflows
 // ============================================================================
-Route::middleware(['auth', 'role:admin'])->group(function () {
+Route::middleware(['auth', 'role:admin,employee'])->group(function () {
     // Workflow list page (Livewire)
     Volt::route('workflows', 'admin.workflows.workflow-list')->name('workflows.index');
 
@@ -538,7 +546,7 @@ Route::get('embed/funnel.js', [App\Http\Controllers\FunnelEmbedController::class
 Route::get('embed/{embedKey}', [App\Http\Controllers\FunnelEmbedController::class, 'show'])->name('funnel.embed');
 
 // Admin embed management routes
-Route::middleware(['auth', 'role:admin'])->prefix('api/v1')->group(function () {
+Route::middleware(['auth', 'role:admin,employee'])->prefix('api/v1')->group(function () {
     Route::post('funnels/{funnel}/embed/code', [App\Http\Controllers\FunnelEmbedController::class, 'generateEmbedCode'])->name('api.funnels.embed.code');
     Route::post('funnels/{funnel}/embed/toggle', [App\Http\Controllers\FunnelEmbedController::class, 'toggleEmbed'])->name('api.funnels.embed.toggle');
     Route::put('funnels/{funnel}/embed/settings', [App\Http\Controllers\FunnelEmbedController::class, 'updateSettings'])->name('api.funnels.embed.settings');
@@ -577,7 +585,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('payment-methods/{paymentMethod}/default', [App\Http\Controllers\PaymentController::class, 'setDefaultPaymentMethod'])->name('payment-methods.default');
 
     // Admin payment method management (for managing student payment methods) - accessible by admin and class_admin
-    Route::middleware(['role:admin,class_admin'])->group(function () {
+    Route::middleware(['role:admin,employee,class_admin'])->group(function () {
         Route::post('admin/students/{student}/payment-methods', [App\Http\Controllers\PaymentController::class, 'adminStorePaymentMethod'])->name('admin.students.payment-methods.store');
         Route::delete('admin/students/{student}/payment-methods/{paymentMethod}', [App\Http\Controllers\PaymentController::class, 'adminDeletePaymentMethod'])->name('admin.students.payment-methods.delete');
         Route::patch('admin/students/{student}/payment-methods/{paymentMethod}/default', [App\Http\Controllers\PaymentController::class, 'adminSetDefaultPaymentMethod'])->name('admin.students.payment-methods.default');

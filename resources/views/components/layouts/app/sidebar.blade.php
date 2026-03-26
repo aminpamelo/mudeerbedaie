@@ -28,6 +28,7 @@
                     'reports': ['admin.reports.*'],
                     'itBoard': ['admin.it-board.*'],
                     'whatsappMgmt': ['admin.whatsapp-inbox', 'admin.whatsapp.templates'],
+                    'hr': ['hr.*'],  // React SPA - just for highlight
                     'settings': ['admin.settings.*'],
                     'teaching': ['teacher.courses.*', 'teacher.classes.*', 'teacher.sessions.*', 'teacher.payslips.*', 'teacher.students.*', 'teacher.timetable'],
                     'liveStreaming': ['live-host.*'],
@@ -121,7 +122,7 @@
                 </flux:navlist.group>
                 @endif
 
-                @if(auth()->user()->isAdmin())
+                @if(auth()->user()->isAdmin() || auth()->user()->isEmployee())
                 <flux:navlist.group
                     expandable
                     :heading="__('Administration')"
@@ -295,7 +296,7 @@
                 </flux:navlist.group>
                 @endif
 
-                @if(auth()->user()->isAdmin())
+                @if(auth()->user()->isAdmin() || auth()->user()->isEmployee())
                 <flux:navlist.group
                     expandable
                     :heading="__('Reports & Analytics')"
@@ -343,6 +344,8 @@
                         {{ __('Cost Monitoring') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
+
+                {{-- HR Module link hidden from main sidebar - accessible via /hr directly --}}
 
                 <flux:navlist.group
                     expandable

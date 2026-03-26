@@ -126,6 +126,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is employee (HR staff)
+     */
+    public function isEmployee(): bool
+    {
+        return $this->role === 'employee';
+    }
+
+    /**
      * Get assigned class IDs for this class admin (from PIC relationship)
      *
      * @return array<int>
@@ -439,5 +447,21 @@ class User extends Authenticatable
     public function impersonationLogsAsTarget(): HasMany
     {
         return $this->hasMany(ImpersonationLog::class, 'impersonated_id');
+    }
+
+    /**
+     * Get the employee profile for this user
+     */
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class);
+    }
+
+    /**
+     * Check if user is HR admin (currently same as admin role)
+     */
+    public function isHrAdmin(): bool
+    {
+        return $this->role === 'admin';
     }
 }

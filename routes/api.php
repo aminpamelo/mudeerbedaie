@@ -1,6 +1,14 @@
 <?php
 
 use App\Http\Controllers\Api\ContactActivityController;
+use App\Http\Controllers\Api\Hr\HrDashboardController;
+use App\Http\Controllers\Api\Hr\HrDepartmentController;
+use App\Http\Controllers\Api\Hr\HrEmergencyContactController;
+use App\Http\Controllers\Api\Hr\HrEmployeeController;
+use App\Http\Controllers\Api\Hr\HrEmployeeDocumentController;
+use App\Http\Controllers\Api\Hr\HrEmployeeHistoryController;
+use App\Http\Controllers\Api\Hr\HrMyProfileController;
+use App\Http\Controllers\Api\Hr\HrPositionController;
 use App\Http\Controllers\Api\StudentTagController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\V1\AffiliateDashboardController;
@@ -121,7 +129,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     })->name('api.funnel-builder.whatsapp-templates');
 
     // Funnel Email Templates (admin only)
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('role:admin,employee')->group(function () {
         Route::get('funnel-email-templates', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'index'])->name('api.funnel-email-templates.index');
         Route::get('funnel-email-templates/{id}', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'show'])->name('api.funnel-email-templates.show');
         Route::post('funnel-email-templates', [\App\Http\Controllers\Api\V1\FunnelEmailTemplateController::class, 'store'])->name('api.funnel-email-templates.store');
@@ -330,3 +338,47 @@ Route::get('whatsapp/webhook', [WhatsAppWebhookController::class, 'verify'])->na
 Route::post('whatsapp/webhook', [WhatsAppWebhookController::class, 'handle'])
     ->middleware(VerifyWhatsAppWebhook::class)
     ->name('api.whatsapp.webhook.handle');
+
+/*
+|--------------------------------------------------------------------------
+| HR Module API Routes
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(function () {
+    // Dashboard
+    Route::get('dashboard/stats', [HrDashboardController::class, 'stats'])->name('api.hr.dashboard.stats');
+    Route::get('dashboard/recent-activity', [HrDashboardController::class, 'recentActivity'])->name('api.hr.dashboard.recent-activity');
+    Route::get('dashboard/headcount-by-department', [HrDashboardController::class, 'headcountByDepartment'])->name('api.hr.dashboard.headcount');
+
+    // Employee Self-Service (My Profile)
+    Route::get('me', [HrMyProfileController::class, 'show'])->name('api.hr.me');
+    Route::put('me', [HrMyProfileController::class, 'update'])->name('api.hr.me.update');
+    Route::get('me/documents', [HrMyProfileController::class, 'documents'])->name('api.hr.me.documents');
+    Route::post('me/documents', [HrMyProfileController::class, 'uploadDocument'])->name('api.hr.me.documents.store');
+    Route::get('me/emergency-contacts', [HrMyProfileController::class, 'emergencyContacts'])->name('api.hr.me.emergency-contacts');
+    Route::post('me/emergency-contacts', [HrMyProfileController::class, 'storeEmergencyContact'])->name('api.hr.me.emergency-contacts.store');
+    Route::put('me/emergency-contacts/{contactId}', [HrMyProfileController::class, 'updateEmergencyContact'])->name('api.hr.me.emergency-contacts.update');
+    Route::delete('me/emergency-contacts/{contactId}', [HrMyProfileController::class, 'deleteEmergencyContact'])->name('api.hr.me.emergency-contacts.destroy');
+
+    // Employees
+    Route::get('employees/next-id', [HrEmployeeController::class, 'nextId'])->name('api.hr.employees.next-id');
+    Route::get('employees/export', [HrEmployeeController::class, 'export'])->name('api.hr.employees.export');
+    Route::apiResource('employees', HrEmployeeController::class)->names('api.hr.employees');
+    Route::patch('employees/{employee}/status', [HrEmployeeController::class, 'updateStatus'])->name('api.hr.employees.update-status');
+
+    // Employee sub-resources
+    Route::get('employees/{employee}/history', [HrEmployeeHistoryController::class, 'index'])->name('api.hr.employees.history');
+    Route::get('employees/{employee}/documents', [HrEmployeeDocumentController::class, 'index'])->name('api.hr.employees.documents.index');
+    Route::post('employees/{employee}/documents', [HrEmployeeDocumentController::class, 'store'])->name('api.hr.employees.documents.store');
+    Route::get('employees/{employee}/documents/{document}/download', [HrEmployeeDocumentController::class, 'download'])->name('api.hr.employees.documents.download');
+    Route::delete('employees/{employee}/documents/{document}', [HrEmployeeDocumentController::class, 'destroy'])->name('api.hr.employees.documents.destroy');
+    Route::apiResource('employees.emergency-contacts', HrEmergencyContactController::class)->shallow()->names('api.hr.emergency-contacts');
+
+    // Departments
+    Route::get('departments/tree', [HrDepartmentController::class, 'tree'])->name('api.hr.departments.tree');
+    Route::get('departments/{department}/employees', [HrDepartmentController::class, 'employees'])->name('api.hr.departments.employees');
+    Route::apiResource('departments', HrDepartmentController::class)->names('api.hr.departments');
+
+    // Positions
+    Route::apiResource('positions', HrPositionController::class)->names('api.hr.positions');
+});

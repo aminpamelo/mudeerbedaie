@@ -25,6 +25,8 @@ export default defineConfig({
                 'resources/js/pos/styles/pos.css',
                 'resources/js/whatsapp-inbox/index.jsx',
                 'resources/js/whatsapp-inbox/styles/whatsapp-inbox.css',
+                'resources/js/hr/main.jsx',
+                'resources/js/hr/styles/hr.css',
             ],
             refresh: true,
         }),

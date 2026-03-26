@@ -8,8 +8,9 @@ Route::middleware('guest')->group(function () {
     Volt::route('login', 'auth.login')
         ->name('login');
 
-    Volt::route('register', 'auth.register')
-        ->name('register');
+    // Registration disabled — accounts are created manually by admin
+    // Volt::route('register', 'auth.register')
+    //     ->name('register');
 
     Volt::route('forgot-password', 'auth.forgot-password')
         ->name('password.request');
@@ -19,7 +20,7 @@ Route::middleware('guest')->group(function () {
 
     // Fallback POST routes - redirect to GET when JavaScript fails
     Route::post('login', fn () => redirect()->route('login'))->name('login.post');
-    Route::post('register', fn () => redirect()->route('register'))->name('register.post');
+    // Route::post('register', fn () => redirect()->route('register'))->name('register.post');
     Route::post('forgot-password', fn () => redirect()->route('password.request'))->name('password.request.post');
 });
 
