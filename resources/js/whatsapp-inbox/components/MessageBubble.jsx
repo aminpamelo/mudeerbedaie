@@ -49,7 +49,39 @@ function StatusIcon({ status }) {
 export default function MessageBubble({ message }) {
     const isOutbound = message.direction === 'outbound';
     const isTemplate = message.type === 'template';
+    const isSticker = message.type === 'sticker';
     const isMedia = ['image', 'video', 'audio', 'document'].includes(message.type);
+
+    // Stickers render differently — no bubble background, just the image
+    if (isSticker) {
+        return (
+            <div className={`flex wa-msg ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                <div className="max-w-[160px]">
+                    {message.media_url ? (
+                        <img
+                            src={message.media_url}
+                            alt="Sticker"
+                            className="w-[128px] h-[128px] object-contain"
+                            loading="lazy"
+                        />
+                    ) : (
+                        <div className="w-[128px] h-[128px] flex flex-col items-center justify-center rounded-lg bg-black/5 text-[#667781]">
+                            <svg className="w-8 h-8 mb-1 opacity-60" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+                            </svg>
+                            <span className="text-[10px]">Sticker</span>
+                        </div>
+                    )}
+                    <div className={`flex items-center gap-1 mt-0.5 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                        <span className="text-[10.5px] text-[#667781]">
+                            {formatMessageTime(message.created_at)}
+                        </span>
+                        {isOutbound && <StatusIcon status={message.status} />}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`flex wa-msg ${isOutbound ? 'justify-end' : 'justify-start'}`}>
