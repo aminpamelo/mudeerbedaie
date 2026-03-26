@@ -109,6 +109,9 @@ class WhatsAppInboxController extends Controller
 
         $result = $manager->provider()->send($conversation->phone_number, $request->input('message'));
 
+        // Text replies within 24h service window are free
+        $serviceCost = config('whatsapp-pricing.rates.'.config('whatsapp-pricing.default_country', 'MY').'.service', 0);
+
         $message = WhatsAppMessage::create([
             'conversation_id' => $conversation->id,
             'direction' => 'outbound',
@@ -119,6 +122,7 @@ class WhatsAppInboxController extends Controller
             'status_updated_at' => now(),
             'sent_by_user_id' => $request->user()->id,
             'error_message' => $result['error'] ?? null,
+            'estimated_cost_usd' => $result['success'] ? $serviceCost : null,
         ]);
 
         $conversation->update([
@@ -158,6 +162,9 @@ class WhatsAppInboxController extends Controller
             $request->input('components', []),
         );
 
+        // Template messages are typically utility category
+        $utilityCost = config('whatsapp-pricing.rates.'.config('whatsapp-pricing.default_country', 'MY').'.utility', 0);
+
         $message = WhatsAppMessage::create([
             'conversation_id' => $conversation->id,
             'direction' => 'outbound',
@@ -169,6 +176,7 @@ class WhatsAppInboxController extends Controller
             'status_updated_at' => now(),
             'sent_by_user_id' => $request->user()->id,
             'error_message' => $result['error'] ?? null,
+            'estimated_cost_usd' => $result['success'] ? $utilityCost : null,
         ]);
 
         $conversation->update([

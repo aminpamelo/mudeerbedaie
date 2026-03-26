@@ -495,6 +495,10 @@ class WhatsAppService
             }
         }
 
+        // Estimate cost based on message type
+        $category = $type === 'template' ? 'utility' : 'service';
+        $estimatedCost = config('whatsapp-pricing.rates.'.config('whatsapp-pricing.default_country', 'MY').".{$category}", 0);
+
         // Create the outbound message
         $message = WhatsAppMessage::create([
             'conversation_id' => $conversation->id,
@@ -509,6 +513,7 @@ class WhatsAppService
             'status_updated_at' => now(),
             'sent_by_user_id' => $sentByUserId,
             'error_message' => $sendResult['error'] ?? null,
+            'estimated_cost_usd' => $sendResult['success'] ? $estimatedCost : null,
         ]);
 
         // Update conversation metadata

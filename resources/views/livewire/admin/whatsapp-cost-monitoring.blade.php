@@ -48,7 +48,38 @@ new class extends Component {
 
         try {
             $costService = app(WhatsAppCostService::class);
-            $count = $costService->syncDailyAnalytics();
+
+            // Sync the currently viewed date range instead of just last 7 days
+            $start = Carbon::parse($this->startDate);
+            $end = Carbon::parse($this->endDate)->min(now());
+
+            $dataPoints = $costService->fetchFromMeta($start, $end);
+            $usdToMyr = (float) config('whatsapp-pricing.usd_to_myr', 4.50);
+            $count = 0;
+
+            foreach ($dataPoints as $point) {
+                $pointDate = Carbon::createFromTimestamp($point['start'])->toDateString();
+                $countryCode = $point['country'] ?? config('whatsapp-pricing.default_country', 'MY');
+                $category = strtoupper($point['pricing_category'] ?? 'UNKNOWN');
+                $volume = (int) ($point['volume'] ?? 0);
+                $costUsd = (float) ($point['cost'] ?? 0);
+
+                \App\Models\WhatsAppCostAnalytics::updateOrCreate(
+                    [
+                        'date' => $pointDate,
+                        'country_code' => $countryCode,
+                        'pricing_category' => $category,
+                    ],
+                    [
+                        'message_volume' => $volume,
+                        'cost_usd' => $costUsd,
+                        'cost_myr' => round($costUsd * $usdToMyr, 4),
+                        'granularity' => 'DAILY',
+                        'synced_at' => now(),
+                    ]
+                );
+                $count++;
+            }
 
             $this->dispatch('notify', type: 'success', message: "Synced {$count} records from Meta API.");
         } catch (\Exception $e) {
@@ -69,7 +100,6 @@ new class extends Component {
 
         $recentMessages = WhatsAppMessage::query()
             ->outbound()
-            ->whereNotNull('estimated_cost_usd')
             ->with('conversation')
             ->whereBetween('created_at', [$start, $end])
             ->orderByDesc('created_at')
@@ -284,7 +314,7 @@ new class extends Component {
         @if($recentMessages->isEmpty())
             <div class="text-center py-8">
                 <flux:icon name="chat-bubble-left-right" class="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                <flux:text class="text-gray-500">No outbound messages with cost data for this period.</flux:text>
+                <flux:text class="text-gray-500">No outbound messages for this period.</flux:text>
             </div>
         @else
             <div class="overflow-x-auto">
@@ -317,10 +347,18 @@ new class extends Component {
                                 </flux:badge>
                             </td>
                             <td class="px-4 py-2 text-right text-gray-900">
-                                ${{ number_format($message->estimated_cost_usd, 4) }}
+                                @if($message->estimated_cost_usd !== null)
+                                    ${{ number_format($message->estimated_cost_usd, 4) }}
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
                             </td>
                             <td class="px-4 py-2 text-right font-medium text-gray-900">
-                                RM {{ number_format($message->estimated_cost_usd * config('whatsapp-pricing.usd_to_myr', 4.50), 4) }}
+                                @if($message->estimated_cost_usd !== null)
+                                    RM {{ number_format($message->estimated_cost_usd * config('whatsapp-pricing.usd_to_myr', 4.50), 4) }}
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
                             </td>
                         </tr>
                         @endforeach
