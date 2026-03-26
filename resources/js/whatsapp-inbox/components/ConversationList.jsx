@@ -27,6 +27,9 @@ export default function ConversationList({
     onSearchChange,
     onStatusFilterChange,
     onToggleMute,
+    hasMoreConversations,
+    loadingMoreConversations,
+    onLoadMoreConversations,
 }) {
     const statusTabs = [
         { value: '', label: 'Semua' },
@@ -102,58 +105,76 @@ export default function ConversationList({
                         <span>Tiada perbualan dijumpai</span>
                     </div>
                 ) : (
-                    conversations.map(conversation => {
-                        const isSelected = selectedId === conversation.id;
-                        const hasUnread = conversation.unread_count > 0;
-                        const displayName = conversation.contact_name || conversation.phone_number;
+                    <>
+                        {conversations.map(conversation => {
+                            const isSelected = selectedId === conversation.id;
+                            const hasUnread = conversation.unread_count > 0;
+                            const displayName = conversation.contact_name || conversation.phone_number;
 
-                        return (
-                            <button
-                                key={conversation.id}
-                                onClick={() => onSelect(conversation)}
-                                className={`wa-conv-item w-full text-left px-3 py-3 flex items-center gap-3 transition-colors border-l-[3px] ${
-                                    isSelected
-                                        ? 'bg-[#f0f2f5] border-l-teal-600'
-                                        : 'border-l-transparent hover:bg-[#f5f6f6]'
-                                }`}
-                            >
-                                {/* Avatar */}
-                                <div className={`w-[46px] h-[46px] rounded-full bg-gradient-to-br ${getAvatarColor(displayName)} flex items-center justify-center shrink-0 text-[13px] font-semibold text-white shadow-sm`}>
-                                    {getInitials(conversation.contact_name || conversation.student_name)}
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-[15px] truncate ${hasUnread ? 'font-semibold text-[#111b21]' : 'font-normal text-[#111b21]'}`}>
-                                            {displayName}
-                                        </span>
-                                        <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? 'text-teal-600 font-medium' : 'text-[#667781]'}`}>
-                                            {formatTime(conversation.last_message_at)}
-                                        </span>
+                            return (
+                                <button
+                                    key={conversation.id}
+                                    onClick={() => onSelect(conversation)}
+                                    className={`wa-conv-item w-full text-left px-3 py-3 flex items-center gap-3 transition-colors border-l-[3px] ${
+                                        isSelected
+                                            ? 'bg-[#f0f2f5] border-l-teal-600'
+                                            : 'border-l-transparent hover:bg-[#f5f6f6]'
+                                    }`}
+                                >
+                                    {/* Avatar */}
+                                    <div className={`w-[46px] h-[46px] rounded-full bg-gradient-to-br ${getAvatarColor(displayName)} flex items-center justify-center shrink-0 text-[13px] font-semibold text-white shadow-sm`}>
+                                        {getInitials(conversation.contact_name || conversation.student_name)}
                                     </div>
-                                    <div className="flex items-center justify-between mt-0.5">
-                                        <p className={`text-[13px] truncate ${hasUnread ? 'text-[#111b21] font-medium' : 'text-[#667781]'}`}>
-                                            {conversation.student_name && (
-                                                <span className="text-teal-600">{conversation.student_name} · </span>
-                                            )}
-                                            {conversation.last_message_preview || 'Tiada mesej'}
-                                        </p>
-                                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                            {conversation.is_service_window_open && (
-                                                <span className="w-2 h-2 rounded-full bg-emerald-400 wa-pulse" />
-                                            )}
-                                            {hasUnread && (
-                                                <span className="min-w-[20px] h-[20px] flex items-center justify-center rounded-full bg-teal-600 text-white text-[10px] font-bold px-1.5">
-                                                    {conversation.unread_count}
-                                                </span>
-                                            )}
+
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                            <span className={`text-[15px] truncate ${hasUnread ? 'font-semibold text-[#111b21]' : 'font-normal text-[#111b21]'}`}>
+                                                {displayName}
+                                            </span>
+                                            <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? 'text-teal-600 font-medium' : 'text-[#667781]'}`}>
+                                                {formatTime(conversation.last_message_at)}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between mt-0.5">
+                                            <p className={`text-[13px] truncate ${hasUnread ? 'text-[#111b21] font-medium' : 'text-[#667781]'}`}>
+                                                {conversation.student_name && (
+                                                    <span className="text-teal-600">{conversation.student_name} · </span>
+                                                )}
+                                                {conversation.last_message_preview || 'Tiada mesej'}
+                                            </p>
+                                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                                {conversation.is_service_window_open && (
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-400 wa-pulse" />
+                                                )}
+                                                {hasUnread && (
+                                                    <span className="min-w-[20px] h-[20px] flex items-center justify-center rounded-full bg-teal-600 text-white text-[10px] font-bold px-1.5">
+                                                        {conversation.unread_count}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </button>
-                        );
-                    })
+                                </button>
+                            );
+                        })}
+                        {hasMoreConversations && (
+                            <div className="flex justify-center py-3">
+                                <button
+                                    onClick={onLoadMoreConversations}
+                                    disabled={loadingMoreConversations}
+                                    className="px-4 py-2 text-xs font-medium text-teal-700 hover:bg-[#f0f2f5] rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    {loadingMoreConversations ? (
+                                        <span className="flex items-center gap-2">
+                                            <span className="w-3 h-3 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin" />
+                                            Memuatkan...
+                                        </span>
+                                    ) : 'Muatkan lagi perbualan'}
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </>

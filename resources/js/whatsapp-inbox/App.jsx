@@ -17,6 +17,7 @@ export default function App({ csrfToken, apiBase }) {
     const [pagination, setPagination] = useState(null);
     const [messagePagination, setMessagePagination] = useState(null);
     const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+    const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
     const selectedConversationRef = useRef(null);
     const prevUnreadMapRef = useRef(null);
     const { muted, play, toggleMute } = useNotificationSound();
@@ -75,6 +76,36 @@ export default function App({ csrfToken, apiBase }) {
             setLoadingConversations(false);
         }
     }, [apiFetch, searchQuery, statusFilter, play]);
+
+    const loadMoreConversations = useCallback(async () => {
+        if (!pagination || loadingMoreConversations) return;
+        if (pagination.current_page >= pagination.last_page) return;
+        setLoadingMoreConversations(true);
+        try {
+            const params = new URLSearchParams();
+            if (searchQuery) params.set('search', searchQuery);
+            if (statusFilter) params.set('status', statusFilter);
+            params.set('page', pagination.current_page + 1);
+            const data = await apiFetch(`/conversations?${params.toString()}`);
+            const moreConversations = data.data || [];
+            setConversations(prev => [...prev, ...moreConversations]);
+            setPagination({
+                current_page: data.current_page,
+                last_page: data.last_page,
+                total: data.total,
+            });
+
+            // Update unread map with new conversations
+            prevUnreadMapRef.current = new Map([
+                ...(prevUnreadMapRef.current || []),
+                ...moreConversations.map(c => [c.id, c.unread_count]),
+            ]);
+        } catch (err) {
+            console.error('Gagal memuatkan lagi perbualan:', err);
+        } finally {
+            setLoadingMoreConversations(false);
+        }
+    }, [apiFetch, searchQuery, statusFilter, pagination, loadingMoreConversations]);
 
     const fetchMessages = useCallback(async (conversationId) => {
         if (!conversationId) return;
@@ -218,6 +249,9 @@ export default function App({ csrfToken, apiBase }) {
                     onSearchChange={setSearchQuery}
                     onStatusFilterChange={setStatusFilter}
                     onToggleMute={toggleMute}
+                    hasMoreConversations={pagination && pagination.current_page < pagination.last_page}
+                    loadingMoreConversations={loadingMoreConversations}
+                    onLoadMoreConversations={loadMoreConversations}
                 />
             </div>
 
