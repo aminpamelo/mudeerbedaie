@@ -33,3 +33,12 @@ Schedule::job(new \App\Jobs\SyncWhatsAppCostAnalyticsJob)->dailyAt('06:00');
 Schedule::command(\App\Console\Commands\TikTokRefreshTokens::class)
     ->daily()
     ->at('03:00');
+
+// HR Module - Mark absent employees at end of day
+Schedule::command('hr:mark-absent')->dailyAt('23:59');
+
+// HR Module - Generate monthly penalty summary on 1st of each month
+Schedule::command('hr:penalty-summary')->monthlyOn(1, '08:00');
+
+// HR Module - Initialize leave balances on Jan 1st each year
+Schedule::command('hr:initialize-leave-balances')->yearlyOn(1, 1, '00:01');
