@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -122,6 +123,65 @@ class Employee extends Model
     public function histories(): HasMany
     {
         return $this->hasMany(EmployeeHistory::class);
+    }
+
+    /**
+     * Get schedules for this employee
+     */
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(EmployeeSchedule::class);
+    }
+
+    /**
+     * Get the current active schedule for this employee
+     */
+    public function currentSchedule(): HasOne
+    {
+        return $this->hasOne(EmployeeSchedule::class)
+            ->where('effective_from', '<=', now())
+            ->where(fn ($q) => $q->whereNull('effective_to')->orWhere('effective_to', '>=', now()))
+            ->latest('effective_from');
+    }
+
+    /**
+     * Get attendance logs for this employee
+     */
+    public function attendanceLogs(): HasMany
+    {
+        return $this->hasMany(AttendanceLog::class);
+    }
+
+    /**
+     * Get overtime requests for this employee
+     */
+    public function overtimeRequests(): HasMany
+    {
+        return $this->hasMany(OvertimeRequest::class);
+    }
+
+    /**
+     * Get attendance penalties for this employee
+     */
+    public function attendancePenalties(): HasMany
+    {
+        return $this->hasMany(AttendancePenalty::class);
+    }
+
+    /**
+     * Get leave balances for this employee
+     */
+    public function leaveBalances(): HasMany
+    {
+        return $this->hasMany(LeaveBalance::class);
+    }
+
+    /**
+     * Get leave requests for this employee
+     */
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class);
     }
 
     /**
