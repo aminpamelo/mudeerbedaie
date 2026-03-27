@@ -419,6 +419,12 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::apiResource('work-schedules', HrWorkScheduleController::class)->names('api.hr.work-schedules');
     Route::get('work-schedules/{workSchedule}/employees', [HrWorkScheduleController::class, 'employees'])->name('api.hr.work-schedules.employees');
 
+    // Employee Schedule Assignments
+    Route::get('employee-schedules', [HrEmployeeScheduleController::class, 'index'])->name('api.hr.employee-schedules.index');
+    Route::post('employee-schedules', [HrEmployeeScheduleController::class, 'store'])->name('api.hr.employee-schedules.store');
+    Route::put('employee-schedules/{employeeSchedule}', [HrEmployeeScheduleController::class, 'update'])->name('api.hr.employee-schedules.update');
+    Route::delete('employee-schedules/{employeeSchedule}', [HrEmployeeScheduleController::class, 'destroy'])->name('api.hr.employee-schedules.destroy');
+
     // Overtime Admin
     Route::get('overtime', [HrOvertimeController::class, 'index'])->name('api.hr.overtime.index');
     Route::get('overtime/{overtimeRequest}', [HrOvertimeController::class, 'show'])->name('api.hr.overtime.show');
