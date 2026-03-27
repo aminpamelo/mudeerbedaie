@@ -30,6 +30,35 @@ import LeaveTypes from './pages/leave/LeaveTypes';
 import LeaveEntitlements from './pages/leave/LeaveEntitlements';
 import LeaveApprovers from './pages/leave/LeaveApprovers';
 
+// Admin - Payroll
+import PayrollDashboard from './pages/payroll/PayrollDashboard';
+import PayrollRun from './pages/payroll/PayrollRun';
+import PayrollHistory from './pages/payroll/PayrollHistory';
+import SalaryComponents from './pages/payroll/SalaryComponents';
+import EmployeeSalaries from './pages/payroll/EmployeeSalaries';
+import TaxProfiles from './pages/payroll/TaxProfiles';
+import StatutoryRates from './pages/payroll/StatutoryRates';
+import PayrollReports from './pages/payroll/PayrollReports';
+import PayrollSettings from './pages/payroll/PayrollSettings';
+import EaForms from './pages/payroll/EaForms';
+
+// Admin - Claims
+import ClaimsDashboard from './pages/claims/ClaimsDashboard';
+import ClaimRequests from './pages/claims/ClaimRequests';
+import ClaimTypes from './pages/claims/ClaimTypes';
+import ClaimApprovers from './pages/claims/ClaimApprovers';
+import ClaimsReports from './pages/claims/ClaimsReports';
+
+// Admin - Benefits
+import BenefitsManagement from './pages/benefits/BenefitsManagement';
+import BenefitTypes from './pages/benefits/BenefitTypes';
+
+// Admin - Assets
+import AssetDashboard from './pages/assets/AssetDashboard';
+import AssetList from './pages/assets/AssetList';
+import AssetCategories from './pages/assets/AssetCategories';
+import AssetAssignments from './pages/assets/AssetAssignments';
+
 // Shared pages
 import ClockInOut from './pages/ClockInOut';
 
@@ -40,6 +69,9 @@ import MyAttendance from './pages/my/MyAttendance';
 import MyOvertime from './pages/my/MyOvertime';
 import MyLeave from './pages/my/MyLeave';
 import ApplyLeave from './pages/my/ApplyLeave';
+import MyPayslips from './pages/my/MyPayslips';
+import MyClaims from './pages/my/MyClaims';
+import MyAssets from './pages/my/MyAssets';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -85,6 +117,35 @@ function AdminRoutes() {
             <Route path="leave/entitlements" element={<LeaveEntitlements />} />
             <Route path="leave/approvers" element={<LeaveApprovers />} />
 
+            {/* Payroll */}
+            <Route path="payroll" element={<PayrollDashboard />} />
+            <Route path="payroll/run/:id" element={<PayrollRun />} />
+            <Route path="payroll/history" element={<PayrollHistory />} />
+            <Route path="payroll/components" element={<SalaryComponents />} />
+            <Route path="payroll/salaries" element={<EmployeeSalaries />} />
+            <Route path="payroll/tax-profiles" element={<TaxProfiles />} />
+            <Route path="payroll/statutory-rates" element={<StatutoryRates />} />
+            <Route path="payroll/reports" element={<PayrollReports />} />
+            <Route path="payroll/settings" element={<PayrollSettings />} />
+            <Route path="payroll/ea-forms" element={<EaForms />} />
+
+            {/* Claims */}
+            <Route path="claims" element={<ClaimsDashboard />} />
+            <Route path="claims/requests" element={<ClaimRequests />} />
+            <Route path="claims/types" element={<ClaimTypes />} />
+            <Route path="claims/approvers" element={<ClaimApprovers />} />
+            <Route path="claims/reports" element={<ClaimsReports />} />
+
+            {/* Benefits */}
+            <Route path="benefits" element={<BenefitsManagement />} />
+            <Route path="benefits/types" element={<BenefitTypes />} />
+
+            {/* Assets */}
+            <Route path="assets" element={<AssetDashboard />} />
+            <Route path="assets/inventory" element={<AssetList />} />
+            <Route path="assets/categories" element={<AssetCategories />} />
+            <Route path="assets/assignments" element={<AssetAssignments />} />
+
             {/* Shared */}
             <Route path="clock" element={<ClockInOut />} />
         </Route>
@@ -100,6 +161,9 @@ function EmployeeRoutes() {
             <Route path="my/overtime" element={<MyOvertime />} />
             <Route path="my/leave" element={<MyLeave />} />
             <Route path="my/leave/apply" element={<ApplyLeave />} />
+            <Route path="my/payslips" element={<MyPayslips />} />
+            <Route path="my/claims" element={<MyClaims />} />
+            <Route path="my/assets" element={<MyAssets />} />
         </Route>
     );
 }

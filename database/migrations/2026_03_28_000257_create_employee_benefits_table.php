@@ -1,0 +1,38 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('employee_benefits', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
+            $table->foreignId('benefit_type_id')->constrained('benefit_types')->cascadeOnDelete();
+            $table->string('provider')->nullable();
+            $table->string('policy_number')->nullable();
+            $table->decimal('coverage_amount', 10, 2)->nullable();
+            $table->decimal('employer_contribution', 10, 2)->nullable();
+            $table->decimal('employee_contribution', 10, 2)->nullable();
+            $table->date('start_date');
+            $table->date('end_date')->nullable();
+            $table->text('notes')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('employee_benefits');
+    }
+};

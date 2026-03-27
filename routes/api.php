@@ -1,16 +1,27 @@
 <?php
 
 use App\Http\Controllers\Api\ContactActivityController;
+use App\Http\Controllers\Api\Hr\HrAssetAssignmentController;
+use App\Http\Controllers\Api\Hr\HrAssetCategoryController;
+use App\Http\Controllers\Api\Hr\HrAssetController;
 use App\Http\Controllers\Api\Hr\HrAttendanceAnalyticsController;
 use App\Http\Controllers\Api\Hr\HrAttendanceController;
 use App\Http\Controllers\Api\Hr\HrAttendancePenaltyController;
+use App\Http\Controllers\Api\Hr\HrBenefitTypeController;
+use App\Http\Controllers\Api\Hr\HrClaimApproverController;
+use App\Http\Controllers\Api\Hr\HrClaimDashboardController;
+use App\Http\Controllers\Api\Hr\HrClaimReportController;
+use App\Http\Controllers\Api\Hr\HrClaimRequestController;
+use App\Http\Controllers\Api\Hr\HrClaimTypeController;
 use App\Http\Controllers\Api\Hr\HrDashboardController;
 use App\Http\Controllers\Api\Hr\HrDepartmentApproverController;
 use App\Http\Controllers\Api\Hr\HrDepartmentController;
 use App\Http\Controllers\Api\Hr\HrEmergencyContactController;
+use App\Http\Controllers\Api\Hr\HrEmployeeBenefitController;
 use App\Http\Controllers\Api\Hr\HrEmployeeController;
 use App\Http\Controllers\Api\Hr\HrEmployeeDocumentController;
 use App\Http\Controllers\Api\Hr\HrEmployeeHistoryController;
+use App\Http\Controllers\Api\Hr\HrEmployeeSalaryController;
 use App\Http\Controllers\Api\Hr\HrEmployeeScheduleController;
 use App\Http\Controllers\Api\Hr\HrHolidayController;
 use App\Http\Controllers\Api\Hr\HrLeaveBalanceController;
@@ -19,11 +30,23 @@ use App\Http\Controllers\Api\Hr\HrLeaveDashboardController;
 use App\Http\Controllers\Api\Hr\HrLeaveEntitlementController;
 use App\Http\Controllers\Api\Hr\HrLeaveRequestController;
 use App\Http\Controllers\Api\Hr\HrLeaveTypeController;
+use App\Http\Controllers\Api\Hr\HrMyAssetController;
 use App\Http\Controllers\Api\Hr\HrMyAttendanceController;
+use App\Http\Controllers\Api\Hr\HrMyClaimController;
 use App\Http\Controllers\Api\Hr\HrMyLeaveController;
+use App\Http\Controllers\Api\Hr\HrMyPayslipController;
 use App\Http\Controllers\Api\Hr\HrMyProfileController;
 use App\Http\Controllers\Api\Hr\HrOvertimeController;
+use App\Http\Controllers\Api\Hr\HrPayrollDashboardController;
+use App\Http\Controllers\Api\Hr\HrPayrollItemController;
+use App\Http\Controllers\Api\Hr\HrPayrollReportController;
+use App\Http\Controllers\Api\Hr\HrPayrollRunController;
+use App\Http\Controllers\Api\Hr\HrPayrollSettingController;
+use App\Http\Controllers\Api\Hr\HrPayslipController;
 use App\Http\Controllers\Api\Hr\HrPositionController;
+use App\Http\Controllers\Api\Hr\HrSalaryComponentController;
+use App\Http\Controllers\Api\Hr\HrStatutoryRateController;
+use App\Http\Controllers\Api\Hr\HrTaxProfileController;
 use App\Http\Controllers\Api\Hr\HrWorkScheduleController;
 use App\Http\Controllers\Api\StudentTagController;
 use App\Http\Controllers\Api\TagController;
@@ -488,4 +511,127 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::post('my-leave/apply', [HrMyLeaveController::class, 'apply'])->name('api.hr.my-leave.apply');
     Route::post('my-leave/{leaveRequest}/cancel', [HrMyLeaveController::class, 'cancel'])->name('api.hr.my-leave.cancel');
     Route::get('my-leave/calculate-days', [HrMyLeaveController::class, 'calculateDays'])->name('api.hr.my-leave.calculate-days');
+
+    // Payroll Dashboard
+    Route::get('payroll/dashboard/stats', [HrPayrollDashboardController::class, 'stats'])->name('api.hr.payroll.dashboard.stats');
+    Route::get('payroll/dashboard/trend', [HrPayrollDashboardController::class, 'trend'])->name('api.hr.payroll.dashboard.trend');
+    Route::get('payroll/dashboard/statutory-breakdown', [HrPayrollDashboardController::class, 'statutoryBreakdown'])->name('api.hr.payroll.dashboard.statutory-breakdown');
+
+    // Payroll Runs
+    Route::get('payroll/runs', [HrPayrollRunController::class, 'index'])->name('api.hr.payroll.runs.index');
+    Route::post('payroll/runs', [HrPayrollRunController::class, 'store'])->name('api.hr.payroll.runs.store');
+    Route::get('payroll/runs/{payrollRun}', [HrPayrollRunController::class, 'show'])->name('api.hr.payroll.runs.show');
+    Route::delete('payroll/runs/{payrollRun}', [HrPayrollRunController::class, 'destroy'])->name('api.hr.payroll.runs.destroy');
+    Route::post('payroll/runs/{payrollRun}/calculate', [HrPayrollRunController::class, 'calculate'])->name('api.hr.payroll.runs.calculate');
+    Route::post('payroll/runs/{payrollRun}/calculate/{employeeId}', [HrPayrollRunController::class, 'calculateEmployee'])->name('api.hr.payroll.runs.calculate-employee');
+    Route::patch('payroll/runs/{payrollRun}/submit-review', [HrPayrollRunController::class, 'submitReview'])->name('api.hr.payroll.runs.submit-review');
+    Route::patch('payroll/runs/{payrollRun}/approve', [HrPayrollRunController::class, 'approve'])->name('api.hr.payroll.runs.approve');
+    Route::patch('payroll/runs/{payrollRun}/return-draft', [HrPayrollRunController::class, 'returnToDraft'])->name('api.hr.payroll.runs.return-draft');
+    Route::patch('payroll/runs/{payrollRun}/finalize', [HrPayrollRunController::class, 'finalize'])->name('api.hr.payroll.runs.finalize');
+
+    // Payroll Items (ad-hoc)
+    Route::post('payroll/runs/{payrollRun}/items', [HrPayrollItemController::class, 'store'])->name('api.hr.payroll.items.store');
+    Route::put('payroll/runs/{payrollRun}/items/{payrollItem}', [HrPayrollItemController::class, 'update'])->name('api.hr.payroll.items.update');
+    Route::delete('payroll/runs/{payrollRun}/items/{payrollItem}', [HrPayrollItemController::class, 'destroy'])->name('api.hr.payroll.items.destroy');
+
+    // Salary Components
+    Route::apiResource('payroll/components', HrSalaryComponentController::class)->except('show')->names('api.hr.payroll.components');
+
+    // Employee Salaries
+    Route::get('payroll/salaries', [HrEmployeeSalaryController::class, 'index'])->name('api.hr.payroll.salaries.index');
+    Route::post('payroll/salaries/bulk-revision', [HrEmployeeSalaryController::class, 'bulkRevision'])->name('api.hr.payroll.salaries.bulk-revision');
+    Route::get('payroll/salaries/{employeeId}', [HrEmployeeSalaryController::class, 'show'])->name('api.hr.payroll.salaries.show');
+    Route::post('payroll/salaries', [HrEmployeeSalaryController::class, 'store'])->name('api.hr.payroll.salaries.store');
+    Route::put('payroll/salaries/{employeeSalary}', [HrEmployeeSalaryController::class, 'update'])->name('api.hr.payroll.salaries.update');
+    Route::get('payroll/salaries/{employeeId}/revisions', [HrEmployeeSalaryController::class, 'revisions'])->name('api.hr.payroll.salaries.revisions');
+
+    // Tax Profiles
+    Route::get('payroll/tax-profiles', [HrTaxProfileController::class, 'index'])->name('api.hr.payroll.tax-profiles.index');
+    Route::get('payroll/tax-profiles/{employeeId}', [HrTaxProfileController::class, 'show'])->name('api.hr.payroll.tax-profiles.show');
+    Route::put('payroll/tax-profiles/{employeeId}', [HrTaxProfileController::class, 'update'])->name('api.hr.payroll.tax-profiles.update');
+
+    // Statutory Rates
+    Route::get('payroll/statutory-rates', [HrStatutoryRateController::class, 'index'])->name('api.hr.payroll.statutory-rates.index');
+    Route::put('payroll/statutory-rates/{statutoryRate}', [HrStatutoryRateController::class, 'update'])->name('api.hr.payroll.statutory-rates.update');
+    Route::post('payroll/statutory-rates/bulk-update', [HrStatutoryRateController::class, 'bulkUpdate'])->name('api.hr.payroll.statutory-rates.bulk-update');
+
+    // Payslips (Admin)
+    Route::get('payroll/payslips', [HrPayslipController::class, 'index'])->name('api.hr.payroll.payslips.index');
+    Route::get('payroll/payslips/bulk-pdf/{payrollRun}', [HrPayslipController::class, 'bulkPdf'])->name('api.hr.payroll.payslips.bulk-pdf');
+    Route::get('payroll/payslips/{payslip}', [HrPayslipController::class, 'show'])->name('api.hr.payroll.payslips.show');
+    Route::get('payroll/payslips/{payslip}/pdf', [HrPayslipController::class, 'pdf'])->name('api.hr.payroll.payslips.pdf');
+
+    // Payroll Reports
+    Route::get('payroll/reports/monthly-summary', [HrPayrollReportController::class, 'monthlySummary'])->name('api.hr.payroll.reports.monthly-summary');
+    Route::get('payroll/reports/statutory', [HrPayrollReportController::class, 'statutory'])->name('api.hr.payroll.reports.statutory');
+    Route::get('payroll/reports/bank-payment', [HrPayrollReportController::class, 'bankPayment'])->name('api.hr.payroll.reports.bank-payment');
+    Route::get('payroll/reports/ytd', [HrPayrollReportController::class, 'ytd'])->name('api.hr.payroll.reports.ytd');
+    Route::get('payroll/reports/ea-form/{employeeId}', [HrPayrollReportController::class, 'eaForm'])->name('api.hr.payroll.reports.ea-form');
+    Route::get('payroll/reports/ea-forms/{year}', [HrPayrollReportController::class, 'eaForms'])->name('api.hr.payroll.reports.ea-forms');
+
+    // Payroll Settings
+    Route::get('payroll/settings', [HrPayrollSettingController::class, 'index'])->name('api.hr.payroll.settings.index');
+    Route::put('payroll/settings', [HrPayrollSettingController::class, 'update'])->name('api.hr.payroll.settings.update');
+
+    // My Payslips (Employee Self-Service)
+    Route::get('me/payslips', [HrMyPayslipController::class, 'index'])->name('api.hr.me.payslips.index');
+    Route::get('me/payslips/ytd', [HrMyPayslipController::class, 'ytd'])->name('api.hr.me.payslips.ytd');
+    Route::get('me/payslips/{payslip}', [HrMyPayslipController::class, 'show'])->name('api.hr.me.payslips.show');
+    Route::get('me/payslips/{payslip}/pdf', [HrMyPayslipController::class, 'pdf'])->name('api.hr.me.payslips.pdf');
+
+    // Claims Dashboard
+    Route::get('claims/dashboard', [HrClaimDashboardController::class, 'stats'])->name('api.hr.claims.dashboard');
+
+    // Claim Types
+    Route::apiResource('claims/types', HrClaimTypeController::class)->except('show')->names('api.hr.claims.types');
+
+    // Claim Approvers
+    Route::get('claims/approvers', [HrClaimApproverController::class, 'index'])->name('api.hr.claims.approvers.index');
+    Route::post('claims/approvers', [HrClaimApproverController::class, 'store'])->name('api.hr.claims.approvers.store');
+    Route::delete('claims/approvers/{claimApprover}', [HrClaimApproverController::class, 'destroy'])->name('api.hr.claims.approvers.destroy');
+
+    // Claim Requests (Admin)
+    Route::get('claims/requests', [HrClaimRequestController::class, 'index'])->name('api.hr.claims.requests.index');
+    Route::get('claims/requests/{claimRequest}', [HrClaimRequestController::class, 'show'])->name('api.hr.claims.requests.show');
+    Route::post('claims/requests/{claimRequest}/approve', [HrClaimRequestController::class, 'approve'])->name('api.hr.claims.requests.approve');
+    Route::post('claims/requests/{claimRequest}/reject', [HrClaimRequestController::class, 'reject'])->name('api.hr.claims.requests.reject');
+    Route::post('claims/requests/{claimRequest}/mark-paid', [HrClaimRequestController::class, 'markPaid'])->name('api.hr.claims.requests.mark-paid');
+
+    // Claims Reports
+    Route::get('claims/reports', [HrClaimReportController::class, 'index'])->name('api.hr.claims.reports');
+
+    // My Claims (Employee Self-Service)
+    Route::get('me/claims', [HrMyClaimController::class, 'index'])->name('api.hr.me.claims.index');
+    Route::post('me/claims', [HrMyClaimController::class, 'store'])->name('api.hr.me.claims.store');
+    Route::get('me/claims/{claimRequest}', [HrMyClaimController::class, 'show'])->name('api.hr.me.claims.show');
+    Route::put('me/claims/{claimRequest}', [HrMyClaimController::class, 'update'])->name('api.hr.me.claims.update');
+    Route::post('me/claims/{claimRequest}/submit', [HrMyClaimController::class, 'submit'])->name('api.hr.me.claims.submit');
+    Route::delete('me/claims/{claimRequest}', [HrMyClaimController::class, 'destroy'])->name('api.hr.me.claims.destroy');
+
+    // Benefit Types
+    Route::apiResource('benefits/types', HrBenefitTypeController::class)->except('show')->names('api.hr.benefits.types');
+
+    // Employee Benefits
+    Route::get('benefits', [HrEmployeeBenefitController::class, 'index'])->name('api.hr.benefits.index');
+    Route::post('benefits', [HrEmployeeBenefitController::class, 'store'])->name('api.hr.benefits.store');
+    Route::put('benefits/{employeeBenefit}', [HrEmployeeBenefitController::class, 'update'])->name('api.hr.benefits.update');
+    Route::delete('benefits/{employeeBenefit}', [HrEmployeeBenefitController::class, 'destroy'])->name('api.hr.benefits.destroy');
+
+    // Asset Categories
+    Route::apiResource('assets/categories', HrAssetCategoryController::class)->except('show')->names('api.hr.assets.categories');
+
+    // Asset Assignments (must be before assets/{asset} to avoid route conflict)
+    Route::get('assets/assignments', [HrAssetAssignmentController::class, 'index'])->name('api.hr.assets.assignments.index');
+    Route::post('assets/assignments', [HrAssetAssignmentController::class, 'store'])->name('api.hr.assets.assignments.store');
+    Route::put('assets/assignments/{assetAssignment}/return', [HrAssetAssignmentController::class, 'returnAsset'])->name('api.hr.assets.assignments.return');
+
+    // Assets
+    Route::get('assets', [HrAssetController::class, 'index'])->name('api.hr.assets.index');
+    Route::post('assets', [HrAssetController::class, 'store'])->name('api.hr.assets.store');
+    Route::get('assets/{asset}', [HrAssetController::class, 'show'])->name('api.hr.assets.show');
+    Route::put('assets/{asset}', [HrAssetController::class, 'update'])->name('api.hr.assets.update');
+    Route::delete('assets/{asset}', [HrAssetController::class, 'destroy'])->name('api.hr.assets.destroy');
+
+    // My Assets (Employee Self-Service)
+    Route::get('me/assets', [HrMyAssetController::class, 'index'])->name('api.hr.me.assets.index');
 });

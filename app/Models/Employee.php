@@ -185,6 +185,80 @@ class Employee extends Model
     }
 
     /**
+     * Get all salary entries for this employee
+     */
+    public function salaries(): HasMany
+    {
+        return $this->hasMany(EmployeeSalary::class);
+    }
+
+    /**
+     * Get currently active salary entries for this employee
+     */
+    public function activeSalaries(): HasMany
+    {
+        return $this->hasMany(EmployeeSalary::class)
+            ->whereNull('effective_to')
+            ->orWhere('effective_to', '>=', now());
+    }
+
+    /**
+     * Get salary revision history for this employee
+     */
+    public function salaryRevisions(): HasMany
+    {
+        return $this->hasMany(SalaryRevision::class);
+    }
+
+    /**
+     * Get the tax profile for this employee
+     */
+    public function taxProfile(): HasOne
+    {
+        return $this->hasOne(EmployeeTaxProfile::class);
+    }
+
+    /**
+     * Get HR payslips for this employee
+     */
+    public function hrPayslips(): HasMany
+    {
+        return $this->hasMany(HrPayslip::class);
+    }
+
+    /**
+     * Get claim requests submitted by this employee.
+     */
+    public function claimRequests(): HasMany
+    {
+        return $this->hasMany(ClaimRequest::class);
+    }
+
+    /**
+     * Get the claim approver records for this employee.
+     */
+    public function claimApprover(): HasMany
+    {
+        return $this->hasMany(ClaimApprover::class);
+    }
+
+    /**
+     * Get benefits assigned to this employee.
+     */
+    public function benefits(): HasMany
+    {
+        return $this->hasMany(EmployeeBenefit::class);
+    }
+
+    /**
+     * Get asset assignments for this employee.
+     */
+    public function assetAssignments(): HasMany
+    {
+        return $this->hasMany(AssetAssignment::class);
+    }
+
+    /**
      * Generate the next employee ID in BDE-XXXX format
      */
     public static function generateEmployeeId(): string

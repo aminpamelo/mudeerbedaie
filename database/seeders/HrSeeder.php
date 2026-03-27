@@ -312,5 +312,6 @@ class HrSeeder extends Seeder
         }
 
         $this->call(HrPhase2Seeder::class);
+        $this->call(HrPhase3Seeder::class);
     }
 }
