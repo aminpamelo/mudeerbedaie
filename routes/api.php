@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Hr\HrEmergencyContactController;
 use App\Http\Controllers\Api\Hr\HrEmployeeController;
 use App\Http\Controllers\Api\Hr\HrEmployeeDocumentController;
 use App\Http\Controllers\Api\Hr\HrEmployeeHistoryController;
+use App\Http\Controllers\Api\Hr\HrEmployeeScheduleController;
 use App\Http\Controllers\Api\Hr\HrHolidayController;
 use App\Http\Controllers\Api\Hr\HrLeaveBalanceController;
 use App\Http\Controllers\Api\Hr\HrLeaveCalendarController;
