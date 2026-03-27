@@ -3,6 +3,9 @@ import {
     User,
     CalendarCheck,
     Clock,
+    Timer,
+    CalendarOff,
+    FilePlus,
     Receipt,
     ArrowLeft,
     MoreHorizontal,
@@ -10,11 +13,20 @@ import {
 import { cn } from '../lib/utils';
 
 const tabs = [
+    { name: 'Profile', to: '/', icon: User, end: true },
+    { name: 'Clock', to: '/clock', icon: Clock },
+    { name: 'Attendance', to: '/my/attendance', icon: CalendarCheck },
+    { name: 'Leave', to: '/my/leave', icon: CalendarOff },
+    { name: 'More', to: '#', icon: MoreHorizontal, coming: true },
+];
+
+const sidebarNav = [
     { name: 'My Profile', to: '/', icon: User, end: true },
-    { name: 'Attendance', to: '/attendance', icon: CalendarCheck, coming: true },
-    { name: 'Leave', to: '/leave', icon: Clock, coming: true },
-    { name: 'Payslip', to: '/payslip', icon: Receipt, coming: true },
-    { name: 'More', to: '/more', icon: MoreHorizontal, coming: true },
+    { name: 'Clock In/Out', to: '/clock', icon: Clock },
+    { name: 'My Attendance', to: '/my/attendance', icon: CalendarCheck },
+    { name: 'My Overtime', to: '/my/overtime', icon: Timer },
+    { name: 'My Leave', to: '/my/leave', icon: CalendarOff },
+    { name: 'Apply Leave', to: '/my/leave/apply', icon: FilePlus },
 ];
 
 function TopHeader({ user }) {
@@ -104,39 +116,31 @@ function DesktopSidebar({ user }) {
             </div>
 
             <nav className="flex-1 space-y-1 px-3 py-4">
-                {tabs.map((tab) => (
+                {sidebarNav.map((item) => (
                     <NavLink
-                        key={tab.name}
-                        to={tab.coming ? '#' : tab.to}
-                        end={tab.end}
-                        onClick={tab.coming ? (e) => e.preventDefault() : undefined}
+                        key={item.name}
+                        to={item.to}
+                        end={item.end}
                         className={({ isActive }) =>
                             cn(
                                 'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                                tab.coming
-                                    ? 'text-zinc-300 cursor-default'
-                                    : isActive
-                                      ? 'bg-blue-600 text-white'
-                                      : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                                isActive
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                             )
                         }
                     >
                         {({ isActive }) => (
                             <>
-                                <tab.icon
+                                <item.icon
                                     className={cn(
                                         'h-5 w-5 shrink-0',
-                                        tab.coming
-                                            ? 'text-zinc-300'
-                                            : isActive
-                                              ? 'text-white'
-                                              : 'text-zinc-400 group-hover:text-zinc-600'
+                                        isActive
+                                            ? 'text-white'
+                                            : 'text-zinc-400 group-hover:text-zinc-600'
                                     )}
                                 />
-                                <span className="flex-1">{tab.name}</span>
-                                {tab.coming && (
-                                    <span className="text-[10px] text-zinc-400 bg-zinc-100 rounded px-1.5 py-0.5">Soon</span>
-                                )}
+                                <span className="flex-1">{item.name}</span>
                             </>
                         )}
                     </NavLink>

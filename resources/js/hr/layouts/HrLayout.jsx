@@ -8,6 +8,19 @@ import {
     X,
     ArrowLeft,
     ChevronRight,
+    Clock,
+    ClipboardList,
+    CalendarClock,
+    Timer,
+    CalendarDays,
+    BarChart3,
+    CalendarOff,
+    FileText,
+    Calendar,
+    Scale,
+    Tags,
+    UserCheck,
+    Clock4,
 } from 'lucide-react';
 import useHrStore from '../stores/useHrStore';
 import { cn } from '../lib/utils';
@@ -17,6 +30,22 @@ const navigation = [
     { name: 'Employees', to: '/employees', icon: Users },
     { name: 'Departments', to: '/departments', icon: Building2 },
     { name: 'Positions', to: '/positions', icon: Briefcase },
+    { type: 'separator' },
+    { name: 'Attendance', to: '/attendance', icon: Clock },
+    { name: 'Records', to: '/attendance/records', icon: ClipboardList, indent: true },
+    { name: 'Schedules', to: '/attendance/schedules', icon: CalendarClock, indent: true },
+    { name: 'Overtime', to: '/attendance/overtime', icon: Timer, indent: true },
+    { name: 'Holidays', to: '/attendance/holidays', icon: CalendarDays, indent: true },
+    { name: 'Analytics', to: '/attendance/analytics', icon: BarChart3, indent: true },
+    { type: 'separator' },
+    { name: 'Leave', to: '/leave', icon: CalendarOff },
+    { name: 'Requests', to: '/leave/requests', icon: FileText, indent: true },
+    { name: 'Calendar', to: '/leave/calendar', icon: Calendar, indent: true },
+    { name: 'Balances', to: '/leave/balances', icon: Scale, indent: true },
+    { name: 'Types', to: '/leave/types', icon: Tags, indent: true },
+    { type: 'separator' },
+    { name: 'Approvers', to: '/attendance/approvers', icon: UserCheck },
+    { name: 'Clock In/Out', to: '/clock', icon: Clock4 },
 ];
 
 function Sidebar({ mobile = false }) {
@@ -52,45 +81,55 @@ function Sidebar({ mobile = false }) {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 space-y-1 px-3 py-4">
-                {navigation.map((item) => (
-                    <NavLink
-                        key={item.name}
-                        to={item.to}
-                        end={item.end}
-                        onClick={mobile ? toggleSidebar : undefined}
-                        className={({ isActive }) =>
-                            cn(
-                                'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                                isActive
-                                    ? 'bg-zinc-900 text-white'
-                                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
-                            )
-                        }
-                    >
-                        {({ isActive }) => (
-                            <>
-                                <item.icon
-                                    className={cn(
-                                        'h-5 w-5 shrink-0',
-                                        isActive
-                                            ? 'text-white'
-                                            : 'text-zinc-400 group-hover:text-zinc-600'
-                                    )}
-                                />
-                                {item.name}
-                                <ChevronRight
-                                    className={cn(
-                                        'ml-auto h-4 w-4 shrink-0 transition-colors',
-                                        isActive
-                                            ? 'text-zinc-400'
-                                            : 'text-transparent group-hover:text-zinc-300'
-                                    )}
-                                />
-                            </>
-                        )}
-                    </NavLink>
-                ))}
+            <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+                {navigation.map((item, idx) => {
+                    if (item.type === 'separator') {
+                        return (
+                            <div key={`sep-${idx}`} className="my-2 border-t border-zinc-100" />
+                        );
+                    }
+
+                    return (
+                        <NavLink
+                            key={item.name}
+                            to={item.to}
+                            end={item.end}
+                            onClick={mobile ? toggleSidebar : undefined}
+                            className={({ isActive }) =>
+                                cn(
+                                    'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                                    item.indent && 'ml-4 text-xs',
+                                    isActive
+                                        ? 'bg-zinc-900 text-white'
+                                        : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                                )
+                            }
+                        >
+                            {({ isActive }) => (
+                                <>
+                                    <item.icon
+                                        className={cn(
+                                            'shrink-0',
+                                            item.indent ? 'h-4 w-4' : 'h-5 w-5',
+                                            isActive
+                                                ? 'text-white'
+                                                : 'text-zinc-400 group-hover:text-zinc-600'
+                                        )}
+                                    />
+                                    {item.name}
+                                    <ChevronRight
+                                        className={cn(
+                                            'ml-auto h-4 w-4 shrink-0 transition-colors',
+                                            isActive
+                                                ? 'text-zinc-400'
+                                                : 'text-transparent group-hover:text-zinc-300'
+                                        )}
+                                    />
+                                </>
+                            )}
+                        </NavLink>
+                    );
+                })}
             </nav>
 
             {/* Bottom section */}
