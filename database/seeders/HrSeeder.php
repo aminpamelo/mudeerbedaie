@@ -310,5 +310,7 @@ class HrSeeder extends Seeder
                 }
             }
         }
+
+        $this->call(HrPhase2Seeder::class);
     }
 }
