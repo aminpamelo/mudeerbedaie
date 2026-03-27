@@ -22,4 +22,5 @@ yarn-error.log
 /.vscode
 /.zed
 /.playwright-mcp
+/.worktrees
 .cloudflared-tunnel.yaml
