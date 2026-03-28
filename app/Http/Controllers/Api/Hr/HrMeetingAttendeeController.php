@@ -30,7 +30,7 @@ class HrMeetingAttendeeController extends Controller
                     'meeting_id' => $meeting->id,
                     'employee_id' => $employeeId,
                     'role' => 'attendee',
-                    'attendance_status' => 'pending',
+                    'attendance_status' => 'invited',
                 ]);
             }
         }
@@ -47,7 +47,7 @@ class HrMeetingAttendeeController extends Controller
     public function update(Request $request, Meeting $meeting, Employee $employee): JsonResponse
     {
         $validated = $request->validate([
-            'attendance_status' => ['required', 'in:pending,confirmed,declined,attended,absent'],
+            'attendance_status' => ['required', 'in:invited,attended,absent,excused'],
         ]);
 
         $attendee = MeetingAttendee::where('meeting_id', $meeting->id)

@@ -83,7 +83,7 @@ class HrMeetingController extends Controller
                     'meeting_id' => $meeting->id,
                     'employee_id' => $employee->id,
                     'role' => 'organizer',
-                    'attendance_status' => 'pending',
+                    'attendance_status' => 'invited',
                 ]);
             }
 
@@ -93,7 +93,7 @@ class HrMeetingController extends Controller
                     'meeting_id' => $meeting->id,
                     'employee_id' => $validated['note_taker_id'],
                     'role' => 'note_taker',
-                    'attendance_status' => 'pending',
+                    'attendance_status' => 'invited',
                 ]);
             }
 
@@ -108,7 +108,7 @@ class HrMeetingController extends Controller
                             'meeting_id' => $meeting->id,
                             'employee_id' => $attendeeId,
                             'role' => 'attendee',
-                            'attendance_status' => 'pending',
+                            'attendance_status' => 'invited',
                         ]);
                     }
                 }
