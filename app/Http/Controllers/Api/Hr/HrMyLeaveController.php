@@ -129,8 +129,10 @@ class HrMyLeaveController extends Controller
                 ]);
             }
 
-            // Notify department approvers
+            // Notify department approvers and admin users
             $leaveRequest->load('employee.department', 'leaveType');
+            $notifiedUserIds = [];
+
             $approvers = \App\Models\DepartmentApprover::forDepartment(
                 $leaveRequest->employee->department_id
             )->forType('leave')->with('approver.user')->get();
@@ -140,7 +142,19 @@ class HrMyLeaveController extends Controller
                     $deptApprover->approver->user->notify(
                         new \App\Notifications\Hr\LeaveRequestSubmitted($leaveRequest)
                     );
+                    $notifiedUserIds[] = $deptApprover->approver->user->id;
                 }
+            }
+
+            // Also notify admin users who weren't already notified as approvers
+            $admins = \App\Models\User::where('role', 'admin')
+                ->whereNotIn('id', $notifiedUserIds)
+                ->get();
+
+            foreach ($admins as $admin) {
+                $admin->notify(
+                    new \App\Notifications\Hr\LeaveRequestSubmitted($leaveRequest)
+                );
             }
 
             return response()->json([
@@ -184,8 +198,10 @@ class HrMyLeaveController extends Controller
                     ]);
                 }
 
-                // Notify approvers about cancellation
+                // Notify approvers and admins about cancellation
                 $leaveRequest->load('employee.department', 'leaveType');
+                $notifiedUserIds = [];
+
                 $approvers = \App\Models\DepartmentApprover::forDepartment(
                     $leaveRequest->employee->department_id
                 )->forType('leave')->with('approver.user')->get();
@@ -195,7 +211,15 @@ class HrMyLeaveController extends Controller
                         $deptApprover->approver->user->notify(
                             new \App\Notifications\Hr\LeaveRequestCancelled($leaveRequest)
                         );
+                        $notifiedUserIds[] = $deptApprover->approver->user->id;
                     }
+                }
+
+                $admins = \App\Models\User::where('role', 'admin')
+                    ->whereNotIn('id', $notifiedUserIds)
+                    ->get();
+                foreach ($admins as $admin) {
+                    $admin->notify(new \App\Notifications\Hr\LeaveRequestCancelled($leaveRequest));
                 }
 
                 return response()->json([
@@ -257,8 +281,10 @@ class HrMyLeaveController extends Controller
                     }
                 }
 
-                // Notify approvers about cancellation
+                // Notify approvers and admins about cancellation
                 $leaveRequest->load('employee.department', 'leaveType');
+                $notifiedUserIds = [];
+
                 $approvers = \App\Models\DepartmentApprover::forDepartment(
                     $leaveRequest->employee->department_id
                 )->forType('leave')->with('approver.user')->get();
@@ -268,7 +294,15 @@ class HrMyLeaveController extends Controller
                         $deptApprover->approver->user->notify(
                             new \App\Notifications\Hr\LeaveRequestCancelled($leaveRequest)
                         );
+                        $notifiedUserIds[] = $deptApprover->approver->user->id;
                     }
+                }
+
+                $admins = \App\Models\User::where('role', 'admin')
+                    ->whereNotIn('id', $notifiedUserIds)
+                    ->get();
+                foreach ($admins as $admin) {
+                    $admin->notify(new \App\Notifications\Hr\LeaveRequestCancelled($leaveRequest));
                 }
 
                 return response()->json([

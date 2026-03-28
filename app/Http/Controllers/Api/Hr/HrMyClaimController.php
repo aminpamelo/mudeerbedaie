@@ -15,6 +15,40 @@ use Illuminate\Support\Facades\DB;
 class HrMyClaimController extends Controller
 {
     /**
+     * My claim usage limits per claim type.
+     */
+    public function limits(Request $request): JsonResponse
+    {
+        $employee = $request->user()->employee;
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        $claimTypes = ClaimType::where('is_active', true)->get();
+
+        $limits = $claimTypes->map(function ($type) use ($employee) {
+            $monthlyUsed = ClaimRequest::query()
+                ->where('employee_id', $employee->id)
+                ->where('claim_type_id', $type->id)
+                ->whereIn('status', ['pending', 'approved', 'paid'])
+                ->whereYear('claim_date', now()->year)
+                ->whereMonth('claim_date', now()->month)
+                ->sum('amount');
+
+            return [
+                'claim_type_id' => $type->id,
+                'name' => $type->name,
+                'monthly_limit' => $type->monthly_limit ? (float) $type->monthly_limit : null,
+                'yearly_limit' => $type->yearly_limit ? (float) $type->yearly_limit : null,
+                'used_this_month' => (float) $monthlyUsed,
+            ];
+        });
+
+        return response()->json(['data' => $limits]);
+    }
+
+    /**
      * List the current employee's claim requests.
      */
     public function index(Request $request): JsonResponse
@@ -175,8 +209,10 @@ class HrMyClaimController extends Controller
             'submitted_at' => now(),
         ]);
 
-        // Notify claim approvers
+        // Notify claim approvers and admin users
         $claimRequest->load('employee', 'claimType');
+        $notifiedUserIds = [];
+
         $approvers = ClaimApprover::where('employee_id', $employee->id)
             ->active()
             ->with('approver.user')
@@ -187,7 +223,16 @@ class HrMyClaimController extends Controller
                 $claimApprover->approver->user->notify(
                     new ClaimSubmitted($claimRequest)
                 );
+                $notifiedUserIds[] = $claimApprover->approver->user->id;
             }
+        }
+
+        // Also notify admin users who weren't already notified as approvers
+        $admins = \App\Models\User::where('role', 'admin')
+            ->whereNotIn('id', $notifiedUserIds)
+            ->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new ClaimSubmitted($claimRequest));
         }
 
         return response()->json([

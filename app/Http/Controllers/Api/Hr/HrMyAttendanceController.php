@@ -332,6 +332,8 @@ class HrMyAttendanceController extends Controller
         ]));
 
         $overtimeRequest->load('employee.department');
+        $notifiedUserIds = [];
+
         $approvers = \App\Models\DepartmentApprover::forDepartment(
             $overtimeRequest->employee->department_id
         )->forType('overtime')->with('approver.user')->get();
@@ -341,7 +343,16 @@ class HrMyAttendanceController extends Controller
                 $deptApprover->approver->user->notify(
                     new \App\Notifications\Hr\OvertimeRequestSubmitted($overtimeRequest)
                 );
+                $notifiedUserIds[] = $deptApprover->approver->user->id;
             }
+        }
+
+        // Also notify admin users who weren't already notified as approvers
+        $admins = \App\Models\User::where('role', 'admin')
+            ->whereNotIn('id', $notifiedUserIds)
+            ->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new \App\Notifications\Hr\OvertimeRequestSubmitted($overtimeRequest));
         }
 
         return response()->json([
