@@ -20,6 +20,7 @@ import OvertimeManagement from './pages/attendance/OvertimeManagement';
 import HolidayCalendar from './pages/attendance/HolidayCalendar';
 import AttendanceAnalytics from './pages/attendance/AttendanceAnalytics';
 import DepartmentApprovers from './pages/attendance/DepartmentApprovers';
+import AttendanceSettings from './pages/attendance/AttendanceSettings';
 
 // Admin - Leave
 import LeaveDashboard from './pages/leave/LeaveDashboard';
@@ -59,8 +60,38 @@ import AssetList from './pages/assets/AssetList';
 import AssetCategories from './pages/assets/AssetCategories';
 import AssetAssignments from './pages/assets/AssetAssignments';
 
+// Admin - Recruitment & Onboarding
+import RecruitmentDashboard from './pages/recruitment/RecruitmentDashboard';
+import JobPostings from './pages/recruitment/JobPostings';
+import JobPostingDetail from './pages/recruitment/JobPostingDetail';
+import Applicants from './pages/recruitment/Applicants';
+import ApplicantDetail from './pages/recruitment/ApplicantDetail';
+import Interviews from './pages/recruitment/Interviews';
+import OnboardingDashboard from './pages/recruitment/OnboardingDashboard';
+import OnboardingTemplates from './pages/recruitment/OnboardingTemplates';
+
+// Admin - Performance Management
+import PerformanceDashboard from './pages/performance/PerformanceDashboard';
+import ReviewCycles from './pages/performance/ReviewCycles';
+import ReviewCycleDetail from './pages/performance/ReviewCycleDetail';
+import KpiTemplates from './pages/performance/KpiTemplates';
+import ReviewDetail from './pages/performance/ReviewDetail';
+import PipManagement from './pages/performance/PipManagement';
+import PipDetail from './pages/performance/PipDetail';
+import RatingScaleConfig from './pages/performance/RatingScaleConfig';
+
+// Admin - Meetings (MOM)
+import MeetingList from './pages/meetings/MeetingList';
+import MeetingCreate from './pages/meetings/MeetingCreate';
+import MeetingDetail from './pages/meetings/MeetingDetail';
+import MeetingEdit from './pages/meetings/MeetingEdit';
+import MeetingRecord from './pages/meetings/MeetingRecord';
+import MeetingSeriesList from './pages/meetings/MeetingSeriesList';
+import TaskDashboard from './pages/meetings/TaskDashboard';
+
 // Shared pages
 import ClockInOut from './pages/ClockInOut';
+import Notifications from './pages/Notifications';
 
 // Employee self-service layout & pages
 import EmployeeAppLayout from './layouts/EmployeeAppLayout';
@@ -72,6 +103,12 @@ import ApplyLeave from './pages/my/ApplyLeave';
 import MyPayslips from './pages/my/MyPayslips';
 import MyClaims from './pages/my/MyClaims';
 import MyAssets from './pages/my/MyAssets';
+import MyMeetings from './pages/my/MyMeetings';
+import MyTasks from './pages/my/MyTasks';
+import MyReviews from './pages/my/MyReviews';
+import MyReviewDetail from './pages/my/MyReviewDetail';
+import MyPip from './pages/my/MyPip';
+import MyOnboarding from './pages/my/MyOnboarding';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -107,6 +144,7 @@ function AdminRoutes() {
             <Route path="attendance/holidays" element={<HolidayCalendar />} />
             <Route path="attendance/analytics" element={<AttendanceAnalytics />} />
             <Route path="attendance/approvers" element={<DepartmentApprovers />} />
+            <Route path="attendance/settings" element={<AttendanceSettings />} />
 
             {/* Leave */}
             <Route path="leave" element={<LeaveDashboard />} />
@@ -146,8 +184,38 @@ function AdminRoutes() {
             <Route path="assets/categories" element={<AssetCategories />} />
             <Route path="assets/assignments" element={<AssetAssignments />} />
 
+            {/* Recruitment & Onboarding */}
+            <Route path="recruitment" element={<RecruitmentDashboard />} />
+            <Route path="recruitment/postings" element={<JobPostings />} />
+            <Route path="recruitment/postings/:id" element={<JobPostingDetail />} />
+            <Route path="recruitment/applicants" element={<Applicants />} />
+            <Route path="recruitment/applicants/:id" element={<ApplicantDetail />} />
+            <Route path="recruitment/interviews" element={<Interviews />} />
+            <Route path="onboarding" element={<OnboardingDashboard />} />
+            <Route path="onboarding/templates" element={<OnboardingTemplates />} />
+
+            {/* Performance Management */}
+            <Route path="performance" element={<PerformanceDashboard />} />
+            <Route path="performance/cycles" element={<ReviewCycles />} />
+            <Route path="performance/cycles/:id" element={<ReviewCycleDetail />} />
+            <Route path="performance/kpis" element={<KpiTemplates />} />
+            <Route path="performance/reviews/:id" element={<ReviewDetail />} />
+            <Route path="performance/pips" element={<PipManagement />} />
+            <Route path="performance/pips/:id" element={<PipDetail />} />
+            <Route path="performance/rating-scales" element={<RatingScaleConfig />} />
+
+            {/* Meetings (MOM) */}
+            <Route path="meetings" element={<MeetingList />} />
+            <Route path="meetings/create" element={<MeetingCreate />} />
+            <Route path="meetings/:id" element={<MeetingDetail />} />
+            <Route path="meetings/:id/edit" element={<MeetingEdit />} />
+            <Route path="meetings/:id/record" element={<MeetingRecord />} />
+            <Route path="meetings/series" element={<MeetingSeriesList />} />
+            <Route path="meetings/tasks" element={<TaskDashboard />} />
+
             {/* Shared */}
             <Route path="clock" element={<ClockInOut />} />
+            <Route path="notifications" element={<Notifications />} />
         </Route>
     );
 }
@@ -164,6 +232,13 @@ function EmployeeRoutes() {
             <Route path="my/payslips" element={<MyPayslips />} />
             <Route path="my/claims" element={<MyClaims />} />
             <Route path="my/assets" element={<MyAssets />} />
+            <Route path="my/meetings" element={<MyMeetings />} />
+            <Route path="my/tasks" element={<MyTasks />} />
+            <Route path="my/reviews" element={<MyReviews />} />
+            <Route path="my/reviews/:id" element={<MyReviewDetail />} />
+            <Route path="my/pip" element={<MyPip />} />
+            <Route path="my/onboarding" element={<MyOnboarding />} />
+            <Route path="notifications" element={<Notifications />} />
         </Route>
     );
 }

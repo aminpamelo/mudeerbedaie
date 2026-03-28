@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Outlet, NavLink, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, NavLink, Link, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
     Users,
@@ -9,6 +9,7 @@ import {
     X,
     ArrowLeft,
     ChevronRight,
+    ChevronDown,
     Clock,
     ClipboardList,
     CalendarClock,
@@ -33,9 +34,11 @@ import {
     RotateCcw,
     BarChart2,
     Banknote,
+    CalendarRange,
+    ListTodo,
+    ListOrdered,
 } from 'lucide-react';
 import useHrStore from '../stores/useHrStore';
-import usePushSubscription from '../hooks/usePushSubscription';
 import NotificationBell from '../components/NotificationBell';
 import { cn } from '../lib/utils';
 
@@ -44,53 +47,222 @@ const navigation = [
     { name: 'Employees', to: '/employees', icon: Users },
     { name: 'Departments', to: '/departments', icon: Building2 },
     { name: 'Positions', to: '/positions', icon: Briefcase },
-    { type: 'separator' },
-    { name: 'Attendance', to: '/attendance', icon: Clock },
-    { name: 'Records', to: '/attendance/records', icon: ClipboardList, indent: true },
-    { name: 'Schedules', to: '/attendance/schedules', icon: CalendarClock, indent: true },
-    { name: 'Assignments', to: '/attendance/assignments', icon: UserCheck, indent: true },
-    { name: 'Overtime', to: '/attendance/overtime', icon: Timer, indent: true },
-    { name: 'Holidays', to: '/attendance/holidays', icon: CalendarDays, indent: true },
-    { name: 'Analytics', to: '/attendance/analytics', icon: BarChart3, indent: true },
-    { type: 'separator' },
-    { name: 'Leave', to: '/leave', icon: CalendarOff },
-    { name: 'Requests', to: '/leave/requests', icon: FileText, indent: true },
-    { name: 'Calendar', to: '/leave/calendar', icon: Calendar, indent: true },
-    { name: 'Balances', to: '/leave/balances', icon: Scale, indent: true },
-    { name: 'Types', to: '/leave/types', icon: Tags, indent: true },
-    { type: 'separator' },
-    { name: 'Approvers', to: '/attendance/approvers', icon: UserCheck },
+    {
+        name: 'Attendance',
+        icon: Clock,
+        prefix: '/attendance',
+        children: [
+            { name: 'Records', to: '/attendance/records', icon: ClipboardList },
+            { name: 'Schedules', to: '/attendance/schedules', icon: CalendarClock },
+            { name: 'Assignments', to: '/attendance/assignments', icon: UserCheck },
+            { name: 'Overtime', to: '/attendance/overtime', icon: Timer },
+            { name: 'Holidays', to: '/attendance/holidays', icon: CalendarDays },
+            { name: 'Analytics', to: '/attendance/analytics', icon: BarChart3 },
+            { name: 'Approvers', to: '/attendance/approvers', icon: UserCheck },
+            { name: 'Settings', to: '/attendance/settings', icon: Settings2 },
+        ],
+    },
+    {
+        name: 'Leave',
+        icon: CalendarOff,
+        prefix: '/leave',
+        children: [
+            { name: 'Requests', to: '/leave/requests', icon: FileText },
+            { name: 'Calendar', to: '/leave/calendar', icon: Calendar },
+            { name: 'Balances', to: '/leave/balances', icon: Scale },
+            { name: 'Types', to: '/leave/types', icon: Tags },
+        ],
+    },
     { name: 'Clock In/Out', to: '/clock', icon: Clock4 },
-    { type: 'separator' },
-    { name: 'Payroll', to: '/payroll', icon: DollarSign },
-    { name: 'Payroll History', to: '/payroll/history', icon: ClipboardList, indent: true },
-    { name: 'Salary Components', to: '/payroll/components', icon: Settings2, indent: true },
-    { name: 'Employee Salaries', to: '/payroll/salaries', icon: Users, indent: true },
-    { name: 'Tax Profiles', to: '/payroll/tax-profiles', icon: FileText, indent: true },
-    { name: 'Statutory Rates', to: '/payroll/statutory-rates', icon: ShieldCheck, indent: true },
-    { name: 'EA Forms', to: '/payroll/ea-forms', icon: Receipt, indent: true },
-    { name: 'Reports', to: '/payroll/reports', icon: BarChart3, indent: true },
-    { name: 'Settings', to: '/payroll/settings', icon: Settings2, indent: true },
-    { type: 'separator' },
-    { name: 'Claims', to: '/claims', icon: Banknote },
-    { name: 'Requests', to: '/claims/requests', icon: FileText, indent: true },
-    { name: 'Types', to: '/claims/types', icon: Tags, indent: true },
-    { name: 'Approvers', to: '/claims/approvers', icon: UserCheck, indent: true },
-    { name: 'Reports', to: '/claims/reports', icon: BarChart2, indent: true },
-    { type: 'separator' },
-    { name: 'Benefits', to: '/benefits', icon: Shield },
-    { name: 'Benefit Types', to: '/benefits/types', icon: Tag, indent: true },
-    { type: 'separator' },
-    { name: 'Assets', to: '/assets', icon: Package },
-    { name: 'Inventory', to: '/assets/inventory', icon: Package2, indent: true },
-    { name: 'Categories', to: '/assets/categories', icon: Tag, indent: true },
-    { name: 'Assignments', to: '/assets/assignments', icon: RotateCcw, indent: true },
+    {
+        name: 'Payroll',
+        icon: DollarSign,
+        prefix: '/payroll',
+        children: [
+            { name: 'Payroll History', to: '/payroll/history', icon: ClipboardList },
+            { name: 'Salary Components', to: '/payroll/components', icon: Settings2 },
+            { name: 'Employee Salaries', to: '/payroll/salaries', icon: Users },
+            { name: 'Tax Profiles', to: '/payroll/tax-profiles', icon: FileText },
+            { name: 'Statutory Rates', to: '/payroll/statutory-rates', icon: ShieldCheck },
+            { name: 'EA Forms', to: '/payroll/ea-forms', icon: Receipt },
+            { name: 'Reports', to: '/payroll/reports', icon: BarChart3 },
+            { name: 'Settings', to: '/payroll/settings', icon: Settings2 },
+        ],
+    },
+    {
+        name: 'Claims',
+        icon: Banknote,
+        prefix: '/claims',
+        children: [
+            { name: 'Requests', to: '/claims/requests', icon: FileText },
+            { name: 'Types', to: '/claims/types', icon: Tags },
+            { name: 'Approvers', to: '/claims/approvers', icon: UserCheck },
+            { name: 'Reports', to: '/claims/reports', icon: BarChart2 },
+        ],
+    },
+    {
+        name: 'Benefits',
+        icon: Shield,
+        prefix: '/benefits',
+        children: [
+            { name: 'Benefit Types', to: '/benefits/types', icon: Tag },
+        ],
+    },
+    {
+        name: 'Assets',
+        icon: Package,
+        prefix: '/assets',
+        children: [
+            { name: 'Inventory', to: '/assets/inventory', icon: Package2 },
+            { name: 'Categories', to: '/assets/categories', icon: Tag },
+            { name: 'Assignments', to: '/assets/assignments', icon: RotateCcw },
+        ],
+    },
+    {
+        name: 'Meetings',
+        icon: CalendarRange,
+        prefix: '/meetings',
+        children: [
+            { name: 'All Meetings', to: '/meetings', icon: CalendarDays },
+            { name: 'Meeting Series', to: '/meetings/series', icon: ListOrdered },
+            { name: 'Task Dashboard', to: '/meetings/tasks', icon: ListTodo },
+        ],
+    },
 ];
+
+function getExpandedSections(pathname) {
+    const expanded = {};
+    navigation.forEach((item) => {
+        if (item.children && item.prefix && pathname.startsWith(item.prefix)) {
+            expanded[item.name] = true;
+        }
+    });
+    return expanded;
+}
+
+function NavItem({ item, isActive, mobile, toggleSidebar }) {
+    const Icon = item.icon;
+    return (
+        <NavLink
+            to={item.to}
+            end={item.end}
+            onClick={mobile ? toggleSidebar : undefined}
+            className={({ isActive: active }) =>
+                cn(
+                    'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    active
+                        ? 'bg-zinc-900 text-white'
+                        : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                )
+            }
+        >
+            {({ isActive: active }) => (
+                <>
+                    <Icon
+                        className={cn(
+                            'h-5 w-5 shrink-0',
+                            active
+                                ? 'text-white'
+                                : 'text-zinc-400 group-hover:text-zinc-600'
+                        )}
+                    />
+                    {item.name}
+                </>
+            )}
+        </NavLink>
+    );
+}
+
+function NavGroup({ item, expanded, onToggle, mobile, toggleSidebar, pathname }) {
+    const Icon = item.icon;
+    const isActive = pathname.startsWith(item.prefix);
+
+    return (
+        <div>
+            <button
+                onClick={onToggle}
+                className={cn(
+                    'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                        ? 'bg-zinc-100 text-zinc-900'
+                        : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                )}
+            >
+                <Icon
+                    className={cn(
+                        'h-5 w-5 shrink-0',
+                        isActive
+                            ? 'text-zinc-700'
+                            : 'text-zinc-400 group-hover:text-zinc-600'
+                    )}
+                />
+                {item.name}
+                {expanded ? (
+                    <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-zinc-400" />
+                ) : (
+                    <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-zinc-400" />
+                )}
+            </button>
+            {expanded && (
+                <div className="mt-0.5 space-y-0.5 pl-4">
+                    {item.children.map((child) => {
+                        const ChildIcon = child.icon;
+                        return (
+                            <NavLink
+                                key={child.to}
+                                to={child.to}
+                                onClick={mobile ? toggleSidebar : undefined}
+                                className={({ isActive: active }) =>
+                                    cn(
+                                        'group flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                                        active
+                                            ? 'bg-zinc-900 text-white'
+                                            : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+                                    )
+                                }
+                            >
+                                {({ isActive: active }) => (
+                                    <>
+                                        <ChildIcon
+                                            className={cn(
+                                                'h-4 w-4 shrink-0',
+                                                active
+                                                    ? 'text-white'
+                                                    : 'text-zinc-400 group-hover:text-zinc-500'
+                                            )}
+                                        />
+                                        {child.name}
+                                    </>
+                                )}
+                            </NavLink>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
 
 function Sidebar({ mobile = false }) {
     const { sidebarOpen, toggleSidebar } = useHrStore();
+    const location = useLocation();
+    const pathname = location.pathname.replace(/^\/hr/, '');
     const config = window.hrConfig || {};
     const user = config.user || { name: 'User', role: 'Admin' };
+
+    const [expandedSections, setExpandedSections] = useState(() =>
+        getExpandedSections(pathname)
+    );
+
+    // Auto-expand section when navigating
+    useEffect(() => {
+        const autoExpanded = getExpandedSections(pathname);
+        setExpandedSections((prev) => ({ ...prev, ...autoExpanded }));
+    }, [pathname]);
+
+    function toggleSection(name) {
+        setExpandedSections((prev) => ({ ...prev, [name]: !prev[name] }));
+    }
 
     return (
         <aside
@@ -121,52 +293,28 @@ function Sidebar({ mobile = false }) {
 
             {/* Navigation */}
             <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-                {navigation.map((item, idx) => {
-                    if (item.type === 'separator') {
+                {navigation.map((item) => {
+                    if (item.children) {
                         return (
-                            <div key={`sep-${idx}`} className="my-2 border-t border-zinc-100" />
+                            <NavGroup
+                                key={item.name}
+                                item={item}
+                                expanded={!!expandedSections[item.name]}
+                                onToggle={() => toggleSection(item.name)}
+                                mobile={mobile}
+                                toggleSidebar={toggleSidebar}
+                                pathname={pathname}
+                            />
                         );
                     }
 
                     return (
-                        <NavLink
-                            key={item.name}
-                            to={item.to}
-                            end={item.end}
-                            onClick={mobile ? toggleSidebar : undefined}
-                            className={({ isActive }) =>
-                                cn(
-                                    'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                                    item.indent && 'ml-4 text-xs',
-                                    isActive
-                                        ? 'bg-zinc-900 text-white'
-                                        : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
-                                )
-                            }
-                        >
-                            {({ isActive }) => (
-                                <>
-                                    <item.icon
-                                        className={cn(
-                                            'shrink-0',
-                                            item.indent ? 'h-4 w-4' : 'h-5 w-5',
-                                            isActive
-                                                ? 'text-white'
-                                                : 'text-zinc-400 group-hover:text-zinc-600'
-                                        )}
-                                    />
-                                    {item.name}
-                                    <ChevronRight
-                                        className={cn(
-                                            'ml-auto h-4 w-4 shrink-0 transition-colors',
-                                            isActive
-                                                ? 'text-zinc-400'
-                                                : 'text-transparent group-hover:text-zinc-300'
-                                        )}
-                                    />
-                                </>
-                            )}
-                        </NavLink>
+                        <NavItem
+                            key={item.to}
+                            item={item}
+                            mobile={mobile}
+                            toggleSidebar={toggleSidebar}
+                        />
                     );
                 })}
             </nav>
@@ -202,13 +350,6 @@ function Sidebar({ mobile = false }) {
 
 export default function HrLayout() {
     const { sidebarOpen, toggleSidebar } = useHrStore();
-    const { isSubscribed, isSupported, subscribe } = usePushSubscription();
-
-    useEffect(() => {
-        if (isSupported && !isSubscribed) {
-            subscribe();
-        }
-    }, [isSupported, isSubscribed]);
 
     return (
         <div className="flex h-screen overflow-hidden bg-zinc-50">

@@ -42,6 +42,7 @@ export const updateEmployee = (id, data) => api.put(`/employees/${id}`, data).th
 export const updateEmployeeStatus = (id, data) => api.patch(`/employees/${id}/status`, data).then(r => r.data);
 export const deleteEmployee = (id) => api.delete(`/employees/${id}`).then(r => r.data);
 export const fetchNextEmployeeId = () => api.get('/employees/next-id').then(r => r.data);
+export const fetchUnlinkedUsers = (params) => api.get('/employees/unlinked-users', { params }).then(r => r.data);
 export const exportEmployees = (params) => api.get('/employees/export', { params, responseType: 'blob' }).then(r => r.data);
 
 // ========== Employee Sub-resources ==========
@@ -174,6 +175,10 @@ export const createMyEmergencyContact = (data) => api.post('/me/emergency-contac
 export const updateMyEmergencyContact = (id, data) => api.put(`/me/emergency-contacts/${id}`, data).then(r => r.data);
 export const deleteMyEmergencyContact = (id) => api.delete(`/me/emergency-contacts/${id}`).then(r => r.data);
 
+// ========== HR Settings ==========
+export const fetchOfficeLocation = () => api.get('/settings/office-location').then(r => r.data);
+export const updateOfficeLocation = (data) => api.put('/settings/office-location', data).then(r => r.data);
+
 // ========== My Attendance (Self-Service) ==========
 export const fetchMyAttendance = (params) => api.get('/me/attendance', { params }).then(r => r.data);
 export const clockIn = (data) => api.post('/me/attendance/clock-in', data, {
@@ -282,9 +287,9 @@ export const deleteClaimType = (id) => api.delete(`/claims/types/${id}`).then(r 
 // ========== Claim Requests ==========
 export const fetchClaimRequests = (params) => api.get('/claims/requests', { params }).then(r => r.data);
 export const fetchClaimRequest = (id) => api.get(`/claims/requests/${id}`).then(r => r.data);
-export const approveClaimRequest = (id, data) => api.patch(`/claims/requests/${id}/approve`, data).then(r => r.data);
-export const rejectClaimRequest = (id, data) => api.patch(`/claims/requests/${id}/reject`, data).then(r => r.data);
-export const markClaimPaid = (id, data) => api.patch(`/claims/requests/${id}/pay`, data).then(r => r.data);
+export const approveClaimRequest = (id, data) => api.post(`/claims/requests/${id}/approve`, data).then(r => r.data);
+export const rejectClaimRequest = (id, data) => api.post(`/claims/requests/${id}/reject`, data).then(r => r.data);
+export const markClaimPaid = (id, data) => api.post(`/claims/requests/${id}/mark-paid`, data).then(r => r.data);
 export const exportClaimRequests = (params) => api.get('/claims/requests/export', { params, responseType: 'blob' }).then(r => r.data);
 
 // ========== Claim Approvers ==========
@@ -331,5 +336,160 @@ export const returnAsset = (id, data) => api.put(`/assets/assignments/${id}/retu
 
 // ========== My Assets (Self-Service) ==========
 export const fetchMyAssets = () => api.get('/me/assets').then(r => r.data);
+
+// ========== Recruitment Dashboard ==========
+export const fetchRecruitmentDashboard = () => api.get('/recruitment/dashboard').then(r => r.data);
+
+// ========== Job Postings ==========
+export const fetchJobPostings = (params) => api.get('/recruitment/postings', { params }).then(r => r.data);
+export const fetchJobPosting = (id) => api.get(`/recruitment/postings/${id}`).then(r => r.data);
+export const createJobPosting = (data) => api.post('/recruitment/postings', data).then(r => r.data);
+export const updateJobPosting = (id, data) => api.put(`/recruitment/postings/${id}`, data).then(r => r.data);
+export const deleteJobPosting = (id) => api.delete(`/recruitment/postings/${id}`).then(r => r.data);
+export const publishJobPosting = (id) => api.patch(`/recruitment/postings/${id}/publish`).then(r => r.data);
+export const closeJobPosting = (id) => api.patch(`/recruitment/postings/${id}/close`).then(r => r.data);
+
+// ========== Applicants ==========
+export const fetchApplicants = (params) => api.get('/recruitment/applicants', { params }).then(r => r.data);
+export const fetchApplicant = (id) => api.get(`/recruitment/applicants/${id}`).then(r => r.data);
+export const createApplicant = (data) => api.post('/recruitment/applicants', data, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+}).then(r => r.data);
+export const updateApplicant = (id, data) => api.put(`/recruitment/applicants/${id}`, data).then(r => r.data);
+export const moveApplicantStage = (id, data) => api.patch(`/recruitment/applicants/${id}/stage`, data).then(r => r.data);
+export const hireApplicant = (id, data) => api.post(`/recruitment/applicants/${id}/hire`, data).then(r => r.data);
+
+// ========== Interviews ==========
+export const fetchInterviews = (params) => api.get('/recruitment/interviews', { params }).then(r => r.data);
+export const createInterview = (data) => api.post('/recruitment/interviews', data).then(r => r.data);
+export const updateInterview = (id, data) => api.put(`/recruitment/interviews/${id}`, data).then(r => r.data);
+export const deleteInterview = (id) => api.delete(`/recruitment/interviews/${id}`).then(r => r.data);
+export const submitInterviewFeedback = (id, data) => api.put(`/recruitment/interviews/${id}/feedback`, data).then(r => r.data);
+
+// ========== Offer Letters ==========
+export const createOfferLetter = (data) => api.post('/recruitment/offers', data).then(r => r.data);
+export const fetchOfferLetter = (id) => api.get(`/recruitment/offers/${id}`).then(r => r.data);
+export const updateOfferLetter = (id, data) => api.put(`/recruitment/offers/${id}`, data).then(r => r.data);
+export const sendOfferLetter = (id) => api.post(`/recruitment/offers/${id}/send`).then(r => r.data);
+export const respondOfferLetter = (id, data) => api.patch(`/recruitment/offers/${id}/respond`, data).then(r => r.data);
+
+// ========== Onboarding ==========
+export const fetchOnboardingDashboard = () => api.get('/onboarding/dashboard').then(r => r.data);
+export const assignOnboarding = (employeeId, data) => api.post(`/onboarding/assign/${employeeId}`, data).then(r => r.data);
+export const fetchOnboardingTasks = (employeeId) => api.get(`/onboarding/tasks/${employeeId}`).then(r => r.data);
+export const updateOnboardingTask = (taskId, data) => api.patch(`/onboarding/tasks/${taskId}`, data).then(r => r.data);
+
+// ========== Onboarding Templates ==========
+export const fetchOnboardingTemplates = () => api.get('/onboarding/templates').then(r => r.data);
+export const createOnboardingTemplate = (data) => api.post('/onboarding/templates', data).then(r => r.data);
+export const updateOnboardingTemplate = (id, data) => api.put(`/onboarding/templates/${id}`, data).then(r => r.data);
+export const deleteOnboardingTemplate = (id) => api.delete(`/onboarding/templates/${id}`).then(r => r.data);
+
+// ========== Performance Dashboard ==========
+export const fetchPerformanceDashboard = () => api.get('/performance/dashboard').then(r => r.data);
+
+// ========== Review Cycles ==========
+export const fetchReviewCycles = (params) => api.get('/performance/cycles', { params }).then(r => r.data);
+export const fetchReviewCycle = (id) => api.get(`/performance/cycles/${id}`).then(r => r.data);
+export const createReviewCycle = (data) => api.post('/performance/cycles', data).then(r => r.data);
+export const updateReviewCycle = (id, data) => api.put(`/performance/cycles/${id}`, data).then(r => r.data);
+export const deleteReviewCycle = (id) => api.delete(`/performance/cycles/${id}`).then(r => r.data);
+export const activateReviewCycle = (id) => api.patch(`/performance/cycles/${id}/activate`).then(r => r.data);
+export const completeReviewCycle = (id) => api.patch(`/performance/cycles/${id}/complete`).then(r => r.data);
+
+// ========== KPI Templates ==========
+export const fetchKpiTemplates = (params) => api.get('/performance/kpis', { params }).then(r => r.data);
+export const createKpiTemplate = (data) => api.post('/performance/kpis', data).then(r => r.data);
+export const updateKpiTemplate = (id, data) => api.put(`/performance/kpis/${id}`, data).then(r => r.data);
+export const deleteKpiTemplate = (id) => api.delete(`/performance/kpis/${id}`).then(r => r.data);
+
+// ========== Performance Reviews ==========
+export const fetchPerformanceReviews = (params) => api.get('/performance/reviews', { params }).then(r => r.data);
+export const fetchPerformanceReview = (id) => api.get(`/performance/reviews/${id}`).then(r => r.data);
+export const addReviewKpi = (reviewId, data) => api.post(`/performance/reviews/${reviewId}/kpis`, data).then(r => r.data);
+export const submitSelfAssessment = (reviewId, data) => api.put(`/performance/reviews/${reviewId}/self-assessment`, data).then(r => r.data);
+export const submitManagerReview = (reviewId, data) => api.put(`/performance/reviews/${reviewId}/manager-review`, data).then(r => r.data);
+export const completeReview = (reviewId) => api.patch(`/performance/reviews/${reviewId}/complete`).then(r => r.data);
+export const acknowledgeReview = (reviewId) => api.patch(`/performance/reviews/${reviewId}/acknowledge`).then(r => r.data);
+
+// ========== PIPs ==========
+export const fetchPips = (params) => api.get('/performance/pips', { params }).then(r => r.data);
+export const fetchPip = (id) => api.get(`/performance/pips/${id}`).then(r => r.data);
+export const createPip = (data) => api.post('/performance/pips', data).then(r => r.data);
+export const updatePip = (id, data) => api.put(`/performance/pips/${id}`, data).then(r => r.data);
+export const extendPip = (id, data) => api.patch(`/performance/pips/${id}/extend`, data).then(r => r.data);
+export const completePip = (id, data) => api.patch(`/performance/pips/${id}/complete`, data).then(r => r.data);
+export const addPipGoal = (pipId, data) => api.post(`/performance/pips/${pipId}/goals`, data).then(r => r.data);
+export const updatePipGoal = (pipId, goalId, data) => api.put(`/performance/pips/${pipId}/goals/${goalId}`, data).then(r => r.data);
+
+// ========== Rating Scales ==========
+export const fetchRatingScales = () => api.get('/performance/rating-scales').then(r => r.data);
+export const updateRatingScales = (data) => api.put('/performance/rating-scales', data).then(r => r.data);
+
+// ========== My Reviews (Employee Self-Service) ==========
+export const fetchMyReviews = () => api.get('/me/reviews').then(r => r.data);
+export const fetchMyReview = (id) => api.get(`/me/reviews/${id}`).then(r => r.data);
+export const submitMySelfAssessment = (reviewId, data) => api.put(`/me/reviews/${reviewId}/self-assessment`, data).then(r => r.data);
+export const fetchMyPip = () => api.get('/me/pip').then(r => r.data);
+
+// ========== My Onboarding (Employee Self-Service) ==========
+export const fetchMyOnboarding = () => api.get('/me/onboarding').then(r => r.data);
+
+// ========== Meetings ==========
+export const fetchMeetings = (params) => api.get('/meetings', { params }).then(r => r.data);
+export const fetchMeeting = (id) => api.get(`/meetings/${id}`).then(r => r.data);
+export const createMeeting = (data) => api.post('/meetings', data).then(r => r.data);
+export const updateMeeting = (id, data) => api.put(`/meetings/${id}`, data).then(r => r.data);
+export const deleteMeeting = (id) => api.delete(`/meetings/${id}`).then(r => r.data);
+export const updateMeetingStatus = (id, data) => api.patch(`/meetings/${id}/status`, data).then(r => r.data);
+
+// ========== Meeting Series ==========
+export const fetchMeetingSeries = () => api.get('/meetings/series').then(r => r.data);
+export const createMeetingSeries = (data) => api.post('/meetings/series', data).then(r => r.data);
+export const fetchMeetingSeriesDetail = (id) => api.get(`/meetings/series/${id}`).then(r => r.data);
+
+// ========== Meeting Attendees ==========
+export const addMeetingAttendees = (meetingId, data) => api.post(`/meetings/${meetingId}/attendees`, data).then(r => r.data);
+export const removeMeetingAttendee = (meetingId, employeeId) => api.delete(`/meetings/${meetingId}/attendees/${employeeId}`).then(r => r.data);
+export const updateAttendeeStatus = (meetingId, employeeId, data) => api.patch(`/meetings/${meetingId}/attendees/${employeeId}`, data).then(r => r.data);
+
+// ========== Meeting Agenda ==========
+export const addAgendaItem = (meetingId, data) => api.post(`/meetings/${meetingId}/agenda-items`, data).then(r => r.data);
+export const updateAgendaItem = (meetingId, itemId, data) => api.put(`/meetings/${meetingId}/agenda-items/${itemId}`, data).then(r => r.data);
+export const deleteAgendaItem = (meetingId, itemId) => api.delete(`/meetings/${meetingId}/agenda-items/${itemId}`).then(r => r.data);
+export const reorderAgendaItems = (meetingId, data) => api.patch(`/meetings/${meetingId}/agenda-items/reorder`, data).then(r => r.data);
+
+// ========== Meeting Decisions ==========
+export const addDecision = (meetingId, data) => api.post(`/meetings/${meetingId}/decisions`, data).then(r => r.data);
+export const updateDecision = (meetingId, decId, data) => api.put(`/meetings/${meetingId}/decisions/${decId}`, data).then(r => r.data);
+export const deleteDecision = (meetingId, decId) => api.delete(`/meetings/${meetingId}/decisions/${decId}`).then(r => r.data);
+
+// ========== Meeting Attachments ==========
+export const uploadMeetingAttachment = (meetingId, formData) => api.post(`/meetings/${meetingId}/attachments`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+export const deleteMeetingAttachment = (meetingId, attId) => api.delete(`/meetings/${meetingId}/attachments/${attId}`).then(r => r.data);
+
+// ========== Meeting Recording & AI ==========
+export const uploadRecording = (meetingId, formData) => api.post(`/meetings/${meetingId}/recordings`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+export const deleteRecording = (meetingId, recId) => api.delete(`/meetings/${meetingId}/recordings/${recId}`).then(r => r.data);
+export const triggerTranscription = (meetingId, recId) => api.post(`/meetings/${meetingId}/recordings/${recId}/transcribe`).then(r => r.data);
+export const fetchTranscript = (meetingId) => api.get(`/meetings/${meetingId}/transcript`).then(r => r.data);
+export const triggerAiAnalysis = (meetingId) => api.post(`/meetings/${meetingId}/ai-analyze`).then(r => r.data);
+export const fetchAiSummary = (meetingId) => api.get(`/meetings/${meetingId}/ai-summary`).then(r => r.data);
+export const approveAiTasks = (meetingId, data) => api.post(`/meetings/${meetingId}/ai-summary/approve-tasks`, data).then(r => r.data);
+
+// ========== Tasks ==========
+export const fetchMeetingTasks = (params) => api.get('/tasks', { params }).then(r => r.data);
+export const fetchMeetingTask = (id) => api.get(`/tasks/${id}`).then(r => r.data);
+export const createMeetingTask = (meetingId, data) => api.post(`/meetings/${meetingId}/tasks`, data).then(r => r.data);
+export const updateMeetingTaskItem = (id, data) => api.put(`/tasks/${id}`, data).then(r => r.data);
+export const updateTaskStatus = (id, data) => api.patch(`/tasks/${id}/status`, data).then(r => r.data);
+export const deleteMeetingTask = (id) => api.delete(`/tasks/${id}`).then(r => r.data);
+export const createSubtask = (taskId, data) => api.post(`/tasks/${taskId}/subtasks`, data).then(r => r.data);
+export const addTaskComment = (taskId, data) => api.post(`/tasks/${taskId}/comments`, data).then(r => r.data);
+export const uploadTaskAttachment = (taskId, formData) => api.post(`/tasks/${taskId}/attachments`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+
+// ========== My Meetings & Tasks ==========
+export const fetchMyMeetings = (params) => api.get('/my/meetings', { params }).then(r => r.data);
+export const fetchMyMeetingTasks = (params) => api.get('/my/tasks', { params }).then(r => r.data);
 
 export default api;
