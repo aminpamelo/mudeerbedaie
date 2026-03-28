@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Outlet, NavLink, Link } from 'react-router-dom';
 import {
     LayoutDashboard,
@@ -34,6 +35,8 @@ import {
     Banknote,
 } from 'lucide-react';
 import useHrStore from '../stores/useHrStore';
+import usePushSubscription from '../hooks/usePushSubscription';
+import NotificationBell from '../components/NotificationBell';
 import { cn } from '../lib/utils';
 
 const navigation = [
@@ -45,6 +48,7 @@ const navigation = [
     { name: 'Attendance', to: '/attendance', icon: Clock },
     { name: 'Records', to: '/attendance/records', icon: ClipboardList, indent: true },
     { name: 'Schedules', to: '/attendance/schedules', icon: CalendarClock, indent: true },
+    { name: 'Assignments', to: '/attendance/assignments', icon: UserCheck, indent: true },
     { name: 'Overtime', to: '/attendance/overtime', icon: Timer, indent: true },
     { name: 'Holidays', to: '/attendance/holidays', icon: CalendarDays, indent: true },
     { name: 'Analytics', to: '/attendance/analytics', icon: BarChart3, indent: true },
@@ -198,6 +202,13 @@ function Sidebar({ mobile = false }) {
 
 export default function HrLayout() {
     const { sidebarOpen, toggleSidebar } = useHrStore();
+    const { isSubscribed, isSupported, subscribe } = usePushSubscription();
+
+    useEffect(() => {
+        if (isSupported && !isSubscribed) {
+            subscribe();
+        }
+    }, [isSupported, isSubscribed]);
 
     return (
         <div className="flex h-screen overflow-hidden bg-zinc-50">
@@ -221,22 +232,30 @@ export default function HrLayout() {
 
             {/* Main content */}
             <div className="flex flex-1 flex-col overflow-hidden">
+                {/* Desktop top bar */}
+                <div className="hidden h-14 items-center justify-end border-b border-zinc-200 bg-white px-6 lg:flex">
+                    <NotificationBell />
+                </div>
+
                 {/* Mobile header */}
-                <header className="flex h-14 items-center gap-3 border-b border-zinc-200 bg-white px-4 lg:hidden">
-                    <button
-                        onClick={toggleSidebar}
-                        className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-                    >
-                        <Menu className="h-5 w-5" />
-                    </button>
-                    <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-zinc-900 text-white text-xs font-bold">
-                            HR
+                <header className="flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4 lg:hidden">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={toggleSidebar}
+                            className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </button>
+                        <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-zinc-900 text-white text-xs font-bold">
+                                HR
+                            </div>
+                            <span className="text-sm font-semibold text-zinc-900">
+                                HR Module
+                            </span>
                         </div>
-                        <span className="text-sm font-semibold text-zinc-900">
-                            HR Module
-                        </span>
                     </div>
+                    <NotificationBell />
                 </header>
 
                 {/* Page content */}

@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClaimRequest;
+use App\Notifications\Hr\ClaimApproved;
+use App\Notifications\Hr\ClaimMarkedPaid;
+use App\Notifications\Hr\ClaimRejected;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -73,6 +76,13 @@ class HrClaimRequestController extends Controller
             'approved_at' => now(),
         ]);
 
+        $claimRequest->load('employee.user', 'claimType');
+        if ($claimRequest->employee?->user) {
+            $claimRequest->employee->user->notify(
+                new ClaimApproved($claimRequest)
+            );
+        }
+
         return response()->json([
             'data' => $claimRequest->fresh(['employee', 'claimType']),
             'message' => 'Claim request approved successfully.',
@@ -96,6 +106,13 @@ class HrClaimRequestController extends Controller
             'status' => 'rejected',
             'rejected_reason' => $validated['rejected_reason'],
         ]);
+
+        $claimRequest->load('employee.user', 'claimType');
+        if ($claimRequest->employee?->user) {
+            $claimRequest->employee->user->notify(
+                new ClaimRejected($claimRequest)
+            );
+        }
 
         return response()->json([
             'data' => $claimRequest->fresh(['employee', 'claimType']),
@@ -121,6 +138,13 @@ class HrClaimRequestController extends Controller
             'paid_at' => now(),
             'paid_reference' => $validated['paid_reference'] ?? null,
         ]);
+
+        $claimRequest->load('employee.user', 'claimType');
+        if ($claimRequest->employee?->user) {
+            $claimRequest->employee->user->notify(
+                new ClaimMarkedPaid($claimRequest)
+            );
+        }
 
         return response()->json([
             'data' => $claimRequest->fresh(['employee', 'claimType']),

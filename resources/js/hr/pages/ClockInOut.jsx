@@ -21,6 +21,7 @@ import { clockIn, clockOut, fetchMyTodayAttendance, fetchMyAttendanceSummary } f
 import { cn } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 // ---- Helpers ----
 function getGreeting() {
@@ -180,6 +181,7 @@ export default function ClockInOut() {
     const [captureRef, setCaptureRef] = useState(null);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
+    const [showConfirm, setShowConfirm] = useState(null); // 'in' | 'out' | null
 
     const user = window.hrConfig?.user || { name: 'User' };
     const greeting = getGreeting();
@@ -229,11 +231,15 @@ export default function ClockInOut() {
     const clockOutMut = useMutation({
         mutationFn: async () => {
             const formData = new FormData();
-            if (captureRef) {
-                const blob = await captureRef();
-                if (blob) {
-                    formData.append('photo', blob, 'clock-out.jpg');
+            try {
+                if (captureRef) {
+                    const blob = await captureRef();
+                    if (blob) {
+                        formData.append('photo', blob, 'clock-out.jpg');
+                    }
                 }
+            } catch {
+                // Camera capture failed, proceed without photo
             }
             return clockOut(formData);
         },
@@ -245,7 +251,11 @@ export default function ClockInOut() {
             setTimeout(() => setSuccess(null), 3000);
         },
         onError: (err) => {
-            setError(err?.response?.data?.message || 'Failed to clock out');
+            const msg = err?.response?.data?.message
+                || err?.response?.data?.errors?.photo?.[0]
+                || err?.message
+                || 'Failed to clock out';
+            setError(msg);
             setSuccess(null);
         },
     });
@@ -325,9 +335,9 @@ export default function ClockInOut() {
                         <p className="text-sm text-zinc-500">You're done for today</p>
                     </div>
                 ) : isClockedIn ? (
-                    <ClockButton type="out" isPending={clockOutMut.isPending} onClick={() => clockOutMut.mutate()} />
+                    <ClockButton type="out" isPending={clockOutMut.isPending} onClick={() => setShowConfirm('out')} />
                 ) : (
-                    <ClockButton type="in" isPending={clockInMut.isPending} onClick={() => clockInMut.mutate()} />
+                    <ClockButton type="in" isPending={clockInMut.isPending} onClick={() => setShowConfirm('in')} />
                 )}
             </div>
 
@@ -362,7 +372,7 @@ export default function ClockInOut() {
                             <div>
                                 <p className="text-xs text-zinc-500">Total Hours</p>
                                 <p className="text-sm font-semibold text-zinc-900">
-                                    {today.total_minutes ? formatDuration(today.total_minutes) : '--:--'}
+                                    {today.total_work_minutes ? formatDuration(today.total_work_minutes) : '--:--'}
                                 </p>
                             </div>
                         </div>
@@ -421,6 +431,36 @@ export default function ClockInOut() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Clock In Confirmation */}
+            <ConfirmDialog
+                open={showConfirm === 'in'}
+                onOpenChange={(open) => !open && setShowConfirm(null)}
+                title="Clock In"
+                description={`Are you sure you want to clock in now? The current time is ${new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true })}.`}
+                confirmLabel="Yes, Clock In"
+                variant="default"
+                loading={clockInMut.isPending}
+                onConfirm={() => {
+                    clockInMut.mutate();
+                    setShowConfirm(null);
+                }}
+            />
+
+            {/* Clock Out Confirmation */}
+            <ConfirmDialog
+                open={showConfirm === 'out'}
+                onOpenChange={(open) => !open && setShowConfirm(null)}
+                title="Clock Out"
+                description="Are you sure you want to clock out? Make sure you have completed all your tasks for today."
+                confirmLabel="Yes, Clock Out"
+                variant="destructive"
+                loading={clockOutMut.isPending}
+                onConfirm={() => {
+                    clockOutMut.mutate();
+                    setShowConfirm(null);
+                }}
+            />
         </div>
     );
 }

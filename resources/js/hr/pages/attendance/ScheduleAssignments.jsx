@@ -90,20 +90,20 @@ export default function ScheduleAssignments() {
     const [editTarget, setEditTarget] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [editForm, setEditForm] = useState({
-        schedule_id: '',
+        work_schedule_id: '',
         custom_start_time: '',
         custom_end_time: '',
         effective_from: '',
     });
     const [bulkForm, setBulkForm] = useState({
         employee_ids: [],
-        schedule_id: '',
+        work_schedule_id: '',
         effective_from: '',
     });
 
     const filters = {
         department_id: departmentFilter !== 'all' ? departmentFilter : undefined,
-        schedule_id: scheduleFilter !== 'all' ? scheduleFilter : undefined,
+        work_schedule_id: scheduleFilter !== 'all' ? scheduleFilter : undefined,
     };
 
     const { data, isLoading } = useQuery({
@@ -126,7 +126,7 @@ export default function ScheduleAssignments() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'employee-schedules'] });
             setShowBulkDialog(false);
-            setBulkForm({ employee_ids: [], schedule_id: '', effective_from: '' });
+            setBulkForm({ employee_ids: [], work_schedule_id: '', effective_from: '' });
         },
     });
 
@@ -154,7 +154,7 @@ export default function ScheduleAssignments() {
     function openEdit(assignment) {
         setEditTarget(assignment);
         setEditForm({
-            schedule_id: String(assignment.schedule_id || ''),
+            work_schedule_id: String(assignment.work_schedule_id || ''),
             custom_start_time: assignment.custom_start_time || '',
             custom_end_time: assignment.custom_end_time || '',
             effective_from: assignment.effective_from || '',
@@ -275,7 +275,7 @@ export default function ScheduleAssignments() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary">
-                                                {assignment.schedule?.name || '-'}
+                                                {assignment.work_schedule?.name || '-'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-sm text-zinc-600">
@@ -321,7 +321,7 @@ export default function ScheduleAssignments() {
                     <div className="space-y-4">
                         <div>
                             <Label>Schedule</Label>
-                            <Select value={editForm.schedule_id} onValueChange={(val) => setEditForm({ ...editForm, schedule_id: val })}>
+                            <Select value={editForm.work_schedule_id} onValueChange={(val) => setEditForm({ ...editForm, work_schedule_id: val })}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select schedule" />
                                 </SelectTrigger>
@@ -384,7 +384,7 @@ export default function ScheduleAssignments() {
                     <div className="space-y-4">
                         <div>
                             <Label>Schedule</Label>
-                            <Select value={bulkForm.schedule_id} onValueChange={(val) => setBulkForm({ ...bulkForm, schedule_id: val })}>
+                            <Select value={bulkForm.work_schedule_id} onValueChange={(val) => setBulkForm({ ...bulkForm, work_schedule_id: val })}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select schedule" />
                                 </SelectTrigger>
@@ -436,7 +436,7 @@ export default function ScheduleAssignments() {
                         </Button>
                         <Button
                             onClick={handleBulkAssign}
-                            disabled={assignMutation.isPending || !bulkForm.schedule_id || bulkForm.employee_ids.length === 0}
+                            disabled={assignMutation.isPending || !bulkForm.work_schedule_id || bulkForm.employee_ids.length === 0}
                         >
                             {assignMutation.isPending ? 'Assigning...' : `Assign to ${bulkForm.employee_ids.length} Employees`}
                         </Button>

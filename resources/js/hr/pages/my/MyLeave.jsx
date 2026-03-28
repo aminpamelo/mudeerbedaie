@@ -119,9 +119,12 @@ export default function MyLeave() {
             ) : (
                 <div className="grid grid-cols-2 gap-2">
                     {balances.map((bal) => {
-                        const available = bal.available ?? (bal.entitled + (bal.carried_forward || 0) - (bal.used || 0));
-                        const total = (bal.entitled || 0) + (bal.carried_forward || 0);
-                        const usedPct = total > 0 ? Math.min(((bal.used || 0) / total) * 100, 100) : 0;
+                        const entitled = parseFloat(bal.entitled_days) || 0;
+                        const carried = parseFloat(bal.carried_forward_days) || 0;
+                        const used = parseFloat(bal.used_days) || 0;
+                        const available = parseFloat(bal.available_days) || 0;
+                        const total = entitled + carried;
+                        const usedPct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
 
                         return (
                             <Card key={bal.id || bal.leave_type_id}>
@@ -144,7 +147,7 @@ export default function MyLeave() {
                                         />
                                     </div>
                                     <p className="text-[10px] text-zinc-400 mt-1">
-                                        Used: {bal.used || 0} | Carried: {bal.carried_forward || 0}
+                                        Used: {used} | Carried: {carried}
                                     </p>
                                 </CardContent>
                             </Card>

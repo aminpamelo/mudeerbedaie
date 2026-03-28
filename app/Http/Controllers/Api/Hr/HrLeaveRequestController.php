@@ -157,6 +157,14 @@ class HrLeaveRequestController extends Controller
                 $current->addDay();
             }
 
+            // Notify the employee that their leave was approved
+            $leaveRequest->load('employee.user', 'leaveType');
+            if ($leaveRequest->employee->user) {
+                $leaveRequest->employee->user->notify(
+                    new \App\Notifications\Hr\LeaveRequestApproved($leaveRequest, $request->user())
+                );
+            }
+
             return response()->json([
                 'data' => $leaveRequest->fresh(['employee', 'leaveType']),
                 'message' => 'Leave request approved successfully.',
@@ -177,7 +185,7 @@ class HrLeaveRequestController extends Controller
             'rejection_reason' => ['required', 'string', 'min:5'],
         ]);
 
-        return DB::transaction(function () use ($leaveRequest, $validated) {
+        return DB::transaction(function () use ($request, $leaveRequest, $validated) {
             $leaveRequest->update([
                 'status' => 'rejected',
                 'rejection_reason' => $validated['rejection_reason'],
@@ -194,6 +202,14 @@ class HrLeaveRequestController extends Controller
                     'pending_days' => $balance->pending_days - $leaveRequest->total_days,
                     'available_days' => $balance->available_days + $leaveRequest->total_days,
                 ]);
+            }
+
+            // Notify the employee that their leave was rejected
+            $leaveRequest->load('employee.user', 'leaveType');
+            if ($leaveRequest->employee->user) {
+                $leaveRequest->employee->user->notify(
+                    new \App\Notifications\Hr\LeaveRequestRejected($leaveRequest, $request->user())
+                );
             }
 
             return response()->json([

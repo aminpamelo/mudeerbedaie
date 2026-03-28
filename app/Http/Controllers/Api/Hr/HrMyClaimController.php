@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\StoreClaimRequestRequest;
+use App\Models\ClaimApprover;
 use App\Models\ClaimRequest;
 use App\Models\ClaimType;
+use App\Notifications\Hr\ClaimSubmitted;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -172,6 +174,21 @@ class HrMyClaimController extends Controller
             'status' => 'pending',
             'submitted_at' => now(),
         ]);
+
+        // Notify claim approvers
+        $claimRequest->load('employee', 'claimType');
+        $approvers = ClaimApprover::where('employee_id', $employee->id)
+            ->active()
+            ->with('approver.user')
+            ->get();
+
+        foreach ($approvers as $claimApprover) {
+            if ($claimApprover->approver?->user) {
+                $claimApprover->approver->user->notify(
+                    new ClaimSubmitted($claimRequest)
+                );
+            }
+        }
 
         return response()->json([
             'data' => $claimRequest->fresh('claimType'),

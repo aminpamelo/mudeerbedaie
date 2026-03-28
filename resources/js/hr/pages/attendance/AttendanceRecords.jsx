@@ -101,7 +101,11 @@ function formatTime(timeString) {
     if (!timeString) {
         return '-';
     }
-    return timeString.slice(0, 5);
+    const date = new Date(timeString);
+    if (isNaN(date.getTime())) {
+        return timeString.slice(0, 5);
+    }
+    return date.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 function formatHours(totalMinutes) {
@@ -328,7 +332,7 @@ export default function AttendanceRecords() {
                                         <TableHead>Clock Out</TableHead>
                                         <TableHead>Total Hours</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead>Late (min)</TableHead>
+                                        <TableHead>Late</TableHead>
                                         <TableHead className="w-20">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -365,7 +369,7 @@ export default function AttendanceRecords() {
                                             </TableCell>
                                             <TableCell className="text-sm">
                                                 {record.late_minutes > 0 ? (
-                                                    <span className="font-medium text-amber-600">{record.late_minutes}</span>
+                                                    <span className="font-medium text-amber-600">{formatHours(record.late_minutes)}</span>
                                                 ) : (
                                                     <span className="text-zinc-400">-</span>
                                                 )}

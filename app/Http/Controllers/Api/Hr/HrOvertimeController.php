@@ -63,6 +63,13 @@ class HrOvertimeController extends Controller
             'approved_at' => now(),
         ]);
 
+        $overtimeRequest->load('employee.user');
+        if ($overtimeRequest->employee->user) {
+            $overtimeRequest->employee->user->notify(
+                new \App\Notifications\Hr\OvertimeRequestDecision($overtimeRequest, 'approved')
+            );
+        }
+
         return response()->json([
             'data' => $overtimeRequest->fresh('employee'),
             'message' => 'Overtime request approved successfully.',
@@ -86,6 +93,13 @@ class HrOvertimeController extends Controller
             'status' => 'rejected',
             'rejection_reason' => $validated['rejection_reason'],
         ]);
+
+        $overtimeRequest->load('employee.user');
+        if ($overtimeRequest->employee->user) {
+            $overtimeRequest->employee->user->notify(
+                new \App\Notifications\Hr\OvertimeRequestDecision($overtimeRequest, 'rejected')
+            );
+        }
 
         return response()->json([
             'data' => $overtimeRequest->fresh('employee'),

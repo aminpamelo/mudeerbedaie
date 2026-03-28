@@ -87,7 +87,7 @@ export default function ApplyLeave() {
         (b) => String(b.leave_type_id || b.id) === String(form.leave_type_id)
     );
     const availableAfter = selectedBalance
-        ? (selectedBalance.available ?? (selectedBalance.entitled + (selectedBalance.carried_forward || 0) - (selectedBalance.used || 0))) - (calculatedDays || 0)
+        ? (parseFloat(selectedBalance.available_days) || 0) - (calculatedDays || 0)
         : null;
 
     const submitMut = useMutation({
@@ -100,7 +100,13 @@ export default function ApplyLeave() {
             setTimeout(() => navigate('/my/leave'), 1500);
         },
         onError: (err) => {
-            setError(err?.response?.data?.message || 'Failed to submit leave application');
+            const data = err?.response?.data;
+            if (data?.errors) {
+                const allErrors = Object.values(data.errors).flat();
+                setError(allErrors.join(' '));
+            } else {
+                setError(data?.message || 'Failed to submit leave application');
+            }
         },
     });
 
@@ -165,7 +171,7 @@ export default function ApplyLeave() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {balances.map((bal) => {
-                                        const available = bal.available ?? (bal.entitled + (bal.carried_forward || 0) - (bal.used || 0));
+                                        const available = parseFloat(bal.available_days) || 0;
                                         return (
                                             <SelectItem
                                                 key={bal.leave_type_id || bal.id}
@@ -192,6 +198,7 @@ export default function ApplyLeave() {
                                     value={form.start_date}
                                     onChange={(e) => setForm({ ...form, start_date: e.target.value, end_date: form.end_date || e.target.value })}
                                     className="mt-1"
+                                    min={new Date().toISOString().split('T')[0]}
                                     required
                                 />
                             </div>

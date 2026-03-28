@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\Hr\HrMyClaimController;
 use App\Http\Controllers\Api\Hr\HrMyLeaveController;
 use App\Http\Controllers\Api\Hr\HrMyPayslipController;
 use App\Http\Controllers\Api\Hr\HrMyProfileController;
+use App\Http\Controllers\Api\Hr\HrNotificationController;
 use App\Http\Controllers\Api\Hr\HrOvertimeController;
 use App\Http\Controllers\Api\Hr\HrPayrollDashboardController;
 use App\Http\Controllers\Api\Hr\HrPayrollItemController;
@@ -44,6 +45,7 @@ use App\Http\Controllers\Api\Hr\HrPayrollRunController;
 use App\Http\Controllers\Api\Hr\HrPayrollSettingController;
 use App\Http\Controllers\Api\Hr\HrPayslipController;
 use App\Http\Controllers\Api\Hr\HrPositionController;
+use App\Http\Controllers\Api\Hr\HrPushSubscriptionController;
 use App\Http\Controllers\Api\Hr\HrSalaryComponentController;
 use App\Http\Controllers\Api\Hr\HrStatutoryRateController;
 use App\Http\Controllers\Api\Hr\HrTaxProfileController;
@@ -422,15 +424,24 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::apiResource('positions', HrPositionController::class)->names('api.hr.positions');
 
     // My Attendance (Employee Self-Service)
-    Route::get('my-attendance', [HrMyAttendanceController::class, 'index'])->name('api.hr.my-attendance.index');
-    Route::post('my-attendance/clock-in', [HrMyAttendanceController::class, 'clockIn'])->name('api.hr.my-attendance.clock-in');
-    Route::post('my-attendance/clock-out', [HrMyAttendanceController::class, 'clockOut'])->name('api.hr.my-attendance.clock-out');
-    Route::get('my-attendance/today', [HrMyAttendanceController::class, 'today'])->name('api.hr.my-attendance.today');
-    Route::get('my-attendance/summary', [HrMyAttendanceController::class, 'summary'])->name('api.hr.my-attendance.summary');
-    Route::get('my-attendance/overtime', [HrMyAttendanceController::class, 'myOvertime'])->name('api.hr.my-attendance.overtime');
-    Route::post('my-attendance/overtime', [HrMyAttendanceController::class, 'submitOvertime'])->name('api.hr.my-attendance.overtime.store');
-    Route::get('my-attendance/overtime-balance', [HrMyAttendanceController::class, 'overtimeBalance'])->name('api.hr.my-attendance.overtime-balance');
-    Route::post('my-attendance/overtime/{overtimeRequest}/cancel', [HrMyAttendanceController::class, 'cancelOvertime'])->name('api.hr.my-attendance.overtime.cancel');
+    Route::get('me/attendance', [HrMyAttendanceController::class, 'index'])->name('api.hr.my-attendance.index');
+    Route::post('me/attendance/clock-in', [HrMyAttendanceController::class, 'clockIn'])->name('api.hr.my-attendance.clock-in');
+    Route::post('me/attendance/clock-out', [HrMyAttendanceController::class, 'clockOut'])->name('api.hr.my-attendance.clock-out');
+    Route::get('me/attendance/today', [HrMyAttendanceController::class, 'today'])->name('api.hr.my-attendance.today');
+    Route::get('me/attendance/summary', [HrMyAttendanceController::class, 'summary'])->name('api.hr.my-attendance.summary');
+
+    // My Overtime (Employee Self-Service)
+    Route::get('me/overtime', [HrMyAttendanceController::class, 'myOvertime'])->name('api.hr.my-attendance.overtime');
+    Route::post('me/overtime', [HrMyAttendanceController::class, 'submitOvertime'])->name('api.hr.my-attendance.overtime.store');
+    Route::get('me/overtime/balance', [HrMyAttendanceController::class, 'overtimeBalance'])->name('api.hr.my-attendance.overtime-balance');
+    Route::delete('me/overtime/{overtimeRequest}', [HrMyAttendanceController::class, 'cancelOvertime'])->name('api.hr.my-attendance.overtime.cancel');
+
+    // Attendance Analytics (must be before attendance/{attendanceLog} wildcard)
+    Route::get('attendance/analytics/overview', [HrAttendanceAnalyticsController::class, 'overview'])->name('api.hr.attendance-analytics.overview');
+    Route::get('attendance/analytics/trends', [HrAttendanceAnalyticsController::class, 'trends'])->name('api.hr.attendance-analytics.trends');
+    Route::get('attendance/analytics/department', [HrAttendanceAnalyticsController::class, 'department'])->name('api.hr.attendance-analytics.department');
+    Route::get('attendance/analytics/punctuality', [HrAttendanceAnalyticsController::class, 'punctuality'])->name('api.hr.attendance-analytics.punctuality');
+    Route::get('attendance/analytics/overtime', [HrAttendanceAnalyticsController::class, 'overtime'])->name('api.hr.attendance-analytics.overtime');
 
     // Attendance Admin
     Route::get('attendance', [HrAttendanceController::class, 'index'])->name('api.hr.attendance.index');
@@ -440,8 +451,8 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::put('attendance/{attendanceLog}', [HrAttendanceController::class, 'update'])->name('api.hr.attendance.update');
 
     // Work Schedules
-    Route::apiResource('work-schedules', HrWorkScheduleController::class)->names('api.hr.work-schedules');
-    Route::get('work-schedules/{workSchedule}/employees', [HrWorkScheduleController::class, 'employees'])->name('api.hr.work-schedules.employees');
+    Route::apiResource('schedules', HrWorkScheduleController::class)->parameters(['schedules' => 'workSchedule'])->names('api.hr.work-schedules');
+    Route::get('schedules/{workSchedule}/employees', [HrWorkScheduleController::class, 'employees'])->name('api.hr.work-schedules.employees');
 
     // Employee Schedule Assignments
     Route::get('employee-schedules', [HrEmployeeScheduleController::class, 'index'])->name('api.hr.employee-schedules.index');
@@ -452,9 +463,9 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     // Overtime Admin
     Route::get('overtime', [HrOvertimeController::class, 'index'])->name('api.hr.overtime.index');
     Route::get('overtime/{overtimeRequest}', [HrOvertimeController::class, 'show'])->name('api.hr.overtime.show');
-    Route::post('overtime/{overtimeRequest}/approve', [HrOvertimeController::class, 'approve'])->name('api.hr.overtime.approve');
-    Route::post('overtime/{overtimeRequest}/reject', [HrOvertimeController::class, 'reject'])->name('api.hr.overtime.reject');
-    Route::post('overtime/{overtimeRequest}/complete', [HrOvertimeController::class, 'complete'])->name('api.hr.overtime.complete');
+    Route::patch('overtime/{overtimeRequest}/approve', [HrOvertimeController::class, 'approve'])->name('api.hr.overtime.approve');
+    Route::patch('overtime/{overtimeRequest}/reject', [HrOvertimeController::class, 'reject'])->name('api.hr.overtime.reject');
+    Route::patch('overtime/{overtimeRequest}/complete', [HrOvertimeController::class, 'complete'])->name('api.hr.overtime.complete');
 
     // Holidays
     Route::apiResource('holidays', HrHolidayController::class)->names('api.hr.holidays');
@@ -464,53 +475,46 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::apiResource('department-approvers', HrDepartmentApproverController::class)->except('show')->names('api.hr.department-approvers');
 
     // Attendance Penalties
-    Route::get('attendance-penalties', [HrAttendancePenaltyController::class, 'index'])->name('api.hr.attendance-penalties.index');
-    Route::get('attendance-penalties/flagged', [HrAttendancePenaltyController::class, 'flagged'])->name('api.hr.attendance-penalties.flagged');
-    Route::get('attendance-penalties/summary', [HrAttendancePenaltyController::class, 'summary'])->name('api.hr.attendance-penalties.summary');
-
-    // Attendance Analytics
-    Route::get('attendance-analytics/overview', [HrAttendanceAnalyticsController::class, 'overview'])->name('api.hr.attendance-analytics.overview');
-    Route::get('attendance-analytics/trends', [HrAttendanceAnalyticsController::class, 'trends'])->name('api.hr.attendance-analytics.trends');
-    Route::get('attendance-analytics/department', [HrAttendanceAnalyticsController::class, 'department'])->name('api.hr.attendance-analytics.department');
-    Route::get('attendance-analytics/punctuality', [HrAttendanceAnalyticsController::class, 'punctuality'])->name('api.hr.attendance-analytics.punctuality');
-    Route::get('attendance-analytics/overtime', [HrAttendanceAnalyticsController::class, 'overtime'])->name('api.hr.attendance-analytics.overtime');
+    Route::get('penalties', [HrAttendancePenaltyController::class, 'index'])->name('api.hr.attendance-penalties.index');
+    Route::get('penalties/flagged', [HrAttendancePenaltyController::class, 'flagged'])->name('api.hr.attendance-penalties.flagged');
+    Route::get('penalties/summary', [HrAttendancePenaltyController::class, 'summary'])->name('api.hr.attendance-penalties.summary');
 
     // Leave Types
-    Route::apiResource('leave-types', HrLeaveTypeController::class)->names('api.hr.leave-types');
+    Route::apiResource('leave/types', HrLeaveTypeController::class)->parameters(['types' => 'leaveType'])->names('api.hr.leave-types');
 
     // Leave Entitlements
-    Route::apiResource('leave-entitlements', HrLeaveEntitlementController::class)->except('show')->names('api.hr.leave-entitlements');
-    Route::post('leave-entitlements/recalculate', [HrLeaveEntitlementController::class, 'recalculate'])->name('api.hr.leave-entitlements.recalculate');
+    Route::post('leave/entitlements/recalculate', [HrLeaveEntitlementController::class, 'recalculate'])->name('api.hr.leave-entitlements.recalculate');
+    Route::apiResource('leave/entitlements', HrLeaveEntitlementController::class)->parameters(['entitlements' => 'leaveEntitlement'])->except('show')->names('api.hr.leave-entitlements');
 
     // Leave Balances
-    Route::get('leave-balances', [HrLeaveBalanceController::class, 'index'])->name('api.hr.leave-balances.index');
-    Route::get('leave-balances/employee/{employeeId}', [HrLeaveBalanceController::class, 'show'])->name('api.hr.leave-balances.show');
-    Route::post('leave-balances/initialize', [HrLeaveBalanceController::class, 'initialize'])->name('api.hr.leave-balances.initialize');
-    Route::patch('leave-balances/{leaveBalance}/adjust', [HrLeaveBalanceController::class, 'adjust'])->name('api.hr.leave-balances.adjust');
-    Route::get('leave-balances/export', [HrLeaveBalanceController::class, 'export'])->name('api.hr.leave-balances.export');
+    Route::get('leave/balances', [HrLeaveBalanceController::class, 'index'])->name('api.hr.leave-balances.index');
+    Route::get('leave/balances/export', [HrLeaveBalanceController::class, 'export'])->name('api.hr.leave-balances.export');
+    Route::post('leave/balances/initialize', [HrLeaveBalanceController::class, 'initialize'])->name('api.hr.leave-balances.initialize');
+    Route::get('leave/balances/{employeeId}', [HrLeaveBalanceController::class, 'show'])->name('api.hr.leave-balances.show');
+    Route::post('leave/balances/{leaveBalance}/adjust', [HrLeaveBalanceController::class, 'adjust'])->name('api.hr.leave-balances.adjust');
 
     // Leave Requests (Admin)
-    Route::get('leave-requests', [HrLeaveRequestController::class, 'index'])->name('api.hr.leave-requests.index');
-    Route::get('leave-requests/export', [HrLeaveRequestController::class, 'export'])->name('api.hr.leave-requests.export');
-    Route::get('leave-requests/{leaveRequest}', [HrLeaveRequestController::class, 'show'])->name('api.hr.leave-requests.show');
-    Route::post('leave-requests/{leaveRequest}/approve', [HrLeaveRequestController::class, 'approve'])->name('api.hr.leave-requests.approve');
-    Route::post('leave-requests/{leaveRequest}/reject', [HrLeaveRequestController::class, 'reject'])->name('api.hr.leave-requests.reject');
+    Route::get('leave/requests', [HrLeaveRequestController::class, 'index'])->name('api.hr.leave-requests.index');
+    Route::get('leave/requests/export', [HrLeaveRequestController::class, 'export'])->name('api.hr.leave-requests.export');
+    Route::get('leave/requests/{leaveRequest}', [HrLeaveRequestController::class, 'show'])->name('api.hr.leave-requests.show');
+    Route::patch('leave/requests/{leaveRequest}/approve', [HrLeaveRequestController::class, 'approve'])->name('api.hr.leave-requests.approve');
+    Route::patch('leave/requests/{leaveRequest}/reject', [HrLeaveRequestController::class, 'reject'])->name('api.hr.leave-requests.reject');
 
     // Leave Calendar
-    Route::get('leave-calendar', [HrLeaveCalendarController::class, 'index'])->name('api.hr.leave-calendar.index');
-    Route::get('leave-calendar/overlaps', [HrLeaveCalendarController::class, 'overlaps'])->name('api.hr.leave-calendar.overlaps');
+    Route::get('leave/calendar', [HrLeaveCalendarController::class, 'index'])->name('api.hr.leave-calendar.index');
+    Route::get('leave/calendar/overlaps', [HrLeaveCalendarController::class, 'overlaps'])->name('api.hr.leave-calendar.overlaps');
 
     // Leave Dashboard
-    Route::get('leave-dashboard/stats', [HrLeaveDashboardController::class, 'stats'])->name('api.hr.leave-dashboard.stats');
-    Route::get('leave-dashboard/pending', [HrLeaveDashboardController::class, 'pending'])->name('api.hr.leave-dashboard.pending');
-    Route::get('leave-dashboard/distribution', [HrLeaveDashboardController::class, 'distribution'])->name('api.hr.leave-dashboard.distribution');
+    Route::get('leave/dashboard/stats', [HrLeaveDashboardController::class, 'stats'])->name('api.hr.leave-dashboard.stats');
+    Route::get('leave/dashboard/pending', [HrLeaveDashboardController::class, 'pending'])->name('api.hr.leave-dashboard.pending');
+    Route::get('leave/dashboard/distribution', [HrLeaveDashboardController::class, 'distribution'])->name('api.hr.leave-dashboard.distribution');
 
     // My Leave (Employee Self-Service)
-    Route::get('my-leave/balances', [HrMyLeaveController::class, 'balances'])->name('api.hr.my-leave.balances');
-    Route::get('my-leave/requests', [HrMyLeaveController::class, 'requests'])->name('api.hr.my-leave.requests');
-    Route::post('my-leave/apply', [HrMyLeaveController::class, 'apply'])->name('api.hr.my-leave.apply');
-    Route::post('my-leave/{leaveRequest}/cancel', [HrMyLeaveController::class, 'cancel'])->name('api.hr.my-leave.cancel');
-    Route::get('my-leave/calculate-days', [HrMyLeaveController::class, 'calculateDays'])->name('api.hr.my-leave.calculate-days');
+    Route::get('me/leave/balances', [HrMyLeaveController::class, 'balances'])->name('api.hr.my-leave.balances');
+    Route::get('me/leave/requests', [HrMyLeaveController::class, 'requests'])->name('api.hr.my-leave.requests');
+    Route::post('me/leave/requests', [HrMyLeaveController::class, 'apply'])->name('api.hr.my-leave.apply');
+    Route::delete('me/leave/requests/{leaveRequest}', [HrMyLeaveController::class, 'cancel'])->name('api.hr.my-leave.cancel');
+    Route::get('me/leave/calculate-days', [HrMyLeaveController::class, 'calculateDays'])->name('api.hr.my-leave.calculate-days');
 
     // Payroll Dashboard
     Route::get('payroll/dashboard/stats', [HrPayrollDashboardController::class, 'stats'])->name('api.hr.payroll.dashboard.stats');
@@ -634,4 +638,14 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
 
     // My Assets (Employee Self-Service)
     Route::get('me/assets', [HrMyAssetController::class, 'index'])->name('api.hr.me.assets.index');
+
+    // Push Subscription
+    Route::post('push-subscriptions', [HrPushSubscriptionController::class, 'store'])->name('api.hr.push-subscriptions.store');
+    Route::delete('push-subscriptions', [HrPushSubscriptionController::class, 'destroy'])->name('api.hr.push-subscriptions.destroy');
+
+    // Notifications
+    Route::get('notifications', [HrNotificationController::class, 'index'])->name('api.hr.notifications.index');
+    Route::get('notifications/unread-count', [HrNotificationController::class, 'unreadCount'])->name('api.hr.notifications.unread-count');
+    Route::patch('notifications/{notification}/read', [HrNotificationController::class, 'markRead'])->name('api.hr.notifications.mark-read');
+    Route::post('notifications/mark-all-read', [HrNotificationController::class, 'markAllRead'])->name('api.hr.notifications.mark-all-read');
 });

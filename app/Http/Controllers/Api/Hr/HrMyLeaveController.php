@@ -129,7 +129,19 @@ class HrMyLeaveController extends Controller
                 ]);
             }
 
-            $leaveRequest->load('leaveType');
+            // Notify department approvers
+            $leaveRequest->load('employee.department', 'leaveType');
+            $approvers = \App\Models\DepartmentApprover::forDepartment(
+                $leaveRequest->employee->department_id
+            )->forType('leave')->with('approver.user')->get();
+
+            foreach ($approvers as $deptApprover) {
+                if ($deptApprover->approver?->user) {
+                    $deptApprover->approver->user->notify(
+                        new \App\Notifications\Hr\LeaveRequestSubmitted($leaveRequest)
+                    );
+                }
+            }
 
             return response()->json([
                 'data' => $leaveRequest,
@@ -170,6 +182,20 @@ class HrMyLeaveController extends Controller
                         'pending_days' => $balance->pending_days - $leaveRequest->total_days,
                         'available_days' => $balance->available_days + $leaveRequest->total_days,
                     ]);
+                }
+
+                // Notify approvers about cancellation
+                $leaveRequest->load('employee.department', 'leaveType');
+                $approvers = \App\Models\DepartmentApprover::forDepartment(
+                    $leaveRequest->employee->department_id
+                )->forType('leave')->with('approver.user')->get();
+
+                foreach ($approvers as $deptApprover) {
+                    if ($deptApprover->approver?->user) {
+                        $deptApprover->approver->user->notify(
+                            new \App\Notifications\Hr\LeaveRequestCancelled($leaveRequest)
+                        );
+                    }
                 }
 
                 return response()->json([
@@ -228,6 +254,20 @@ class HrMyLeaveController extends Controller
                         $restore = min($otRequest->replacement_hours_used, $hoursToRestore);
                         $otRequest->decrement('replacement_hours_used', $restore);
                         $hoursToRestore -= $restore;
+                    }
+                }
+
+                // Notify approvers about cancellation
+                $leaveRequest->load('employee.department', 'leaveType');
+                $approvers = \App\Models\DepartmentApprover::forDepartment(
+                    $leaveRequest->employee->department_id
+                )->forType('leave')->with('approver.user')->get();
+
+                foreach ($approvers as $deptApprover) {
+                    if ($deptApprover->approver?->user) {
+                        $deptApprover->approver->user->notify(
+                            new \App\Notifications\Hr\LeaveRequestCancelled($leaveRequest)
+                        );
                     }
                 }
 

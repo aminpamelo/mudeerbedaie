@@ -50,7 +50,7 @@ class HrEmployeeScheduleController extends Controller
             $created = [];
 
             foreach ($validated['employee_ids'] as $employeeId) {
-                $created[] = EmployeeSchedule::create([
+                $employeeSchedule = EmployeeSchedule::create([
                     'employee_id' => $employeeId,
                     'work_schedule_id' => $validated['work_schedule_id'],
                     'effective_from' => $validated['effective_from'],
@@ -58,6 +58,15 @@ class HrEmployeeScheduleController extends Controller
                     'custom_start_time' => $validated['custom_start_time'] ?? null,
                     'custom_end_time' => $validated['custom_end_time'] ?? null,
                 ]);
+
+                $employeeSchedule->load('employee.user', 'workSchedule');
+                if ($employeeSchedule->employee->user) {
+                    $employeeSchedule->employee->user->notify(
+                        new \App\Notifications\Hr\ScheduleChanged($employeeSchedule)
+                    );
+                }
+
+                $created[] = $employeeSchedule;
             }
 
             return response()->json([
@@ -81,6 +90,13 @@ class HrEmployeeScheduleController extends Controller
         ]);
 
         $employeeSchedule->update($validated);
+
+        $employeeSchedule->load('employee.user', 'workSchedule');
+        if ($employeeSchedule->employee->user) {
+            $employeeSchedule->employee->user->notify(
+                new \App\Notifications\Hr\ScheduleChanged($employeeSchedule)
+            );
+        }
 
         return response()->json([
             'data' => $employeeSchedule->fresh(['employee', 'workSchedule']),

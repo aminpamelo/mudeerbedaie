@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\EmployeeSalary;
 use App\Models\SalaryComponent;
 use App\Models\SalaryRevision;
+use App\Notifications\Hr\SalaryRevision as SalaryRevisionNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,20 +16,29 @@ class HrEmployeeSalaryController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = EmployeeSalary::query()
-            ->with(['employee:id,employee_id,full_name,department_id', 'salaryComponent']);
+        $query = Employee::query()
+            ->with([
+                'activeSalaries.salaryComponent',
+                'department:id,name',
+                'position:id,title',
+            ])
+            ->where('status', 'active');
 
-        if ($employeeId = $request->get('employee_id')) {
-            $query->where('employee_id', $employeeId);
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('employee_id', 'like', "%{$search}%");
+            });
         }
 
-        if ($request->boolean('active_only', false)) {
-            $query->active();
-        }
+        $employees = $query->orderBy('full_name')->get();
 
-        $salaries = $query->orderByDesc('effective_from')->paginate($request->get('per_page', 20));
+        $employees->each(function ($employee) {
+            $employee->setRelation('salaries', $employee->activeSalaries);
+            $employee->unsetRelation('activeSalaries');
+        });
 
-        return response()->json($salaries);
+        return response()->json(['data' => $employees]);
     }
 
     public function show(int $employeeId): JsonResponse
@@ -52,6 +62,12 @@ class HrEmployeeSalaryController extends Controller
         ]);
 
         $salary = EmployeeSalary::create($validated);
+
+        // Notify employee about salary update
+        $salary->load('employee.user');
+        if ($salary->employee?->user) {
+            $salary->employee->user->notify(new SalaryRevisionNotification($salary));
+        }
 
         return response()->json([
             'data' => $salary->load(['employee:id,employee_id,full_name', 'salaryComponent']),
@@ -96,6 +112,12 @@ class HrEmployeeSalaryController extends Controller
                 'reason' => $validated['reason'] ?? null,
                 'changed_by' => $request->user()->id,
             ]);
+
+            // Notify employee about salary update
+            $newSalary->load('employee.user');
+            if ($newSalary->employee?->user) {
+                $newSalary->employee->user->notify(new SalaryRevisionNotification($newSalary));
+            }
 
             return response()->json([
                 'data' => $newSalary->load(['employee:id,employee_id,full_name', 'salaryComponent']),
@@ -154,7 +176,7 @@ class HrEmployeeSalaryController extends Controller
                     'effective_to' => now()->subDay()->toDateString(),
                 ]);
 
-                EmployeeSalary::create([
+                $newSalary = EmployeeSalary::create([
                     'employee_id' => $employeeId,
                     'salary_component_id' => $validated['salary_component_id'],
                     'amount' => $newAmount,
@@ -170,6 +192,12 @@ class HrEmployeeSalaryController extends Controller
                     'reason' => $validated['reason'] ?? null,
                     'changed_by' => $request->user()->id,
                 ]);
+
+                // Notify employee about salary update
+                $newSalary->load('employee.user');
+                if ($newSalary->employee?->user) {
+                    $newSalary->employee->user->notify(new SalaryRevisionNotification($newSalary));
+                }
 
                 $updatedCount++;
             }

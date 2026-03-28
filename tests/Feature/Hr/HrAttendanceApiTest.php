@@ -69,25 +69,25 @@ function createEmployeeWithSchedule(): array
 
 test('unauthenticated users get 401 on attendance endpoints', function () {
     $this->getJson('/api/hr/attendance')->assertUnauthorized();
-    $this->getJson('/api/hr/work-schedules')->assertUnauthorized();
-    $this->getJson('/api/hr/my-attendance')->assertUnauthorized();
-    $this->postJson('/api/hr/my-attendance/clock-in')->assertUnauthorized();
+    $this->getJson('/api/hr/schedules')->assertUnauthorized();
+    $this->getJson('/api/hr/me/attendance')->assertUnauthorized();
+    $this->postJson('/api/hr/me/attendance/clock-in')->assertUnauthorized();
     $this->getJson('/api/hr/overtime')->assertUnauthorized();
     $this->getJson('/api/hr/holidays')->assertUnauthorized();
     $this->getJson('/api/hr/department-approvers')->assertUnauthorized();
-    $this->getJson('/api/hr/attendance-penalties')->assertUnauthorized();
-    $this->getJson('/api/hr/attendance-analytics/overview')->assertUnauthorized();
+    $this->getJson('/api/hr/penalties')->assertUnauthorized();
+    $this->getJson('/api/hr/attendance/analytics/overview')->assertUnauthorized();
 });
 
 test('non-admin users get 403 on admin-only endpoints', function () {
     $user = createAttendanceNonAdminUser();
 
     $this->actingAs($user)
-        ->getJson('/api/hr/work-schedules')
+        ->getJson('/api/hr/schedules')
         ->assertForbidden();
 
     $this->actingAs($user)
-        ->postJson('/api/hr/work-schedules', [])
+        ->postJson('/api/hr/schedules', [])
         ->assertForbidden();
 });
 
@@ -101,7 +101,7 @@ test('admin can list work schedules', function () {
     $admin = createAttendanceAdminUser();
     WorkSchedule::factory()->count(3)->create();
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/work-schedules');
+    $response = $this->actingAs($admin)->getJson('/api/hr/schedules');
 
     $response->assertSuccessful()
         ->assertJsonCount(3, 'data');
@@ -122,7 +122,7 @@ test('admin can create a work schedule with all fields', function () {
         'is_default' => false,
     ];
 
-    $response = $this->actingAs($admin)->postJson('/api/hr/work-schedules', $payload);
+    $response = $this->actingAs($admin)->postJson('/api/hr/schedules', $payload);
 
     $response->assertCreated()
         ->assertJsonPath('data.name', 'Morning Shift')
@@ -134,7 +134,7 @@ test('admin can create a work schedule with all fields', function () {
 test('work schedule store validates required fields', function () {
     $admin = createAttendanceAdminUser();
 
-    $response = $this->actingAs($admin)->postJson('/api/hr/work-schedules', []);
+    $response = $this->actingAs($admin)->postJson('/api/hr/schedules', []);
 
     $response->assertUnprocessable()
         ->assertJsonValidationErrors(['name', 'type', 'break_duration_minutes', 'grace_period_minutes', 'working_days']);
@@ -144,7 +144,7 @@ test('admin can update a work schedule', function () {
     $admin = createAttendanceAdminUser();
     $schedule = WorkSchedule::factory()->create();
 
-    $response = $this->actingAs($admin)->putJson("/api/hr/work-schedules/{$schedule->id}", [
+    $response = $this->actingAs($admin)->putJson("/api/hr/schedules/{$schedule->id}", [
         'name' => 'Updated Schedule',
         'type' => 'fixed',
         'start_time' => '08:30',
@@ -162,7 +162,7 @@ test('admin can delete a work schedule without employees', function () {
     $admin = createAttendanceAdminUser();
     $schedule = WorkSchedule::factory()->create();
 
-    $response = $this->actingAs($admin)->deleteJson("/api/hr/work-schedules/{$schedule->id}");
+    $response = $this->actingAs($admin)->deleteJson("/api/hr/schedules/{$schedule->id}");
 
     $response->assertSuccessful()
         ->assertJsonPath('message', 'Work schedule deleted successfully.');
@@ -185,7 +185,7 @@ test('employee can clock in', function () {
     $photo = UploadedFile::fake()->image('selfie.jpg');
 
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-attendance/clock-in', [
+        ->postJson('/api/hr/me/attendance/clock-in', [
             'photo' => $photo,
         ]);
 
@@ -212,7 +212,7 @@ test('employee who clocks in late gets marked as late with correct late_minutes'
     $photo = UploadedFile::fake()->image('selfie.jpg');
 
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-attendance/clock-in', [
+        ->postJson('/api/hr/me/attendance/clock-in', [
             'photo' => $photo,
         ]);
 
@@ -248,7 +248,7 @@ test('cannot clock in twice on same day', function () {
     $photo = UploadedFile::fake()->image('selfie.jpg');
 
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-attendance/clock-in', [
+        ->postJson('/api/hr/me/attendance/clock-in', [
             'photo' => $photo,
         ]);
 
@@ -276,7 +276,7 @@ test('employee can clock out and total work minutes is calculated', function () 
     $photo = UploadedFile::fake()->image('clockout.jpg');
 
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-attendance/clock-out', [
+        ->postJson('/api/hr/me/attendance/clock-out', [
             'photo' => $photo,
         ]);
 
@@ -295,7 +295,7 @@ test('cannot clock out without clocking in first', function () {
     $photo = UploadedFile::fake()->image('clockout.jpg');
 
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-attendance/clock-out', [
+        ->postJson('/api/hr/me/attendance/clock-out', [
             'photo' => $photo,
         ]);
 
@@ -309,7 +309,7 @@ test('wfh clock in skips photo requirement', function () {
     Carbon::setTestNow(Carbon::today()->setTime(9, 0));
 
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-attendance/clock-in', [
+        ->postJson('/api/hr/me/attendance/clock-in', [
             'is_wfh' => true,
         ]);
 
@@ -334,7 +334,7 @@ test('employee can submit overtime request', function () {
     $data = createEmployeeWithSchedule();
 
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-attendance/overtime', [
+        ->postJson('/api/hr/me/overtime', [
             'requested_date' => now()->addDay()->toDateString(),
             'start_time' => '18:00',
             'end_time' => '20:00',
@@ -376,7 +376,7 @@ test('admin can approve overtime request', function () {
     ]);
 
     $response = $this->actingAs($admin)
-        ->postJson("/api/hr/overtime/{$otRequest->id}/approve");
+        ->patchJson("/api/hr/overtime/{$otRequest->id}/approve");
 
     $response->assertSuccessful()
         ->assertJsonPath('message', 'Overtime request approved successfully.');
@@ -397,7 +397,7 @@ test('admin can reject overtime request with reason', function () {
     ]);
 
     $response = $this->actingAs($admin)
-        ->postJson("/api/hr/overtime/{$otRequest->id}/reject", [
+        ->patchJson("/api/hr/overtime/{$otRequest->id}/reject", [
             'rejection_reason' => 'Budget constraints this quarter.',
         ]);
 
@@ -418,7 +418,7 @@ test('admin can complete overtime with actual hours', function () {
     ]);
 
     $response = $this->actingAs($admin)
-        ->postJson("/api/hr/overtime/{$otRequest->id}/complete", [
+        ->patchJson("/api/hr/overtime/{$otRequest->id}/complete", [
             'actual_hours' => 3.0,
         ]);
 
@@ -576,7 +576,7 @@ test('late clock in creates penalty record automatically', function () {
     $photo = UploadedFile::fake()->image('selfie.jpg');
 
     $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-attendance/clock-in', [
+        ->postJson('/api/hr/me/attendance/clock-in', [
             'photo' => $photo,
         ]);
 
@@ -616,7 +616,7 @@ test('flagged endpoint returns employees with 3+ lates', function () {
         ]);
     }
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/attendance-penalties/flagged');
+    $response = $this->actingAs($admin)->getJson('/api/hr/penalties/flagged');
 
     $response->assertSuccessful();
 
@@ -655,7 +655,7 @@ test('attendance overview returns correct today stats', function () {
         'date' => Carbon::today(),
     ]);
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/attendance-analytics/overview');
+    $response = $this->actingAs($admin)->getJson('/api/hr/attendance/analytics/overview');
 
     $response->assertSuccessful()
         ->assertJsonStructure([
@@ -670,7 +670,7 @@ test('attendance overview returns correct today stats', function () {
 test('attendance trends returns 12 months of data', function () {
     $admin = createAttendanceAdminUser();
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/attendance-analytics/trends');
+    $response = $this->actingAs($admin)->getJson('/api/hr/attendance/analytics/trends');
 
     $response->assertSuccessful()
         ->assertJsonCount(12, 'data');

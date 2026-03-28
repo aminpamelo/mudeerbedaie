@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mudeer-hr-v1';
+const CACHE_NAME = 'mudeer-hr-v2';
 const STATIC_ASSETS = [
     '/hr/clock',
     '/manifest.json',
@@ -53,18 +53,15 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // For static assets - cache first, network fallback
+    // For static assets - network first, cache fallback (prevents stale builds)
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            if (cached) {
-                return cached;
-            }
-            return fetch(event.request).then((response) => {
+        fetch(event.request)
+            .then((response) => {
                 const clone = response.clone();
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
                 return response;
-            });
-        })
+            })
+            .catch(() => caches.match(event.request))
     );
 });
 

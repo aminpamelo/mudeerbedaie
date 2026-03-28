@@ -92,7 +92,7 @@ test('approving leave creates attendance logs for working days only', function (
 
     // Apply for leave (Mon-Tue) via API
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-leave/apply', [
+        ->postJson('/api/hr/me/leave/requests', [
             'leave_type_id' => $leaveType->id,
             'start_date' => $monday->toDateString(),
             'end_date' => $monday->copy()->addDay()->toDateString(),
@@ -112,7 +112,7 @@ test('approving leave creates attendance logs for working days only', function (
 
     // Approve leave as admin
     $approveResponse = $this->actingAs($data['admin'])
-        ->postJson("/api/hr/leave-requests/{$leaveRequest->id}/approve");
+        ->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/approve");
 
     $approveResponse->assertSuccessful();
 
@@ -169,7 +169,7 @@ test('leave spanning weekend does not create attendance logs for Sat/Sun', funct
     // Apply for leave Thursday to next Monday (spans weekend)
     $nextMonday = $thursday->copy()->addDays(4);
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-leave/apply', [
+        ->postJson('/api/hr/me/leave/requests', [
             'leave_type_id' => $leaveType->id,
             'start_date' => $thursday->toDateString(),
             'end_date' => $nextMonday->toDateString(),
@@ -182,7 +182,7 @@ test('leave spanning weekend does not create attendance logs for Sat/Sun', funct
 
     // Approve
     $this->actingAs($data['admin'])
-        ->postJson("/api/hr/leave-requests/{$leaveRequest->id}/approve")
+        ->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/approve")
         ->assertSuccessful();
 
     // Should have 3 on_leave logs: Thu, Fri, Mon (skipping Sat/Sun)
@@ -233,7 +233,7 @@ test('overtime completion earns replacement hours and can be used for replacemen
 
     // Approve overtime
     $this->actingAs($data['admin'])
-        ->postJson("/api/hr/overtime/{$otRequest->id}/approve")
+        ->patchJson("/api/hr/overtime/{$otRequest->id}/approve")
         ->assertSuccessful();
 
     $otRequest->refresh();
@@ -241,7 +241,7 @@ test('overtime completion earns replacement hours and can be used for replacemen
 
     // Complete overtime with actual_hours: 8
     $this->actingAs($data['admin'])
-        ->postJson("/api/hr/overtime/{$otRequest->id}/complete", [
+        ->patchJson("/api/hr/overtime/{$otRequest->id}/complete", [
             'actual_hours' => 8,
         ])
         ->assertSuccessful();
@@ -271,7 +271,7 @@ test('overtime completion earns replacement hours and can be used for replacemen
 
     // Apply for replacement leave (1 day)
     $leaveResponse = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-leave/apply', [
+        ->postJson('/api/hr/me/leave/requests', [
             'leave_type_id' => $rlType->id,
             'start_date' => $nextMonday->copy()->addWeek()->toDateString(),
             'end_date' => $nextMonday->copy()->addWeek()->toDateString(),
@@ -292,7 +292,7 @@ test('overtime completion earns replacement hours and can be used for replacemen
 
     // Approve the replacement leave
     $this->actingAs($data['admin'])
-        ->postJson("/api/hr/leave-requests/{$leaveRequest->id}/approve")
+        ->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/approve")
         ->assertSuccessful();
 
     // Assert: overtime_request replacement_hours_used increased
@@ -327,7 +327,7 @@ test('clocking in late creates attendance penalty with correct late minutes', fu
     $photo = \Illuminate\Http\UploadedFile::fake()->image('selfie.jpg');
 
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-attendance/clock-in', [
+        ->postJson('/api/hr/me/attendance/clock-in', [
             'photo' => $photo,
         ]);
 
@@ -552,7 +552,7 @@ test('cancelling approved leave restores balance and deletes attendance logs', f
 
     // Apply for 2 days leave (Mon-Tue)
     $response = $this->actingAs($data['user'])
-        ->postJson('/api/hr/my-leave/apply', [
+        ->postJson('/api/hr/me/leave/requests', [
             'leave_type_id' => $leaveType->id,
             'start_date' => $futureMonday->toDateString(),
             'end_date' => $futureMonday->copy()->addDay()->toDateString(),
@@ -565,7 +565,7 @@ test('cancelling approved leave restores balance and deletes attendance logs', f
 
     // Approve the leave
     $this->actingAs($data['admin'])
-        ->postJson("/api/hr/leave-requests/{$leaveRequest->id}/approve")
+        ->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/approve")
         ->assertSuccessful();
 
     // Verify post-approval state
@@ -580,7 +580,7 @@ test('cancelling approved leave restores balance and deletes attendance logs', f
 
     // Cancel the leave (future dates, so cancellation allowed)
     $cancelResponse = $this->actingAs($data['user'])
-        ->postJson("/api/hr/my-leave/{$leaveRequest->id}/cancel");
+        ->deleteJson("/api/hr/me/leave/requests/{$leaveRequest->id}");
 
     $cancelResponse->assertSuccessful();
 

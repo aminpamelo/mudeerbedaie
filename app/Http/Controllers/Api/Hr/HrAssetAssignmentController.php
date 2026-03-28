@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\StoreAssetAssignmentRequest;
 use App\Models\Asset;
 use App\Models\AssetAssignment;
+use App\Models\User;
+use App\Notifications\Hr\AssetAssigned;
+use App\Notifications\Hr\AssetReturnConfirmed;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -67,7 +70,13 @@ class HrAssetAssignmentController extends Controller
 
             $asset->update(['status' => 'assigned']);
 
-            $assignment->load(['asset.category', 'employee', 'assignedBy']);
+            $assignment->load(['asset.category', 'employee.user', 'assignedBy']);
+
+            if ($assignment->employee?->user) {
+                $assignment->employee->user->notify(
+                    new AssetAssigned($assignment)
+                );
+            }
 
             return response()->json([
                 'data' => $assignment,
@@ -94,6 +103,12 @@ class HrAssetAssignmentController extends Controller
             $validated['returned_condition'],
             $validated['return_notes'] ?? null
         );
+
+        $assetAssignment->load('employee', 'asset');
+        $admins = User::where('role', 'admin')->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new AssetReturnConfirmed($assetAssignment));
+        }
 
         return response()->json([
             'data' => $assetAssignment->fresh(['asset.category', 'employee']),

@@ -274,7 +274,7 @@ export default function WorkSchedules() {
                                         <TableCell className="text-sm text-zinc-600">
                                             <div className="flex items-center gap-1">
                                                 <Users className="h-3.5 w-3.5 text-zinc-400" />
-                                                {schedule.employees_count ?? 0}
+                                                {schedule.employee_schedules_count ?? 0}
                                             </div>
                                         </TableCell>
                                         <TableCell>

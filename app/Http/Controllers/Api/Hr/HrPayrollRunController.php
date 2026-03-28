@@ -5,6 +5,11 @@ namespace App\Http\Controllers\Api\Hr;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\PayrollRun;
+use App\Models\User;
+use App\Notifications\Hr\PayrollApproved;
+use App\Notifications\Hr\PayrollRunCreated;
+use App\Notifications\Hr\PayrollSubmittedForReview;
+use App\Notifications\Hr\PayslipReady;
 use App\Services\Hr\PayrollProcessingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,6 +63,12 @@ class HrPayrollRunController extends Controller
             'prepared_by' => $request->user()->id,
         ]));
 
+        // Notify admin users about new payroll run
+        $admins = User::where('role', 'admin')->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new PayrollRunCreated($run));
+        }
+
         return response()->json([
             'data' => $run->load('preparedBy:id,name'),
             'message' => 'Payroll run created successfully.',
@@ -71,7 +82,7 @@ class HrPayrollRunController extends Controller
             'reviewedBy:id,name',
             'approvedBy:id,name',
             'items' => function ($query) {
-                $query->with('employee:id,employee_id,full_name,department_id')
+                $query->with(['employee:id,employee_id,full_name,department_id', 'employee.department:id,name'])
                     ->orderBy('employee_id')
                     ->orderBy('type');
             },
@@ -102,7 +113,13 @@ class HrPayrollRunController extends Controller
         }
 
         $this->payrollService->calculateAll($payrollRun);
-        $payrollRun->refresh()->load('items.employee:id,employee_id,full_name');
+        $payrollRun->refresh()->load([
+            'items' => function ($query) {
+                $query->with(['employee:id,employee_id,full_name,department_id', 'employee.department:id,name'])
+                    ->orderBy('employee_id')
+                    ->orderBy('type');
+            },
+        ]);
 
         return response()->json([
             'data' => $payrollRun,
@@ -141,6 +158,12 @@ class HrPayrollRunController extends Controller
             'reviewed_by' => $request->user()->id,
         ]);
 
+        // Notify admin users about payroll ready for review
+        $admins = User::where('role', 'admin')->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new PayrollSubmittedForReview($payrollRun));
+        }
+
         return response()->json([
             'data' => $payrollRun,
             'message' => 'Payroll submitted for review.',
@@ -158,6 +181,14 @@ class HrPayrollRunController extends Controller
             'approved_by' => $request->user()->id,
             'approved_at' => now(),
         ]);
+
+        // Notify the user who submitted for review
+        if ($payrollRun->prepared_by) {
+            $creator = User::find($payrollRun->prepared_by);
+            if ($creator) {
+                $creator->notify(new PayrollApproved($payrollRun));
+            }
+        }
 
         return response()->json([
             'data' => $payrollRun,
@@ -196,6 +227,14 @@ class HrPayrollRunController extends Controller
                 'finalized_at' => now(),
             ]);
         });
+
+        // Notify all employees in this payroll run
+        $payrollRun->load('items.employee.user');
+        foreach ($payrollRun->items as $item) {
+            if ($item->employee?->user) {
+                $item->employee->user->notify(new PayslipReady($item));
+            }
+        }
 
         return response()->json([
             'data' => $payrollRun,

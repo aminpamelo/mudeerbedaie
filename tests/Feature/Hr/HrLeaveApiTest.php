@@ -51,7 +51,7 @@ test('can list leave types', function () {
     $admin = createLeaveAdminUser();
     LeaveType::factory()->count(3)->create();
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/leave-types');
+    $response = $this->actingAs($admin)->getJson('/api/hr/leave/types');
 
     $response->assertSuccessful()
         ->assertJsonCount(3, 'data');
@@ -60,7 +60,7 @@ test('can list leave types', function () {
 test('can create a custom leave type', function () {
     $admin = createLeaveAdminUser();
 
-    $response = $this->actingAs($admin)->postJson('/api/hr/leave-types', [
+    $response = $this->actingAs($admin)->postJson('/api/hr/leave/types', [
         'name' => 'Birthday Leave',
         'code' => 'BL',
         'is_paid' => true,
@@ -85,7 +85,7 @@ test('can update a leave type', function () {
         'is_attachment_required' => false,
     ]);
 
-    $response = $this->actingAs($admin)->putJson("/api/hr/leave-types/{$leaveType->id}", [
+    $response = $this->actingAs($admin)->putJson("/api/hr/leave/types/{$leaveType->id}", [
         'name' => 'Updated Name',
         'code' => 'UN',
         'is_paid' => false,
@@ -102,7 +102,7 @@ test('cannot delete system leave types', function () {
     $admin = createLeaveAdminUser();
     $leaveType = LeaveType::factory()->system()->create();
 
-    $response = $this->actingAs($admin)->deleteJson("/api/hr/leave-types/{$leaveType->id}");
+    $response = $this->actingAs($admin)->deleteJson("/api/hr/leave/types/{$leaveType->id}");
 
     $response->assertUnprocessable()
         ->assertJsonPath('message', 'System leave types cannot be deleted.');
@@ -114,7 +114,7 @@ test('can delete custom leave types', function () {
     $admin = createLeaveAdminUser();
     $leaveType = LeaveType::factory()->create(['is_system' => false]);
 
-    $response = $this->actingAs($admin)->deleteJson("/api/hr/leave-types/{$leaveType->id}");
+    $response = $this->actingAs($admin)->deleteJson("/api/hr/leave/types/{$leaveType->id}");
 
     $response->assertSuccessful()
         ->assertJsonPath('message', 'Leave type deleted successfully.');
@@ -133,7 +133,7 @@ test('can list entitlements grouped by leave type', function () {
     $leaveType = LeaveType::factory()->create();
     LeaveEntitlement::factory()->count(2)->create(['leave_type_id' => $leaveType->id]);
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/leave-entitlements');
+    $response = $this->actingAs($admin)->getJson('/api/hr/leave/entitlements');
 
     $response->assertSuccessful()
         ->assertJsonStructure(['data']);
@@ -143,7 +143,7 @@ test('can create entitlement rule', function () {
     $admin = createLeaveAdminUser();
     $leaveType = LeaveType::factory()->create();
 
-    $response = $this->actingAs($admin)->postJson('/api/hr/leave-entitlements', [
+    $response = $this->actingAs($admin)->postJson('/api/hr/leave/entitlements', [
         'leave_type_id' => $leaveType->id,
         'employment_type' => 'full_time',
         'min_service_months' => 0,
@@ -167,7 +167,7 @@ test('can update entitlement rule', function () {
     $leaveType = LeaveType::factory()->create();
     $entitlement = LeaveEntitlement::factory()->create(['leave_type_id' => $leaveType->id]);
 
-    $response = $this->actingAs($admin)->putJson("/api/hr/leave-entitlements/{$entitlement->id}", [
+    $response = $this->actingAs($admin)->putJson("/api/hr/leave/entitlements/{$entitlement->id}", [
         'leave_type_id' => $leaveType->id,
         'employment_type' => 'full_time',
         'min_service_months' => 0,
@@ -184,7 +184,7 @@ test('can delete entitlement rule', function () {
     $admin = createLeaveAdminUser();
     $entitlement = LeaveEntitlement::factory()->create();
 
-    $response = $this->actingAs($admin)->deleteJson("/api/hr/leave-entitlements/{$entitlement->id}");
+    $response = $this->actingAs($admin)->deleteJson("/api/hr/leave/entitlements/{$entitlement->id}");
 
     $response->assertSuccessful()
         ->assertJsonPath('message', 'Leave entitlement deleted successfully.');
@@ -209,7 +209,7 @@ test('can list balances for a year', function () {
         'year' => now()->year,
     ]);
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/leave-balances?year='.now()->year);
+    $response = $this->actingAs($admin)->getJson('/api/hr/leave/balances?year='.now()->year);
 
     $response->assertSuccessful()
         ->assertJsonStructure(['data']);
@@ -227,7 +227,7 @@ test('can initialize balances for employees', function () {
         'days_per_year' => 14,
     ]);
 
-    $response = $this->actingAs($admin)->postJson('/api/hr/leave-balances/initialize', [
+    $response = $this->actingAs($admin)->postJson('/api/hr/leave/balances/initialize', [
         'year' => now()->year,
     ]);
 
@@ -246,7 +246,7 @@ test('can manually adjust balance', function () {
         'available_days' => 10.0,
     ]);
 
-    $response = $this->actingAs($admin)->patchJson("/api/hr/leave-balances/{$balance->id}/adjust", [
+    $response = $this->actingAs($admin)->postJson("/api/hr/leave/balances/{$balance->id}/adjust", [
         'adjustment_days' => 2,
         'reason' => 'Extra days awarded for good attendance',
     ]);
@@ -272,7 +272,7 @@ test('can view single employee balance detail', function () {
     ]);
 
     $response = $this->actingAs($admin)
-        ->getJson("/api/hr/leave-balances/employee/{$data['employee']->id}?year=".now()->year);
+        ->getJson("/api/hr/leave/balances/{$data['employee']->id}?year=".now()->year);
 
     $response->assertSuccessful()
         ->assertJsonCount(1, 'data');
@@ -301,7 +301,7 @@ test('employee can apply for leave', function () {
     $startDate = now()->addDays(7)->startOfWeek()->format('Y-m-d');
     $endDate = now()->addDays(7)->startOfWeek()->addDay()->format('Y-m-d');
 
-    $response = $this->actingAs($data['user'])->postJson('/api/hr/my-leave/apply', [
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/leave/requests', [
         'leave_type_id' => $leaveType->id,
         'start_date' => $startDate,
         'end_date' => $endDate,
@@ -338,7 +338,7 @@ test('cannot apply without sufficient balance', function () {
 
     $monday = now()->addDays(14)->startOfWeek();
 
-    $response = $this->actingAs($data['user'])->postJson('/api/hr/my-leave/apply', [
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/leave/requests', [
         'leave_type_id' => $leaveType->id,
         'start_date' => $monday->format('Y-m-d'),
         'end_date' => $monday->copy()->addDays(4)->format('Y-m-d'),
@@ -366,7 +366,7 @@ test('gender restriction check for maternity leave', function () {
 
     $startDate = now()->addDays(7)->startOfWeek()->format('Y-m-d');
 
-    $response = $this->actingAs($data['user'])->postJson('/api/hr/my-leave/apply', [
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/leave/requests', [
         'leave_type_id' => $maternityType->id,
         'start_date' => $startDate,
         'end_date' => $startDate,
@@ -390,7 +390,7 @@ test('attachment required for MC type stores request without attachment', functi
 
     $startDate = now()->addDays(7)->startOfWeek()->format('Y-m-d');
 
-    $response = $this->actingAs($data['user'])->postJson('/api/hr/my-leave/apply', [
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/leave/requests', [
         'leave_type_id' => $mcType->id,
         'start_date' => $startDate,
         'end_date' => $startDate,
@@ -417,7 +417,7 @@ test('half day leave calculates as 0.5 days', function () {
 
     $startDate = now()->addDays(7)->startOfWeek()->format('Y-m-d');
 
-    $response = $this->actingAs($data['user'])->postJson('/api/hr/my-leave/apply', [
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/leave/requests', [
         'leave_type_id' => $leaveType->id,
         'start_date' => $startDate,
         'end_date' => $startDate,
@@ -455,7 +455,7 @@ test('working days calculation excludes weekends and holidays', function () {
         'year' => $monday->year,
     ]);
 
-    $response = $this->actingAs($data['user'])->postJson('/api/hr/my-leave/apply', [
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/leave/requests', [
         'leave_type_id' => $leaveType->id,
         'start_date' => $monday->format('Y-m-d'),
         'end_date' => $monday->copy()->addDays(4)->format('Y-m-d'),
@@ -499,7 +499,7 @@ test('admin can approve leave request', function () {
         'status' => 'pending',
     ]);
 
-    $response = $this->actingAs($admin)->postJson("/api/hr/leave-requests/{$leaveRequest->id}/approve");
+    $response = $this->actingAs($admin)->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/approve");
 
     $response->assertSuccessful()
         ->assertJsonPath('message', 'Leave request approved successfully.');
@@ -546,7 +546,7 @@ test('approved leave creates attendance logs for working days', function () {
         'status' => 'pending',
     ]);
 
-    $this->actingAs($admin)->postJson("/api/hr/leave-requests/{$leaveRequest->id}/approve");
+    $this->actingAs($admin)->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/approve");
 
     $attendanceLogs = AttendanceLog::where('employee_id', $data['employee']->id)
         ->where('status', 'on_leave')
@@ -579,7 +579,7 @@ test('admin can reject leave request', function () {
         'status' => 'pending',
     ]);
 
-    $response = $this->actingAs($admin)->postJson("/api/hr/leave-requests/{$leaveRequest->id}/reject", [
+    $response = $this->actingAs($admin)->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/reject", [
         'rejection_reason' => 'Team capacity is low during this period',
     ]);
 
@@ -599,7 +599,7 @@ test('reject requires rejection reason', function () {
     $admin = createLeaveAdminUser();
     $leaveRequest = LeaveRequest::factory()->create(['status' => 'pending']);
 
-    $response = $this->actingAs($admin)->postJson("/api/hr/leave-requests/{$leaveRequest->id}/reject", []);
+    $response = $this->actingAs($admin)->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/reject", []);
 
     $response->assertUnprocessable()
         ->assertJsonValidationErrors(['rejection_reason']);
@@ -633,7 +633,7 @@ test('can cancel pending leave and balance is restored', function () {
         'status' => 'pending',
     ]);
 
-    $response = $this->actingAs($data['user'])->postJson("/api/hr/my-leave/{$leaveRequest->id}/cancel");
+    $response = $this->actingAs($data['user'])->deleteJson("/api/hr/me/leave/requests/{$leaveRequest->id}");
 
     $response->assertSuccessful()
         ->assertJsonPath('message', 'Leave request cancelled successfully.');
@@ -679,7 +679,7 @@ test('can cancel future approved leave and balance is restored', function () {
         'status' => 'on_leave',
     ]);
 
-    $response = $this->actingAs($data['user'])->postJson("/api/hr/my-leave/{$leaveRequest->id}/cancel");
+    $response = $this->actingAs($data['user'])->deleteJson("/api/hr/me/leave/requests/{$leaveRequest->id}");
 
     $response->assertSuccessful()
         ->assertJsonPath('message', 'Approved leave cancelled successfully.');
@@ -710,7 +710,7 @@ test('cannot cancel approved leave with past dates', function () {
         'total_days' => 2,
     ]);
 
-    $response = $this->actingAs($data['user'])->postJson("/api/hr/my-leave/{$leaveRequest->id}/cancel");
+    $response = $this->actingAs($data['user'])->deleteJson("/api/hr/me/leave/requests/{$leaveRequest->id}");
 
     $response->assertUnprocessable()
         ->assertJsonPath('message', 'Cannot cancel approved leave that has already started or passed.');
@@ -744,7 +744,7 @@ test('leave calendar returns approved leaves for given month', function () {
         'status' => 'pending',
     ]);
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/leave-calendar?month='.now()->month.'&year='.now()->year);
+    $response = $this->actingAs($admin)->getJson('/api/hr/leave/calendar?month='.now()->month.'&year='.now()->year);
 
     $response->assertSuccessful()
         ->assertJsonCount(1, 'data');
@@ -764,7 +764,7 @@ test('leave calendar overlaps endpoint returns correct count', function () {
         'total_days' => 3,
     ]);
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/leave-calendar/overlaps?'.http_build_query([
+    $response = $this->actingAs($admin)->getJson('/api/hr/leave/calendar/overlaps?'.http_build_query([
         'start_date' => $startDate->format('Y-m-d'),
         'end_date' => $startDate->copy()->addDays(2)->format('Y-m-d'),
     ]));
@@ -798,7 +798,7 @@ test('leave dashboard stats returns correct counts', function () {
         'approved_at' => now(),
     ]);
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/leave-dashboard/stats');
+    $response = $this->actingAs($admin)->getJson('/api/hr/leave/dashboard/stats');
 
     $response->assertSuccessful()
         ->assertJsonStructure([
@@ -832,7 +832,7 @@ test('leave dashboard distribution returns per-type counts', function () {
         'end_date' => now()->startOfYear()->addDays(20),
     ]);
 
-    $response = $this->actingAs($admin)->getJson('/api/hr/leave-dashboard/distribution');
+    $response = $this->actingAs($admin)->getJson('/api/hr/leave/dashboard/distribution');
 
     $response->assertSuccessful()
         ->assertJsonCount(2, 'data');

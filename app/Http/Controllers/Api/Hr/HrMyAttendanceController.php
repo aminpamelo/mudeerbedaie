@@ -8,6 +8,7 @@ use App\Http\Requests\Hr\ClockOutRequest;
 use App\Http\Requests\Hr\StoreOvertimeRequest;
 use App\Models\AttendanceLog;
 use App\Models\AttendancePenalty;
+use App\Models\Employee;
 use App\Models\EmployeeSchedule;
 use App\Models\OvertimeRequest;
 use Illuminate\Http\JsonResponse;
@@ -95,7 +96,7 @@ class HrMyAttendanceController extends Controller
             $log = $existingLog ?? new AttendanceLog;
             $log->fill([
                 'employee_id' => $employee->id,
-                'date' => $today,
+                'date' => $today->toDateString(),
                 'clock_in' => $clockInTime,
                 'clock_in_photo' => $photoPath,
                 'clock_in_ip' => $request->ip(),
@@ -236,6 +237,12 @@ class HrMyAttendanceController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
+        $period = $request->get('period');
+
+        if ($period === 'week') {
+            return $this->weekSummary($employee);
+        }
+
         $month = $request->get('month', now()->month);
         $year = $request->get('year', now()->year);
 
@@ -259,6 +266,32 @@ class HrMyAttendanceController extends Controller
                 'total_late_minutes' => (int) ($stats->total_late_minutes ?? 0),
             ],
         ]);
+    }
+
+    /**
+     * Get daily attendance statuses for the current week (Mon-Fri).
+     */
+    private function weekSummary(Employee $employee): JsonResponse
+    {
+        $startOfWeek = Carbon::now()->startOfWeek(Carbon::MONDAY);
+
+        $logs = AttendanceLog::query()
+            ->where('employee_id', $employee->id)
+            ->whereBetween('date', [$startOfWeek->toDateString(), $startOfWeek->copy()->addDays(4)->toDateString()])
+            ->get()
+            ->keyBy(fn ($log) => Carbon::parse($log->date)->dayOfWeekIso);
+
+        $days = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $log = $logs->get($i);
+            $day = $startOfWeek->copy()->addDays($i - 1);
+            $days[] = [
+                'date' => $day->toDateString(),
+                'status' => $log?->status ?? ($day->lte(Carbon::today()) ? 'absent' : 'none'),
+            ];
+        }
+
+        return response()->json(['data' => ['days' => $days]]);
     }
 
     /**
@@ -297,6 +330,19 @@ class HrMyAttendanceController extends Controller
             'employee_id' => $employee->id,
             'status' => 'pending',
         ]));
+
+        $overtimeRequest->load('employee.department');
+        $approvers = \App\Models\DepartmentApprover::forDepartment(
+            $overtimeRequest->employee->department_id
+        )->forType('overtime')->with('approver.user')->get();
+
+        foreach ($approvers as $deptApprover) {
+            if ($deptApprover->approver?->user) {
+                $deptApprover->approver->user->notify(
+                    new \App\Notifications\Hr\OvertimeRequestSubmitted($overtimeRequest)
+                );
+            }
+        }
 
         return response()->json([
             'data' => $overtimeRequest,

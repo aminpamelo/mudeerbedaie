@@ -22,7 +22,7 @@ class ClockOutRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'photo' => ['required', 'image', 'max:2048'],
+            'photo' => ['nullable', 'image', 'max:2048'],
         ];
     }
 
@@ -32,7 +32,7 @@ class ClockOutRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'photo.required' => 'A photo is required for clock out.',
+            'photo.image' => 'The photo must be a valid image.',
             'photo.max' => 'Photo must not exceed 2MB.',
         ];
     }

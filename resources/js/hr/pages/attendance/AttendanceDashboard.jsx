@@ -54,7 +54,11 @@ function formatTime(timeString) {
     if (!timeString) {
         return '-';
     }
-    return timeString.slice(0, 5);
+    const date = new Date(timeString);
+    if (isNaN(date.getTime())) {
+        return timeString.slice(0, 5);
+    }
+    return date.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 const STATUS_COLORS = {

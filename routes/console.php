@@ -42,3 +42,33 @@ Schedule::command('hr:penalty-summary')->monthlyOn(1, '08:00');
 
 // HR Module - Initialize leave balances on Jan 1st each year
 Schedule::command('hr:initialize-leave-balances')->yearlyOn(1, 1, '00:01');
+
+// HR Notifications - Clock reminders (every 15 min)
+Schedule::command('hr:send-clock-reminders')->everyFifteenMinutes();
+
+// HR Notifications - Late alerts (every 15 min during work hours)
+Schedule::command('hr:send-late-alerts')->everyFifteenMinutes()->between('8:00', '18:00');
+
+// HR Notifications - Leave balance check (weekly Monday 8 AM)
+Schedule::command('hr:check-leave-balances')->weeklyOn(1, '8:00');
+
+// HR Notifications - Upcoming leave reminders (daily 6 PM)
+Schedule::command('hr:send-upcoming-leave-reminders')->dailyAt('18:00');
+
+// HR Notifications - Team leave alerts (daily 8 AM)
+Schedule::command('hr:send-team-leave-alerts')->dailyAt('08:00');
+
+// HR Notifications - Pending claims reminder (daily 9 AM)
+Schedule::command('hr:remind-pending-claims')->dailyAt('09:00');
+
+// HR Notifications - Expiring claims check (daily 9 AM)
+Schedule::command('hr:check-expiring-claims')->dailyAt('09:00');
+
+// HR Notifications - Asset return check (daily 9 AM)
+Schedule::command('hr:check-asset-returns')->dailyAt('09:00');
+
+// HR Notifications - Probation endings check (daily 9 AM)
+Schedule::command('hr:check-probation-endings')->dailyAt('09:00');
+
+// HR Notifications - Expiring documents check (daily 9 AM)
+Schedule::command('hr:check-expiring-documents')->dailyAt('09:00');

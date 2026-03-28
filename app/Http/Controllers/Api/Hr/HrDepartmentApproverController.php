@@ -3,61 +3,126 @@
 namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Hr\StoreDepartmentApproverRequest;
+use App\Models\Department;
 use App\Models\DepartmentApprover;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class HrDepartmentApproverController extends Controller
 {
     /**
-     * List all approvers grouped by department.
+     * List all approver configurations grouped by department.
      */
     public function index(): JsonResponse
     {
         $approvers = DepartmentApprover::query()
             ->with(['department', 'approver'])
             ->orderBy('department_id')
-            ->get()
-            ->groupBy('department_id');
+            ->get();
 
-        return response()->json(['data' => $approvers]);
+        $grouped = $approvers->groupBy('department_id')->map(function ($items, $departmentId) {
+            $first = $items->first();
+
+            return [
+                'id' => $departmentId,
+                'department_id' => (int) $departmentId,
+                'department' => $first->department,
+                'ot_approvers' => $items->where('approval_type', 'overtime')->map(fn ($a) => $a->approver)->filter()->values(),
+                'leave_approvers' => $items->where('approval_type', 'leave')->map(fn ($a) => $a->approver)->filter()->values(),
+                'claims_approvers' => $items->where('approval_type', 'claims')->map(fn ($a) => $a->approver)->filter()->values(),
+            ];
+        })->values();
+
+        return response()->json(['data' => $grouped]);
     }
 
     /**
-     * Create a new department approver.
+     * Create or update department approver configuration.
      */
-    public function store(StoreDepartmentApproverRequest $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $approver = DepartmentApprover::create($request->validated());
-
-        $approver->load(['department', 'approver']);
-
-        return response()->json([
-            'data' => $approver,
-            'message' => 'Department approver created successfully.',
-        ], 201);
-    }
-
-    /**
-     * Update a department approver.
-     */
-    public function update(StoreDepartmentApproverRequest $request, DepartmentApprover $departmentApprover): JsonResponse
-    {
-        $departmentApprover->update($request->validated());
-
-        return response()->json([
-            'data' => $departmentApprover->fresh(['department', 'approver']),
-            'message' => 'Department approver updated successfully.',
+        $validated = $request->validate([
+            'department_id' => ['required', 'exists:departments,id'],
+            'ot_approver_ids' => ['array'],
+            'ot_approver_ids.*' => ['exists:employees,id'],
+            'leave_approver_ids' => ['array'],
+            'leave_approver_ids.*' => ['exists:employees,id'],
+            'claims_approver_ids' => ['array'],
+            'claims_approver_ids.*' => ['exists:employees,id'],
         ]);
+
+        return DB::transaction(function () use ($validated) {
+            $departmentId = $validated['department_id'];
+
+            // Remove existing approvers for this department
+            DepartmentApprover::where('department_id', $departmentId)->delete();
+
+            // Insert new approvers
+            $this->insertApprovers($departmentId, 'overtime', $validated['ot_approver_ids'] ?? []);
+            $this->insertApprovers($departmentId, 'leave', $validated['leave_approver_ids'] ?? []);
+            $this->insertApprovers($departmentId, 'claims', $validated['claims_approver_ids'] ?? []);
+
+            return response()->json([
+                'message' => 'Department approver configuration saved successfully.',
+            ], 201);
+        });
     }
 
     /**
-     * Delete a department approver.
+     * Update department approver configuration.
      */
-    public function destroy(DepartmentApprover $departmentApprover): JsonResponse
+    public function update(Request $request, string $departmentApprover): JsonResponse
     {
-        $departmentApprover->delete();
+        $validated = $request->validate([
+            'department_id' => ['required', 'exists:departments,id'],
+            'ot_approver_ids' => ['array'],
+            'ot_approver_ids.*' => ['exists:employees,id'],
+            'leave_approver_ids' => ['array'],
+            'leave_approver_ids.*' => ['exists:employees,id'],
+            'claims_approver_ids' => ['array'],
+            'claims_approver_ids.*' => ['exists:employees,id'],
+        ]);
 
-        return response()->json(['message' => 'Department approver deleted successfully.']);
+        return DB::transaction(function () use ($validated) {
+            $departmentId = $validated['department_id'];
+
+            // Remove existing approvers for this department
+            DepartmentApprover::where('department_id', $departmentId)->delete();
+
+            // Insert new approvers
+            $this->insertApprovers($departmentId, 'overtime', $validated['ot_approver_ids'] ?? []);
+            $this->insertApprovers($departmentId, 'leave', $validated['leave_approver_ids'] ?? []);
+            $this->insertApprovers($departmentId, 'claims', $validated['claims_approver_ids'] ?? []);
+
+            return response()->json([
+                'message' => 'Department approver configuration updated successfully.',
+            ]);
+        });
+    }
+
+    /**
+     * Delete all approver configurations for a department.
+     */
+    public function destroy(string $departmentApprover): JsonResponse
+    {
+        // $departmentApprover is the department_id used as the resource identifier
+        DepartmentApprover::where('department_id', $departmentApprover)->delete();
+
+        return response()->json(['message' => 'Department approver configuration deleted successfully.']);
+    }
+
+    /**
+     * Insert approver records for a department and type.
+     */
+    private function insertApprovers(int $departmentId, string $type, array $employeeIds): void
+    {
+        foreach ($employeeIds as $employeeId) {
+            DepartmentApprover::create([
+                'department_id' => $departmentId,
+                'approver_employee_id' => $employeeId,
+                'approval_type' => $type,
+            ]);
+        }
     }
 }

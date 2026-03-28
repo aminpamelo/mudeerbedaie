@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Download,
     Eye,
-    ThumbsUp,
-    ThumbsDown,
+    Check,
+    X,
     Paperclip,
     ChevronLeft,
     ChevronRight,
@@ -407,20 +407,22 @@ export default function LeaveRequests() {
                                                             {request.status === 'pending' && (
                                                                 <>
                                                                     <Button
-                                                                        variant="ghost"
+                                                                        variant="outline"
                                                                         size="sm"
-                                                                        className="text-emerald-600 hover:text-emerald-700"
+                                                                        className="h-7 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
                                                                         onClick={() => handleAction('approve', request)}
                                                                     >
-                                                                        <ThumbsUp className="h-4 w-4" />
+                                                                        <Check className="mr-1 h-3.5 w-3.5" />
+                                                                        Approve
                                                                     </Button>
                                                                     <Button
-                                                                        variant="ghost"
+                                                                        variant="outline"
                                                                         size="sm"
-                                                                        className="text-red-600 hover:text-red-700"
+                                                                        className="h-7 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
                                                                         onClick={() => handleAction('reject', request)}
                                                                     >
-                                                                        <ThumbsDown className="h-4 w-4" />
+                                                                        <X className="mr-1 h-3.5 w-3.5" />
+                                                                        Reject
                                                                     </Button>
                                                                 </>
                                                             )}
