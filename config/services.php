@@ -28,6 +28,11 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    'google' => [
+        'speech_api_key' => env('GOOGLE_SPEECH_API_KEY'),
+        'gemini_api_key' => env('GOOGLE_GEMINI_API_KEY'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

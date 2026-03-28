@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\Hr\AnalyzeMeetingTranscript;
+use App\Jobs\Hr\TranscribeMeetingRecording;
 use App\Models\Meeting;
 use App\Models\MeetingAiSummary;
 use App\Models\MeetingRecording;
@@ -26,8 +28,7 @@ class HrMeetingAiController extends Controller
             'status' => 'processing',
         ]);
 
-        // TODO: Dispatch TranscribeMeetingRecording job
-        // dispatch(new TranscribeMeetingRecording($transcript, $recording));
+        TranscribeMeetingRecording::dispatch($recording);
 
         return response()->json([
             'data' => $transcript,
@@ -74,8 +75,7 @@ class HrMeetingAiController extends Controller
             'status' => 'processing',
         ]);
 
-        // TODO: Dispatch AnalyzeMeetingTranscript job
-        // dispatch(new AnalyzeMeetingTranscript($summary, $transcript));
+        AnalyzeMeetingTranscript::dispatch($transcript);
 
         return response()->json([
             'data' => $summary,

@@ -7,6 +7,7 @@ use App\Http\Requests\Hr\StoreMeetingRequest;
 use App\Http\Requests\Hr\UpdateMeetingRequest;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
+use App\Notifications\Hr\MeetingInvitationNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -124,7 +125,13 @@ class HrMeetingController extends Controller
                 }
             }
 
-            // TODO: Send MeetingInvitationNotification to all attendees
+            // Send MeetingInvitationNotification to all attendees
+            $meeting->load(['attendees.employee.user']);
+            foreach ($meeting->attendees as $attendee) {
+                if ($attendee->employee?->user) {
+                    $attendee->employee->user->notify(new MeetingInvitationNotification($meeting));
+                }
+            }
 
             $meeting->load([
                 'organizer:id,full_name',
