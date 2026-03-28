@@ -30,12 +30,22 @@ use App\Http\Controllers\Api\Hr\HrLeaveDashboardController;
 use App\Http\Controllers\Api\Hr\HrLeaveEntitlementController;
 use App\Http\Controllers\Api\Hr\HrLeaveRequestController;
 use App\Http\Controllers\Api\Hr\HrLeaveTypeController;
+use App\Http\Controllers\Api\Hr\HrMeetingAgendaController;
+use App\Http\Controllers\Api\Hr\HrMeetingAiController;
+use App\Http\Controllers\Api\Hr\HrMeetingAttachmentController;
+use App\Http\Controllers\Api\Hr\HrMeetingAttendeeController;
+use App\Http\Controllers\Api\Hr\HrMeetingController;
+use App\Http\Controllers\Api\Hr\HrMeetingDecisionController;
+use App\Http\Controllers\Api\Hr\HrMeetingRecordingController;
+use App\Http\Controllers\Api\Hr\HrMeetingSeriesController;
 use App\Http\Controllers\Api\Hr\HrMyAssetController;
 use App\Http\Controllers\Api\Hr\HrMyAttendanceController;
 use App\Http\Controllers\Api\Hr\HrMyClaimController;
 use App\Http\Controllers\Api\Hr\HrMyLeaveController;
+use App\Http\Controllers\Api\Hr\HrMyMeetingController;
 use App\Http\Controllers\Api\Hr\HrMyPayslipController;
 use App\Http\Controllers\Api\Hr\HrMyProfileController;
+use App\Http\Controllers\Api\Hr\HrMyTaskController;
 use App\Http\Controllers\Api\Hr\HrNotificationController;
 use App\Http\Controllers\Api\Hr\HrOvertimeController;
 use App\Http\Controllers\Api\Hr\HrPayrollDashboardController;
@@ -48,6 +58,7 @@ use App\Http\Controllers\Api\Hr\HrPositionController;
 use App\Http\Controllers\Api\Hr\HrPushSubscriptionController;
 use App\Http\Controllers\Api\Hr\HrSalaryComponentController;
 use App\Http\Controllers\Api\Hr\HrStatutoryRateController;
+use App\Http\Controllers\Api\Hr\HrTaskController;
 use App\Http\Controllers\Api\Hr\HrTaxProfileController;
 use App\Http\Controllers\Api\Hr\HrWorkScheduleController;
 use App\Http\Controllers\Api\StudentTagController;
@@ -402,6 +413,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::delete('me/emergency-contacts/{contactId}', [HrMyProfileController::class, 'deleteEmergencyContact'])->name('api.hr.me.emergency-contacts.destroy');
 
     // Employees
+    Route::get('employees/unlinked-users', [HrEmployeeController::class, 'unlinkedUsers'])->name('api.hr.employees.unlinked-users');
     Route::get('employees/next-id', [HrEmployeeController::class, 'nextId'])->name('api.hr.employees.next-id');
     Route::get('employees/export', [HrEmployeeController::class, 'export'])->name('api.hr.employees.export');
     Route::apiResource('employees', HrEmployeeController::class)->names('api.hr.employees');
@@ -422,6 +434,51 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
 
     // Positions
     Route::apiResource('positions', HrPositionController::class)->names('api.hr.positions');
+
+    // Office location settings for clock-in
+    Route::get('settings/office-location', function () {
+        return response()->json([
+            'data' => [
+                'latitude' => (float) \App\Models\Setting::getValue('hr_office_latitude', 0),
+                'longitude' => (float) \App\Models\Setting::getValue('hr_office_longitude', 0),
+                'radius_meters' => (float) \App\Models\Setting::getValue('hr_office_radius_meters', 200),
+                'require_location' => (bool) \App\Models\Setting::getValue('hr_require_location_office', false),
+            ],
+        ]);
+    })->name('api.hr.settings.office-location');
+
+    Route::put('settings/office-location', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'radius_meters' => ['required', 'numeric', 'min:50', 'max:5000'],
+            'require_location' => ['required', 'boolean'],
+        ]);
+
+        $settings = [
+            'hr_office_latitude' => $validated['latitude'],
+            'hr_office_longitude' => $validated['longitude'],
+            'hr_office_radius_meters' => $validated['radius_meters'],
+            'hr_require_location_office' => $validated['require_location'] ? '1' : '0',
+        ];
+
+        foreach ($settings as $key => $value) {
+            \App\Models\Setting::updateOrCreate(
+                ['key' => $key],
+                ['value' => (string) $value]
+            );
+        }
+
+        return response()->json([
+            'message' => 'Office location settings updated successfully.',
+            'data' => [
+                'latitude' => (float) $validated['latitude'],
+                'longitude' => (float) $validated['longitude'],
+                'radius_meters' => (float) $validated['radius_meters'],
+                'require_location' => (bool) $validated['require_location'],
+            ],
+        ]);
+    })->name('api.hr.settings.office-location.update');
 
     // My Attendance (Employee Self-Service)
     Route::get('me/attendance', [HrMyAttendanceController::class, 'index'])->name('api.hr.my-attendance.index');
@@ -584,7 +641,9 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::get('me/payslips/{payslip}/pdf', [HrMyPayslipController::class, 'pdf'])->name('api.hr.me.payslips.pdf');
 
     // Claims Dashboard
-    Route::get('claims/dashboard', [HrClaimDashboardController::class, 'stats'])->name('api.hr.claims.dashboard');
+    Route::get('claims/dashboard/stats', [HrClaimDashboardController::class, 'stats'])->name('api.hr.claims.dashboard.stats');
+    Route::get('claims/dashboard/pending', [HrClaimDashboardController::class, 'pending'])->name('api.hr.claims.dashboard.pending');
+    Route::get('claims/dashboard/distribution', [HrClaimDashboardController::class, 'distribution'])->name('api.hr.claims.dashboard.distribution');
 
     // Claim Types
     Route::apiResource('claims/types', HrClaimTypeController::class)->except('show')->names('api.hr.claims.types');
@@ -606,6 +665,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
 
     // My Claims (Employee Self-Service)
     Route::get('me/claims', [HrMyClaimController::class, 'index'])->name('api.hr.me.claims.index');
+    Route::get('me/claims/limits', [HrMyClaimController::class, 'limits'])->name('api.hr.me.claims.limits');
     Route::post('me/claims', [HrMyClaimController::class, 'store'])->name('api.hr.me.claims.store');
     Route::get('me/claims/{claimRequest}', [HrMyClaimController::class, 'show'])->name('api.hr.me.claims.show');
     Route::put('me/claims/{claimRequest}', [HrMyClaimController::class, 'update'])->name('api.hr.me.claims.update');
@@ -648,4 +708,59 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::get('notifications/unread-count', [HrNotificationController::class, 'unreadCount'])->name('api.hr.notifications.unread-count');
     Route::patch('notifications/{notification}/read', [HrNotificationController::class, 'markRead'])->name('api.hr.notifications.mark-read');
     Route::post('notifications/mark-all-read', [HrNotificationController::class, 'markAllRead'])->name('api.hr.notifications.mark-all-read');
+
+    // Meeting Series (before meetings resource to avoid route conflicts)
+    Route::get('meetings/series', [HrMeetingSeriesController::class, 'index'])->name('api.hr.meetings.series.index');
+    Route::post('meetings/series', [HrMeetingSeriesController::class, 'store'])->name('api.hr.meetings.series.store');
+    Route::get('meetings/series/{series}', [HrMeetingSeriesController::class, 'show'])->name('api.hr.meetings.series.show');
+
+    // Meetings
+    Route::apiResource('meetings', HrMeetingController::class)->names('api.hr.meetings');
+    Route::patch('meetings/{meeting}/status', [HrMeetingController::class, 'updateStatus'])->name('api.hr.meetings.update-status');
+
+    // Meeting Attendees
+    Route::post('meetings/{meeting}/attendees', [HrMeetingAttendeeController::class, 'store'])->name('api.hr.meetings.attendees.store');
+    Route::patch('meetings/{meeting}/attendees/{employee}', [HrMeetingAttendeeController::class, 'update'])->name('api.hr.meetings.attendees.update');
+    Route::delete('meetings/{meeting}/attendees/{employee}', [HrMeetingAttendeeController::class, 'destroy'])->name('api.hr.meetings.attendees.destroy');
+
+    // Meeting Agenda Items
+    Route::post('meetings/{meeting}/agenda-items', [HrMeetingAgendaController::class, 'store'])->name('api.hr.meetings.agenda-items.store');
+    Route::patch('meetings/{meeting}/agenda-items/reorder', [HrMeetingAgendaController::class, 'reorder'])->name('api.hr.meetings.agenda-items.reorder');
+    Route::put('meetings/{meeting}/agenda-items/{agendaItem}', [HrMeetingAgendaController::class, 'update'])->name('api.hr.meetings.agenda-items.update');
+    Route::delete('meetings/{meeting}/agenda-items/{agendaItem}', [HrMeetingAgendaController::class, 'destroy'])->name('api.hr.meetings.agenda-items.destroy');
+
+    // Meeting Decisions
+    Route::post('meetings/{meeting}/decisions', [HrMeetingDecisionController::class, 'store'])->name('api.hr.meetings.decisions.store');
+    Route::put('meetings/{meeting}/decisions/{decision}', [HrMeetingDecisionController::class, 'update'])->name('api.hr.meetings.decisions.update');
+    Route::delete('meetings/{meeting}/decisions/{decision}', [HrMeetingDecisionController::class, 'destroy'])->name('api.hr.meetings.decisions.destroy');
+
+    // Meeting Attachments
+    Route::post('meetings/{meeting}/attachments', [HrMeetingAttachmentController::class, 'store'])->name('api.hr.meetings.attachments.store');
+    Route::delete('meetings/{meeting}/attachments/{attachment}', [HrMeetingAttachmentController::class, 'destroy'])->name('api.hr.meetings.attachments.destroy');
+
+    // Meeting Recordings
+    Route::post('meetings/{meeting}/recordings', [HrMeetingRecordingController::class, 'store'])->name('api.hr.meetings.recordings.store');
+    Route::delete('meetings/{meeting}/recordings/{recording}', [HrMeetingRecordingController::class, 'destroy'])->name('api.hr.meetings.recordings.destroy');
+
+    // Meeting AI (Transcription & Analysis)
+    Route::post('meetings/{meeting}/recordings/{recording}/transcribe', [HrMeetingAiController::class, 'transcribe'])->name('api.hr.meetings.recordings.transcribe');
+    Route::get('meetings/{meeting}/transcript', [HrMeetingAiController::class, 'getTranscript'])->name('api.hr.meetings.transcript');
+    Route::post('meetings/{meeting}/ai-analyze', [HrMeetingAiController::class, 'analyze'])->name('api.hr.meetings.ai-analyze');
+    Route::get('meetings/{meeting}/ai-summary', [HrMeetingAiController::class, 'getSummary'])->name('api.hr.meetings.ai-summary');
+    Route::post('meetings/{meeting}/ai-summary/approve-tasks', [HrMeetingAiController::class, 'approveTasks'])->name('api.hr.meetings.ai-summary.approve-tasks');
+
+    // Tasks (shared across modules)
+    Route::get('tasks', [HrTaskController::class, 'index'])->name('api.hr.tasks.index');
+    Route::get('tasks/{task}', [HrTaskController::class, 'show'])->name('api.hr.tasks.show');
+    Route::post('meetings/{meeting}/tasks', [HrTaskController::class, 'storeForMeeting'])->name('api.hr.meetings.tasks.store');
+    Route::put('tasks/{task}', [HrTaskController::class, 'update'])->name('api.hr.tasks.update');
+    Route::patch('tasks/{task}/status', [HrTaskController::class, 'updateStatus'])->name('api.hr.tasks.update-status');
+    Route::delete('tasks/{task}', [HrTaskController::class, 'destroy'])->name('api.hr.tasks.destroy');
+    Route::post('tasks/{task}/subtasks', [HrTaskController::class, 'storeSubtask'])->name('api.hr.tasks.subtasks.store');
+    Route::post('tasks/{task}/comments', [HrTaskController::class, 'storeComment'])->name('api.hr.tasks.comments.store');
+    Route::post('tasks/{task}/attachments', [HrTaskController::class, 'storeAttachment'])->name('api.hr.tasks.attachments.store');
+
+    // My Meetings & Tasks (Employee Self-Service)
+    Route::get('my/meetings', [HrMyMeetingController::class, 'index'])->name('api.hr.my.meetings.index');
+    Route::get('my/tasks', [HrMyTaskController::class, 'index'])->name('api.hr.my.tasks.index');
 });
