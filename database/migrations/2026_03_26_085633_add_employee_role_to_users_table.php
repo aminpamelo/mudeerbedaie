@@ -11,6 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Skip if already has the 'employee' role value
+        $currentColumn = Schema::getColumnType('users', 'role');
+        if ($currentColumn && \Illuminate\Support\Facades\DB::select("SHOW COLUMNS FROM users WHERE Field = 'role' AND Type LIKE '%employee%'")) {
+            return;
+        }
+
         Schema::table('users', function (Blueprint $table) {
             $table->enum('role', ['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'class_admin', 'sales', 'employee'])
                 ->default('student')

@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('departments', 'head_employee_id') && collect(Schema::getForeignKeys('departments'))->pluck('columns')->flatten()->contains('head_employee_id')) {
+            return;
+        }
+
         Schema::table('departments', function (Blueprint $table) {
             $table->foreign('head_employee_id')->references('id')->on('employees')->nullOnDelete();
         });
