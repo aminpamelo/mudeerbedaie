@@ -13,11 +13,14 @@ return new class extends Migration
      */
     public function up()
     {
-        if (Schema::connection(config('webpush.database_connection'))->hasTable(config('webpush.table_name'))) {
+        $table_name = config('webpush.table_name') ?: 'push_subscriptions';
+        $connection = config('webpush.database_connection');
+
+        if (Schema::connection($connection)->hasTable($table_name)) {
             return;
         }
 
-        Schema::connection(config('webpush.database_connection'))->create(config('webpush.table_name'), function (Blueprint $table) {
+        Schema::connection($connection)->create($table_name, function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->morphs('subscribable', 'push_subscriptions_subscribable_morph_idx');
             $table->string('endpoint', 500)->unique();
@@ -35,6 +38,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::connection(config('webpush.database_connection'))->dropIfExists(config('webpush.table_name'));
+        Schema::connection(config('webpush.database_connection'))->dropIfExists(config('webpush.table_name') ?: 'push_subscriptions');
     }
 };
