@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('pcb_rates')) {
+            return;
+        }
+
         Schema::create('pcb_rates', function (Blueprint $table) {
             $table->id();
             $table->enum('category', ['single', 'married_spouse_not_working', 'married_spouse_working']);

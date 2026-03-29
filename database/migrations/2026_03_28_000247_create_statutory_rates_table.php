@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('statutory_rates')) {
+            return;
+        }
+
         Schema::create('statutory_rates', function (Blueprint $table) {
             $table->id();
             $table->enum('type', ['epf_employee', 'epf_employer', 'socso_employee', 'socso_employer', 'eis_employee', 'eis_employer']);

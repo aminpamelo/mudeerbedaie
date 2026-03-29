@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('pip_goals')) {
+            return;
+        }
+
         Schema::create('pip_goals', function (Blueprint $table) {
             $table->id();
             $table->foreignId('pip_id')->constrained('performance_improvement_plans')->cascadeOnDelete();

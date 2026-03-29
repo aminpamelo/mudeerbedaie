@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('onboarding_template_items')) {
+            return;
+        }
+
         Schema::create('onboarding_template_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('onboarding_template_id')->constrained('onboarding_templates')->cascadeOnDelete();

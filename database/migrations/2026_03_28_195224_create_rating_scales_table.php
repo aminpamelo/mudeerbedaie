@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('rating_scales')) {
+            return;
+        }
+
         Schema::create('rating_scales', function (Blueprint $table) {
             $table->id();
             $table->integer('score')->unique();

@@ -9,6 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('attendance_logs', 'clock_in_latitude')) {
+            return;
+        }
+
         Schema::table('attendance_logs', function (Blueprint $table) {
             $table->decimal('clock_in_latitude', 10, 7)->nullable()->after('clock_in_ip');
             $table->decimal('clock_in_longitude', 10, 7)->nullable()->after('clock_in_latitude');

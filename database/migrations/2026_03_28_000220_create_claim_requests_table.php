@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('claim_requests')) {
+            return;
+        }
+
         Schema::create('claim_requests', function (Blueprint $table) {
             $table->id();
             $table->string('claim_number')->unique();

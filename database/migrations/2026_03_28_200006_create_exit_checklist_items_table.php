@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('exit_checklist_items')) {
+            return;
+        }
+
         Schema::create('exit_checklist_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('exit_checklist_id')->constrained('exit_checklists')->cascadeOnDelete();
