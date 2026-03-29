@@ -10,6 +10,7 @@ use App\Models\MeetingAiSummary;
 use App\Models\MeetingRecording;
 use App\Models\MeetingTranscript;
 use App\Models\Task;
+use App\Services\Hr\MeetingAiAnalysisService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -53,34 +54,41 @@ class HrMeetingAiController extends Controller
     }
 
     /**
-     * Request AI analysis of a meeting transcript.
+     * Request AI analysis of a meeting (from transcript or meeting data).
      */
-    public function analyze(Meeting $meeting): JsonResponse
+    public function analyze(Meeting $meeting, MeetingAiAnalysisService $service): JsonResponse
     {
         $transcript = $meeting->transcripts()
             ->where('status', 'completed')
             ->latest()
             ->first();
 
-        if (! $transcript) {
-            return response()->json(['message' => 'No completed transcript found for this meeting.'], 404);
+        if ($transcript) {
+            // Use transcript-based analysis via queue
+            $summary = MeetingAiSummary::create([
+                'meeting_id' => $meeting->id,
+                'transcript_id' => $transcript->id,
+                'summary' => null,
+                'key_points' => null,
+                'suggested_tasks' => null,
+                'status' => 'processing',
+            ]);
+
+            AnalyzeMeetingTranscript::dispatch($transcript);
+
+            return response()->json([
+                'data' => $summary,
+                'message' => 'AI analysis has been queued for processing.',
+            ], 202);
         }
 
-        $summary = MeetingAiSummary::create([
-            'meeting_id' => $meeting->id,
-            'transcript_id' => $transcript->id,
-            'summary' => null,
-            'key_points' => null,
-            'suggested_tasks' => null,
-            'status' => 'processing',
-        ]);
-
-        AnalyzeMeetingTranscript::dispatch($transcript);
+        // No transcript — analyze from meeting structured data (synchronous)
+        $summary = $service->analyzeFromMeetingData($meeting);
 
         return response()->json([
             'data' => $summary,
-            'message' => 'AI analysis has been queued for processing.',
-        ], 202);
+            'message' => 'AI analysis completed.',
+        ], $summary->status === 'completed' ? 200 : 500);
     }
 
     /**

@@ -89,6 +89,28 @@ import MeetingRecord from './pages/meetings/MeetingRecord';
 import MeetingSeriesList from './pages/meetings/MeetingSeriesList';
 import TaskDashboard from './pages/meetings/TaskDashboard';
 
+// Admin - Disciplinary & Offboarding
+import DisciplinaryDashboard from './pages/disciplinary/DisciplinaryDashboard';
+import DisciplinaryRecords from './pages/disciplinary/DisciplinaryRecords';
+import DisciplinaryDetail from './pages/disciplinary/DisciplinaryDetail';
+import CreateDisciplinaryAction from './pages/disciplinary/CreateDisciplinaryAction';
+import LetterTemplates from './pages/disciplinary/LetterTemplates';
+import ResignationRequests from './pages/offboarding/ResignationRequests';
+import ResignationDetail from './pages/offboarding/ResignationDetail';
+import ExitChecklists from './pages/offboarding/ExitChecklists';
+import ExitInterviews from './pages/offboarding/ExitInterviews';
+import FinalSettlements from './pages/offboarding/FinalSettlements';
+import SettlementDetail from './pages/offboarding/SettlementDetail';
+
+// Admin - Training & Development
+import TrainingDashboard from './pages/training/TrainingDashboard';
+import TrainingPrograms from './pages/training/TrainingPrograms';
+import TrainingDetail from './pages/training/TrainingDetail';
+import Certifications from './pages/training/Certifications';
+import EmployeeCertifications from './pages/training/EmployeeCertifications';
+import TrainingBudgets from './pages/training/TrainingBudgets';
+import TrainingReports from './pages/training/TrainingReports';
+
 // Shared pages
 import ClockInOut from './pages/ClockInOut';
 import Notifications from './pages/Notifications';
@@ -109,6 +131,9 @@ import MyReviews from './pages/my/MyReviews';
 import MyReviewDetail from './pages/my/MyReviewDetail';
 import MyPip from './pages/my/MyPip';
 import MyOnboarding from './pages/my/MyOnboarding';
+import MyDisciplinary from './pages/my/MyDisciplinary';
+import MyResignation from './pages/my/MyResignation';
+import MyTraining from './pages/my/MyTraining';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -213,6 +238,30 @@ function AdminRoutes() {
             <Route path="meetings/series" element={<MeetingSeriesList />} />
             <Route path="meetings/tasks" element={<TaskDashboard />} />
 
+            {/* Disciplinary */}
+            <Route path="disciplinary" element={<DisciplinaryDashboard />} />
+            <Route path="disciplinary/records" element={<DisciplinaryRecords />} />
+            <Route path="disciplinary/actions/create" element={<CreateDisciplinaryAction />} />
+            <Route path="disciplinary/actions/:id" element={<DisciplinaryDetail />} />
+            <Route path="disciplinary/letter-templates" element={<LetterTemplates />} />
+
+            {/* Offboarding */}
+            <Route path="offboarding/resignations" element={<ResignationRequests />} />
+            <Route path="offboarding/resignations/:id" element={<ResignationDetail />} />
+            <Route path="offboarding/checklists" element={<ExitChecklists />} />
+            <Route path="offboarding/exit-interviews" element={<ExitInterviews />} />
+            <Route path="offboarding/settlements" element={<FinalSettlements />} />
+            <Route path="offboarding/settlements/:id" element={<SettlementDetail />} />
+
+            {/* Training & Development */}
+            <Route path="training" element={<TrainingDashboard />} />
+            <Route path="training/programs" element={<TrainingPrograms />} />
+            <Route path="training/programs/:id" element={<TrainingDetail />} />
+            <Route path="training/certifications" element={<Certifications />} />
+            <Route path="training/employee-certifications" element={<EmployeeCertifications />} />
+            <Route path="training/budgets" element={<TrainingBudgets />} />
+            <Route path="training/reports" element={<TrainingReports />} />
+
             {/* Shared */}
             <Route path="clock" element={<ClockInOut />} />
             <Route path="notifications" element={<Notifications />} />
@@ -238,6 +287,9 @@ function EmployeeRoutes() {
             <Route path="my/reviews/:id" element={<MyReviewDetail />} />
             <Route path="my/pip" element={<MyPip />} />
             <Route path="my/onboarding" element={<MyOnboarding />} />
+            <Route path="my/disciplinary" element={<MyDisciplinary />} />
+            <Route path="my/resignation" element={<MyResignation />} />
+            <Route path="my/training" element={<MyTraining />} />
             <Route path="notifications" element={<Notifications />} />
         </Route>
     );

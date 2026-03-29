@@ -13,11 +13,18 @@ class HrNotificationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $notifications = $request->user()
+        $query = $request->user()
             ->notifications()
-            ->where('type', 'like', 'App\\Notifications\\Hr\\%')
-            ->latest()
-            ->paginate(20);
+            ->where('type', 'like', 'App\\Notifications\\Hr\\%');
+
+        $filter = $request->get('filter', 'all');
+        if ($filter === 'unread') {
+            $query->whereNull('read_at');
+        } elseif ($filter === 'read') {
+            $query->whereNotNull('read_at');
+        }
+
+        $notifications = $query->latest()->paginate(20);
 
         return response()->json($notifications);
     }

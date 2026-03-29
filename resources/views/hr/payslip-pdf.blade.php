@@ -38,19 +38,29 @@
             margin-bottom: 2px;
         }
 
-        .payslip-title {
-            text-align: right;
-            font-size: 16px;
-            font-weight: bold;
-            color: #1a56db;
-            float: right;
-            margin-top: -30px;
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
         }
 
-        .clearfix::after {
-            content: "";
-            display: table;
-            clear: both;
+        .header-table td {
+            vertical-align: top;
+            padding: 0;
+        }
+
+        .payslip-title {
+            text-align: right;
+            font-size: 20px;
+            font-weight: bold;
+            color: #1a56db;
+        }
+
+        .payslip-period {
+            text-align: right;
+            font-size: 12px;
+            font-weight: normal;
+            color: #374151;
+            margin-top: 4px;
         }
 
         .section {
@@ -256,25 +266,27 @@
 <body>
 
     {{-- Company Header --}}
-    <div class="header clearfix">
-        <div style="float: left;">
-            <div class="company-name">{{ $settings['company_name'] ?? config('app.name') }}</div>
-            @if(!empty($settings['company_address']))
-                <div class="company-details">{{ $settings['company_address'] }}</div>
-            @endif
-            @if(!empty($settings['company_epf_number']))
-                <div class="company-details">EPF No: {{ $settings['company_epf_number'] }}</div>
-            @endif
-            @if(!empty($settings['company_socso_number']))
-                <div class="company-details">SOCSO No: {{ $settings['company_socso_number'] }}</div>
-            @endif
-        </div>
-        <div class="payslip-title">
-            PAYSLIP
-            <div style="font-size: 12px; font-weight: normal; color: #374151; margin-top: 4px;">
-                {{ date('F Y', mktime(0, 0, 0, $payslip->month, 1, $payslip->year)) }}
-            </div>
-        </div>
+    <div class="header">
+        <table class="header-table">
+            <tr>
+                <td style="width: 60%;">
+                    <div class="company-name">{{ $settings['company_name'] ?? config('app.name') }}</div>
+                    @if(!empty($settings['company_address']))
+                        <div class="company-details">{{ $settings['company_address'] }}</div>
+                    @endif
+                    @if(!empty($settings['company_epf_number']))
+                        <div class="company-details">EPF No: {{ $settings['company_epf_number'] }}</div>
+                    @endif
+                    @if(!empty($settings['company_socso_number']))
+                        <div class="company-details">SOCSO No: {{ $settings['company_socso_number'] }}</div>
+                    @endif
+                </td>
+                <td style="width: 40%;">
+                    <div class="payslip-title">PAYSLIP</div>
+                    <div class="payslip-period">{{ date('F Y', mktime(0, 0, 0, $payslip->month, 1, $payslip->year)) }}</div>
+                </td>
+            </tr>
+        </table>
     </div>
 
     {{-- Confidential Notice --}}

@@ -146,6 +146,16 @@ class PayrollProcessingService
         // 3. Gross = total earnings - unpaid leave deduction
         $gross = $totalEarnings - $unpaidDeduction;
 
+        // Skip statutory calculations if no earnings
+        if ($totalEarnings <= 0) {
+            return [
+                'gross' => 0,
+                'total_deductions' => 0,
+                'net' => 0,
+                'employer_cost' => 0,
+            ];
+        }
+
         // 4. Calculate statutory deductions
         $taxProfile = $employee->taxProfile ?? new EmployeeTaxProfile([
             'marital_status' => 'single',

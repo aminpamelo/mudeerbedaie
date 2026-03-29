@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mudeer-hr-v2';
+const CACHE_NAME = 'mudeer-hr-v3';
 const STATIC_ASSETS = [
     '/hr/clock',
     '/manifest.json',
@@ -120,20 +120,31 @@ function getAllFromStore(store) {
 
 // Push notification handler
 self.addEventListener('push', (event) => {
-    const data = event.data?.json() || { title: 'Mudeer HR', body: 'New notification' };
-    event.waitUntil(
-        self.registration.showNotification(data.title, {
-            body: data.body,
-            icon: '/icons/hr-192.png',
-            badge: '/icons/hr-192.png',
-            data: data.url || '/hr',
-        })
-    );
+    let payload = { title: 'Mudeer HR', body: 'New notification' };
+    try {
+        payload = event.data?.json() || payload;
+    } catch (e) {
+        // If JSON parse fails, try text
+        const text = event.data?.text() || '';
+        payload = { title: 'Mudeer HR', body: text };
+    }
+
+    // WebPushMessage sends: { title, body, icon, badge, data: { url } }
+    const title = payload.title || 'Mudeer HR';
+    const options = {
+        body: payload.body || 'New notification',
+        icon: payload.icon || '/icons/hr-192.svg',
+        badge: payload.badge || '/icons/hr-192.svg',
+        data: {
+            url: (payload.data && payload.data.url) || '/hr',
+        },
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    event.waitUntil(
-        clients.openWindow(event.notification.data || '/hr')
-    );
+    const url = event.notification.data?.url || '/hr';
+    event.waitUntil(clients.openWindow(url));
 });

@@ -21,11 +21,11 @@ export default function RecordingPlayer({ recording, onTranscribe, onDelete, tra
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={onTranscribe}
-                        disabled={transcribing}
+                        disabled
+                        title="Speech-to-Text coming soon"
                     >
                         <FileText className="mr-1 h-3.5 w-3.5" />
-                        {transcribing ? 'Transcribing...' : 'Transcribe'}
+                        Transcribe (Coming Soon)
                     </Button>
                     <Button variant="ghost" size="icon" onClick={onDelete}>
                         <Trash2 className="h-4 w-4 text-red-500" />

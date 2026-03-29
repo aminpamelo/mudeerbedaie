@@ -198,8 +198,10 @@ class Employee extends Model
     public function activeSalaries(): HasMany
     {
         return $this->hasMany(EmployeeSalary::class)
-            ->whereNull('effective_to')
-            ->orWhere('effective_to', '>=', now());
+            ->where(function ($q) {
+                $q->whereNull('effective_to')
+                    ->orWhere('effective_to', '>=', now());
+            });
     }
 
     /**

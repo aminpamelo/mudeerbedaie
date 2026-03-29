@@ -56,6 +56,28 @@ class HrEmployeeController extends Controller
     }
 
     /**
+     * Users not yet linked to any employee record.
+     */
+    public function unlinkedUsers(Request $request): JsonResponse
+    {
+        $linkedUserIds = Employee::whereNotNull('user_id')->pluck('user_id');
+
+        $query = User::whereNotIn('id', $linkedUserIds)
+            ->select('id', 'name', 'email', 'phone');
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $users = $query->orderBy('name')->limit(50)->get();
+
+        return response()->json(['data' => $users]);
+    }
+
+    /**
      * Create new employee with user account and initial history.
      */
     public function store(StoreEmployeeRequest $request): JsonResponse
@@ -63,16 +85,24 @@ class HrEmployeeController extends Controller
         $validated = $request->validated();
 
         return DB::transaction(function () use ($validated, $request) {
-            // Create user account
-            $password = Str::random(12);
-            $user = User::create([
-                'name' => $validated['full_name'],
-                'email' => $validated['personal_email'],
-                'phone' => $validated['phone'],
-                'password' => bcrypt($password),
-                'role' => 'employee',
-                'status' => 'active',
-            ]);
+            $password = null;
+
+            if ($request->filled('user_id')) {
+                // Link to existing user
+                $user = User::findOrFail($validated['user_id']);
+                $user->update(['role' => 'employee']);
+            } else {
+                // Create new user account
+                $password = Str::random(12);
+                $user = User::create([
+                    'name' => $validated['full_name'],
+                    'email' => $validated['personal_email'],
+                    'phone' => $validated['phone'],
+                    'password' => bcrypt($password),
+                    'role' => 'employee',
+                    'status' => 'active',
+                ]);
+            }
 
             // Handle profile photo upload
             $profilePhotoPath = null;
@@ -111,11 +141,16 @@ class HrEmployeeController extends Controller
                 );
             }
 
-            return response()->json([
+            $response = [
                 'data' => $employee,
-                'temporary_password' => $password,
                 'message' => 'Employee created successfully.',
-            ], 201);
+            ];
+
+            if ($password) {
+                $response['temporary_password'] = $password;
+            }
+
+            return response()->json($response, 201);
         });
     }
 

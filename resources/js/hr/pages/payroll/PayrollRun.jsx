@@ -16,6 +16,8 @@ import {
     TrendingDown,
     Wallet,
     Users,
+    Download,
+    FileDown,
 } from 'lucide-react';
 import {
     Card,
@@ -55,6 +57,7 @@ import {
     addPayrollItem,
     deletePayrollItem,
     fetchSalaryComponents,
+    downloadPayslipPdf,
 } from '../../lib/api';
 
 const MONTHS = [
@@ -62,12 +65,11 @@ const MONTHS = [
     'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const STATUS_STEPS = ['draft', 'calculating', 'pending_review', 'approved', 'finalized'];
+const STATUS_STEPS = ['draft', 'review', 'approved', 'finalized'];
 
 const STATUS_CONFIG = {
     draft: { label: 'Draft', bg: 'bg-zinc-100', text: 'text-zinc-700' },
-    calculating: { label: 'Calculating', bg: 'bg-blue-100', text: 'text-blue-700' },
-    pending_review: { label: 'Pending Review', bg: 'bg-amber-100', text: 'text-amber-700' },
+    review: { label: 'Pending Review', bg: 'bg-amber-100', text: 'text-amber-700' },
     approved: { label: 'Approved', bg: 'bg-emerald-100', text: 'text-emerald-700' },
     finalized: { label: 'Finalized', bg: 'bg-purple-100', text: 'text-purple-700' },
 };
@@ -111,6 +113,8 @@ export default function PayrollRun() {
     const [adHocEmployeeId, setAdHocEmployeeId] = useState(null);
     const [adHocForm, setAdHocForm] = useState({ component_id: '', amount: '', type: 'earning' });
     const [confirmDialog, setConfirmDialog] = useState({ open: false, action: null });
+    const [downloadingId, setDownloadingId] = useState(null);
+    const [downloadingBulk, setDownloadingBulk] = useState(false);
 
     const { data: runData, isLoading } = useQuery({
         queryKey: ['hr', 'payroll', 'run', id],
@@ -132,9 +136,56 @@ export default function PayrollRun() {
     const payslips = payslipsData?.data || [];
     const components = componentsData?.data || [];
 
+    // Group payroll items by employee for the table (available after calculation)
+    const employeeSummaries = (() => {
+        if (!run?.items?.length) return [];
+        const grouped = {};
+        for (const item of run.items) {
+            const empId = item.employee_id;
+            if (!grouped[empId]) {
+                grouped[empId] = {
+                    employee_id: empId,
+                    employee: item.employee,
+                    gross: 0,
+                    deductions: 0,
+                    epf_employee: 0,
+                    socso_employee: 0,
+                    eis_employee: 0,
+                    pcb: 0,
+                    items: [],
+                };
+            }
+            grouped[empId].items.push(item);
+            const amt = parseFloat(item.amount || 0);
+            if (item.type === 'earning') {
+                grouped[empId].gross += amt;
+            } else if (item.type === 'deduction') {
+                grouped[empId].deductions += amt;
+                const code = (item.component_code || '').toUpperCase();
+                if (code === 'EPF_EE') grouped[empId].epf_employee += amt;
+                else if (code === 'SOCSO_EE') grouped[empId].socso_employee += amt;
+                else if (code === 'EIS_EE') grouped[empId].eis_employee += amt;
+                else if (code === 'PCB') grouped[empId].pcb += amt;
+            }
+        }
+        return Object.values(grouped).map((emp) => ({
+            ...emp,
+            net: emp.gross - emp.deductions,
+        }));
+    })();
+
     const calculateMutation = useMutation({
         mutationFn: () => calculatePayroll(id),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['hr', 'payroll', 'run', id] }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'payroll', 'run', id] });
+            queryClient.invalidateQueries({ queryKey: ['hr', 'payroll', 'payslips', id] });
+            setConfirmDialog({ open: false, action: null });
+        },
+        onError: (err) => {
+            console.error('Calculate failed:', err?.response?.status, err?.response?.data || err.message);
+            setConfirmDialog({ open: false, action: null });
+            alert('Calculate failed: ' + (err?.response?.data?.message || err.message));
+        },
     });
 
     const calcEmployeeMutation = useMutation({
@@ -194,6 +245,47 @@ export default function PayrollRun() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'payroll', 'payslips', id] });
         },
     });
+
+    async function handleDownloadPayslip(payslipId, employeeName) {
+        setDownloadingId(payslipId);
+        try {
+            const blob = await downloadPayslipPdf(payslipId);
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Payslip_${employeeName?.replace(/\s+/g, '_') || payslipId}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Download failed:', err);
+            alert('Failed to download payslip: ' + (err?.response?.data?.message || err.message));
+        } finally {
+            setDownloadingId(null);
+        }
+    }
+
+    async function handleDownloadAll() {
+        setDownloadingBulk(true);
+        try {
+            const { downloadBulkPayslipsPdf } = await import('../../lib/api');
+            const blob = await downloadBulkPayslipsPdf(id);
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Payslips_${run?.year}_${String(run?.month).padStart(2, '0')}.zip`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Bulk download failed:', err);
+            alert('Failed to download: ' + (err?.response?.data?.message || err.message));
+        } finally {
+            setDownloadingBulk(false);
+        }
+    }
 
     function openAdHoc(employeeId) {
         setAdHocEmployeeId(employeeId);
@@ -262,17 +354,17 @@ export default function PayrollRun() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {run.status === 'draft' && (
+                    {run.status === 'draft' && (run.employee_count ?? 0) === 0 && (
                         <Button onClick={() => handleAction('calculate')} disabled={isAnyPending}>
                             <Play className="mr-2 h-4 w-4" />
                             Calculate
                         </Button>
                     )}
-                    {run.status === 'calculating' && (
+                    {run.status === 'draft' && (run.employee_count ?? 0) > 0 && (
                         <>
-                            <Button variant="outline" onClick={() => handleAction('return_draft')} disabled={isAnyPending}>
-                                <RotateCcw className="mr-2 h-4 w-4" />
-                                Return to Draft
+                            <Button variant="outline" onClick={() => handleAction('calculate')} disabled={isAnyPending}>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Recalculate
                             </Button>
                             <Button onClick={() => handleAction('submit_review')} disabled={isAnyPending}>
                                 <Send className="mr-2 h-4 w-4" />
@@ -280,7 +372,7 @@ export default function PayrollRun() {
                             </Button>
                         </>
                     )}
-                    {run.status === 'pending_review' && (
+                    {run.status === 'review' && (
                         <>
                             <Button variant="outline" onClick={() => handleAction('return_draft')} disabled={isAnyPending}>
                                 <RotateCcw className="mr-2 h-4 w-4" />
@@ -333,31 +425,51 @@ export default function PayrollRun() {
                 />
             </div>
 
-            {/* Employee Payslips Table */}
+            {/* Employee Payroll Table */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Employee Payroll</CardTitle>
-                    <CardDescription>Individual payslip details for this run</CardDescription>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Employee Payroll</CardTitle>
+                            <CardDescription>
+                                {run.status === 'finalized' ? 'Finalized payslip details' : 'Individual payroll details for this run'}
+                            </CardDescription>
+                        </div>
+                        {run.status === 'finalized' && payslips.length > 0 && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleDownloadAll}
+                                disabled={downloadingBulk}
+                            >
+                                {downloadingBulk ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <FileDown className="mr-2 h-4 w-4" />
+                                )}
+                                Download All
+                            </Button>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    {payslips.length === 0 ? (
+                    {payslips.length === 0 && employeeSummaries.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
                             <Users className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No payslips yet</p>
-                            <p className="text-xs text-zinc-400">Click "Calculate" to generate payslips</p>
+                            <p className="text-sm font-medium text-zinc-500">No payroll data yet</p>
+                            <p className="text-xs text-zinc-400">Click "Calculate" to generate payroll</p>
                         </div>
-                    ) : (
+                    ) : payslips.length > 0 ? (
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Employee</TableHead>
-                                    <TableHead>Department</TableHead>
                                     <TableHead>Gross</TableHead>
                                     <TableHead>EPF (EE)</TableHead>
                                     <TableHead>SOCSO (EE)</TableHead>
                                     <TableHead>PCB</TableHead>
                                     <TableHead>Net Pay</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead className="text-right">Payslip</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -371,14 +483,58 @@ export default function PayrollRun() {
                                                 <p className="text-xs text-zinc-500">{payslip.employee?.employee_id || ''}</p>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
-                                            {payslip.employee?.department?.name || '-'}
-                                        </TableCell>
-                                        <TableCell className="text-sm font-medium">{formatCurrency(payslip.gross_pay)}</TableCell>
+                                        <TableCell className="text-sm font-medium">{formatCurrency(payslip.gross_salary)}</TableCell>
                                         <TableCell className="text-sm text-zinc-600">{formatCurrency(payslip.epf_employee)}</TableCell>
                                         <TableCell className="text-sm text-zinc-600">{formatCurrency(payslip.socso_employee)}</TableCell>
-                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(payslip.pcb)}</TableCell>
-                                        <TableCell className="text-sm font-semibold text-emerald-600">{formatCurrency(payslip.net_pay)}</TableCell>
+                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(payslip.pcb_amount)}</TableCell>
+                                        <TableCell className="text-sm font-semibold text-emerald-600">{formatCurrency(payslip.net_salary)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleDownloadPayslip(payslip.id, payslip.employee?.full_name)}
+                                                disabled={downloadingId === payslip.id}
+                                            >
+                                                {downloadingId === payslip.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Download className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Employee</TableHead>
+                                    <TableHead>Gross</TableHead>
+                                    <TableHead>EPF (EE)</TableHead>
+                                    <TableHead>SOCSO (EE)</TableHead>
+                                    <TableHead>PCB</TableHead>
+                                    <TableHead>Net Pay</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {employeeSummaries.map((emp) => (
+                                    <TableRow key={emp.employee_id}>
+                                        <TableCell>
+                                            <div>
+                                                <p className="text-sm font-medium text-zinc-900">
+                                                    {emp.employee?.full_name || '-'}
+                                                </p>
+                                                <p className="text-xs text-zinc-500">{emp.employee?.employee_id || ''}</p>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-sm font-medium">{formatCurrency(emp.gross)}</TableCell>
+                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(emp.epf_employee)}</TableCell>
+                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(emp.socso_employee)}</TableCell>
+                                        <TableCell className="text-sm text-zinc-600">{formatCurrency(emp.pcb)}</TableCell>
+                                        <TableCell className="text-sm font-semibold text-emerald-600">{formatCurrency(emp.net)}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
                                                 {run.status !== 'finalized' && (
@@ -386,14 +542,14 @@ export default function PayrollRun() {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => openAdHoc(payslip.employee_id)}
+                                                            onClick={() => openAdHoc(emp.employee_id)}
                                                         >
                                                             <Plus className="h-4 w-4" />
                                                         </Button>
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => calcEmployeeMutation.mutate(payslip.employee_id)}
+                                                            onClick={() => calcEmployeeMutation.mutate(emp.employee_id)}
                                                             disabled={calcEmployeeMutation.isPending}
                                                         >
                                                             <RefreshCw className="h-4 w-4" />

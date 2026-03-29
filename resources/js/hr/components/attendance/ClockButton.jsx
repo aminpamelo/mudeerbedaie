@@ -19,8 +19,8 @@ export default function ClockButton({
                 className={cn(
                     'flex h-40 w-40 flex-col items-center justify-center rounded-full border-4 shadow-lg transition-all',
                     isClockIn
-                        ? 'border-green-300 bg-green-500 text-white hover:bg-green-600'
-                        : 'border-red-300 bg-red-500 text-white hover:bg-red-600',
+                        ? 'border-teal-300/60 bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-teal-500/25 hover:shadow-teal-500/40 hover:shadow-xl'
+                        : 'border-rose-300/60 bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-rose-500/25 hover:shadow-rose-500/40 hover:shadow-xl',
                     !disabled && !loading && 'animate-pulse',
                     (disabled || loading) && 'cursor-not-allowed opacity-50'
                 )}
@@ -41,7 +41,7 @@ export default function ClockButton({
                 </span>
             </button>
             {time && (
-                <p className="text-2xl font-semibold tabular-nums text-zinc-700">
+                <p className="text-2xl font-semibold tabular-nums text-slate-700">
                     {time}
                 </p>
             )}

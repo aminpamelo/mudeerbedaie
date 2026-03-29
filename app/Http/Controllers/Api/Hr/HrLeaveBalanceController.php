@@ -16,27 +16,53 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class HrLeaveBalanceController extends Controller
 {
     /**
-     * All employees' balances for a given year.
+     * All employees' balances for a given year, grouped by employee.
      */
     public function index(Request $request): JsonResponse
     {
         $year = $request->get('year', now()->year);
 
-        $query = LeaveBalance::query()
-            ->with(['employee.department', 'leaveType'])
-            ->where('year', $year);
+        $query = Employee::query()
+            ->with(['department:id,name'])
+            ->where('status', 'active');
 
         if ($departmentId = $request->get('department_id')) {
-            $query->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId));
+            $query->where('department_id', $departmentId);
         }
 
-        if ($employmentType = $request->get('employment_type')) {
-            $query->whereHas('employee', fn ($q) => $q->where('employment_type', $employmentType));
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('employee_id', 'like', "%{$search}%");
+            });
         }
 
-        $balances = $query->orderBy('employee_id')->paginate(15);
+        $employees = $query->orderBy('full_name')->paginate(15);
 
-        return response()->json($balances);
+        $employeeIds = $employees->pluck('id');
+
+        $balances = LeaveBalance::query()
+            ->whereIn('employee_id', $employeeIds)
+            ->where('year', $year)
+            ->get()
+            ->groupBy('employee_id');
+
+        $employees->getCollection()->transform(function ($employee) use ($balances) {
+            $employeeBalances = $balances->get($employee->id, collect());
+
+            $employee->setAttribute('balances', $employeeBalances->map(fn ($b) => [
+                'leave_type_id' => $b->leave_type_id,
+                'entitled' => $b->entitled_days,
+                'used' => $b->used_days,
+                'pending' => $b->pending_days ?? 0,
+                'carried_forward' => $b->carried_forward_days ?? 0,
+                'available' => $b->available_days,
+            ])->values());
+
+            return $employee;
+        });
+
+        return response()->json($employees);
     }
 
     /**
@@ -46,13 +72,31 @@ class HrLeaveBalanceController extends Controller
     {
         $year = request()->get('year', now()->year);
 
+        $employee = Employee::with('department:id,name')->findOrFail($employeeId);
+
         $balances = LeaveBalance::query()
-            ->with(['employee.department', 'leaveType'])
+            ->with('leaveType:id,name,code')
             ->where('employee_id', $employeeId)
             ->where('year', $year)
-            ->get();
+            ->get()
+            ->map(fn ($b) => [
+                'leave_type_id' => $b->leave_type_id,
+                'leave_type_name' => $b->leaveType?->name,
+                'entitled' => $b->entitled_days,
+                'used' => $b->used_days,
+                'pending' => $b->pending_days ?? 0,
+                'carry_forward' => $b->carried_forward_days ?? 0,
+                'available' => $b->available_days,
+            ]);
 
-        return response()->json(['data' => $balances]);
+        return response()->json([
+            'data' => [
+                'id' => $employee->id,
+                'full_name' => $employee->full_name,
+                'department' => $employee->department,
+                'balances' => $balances,
+            ],
+        ]);
     }
 
     /**

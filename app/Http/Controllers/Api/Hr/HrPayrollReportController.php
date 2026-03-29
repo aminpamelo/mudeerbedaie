@@ -25,22 +25,28 @@ class HrPayrollReportController extends Controller
         }
 
         $summary = PayrollItem::where('payroll_run_id', $run->id)
-            ->with('employee.department')
+            ->with(['employee:id,employee_id,full_name,department_id', 'employee.department:id,name'])
             ->get()
-            ->groupBy(fn ($item) => $item->employee?->department?->name ?? 'Unknown')
-            ->map(function ($items, $department) {
+            ->groupBy('employee_id')
+            ->map(function ($items) {
+                $employee = $items->first()->employee;
                 $earnings = $items->where('type', 'earning')->sum('amount');
                 $deductions = $items->where('type', 'deduction')->sum('amount');
-                $employeeCount = $items->pluck('employee_id')->unique()->count();
+
+                $byCode = $items->groupBy(fn ($item) => strtoupper($item->component_code ?? ''));
 
                 return [
-                    'department' => $department,
-                    'employee_count' => $employeeCount,
-                    'total_earnings' => $earnings,
-                    'total_deductions' => $deductions,
-                    'total_net' => $earnings - $deductions,
+                    'employee_name' => $employee?->full_name ?? 'Unknown',
+                    'department' => $employee?->department?->name ?? '-',
+                    'gross_pay' => $earnings,
+                    'epf_employee' => $byCode->get('EPF_EE', collect())->sum('amount'),
+                    'socso_employee' => $byCode->get('SOCSO_EE', collect())->sum('amount'),
+                    'eis_employee' => $byCode->get('EIS_EE', collect())->sum('amount'),
+                    'pcb' => $byCode->get('PCB', collect())->sum('amount'),
+                    'net_pay' => $earnings - $deductions,
                 ];
             })
+            ->sortBy('employee_name')
             ->values();
 
         return response()->json(['data' => $summary, 'month' => $month, 'year' => $year]);
@@ -51,23 +57,35 @@ class HrPayrollReportController extends Controller
         $month = $request->get('month', now()->month);
         $year = $request->get('year', now()->year);
 
-        $payslips = HrPayslip::where('month', $month)
+        $run = PayrollRun::where('month', $month)
             ->where('year', $year)
-            ->get();
+            ->first();
 
-        $summary = [
-            'epf_employee' => $payslips->sum('epf_employee'),
-            'epf_employer' => $payslips->sum('epf_employer'),
-            'epf_total' => $payslips->sum('epf_employee') + $payslips->sum('epf_employer'),
-            'socso_employee' => $payslips->sum('socso_employee'),
-            'socso_employer' => $payslips->sum('socso_employer'),
-            'socso_total' => $payslips->sum('socso_employee') + $payslips->sum('socso_employer'),
-            'eis_employee' => $payslips->sum('eis_employee'),
-            'eis_employer' => $payslips->sum('eis_employer'),
-            'eis_total' => $payslips->sum('eis_employee') + $payslips->sum('eis_employer'),
-            'pcb_total' => $payslips->sum('pcb_amount'),
-            'employee_count' => $payslips->count(),
-        ];
+        if (! $run) {
+            return response()->json(['data' => [], 'month' => $month, 'year' => $year]);
+        }
+
+        $summary = PayrollItem::where('payroll_run_id', $run->id)
+            ->with(['employee:id,employee_id,full_name,department_id', 'employee.department:id,name'])
+            ->get()
+            ->groupBy('employee_id')
+            ->map(function ($items) {
+                $employee = $items->first()->employee;
+                $byCode = $items->groupBy(fn ($item) => strtoupper($item->component_code ?? ''));
+
+                return [
+                    'employee_name' => $employee?->full_name ?? 'Unknown',
+                    'epf_employee' => $byCode->get('EPF_EE', collect())->sum('amount'),
+                    'epf_employer' => $byCode->get('EPF_ER', collect())->sum('amount'),
+                    'socso_employee' => $byCode->get('SOCSO_EE', collect())->sum('amount'),
+                    'socso_employer' => $byCode->get('SOCSO_ER', collect())->sum('amount'),
+                    'eis_employee' => $byCode->get('EIS_EE', collect())->sum('amount'),
+                    'eis_employer' => $byCode->get('EIS_ER', collect())->sum('amount'),
+                    'pcb' => $byCode->get('PCB', collect())->sum('amount'),
+                ];
+            })
+            ->sortBy('employee_name')
+            ->values();
 
         return response()->json(['data' => $summary, 'month' => $month, 'year' => $year]);
     }
@@ -88,8 +106,8 @@ class HrPayrollReportController extends Controller
                 'employee_id' => $payslip->employee?->employee_id,
                 'employee_name' => $payslip->employee?->full_name,
                 'bank_name' => $payslip->employee?->bank_name,
-                'bank_account' => $payslip->employee?->bank_account_number,
-                'net_salary' => $payslip->net_salary,
+                'account_number' => $payslip->employee?->bank_account_number,
+                'net_pay' => $payslip->net_salary,
             ]);
 
         return response()->json(['data' => $payslips, 'month' => $month, 'year' => $year]);

@@ -31,7 +31,7 @@ class HrMeetingAttachmentController extends Controller
             'file_path' => $path,
             'file_size' => $file->getSize(),
             'file_type' => $file->getMimeType(),
-            'uploaded_by' => $employee?->id,
+            'uploaded_by' => $employee?->id ?? $meeting->organizer_id,
         ]);
 
         $attachment->load('uploader:id,full_name');

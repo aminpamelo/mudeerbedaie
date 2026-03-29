@@ -11,25 +11,35 @@ class HrPayrollSettingController extends Controller
 {
     public function index(): JsonResponse
     {
-        $settings = PayrollSetting::orderBy('key')->get();
+        $settings = PayrollSetting::orderBy('key')->get()
+            ->pluck('value', 'key');
 
         return response()->json(['data' => $settings]);
     }
 
     public function update(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'settings' => ['required', 'array'],
-            'settings.*.key' => ['required', 'string'],
-            'settings.*.value' => ['required', 'string'],
-        ]);
+        $allowedKeys = [
+            'unpaid_leave_divisor', 'pay_day',
+            'company_name', 'company_address',
+            'company_epf_number', 'company_socso_number', 'company_tax_number',
+            'bank_name', 'bank_account',
+            'epf_employee_default_rate',
+        ];
 
-        foreach ($validated['settings'] as $setting) {
-            PayrollSetting::setValue($setting['key'], $setting['value']);
+        $data = $request->only($allowedKeys);
+
+        foreach ($data as $key => $value) {
+            if ($value !== null && $value !== '') {
+                PayrollSetting::setValue($key, (string) $value);
+            }
         }
 
+        $settings = PayrollSetting::orderBy('key')->get()
+            ->pluck('value', 'key');
+
         return response()->json([
-            'data' => PayrollSetting::orderBy('key')->get(),
+            'data' => $settings,
             'message' => 'Payroll settings updated successfully.',
         ]);
     }

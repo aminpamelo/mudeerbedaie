@@ -15,6 +15,9 @@ import {
     X,
     CalendarRange,
     ListTodo,
+    Gavel,
+    LogOut,
+    GraduationCap,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import NotificationBell from '../components/NotificationBell';
@@ -32,6 +35,9 @@ const moreMenuItems = [
     { name: 'My Overtime', to: '/my/overtime', icon: Timer, description: 'View overtime requests' },
     { name: 'My Meetings', to: '/my/meetings', icon: CalendarRange, description: 'View your meeting invitations' },
     { name: 'My Tasks', to: '/my/tasks', icon: ListTodo, description: 'View action items from meetings' },
+    { name: 'My Disciplinary', to: '/my/disciplinary', icon: Gavel, description: 'View disciplinary records' },
+    { name: 'My Resignation', to: '/my/resignation', icon: LogOut, description: 'Submit or view resignation' },
+    { name: 'My Training', to: '/my/training', icon: GraduationCap, description: 'View training & certifications' },
     { name: 'Notifications', to: '/notifications', icon: Bell, description: 'View notifications & push settings' },
 ];
 
@@ -46,6 +52,9 @@ const sidebarNav = [
     { name: 'My Payslips', to: '/my/payslips', icon: Wallet },
     { name: 'My Meetings', to: '/my/meetings', icon: CalendarRange },
     { name: 'My Tasks', to: '/my/tasks', icon: ListTodo },
+    { name: 'My Disciplinary', to: '/my/disciplinary', icon: Gavel },
+    { name: 'My Resignation', to: '/my/resignation', icon: LogOut },
+    { name: 'My Training', to: '/my/training', icon: GraduationCap },
     { name: 'Notifications', to: '/notifications', icon: Bell },
 ];
 

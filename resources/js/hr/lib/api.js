@@ -465,11 +465,11 @@ export const updateDecision = (meetingId, decId, data) => api.put(`/meetings/${m
 export const deleteDecision = (meetingId, decId) => api.delete(`/meetings/${meetingId}/decisions/${decId}`).then(r => r.data);
 
 // ========== Meeting Attachments ==========
-export const uploadMeetingAttachment = (meetingId, formData) => api.post(`/meetings/${meetingId}/attachments`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+export const uploadMeetingAttachment = (meetingId, formData) => api.post(`/meetings/${meetingId}/attachments`, formData, { headers: { 'Content-Type': undefined } }).then(r => r.data);
 export const deleteMeetingAttachment = (meetingId, attId) => api.delete(`/meetings/${meetingId}/attachments/${attId}`).then(r => r.data);
 
 // ========== Meeting Recording & AI ==========
-export const uploadRecording = (meetingId, formData) => api.post(`/meetings/${meetingId}/recordings`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+export const uploadRecording = (meetingId, formData) => api.post(`/meetings/${meetingId}/recordings`, formData, { headers: { 'Content-Type': undefined } }).then(r => r.data);
 export const deleteRecording = (meetingId, recId) => api.delete(`/meetings/${meetingId}/recordings/${recId}`).then(r => r.data);
 export const triggerTranscription = (meetingId, recId) => api.post(`/meetings/${meetingId}/recordings/${recId}/transcribe`).then(r => r.data);
 export const fetchTranscript = (meetingId) => api.get(`/meetings/${meetingId}/transcript`).then(r => r.data);
@@ -486,10 +486,122 @@ export const updateTaskStatus = (id, data) => api.patch(`/tasks/${id}/status`, d
 export const deleteMeetingTask = (id) => api.delete(`/tasks/${id}`).then(r => r.data);
 export const createSubtask = (taskId, data) => api.post(`/tasks/${taskId}/subtasks`, data).then(r => r.data);
 export const addTaskComment = (taskId, data) => api.post(`/tasks/${taskId}/comments`, data).then(r => r.data);
-export const uploadTaskAttachment = (taskId, formData) => api.post(`/tasks/${taskId}/attachments`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+export const uploadTaskAttachment = (taskId, formData) => api.post(`/tasks/${taskId}/attachments`, formData, { headers: { 'Content-Type': undefined } }).then(r => r.data);
 
 // ========== My Meetings & Tasks ==========
 export const fetchMyMeetings = (params) => api.get('/my/meetings', { params }).then(r => r.data);
 export const fetchMyMeetingTasks = (params) => api.get('/my/tasks', { params }).then(r => r.data);
+
+// ========== Disciplinary Dashboard ==========
+export const fetchDisciplinaryDashboard = () => api.get('/disciplinary/dashboard').then(r => r.data);
+
+// ========== Disciplinary Actions ==========
+export const fetchDisciplinaryActions = (params) => api.get('/disciplinary/actions', { params }).then(r => r.data);
+export const fetchDisciplinaryAction = (id) => api.get(`/disciplinary/actions/${id}`).then(r => r.data);
+export const createDisciplinaryAction = (data) => api.post('/disciplinary/actions', data).then(r => r.data);
+export const updateDisciplinaryAction = (id, data) => api.put(`/disciplinary/actions/${id}`, data).then(r => r.data);
+export const issueDisciplinaryAction = (id) => api.patch(`/disciplinary/actions/${id}/issue`).then(r => r.data);
+export const closeDisciplinaryAction = (id) => api.patch(`/disciplinary/actions/${id}/close`).then(r => r.data);
+export const downloadDisciplinaryPdf = (id) => api.get(`/disciplinary/actions/${id}/pdf`, { responseType: 'blob' }).then(r => r.data);
+export const fetchEmployeeDisciplinaryHistory = (employeeId) => api.get(`/disciplinary/employee/${employeeId}`).then(r => r.data);
+
+// ========== Disciplinary Inquiries ==========
+export const createDisciplinaryInquiry = (data) => api.post('/disciplinary/inquiries', data).then(r => r.data);
+export const fetchDisciplinaryInquiry = (id) => api.get(`/disciplinary/inquiries/${id}`).then(r => r.data);
+export const updateDisciplinaryInquiry = (id, data) => api.put(`/disciplinary/inquiries/${id}`, data).then(r => r.data);
+export const completeDisciplinaryInquiry = (id, data) => api.patch(`/disciplinary/inquiries/${id}/complete`, data).then(r => r.data);
+
+// ========== Resignations ==========
+export const fetchResignations = (params) => api.get('/offboarding/resignations', { params }).then(r => r.data);
+export const createResignation = (data) => api.post('/offboarding/resignations', data).then(r => r.data);
+export const fetchResignation = (id) => api.get(`/offboarding/resignations/${id}`).then(r => r.data);
+export const approveResignation = (id, data) => api.patch(`/offboarding/resignations/${id}/approve`, data).then(r => r.data);
+export const rejectResignation = (id, data) => api.patch(`/offboarding/resignations/${id}/reject`, data).then(r => r.data);
+export const completeResignation = (id) => api.patch(`/offboarding/resignations/${id}/complete`).then(r => r.data);
+
+// ========== Exit Checklists ==========
+export const fetchExitChecklists = (params) => api.get('/offboarding/checklists', { params }).then(r => r.data);
+export const createExitChecklist = (employeeId) => api.post(`/offboarding/checklists/${employeeId}`).then(r => r.data);
+export const fetchExitChecklist = (id) => api.get(`/offboarding/checklists/${id}`).then(r => r.data);
+export const updateExitChecklistItem = (checklistId, itemId, data) => api.patch(`/offboarding/checklists/${checklistId}/items/${itemId}`, data).then(r => r.data);
+
+// ========== Exit Interviews ==========
+export const fetchExitInterviews = (params) => api.get('/offboarding/exit-interviews', { params }).then(r => r.data);
+export const createExitInterview = (data) => api.post('/offboarding/exit-interviews', data).then(r => r.data);
+export const fetchExitInterview = (id) => api.get(`/offboarding/exit-interviews/${id}`).then(r => r.data);
+export const updateExitInterview = (id, data) => api.put(`/offboarding/exit-interviews/${id}`, data).then(r => r.data);
+export const fetchExitInterviewAnalytics = () => api.get('/offboarding/exit-interviews/analytics').then(r => r.data);
+
+// ========== Final Settlements ==========
+export const fetchFinalSettlements = (params) => api.get('/offboarding/settlements', { params }).then(r => r.data);
+export const calculateFinalSettlement = (employeeId, data) => api.post(`/offboarding/settlements/${employeeId}/calculate`, data).then(r => r.data);
+export const fetchFinalSettlement = (id) => api.get(`/offboarding/settlements/${id}`).then(r => r.data);
+export const updateFinalSettlement = (id, data) => api.put(`/offboarding/settlements/${id}`, data).then(r => r.data);
+export const approveFinalSettlement = (id) => api.patch(`/offboarding/settlements/${id}/approve`).then(r => r.data);
+export const markSettlementPaid = (id) => api.patch(`/offboarding/settlements/${id}/paid`).then(r => r.data);
+export const downloadSettlementPdf = (id) => api.get(`/offboarding/settlements/${id}/pdf`, { responseType: 'blob' }).then(r => r.data);
+
+// ========== Letter Templates ==========
+export const fetchLetterTemplates = (params) => api.get('/letter-templates', { params }).then(r => r.data);
+export const createLetterTemplate = (data) => api.post('/letter-templates', data).then(r => r.data);
+export const updateLetterTemplate = (id, data) => api.put(`/letter-templates/${id}`, data).then(r => r.data);
+export const deleteLetterTemplate = (id) => api.delete(`/letter-templates/${id}`).then(r => r.data);
+
+// ========== Training Dashboard ==========
+export const fetchTrainingDashboard = () => api.get('/training/dashboard').then(r => r.data);
+
+// ========== Training Programs ==========
+export const fetchTrainingPrograms = (params) => api.get('/training/programs', { params }).then(r => r.data);
+export const fetchTrainingProgram = (id) => api.get(`/training/programs/${id}`).then(r => r.data);
+export const createTrainingProgram = (data) => api.post('/training/programs', data).then(r => r.data);
+export const updateTrainingProgram = (id, data) => api.put(`/training/programs/${id}`, data).then(r => r.data);
+export const deleteTrainingProgram = (id) => api.delete(`/training/programs/${id}`).then(r => r.data);
+export const completeTrainingProgram = (id) => api.patch(`/training/programs/${id}/complete`).then(r => r.data);
+
+// ========== Training Enrollments ==========
+export const fetchTrainingEnrollments = (params) => api.get('/training/enrollments', { params }).then(r => r.data);
+export const enrollEmployees = (programId, data) => api.post(`/training/programs/${programId}/enroll`, data).then(r => r.data);
+export const updateTrainingEnrollment = (id, data) => api.patch(`/training/enrollments/${id}`, data).then(r => r.data);
+export const deleteTrainingEnrollment = (id) => api.delete(`/training/enrollments/${id}`).then(r => r.data);
+export const submitEnrollmentFeedback = (id, data) => api.put(`/training/enrollments/${id}/feedback`, data).then(r => r.data);
+
+// ========== Training Costs ==========
+export const fetchTrainingCosts = (programId) => api.get(`/training/programs/${programId}/costs`).then(r => r.data);
+export const createTrainingCost = (programId, data) => api.post(`/training/programs/${programId}/costs`, data).then(r => r.data);
+export const updateTrainingCost = (id, data) => api.put(`/training/costs/${id}`, data).then(r => r.data);
+export const deleteTrainingCost = (id) => api.delete(`/training/costs/${id}`).then(r => r.data);
+
+// ========== Certifications ==========
+export const fetchCertifications = (params) => api.get('/training/certifications', { params }).then(r => r.data);
+export const createCertification = (data) => api.post('/training/certifications', data).then(r => r.data);
+export const updateCertification = (id, data) => api.put(`/training/certifications/${id}`, data).then(r => r.data);
+export const deleteCertification = (id) => api.delete(`/training/certifications/${id}`).then(r => r.data);
+
+// ========== Employee Certifications ==========
+export const fetchEmployeeCertifications = (params) => api.get('/training/employee-certifications', { params }).then(r => r.data);
+export const createEmployeeCertification = (data) => api.post('/training/employee-certifications', data).then(r => r.data);
+export const updateEmployeeCertification = (id, data) => api.put(`/training/employee-certifications/${id}`, data).then(r => r.data);
+export const deleteEmployeeCertification = (id) => api.delete(`/training/employee-certifications/${id}`).then(r => r.data);
+export const fetchExpiringCertifications = (params) => api.get('/training/employee-certifications/expiring', { params }).then(r => r.data);
+
+// ========== Training Budgets ==========
+export const fetchTrainingBudgets = (params) => api.get('/training/budgets', { params }).then(r => r.data);
+export const createTrainingBudget = (data) => api.post('/training/budgets', data).then(r => r.data);
+export const updateTrainingBudget = (id, data) => api.put(`/training/budgets/${id}`, data).then(r => r.data);
+
+// ========== Training Reports ==========
+export const fetchTrainingReports = (params) => api.get('/training/reports', { params }).then(r => r.data);
+
+// ========== My Disciplinary (Employee Self-Service) ==========
+export const fetchMyDisciplinary = () => api.get('/me/disciplinary').then(r => r.data);
+export const respondToDisciplinary = (id, data) => api.post(`/me/disciplinary/${id}/respond`, data).then(r => r.data);
+
+// ========== My Resignation (Employee Self-Service) ==========
+export const submitMyResignation = (data) => api.post('/me/resignation', data).then(r => r.data);
+export const fetchMyResignation = () => api.get('/me/resignation').then(r => r.data);
+
+// ========== My Training (Employee Self-Service) ==========
+export const fetchMyTraining = () => api.get('/me/training').then(r => r.data);
+export const submitMyTrainingFeedback = (enrollmentId, data) => api.put(`/me/training/${enrollmentId}/feedback`, data).then(r => r.data);
 
 export default api;

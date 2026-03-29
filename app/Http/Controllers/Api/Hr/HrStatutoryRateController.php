@@ -18,6 +18,10 @@ class HrStatutoryRateController extends Controller
             $query->forType($type);
         }
 
+        if ($types = $request->get('types')) {
+            $query->whereIn('type', explode(',', $types));
+        }
+
         if ($request->boolean('current_only', false)) {
             $query->current();
         }

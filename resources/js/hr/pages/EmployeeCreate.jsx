@@ -14,8 +14,11 @@ import {
     Landmark,
     FolderOpen,
     ClipboardCheck,
+    UserCircle2,
+    Link2,
+    Unlink,
 } from 'lucide-react';
-import { createEmployee, fetchDepartments, fetchPositions } from '../lib/api';
+import { createEmployee, fetchDepartments, fetchPositions, fetchUnlinkedUsers } from '../lib/api';
 import { cn } from '../lib/utils';
 import PageHeader from '../components/PageHeader';
 import { Button } from '../components/ui/button';
@@ -260,6 +263,10 @@ export default function EmployeeCreate() {
     const [currentStep, setCurrentStep] = useState(1);
     const [errors, setErrors] = useState({});
 
+    // Link existing user
+    const [linkedUser, setLinkedUser] = useState(null);
+    const [userSearch, setUserSearch] = useState('');
+
     // Step 1: Personal Information
     const [fullName, setFullName] = useState('');
     const [icNumber, setIcNumber] = useState('');
@@ -319,6 +326,28 @@ export default function EmployeeCreate() {
             setProbationEndDate(addMonths(joinDate, 3));
         }
     }, [joinDate]);
+
+    // Fetch unlinked users
+    const { data: unlinkedUsersData } = useQuery({
+        queryKey: ['hr', 'employees', 'unlinked-users', userSearch],
+        queryFn: () => fetchUnlinkedUsers({ search: userSearch || undefined }),
+    });
+    const unlinkedUsers = unlinkedUsersData?.data || [];
+
+    function handleLinkUser(user) {
+        setLinkedUser(user);
+        setFullName(user.name || '');
+        setPersonalEmail(user.email || '');
+        setPhone(user.phone || '');
+        setUserSearch('');
+    }
+
+    function handleUnlinkUser() {
+        setLinkedUser(null);
+        setFullName('');
+        setPersonalEmail('');
+        setPhone('');
+    }
 
     // Fetch departments
     const { data: departmentsData } = useQuery({
@@ -422,6 +451,11 @@ export default function EmployeeCreate() {
     function handleSubmit() {
         const formData = new FormData();
 
+        // Link existing user
+        if (linkedUser) {
+            formData.append('user_id', linkedUser.id);
+        }
+
         // Personal
         formData.append('full_name', fullName);
         formData.append('ic_number', icNumber);
@@ -503,6 +537,69 @@ export default function EmployeeCreate() {
                         <CardTitle>Personal Information</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        {/* Link Existing User */}
+                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-700">
+                                <Link2 className="h-4 w-4" />
+                                Link Existing User Account
+                            </div>
+                            <p className="mb-3 text-xs text-zinc-500">
+                                Optionally link this employee to an existing user account. Name, email, and phone will be auto-filled.
+                            </p>
+                            {linkedUser ? (
+                                <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
+                                            {linkedUser.name?.charAt(0)?.toUpperCase() || 'U'}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-zinc-900">{linkedUser.name}</p>
+                                            <p className="text-xs text-zinc-500">{linkedUser.email}</p>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={handleUnlinkUser}>
+                                        <Unlink className="mr-1.5 h-4 w-4" />
+                                        Unlink
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <Input
+                                        value={userSearch}
+                                        onChange={(e) => setUserSearch(e.target.value)}
+                                        placeholder="Search by name or email..."
+                                    />
+                                    {userSearch.length >= 2 && unlinkedUsers.length > 0 && (
+                                        <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg">
+                                            {unlinkedUsers.map((user) => (
+                                                <button
+                                                    key={user.id}
+                                                    type="button"
+                                                    onClick={() => handleLinkUser(user)}
+                                                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-zinc-50"
+                                                >
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-600">
+                                                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-zinc-900">{user.name}</p>
+                                                        <p className="text-xs text-zinc-500">{user.email}</p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {userSearch.length >= 2 && unlinkedUsers.length === 0 && (
+                                        <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-center text-sm text-zinc-500 shadow-lg">
+                                            No unlinked users found
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <Separator />
+
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <FormField label="Full Name" required error={errors.full_name}>
                                 <Input

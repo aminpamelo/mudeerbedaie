@@ -17,12 +17,14 @@ class HrPushSubscriptionController extends Controller
             'endpoint' => 'required|url',
             'keys.auth' => 'required|string',
             'keys.p256dh' => 'required|string',
+            'content_encoding' => 'nullable|string',
         ]);
 
         $request->user()->updatePushSubscription(
             $validated['endpoint'],
             $validated['keys']['p256dh'],
-            $validated['keys']['auth']
+            $validated['keys']['auth'],
+            $validated['content_encoding'] ?? 'aesgcm'
         );
 
         return response()->json(['message' => 'Push subscription saved.']);

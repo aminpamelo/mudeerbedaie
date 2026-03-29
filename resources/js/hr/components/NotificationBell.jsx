@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, X } from 'lucide-react';
 import api from '../lib/api';
 
 export default function NotificationBell() {
+    const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
@@ -137,7 +139,7 @@ export default function NotificationBell() {
                     </div>
 
                     {/* Notification List */}
-                    <div className="max-h-96 overflow-y-auto">
+                    <div className="max-h-80 overflow-y-auto">
                         {loading ? (
                             <div className="flex items-center justify-center py-8">
                                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
@@ -178,6 +180,19 @@ export default function NotificationBell() {
                                 </button>
                             ))
                         )}
+                    </div>
+
+                    {/* View All Footer */}
+                    <div className="border-t border-zinc-200">
+                        <button
+                            onClick={() => {
+                                setIsOpen(false);
+                                navigate('/notifications');
+                            }}
+                            className="flex w-full items-center justify-center py-2.5 text-xs font-medium text-blue-600 transition-colors hover:bg-zinc-50 hover:text-blue-700"
+                        >
+                            View all notifications
+                        </button>
                     </div>
                 </div>
             )}

@@ -37,6 +37,24 @@ import {
     CalendarRange,
     ListTodo,
     ListOrdered,
+    UserPlus,
+    Search,
+    MessageSquare,
+    ClipboardCheck,
+    Star,
+    Target,
+    TrendingUp,
+    AlertTriangle,
+    Gavel,
+    UserMinus,
+    CheckSquare,
+    MessageCircle,
+    Calculator,
+    FileSignature,
+    GraduationCap,
+    BookOpen,
+    Award,
+    Wallet,
 } from 'lucide-react';
 import useHrStore from '../stores/useHrStore';
 import NotificationBell from '../components/NotificationBell';
@@ -116,6 +134,65 @@ const navigation = [
             { name: 'Inventory', to: '/assets/inventory', icon: Package2 },
             { name: 'Categories', to: '/assets/categories', icon: Tag },
             { name: 'Assignments', to: '/assets/assignments', icon: RotateCcw },
+        ],
+    },
+    {
+        name: 'Recruitment',
+        icon: UserPlus,
+        prefix: '/recruitment',
+        children: [
+            { name: 'Dashboard', to: '/recruitment', icon: LayoutDashboard },
+            { name: 'Job Postings', to: '/recruitment/postings', icon: FileText },
+            { name: 'Applicants', to: '/recruitment/applicants', icon: Search },
+            { name: 'Interviews', to: '/recruitment/interviews', icon: MessageSquare },
+            { name: 'Onboarding', to: '/onboarding', icon: ClipboardCheck },
+            { name: 'Templates', to: '/onboarding/templates', icon: ListTodo },
+        ],
+    },
+    {
+        name: 'Performance',
+        icon: Star,
+        prefix: '/performance',
+        children: [
+            { name: 'Dashboard', to: '/performance', icon: LayoutDashboard },
+            { name: 'Review Cycles', to: '/performance/cycles', icon: Target },
+            { name: 'KPI Templates', to: '/performance/kpis', icon: TrendingUp },
+            { name: 'PIPs', to: '/performance/pips', icon: AlertTriangle },
+            { name: 'Rating Scales', to: '/performance/rating-scales', icon: BarChart3 },
+        ],
+    },
+    {
+        name: 'Disciplinary',
+        icon: Gavel,
+        prefix: '/disciplinary',
+        children: [
+            { name: 'Dashboard', to: '/disciplinary', icon: LayoutDashboard },
+            { name: 'Records', to: '/disciplinary/records', icon: ClipboardList },
+            { name: 'Letter Templates', to: '/disciplinary/letter-templates', icon: FileSignature },
+        ],
+    },
+    {
+        name: 'Offboarding',
+        icon: UserMinus,
+        prefix: '/offboarding',
+        children: [
+            { name: 'Resignations', to: '/offboarding/resignations', icon: FileText },
+            { name: 'Exit Checklists', to: '/offboarding/checklists', icon: CheckSquare },
+            { name: 'Exit Interviews', to: '/offboarding/exit-interviews', icon: MessageCircle },
+            { name: 'Settlements', to: '/offboarding/settlements', icon: Calculator },
+        ],
+    },
+    {
+        name: 'Training',
+        icon: GraduationCap,
+        prefix: '/training',
+        children: [
+            { name: 'Dashboard', to: '/training', icon: LayoutDashboard },
+            { name: 'Programs', to: '/training/programs', icon: BookOpen },
+            { name: 'Certifications', to: '/training/certifications', icon: Award },
+            { name: 'Employee Certs', to: '/training/employee-certifications', icon: ShieldCheck },
+            { name: 'Budgets', to: '/training/budgets', icon: Wallet },
+            { name: 'Reports', to: '/training/reports', icon: BarChart3 },
         ],
     },
     {
@@ -401,7 +478,7 @@ export default function HrLayout() {
 
                 {/* Page content */}
                 <main className="flex-1 overflow-y-auto">
-                    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+                    <div className="px-4 py-6 sm:px-6 lg:px-8">
                         <Outlet />
                     </div>
                 </main>

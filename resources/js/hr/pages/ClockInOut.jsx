@@ -5,6 +5,7 @@ import {
     Clock,
     Camera,
     MapPin,
+    MapPinOff,
     Wifi,
     WifiOff,
     Sun,
@@ -17,7 +18,7 @@ import {
     AlertCircle,
     ChevronRight,
 } from 'lucide-react';
-import { clockIn, clockOut, fetchMyTodayAttendance, fetchMyAttendanceSummary } from '../lib/api';
+import { clockIn, clockOut, fetchMyTodayAttendance, fetchMyAttendanceSummary, fetchOfficeLocation } from '../lib/api';
 import { cn } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -43,15 +44,29 @@ function formatDuration(minutes) {
     return `${h}h ${m}m`;
 }
 
+function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const DAY_COLORS = {
-    present: 'bg-emerald-500',
+    present: 'bg-teal-500',
     late: 'bg-amber-500',
-    absent: 'bg-red-500',
-    wfh: 'bg-blue-500',
-    leave: 'bg-purple-500',
-    holiday: 'bg-zinc-300',
-    none: 'bg-zinc-200',
+    absent: 'bg-rose-500',
+    wfh: 'bg-indigo-500',
+    leave: 'bg-violet-500',
+    holiday: 'bg-slate-300',
+    none: 'bg-slate-200',
 };
 
 // ---- Live Clock ----
@@ -62,6 +77,64 @@ function useLiveClock() {
         return () => clearInterval(id);
     }, []);
     return now;
+}
+
+// ---- GPS Location Hook ----
+function useGeoLocation(enabled) {
+    const [location, setLocation] = useState(null); // { latitude, longitude }
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const watchIdRef = useRef(null);
+
+    useEffect(() => {
+        if (!enabled) {
+            setLocation(null);
+            setError(null);
+            setLoading(false);
+            if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+                watchIdRef.current = null;
+            }
+            return;
+        }
+
+        if (!navigator.geolocation) {
+            setError('Geolocation is not supported by your browser.');
+            return;
+        }
+
+        setLoading(true);
+
+        watchIdRef.current = navigator.geolocation.watchPosition(
+            (pos) => {
+                setLocation({
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy,
+                });
+                setError(null);
+                setLoading(false);
+            },
+            (err) => {
+                setError(
+                    err.code === 1
+                        ? 'Location access denied. Please enable GPS.'
+                        : 'Unable to get your location.'
+                );
+                setLoading(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        );
+
+        return () => {
+            if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+                watchIdRef.current = null;
+            }
+        };
+    }, [enabled]);
+
+    return { location, error, loading };
 }
 
 // ---- Camera Preview ----
@@ -115,15 +188,15 @@ function CameraPreview({ onCapture, isCapturing }) {
 
     if (!hasCamera) {
         return (
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-zinc-100 p-6 text-center">
-                <Camera className="h-8 w-8 text-zinc-400 mb-2" />
-                <p className="text-xs text-zinc-500">Camera not available</p>
+            <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-100 p-6 text-center">
+                <Camera className="h-8 w-8 text-slate-400 mb-2" />
+                <p className="text-xs text-slate-500">Camera not available</p>
             </div>
         );
     }
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-black">
+        <div className="relative overflow-hidden rounded-2xl bg-slate-900">
             <video
                 ref={videoRef}
                 autoPlay
@@ -132,13 +205,13 @@ function CameraPreview({ onCapture, isCapturing }) {
                 className="h-48 w-full object-cover"
             />
             {!cameraReady && (
-                <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
                 </div>
             )}
             {isCapturing && (
-                <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-700" />
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-sm">
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
                 </div>
             )}
         </div>
@@ -146,17 +219,17 @@ function CameraPreview({ onCapture, isCapturing }) {
 }
 
 // ---- Clock Button ----
-function ClockButton({ type, isPending, onClick }) {
+function ClockButton({ type, isPending, onClick, disabled }) {
     const isClockIn = type === 'in';
     return (
         <button
             onClick={onClick}
-            disabled={isPending}
+            disabled={isPending || disabled}
             className={cn(
-                'relative h-28 w-28 rounded-full shadow-lg transition-all active:scale-95 disabled:opacity-60',
+                'relative h-28 w-28 rounded-full shadow-lg transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed',
                 isClockIn
-                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                    : 'bg-red-500 hover:bg-red-600 text-white'
+                    ? 'bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-teal-500/30 hover:shadow-teal-500/40 hover:shadow-xl'
+                    : 'bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-rose-500/30 hover:shadow-rose-500/40 hover:shadow-xl'
             )}
         >
             {isPending ? (
@@ -173,6 +246,79 @@ function ClockButton({ type, isPending, onClick }) {
     );
 }
 
+// ---- Location Status Indicator ----
+function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh }) {
+    if (isWfh) return null;
+    if (!officeConfig?.require_location) return null;
+
+    if (geoLoading) {
+        return (
+            <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-3">
+                <Loader2 className="h-4 w-4 animate-spin text-slate-500 shrink-0" />
+                <p className="text-sm text-slate-600">Getting your location...</p>
+            </div>
+        );
+    }
+
+    if (geoError) {
+        return (
+            <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200/80 p-3">
+                <MapPinOff className="h-4 w-4 text-rose-500 shrink-0" />
+                <p className="text-sm text-rose-700">{geoError}</p>
+            </div>
+        );
+    }
+
+    if (location && officeConfig) {
+        const distance = calculateDistance(
+            location.latitude,
+            location.longitude,
+            officeConfig.latitude,
+            officeConfig.longitude
+        );
+        const isInRange = distance <= officeConfig.radius_meters;
+
+        return (
+            <div
+                className={cn(
+                    'flex items-center gap-2 rounded-xl border p-3',
+                    isInRange
+                        ? 'bg-teal-50 border-teal-200/80'
+                        : 'bg-amber-50 border-amber-200/80'
+                )}
+            >
+                <MapPin
+                    className={cn(
+                        'h-4 w-4 shrink-0',
+                        isInRange ? 'text-teal-500' : 'text-amber-500'
+                    )}
+                />
+                <div className="flex-1 min-w-0">
+                    <p
+                        className={cn(
+                            'text-sm font-medium',
+                            isInRange ? 'text-teal-700' : 'text-amber-700'
+                        )}
+                    >
+                        {isInRange ? 'You are at the office' : 'You are not at the office'}
+                    </p>
+                    <p
+                        className={cn(
+                            'text-xs',
+                            isInRange ? 'text-teal-600' : 'text-amber-600'
+                        )}
+                    >
+                        {Math.round(distance)}m away
+                        {!isInRange && ` (must be within ${officeConfig.radius_meters}m)`}
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    return null;
+}
+
 // ========== MAIN COMPONENT ==========
 export default function ClockInOut() {
     const queryClient = useQueryClient();
@@ -186,6 +332,14 @@ export default function ClockInOut() {
     const user = window.hrConfig?.user || { name: 'User' };
     const greeting = getGreeting();
     const GreetingIcon = greeting.icon;
+
+    // Fetch office location settings
+    const { data: officeData } = useQuery({
+        queryKey: ['office-location'],
+        queryFn: fetchOfficeLocation,
+        staleTime: 5 * 60 * 1000, // cache 5 minutes
+    });
+    const officeConfig = officeData?.data;
 
     const { data: todayData, isLoading: loadingToday } = useQuery({
         queryKey: ['my-today-attendance'],
@@ -203,10 +357,31 @@ export default function ClockInOut() {
     const isClockedIn = today?.clock_in && !today?.clock_out;
     const isCompleted = today?.clock_in && today?.clock_out;
 
+    // Enable GPS when in Office mode & not completed/clocked-in
+    const needsGps = !isWfh && !isCompleted && officeConfig?.require_location;
+    const { location: geoLocation, error: geoError, loading: geoLoading } = useGeoLocation(needsGps);
+
+    // Determine if clock-in should be disabled (office mode + location required + not in range)
+    const isOfficeLocationBlocked = (() => {
+        if (isWfh || !officeConfig?.require_location) return false;
+        if (!geoLocation) return true; // no location yet
+        const distance = calculateDistance(
+            geoLocation.latitude,
+            geoLocation.longitude,
+            officeConfig.latitude,
+            officeConfig.longitude
+        );
+        return distance > officeConfig.radius_meters;
+    })();
+
     const clockInMut = useMutation({
         mutationFn: async () => {
             const formData = new FormData();
             formData.append('is_wfh', isWfh ? '1' : '0');
+            if (geoLocation && !isWfh) {
+                formData.append('latitude', geoLocation.latitude);
+                formData.append('longitude', geoLocation.longitude);
+            }
             if (captureRef) {
                 const blob = await captureRef();
                 if (blob) {
@@ -268,27 +443,27 @@ export default function ClockInOut() {
             <div className="text-center pt-2">
                 <div className="flex items-center justify-center gap-2 mb-1">
                     <GreetingIcon className="h-5 w-5 text-amber-500" />
-                    <h1 className="text-lg font-semibold text-zinc-900">
+                    <h1 className="text-lg font-semibold text-slate-800">
                         {greeting.text}, {user.name?.split(' ')[0]}
                     </h1>
                 </div>
-                <p className="text-3xl font-bold text-zinc-900 tabular-nums">
+                <p className="text-3xl font-bold text-slate-900 tabular-nums tracking-tight">
                     {now.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </p>
-                <p className="text-sm text-zinc-500 mt-0.5">
+                <p className="text-sm text-slate-500 mt-0.5">
                     {now.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
             </div>
 
             {/* Status Indicator */}
-            <Card>
+            <Card className="border-slate-200/80">
                 <CardContent className="py-3">
                     <div className="flex items-center justify-center gap-2">
                         <div className={cn(
                             'h-2.5 w-2.5 rounded-full',
-                            isCompleted ? 'bg-emerald-500' : isClockedIn ? 'bg-amber-500 animate-pulse' : 'bg-zinc-300'
+                            isCompleted ? 'bg-teal-500' : isClockedIn ? 'bg-amber-500 animate-pulse' : 'bg-slate-300'
                         )} />
-                        <span className="text-sm font-medium text-zinc-700">
+                        <span className="text-sm font-medium text-slate-600">
                             {loadingToday ? 'Loading...' :
                              isCompleted ? 'Completed for today' :
                              isClockedIn ? `Clocked in at ${formatTime(today.clock_in)}` :
@@ -307,8 +482,10 @@ export default function ClockInOut() {
                     <button
                         onClick={() => setIsWfh(false)}
                         className={cn(
-                            'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                            !isWfh ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600'
+                            'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all',
+                            !isWfh
+                                ? 'bg-slate-800 text-white shadow-sm'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                         )}
                     >
                         <Building2 className="h-4 w-4" /> Office
@@ -316,8 +493,10 @@ export default function ClockInOut() {
                     <button
                         onClick={() => setIsWfh(true)}
                         className={cn(
-                            'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                            isWfh ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-600'
+                            'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all',
+                            isWfh
+                                ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-sm shadow-indigo-500/20'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                         )}
                     >
                         <Home className="h-4 w-4" /> WFH
@@ -325,53 +504,69 @@ export default function ClockInOut() {
                 </div>
             )}
 
+            {/* Location Status */}
+            {!isClockedIn && !isCompleted && (
+                <LocationStatus
+                    location={geoLocation}
+                    geoError={geoError}
+                    geoLoading={geoLoading}
+                    officeConfig={officeConfig}
+                    isWfh={isWfh}
+                />
+            )}
+
             {/* Clock Button */}
             <div className="flex justify-center py-2">
                 {isCompleted ? (
                     <div className="flex flex-col items-center gap-2">
-                        <div className="h-28 w-28 rounded-full bg-emerald-50 flex items-center justify-center">
-                            <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                        <div className="h-28 w-28 rounded-full bg-teal-50 flex items-center justify-center">
+                            <CheckCircle2 className="h-12 w-12 text-teal-500" />
                         </div>
-                        <p className="text-sm text-zinc-500">You're done for today</p>
+                        <p className="text-sm text-slate-500">You're done for today</p>
                     </div>
                 ) : isClockedIn ? (
                     <ClockButton type="out" isPending={clockOutMut.isPending} onClick={() => setShowConfirm('out')} />
                 ) : (
-                    <ClockButton type="in" isPending={clockInMut.isPending} onClick={() => setShowConfirm('in')} />
+                    <ClockButton
+                        type="in"
+                        isPending={clockInMut.isPending}
+                        onClick={() => setShowConfirm('in')}
+                        disabled={isOfficeLocationBlocked}
+                    />
                 )}
             </div>
 
             {/* Alerts */}
             {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 p-3">
-                    <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                    <p className="text-sm text-red-700">{error}</p>
+                <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200/80 p-3">
+                    <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
+                    <p className="text-sm text-rose-700">{error}</p>
                 </div>
             )}
             {success && (
-                <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 p-3">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <p className="text-sm text-emerald-700">{success}</p>
+                <div className="flex items-center gap-2 rounded-xl bg-teal-50 border border-teal-200/80 p-3">
+                    <CheckCircle2 className="h-4 w-4 text-teal-500 shrink-0" />
+                    <p className="text-sm text-teal-700">{success}</p>
                 </div>
             )}
 
             {/* Today's Record */}
             {today && (
-                <Card>
+                <Card className="border-slate-200/80">
                     <CardContent className="py-4">
-                        <h3 className="text-sm font-medium text-zinc-700 mb-3">Today's Record</h3>
+                        <h3 className="text-sm font-medium text-slate-600 mb-3">Today's Record</h3>
                         <div className="grid grid-cols-3 gap-3 text-center">
                             <div>
-                                <p className="text-xs text-zinc-500">Clock In</p>
-                                <p className="text-sm font-semibold text-zinc-900">{formatTime(today.clock_in)}</p>
+                                <p className="text-xs text-slate-500">Clock In</p>
+                                <p className="text-sm font-semibold text-slate-800">{formatTime(today.clock_in)}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-zinc-500">Clock Out</p>
-                                <p className="text-sm font-semibold text-zinc-900">{formatTime(today.clock_out)}</p>
+                                <p className="text-xs text-slate-500">Clock Out</p>
+                                <p className="text-sm font-semibold text-slate-800">{formatTime(today.clock_out)}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-zinc-500">Total Hours</p>
-                                <p className="text-sm font-semibold text-zinc-900">
+                                <p className="text-xs text-slate-500">Total Hours</p>
+                                <p className="text-sm font-semibold text-slate-800">
                                     {today.total_work_minutes ? formatDuration(today.total_work_minutes) : '--:--'}
                                 </p>
                             </div>
@@ -381,14 +576,14 @@ export default function ClockInOut() {
             )}
 
             {/* Schedule Display */}
-            <Card>
+            <Card className="border-slate-200/80">
                 <CardContent className="py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-zinc-400" />
-                            <span className="text-sm text-zinc-600">Your schedule</span>
+                            <Clock className="h-4 w-4 text-slate-400" />
+                            <span className="text-sm text-slate-500">Your schedule</span>
                         </div>
-                        <span className="text-sm font-medium text-zinc-900">
+                        <span className="text-sm font-medium text-slate-800">
                             {today?.schedule_start && today?.schedule_end
                                 ? `${today.schedule_start} - ${today.schedule_end}`
                                 : '9:00 AM - 6:00 PM'}
@@ -398,16 +593,16 @@ export default function ClockInOut() {
             </Card>
 
             {/* Week Summary Strip */}
-            <Card>
+            <Card className="border-slate-200/80">
                 <CardContent className="py-4">
-                    <h3 className="text-sm font-medium text-zinc-700 mb-3">This Week</h3>
+                    <h3 className="text-sm font-medium text-slate-600 mb-3">This Week</h3>
                     <div className="flex justify-between">
                         {DAY_LABELS.map((day, i) => {
                             const dayData = weekSummary[i];
                             const status = dayData?.status || 'none';
                             return (
                                 <div key={day} className="flex flex-col items-center gap-1.5">
-                                    <span className="text-[10px] font-medium text-zinc-500">{day}</span>
+                                    <span className="text-[10px] font-medium text-slate-500">{day}</span>
                                     <div className={cn(
                                         'h-3 w-3 rounded-full',
                                         DAY_COLORS[status] || DAY_COLORS.none
@@ -418,14 +613,14 @@ export default function ClockInOut() {
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
                         {[
-                            { label: 'Present', color: 'bg-emerald-500' },
+                            { label: 'Present', color: 'bg-teal-500' },
                             { label: 'Late', color: 'bg-amber-500' },
-                            { label: 'Absent', color: 'bg-red-500' },
-                            { label: 'WFH', color: 'bg-blue-500' },
+                            { label: 'Absent', color: 'bg-rose-500' },
+                            { label: 'WFH', color: 'bg-indigo-500' },
                         ].map((item) => (
                             <div key={item.label} className="flex items-center gap-1">
                                 <div className={cn('h-2 w-2 rounded-full', item.color)} />
-                                <span className="text-[10px] text-zinc-500">{item.label}</span>
+                                <span className="text-[10px] text-slate-500">{item.label}</span>
                             </div>
                         ))}
                     </div>

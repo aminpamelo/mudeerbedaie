@@ -15,6 +15,6 @@ class PayrollSetting extends Model
 
     public static function setValue(string $key, string $value): void
     {
-        static::updateOrCreate(['key' => $key], ['value' => $value]);
+        static::updateOrCreate(['key' => $key], ['value' => $value, 'description' => '']);
     }
 }

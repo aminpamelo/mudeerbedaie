@@ -214,9 +214,9 @@ export default function MyPayslips() {
                                         <TableCell className="font-medium">
                                             {MONTHS[payslip.month - 1]} {payslip.year}
                                         </TableCell>
-                                        <TableCell>{formatCurrency(payslip.gross_pay)}</TableCell>
+                                        <TableCell>{formatCurrency(payslip.gross_salary)}</TableCell>
                                         <TableCell className="text-red-600">{formatCurrency(payslip.total_deductions)}</TableCell>
-                                        <TableCell className="font-semibold text-emerald-600">{formatCurrency(payslip.net_pay)}</TableCell>
+                                        <TableCell className="font-semibold text-emerald-600">{formatCurrency(payslip.net_salary)}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                                                 <Button
@@ -276,7 +276,7 @@ export default function MyPayslips() {
                                         ))}
                                     <div className="flex justify-between border-t border-zinc-200 pt-1 text-sm font-semibold">
                                         <span>Gross Pay</span>
-                                        <span>{formatCurrency(detail.gross_pay)}</span>
+                                        <span>{formatCurrency(detail.gross_salary)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -299,7 +299,7 @@ export default function MyPayslips() {
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-zinc-700">PCB (Income Tax)</span>
-                                        <span className="text-red-600">{formatCurrency(detail.pcb)}</span>
+                                        <span className="text-red-600">{formatCurrency(detail.pcb_amount)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -325,7 +325,7 @@ export default function MyPayslips() {
                             <div className="rounded-lg bg-emerald-50 p-3">
                                 <div className="flex justify-between text-base font-bold text-emerald-800">
                                     <span>Net Pay</span>
-                                    <span>{formatCurrency(detail.net_pay)}</span>
+                                    <span>{formatCurrency(detail.net_salary)}</span>
                                 </div>
                             </div>
 

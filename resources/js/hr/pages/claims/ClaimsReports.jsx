@@ -29,7 +29,7 @@ import {
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - i);
 const MONTHS = [
-    { value: '', label: 'All Months' },
+    { value: 'all', label: 'All Months' },
     { value: '1', label: 'January' },
     { value: '2', label: 'February' },
     { value: '3', label: 'March' },
@@ -51,13 +51,13 @@ function formatCurrency(amount) {
 
 export default function ClaimsReports() {
     const [year, setYear] = useState(String(CURRENT_YEAR));
-    const [month, setMonth] = useState('');
+    const [month, setMonth] = useState('all');
     const [employeeId, setEmployeeId] = useState('all');
     const [claimTypeId, setClaimTypeId] = useState('all');
 
     const params = {
         year: year || undefined,
-        month: month || undefined,
+        month: month !== 'all' ? month : undefined,
         employee_id: employeeId !== 'all' ? employeeId : undefined,
         claim_type_id: claimTypeId !== 'all' ? claimTypeId : undefined,
     };
@@ -122,7 +122,7 @@ export default function ClaimsReports() {
                         </div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-zinc-600">Month</label>
-                            <Select value={month || ''} onValueChange={setMonth}>
+                            <Select value={month} onValueChange={setMonth}>
                                 <SelectTrigger className="w-36">
                                     <SelectValue />
                                 </SelectTrigger>

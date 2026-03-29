@@ -7,6 +7,7 @@ use App\Models\Meeting;
 use App\Models\MeetingRecording;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class HrMeetingRecordingController extends Controller
@@ -17,32 +18,44 @@ class HrMeetingRecordingController extends Controller
     public function store(Request $request, Meeting $meeting): JsonResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'max:512000', 'mimetypes:audio/mpeg,audio/wav,audio/ogg,audio/mp4,video/mp4,video/webm,video/quicktime'],
+            'file' => ['required', 'file', 'max:512000'],
             'source' => ['nullable', 'string', 'in:upload,zoom,teams,google_meet'],
         ]);
 
-        $file = $request->file('file');
-        $path = $file->store("meetings/recordings/{$meeting->id}", 'public');
+        try {
+            $file = $request->file('file');
+            $path = $file->store("meetings/recordings/{$meeting->id}", 'public');
 
-        $employee = $request->user()->employee;
+            $employee = $request->user()->employee;
 
-        $recording = MeetingRecording::create([
-            'meeting_id' => $meeting->id,
-            'file_name' => $file->getClientOriginalName(),
-            'file_path' => $path,
-            'file_size' => $file->getSize(),
-            'file_type' => $file->getMimeType(),
-            'duration_seconds' => null,
-            'source' => $request->get('source', 'upload'),
-            'uploaded_by' => $employee?->id,
-        ]);
+            $recording = MeetingRecording::create([
+                'meeting_id' => $meeting->id,
+                'file_name' => $file->getClientOriginalName(),
+                'file_path' => $path,
+                'file_size' => $file->getSize(),
+                'file_type' => $file->getMimeType(),
+                'duration_seconds' => null,
+                'source' => 'uploaded',
+                'uploaded_by' => $employee?->id ?? $meeting->organizer_id,
+            ]);
 
-        $recording->load('uploader:id,full_name');
+            $recording->load('uploader:id,full_name');
 
-        return response()->json([
-            'data' => $recording,
-            'message' => 'Recording uploaded successfully.',
-        ], 201);
+            return response()->json([
+                'data' => $recording,
+                'message' => 'Recording uploaded successfully.',
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('Recording upload failed', [
+                'meeting_id' => $meeting->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => 'Upload failed: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

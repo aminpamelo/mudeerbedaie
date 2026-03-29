@@ -11,6 +11,7 @@ use App\Models\EmployeeSalary;
 use App\Models\EmployeeTaxProfile;
 use App\Models\PayrollSetting;
 use App\Models\SalaryComponent;
+use App\Models\StatutoryRate;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
@@ -25,6 +26,7 @@ class HrPhase3Seeder extends Seeder
 
         $this->seedSalaryComponents();
         $this->seedPayrollSettings();
+        $this->seedStatutoryRates();
         $this->seedClaimTypes();
         $this->seedBenefitTypes();
         $this->seedAssetCategories();
@@ -224,6 +226,204 @@ class HrPhase3Seeder extends Seeder
         }
 
         $this->command?->info('     ✓ Payroll settings seeded');
+    }
+
+    /**
+     * Seed Malaysian statutory contribution rates (EPF, SOCSO, EIS).
+     * Based on 2024/2025 KWSP, PERKESO schedules.
+     */
+    private function seedStatutoryRates(): void
+    {
+        $this->command?->info('  → Seeding statutory rates (EPF, SOCSO, EIS)...');
+
+        $effectiveFrom = '2024-01-01';
+
+        // ── EPF Employee Rates ──
+        // Standard rate: 11% for wages up to RM20,000
+        $epfEmployeeRates = [
+            ['min' => 0, 'max' => 5000, 'rate' => 11.00],
+            ['min' => 5000.01, 'max' => 20000, 'rate' => 11.00],
+            ['min' => 20000.01, 'max' => null, 'rate' => 11.00],
+        ];
+
+        foreach ($epfEmployeeRates as $bracket) {
+            StatutoryRate::updateOrCreate(
+                ['type' => 'epf_employee', 'min_salary' => $bracket['min'], 'effective_from' => $effectiveFrom],
+                [
+                    'max_salary' => $bracket['max'],
+                    'rate_percentage' => $bracket['rate'],
+                    'fixed_amount' => null,
+                    'effective_to' => null,
+                ]
+            );
+        }
+
+        // ── EPF Employer Rates ──
+        // <= RM5,000: 13%, > RM5,000: 12%
+        $epfEmployerRates = [
+            ['min' => 0, 'max' => 5000, 'rate' => 13.00],
+            ['min' => 5000.01, 'max' => 20000, 'rate' => 12.00],
+            ['min' => 20000.01, 'max' => null, 'rate' => 12.00],
+        ];
+
+        foreach ($epfEmployerRates as $bracket) {
+            StatutoryRate::updateOrCreate(
+                ['type' => 'epf_employer', 'min_salary' => $bracket['min'], 'effective_from' => $effectiveFrom],
+                [
+                    'max_salary' => $bracket['max'],
+                    'rate_percentage' => $bracket['rate'],
+                    'fixed_amount' => null,
+                    'effective_to' => null,
+                ]
+            );
+        }
+
+        // ── SOCSO Employee Contribution (Employment Injury + Invalidity) ──
+        // Fixed amounts based on wage brackets (2024 schedule)
+        $socsoEmployeeBrackets = [
+            ['min' => 0, 'max' => 30, 'amount' => 0.10],
+            ['min' => 30.01, 'max' => 50, 'amount' => 0.20],
+            ['min' => 50.01, 'max' => 70, 'amount' => 0.30],
+            ['min' => 70.01, 'max' => 100, 'amount' => 0.40],
+            ['min' => 100.01, 'max' => 140, 'amount' => 0.60],
+            ['min' => 140.01, 'max' => 200, 'amount' => 0.85],
+            ['min' => 200.01, 'max' => 300, 'amount' => 1.25],
+            ['min' => 300.01, 'max' => 400, 'amount' => 1.75],
+            ['min' => 400.01, 'max' => 500, 'amount' => 2.25],
+            ['min' => 500.01, 'max' => 600, 'amount' => 2.75],
+            ['min' => 600.01, 'max' => 700, 'amount' => 3.25],
+            ['min' => 700.01, 'max' => 800, 'amount' => 3.75],
+            ['min' => 800.01, 'max' => 900, 'amount' => 4.25],
+            ['min' => 900.01, 'max' => 1000, 'amount' => 4.75],
+            ['min' => 1000.01, 'max' => 1100, 'amount' => 5.25],
+            ['min' => 1100.01, 'max' => 1200, 'amount' => 5.75],
+            ['min' => 1200.01, 'max' => 1300, 'amount' => 6.25],
+            ['min' => 1300.01, 'max' => 1400, 'amount' => 6.75],
+            ['min' => 1400.01, 'max' => 1500, 'amount' => 7.25],
+            ['min' => 1500.01, 'max' => 1600, 'amount' => 7.75],
+            ['min' => 1600.01, 'max' => 1700, 'amount' => 8.25],
+            ['min' => 1700.01, 'max' => 1800, 'amount' => 8.75],
+            ['min' => 1800.01, 'max' => 1900, 'amount' => 9.25],
+            ['min' => 1900.01, 'max' => 2000, 'amount' => 9.75],
+            ['min' => 2000.01, 'max' => 2100, 'amount' => 10.25],
+            ['min' => 2100.01, 'max' => 2200, 'amount' => 10.75],
+            ['min' => 2200.01, 'max' => 2300, 'amount' => 11.25],
+            ['min' => 2300.01, 'max' => 2400, 'amount' => 11.75],
+            ['min' => 2400.01, 'max' => 2500, 'amount' => 12.25],
+            ['min' => 2500.01, 'max' => 2600, 'amount' => 12.75],
+            ['min' => 2600.01, 'max' => 2700, 'amount' => 13.25],
+            ['min' => 2700.01, 'max' => 2800, 'amount' => 13.75],
+            ['min' => 2800.01, 'max' => 2900, 'amount' => 14.25],
+            ['min' => 2900.01, 'max' => 3000, 'amount' => 14.75],
+            ['min' => 3000.01, 'max' => 3100, 'amount' => 15.25],
+            ['min' => 3100.01, 'max' => 3200, 'amount' => 15.75],
+            ['min' => 3200.01, 'max' => 3300, 'amount' => 16.25],
+            ['min' => 3300.01, 'max' => 3400, 'amount' => 16.75],
+            ['min' => 3400.01, 'max' => 3500, 'amount' => 17.25],
+            ['min' => 3500.01, 'max' => 3600, 'amount' => 17.75],
+            ['min' => 3600.01, 'max' => 3700, 'amount' => 18.25],
+            ['min' => 3700.01, 'max' => 3800, 'amount' => 18.75],
+            ['min' => 3800.01, 'max' => 3900, 'amount' => 19.25],
+            ['min' => 3900.01, 'max' => 4000, 'amount' => 19.75],
+            ['min' => 4000.01, 'max' => null, 'amount' => 19.75],
+        ];
+
+        foreach ($socsoEmployeeBrackets as $bracket) {
+            StatutoryRate::updateOrCreate(
+                ['type' => 'socso_employee', 'min_salary' => $bracket['min'], 'effective_from' => $effectiveFrom],
+                [
+                    'max_salary' => $bracket['max'],
+                    'rate_percentage' => null,
+                    'fixed_amount' => $bracket['amount'],
+                    'effective_to' => null,
+                ]
+            );
+        }
+
+        // ── SOCSO Employer Contribution ──
+        // Employer pays roughly 1.75x the employee amount
+        $socsoEmployerBrackets = [
+            ['min' => 0, 'max' => 30, 'amount' => 0.40],
+            ['min' => 30.01, 'max' => 50, 'amount' => 0.70],
+            ['min' => 50.01, 'max' => 70, 'amount' => 1.10],
+            ['min' => 70.01, 'max' => 100, 'amount' => 1.50],
+            ['min' => 100.01, 'max' => 140, 'amount' => 2.10],
+            ['min' => 140.01, 'max' => 200, 'amount' => 2.95],
+            ['min' => 200.01, 'max' => 300, 'amount' => 4.35],
+            ['min' => 300.01, 'max' => 400, 'amount' => 6.15],
+            ['min' => 400.01, 'max' => 500, 'amount' => 7.85],
+            ['min' => 500.01, 'max' => 600, 'amount' => 9.65],
+            ['min' => 600.01, 'max' => 700, 'amount' => 11.35],
+            ['min' => 700.01, 'max' => 800, 'amount' => 13.15],
+            ['min' => 800.01, 'max' => 900, 'amount' => 14.85],
+            ['min' => 900.01, 'max' => 1000, 'amount' => 16.65],
+            ['min' => 1000.01, 'max' => 1100, 'amount' => 18.35],
+            ['min' => 1100.01, 'max' => 1200, 'amount' => 20.15],
+            ['min' => 1200.01, 'max' => 1300, 'amount' => 21.85],
+            ['min' => 1300.01, 'max' => 1400, 'amount' => 23.65],
+            ['min' => 1400.01, 'max' => 1500, 'amount' => 25.35],
+            ['min' => 1500.01, 'max' => 1600, 'amount' => 27.15],
+            ['min' => 1600.01, 'max' => 1700, 'amount' => 28.85],
+            ['min' => 1700.01, 'max' => 1800, 'amount' => 30.65],
+            ['min' => 1800.01, 'max' => 1900, 'amount' => 32.35],
+            ['min' => 1900.01, 'max' => 2000, 'amount' => 34.15],
+            ['min' => 2000.01, 'max' => 2100, 'amount' => 35.85],
+            ['min' => 2100.01, 'max' => 2200, 'amount' => 37.65],
+            ['min' => 2200.01, 'max' => 2300, 'amount' => 39.35],
+            ['min' => 2300.01, 'max' => 2400, 'amount' => 41.15],
+            ['min' => 2400.01, 'max' => 2500, 'amount' => 42.85],
+            ['min' => 2500.01, 'max' => 2600, 'amount' => 44.65],
+            ['min' => 2600.01, 'max' => 2700, 'amount' => 46.35],
+            ['min' => 2700.01, 'max' => 2800, 'amount' => 48.15],
+            ['min' => 2800.01, 'max' => 2900, 'amount' => 49.85],
+            ['min' => 2900.01, 'max' => 3000, 'amount' => 51.65],
+            ['min' => 3000.01, 'max' => 3100, 'amount' => 53.35],
+            ['min' => 3100.01, 'max' => 3200, 'amount' => 55.15],
+            ['min' => 3200.01, 'max' => 3300, 'amount' => 56.85],
+            ['min' => 3300.01, 'max' => 3400, 'amount' => 58.65],
+            ['min' => 3400.01, 'max' => 3500, 'amount' => 60.35],
+            ['min' => 3500.01, 'max' => 3600, 'amount' => 62.15],
+            ['min' => 3600.01, 'max' => 3700, 'amount' => 63.85],
+            ['min' => 3700.01, 'max' => 3800, 'amount' => 65.65],
+            ['min' => 3800.01, 'max' => 3900, 'amount' => 67.35],
+            ['min' => 3900.01, 'max' => 4000, 'amount' => 69.15],
+            ['min' => 4000.01, 'max' => null, 'amount' => 69.15],
+        ];
+
+        foreach ($socsoEmployerBrackets as $bracket) {
+            StatutoryRate::updateOrCreate(
+                ['type' => 'socso_employer', 'min_salary' => $bracket['min'], 'effective_from' => $effectiveFrom],
+                [
+                    'max_salary' => $bracket['max'],
+                    'rate_percentage' => null,
+                    'fixed_amount' => $bracket['amount'],
+                    'effective_to' => null,
+                ]
+            );
+        }
+
+        // ── EIS Employee & Employer Rates ──
+        // 0.2% each, max insurable salary RM5,000
+        $eisBrackets = [
+            ['min' => 0, 'max' => 5000, 'rate' => 0.20],
+            ['min' => 5000.01, 'max' => null, 'rate' => 0.20],
+        ];
+
+        foreach (['eis_employee', 'eis_employer'] as $type) {
+            foreach ($eisBrackets as $bracket) {
+                StatutoryRate::updateOrCreate(
+                    ['type' => $type, 'min_salary' => $bracket['min'], 'effective_from' => $effectiveFrom],
+                    [
+                        'max_salary' => $bracket['max'],
+                        'rate_percentage' => $bracket['rate'],
+                        'fixed_amount' => null,
+                        'effective_to' => null,
+                    ]
+                );
+            }
+        }
+
+        $this->command?->info('    ✓ Seeded '.StatutoryRate::count().' statutory rate brackets');
     }
 
     /**

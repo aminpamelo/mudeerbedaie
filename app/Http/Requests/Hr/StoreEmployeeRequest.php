@@ -22,6 +22,7 @@ class StoreEmployeeRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'full_name' => ['required', 'string', 'max:255'],
             'ic_number' => ['required', 'string', 'regex:/^\d{6}-\d{2}-\d{4}$/'],
             'date_of_birth' => ['required', 'date', 'before:today'],

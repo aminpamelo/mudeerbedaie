@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ContactActivityController;
+use App\Http\Controllers\Api\Hr\HrApplicantController;
 use App\Http\Controllers\Api\Hr\HrAssetAssignmentController;
 use App\Http\Controllers\Api\Hr\HrAssetCategoryController;
 use App\Http\Controllers\Api\Hr\HrAssetController;
@@ -8,6 +9,8 @@ use App\Http\Controllers\Api\Hr\HrAttendanceAnalyticsController;
 use App\Http\Controllers\Api\Hr\HrAttendanceController;
 use App\Http\Controllers\Api\Hr\HrAttendancePenaltyController;
 use App\Http\Controllers\Api\Hr\HrBenefitTypeController;
+use App\Http\Controllers\Api\Hr\HrCareersController;
+use App\Http\Controllers\Api\Hr\HrCertificationController;
 use App\Http\Controllers\Api\Hr\HrClaimApproverController;
 use App\Http\Controllers\Api\Hr\HrClaimDashboardController;
 use App\Http\Controllers\Api\Hr\HrClaimReportController;
@@ -16,20 +19,31 @@ use App\Http\Controllers\Api\Hr\HrClaimTypeController;
 use App\Http\Controllers\Api\Hr\HrDashboardController;
 use App\Http\Controllers\Api\Hr\HrDepartmentApproverController;
 use App\Http\Controllers\Api\Hr\HrDepartmentController;
+use App\Http\Controllers\Api\Hr\HrDisciplinaryActionController;
+use App\Http\Controllers\Api\Hr\HrDisciplinaryDashboardController;
+use App\Http\Controllers\Api\Hr\HrDisciplinaryInquiryController;
 use App\Http\Controllers\Api\Hr\HrEmergencyContactController;
 use App\Http\Controllers\Api\Hr\HrEmployeeBenefitController;
+use App\Http\Controllers\Api\Hr\HrEmployeeCertificationController;
 use App\Http\Controllers\Api\Hr\HrEmployeeController;
 use App\Http\Controllers\Api\Hr\HrEmployeeDocumentController;
 use App\Http\Controllers\Api\Hr\HrEmployeeHistoryController;
 use App\Http\Controllers\Api\Hr\HrEmployeeSalaryController;
 use App\Http\Controllers\Api\Hr\HrEmployeeScheduleController;
+use App\Http\Controllers\Api\Hr\HrExitChecklistController;
+use App\Http\Controllers\Api\Hr\HrExitInterviewController;
+use App\Http\Controllers\Api\Hr\HrFinalSettlementController;
 use App\Http\Controllers\Api\Hr\HrHolidayController;
+use App\Http\Controllers\Api\Hr\HrInterviewController;
+use App\Http\Controllers\Api\Hr\HrJobPostingController;
+use App\Http\Controllers\Api\Hr\HrKpiTemplateController;
 use App\Http\Controllers\Api\Hr\HrLeaveBalanceController;
 use App\Http\Controllers\Api\Hr\HrLeaveCalendarController;
 use App\Http\Controllers\Api\Hr\HrLeaveDashboardController;
 use App\Http\Controllers\Api\Hr\HrLeaveEntitlementController;
 use App\Http\Controllers\Api\Hr\HrLeaveRequestController;
 use App\Http\Controllers\Api\Hr\HrLeaveTypeController;
+use App\Http\Controllers\Api\Hr\HrLetterTemplateController;
 use App\Http\Controllers\Api\Hr\HrMeetingAgendaController;
 use App\Http\Controllers\Api\Hr\HrMeetingAiController;
 use App\Http\Controllers\Api\Hr\HrMeetingAttachmentController;
@@ -41,12 +55,20 @@ use App\Http\Controllers\Api\Hr\HrMeetingSeriesController;
 use App\Http\Controllers\Api\Hr\HrMyAssetController;
 use App\Http\Controllers\Api\Hr\HrMyAttendanceController;
 use App\Http\Controllers\Api\Hr\HrMyClaimController;
+use App\Http\Controllers\Api\Hr\HrMyDisciplinaryController;
 use App\Http\Controllers\Api\Hr\HrMyLeaveController;
 use App\Http\Controllers\Api\Hr\HrMyMeetingController;
+use App\Http\Controllers\Api\Hr\HrMyOnboardingController;
 use App\Http\Controllers\Api\Hr\HrMyPayslipController;
 use App\Http\Controllers\Api\Hr\HrMyProfileController;
+use App\Http\Controllers\Api\Hr\HrMyResignationController;
+use App\Http\Controllers\Api\Hr\HrMyReviewController;
 use App\Http\Controllers\Api\Hr\HrMyTaskController;
+use App\Http\Controllers\Api\Hr\HrMyTrainingController;
 use App\Http\Controllers\Api\Hr\HrNotificationController;
+use App\Http\Controllers\Api\Hr\HrOfferLetterController;
+use App\Http\Controllers\Api\Hr\HrOnboardingController;
+use App\Http\Controllers\Api\Hr\HrOnboardingTemplateController;
 use App\Http\Controllers\Api\Hr\HrOvertimeController;
 use App\Http\Controllers\Api\Hr\HrPayrollDashboardController;
 use App\Http\Controllers\Api\Hr\HrPayrollItemController;
@@ -54,12 +76,25 @@ use App\Http\Controllers\Api\Hr\HrPayrollReportController;
 use App\Http\Controllers\Api\Hr\HrPayrollRunController;
 use App\Http\Controllers\Api\Hr\HrPayrollSettingController;
 use App\Http\Controllers\Api\Hr\HrPayslipController;
+use App\Http\Controllers\Api\Hr\HrPerformanceDashboardController;
+use App\Http\Controllers\Api\Hr\HrPerformanceReviewController;
+use App\Http\Controllers\Api\Hr\HrPipController;
 use App\Http\Controllers\Api\Hr\HrPositionController;
 use App\Http\Controllers\Api\Hr\HrPushSubscriptionController;
+use App\Http\Controllers\Api\Hr\HrRatingScaleController;
+use App\Http\Controllers\Api\Hr\HrRecruitmentDashboardController;
+use App\Http\Controllers\Api\Hr\HrResignationController;
+use App\Http\Controllers\Api\Hr\HrReviewCycleController;
 use App\Http\Controllers\Api\Hr\HrSalaryComponentController;
 use App\Http\Controllers\Api\Hr\HrStatutoryRateController;
 use App\Http\Controllers\Api\Hr\HrTaskController;
 use App\Http\Controllers\Api\Hr\HrTaxProfileController;
+use App\Http\Controllers\Api\Hr\HrTrainingBudgetController;
+use App\Http\Controllers\Api\Hr\HrTrainingCostController;
+use App\Http\Controllers\Api\Hr\HrTrainingDashboardController;
+use App\Http\Controllers\Api\Hr\HrTrainingEnrollmentController;
+use App\Http\Controllers\Api\Hr\HrTrainingProgramController;
+use App\Http\Controllers\Api\Hr\HrTrainingReportController;
 use App\Http\Controllers\Api\Hr\HrWorkScheduleController;
 use App\Http\Controllers\Api\StudentTagController;
 use App\Http\Controllers\Api\TagController;
@@ -763,4 +798,227 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     // My Meetings & Tasks (Employee Self-Service)
     Route::get('my/meetings', [HrMyMeetingController::class, 'index'])->name('api.hr.my.meetings.index');
     Route::get('my/tasks', [HrMyTaskController::class, 'index'])->name('api.hr.my.tasks.index');
+
+    // ========== MODULE 7: RECRUITMENT & ONBOARDING ==========
+
+    // Recruitment Dashboard
+    Route::get('recruitment/dashboard', [HrRecruitmentDashboardController::class, 'stats'])->name('api.hr.recruitment.dashboard');
+
+    // Job Postings
+    Route::get('recruitment/postings', [HrJobPostingController::class, 'index'])->name('api.hr.recruitment.postings.index');
+    Route::post('recruitment/postings', [HrJobPostingController::class, 'store'])->name('api.hr.recruitment.postings.store');
+    Route::get('recruitment/postings/{jobPosting}', [HrJobPostingController::class, 'show'])->name('api.hr.recruitment.postings.show');
+    Route::put('recruitment/postings/{jobPosting}', [HrJobPostingController::class, 'update'])->name('api.hr.recruitment.postings.update');
+    Route::delete('recruitment/postings/{jobPosting}', [HrJobPostingController::class, 'destroy'])->name('api.hr.recruitment.postings.destroy');
+    Route::patch('recruitment/postings/{jobPosting}/publish', [HrJobPostingController::class, 'publish'])->name('api.hr.recruitment.postings.publish');
+    Route::patch('recruitment/postings/{jobPosting}/close', [HrJobPostingController::class, 'close'])->name('api.hr.recruitment.postings.close');
+
+    // Applicants
+    Route::get('recruitment/applicants', [HrApplicantController::class, 'index'])->name('api.hr.recruitment.applicants.index');
+    Route::post('recruitment/applicants', [HrApplicantController::class, 'store'])->name('api.hr.recruitment.applicants.store');
+    Route::get('recruitment/applicants/{applicant}', [HrApplicantController::class, 'show'])->name('api.hr.recruitment.applicants.show');
+    Route::put('recruitment/applicants/{applicant}', [HrApplicantController::class, 'update'])->name('api.hr.recruitment.applicants.update');
+    Route::patch('recruitment/applicants/{applicant}/stage', [HrApplicantController::class, 'moveStage'])->name('api.hr.recruitment.applicants.stage');
+    Route::post('recruitment/applicants/{applicant}/hire', [HrApplicantController::class, 'hire'])->name('api.hr.recruitment.applicants.hire');
+
+    // Interviews
+    Route::get('recruitment/interviews', [HrInterviewController::class, 'index'])->name('api.hr.recruitment.interviews.index');
+    Route::post('recruitment/interviews', [HrInterviewController::class, 'store'])->name('api.hr.recruitment.interviews.store');
+    Route::put('recruitment/interviews/{interview}', [HrInterviewController::class, 'update'])->name('api.hr.recruitment.interviews.update');
+    Route::delete('recruitment/interviews/{interview}', [HrInterviewController::class, 'destroy'])->name('api.hr.recruitment.interviews.destroy');
+    Route::put('recruitment/interviews/{interview}/feedback', [HrInterviewController::class, 'feedback'])->name('api.hr.recruitment.interviews.feedback');
+
+    // Offer Letters
+    Route::post('recruitment/offers', [HrOfferLetterController::class, 'store'])->name('api.hr.recruitment.offers.store');
+    Route::get('recruitment/offers/{offerLetter}', [HrOfferLetterController::class, 'show'])->name('api.hr.recruitment.offers.show');
+    Route::put('recruitment/offers/{offerLetter}', [HrOfferLetterController::class, 'update'])->name('api.hr.recruitment.offers.update');
+    Route::post('recruitment/offers/{offerLetter}/send', [HrOfferLetterController::class, 'send'])->name('api.hr.recruitment.offers.send');
+    Route::patch('recruitment/offers/{offerLetter}/respond', [HrOfferLetterController::class, 'respond'])->name('api.hr.recruitment.offers.respond');
+
+    // Onboarding
+    Route::get('onboarding/dashboard', [HrOnboardingController::class, 'dashboard'])->name('api.hr.onboarding.dashboard');
+    Route::post('onboarding/assign/{employeeId}', [HrOnboardingController::class, 'assign'])->name('api.hr.onboarding.assign');
+    Route::get('onboarding/tasks/{employeeId}', [HrOnboardingController::class, 'tasks'])->name('api.hr.onboarding.tasks');
+    Route::patch('onboarding/tasks/{onboardingTask}', [HrOnboardingController::class, 'updateTask'])->name('api.hr.onboarding.tasks.update');
+
+    // Onboarding Templates
+    Route::get('onboarding/templates', [HrOnboardingTemplateController::class, 'index'])->name('api.hr.onboarding.templates.index');
+    Route::post('onboarding/templates', [HrOnboardingTemplateController::class, 'store'])->name('api.hr.onboarding.templates.store');
+    Route::put('onboarding/templates/{onboardingTemplate}', [HrOnboardingTemplateController::class, 'update'])->name('api.hr.onboarding.templates.update');
+    Route::delete('onboarding/templates/{onboardingTemplate}', [HrOnboardingTemplateController::class, 'destroy'])->name('api.hr.onboarding.templates.destroy');
+
+    // My Onboarding (Employee Self-Service)
+    Route::get('me/onboarding', [HrMyOnboardingController::class, 'index'])->name('api.hr.me.onboarding');
+
+    // ========== MODULE 8: PERFORMANCE MANAGEMENT ==========
+
+    // Performance Dashboard
+    Route::get('performance/dashboard', [HrPerformanceDashboardController::class, 'stats'])->name('api.hr.performance.dashboard');
+
+    // Review Cycles
+    Route::get('performance/cycles', [HrReviewCycleController::class, 'index'])->name('api.hr.performance.cycles.index');
+    Route::post('performance/cycles', [HrReviewCycleController::class, 'store'])->name('api.hr.performance.cycles.store');
+    Route::get('performance/cycles/{reviewCycle}', [HrReviewCycleController::class, 'show'])->name('api.hr.performance.cycles.show');
+    Route::put('performance/cycles/{reviewCycle}', [HrReviewCycleController::class, 'update'])->name('api.hr.performance.cycles.update');
+    Route::delete('performance/cycles/{reviewCycle}', [HrReviewCycleController::class, 'destroy'])->name('api.hr.performance.cycles.destroy');
+    Route::patch('performance/cycles/{reviewCycle}/activate', [HrReviewCycleController::class, 'activate'])->name('api.hr.performance.cycles.activate');
+    Route::patch('performance/cycles/{reviewCycle}/complete', [HrReviewCycleController::class, 'complete'])->name('api.hr.performance.cycles.complete');
+
+    // KPI Templates
+    Route::get('performance/kpis', [HrKpiTemplateController::class, 'index'])->name('api.hr.performance.kpis.index');
+    Route::post('performance/kpis', [HrKpiTemplateController::class, 'store'])->name('api.hr.performance.kpis.store');
+    Route::put('performance/kpis/{kpiTemplate}', [HrKpiTemplateController::class, 'update'])->name('api.hr.performance.kpis.update');
+    Route::delete('performance/kpis/{kpiTemplate}', [HrKpiTemplateController::class, 'destroy'])->name('api.hr.performance.kpis.destroy');
+
+    // Performance Reviews
+    Route::get('performance/reviews', [HrPerformanceReviewController::class, 'index'])->name('api.hr.performance.reviews.index');
+    Route::get('performance/reviews/{performanceReview}', [HrPerformanceReviewController::class, 'show'])->name('api.hr.performance.reviews.show');
+    Route::post('performance/reviews/{performanceReview}/kpis', [HrPerformanceReviewController::class, 'addKpi'])->name('api.hr.performance.reviews.kpis.store');
+    Route::put('performance/reviews/{performanceReview}/self-assessment', [HrPerformanceReviewController::class, 'selfAssessment'])->name('api.hr.performance.reviews.self-assessment');
+    Route::put('performance/reviews/{performanceReview}/manager-review', [HrPerformanceReviewController::class, 'managerReview'])->name('api.hr.performance.reviews.manager-review');
+    Route::patch('performance/reviews/{performanceReview}/complete', [HrPerformanceReviewController::class, 'complete'])->name('api.hr.performance.reviews.complete');
+    Route::patch('performance/reviews/{performanceReview}/acknowledge', [HrPerformanceReviewController::class, 'acknowledge'])->name('api.hr.performance.reviews.acknowledge');
+
+    // PIPs
+    Route::get('performance/pips', [HrPipController::class, 'index'])->name('api.hr.performance.pips.index');
+    Route::post('performance/pips', [HrPipController::class, 'store'])->name('api.hr.performance.pips.store');
+    Route::get('performance/pips/{pip}', [HrPipController::class, 'show'])->name('api.hr.performance.pips.show');
+    Route::put('performance/pips/{pip}', [HrPipController::class, 'update'])->name('api.hr.performance.pips.update');
+    Route::patch('performance/pips/{pip}/extend', [HrPipController::class, 'extend'])->name('api.hr.performance.pips.extend');
+    Route::patch('performance/pips/{pip}/complete', [HrPipController::class, 'complete'])->name('api.hr.performance.pips.complete');
+    Route::post('performance/pips/{pip}/goals', [HrPipController::class, 'addGoal'])->name('api.hr.performance.pips.goals.store');
+    Route::put('performance/pips/{pip}/goals/{goal}', [HrPipController::class, 'updateGoal'])->name('api.hr.performance.pips.goals.update');
+
+    // Rating Scales
+    Route::get('performance/rating-scales', [HrRatingScaleController::class, 'index'])->name('api.hr.performance.rating-scales.index');
+    Route::put('performance/rating-scales', [HrRatingScaleController::class, 'bulkUpdate'])->name('api.hr.performance.rating-scales.update');
+
+    // My Reviews (Employee Self-Service)
+    Route::get('me/reviews', [HrMyReviewController::class, 'index'])->name('api.hr.me.reviews.index');
+    Route::get('me/reviews/{performanceReview}', [HrMyReviewController::class, 'show'])->name('api.hr.me.reviews.show');
+    Route::put('me/reviews/{performanceReview}/self-assessment', [HrMyReviewController::class, 'selfAssessment'])->name('api.hr.me.reviews.self-assessment');
+    Route::get('me/pip', [HrMyReviewController::class, 'myPip'])->name('api.hr.me.pip');
+
+    // ========== MODULE 10: DISCIPLINARY & OFFBOARDING ==========
+
+    // Disciplinary Dashboard
+    Route::get('disciplinary/dashboard', [HrDisciplinaryDashboardController::class, 'stats'])->name('api.hr.disciplinary.dashboard');
+
+    // Disciplinary Actions
+    Route::get('disciplinary/actions', [HrDisciplinaryActionController::class, 'index'])->name('api.hr.disciplinary.actions.index');
+    Route::post('disciplinary/actions', [HrDisciplinaryActionController::class, 'store'])->name('api.hr.disciplinary.actions.store');
+    Route::get('disciplinary/actions/{disciplinaryAction}', [HrDisciplinaryActionController::class, 'show'])->name('api.hr.disciplinary.actions.show');
+    Route::put('disciplinary/actions/{disciplinaryAction}', [HrDisciplinaryActionController::class, 'update'])->name('api.hr.disciplinary.actions.update');
+    Route::patch('disciplinary/actions/{disciplinaryAction}/issue', [HrDisciplinaryActionController::class, 'issue'])->name('api.hr.disciplinary.actions.issue');
+    Route::patch('disciplinary/actions/{disciplinaryAction}/close', [HrDisciplinaryActionController::class, 'close'])->name('api.hr.disciplinary.actions.close');
+    Route::get('disciplinary/actions/{disciplinaryAction}/pdf', [HrDisciplinaryActionController::class, 'pdf'])->name('api.hr.disciplinary.actions.pdf');
+    Route::get('disciplinary/employee/{employeeId}', [HrDisciplinaryActionController::class, 'employeeHistory'])->name('api.hr.disciplinary.employee');
+
+    // Disciplinary Inquiries
+    Route::post('disciplinary/inquiries', [HrDisciplinaryInquiryController::class, 'store'])->name('api.hr.disciplinary.inquiries.store');
+    Route::get('disciplinary/inquiries/{disciplinaryInquiry}', [HrDisciplinaryInquiryController::class, 'show'])->name('api.hr.disciplinary.inquiries.show');
+    Route::put('disciplinary/inquiries/{disciplinaryInquiry}', [HrDisciplinaryInquiryController::class, 'update'])->name('api.hr.disciplinary.inquiries.update');
+    Route::patch('disciplinary/inquiries/{disciplinaryInquiry}/complete', [HrDisciplinaryInquiryController::class, 'complete'])->name('api.hr.disciplinary.inquiries.complete');
+
+    // Resignations
+    Route::get('offboarding/resignations', [HrResignationController::class, 'index'])->name('api.hr.offboarding.resignations.index');
+    Route::post('offboarding/resignations', [HrResignationController::class, 'store'])->name('api.hr.offboarding.resignations.store');
+    Route::get('offboarding/resignations/{resignationRequest}', [HrResignationController::class, 'show'])->name('api.hr.offboarding.resignations.show');
+    Route::patch('offboarding/resignations/{resignationRequest}/approve', [HrResignationController::class, 'approve'])->name('api.hr.offboarding.resignations.approve');
+    Route::patch('offboarding/resignations/{resignationRequest}/reject', [HrResignationController::class, 'reject'])->name('api.hr.offboarding.resignations.reject');
+    Route::patch('offboarding/resignations/{resignationRequest}/complete', [HrResignationController::class, 'complete'])->name('api.hr.offboarding.resignations.complete');
+
+    // Exit Checklists
+    Route::get('offboarding/checklists', [HrExitChecklistController::class, 'index'])->name('api.hr.offboarding.checklists.index');
+    Route::post('offboarding/checklists/{employeeId}', [HrExitChecklistController::class, 'createForEmployee'])->name('api.hr.offboarding.checklists.create');
+    Route::get('offboarding/checklists/{exitChecklist}', [HrExitChecklistController::class, 'show'])->name('api.hr.offboarding.checklists.show');
+    Route::patch('offboarding/checklists/{exitChecklist}/items/{item}', [HrExitChecklistController::class, 'updateItem'])->name('api.hr.offboarding.checklists.items.update');
+
+    // Exit Interviews
+    Route::get('offboarding/exit-interviews', [HrExitInterviewController::class, 'index'])->name('api.hr.offboarding.exit-interviews.index');
+    Route::post('offboarding/exit-interviews', [HrExitInterviewController::class, 'store'])->name('api.hr.offboarding.exit-interviews.store');
+    Route::get('offboarding/exit-interviews/analytics', [HrExitInterviewController::class, 'analytics'])->name('api.hr.offboarding.exit-interviews.analytics');
+    Route::get('offboarding/exit-interviews/{exitInterview}', [HrExitInterviewController::class, 'show'])->name('api.hr.offboarding.exit-interviews.show');
+    Route::put('offboarding/exit-interviews/{exitInterview}', [HrExitInterviewController::class, 'update'])->name('api.hr.offboarding.exit-interviews.update');
+
+    // Final Settlements
+    Route::get('offboarding/settlements', [HrFinalSettlementController::class, 'index'])->name('api.hr.offboarding.settlements.index');
+    Route::post('offboarding/settlements/{employeeId}/calculate', [HrFinalSettlementController::class, 'calculate'])->name('api.hr.offboarding.settlements.calculate');
+    Route::get('offboarding/settlements/{finalSettlement}', [HrFinalSettlementController::class, 'show'])->name('api.hr.offboarding.settlements.show');
+    Route::put('offboarding/settlements/{finalSettlement}', [HrFinalSettlementController::class, 'update'])->name('api.hr.offboarding.settlements.update');
+    Route::patch('offboarding/settlements/{finalSettlement}/approve', [HrFinalSettlementController::class, 'approve'])->name('api.hr.offboarding.settlements.approve');
+    Route::patch('offboarding/settlements/{finalSettlement}/paid', [HrFinalSettlementController::class, 'markPaid'])->name('api.hr.offboarding.settlements.paid');
+    Route::get('offboarding/settlements/{finalSettlement}/pdf', [HrFinalSettlementController::class, 'pdf'])->name('api.hr.offboarding.settlements.pdf');
+
+    // Letter Templates
+    Route::get('letter-templates', [HrLetterTemplateController::class, 'index'])->name('api.hr.letter-templates.index');
+    Route::post('letter-templates', [HrLetterTemplateController::class, 'store'])->name('api.hr.letter-templates.store');
+    Route::put('letter-templates/{letterTemplate}', [HrLetterTemplateController::class, 'update'])->name('api.hr.letter-templates.update');
+    Route::delete('letter-templates/{letterTemplate}', [HrLetterTemplateController::class, 'destroy'])->name('api.hr.letter-templates.destroy');
+
+    // My Disciplinary (Employee Self-Service)
+    Route::get('me/disciplinary', [HrMyDisciplinaryController::class, 'index'])->name('api.hr.me.disciplinary');
+    Route::post('me/disciplinary/{disciplinaryAction}/respond', [HrMyDisciplinaryController::class, 'respond'])->name('api.hr.me.disciplinary.respond');
+
+    // My Resignation (Employee Self-Service)
+    Route::post('me/resignation', [HrMyResignationController::class, 'store'])->name('api.hr.me.resignation.store');
+    Route::get('me/resignation', [HrMyResignationController::class, 'show'])->name('api.hr.me.resignation.show');
+
+    // ========== MODULE 9: TRAINING & DEVELOPMENT ==========
+
+    // Training Dashboard
+    Route::get('training/dashboard', [HrTrainingDashboardController::class, 'stats'])->name('api.hr.training.dashboard');
+
+    // Training Programs
+    Route::get('training/programs', [HrTrainingProgramController::class, 'index'])->name('api.hr.training.programs.index');
+    Route::post('training/programs', [HrTrainingProgramController::class, 'store'])->name('api.hr.training.programs.store');
+    Route::get('training/programs/{trainingProgram}', [HrTrainingProgramController::class, 'show'])->name('api.hr.training.programs.show');
+    Route::put('training/programs/{trainingProgram}', [HrTrainingProgramController::class, 'update'])->name('api.hr.training.programs.update');
+    Route::delete('training/programs/{trainingProgram}', [HrTrainingProgramController::class, 'destroy'])->name('api.hr.training.programs.destroy');
+    Route::patch('training/programs/{trainingProgram}/complete', [HrTrainingProgramController::class, 'complete'])->name('api.hr.training.programs.complete');
+
+    // Enrollments
+    Route::get('training/enrollments', [HrTrainingEnrollmentController::class, 'index'])->name('api.hr.training.enrollments.index');
+    Route::post('training/programs/{trainingProgram}/enroll', [HrTrainingEnrollmentController::class, 'enroll'])->name('api.hr.training.enrollments.enroll');
+    Route::patch('training/enrollments/{trainingEnrollment}', [HrTrainingEnrollmentController::class, 'update'])->name('api.hr.training.enrollments.update');
+    Route::delete('training/enrollments/{trainingEnrollment}', [HrTrainingEnrollmentController::class, 'destroy'])->name('api.hr.training.enrollments.destroy');
+    Route::put('training/enrollments/{trainingEnrollment}/feedback', [HrTrainingEnrollmentController::class, 'feedback'])->name('api.hr.training.enrollments.feedback');
+
+    // Training Costs
+    Route::get('training/programs/{trainingProgram}/costs', [HrTrainingCostController::class, 'index'])->name('api.hr.training.costs.index');
+    Route::post('training/programs/{trainingProgram}/costs', [HrTrainingCostController::class, 'store'])->name('api.hr.training.costs.store');
+    Route::put('training/costs/{trainingCost}', [HrTrainingCostController::class, 'update'])->name('api.hr.training.costs.update');
+    Route::delete('training/costs/{trainingCost}', [HrTrainingCostController::class, 'destroy'])->name('api.hr.training.costs.destroy');
+
+    // Certifications
+    Route::get('training/certifications', [HrCertificationController::class, 'index'])->name('api.hr.training.certifications.index');
+    Route::post('training/certifications', [HrCertificationController::class, 'store'])->name('api.hr.training.certifications.store');
+    Route::put('training/certifications/{certification}', [HrCertificationController::class, 'update'])->name('api.hr.training.certifications.update');
+    Route::delete('training/certifications/{certification}', [HrCertificationController::class, 'destroy'])->name('api.hr.training.certifications.destroy');
+
+    // Employee Certifications
+    Route::get('training/employee-certifications/expiring', [HrEmployeeCertificationController::class, 'expiring'])->name('api.hr.training.employee-certifications.expiring');
+    Route::get('training/employee-certifications', [HrEmployeeCertificationController::class, 'index'])->name('api.hr.training.employee-certifications.index');
+    Route::post('training/employee-certifications', [HrEmployeeCertificationController::class, 'store'])->name('api.hr.training.employee-certifications.store');
+    Route::put('training/employee-certifications/{employeeCertification}', [HrEmployeeCertificationController::class, 'update'])->name('api.hr.training.employee-certifications.update');
+    Route::delete('training/employee-certifications/{employeeCertification}', [HrEmployeeCertificationController::class, 'destroy'])->name('api.hr.training.employee-certifications.destroy');
+
+    // Training Budget
+    Route::get('training/budgets', [HrTrainingBudgetController::class, 'index'])->name('api.hr.training.budgets.index');
+    Route::post('training/budgets', [HrTrainingBudgetController::class, 'store'])->name('api.hr.training.budgets.store');
+    Route::put('training/budgets/{trainingBudget}', [HrTrainingBudgetController::class, 'update'])->name('api.hr.training.budgets.update');
+
+    // Training Reports
+    Route::get('training/reports', [HrTrainingReportController::class, 'index'])->name('api.hr.training.reports');
+
+    // My Training (Employee Self-Service)
+    Route::get('me/training', [HrMyTrainingController::class, 'index'])->name('api.hr.me.training');
+    Route::put('me/training/{trainingEnrollment}/feedback', [HrMyTrainingController::class, 'feedback'])->name('api.hr.me.training.feedback');
+});
+
+// Public Careers API (no auth required)
+Route::prefix('careers')->group(function () {
+    Route::get('/', [HrCareersController::class, 'index'])->name('api.careers.index');
+    Route::get('/{id}', [HrCareersController::class, 'show'])->name('api.careers.show');
+    Route::post('/{id}/apply', [HrCareersController::class, 'apply'])->name('api.careers.apply');
 });

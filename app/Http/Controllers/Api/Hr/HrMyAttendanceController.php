@@ -11,6 +11,7 @@ use App\Models\AttendancePenalty;
 use App\Models\Employee;
 use App\Models\EmployeeSchedule;
 use App\Models\OvertimeRequest;
+use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -64,13 +65,40 @@ class HrMyAttendanceController extends Controller
             return response()->json(['message' => 'You have already clocked in today.'], 422);
         }
 
-        return DB::transaction(function () use ($request, $employee, $today, $existingLog) {
+        $isWfh = $request->boolean('is_wfh');
+
+        // Validate office location for non-WFH clock-ins
+        if (! $isWfh && Setting::getValue('hr_require_location_office', false)) {
+            $latitude = $request->input('latitude');
+            $longitude = $request->input('longitude');
+
+            if (is_null($latitude) || is_null($longitude)) {
+                return response()->json([
+                    'message' => 'Location is required for office clock-in. Please enable GPS.',
+                ], 422);
+            }
+
+            $officeLat = (float) Setting::getValue('hr_office_latitude', 0);
+            $officeLng = (float) Setting::getValue('hr_office_longitude', 0);
+            $radiusMeters = (float) Setting::getValue('hr_office_radius_meters', 200);
+
+            $distance = $this->calculateDistance($latitude, $longitude, $officeLat, $officeLng);
+
+            if ($distance > $radiusMeters) {
+                return response()->json([
+                    'message' => 'You are too far from the office to clock in. Please move closer to the office location.',
+                    'distance' => round($distance),
+                    'max_radius' => $radiusMeters,
+                ], 422);
+            }
+        }
+
+        return DB::transaction(function () use ($request, $employee, $today, $existingLog, $isWfh) {
             $photoPath = null;
             if ($request->hasFile('photo')) {
                 $photoPath = $request->file('photo')->store("attendance-photos/{$employee->id}", 'public');
             }
 
-            $isWfh = $request->boolean('is_wfh');
             $clockInTime = now();
 
             $schedule = EmployeeSchedule::query()
@@ -100,6 +128,8 @@ class HrMyAttendanceController extends Controller
                 'clock_in' => $clockInTime,
                 'clock_in_photo' => $photoPath,
                 'clock_in_ip' => $request->ip(),
+                'clock_in_latitude' => $request->input('latitude'),
+                'clock_in_longitude' => $request->input('longitude'),
                 'status' => $status,
                 'late_minutes' => $lateMinutes,
             ]);
@@ -418,5 +448,26 @@ class HrMyAttendanceController extends Controller
             'data' => $overtimeRequest->fresh(),
             'message' => 'Overtime request cancelled successfully.',
         ]);
+    }
+
+    /**
+     * Calculate distance between two GPS coordinates using the Haversine formula.
+     *
+     * @return float Distance in meters
+     */
+    private function calculateDistance(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadius = 6371000; // meters
+
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $a = sin($dLat / 2) * sin($dLat / 2)
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2))
+            * sin($dLng / 2) * sin($dLng / 2);
+
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return $earthRadius * $c;
     }
 }

@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\Hr;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\HrPayslip;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class HrMyPayslipController extends Controller
 {
@@ -18,8 +20,13 @@ class HrMyPayslipController extends Controller
             return response()->json(['message' => 'No employee profile found.'], 404);
         }
 
-        $payslips = HrPayslip::where('employee_id', $employee->id)
-            ->orderByDesc('year')
+        $query = HrPayslip::where('employee_id', $employee->id);
+
+        if ($year = $request->get('year')) {
+            $query->where('year', $year);
+        }
+
+        $payslips = $query->orderByDesc('year')
             ->orderByDesc('month')
             ->paginate($request->get('per_page', 12));
 
@@ -45,25 +52,56 @@ class HrMyPayslipController extends Controller
                 ->get();
         }
 
+        $payslipData = $payslip->toArray();
+        $payslipData['items'] = $items;
+
         return response()->json([
-            'data' => $payslip,
-            'items' => $items,
+            'data' => $payslipData,
         ]);
     }
 
-    public function pdf(Request $request, HrPayslip $payslip): JsonResponse
+    public function pdf(Request $request, HrPayslip $payslip): Response
     {
         $employee = Employee::where('user_id', $request->user()->id)->first();
 
         if (! $employee || $payslip->employee_id !== $employee->id) {
-            return response()->json(['message' => 'Payslip not found.'], 404);
+            abort(404, 'Payslip not found.');
         }
 
-        // PDF generation will be implemented in Task 43
-        return response()->json([
-            'message' => 'PDF generation not yet implemented.',
-            'payslip_id' => $payslip->id,
-        ], 501);
+        $payslip->load(['payrollRun', 'employee.department', 'employee.position']);
+
+        $months = [
+            1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+            5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+            9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
+        ];
+
+        $earnings = collect();
+        $deductions = collect();
+
+        if ($payslip->payroll_run_id && $payslip->payrollRun) {
+            $items = $payslip->payrollRun->items()
+                ->where('employee_id', $payslip->employee_id)
+                ->get();
+
+            $earnings = $items->where('type', 'earning');
+            $deductions = $items->where('type', 'deduction')->filter(fn ($i) => ! ($i->is_statutory ?? false));
+        }
+
+        $companyName = config('app.name', 'Company');
+
+        $pdf = Pdf::loadView('pdf.payslip', [
+            'payslip' => $payslip,
+            'employee' => $employee,
+            'monthName' => $months[$payslip->month] ?? 'Unknown',
+            'companyName' => $companyName,
+            'earnings' => $earnings,
+            'deductions' => $deductions,
+        ]);
+
+        $filename = "payslip-{$months[$payslip->month]}-{$payslip->year}.pdf";
+
+        return $pdf->download($filename);
     }
 
     public function ytd(Request $request): JsonResponse
