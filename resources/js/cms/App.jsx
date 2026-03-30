@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import ContentList from './pages/ContentList';
 import ContentCreate from './pages/ContentCreate';
 import ContentDetail from './pages/ContentDetail';
+import ContentEdit from './pages/ContentEdit';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -26,6 +27,7 @@ export default function App() {
                         <Route path="contents" element={<ContentList />} />
                         <Route path="contents/create" element={<ContentCreate />} />
                         <Route path="contents/:id" element={<ContentDetail />} />
+                        <Route path="contents/:id/edit" element={<ContentEdit />} />
                         {/* More routes added in later tasks */}
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>
