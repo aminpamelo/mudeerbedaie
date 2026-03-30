@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CmsLayout from './layouts/CmsLayout';
 import Dashboard from './pages/Dashboard';
 import ContentList from './pages/ContentList';
+import ContentCreate from './pages/ContentCreate';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -22,6 +23,7 @@ export default function App() {
                     <Route element={<CmsLayout />}>
                         <Route index element={<Dashboard />} />
                         <Route path="contents" element={<ContentList />} />
+                        <Route path="contents/create" element={<ContentCreate />} />
                         {/* More routes added in later tasks */}
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>
