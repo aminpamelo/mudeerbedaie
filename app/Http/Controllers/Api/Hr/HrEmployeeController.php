@@ -94,10 +94,11 @@ class HrEmployeeController extends Controller
             } else {
                 // Create new user account
                 $password = Str::random(12);
+                $email = $validated['personal_email'] ?? $validated['full_name'].'-'.Str::random(6).'@employee.local';
                 $user = User::create([
                     'name' => $validated['full_name'],
-                    'email' => $validated['personal_email'],
-                    'phone' => $validated['phone'],
+                    'email' => $email,
+                    'phone' => $validated['phone'] ?? null,
                     'password' => bcrypt($password),
                     'role' => 'employee',
                     'status' => 'active',
@@ -128,7 +129,7 @@ class HrEmployeeController extends Controller
                 'field_name' => 'status',
                 'old_value' => null,
                 'new_value' => 'active',
-                'effective_date' => $validated['join_date'],
+                'effective_date' => $validated['join_date'] ?? now()->toDateString(),
                 'remarks' => 'Employee record created',
                 'changed_by' => $request->user()->id,
             ]);

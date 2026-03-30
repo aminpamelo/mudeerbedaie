@@ -88,15 +88,15 @@ const BANKS = [
 ];
 
 const EMPLOYMENT_TYPES = [
-    { value: 'full-time', label: 'Full-time' },
-    { value: 'part-time', label: 'Part-time' },
+    { value: 'full_time', label: 'Full-time' },
+    { value: 'part_time', label: 'Part-time' },
     { value: 'contract', label: 'Contract' },
     { value: 'intern', label: 'Intern' },
 ];
 
 const DOCUMENT_FIELDS = [
-    { key: 'ic_front', label: 'IC Front', required: true },
-    { key: 'ic_back', label: 'IC Back', required: true },
+    { key: 'ic_front', label: 'IC Front', required: false },
+    { key: 'ic_back', label: 'IC Back', required: false },
     { key: 'offer_letter', label: 'Offer Letter', required: false },
     { key: 'employment_contract', label: 'Employment Contract', required: false },
     { key: 'bank_statement', label: 'Bank Statement', required: false },
@@ -388,44 +388,15 @@ export default function EmployeeCreate() {
 
         if (step === 1) {
             if (!fullName.trim()) stepErrors.full_name = 'Full name is required';
-            if (!icNumber.trim()) {
-                stepErrors.ic_number = 'IC number is required';
-            } else if (!/^\d{6}-\d{2}-\d{4}$/.test(icNumber)) {
+            if (icNumber.trim() && !/^\d{6}-\d{2}-\d{4}$/.test(icNumber)) {
                 stepErrors.ic_number = 'IC format must be YYMMDD-SS-NNNN';
             }
-            if (!dateOfBirth) stepErrors.date_of_birth = 'Date of birth is required';
-            if (!gender) stepErrors.gender = 'Gender is required';
-            if (!phone.trim()) stepErrors.phone = 'Phone number is required';
-            if (!personalEmail.trim()) {
-                stepErrors.personal_email = 'Email is required';
-            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalEmail)) {
+            if (personalEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalEmail)) {
                 stepErrors.personal_email = 'Invalid email format';
             }
-            if (!addressLine1.trim()) stepErrors.address_line_1 = 'Address is required';
-            if (!city.trim()) stepErrors.city = 'City is required';
-            if (!state) stepErrors.state = 'State is required';
-            if (!postcode.trim()) {
-                stepErrors.postcode = 'Postcode is required';
-            } else if (!/^\d{5}$/.test(postcode)) {
+            if (postcode.trim() && !/^\d{5}$/.test(postcode)) {
                 stepErrors.postcode = 'Postcode must be 5 digits';
             }
-        }
-
-        if (step === 2) {
-            if (!departmentId) stepErrors.department_id = 'Department is required';
-            if (!positionId) stepErrors.position_id = 'Position is required';
-            if (!employmentType) stepErrors.employment_type = 'Employment type is required';
-            if (!joinDate) stepErrors.join_date = 'Join date is required';
-        }
-
-        if (step === 3) {
-            if (!bankName) stepErrors.bank_name = 'Bank name is required';
-            if (!bankAccountNumber.trim()) stepErrors.bank_account_number = 'Account number is required';
-        }
-
-        if (step === 4) {
-            if (!documents.ic_front) stepErrors.ic_front = 'IC front is required';
-            if (!documents.ic_back) stepErrors.ic_back = 'IC back is required';
         }
 
         setErrors(stepErrors);
@@ -456,35 +427,35 @@ export default function EmployeeCreate() {
             formData.append('user_id', linkedUser.id);
         }
 
-        // Personal
+        // Personal (only full_name is required)
         formData.append('full_name', fullName);
-        formData.append('ic_number', icNumber);
-        formData.append('date_of_birth', dateOfBirth);
-        formData.append('gender', gender);
+        if (icNumber) formData.append('ic_number', icNumber);
+        if (dateOfBirth) formData.append('date_of_birth', dateOfBirth);
+        if (gender) formData.append('gender', gender);
         if (religion) formData.append('religion', religion);
         if (race) formData.append('race', race);
         if (maritalStatus) formData.append('marital_status', maritalStatus);
-        formData.append('phone', phone);
-        formData.append('personal_email', personalEmail);
-        formData.append('address_line_1', addressLine1);
+        if (phone) formData.append('phone', phone);
+        if (personalEmail) formData.append('personal_email', personalEmail);
+        if (addressLine1) formData.append('address_line_1', addressLine1);
         if (addressLine2) formData.append('address_line_2', addressLine2);
-        formData.append('city', city);
-        formData.append('state', state);
-        formData.append('postcode', postcode);
+        if (city) formData.append('city', city);
+        if (state) formData.append('state', state);
+        if (postcode) formData.append('postcode', postcode);
         if (profilePhoto) formData.append('profile_photo', profilePhoto);
 
         // Employment
-        formData.append('department_id', departmentId);
-        formData.append('position_id', positionId);
-        formData.append('employment_type', employmentType);
-        formData.append('join_date', joinDate);
+        if (departmentId) formData.append('department_id', departmentId);
+        if (positionId) formData.append('position_id', positionId);
+        if (employmentType) formData.append('employment_type', employmentType);
+        if (joinDate) formData.append('join_date', joinDate);
         if (probationEndDate) formData.append('probation_end_date', probationEndDate);
         if (contractEndDate) formData.append('contract_end_date', contractEndDate);
         if (notes) formData.append('notes', notes);
 
         // Bank & Statutory
-        formData.append('bank_name', bankName);
-        formData.append('bank_account_number', bankAccountNumber);
+        if (bankName) formData.append('bank_name', bankName);
+        if (bankAccountNumber) formData.append('bank_account_number', bankAccountNumber);
         if (epfNumber) formData.append('epf_number', epfNumber);
         if (socsoNumber) formData.append('socso_number', socsoNumber);
         if (taxReferenceNumber) formData.append('tax_reference_number', taxReferenceNumber);
@@ -609,7 +580,7 @@ export default function EmployeeCreate() {
                                 />
                             </FormField>
 
-                            <FormField label="IC Number" required error={errors.ic_number}>
+                            <FormField label="IC Number" error={errors.ic_number}>
                                 <Input
                                     value={icNumber}
                                     onChange={(e) => setIcNumber(e.target.value)}
@@ -617,7 +588,7 @@ export default function EmployeeCreate() {
                                 />
                             </FormField>
 
-                            <FormField label="Date of Birth" required error={errors.date_of_birth}>
+                            <FormField label="Date of Birth" error={errors.date_of_birth}>
                                 <Input
                                     type="date"
                                     value={dateOfBirth}
@@ -625,7 +596,7 @@ export default function EmployeeCreate() {
                                 />
                             </FormField>
 
-                            <FormField label="Gender" required error={errors.gender}>
+                            <FormField label="Gender" error={errors.gender}>
                                 <RadioGroup
                                     value={gender}
                                     onValueChange={setGender}
@@ -691,7 +662,7 @@ export default function EmployeeCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Phone" required error={errors.phone}>
+                            <FormField label="Phone" error={errors.phone}>
                                 <Input
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value)}
@@ -699,7 +670,7 @@ export default function EmployeeCreate() {
                                 />
                             </FormField>
 
-                            <FormField label="Personal Email" required error={errors.personal_email}>
+                            <FormField label="Personal Email" error={errors.personal_email}>
                                 <Input
                                     type="email"
                                     value={personalEmail}
@@ -713,7 +684,7 @@ export default function EmployeeCreate() {
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="sm:col-span-2">
-                                <FormField label="Address Line 1" required error={errors.address_line_1}>
+                                <FormField label="Address Line 1" error={errors.address_line_1}>
                                     <Input
                                         value={addressLine1}
                                         onChange={(e) => setAddressLine1(e.target.value)}
@@ -732,7 +703,7 @@ export default function EmployeeCreate() {
                                 </FormField>
                             </div>
 
-                            <FormField label="City" required error={errors.city}>
+                            <FormField label="City" error={errors.city}>
                                 <Input
                                     value={city}
                                     onChange={(e) => setCity(e.target.value)}
@@ -740,7 +711,7 @@ export default function EmployeeCreate() {
                                 />
                             </FormField>
 
-                            <FormField label="State" required error={errors.state}>
+                            <FormField label="State" error={errors.state}>
                                 <Select value={state} onValueChange={setState}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select state" />
@@ -755,7 +726,7 @@ export default function EmployeeCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Postcode" required error={errors.postcode}>
+                            <FormField label="Postcode" error={errors.postcode}>
                                 <Input
                                     value={postcode}
                                     onChange={(e) => setPostcode(e.target.value)}
@@ -787,7 +758,7 @@ export default function EmployeeCreate() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <FormField label="Department" required error={errors.department_id}>
+                            <FormField label="Department" error={errors.department_id}>
                                 <Select value={departmentId} onValueChange={setDepartmentId}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select department" />
@@ -802,7 +773,7 @@ export default function EmployeeCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Position" required error={errors.position_id}>
+                            <FormField label="Position" error={errors.position_id}>
                                 <Select
                                     value={positionId}
                                     onValueChange={setPositionId}
@@ -827,7 +798,7 @@ export default function EmployeeCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Employment Type" required error={errors.employment_type}>
+                            <FormField label="Employment Type" error={errors.employment_type}>
                                 <Select value={employmentType} onValueChange={setEmploymentType}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select type" />
@@ -842,7 +813,7 @@ export default function EmployeeCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Join Date" required error={errors.join_date}>
+                            <FormField label="Join Date" error={errors.join_date}>
                                 <Input
                                     type="date"
                                     value={joinDate}
@@ -894,7 +865,7 @@ export default function EmployeeCreate() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <FormField label="Bank Name" required error={errors.bank_name}>
+                            <FormField label="Bank Name" error={errors.bank_name}>
                                 <Select value={bankName} onValueChange={setBankName}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select bank" />
@@ -909,7 +880,7 @@ export default function EmployeeCreate() {
                                 </Select>
                             </FormField>
 
-                            <FormField label="Bank Account Number" required error={errors.bank_account_number}>
+                            <FormField label="Bank Account Number" error={errors.bank_account_number}>
                                 <Input
                                     value={bankAccountNumber}
                                     onChange={(e) => setBankAccountNumber(e.target.value)}
@@ -1068,7 +1039,7 @@ export default function EmployeeCreate() {
                                 <div>
                                     <dt className="text-zinc-500">Employment Type</dt>
                                     <dd className="font-medium capitalize text-zinc-900">
-                                        {employmentType.replace('-', ' ')}
+                                        {employmentType.replace('_', ' ')}
                                     </dd>
                                 </div>
                                 <div>
