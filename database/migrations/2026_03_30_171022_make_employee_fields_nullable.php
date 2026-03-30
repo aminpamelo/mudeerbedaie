@@ -24,24 +24,12 @@ return new class extends Migration
             $table->string('city')->nullable()->change();
             $table->string('state')->nullable()->change();
             $table->string('postcode')->nullable()->change();
+            $table->unsignedBigInteger('department_id')->nullable()->change();
+            $table->unsignedBigInteger('position_id')->nullable()->change();
             $table->string('employment_type')->nullable()->change();
             $table->date('join_date')->nullable()->change();
             $table->string('bank_name')->nullable()->change();
             $table->string('bank_account_number')->nullable()->change();
-        });
-
-        // Handle foreign key columns separately
-        Schema::table('employees', function (Blueprint $table) {
-            $table->dropForeign(['department_id']);
-            $table->dropForeign(['position_id']);
-        });
-
-        Schema::table('employees', function (Blueprint $table) {
-            $table->unsignedBigInteger('department_id')->nullable()->change();
-            $table->unsignedBigInteger('position_id')->nullable()->change();
-
-            $table->foreign('department_id')->references('id')->on('departments')->cascadeOnDelete();
-            $table->foreign('position_id')->references('id')->on('positions')->cascadeOnDelete();
         });
     }
 
@@ -63,23 +51,12 @@ return new class extends Migration
             $table->string('city')->nullable(false)->change();
             $table->string('state')->nullable(false)->change();
             $table->string('postcode')->nullable(false)->change();
+            $table->unsignedBigInteger('department_id')->nullable(false)->change();
+            $table->unsignedBigInteger('position_id')->nullable(false)->change();
             $table->string('employment_type')->nullable(false)->change();
             $table->date('join_date')->nullable(false)->change();
             $table->string('bank_name')->nullable(false)->change();
             $table->string('bank_account_number')->nullable(false)->change();
-        });
-
-        Schema::table('employees', function (Blueprint $table) {
-            $table->dropForeign(['department_id']);
-            $table->dropForeign(['position_id']);
-        });
-
-        Schema::table('employees', function (Blueprint $table) {
-            $table->unsignedBigInteger('department_id')->nullable(false)->change();
-            $table->unsignedBigInteger('position_id')->nullable(false)->change();
-
-            $table->foreign('department_id')->references('id')->on('departments')->cascadeOnDelete();
-            $table->foreign('position_id')->references('id')->on('positions')->cascadeOnDelete();
         });
     }
 };
