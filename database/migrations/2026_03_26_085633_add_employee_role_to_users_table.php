@@ -11,9 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Skip if already has the 'employee' role value
-        $currentColumn = Schema::getColumnType('users', 'role');
-        if ($currentColumn && \Illuminate\Support\Facades\DB::select("SHOW COLUMNS FROM users WHERE Field = 'role' AND Type LIKE '%employee%'")) {
+        // For SQLite (used in tests), enum changes are not supported the same way.
+        // We use string column type on SQLite, so just ensure the column exists.
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            // SQLite doesn't support ENUM or column type changes in the same way.
+            // The column already exists as a string type in SQLite, so skip.
+            return;
+        }
+
+        // Skip if already has the 'employee' role value (MySQL/MariaDB only)
+        $columns = \Illuminate\Support\Facades\DB::select("SHOW COLUMNS FROM users WHERE Field = 'role' AND Type LIKE '%employee%'");
+        if (! empty($columns)) {
             return;
         }
 

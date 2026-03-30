@@ -347,6 +347,13 @@
 
                 {{-- HR Module link hidden from main sidebar - accessible via /hr directly --}}
 
+                <flux:navlist.item
+                    icon="film"
+                    href="/cms"
+                >
+                    {{ __('CMS Module') }}
+                </flux:navlist.item>
+
                 <flux:navlist.group
                     expandable
                     heading="Settings"

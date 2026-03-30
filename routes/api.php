@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\Cms\CmsAdCampaignController;
+use App\Http\Controllers\Api\Cms\CmsContentController;
+use App\Http\Controllers\Api\Cms\CmsContentStageController;
+use App\Http\Controllers\Api\Cms\CmsDashboardController;
 use App\Http\Controllers\Api\ContactActivityController;
 use App\Http\Controllers\Api\Hr\HrApplicantController;
 use App\Http\Controllers\Api\Hr\HrAssetAssignmentController;
@@ -453,6 +457,8 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::get('employees/export', [HrEmployeeController::class, 'export'])->name('api.hr.employees.export');
     Route::apiResource('employees', HrEmployeeController::class)->names('api.hr.employees');
     Route::patch('employees/{employee}/status', [HrEmployeeController::class, 'updateStatus'])->name('api.hr.employees.update-status');
+    Route::post('employees/{employee}/photo', [HrEmployeeController::class, 'updatePhoto'])->name('api.hr.employees.update-photo');
+    Route::delete('employees/{employee}/photo', [HrEmployeeController::class, 'removePhoto'])->name('api.hr.employees.remove-photo');
 
     // Employee sub-resources
     Route::get('employees/{employee}/history', [HrEmployeeHistoryController::class, 'index'])->name('api.hr.employees.history');
@@ -1021,4 +1027,31 @@ Route::prefix('careers')->group(function () {
     Route::get('/', [HrCareersController::class, 'index'])->name('api.careers.index');
     Route::get('/{id}', [HrCareersController::class, 'show'])->name('api.careers.show');
     Route::post('/{id}/apply', [HrCareersController::class, 'apply'])->name('api.careers.apply');
+});
+
+/*
+|--------------------------------------------------------------------------
+| CMS Module API Routes
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group(function () {
+    // Dashboard
+    Route::get('dashboard/stats', [CmsDashboardController::class, 'stats']);
+    Route::get('dashboard/top-posts', [CmsDashboardController::class, 'topPosts']);
+
+    // Contents
+    Route::get('contents/kanban', [CmsContentController::class, 'kanban']);
+    Route::get('contents/calendar', [CmsContentController::class, 'calendar']);
+    Route::apiResource('contents', CmsContentController::class);
+    Route::patch('contents/{content}/stage', [CmsContentController::class, 'updateStage']);
+    Route::post('contents/{content}/stats', [CmsContentController::class, 'addStats']);
+    Route::patch('contents/{content}/mark-for-ads', [CmsContentController::class, 'markForAds']);
+
+    // Content Stage Assignees
+    Route::post('contents/{content}/stages/{stage}/assignees', [CmsContentStageController::class, 'addAssignee']);
+    Route::delete('contents/{content}/stages/{stage}/assignees/{employee}', [CmsContentStageController::class, 'removeAssignee']);
+
+    // Ad Campaigns
+    Route::apiResource('ads', CmsAdCampaignController::class)->parameters(['ads' => 'adCampaign']);
+    Route::post('ads/{adCampaign}/stats', [CmsAdCampaignController::class, 'addStats']);
 });
