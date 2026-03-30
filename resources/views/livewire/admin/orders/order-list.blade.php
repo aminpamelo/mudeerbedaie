@@ -569,6 +569,21 @@ new class extends Component
 
         $phone = $this->newStudentPhone ?: null;
 
+        // Check if a user with this phone already exists
+        if ($phone) {
+            $existingUser = \App\Models\User::where('phone', $phone)->first();
+            if ($existingUser) {
+                $this->addError('newStudentPhone', 'A user with this phone number already exists. Please use the matching student above to link them instead.');
+                return;
+            }
+
+            $existingStudent = \App\Models\Student::where('phone', $phone)->first();
+            if ($existingStudent) {
+                $this->addError('newStudentPhone', 'A student with this phone number already exists. Please use the matching student above to link them instead.');
+                return;
+            }
+        }
+
         // Create new user
         $baseEmail = $phone
             ? preg_replace('/[^0-9]/', '', $phone) . '@student.local'
@@ -579,26 +594,36 @@ new class extends Component
             $baseEmail = \Illuminate\Support\Str::slug($this->newStudentName) . '-' . \Illuminate\Support\Str::random(6) . '@student.local';
         }
 
-        $user = \App\Models\User::create([
-            'name' => $this->newStudentName,
-            'email' => $baseEmail,
-            'password' => bcrypt(\Illuminate\Support\Str::random(16)),
-            'role' => 'student',
-            'phone' => $phone,
-        ]);
+        try {
+            $user = \App\Models\User::create([
+                'name' => $this->newStudentName,
+                'email' => $baseEmail,
+                'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+                'role' => 'student',
+                'phone' => $phone,
+            ]);
 
-        $student = \App\Models\Student::create([
-            'user_id' => $user->id,
-            'phone' => $phone,
-            'status' => 'active',
-        ]);
+            $student = \App\Models\Student::create([
+                'user_id' => $user->id,
+                'phone' => $phone,
+                'status' => 'active',
+            ]);
 
-        // Link student to order
-        $order->update(['student_id' => $student->id]);
+            // Link student to order
+            $order->update(['student_id' => $student->id]);
 
-        $this->newStudentName = '';
-        $this->newStudentPhone = '';
-        $this->dispatch('order-updated', message: "Student '{$user->name}' created and linked to order.");
+            $this->newStudentName = '';
+            $this->newStudentPhone = '';
+            $this->dispatch('order-updated', message: "Student '{$user->name}' created and linked to order.");
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            if (str_contains($e->getMessage(), 'phone')) {
+                $this->addError('newStudentPhone', 'This phone number is already registered. Please link the existing student instead.');
+            } elseif (str_contains($e->getMessage(), 'email')) {
+                $this->addError('newStudentPhone', 'A user with this email already exists. Please try again.');
+            } else {
+                $this->addError('newStudentPhone', 'A duplicate record was found. Please link the existing student instead.');
+            }
+        }
     }
 
     public function getClassAssignOrderProperty(): ?ProductOrder
