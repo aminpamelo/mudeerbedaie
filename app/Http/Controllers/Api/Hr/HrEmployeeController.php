@@ -289,6 +289,48 @@ class HrEmployeeController extends Controller
     }
 
     /**
+     * Upload or replace employee profile photo.
+     */
+    public function updatePhoto(Request $request, Employee $employee): JsonResponse
+    {
+        $request->validate([
+            'profile_photo' => ['required', 'image', 'max:2048'],
+        ]);
+
+        if ($employee->profile_photo) {
+            Storage::disk('public')->delete($employee->profile_photo);
+        }
+
+        $path = $request->file('profile_photo')->store('employee-photos', 'public');
+        $employee->update(['profile_photo' => $path]);
+
+        $employee->load(['department', 'position']);
+
+        return response()->json([
+            'data' => $employee,
+            'message' => 'Profile photo updated successfully.',
+        ]);
+    }
+
+    /**
+     * Remove employee profile photo.
+     */
+    public function removePhoto(Employee $employee): JsonResponse
+    {
+        if ($employee->profile_photo) {
+            Storage::disk('public')->delete($employee->profile_photo);
+            $employee->update(['profile_photo' => null]);
+        }
+
+        $employee->load(['department', 'position']);
+
+        return response()->json([
+            'data' => $employee,
+            'message' => 'Profile photo removed successfully.',
+        ]);
+    }
+
+    /**
      * Soft delete employee.
      */
     public function destroy(Employee $employee): JsonResponse

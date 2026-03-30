@@ -44,6 +44,10 @@ export const deleteEmployee = (id) => api.delete(`/employees/${id}`).then(r => r
 export const fetchNextEmployeeId = () => api.get('/employees/next-id').then(r => r.data);
 export const fetchUnlinkedUsers = (params) => api.get('/employees/unlinked-users', { params }).then(r => r.data);
 export const exportEmployees = (params) => api.get('/employees/export', { params, responseType: 'blob' }).then(r => r.data);
+export const uploadProfilePhoto = (id, data) => api.post(`/employees/${id}/photo`, data, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+}).then(r => r.data);
+export const removeProfilePhoto = (id) => api.delete(`/employees/${id}/photo`).then(r => r.data);
 
 // ========== Employee Sub-resources ==========
 export const fetchEmployeeHistory = (id) => api.get(`/employees/${id}/history`).then(r => r.data);

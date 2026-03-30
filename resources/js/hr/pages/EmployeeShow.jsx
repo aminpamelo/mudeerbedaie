@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -21,6 +21,8 @@ import {
     Calendar,
     User,
     Clock,
+    Camera,
+    X,
 } from 'lucide-react';
 import {
     fetchEmployee,
@@ -34,6 +36,8 @@ import {
     deleteEmergencyContact,
     updateEmployeeStatus,
     deleteEmployee,
+    uploadProfilePhoto,
+    removeProfilePhoto,
 } from '../lib/api';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/button';
@@ -279,6 +283,38 @@ export default function EmployeeShow() {
         },
     });
 
+    // Profile photo
+    const photoInputRef = useRef(null);
+    const [photoUploading, setPhotoUploading] = useState(false);
+
+    const photoUploadMutation = useMutation({
+        mutationFn: (formData) => uploadProfilePhoto(id, formData),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'employee', id] });
+            setPhotoUploading(false);
+        },
+        onError: () => {
+            setPhotoUploading(false);
+        },
+    });
+
+    const photoRemoveMutation = useMutation({
+        mutationFn: () => removeProfilePhoto(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'employee', id] });
+        },
+    });
+
+    function handlePhotoChange(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setPhotoUploading(true);
+        const formData = new FormData();
+        formData.append('profile_photo', file);
+        photoUploadMutation.mutate(formData);
+        e.target.value = '';
+    }
+
     function resetContactDialog() {
         setShowContactDialog(false);
         setContactForm({ name: '', relationship: '', phone: '', address: '' });
@@ -356,17 +392,46 @@ export default function EmployeeShow() {
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-4">
-                    {/* Avatar */}
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-lg font-semibold text-white">
-                        {emp.photo_url ? (
-                            <img
-                                src={emp.photo_url}
-                                alt={fullName}
-                                className="h-16 w-16 rounded-full object-cover"
-                            />
-                        ) : (
-                            getInitials(fullName)
+                    {/* Avatar with photo upload */}
+                    <div className="relative group">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-lg font-semibold text-white overflow-hidden">
+                            {photoUploading ? (
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            ) : emp.profile_photo_url ? (
+                                <img
+                                    src={emp.profile_photo_url}
+                                    alt={fullName}
+                                    className="h-16 w-16 rounded-full object-cover"
+                                />
+                            ) : (
+                                getInitials(fullName)
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => photoInputRef.current?.click()}
+                            className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            title="Change profile photo"
+                        >
+                            <Camera className="h-5 w-5 text-white" />
+                        </button>
+                        {emp.profile_photo_url && (
+                            <button
+                                type="button"
+                                onClick={() => photoRemoveMutation.mutate()}
+                                className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                title="Remove photo"
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
                         )}
+                        <input
+                            ref={photoInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handlePhotoChange}
+                        />
                     </div>
                     <div className="space-y-1">
                         <h1 className="text-2xl font-bold tracking-tight text-zinc-900">

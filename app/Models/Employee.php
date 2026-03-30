@@ -19,6 +19,7 @@ class Employee extends Model
 
     protected $appends = [
         'employment_type_label',
+        'profile_photo_url',
     ];
 
     protected $fillable = [
@@ -319,6 +320,18 @@ class Employee extends Model
             'resigned', 'terminated' => 'red',
             default => 'gray',
         };
+    }
+
+    /**
+     * Get the full URL for the employee's profile photo.
+     */
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        if (! $this->profile_photo) {
+            return null;
+        }
+
+        return asset('storage/'.$this->profile_photo);
     }
 
     /**
