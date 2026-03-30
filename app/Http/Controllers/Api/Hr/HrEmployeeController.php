@@ -114,8 +114,35 @@ class HrEmployeeController extends Controller
             // Generate employee ID
             $employeeId = Employee::generateEmployeeId();
 
+            // Ensure all nullable fields have explicit null defaults
+            $defaults = [
+                'ic_number' => null,
+                'date_of_birth' => null,
+                'gender' => null,
+                'religion' => null,
+                'race' => null,
+                'marital_status' => null,
+                'phone' => null,
+                'personal_email' => null,
+                'address_line_1' => null,
+                'address_line_2' => null,
+                'city' => null,
+                'state' => null,
+                'postcode' => null,
+                'department_id' => null,
+                'position_id' => null,
+                'employment_type' => null,
+                'join_date' => null,
+                'bank_name' => null,
+                'bank_account_number' => null,
+                'epf_number' => null,
+                'socso_number' => null,
+                'tax_number' => null,
+                'notes' => null,
+            ];
+
             // Create employee record
-            $employee = Employee::create(array_merge($validated, [
+            $employee = Employee::create(array_merge($defaults, $validated, [
                 'user_id' => $user->id,
                 'employee_id' => $employeeId,
                 'profile_photo' => $profilePhotoPath,
