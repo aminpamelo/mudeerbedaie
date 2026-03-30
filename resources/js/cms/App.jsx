@@ -5,6 +5,7 @@ import CmsLayout from './layouts/CmsLayout';
 import Dashboard from './pages/Dashboard';
 import ContentList from './pages/ContentList';
 import ContentCreate from './pages/ContentCreate';
+import ContentDetail from './pages/ContentDetail';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -24,6 +25,7 @@ export default function App() {
                         <Route index element={<Dashboard />} />
                         <Route path="contents" element={<ContentList />} />
                         <Route path="contents/create" element={<ContentCreate />} />
+                        <Route path="contents/:id" element={<ContentDetail />} />
                         {/* More routes added in later tasks */}
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>
