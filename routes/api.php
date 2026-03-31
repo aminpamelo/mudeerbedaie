@@ -373,7 +373,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
 | POS (Point of Sale) API Routes
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth:sanctum'])->prefix('pos')->group(function () {
+Route::middleware(['auth:web'])->prefix('pos')->group(function () {
     Route::get('sales-sources', [\App\Http\Controllers\Api\PosController::class, 'salesSources'])->name('api.pos.sales-sources');
     Route::get('products', [\App\Http\Controllers\Api\PosController::class, 'products'])->name('api.pos.products');
     Route::get('packages', [\App\Http\Controllers\Api\PosController::class, 'packages'])->name('api.pos.packages');
@@ -386,6 +386,7 @@ Route::middleware(['auth:sanctum'])->prefix('pos')->group(function () {
     Route::put('sales/{sale}/status', [\App\Http\Controllers\Api\PosController::class, 'updateSaleStatus'])->name('api.pos.sales.update-status');
     Route::put('sales/{sale}/details', [\App\Http\Controllers\Api\PosController::class, 'updateSaleDetails'])->name('api.pos.sales.update-details');
     Route::delete('sales/{sale}', [\App\Http\Controllers\Api\PosController::class, 'deleteSale'])->name('api.pos.sales.destroy');
+    Route::get('sales/{sale}/receipt-pdf', [\App\Http\Controllers\Api\PosController::class, 'receiptPdf'])->name('api.pos.sales.receipt-pdf');
     Route::get('dashboard', [\App\Http\Controllers\Api\PosController::class, 'dashboard'])->name('api.pos.dashboard');
     Route::get('reports/monthly', [\App\Http\Controllers\Api\PosController::class, 'reportMonthly'])->name('api.pos.reports.monthly');
     Route::get('reports/daily', [\App\Http\Controllers\Api\PosController::class, 'reportDaily'])->name('api.pos.reports.daily');
@@ -472,7 +473,8 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::apiResource('employees.emergency-contacts', HrEmergencyContactController::class)->shallow()->names('api.hr.emergency-contacts');
 
     // Organization Chart
-    Route::get('org-chart', HrOrgChartController::class)->name('api.hr.org-chart');
+    Route::get('org-chart', [HrOrgChartController::class, 'index'])->name('api.hr.org-chart');
+    Route::patch('org-chart/employees/{employee}/manager', [HrOrgChartController::class, 'assignManager'])->name('api.hr.org-chart.assign-manager');
 
     // Departments
     Route::get('departments/tree', [HrDepartmentController::class, 'tree'])->name('api.hr.departments.tree');
