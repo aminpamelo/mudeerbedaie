@@ -389,6 +389,7 @@ Route::middleware(['auth:sanctum'])->prefix('pos')->group(function () {
     Route::get('dashboard', [\App\Http\Controllers\Api\PosController::class, 'dashboard'])->name('api.pos.dashboard');
     Route::get('reports/monthly', [\App\Http\Controllers\Api\PosController::class, 'reportMonthly'])->name('api.pos.reports.monthly');
     Route::get('reports/daily', [\App\Http\Controllers\Api\PosController::class, 'reportDaily'])->name('api.pos.reports.daily');
+    Route::get('sales/export', [\App\Http\Controllers\Api\PosController::class, 'exportSales'])->name('api.pos.sales.export');
 });
 
 /*

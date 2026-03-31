@@ -109,6 +109,11 @@ export const saleApi = {
     delete: (id) => request(`/sales/${id}`, {
         method: 'DELETE',
     }),
+    exportCsv: (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        const url = `${window.posConfig?.apiBaseUrl || '/api/pos'}/sales/export?${query}`;
+        window.open(url, '_blank');
+    },
 };
 
 export const dashboardApi = {

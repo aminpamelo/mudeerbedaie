@@ -36,6 +36,8 @@ class StoreLeaveTypeRequest extends FormRequest
             'gender_restriction' => ['nullable', 'in:male,female'],
             'color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'max_consecutive_days' => ['nullable', 'integer', 'min:1'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
         ];
     }
 

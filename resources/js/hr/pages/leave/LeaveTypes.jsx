@@ -38,8 +38,8 @@ const EMPTY_FORM = {
     name: '',
     code: '',
     is_paid: true,
-    requires_attachment: false,
-    gender_specific: '',
+    is_attachment_required: false,
+    gender_restriction: '',
     color: '#3b82f6',
     sort_order: 0,
     is_active: true,
@@ -76,6 +76,7 @@ export default function LeaveTypes() {
     const queryClient = useQueryClient();
     const [formDialog, setFormDialog] = useState({ open: false, mode: 'create', data: null });
     const [form, setForm] = useState(EMPTY_FORM);
+    const [formErrors, setFormErrors] = useState({});
     const [deleteDialog, setDeleteDialog] = useState({ open: false, leaveType: null });
 
     const { data, isLoading } = useQuery({
@@ -83,12 +84,18 @@ export default function LeaveTypes() {
         queryFn: () => fetchLeaveTypes({ per_page: 100 }),
     });
 
+    const handleMutationError = (err) => {
+        const errors = err?.response?.data?.errors || {};
+        setFormErrors(errors);
+    };
+
     const createMutation = useMutation({
         mutationFn: (data) => createLeaveType(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'leave', 'types'] });
             closeFormDialog();
         },
+        onError: handleMutationError,
     });
 
     const updateMutation = useMutation({
@@ -97,6 +104,7 @@ export default function LeaveTypes() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'leave', 'types'] });
             closeFormDialog();
         },
+        onError: handleMutationError,
     });
 
     const deleteMutation = useMutation({
@@ -118,6 +126,7 @@ export default function LeaveTypes() {
 
     function openCreateDialog() {
         setForm(EMPTY_FORM);
+        setFormErrors({});
         setFormDialog({ open: true, mode: 'create', data: null });
     }
 
@@ -126,13 +135,14 @@ export default function LeaveTypes() {
             name: lt.name || '',
             code: lt.code || '',
             is_paid: lt.is_paid ?? true,
-            requires_attachment: lt.requires_attachment ?? false,
-            gender_specific: lt.gender_specific || '',
+            is_attachment_required: lt.is_attachment_required ?? false,
+            gender_restriction: lt.gender_restriction || '',
             color: lt.color || '#3b82f6',
             sort_order: lt.sort_order ?? 0,
             is_active: lt.is_active ?? true,
             description: lt.description || '',
         });
+        setFormErrors({});
         setFormDialog({ open: true, mode: 'edit', data: lt });
     }
 
@@ -142,10 +152,15 @@ export default function LeaveTypes() {
     }
 
     function handleSubmit() {
+        setFormErrors({});
+        const payload = {
+            ...form,
+            gender_restriction: form.gender_restriction || null,
+        };
         if (formDialog.mode === 'create') {
-            createMutation.mutate(form);
+            createMutation.mutate(payload);
         } else {
-            updateMutation.mutate({ id: formDialog.data.id, data: form });
+            updateMutation.mutate({ id: formDialog.data.id, data: payload });
         }
     }
 
@@ -208,11 +223,11 @@ export default function LeaveTypes() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-sm text-zinc-500">
-                                                {lt.requires_attachment ? 'Required' : '-'}
+                                                {lt.is_attachment_required ? 'Required' : '-'}
                                             </TableCell>
                                             <TableCell className="text-sm text-zinc-500">
-                                                {lt.gender_specific ? (
-                                                    <Badge variant="outline">{lt.gender_specific}</Badge>
+                                                {lt.gender_restriction ? (
+                                                    <Badge variant="outline">{lt.gender_restriction}</Badge>
                                                 ) : 'All'}
                                             </TableCell>
                                             <TableCell>
@@ -284,6 +299,16 @@ export default function LeaveTypes() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
+                        {Object.keys(formErrors).length > 0 && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                                <p className="text-sm font-medium text-red-800">Please fix the following errors:</p>
+                                <ul className="mt-1 list-inside list-disc text-sm text-red-600">
+                                    {Object.values(formErrors).flat().map((msg, i) => (
+                                        <li key={i}>{msg}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="mb-1 block text-sm font-medium text-zinc-700">Name</label>
@@ -292,6 +317,7 @@ export default function LeaveTypes() {
                                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                                     placeholder="e.g. Annual Leave"
                                 />
+                                {formErrors.name && <p className="mt-1 text-xs text-red-500">{formErrors.name[0]}</p>}
                             </div>
                             <div>
                                 <label className="mb-1 block text-sm font-medium text-zinc-700">Code</label>
@@ -300,6 +326,7 @@ export default function LeaveTypes() {
                                     onChange={(e) => setForm({ ...form, code: e.target.value })}
                                     placeholder="e.g. AL"
                                 />
+                                {formErrors.code && <p className="mt-1 text-xs text-red-500">{formErrors.code[0]}</p>}
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -337,8 +364,8 @@ export default function LeaveTypes() {
                                         <input
                                             type="radio"
                                             name="gender"
-                                            checked={form.gender_specific === g}
-                                            onChange={() => setForm({ ...form, gender_specific: g })}
+                                            checked={form.gender_restriction === g}
+                                            onChange={() => setForm({ ...form, gender_restriction: g })}
                                             className="text-zinc-900"
                                         />
                                         {g === '' ? 'All' : g.charAt(0).toUpperCase() + g.slice(1)}
@@ -356,8 +383,8 @@ export default function LeaveTypes() {
                             </label>
                             <label className="flex items-center gap-2">
                                 <Checkbox
-                                    checked={form.requires_attachment}
-                                    onCheckedChange={(v) => setForm({ ...form, requires_attachment: v })}
+                                    checked={form.is_attachment_required}
+                                    onCheckedChange={(v) => setForm({ ...form, is_attachment_required: v })}
                                 />
                                 <span className="text-sm">Requires attachment</span>
                             </label>

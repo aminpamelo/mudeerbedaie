@@ -333,6 +333,7 @@ export default function AttendanceRecords() {
                                         <TableHead>Total Hours</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead>Late</TableHead>
+                                        <TableHead>Early Leave</TableHead>
                                         <TableHead className="w-20">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -362,7 +363,7 @@ export default function AttendanceRecords() {
                                                 {formatTime(record.clock_out)}
                                             </TableCell>
                                             <TableCell className="text-sm text-zinc-600">
-                                                {formatHours(record.total_minutes)}
+                                                {formatHours(record.total_work_minutes)}
                                             </TableCell>
                                             <TableCell>
                                                 <AttendanceStatusBadge status={record.status} />
@@ -370,6 +371,13 @@ export default function AttendanceRecords() {
                                             <TableCell className="text-sm">
                                                 {record.late_minutes > 0 ? (
                                                     <span className="font-medium text-amber-600">{formatHours(record.late_minutes)}</span>
+                                                ) : (
+                                                    <span className="text-zinc-400">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-sm">
+                                                {record.early_leave_minutes > 0 ? (
+                                                    <span className="font-medium text-orange-600">{formatHours(record.early_leave_minutes)}</span>
                                                 ) : (
                                                     <span className="text-zinc-400">-</span>
                                                 )}
@@ -449,7 +457,26 @@ export default function AttendanceRecords() {
                                 </div>
                                 <div>
                                     <p className="text-xs font-medium text-zinc-500">Total Hours</p>
-                                    <p className="text-sm text-zinc-900">{formatHours(detailRecord.total_minutes)}</p>
+                                    <p className="text-sm text-zinc-900">{formatHours(detailRecord.total_work_minutes)}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs font-medium text-zinc-500">Late</p>
+                                    {detailRecord.late_minutes > 0 ? (
+                                        <span className="text-sm font-medium text-amber-600">{formatHours(detailRecord.late_minutes)}</span>
+                                    ) : (
+                                        <p className="text-sm text-zinc-900">-</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-zinc-500">Early Leave</p>
+                                    {detailRecord.early_leave_minutes > 0 ? (
+                                        <span className="text-sm font-medium text-orange-600">{formatHours(detailRecord.early_leave_minutes)}</span>
+                                    ) : (
+                                        <p className="text-sm text-zinc-900">-</p>
+                                    )}
                                 </div>
                             </div>
 

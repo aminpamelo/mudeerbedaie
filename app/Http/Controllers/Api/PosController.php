@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PosController extends Controller
 {
@@ -699,6 +700,133 @@ class PosController extends Controller
                     'customer_name' => $o->getCustomerName(),
                 ])->values(),
             ],
+        ]);
+    }
+
+    /**
+     * Export sales history as CSV with customer information.
+     */
+    public function exportSales(Request $request): StreamedResponse
+    {
+        $query = ProductOrder::query()
+            ->where('source', 'pos')
+            ->with(['items', 'customer'])
+            ->latest('order_date');
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', "%{$search}%")
+                    ->orWhere('customer_name', 'like', "%{$search}%")
+                    ->orWhere('customer_phone', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($cq) use ($search) {
+                        $cq->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($status = $request->get('status')) {
+            if ($status === 'paid') {
+                $query->whereNotNull('paid_time');
+            } elseif ($status === 'pending') {
+                $query->whereNull('paid_time')->where('status', '!=', 'cancelled');
+            } elseif ($status === 'cancelled') {
+                $query->where('status', 'cancelled');
+            }
+        }
+
+        if ($paymentMethod = $request->get('payment_method')) {
+            $query->where('payment_method', $paymentMethod);
+        }
+
+        if ($period = $request->get('period')) {
+            match ($period) {
+                'today' => $query->whereDate('order_date', today()),
+                'this_week' => $query->whereBetween('order_date', [now()->startOfWeek(), now()->endOfWeek()]),
+                'this_month' => $query->whereBetween('order_date', [now()->startOfMonth(), now()->endOfMonth()]),
+                default => null,
+            };
+        }
+
+        $query->whereJsonContains('metadata->salesperson_id', $request->user()->id);
+
+        $sales = $query->get();
+
+        $filename = 'pos-sales-export-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($sales) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Order Number',
+                'Order Date',
+                'Status',
+                'Payment Method',
+                'Total Amount',
+                'Discount Amount',
+                'Customer Name',
+                'Customer Email',
+                'Customer Phone',
+                'Shipping Address',
+                'Items',
+                'Tracking Number',
+                'Notes',
+                'Salesperson',
+            ]);
+
+            foreach ($sales as $sale) {
+                $customerName = $sale->customer?->name ?? $sale->customer_name ?? 'Walk-in';
+                $customerEmail = $sale->customer?->email ?? $sale->guest_email ?? '';
+                $customerPhone = $sale->customer?->phone ?? $sale->customer_phone ?? '';
+
+                $address = '';
+                if ($sale->shipping_address) {
+                    if (is_string($sale->shipping_address)) {
+                        $address = $sale->shipping_address;
+                    } elseif (is_array($sale->shipping_address)) {
+                        $address = $sale->shipping_address['full_address'] ?? implode(', ', array_filter([
+                            $sale->shipping_address['address_1'] ?? '',
+                            $sale->shipping_address['address_2'] ?? '',
+                            $sale->shipping_address['city'] ?? '',
+                            $sale->shipping_address['state'] ?? '',
+                            $sale->shipping_address['postcode'] ?? '',
+                            $sale->shipping_address['country'] ?? '',
+                        ]));
+                    }
+                }
+
+                $items = $sale->items->map(function ($item) {
+                    $name = $item->product_name;
+                    if ($item->variant_name) {
+                        $name .= " ({$item->variant_name})";
+                    }
+
+                    return $name.' x'.($item->quantity_ordered ?? $item->quantity);
+                })->implode('; ');
+
+                $status = $sale->paid_time ? 'Paid' : ($sale->status === 'cancelled' ? 'Cancelled' : 'Pending');
+
+                fputcsv($handle, [
+                    $sale->order_number,
+                    $sale->order_date?->format('Y-m-d H:i:s'),
+                    $status,
+                    $sale->payment_method,
+                    number_format((float) $sale->total_amount, 2, '.', ''),
+                    number_format((float) $sale->discount_amount, 2, '.', ''),
+                    $customerName,
+                    $customerEmail,
+                    $customerPhone,
+                    $address,
+                    $items,
+                    $sale->tracking_id ?? '',
+                    $sale->internal_notes ?? '',
+                    $sale->metadata['salesperson_name'] ?? '',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
         ]);
     }
 }
