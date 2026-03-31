@@ -603,7 +603,7 @@ export default function EmployeeEdit() {
                                                         key={pos.id}
                                                         value={String(pos.id)}
                                                     >
-                                                        {pos.name}
+                                                        {pos.title}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
