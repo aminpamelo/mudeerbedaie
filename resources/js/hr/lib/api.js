@@ -63,6 +63,9 @@ export const deleteEmergencyContact = (employeeId, contactId) => api.delete(`/em
 
 // ========== Organization Chart ==========
 export const fetchOrgChart = () => api.get('/org-chart').then(r => r.data);
+export const assignEmployeeManager = (employeeId, data) => api.patch(`/org-chart/employees/${employeeId}/manager`, data).then(r => r.data);
+export const fetchDeptOrgChart = () => api.get('/org-chart/departments').then(r => r.data);
+export const assignDepartmentParent = (departmentId, data) => api.patch(`/org-chart/departments/${departmentId}/parent`, data).then(r => r.data);
 
 // ========== Departments ==========
 export const fetchDepartments = (params) => api.get('/departments', { params }).then(r => r.data);

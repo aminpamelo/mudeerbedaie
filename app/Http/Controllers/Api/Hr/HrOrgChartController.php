@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Models\Department;
 use App\Models\Employee;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ class HrOrgChartController extends Controller
      * Builds a top-down tree: top-level employees (no reports_to)
      * with their direct reports nested recursively.
      */
-    public function __invoke(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $employees = Employee::query()
             ->whereNotIn('status', ['terminated', 'resigned'])
@@ -107,5 +108,230 @@ class HrOrgChartController extends Controller
         }
 
         return $result;
+    }
+
+    /**
+     * Assign or remove the "Reports To" manager for an employee.
+     */
+    public function assignManager(Request $request, Employee $employee): JsonResponse
+    {
+        $validated = $request->validate([
+            'reports_to' => ['nullable', 'exists:employees,id'],
+        ]);
+
+        // Prevent self-referencing
+        if (isset($validated['reports_to']) && (int) $validated['reports_to'] === $employee->id) {
+            return response()->json([
+                'message' => 'An employee cannot report to themselves.',
+            ], 422);
+        }
+
+        // Prevent circular references
+        if (isset($validated['reports_to']) && $this->wouldCreateCycle($employee->id, (int) $validated['reports_to'])) {
+            return response()->json([
+                'message' => 'This assignment would create a circular reporting chain.',
+            ], 422);
+        }
+
+        $employee->update([
+            'reports_to' => $validated['reports_to'] ?? null,
+        ]);
+
+        $employee->load(['position:id,title,level', 'department:id,name,code', 'manager:id,full_name']);
+
+        return response()->json([
+            'message' => 'Manager assigned successfully.',
+            'data' => $employee,
+        ]);
+    }
+
+    /**
+     * Return the department hierarchy tree with employees nested under each department.
+     */
+    public function departmentTree(Request $request): JsonResponse
+    {
+        $departments = Department::query()
+            ->with([
+                'headEmployee:id,full_name,profile_photo,position_id',
+                'headEmployee.position:id,title,level',
+            ])
+            ->withCount([
+                'employees' => function ($query) {
+                    $query->whereNotIn('status', ['terminated', 'resigned']);
+                },
+            ])
+            ->orderBy('name')
+            ->get();
+
+        // Load active employees for each department
+        $employeesByDept = Employee::query()
+            ->whereNotIn('status', ['terminated', 'resigned'])
+            ->with('position:id,title,level')
+            ->select('id', 'full_name', 'profile_photo', 'position_id', 'department_id', 'employee_id')
+            ->orderBy('full_name')
+            ->get()
+            ->groupBy('department_id');
+
+        // Build adjacency map for departments
+        $childrenMap = [];
+        $roots = [];
+
+        foreach ($departments as $dept) {
+            $childrenMap[$dept->id] = [];
+        }
+
+        foreach ($departments as $dept) {
+            if ($dept->parent_id && isset($childrenMap[$dept->parent_id])) {
+                $childrenMap[$dept->parent_id][] = $dept;
+            } else {
+                $roots[] = $dept;
+            }
+        }
+
+        $tree = $this->buildDepartmentTree($roots, $childrenMap, $employeesByDept);
+
+        $totalDepartments = $departments->count();
+        $withParent = $departments->whereNotNull('parent_id')->count();
+
+        return response()->json([
+            'data' => $tree,
+            'meta' => [
+                'total_departments' => $totalDepartments,
+                'in_hierarchy' => $withParent,
+                'root_level' => $totalDepartments - $withParent,
+            ],
+        ]);
+    }
+
+    /**
+     * Assign or remove the parent department.
+     */
+    public function assignParent(Request $request, Department $department): JsonResponse
+    {
+        $validated = $request->validate([
+            'parent_id' => ['nullable', 'exists:departments,id'],
+        ]);
+
+        // Prevent self-referencing
+        if (isset($validated['parent_id']) && (int) $validated['parent_id'] === $department->id) {
+            return response()->json([
+                'message' => 'A department cannot be its own parent.',
+            ], 422);
+        }
+
+        // Prevent circular references
+        if (isset($validated['parent_id']) && $this->wouldCreateDeptCycle($department->id, (int) $validated['parent_id'])) {
+            return response()->json([
+                'message' => 'This assignment would create a circular department chain.',
+            ], 422);
+        }
+
+        $department->update([
+            'parent_id' => $validated['parent_id'] ?? null,
+        ]);
+
+        $department->load('parent:id,name,code');
+
+        return response()->json([
+            'message' => 'Parent department assigned successfully.',
+            'data' => $department,
+        ]);
+    }
+
+    /**
+     * Recursively build the department tree structure.
+     *
+     * @param  iterable<Department>  $nodes
+     * @param  array<int, array<Department>>  $childrenMap
+     * @param  \Illuminate\Support\Collection  $employeesByDept
+     * @return array<array>
+     */
+    private function buildDepartmentTree(iterable $nodes, array $childrenMap, $employeesByDept): array
+    {
+        $result = [];
+
+        foreach ($nodes as $node) {
+            $children = $childrenMap[$node->id] ?? [];
+
+            usort($children, fn ($a, $b) => strcmp($a->name, $b->name));
+
+            $deptEmployees = $employeesByDept->get($node->id, collect());
+
+            // Put head employee first if set
+            $headId = $node->head_employee_id;
+            $sortedEmployees = $deptEmployees->sortBy(function ($emp) use ($headId) {
+                return $emp->id === $headId ? 0 : 1;
+            })->values();
+
+            $result[] = [
+                'id' => $node->id,
+                'name' => $node->name,
+                'code' => $node->code,
+                'description' => $node->description,
+                'parent_id' => $node->parent_id,
+                'head_employee_id' => $node->head_employee_id,
+                'head_employee' => $node->headEmployee ? [
+                    'id' => $node->headEmployee->id,
+                    'full_name' => $node->headEmployee->full_name,
+                    'profile_photo_url' => $node->headEmployee->profile_photo_url,
+                    'position' => $node->headEmployee->position ? [
+                        'title' => $node->headEmployee->position->title,
+                    ] : null,
+                ] : null,
+                'employee_count' => $node->employees_count,
+                'employees' => $sortedEmployees->map(fn ($emp) => [
+                    'id' => $emp->id,
+                    'full_name' => $emp->full_name,
+                    'profile_photo_url' => $emp->profile_photo_url,
+                    'employee_id' => $emp->employee_id,
+                    'position' => $emp->position ? [
+                        'title' => $emp->position->title,
+                        'level' => $emp->position->level,
+                    ] : null,
+                    'is_head' => $emp->id === $headId,
+                ])->values()->all(),
+                'children' => $this->buildDepartmentTree($children, $childrenMap, $employeesByDept),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Check if assigning managerId to employeeId would create a cycle.
+     */
+    private function wouldCreateCycle(int $employeeId, int $managerId): bool
+    {
+        $visited = [$employeeId];
+        $current = $managerId;
+
+        while ($current) {
+            if (in_array($current, $visited)) {
+                return true;
+            }
+            $visited[] = $current;
+            $current = Employee::where('id', $current)->value('reports_to');
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if assigning parentId to departmentId would create a cycle.
+     */
+    private function wouldCreateDeptCycle(int $departmentId, int $parentId): bool
+    {
+        $visited = [$departmentId];
+        $current = $parentId;
+
+        while ($current) {
+            if (in_array($current, $visited)) {
+                return true;
+            }
+            $visited[] = $current;
+            $current = Department::where('id', $current)->value('parent_id');
+        }
+
+        return false;
     }
 }

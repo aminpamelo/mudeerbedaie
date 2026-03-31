@@ -136,6 +136,109 @@ test('org chart includes position and department info', function () {
     expect($employee['department']['name'])->toBe('Engineering');
 });
 
+// ========== Assign Manager Tests ==========
+
+test('admin can assign a manager to an employee', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $dept = Department::factory()->create();
+    $position = Position::factory()->create(['department_id' => $dept->id]);
+
+    $manager = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $position->id,
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $position->id,
+        'status' => 'active',
+        'reports_to' => null,
+    ]);
+
+    $this->actingAs($admin)
+        ->patchJson("/api/hr/org-chart/employees/{$employee->id}/manager", [
+            'reports_to' => $manager->id,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('message', 'Manager assigned successfully.');
+
+    expect($employee->fresh()->reports_to)->toBe($manager->id);
+});
+
+test('admin can remove a manager assignment', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $dept = Department::factory()->create();
+    $position = Position::factory()->create(['department_id' => $dept->id]);
+
+    $manager = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $position->id,
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $position->id,
+        'status' => 'active',
+        'reports_to' => $manager->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->patchJson("/api/hr/org-chart/employees/{$employee->id}/manager", [
+            'reports_to' => null,
+        ])
+        ->assertSuccessful();
+
+    expect($employee->fresh()->reports_to)->toBeNull();
+});
+
+test('employee cannot report to themselves', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $dept = Department::factory()->create();
+    $position = Position::factory()->create(['department_id' => $dept->id]);
+
+    $employee = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $position->id,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($admin)
+        ->patchJson("/api/hr/org-chart/employees/{$employee->id}/manager", [
+            'reports_to' => $employee->id,
+        ])
+        ->assertStatus(422);
+});
+
+test('assign manager prevents circular references', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $dept = Department::factory()->create();
+    $position = Position::factory()->create(['department_id' => $dept->id]);
+
+    $employeeA = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $position->id,
+        'status' => 'active',
+        'reports_to' => null,
+    ]);
+
+    $employeeB = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $position->id,
+        'status' => 'active',
+        'reports_to' => $employeeA->id,
+    ]);
+
+    // Try to make A report to B (would create cycle: A -> B -> A)
+    $this->actingAs($admin)
+        ->patchJson("/api/hr/org-chart/employees/{$employeeA->id}/manager", [
+            'reports_to' => $employeeB->id,
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'This assignment would create a circular reporting chain.');
+});
+
 test('org chart sorts children by position level', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
@@ -175,4 +278,112 @@ test('org chart sorts children by position level', function () {
     // Manager (level 2) should come before Worker (level 3)
     expect($children[0]['id'])->toBe($manager->id);
     expect($children[1]['id'])->toBe($worker->id);
+});
+
+// ========== Department Org Chart Tests ==========
+
+test('admin can view department org chart with hierarchy', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $parentDept = Department::factory()->create(['name' => 'Top Management', 'parent_id' => null]);
+    $childDept = Department::factory()->create(['name' => 'Engineering', 'parent_id' => $parentDept->id]);
+    $position = Position::factory()->create(['department_id' => $childDept->id]);
+
+    Employee::factory()->create([
+        'department_id' => $childDept->id,
+        'position_id' => $position->id,
+        'status' => 'active',
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->getJson('/api/hr/org-chart/departments')
+        ->assertSuccessful()
+        ->assertJsonStructure([
+            'data' => [
+                '*' => [
+                    'id',
+                    'name',
+                    'code',
+                    'parent_id',
+                    'employee_count',
+                    'employees',
+                    'children',
+                ],
+            ],
+            'meta' => [
+                'total_departments',
+                'in_hierarchy',
+                'root_level',
+            ],
+        ]);
+
+    $data = $response->json();
+    expect($data['meta']['total_departments'])->toBe(2);
+    expect($data['meta']['in_hierarchy'])->toBe(1);
+    expect($data['meta']['root_level'])->toBe(1);
+
+    // Parent is root, child is nested
+    expect($data['data'])->toHaveCount(1);
+    expect($data['data'][0]['id'])->toBe($parentDept->id);
+    expect($data['data'][0]['children'])->toHaveCount(1);
+    expect($data['data'][0]['children'][0]['id'])->toBe($childDept->id);
+    expect($data['data'][0]['children'][0]['employees'])->toHaveCount(1);
+});
+
+test('admin can assign a parent department', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $parent = Department::factory()->create();
+    $child = Department::factory()->create(['parent_id' => null]);
+
+    $this->actingAs($admin)
+        ->patchJson("/api/hr/org-chart/departments/{$child->id}/parent", [
+            'parent_id' => $parent->id,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('message', 'Parent department assigned successfully.');
+
+    expect($child->fresh()->parent_id)->toBe($parent->id);
+});
+
+test('admin can remove parent department assignment', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $parent = Department::factory()->create();
+    $child = Department::factory()->create(['parent_id' => $parent->id]);
+
+    $this->actingAs($admin)
+        ->patchJson("/api/hr/org-chart/departments/{$child->id}/parent", [
+            'parent_id' => null,
+        ])
+        ->assertSuccessful();
+
+    expect($child->fresh()->parent_id)->toBeNull();
+});
+
+test('department cannot be its own parent', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $dept = Department::factory()->create();
+
+    $this->actingAs($admin)
+        ->patchJson("/api/hr/org-chart/departments/{$dept->id}/parent", [
+            'parent_id' => $dept->id,
+        ])
+        ->assertStatus(422);
+});
+
+test('assign parent prevents circular department chain', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $deptA = Department::factory()->create(['parent_id' => null]);
+    $deptB = Department::factory()->create(['parent_id' => $deptA->id]);
+
+    // Try to make A a child of B (would create cycle: A -> B -> A)
+    $this->actingAs($admin)
+        ->patchJson("/api/hr/org-chart/departments/{$deptA->id}/parent", [
+            'parent_id' => $deptB->id,
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'This assignment would create a circular department chain.');
 });

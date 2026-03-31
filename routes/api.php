@@ -475,6 +475,8 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     // Organization Chart
     Route::get('org-chart', [HrOrgChartController::class, 'index'])->name('api.hr.org-chart');
     Route::patch('org-chart/employees/{employee}/manager', [HrOrgChartController::class, 'assignManager'])->name('api.hr.org-chart.assign-manager');
+    Route::get('org-chart/departments', [HrOrgChartController::class, 'departmentTree'])->name('api.hr.org-chart.departments');
+    Route::patch('org-chart/departments/{department}/parent', [HrOrgChartController::class, 'assignParent'])->name('api.hr.org-chart.assign-parent');
 
     // Departments
     Route::get('departments/tree', [HrDepartmentController::class, 'tree'])->name('api.hr.departments.tree');
