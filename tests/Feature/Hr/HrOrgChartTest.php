@@ -22,33 +22,25 @@ test('non-admin/employee users cannot access org chart', function () {
         ->assertForbidden();
 });
 
-test('admin can view org chart with departments and employees', function () {
+test('admin can view org chart with employee hierarchy', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
-    $parentDept = Department::factory()->create(['parent_id' => null]);
-    $childDept = Department::factory()->create(['parent_id' => $parentDept->id]);
+    $dept = Department::factory()->create();
+    $ceoPosition = Position::factory()->create(['department_id' => $dept->id, 'title' => 'CEO', 'level' => 1]);
+    $mgrPosition = Position::factory()->create(['department_id' => $dept->id, 'title' => 'Manager', 'level' => 2]);
 
-    $position = Position::factory()->create(['department_id' => $parentDept->id]);
-    $childPosition = Position::factory()->create(['department_id' => $childDept->id]);
-
-    $headEmployee = Employee::factory()->create([
-        'department_id' => $parentDept->id,
-        'position_id' => $position->id,
+    $ceo = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $ceoPosition->id,
         'status' => 'active',
+        'reports_to' => null,
     ]);
 
-    $parentDept->update(['head_employee_id' => $headEmployee->id]);
-
-    $employee = Employee::factory()->create([
-        'department_id' => $parentDept->id,
-        'position_id' => $position->id,
+    $manager = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $mgrPosition->id,
         'status' => 'active',
-    ]);
-
-    $childEmployee = Employee::factory()->create([
-        'department_id' => $childDept->id,
-        'position_id' => $childPosition->id,
-        'status' => 'active',
+        'reports_to' => $ceo->id,
     ]);
 
     $response = $this->actingAs($admin)
@@ -58,33 +50,36 @@ test('admin can view org chart with departments and employees', function () {
             'data' => [
                 '*' => [
                     'id',
-                    'name',
-                    'employees_count',
-                    'head_employee',
-                    'employees',
+                    'full_name',
+                    'profile_photo_url',
+                    'position',
+                    'department',
                     'children',
                 ],
             ],
             'meta' => [
                 'total_employees',
-                'total_departments',
+                'linked_employees',
+                'unlinked_employees',
             ],
         ]);
 
     $data = $response->json();
 
-    expect($data['meta']['total_employees'])->toBe(3);
-    expect($data['meta']['total_departments'])->toBe(2);
+    expect($data['meta']['total_employees'])->toBe(2);
+    expect($data['meta']['linked_employees'])->toBe(1);
+    expect($data['meta']['unlinked_employees'])->toBe(1);
+    // CEO is root, manager is child
     expect($data['data'])->toHaveCount(1);
-    expect($data['data'][0]['head_employee']['id'])->toBe($headEmployee->id);
-    expect($data['data'][0]['employees'])->toHaveCount(2);
+    expect($data['data'][0]['id'])->toBe($ceo->id);
     expect($data['data'][0]['children'])->toHaveCount(1);
+    expect($data['data'][0]['children'][0]['id'])->toBe($manager->id);
 });
 
 test('org chart excludes terminated and resigned employees', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
-    $dept = Department::factory()->create(['parent_id' => null]);
+    $dept = Department::factory()->create();
     $position = Position::factory()->create(['department_id' => $dept->id]);
 
     Employee::factory()->create([
@@ -111,17 +106,18 @@ test('org chart excludes terminated and resigned employees', function () {
 
     $data = $response->json();
 
-    expect($data['data'][0]['employees'])->toHaveCount(1);
     expect($data['meta']['total_employees'])->toBe(1);
+    expect($data['data'])->toHaveCount(1);
 });
 
-test('org chart includes employee position information', function () {
+test('org chart includes position and department info', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
-    $dept = Department::factory()->create(['parent_id' => null]);
+    $dept = Department::factory()->create(['name' => 'Engineering']);
     $position = Position::factory()->create([
         'department_id' => $dept->id,
         'title' => 'Software Engineer',
+        'level' => 3,
     ]);
 
     Employee::factory()->create([
@@ -134,17 +130,49 @@ test('org chart includes employee position information', function () {
         ->getJson('/api/hr/org-chart')
         ->assertSuccessful();
 
-    $employee = $response->json('data.0.employees.0');
+    $employee = $response->json('data.0');
     expect($employee['position']['title'])->toBe('Software Engineer');
+    expect($employee['position']['level'])->toBe(3);
+    expect($employee['department']['name'])->toBe('Engineering');
 });
 
-test('admin user can access org chart endpoint', function () {
+test('org chart sorts children by position level', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
-    Department::factory()->create(['parent_id' => null]);
+    $dept = Department::factory()->create();
+    $directorPos = Position::factory()->create(['department_id' => $dept->id, 'level' => 1]);
+    $mgrPos = Position::factory()->create(['department_id' => $dept->id, 'level' => 2]);
+    $workerPos = Position::factory()->create(['department_id' => $dept->id, 'level' => 3]);
 
-    $this->actingAs($admin)
+    $director = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $directorPos->id,
+        'status' => 'active',
+        'reports_to' => null,
+    ]);
+
+    $worker = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $workerPos->id,
+        'status' => 'active',
+        'reports_to' => $director->id,
+        'full_name' => 'Zara Worker',
+    ]);
+
+    $manager = Employee::factory()->create([
+        'department_id' => $dept->id,
+        'position_id' => $mgrPos->id,
+        'status' => 'active',
+        'reports_to' => $director->id,
+        'full_name' => 'Amy Manager',
+    ]);
+
+    $response = $this->actingAs($admin)
         ->getJson('/api/hr/org-chart')
-        ->assertSuccessful()
-        ->assertJsonStructure(['data', 'meta']);
+        ->assertSuccessful();
+
+    $children = $response->json('data.0.children');
+    // Manager (level 2) should come before Worker (level 3)
+    expect($children[0]['id'])->toBe($manager->id);
+    expect($children[1]['id'])->toBe($worker->id);
 });

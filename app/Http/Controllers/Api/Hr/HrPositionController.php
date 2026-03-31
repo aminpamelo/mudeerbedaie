@@ -53,7 +53,7 @@ class HrPositionController extends Controller
      */
     public function show(Position $position): JsonResponse
     {
-        $position->load(['department:id,name', 'employees:employees.id,full_name,employee_id,department_id,profile_photo'])
+        $position->load(['department:id,name', 'employees:employees.id,employees.full_name,employees.employee_id,employees.department_id,employees.profile_photo'])
             ->loadCount('employees');
 
         return response()->json(['data' => $position]);
@@ -95,7 +95,7 @@ class HrPositionController extends Controller
     public function employees(Position $position): JsonResponse
     {
         $employees = $position->employees()
-            ->select('employees.id', 'full_name', 'employee_id', 'department_id', 'profile_photo')
+            ->select('employees.id', 'employees.full_name', 'employees.employee_id', 'employees.department_id', 'employees.profile_photo')
             ->with('department:id,name')
             ->get();
 

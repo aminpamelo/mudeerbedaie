@@ -43,6 +43,7 @@ class Employee extends Model
         'profile_photo',
         'department_id',
         'position_id',
+        'reports_to',
         'employment_type',
         'join_date',
         'probation_end_date',
@@ -101,6 +102,22 @@ class Employee extends Model
     public function position(): BelongsTo
     {
         return $this->belongsTo(Position::class);
+    }
+
+    /**
+     * Get the manager this employee reports to
+     */
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'reports_to');
+    }
+
+    /**
+     * Get the employees who report directly to this employee
+     */
+    public function directReports(): HasMany
+    {
+        return $this->hasMany(Employee::class, 'reports_to');
     }
 
     /**

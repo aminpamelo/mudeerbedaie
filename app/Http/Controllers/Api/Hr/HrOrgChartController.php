@@ -3,75 +3,109 @@
 namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
-use App\Models\Department;
 use App\Models\Employee;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class HrOrgChartController extends Controller
 {
     /**
-     * Return the full organizational chart data.
+     * Return the employee hierarchy tree for the org chart.
      *
-     * Structure: departments (hierarchical) with their employees,
-     * positions, profile photos, and department heads.
+     * Builds a top-down tree: top-level employees (no reports_to)
+     * with their direct reports nested recursively.
      */
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
-        $departments = Department::with([
-            'headEmployee:id,full_name,profile_photo,position_id,department_id,employee_id,status',
-            'headEmployee.position:id,title,level',
-            'employees' => function ($q) {
-                $q->where('status', '!=', 'terminated')
-                    ->where('status', '!=', 'resigned')
-                    ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
-                    ->orderBy('positions.level', 'asc')
-                    ->orderBy('employees.full_name', 'asc')
-                    ->select('employees.id', 'employees.full_name', 'employees.profile_photo', 'employees.position_id', 'employees.department_id', 'employees.employee_id', 'employees.status');
-            },
-            'employees.position:id,title,level',
-            'children' => function ($q) {
-                $q->withCount('employees')->orderBy('name');
-            },
-            'children.headEmployee:id,full_name,profile_photo,position_id,department_id,employee_id,status',
-            'children.headEmployee.position:id,title,level',
-            'children.employees' => function ($q) {
-                $q->where('status', '!=', 'terminated')
-                    ->where('status', '!=', 'resigned')
-                    ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
-                    ->orderBy('positions.level', 'asc')
-                    ->orderBy('employees.full_name', 'asc')
-                    ->select('employees.id', 'employees.full_name', 'employees.profile_photo', 'employees.position_id', 'employees.department_id', 'employees.employee_id', 'employees.status');
-            },
-            'children.employees.position:id,title,level',
-            'children.children' => function ($q) {
-                $q->withCount('employees')->orderBy('name');
-            },
-            'children.children.headEmployee:id,full_name,profile_photo,position_id,department_id,employee_id,status',
-            'children.children.headEmployee.position:id,title,level',
-            'children.children.employees' => function ($q) {
-                $q->where('status', '!=', 'terminated')
-                    ->where('status', '!=', 'resigned')
-                    ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
-                    ->orderBy('positions.level', 'asc')
-                    ->orderBy('employees.full_name', 'asc')
-                    ->select('employees.id', 'employees.full_name', 'employees.profile_photo', 'employees.position_id', 'employees.department_id', 'employees.employee_id', 'employees.status');
-            },
-            'children.children.employees.position:id,title,level',
-        ])
-            ->whereNull('parent_id')
-            ->withCount('employees')
-            ->orderBy('name')
+        $employees = Employee::query()
+            ->whereNotIn('status', ['terminated', 'resigned'])
+            ->with([
+                'position:id,title,level',
+                'department:id,name,code',
+            ])
+            ->select('id', 'full_name', 'profile_photo', 'position_id', 'department_id', 'employee_id', 'status', 'reports_to')
+            ->orderByRaw('CASE WHEN reports_to IS NULL THEN 0 ELSE 1 END')
+            ->orderBy('full_name')
             ->get();
 
-        $totalEmployees = Employee::whereNotIn('status', ['terminated', 'resigned'])->count();
-        $totalDepartments = Department::count();
+        // Build adjacency map
+        $childrenMap = [];
+        $roots = [];
+
+        foreach ($employees as $emp) {
+            $childrenMap[$emp->id] = [];
+        }
+
+        foreach ($employees as $emp) {
+            if ($emp->reports_to && isset($childrenMap[$emp->reports_to])) {
+                $childrenMap[$emp->reports_to][] = $emp;
+            } else {
+                $roots[] = $emp;
+            }
+        }
+
+        // Recursively build tree
+        $tree = $this->buildTree($roots, $childrenMap);
+
+        $totalEmployees = $employees->count();
+        $linkedCount = $employees->whereNotNull('reports_to')->count();
 
         return response()->json([
-            'data' => $departments,
+            'data' => $tree,
             'meta' => [
                 'total_employees' => $totalEmployees,
-                'total_departments' => $totalDepartments,
+                'linked_employees' => $linkedCount,
+                'unlinked_employees' => $totalEmployees - $linkedCount,
             ],
         ]);
+    }
+
+    /**
+     * Recursively build the tree structure.
+     *
+     * @param  iterable<Employee>  $nodes
+     * @param  array<int, array<Employee>>  $childrenMap
+     * @return array<array>
+     */
+    private function buildTree(iterable $nodes, array $childrenMap): array
+    {
+        $result = [];
+
+        foreach ($nodes as $node) {
+            $children = $childrenMap[$node->id] ?? [];
+
+            // Sort children by position level (ascending), then by name
+            usort($children, function ($a, $b) {
+                $levelA = $a->position->level ?? 999;
+                $levelB = $b->position->level ?? 999;
+                if ($levelA !== $levelB) {
+                    return $levelA <=> $levelB;
+                }
+
+                return strcmp($a->full_name, $b->full_name);
+            });
+
+            $result[] = [
+                'id' => $node->id,
+                'employee_id' => $node->employee_id,
+                'full_name' => $node->full_name,
+                'profile_photo_url' => $node->profile_photo_url,
+                'position' => $node->position ? [
+                    'id' => $node->position->id,
+                    'title' => $node->position->title,
+                    'level' => $node->position->level,
+                ] : null,
+                'department' => $node->department ? [
+                    'id' => $node->department->id,
+                    'name' => $node->department->name,
+                    'code' => $node->department->code,
+                ] : null,
+                'status' => $node->status,
+                'reports_to' => $node->reports_to,
+                'children' => $this->buildTree($children, $childrenMap),
+            ];
+        }
+
+        return $result;
     }
 }

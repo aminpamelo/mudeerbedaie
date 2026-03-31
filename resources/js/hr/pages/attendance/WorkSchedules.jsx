@@ -139,15 +139,19 @@ export default function WorkSchedules() {
     }
 
     function openEdit(schedule) {
+        const numToDayMap = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun' };
+        const days = (schedule.working_days || []).map((d) =>
+            typeof d === 'number' ? numToDayMap[d] || d : d
+        );
         setEditingSchedule(schedule);
         setForm({
             name: schedule.name || '',
             type: schedule.type || 'fixed',
-            start_time: schedule.start_time || '09:00',
-            end_time: schedule.end_time || '18:00',
-            break_duration: schedule.break_duration ?? 60,
-            grace_period: schedule.grace_period ?? 15,
-            working_days: schedule.working_days || ['mon', 'tue', 'wed', 'thu', 'fri'],
+            start_time: (schedule.start_time || '09:00').slice(0, 5),
+            end_time: (schedule.end_time || '18:00').slice(0, 5),
+            break_duration: schedule.break_duration_minutes ?? schedule.break_duration ?? 60,
+            grace_period: schedule.grace_period_minutes ?? schedule.grace_period ?? 15,
+            working_days: days,
             is_default: schedule.is_default || false,
         });
         setShowDialog(true);
@@ -159,11 +163,26 @@ export default function WorkSchedules() {
         setForm({ ...EMPTY_FORM });
     }
 
+    function buildPayload(formData) {
+        const dayMap = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 7 };
+        return {
+            name: formData.name,
+            type: formData.type,
+            start_time: formData.start_time,
+            end_time: formData.end_time,
+            break_duration_minutes: formData.break_duration,
+            grace_period_minutes: formData.grace_period,
+            working_days: formData.working_days.map((d) => dayMap[d] || d),
+            is_default: formData.is_default,
+        };
+    }
+
     function handleSave() {
+        const payload = buildPayload(form);
         if (editingSchedule) {
-            updateMutation.mutate({ id: editingSchedule.id, data: form });
+            updateMutation.mutate({ id: editingSchedule.id, data: payload });
         } else {
-            createMutation.mutate(form);
+            createMutation.mutate(payload);
         }
     }
 

@@ -39,6 +39,7 @@ class UpdateEmployeeRequest extends FormRequest
             'profile_photo' => ['nullable', 'image', 'max:2048'],
             'department_id' => ['sometimes', 'exists:departments,id'],
             'position_id' => ['sometimes', 'exists:positions,id'],
+            'reports_to' => ['nullable', 'exists:employees,id'],
             'employment_type' => ['sometimes', 'in:full_time,part_time,contract,intern'],
             'join_date' => ['sometimes', 'date'],
             'probation_end_date' => ['nullable', 'date'],

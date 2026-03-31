@@ -7,6 +7,7 @@ import {
     updateEmployee,
     fetchDepartments,
     fetchPositions,
+    fetchEmployees,
 } from '../lib/api';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/button';
@@ -105,6 +106,7 @@ function getDefaultForm() {
         // Employment
         department_id: '',
         position_id: '',
+        reports_to: '',
         employment_type: '',
         join_date: '',
         probation_end_date: '',
@@ -161,6 +163,16 @@ export default function EmployeeEdit() {
         return Array.isArray(raw) ? raw : [];
     }, [positionsData]);
 
+    const { data: employeesData } = useQuery({
+        queryKey: ['hr', 'employees', 'all'],
+        queryFn: () => fetchEmployees({ per_page: 500, status: 'active' }),
+    });
+    const allEmployees = useMemo(() => {
+        const raw = employeesData?.data || [];
+        // Exclude current employee from the list
+        return Array.isArray(raw) ? raw.filter((e) => String(e.id) !== id) : [];
+    }, [employeesData, id]);
+
     // Populate form when employee data loads
     useEffect(() => {
         const emp = employee?.data || employee;
@@ -184,6 +196,7 @@ export default function EmployeeEdit() {
             state: emp.state || '',
             department_id: emp.department_id ? String(emp.department_id) : '',
             position_id: emp.position_id ? String(emp.position_id) : '',
+            reports_to: emp.reports_to ? String(emp.reports_to) : '',
             employment_type: emp.employment_type || '',
             join_date: emp.join_date || '',
             probation_end_date: emp.probation_end_date || '',
@@ -616,6 +629,32 @@ export default function EmployeeEdit() {
                                             onChange={setTrackedField}
                                         />
                                     )}
+                                </div>
+
+                                <div>
+                                    <FormField
+                                        label="Reports To"
+                                        error={errors.reports_to}
+                                    >
+                                        <Select
+                                            value={form.reports_to}
+                                            onValueChange={(val) =>
+                                                setField('reports_to', val === 'none' ? '' : val)
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select manager (optional)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">None</SelectItem>
+                                                {allEmployees.map((emp) => (
+                                                    <SelectItem key={emp.id} value={String(emp.id)}>
+                                                        {emp.full_name} {emp.position?.title ? `— ${emp.position.title}` : ''}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </FormField>
                                 </div>
 
                                 <div>

@@ -37,6 +37,8 @@ function createEmployeeWithRelations(): array
         'status' => 'active',
     ]);
 
+    $position->employees()->attach($employee->id, ['is_primary' => true]);
+
     return compact('department', 'position', 'user', 'employee');
 }
 
@@ -612,6 +614,107 @@ test('position destroy succeeds when no employees are assigned', function () {
 
     $response->assertSuccessful();
     $this->assertDatabaseMissing('positions', ['id' => $position->id]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Position Employee Assignment Tests
+|--------------------------------------------------------------------------
+*/
+
+test('position employees returns assigned employees', function () {
+    $admin = createAdminUser();
+    $position = Position::factory()->create();
+    $employee = Employee::factory()->create(['position_id' => $position->id]);
+    $position->employees()->attach($employee->id, ['is_primary' => true]);
+
+    $response = $this->actingAs($admin)
+        ->getJson("/api/hr/positions/{$position->id}/employees");
+
+    $response->assertSuccessful()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $employee->id);
+});
+
+test('assign employees to position', function () {
+    $admin = createAdminUser();
+    $position = Position::factory()->create();
+    $employee1 = Employee::factory()->create();
+    $employee2 = Employee::factory()->create();
+
+    $response = $this->actingAs($admin)
+        ->postJson("/api/hr/positions/{$position->id}/assign-employees", [
+            'employee_ids' => [$employee1->id, $employee2->id],
+        ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('message', 'Employee(s) assigned successfully.');
+
+    $this->assertDatabaseHas('employee_position', [
+        'position_id' => $position->id,
+        'employee_id' => $employee1->id,
+    ]);
+    $this->assertDatabaseHas('employee_position', [
+        'position_id' => $position->id,
+        'employee_id' => $employee2->id,
+    ]);
+});
+
+test('employee can hold multiple positions', function () {
+    $admin = createAdminUser();
+    $position1 = Position::factory()->create();
+    $position2 = Position::factory()->create();
+    $employee = Employee::factory()->create();
+
+    $this->actingAs($admin)
+        ->postJson("/api/hr/positions/{$position1->id}/assign-employees", [
+            'employee_ids' => [$employee->id],
+        ])
+        ->assertSuccessful();
+
+    $this->actingAs($admin)
+        ->postJson("/api/hr/positions/{$position2->id}/assign-employees", [
+            'employee_ids' => [$employee->id],
+        ])
+        ->assertSuccessful();
+
+    expect($employee->fresh()->positions)->toHaveCount(2);
+});
+
+test('remove employee from position', function () {
+    $admin = createAdminUser();
+    $position = Position::factory()->create();
+    $employee = Employee::factory()->create();
+    $position->employees()->attach($employee->id);
+
+    $response = $this->actingAs($admin)
+        ->deleteJson("/api/hr/positions/{$position->id}/employees/{$employee->id}");
+
+    $response->assertSuccessful()
+        ->assertJsonPath('message', 'Employee removed from position successfully.');
+
+    $this->assertDatabaseMissing('employee_position', [
+        'position_id' => $position->id,
+        'employee_id' => $employee->id,
+    ]);
+});
+
+test('assigning same employee twice does not duplicate', function () {
+    $admin = createAdminUser();
+    $position = Position::factory()->create();
+    $employee = Employee::factory()->create();
+
+    $this->actingAs($admin)
+        ->postJson("/api/hr/positions/{$position->id}/assign-employees", [
+            'employee_ids' => [$employee->id],
+        ]);
+
+    $this->actingAs($admin)
+        ->postJson("/api/hr/positions/{$position->id}/assign-employees", [
+            'employee_ids' => [$employee->id],
+        ]);
+
+    expect($position->fresh()->employees)->toHaveCount(1);
 });
 
 /*

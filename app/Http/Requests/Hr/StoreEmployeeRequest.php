@@ -40,6 +40,7 @@ class StoreEmployeeRequest extends FormRequest
             'profile_photo' => ['nullable', 'image', 'max:2048'],
             'department_id' => ['nullable', 'exists:departments,id'],
             'position_id' => ['nullable', 'exists:positions,id'],
+            'reports_to' => ['nullable', 'exists:employees,id'],
             'employment_type' => ['nullable', 'in:full_time,part_time,contract,intern'],
             'join_date' => ['nullable', 'date'],
             'probation_end_date' => ['nullable', 'date', 'after:join_date'],

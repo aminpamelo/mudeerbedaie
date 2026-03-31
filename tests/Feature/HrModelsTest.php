@@ -58,10 +58,12 @@ test('position can be created with factory', function () {
 
 test('position has employees relationship', function () {
     $position = Position::factory()->create();
-    Employee::factory()->create([
+    $employee = Employee::factory()->create([
         'department_id' => $position->department_id,
         'position_id' => $position->id,
     ]);
+
+    $position->employees()->attach($employee->id, ['is_primary' => true]);
 
     expect($position->employees)->toHaveCount(1);
 });

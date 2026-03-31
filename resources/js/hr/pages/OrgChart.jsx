@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -7,12 +7,11 @@ import {
     Maximize2,
     Users,
     Building2,
-    ChevronDown,
-    ChevronRight,
     Loader2,
     Search,
     X,
-    Download,
+    AlertCircle,
+    Link2,
 } from 'lucide-react';
 import { fetchOrgChart } from '../lib/api';
 import PageHeader from '../components/PageHeader';
@@ -22,18 +21,6 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { cn } from '../lib/utils';
 
-// Department color palette
-const DEPT_COLORS = [
-    { bg: 'bg-blue-50', border: 'border-blue-200', accent: 'bg-blue-600', text: 'text-blue-700', light: 'bg-blue-100' },
-    { bg: 'bg-violet-50', border: 'border-violet-200', accent: 'bg-violet-600', text: 'text-violet-700', light: 'bg-violet-100' },
-    { bg: 'bg-emerald-50', border: 'border-emerald-200', accent: 'bg-emerald-600', text: 'text-emerald-700', light: 'bg-emerald-100' },
-    { bg: 'bg-amber-50', border: 'border-amber-200', accent: 'bg-amber-600', text: 'text-amber-700', light: 'bg-amber-100' },
-    { bg: 'bg-rose-50', border: 'border-rose-200', accent: 'bg-rose-600', text: 'text-rose-700', light: 'bg-rose-100' },
-    { bg: 'bg-cyan-50', border: 'border-cyan-200', accent: 'bg-cyan-600', text: 'text-cyan-700', light: 'bg-cyan-100' },
-    { bg: 'bg-orange-50', border: 'border-orange-200', accent: 'bg-orange-600', text: 'text-orange-700', light: 'bg-orange-100' },
-    { bg: 'bg-indigo-50', border: 'border-indigo-200', accent: 'bg-indigo-600', text: 'text-indigo-700', light: 'bg-indigo-100' },
-];
-
 function getInitials(name) {
     if (!name) return '?';
     const parts = name.trim().split(/\s+/);
@@ -41,246 +28,270 @@ function getInitials(name) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function EmployeeCard({ employee, isHead, colorScheme, onClick }) {
+const LEVEL_COLORS = {
+    1: { bg: 'bg-amber-50', border: 'border-amber-300', accent: 'bg-amber-600', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-700' },
+    2: { bg: 'bg-blue-50', border: 'border-blue-300', accent: 'bg-blue-600', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-700' },
+    3: { bg: 'bg-violet-50', border: 'border-violet-300', accent: 'bg-violet-600', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-700' },
+    4: { bg: 'bg-emerald-50', border: 'border-emerald-300', accent: 'bg-emerald-600', text: 'text-emerald-700', badge: 'bg-emerald-100 text-emerald-700' },
+    5: { bg: 'bg-rose-50', border: 'border-rose-300', accent: 'bg-rose-600', text: 'text-rose-700', badge: 'bg-rose-100 text-rose-700' },
+};
+
+function getColorForLevel(level) {
+    return LEVEL_COLORS[level] || LEVEL_COLORS[5];
+}
+
+// Single employee card in the tree
+function PersonCard({ person, isHighlighted, onClick }) {
+    const level = person.position?.level || 5;
+    const colors = getColorForLevel(level);
+
     return (
         <div
-            onClick={() => onClick?.(employee.id)}
+            onClick={() => onClick?.(person.id)}
             className={cn(
-                'group flex items-center gap-3 rounded-lg border p-3 transition-all cursor-pointer',
-                isHead
-                    ? `${colorScheme.bg} ${colorScheme.border} shadow-sm hover:shadow-md`
-                    : 'bg-white border-zinc-200 hover:border-zinc-300 hover:shadow-sm'
+                'group relative flex flex-col items-center cursor-pointer transition-all duration-200',
+                'hover:scale-105'
             )}
         >
-            <Avatar className={cn(isHead ? 'h-12 w-12' : 'h-10 w-10', 'ring-2 ring-white shadow-sm')}>
-                {employee.profile_photo_url ? (
-                    <AvatarImage src={employee.profile_photo_url} alt={employee.full_name} />
-                ) : null}
-                <AvatarFallback className={cn(isHead ? `${colorScheme.accent} text-white font-bold` : 'bg-zinc-200 text-zinc-600')}>
-                    {getInitials(employee.full_name)}
-                </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-                <p className={cn(
-                    'truncate font-semibold leading-tight',
-                    isHead ? 'text-sm text-zinc-900' : 'text-sm text-zinc-800'
-                )}>
-                    {employee.full_name}
+            <div
+                className={cn(
+                    'relative rounded-xl border-2 px-5 py-4 text-center shadow-sm transition-all min-w-[180px] max-w-[220px]',
+                    colors.bg,
+                    colors.border,
+                    isHighlighted && 'ring-2 ring-blue-500 ring-offset-2',
+                    'hover:shadow-lg'
+                )}
+            >
+                {/* Avatar */}
+                <div className="flex justify-center mb-2">
+                    <Avatar className="h-14 w-14 ring-2 ring-white shadow-md">
+                        {person.profile_photo_url ? (
+                            <AvatarImage src={person.profile_photo_url} alt={person.full_name} />
+                        ) : null}
+                        <AvatarFallback className={cn(colors.accent, 'text-white font-bold text-sm')}>
+                            {getInitials(person.full_name)}
+                        </AvatarFallback>
+                    </Avatar>
+                </div>
+
+                {/* Position label */}
+                {person.position?.title && (
+                    <span className={cn(
+                        'inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider mb-1.5',
+                        colors.badge,
+                    )}>
+                        {person.position.title}
+                    </span>
+                )}
+
+                {/* Name */}
+                <p className="text-sm font-bold text-zinc-900 leading-tight">
+                    {person.full_name}
                 </p>
-                <p className={cn(
-                    'truncate text-xs leading-tight mt-0.5',
-                    isHead ? colorScheme.text : 'text-zinc-500'
-                )}>
-                    {employee.position?.title || 'No Position'}
-                    {employee.position?.level && (
-                        <span className="ml-1 text-[10px] opacity-60">L{employee.position.level}</span>
-                    )}
-                </p>
-                {isHead && (
-                    <Badge variant="secondary" className={cn('mt-1 text-[10px] px-1.5 py-0', colorScheme.light, colorScheme.text)}>
-                        Department Head
-                    </Badge>
+
+                {/* Department */}
+                {person.department && (
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                        {person.department.name}
+                    </p>
                 )}
             </div>
         </div>
     );
 }
 
-function DepartmentNode({ department, colorScheme, level = 0, searchTerm, onEmployeeClick }) {
-    const [isExpanded, setIsExpanded] = useState(level < 2);
-    const [showAllEmployees, setShowAllEmployees] = useState(false);
+// Recursive tree node that renders a person and their children with connector lines
+function TreeNode({ person, searchTerm, onPersonClick, isRoot = false }) {
+    const children = person.children || [];
+    const hasChildren = children.length > 0;
 
-    const headEmployee = department.head_employee;
-    const otherEmployees = (department.employees || []).filter(
-        (e) => e.id !== department.head_employee_id
-    );
-    const children = department.children || [];
-    const hasContent = otherEmployees.length > 0 || children.length > 0;
-    const employeeCount = department.employees_count ?? department.employees?.length ?? 0;
+    // Check if this node or any descendant matches the search
+    const isMatch = searchTerm
+        ? matchesPerson(person, searchTerm)
+        : false;
+    const hasDescendantMatch = searchTerm
+        ? children.some((c) => hasTreeMatch(c, searchTerm))
+        : false;
 
-    // Filter employees based on search
-    const filteredOther = searchTerm
-        ? otherEmployees.filter((e) =>
-            e.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            e.position?.title?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-        : otherEmployees;
-
-    const headMatches = searchTerm && headEmployee
-        ? headEmployee.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          headEmployee.position?.title?.toLowerCase().includes(searchTerm.toLowerCase())
-        : true;
-
-    const deptMatches = searchTerm
-        ? department.name.toLowerCase().includes(searchTerm.toLowerCase())
-        : true;
-
-    const hasMatchingChildren = searchTerm
-        ? children.some((c) => departmentHasMatch(c, searchTerm))
-        : true;
-
-    // Auto-expand if search matches
-    useEffect(() => {
-        if (searchTerm && (deptMatches || headMatches || filteredOther.length > 0 || hasMatchingChildren)) {
-            setIsExpanded(true);
-        }
-    }, [searchTerm, deptMatches, headMatches, filteredOther.length, hasMatchingChildren]);
-
-    // Hide departments that don't match search
-    if (searchTerm && !deptMatches && !headMatches && filteredOther.length === 0 && !hasMatchingChildren) {
+    // If searching and no match in this subtree, hide
+    if (searchTerm && !isMatch && !hasDescendantMatch) {
         return null;
     }
 
-    const visibleEmployees = showAllEmployees ? filteredOther : filteredOther.slice(0, 6);
-
     return (
-        <div className={cn('relative', level > 0 && 'ml-6 sm:ml-10')}>
-            {/* Connector line */}
-            {level > 0 && (
-                <div className="absolute -left-5 sm:-left-6 top-0 bottom-0 w-px bg-zinc-200" />
-            )}
-            {level > 0 && (
-                <div className="absolute -left-5 sm:-left-6 top-6 w-4 sm:w-5 h-px bg-zinc-200" />
+        <div className="flex flex-col items-center">
+            {/* This person */}
+            <PersonCard
+                person={person}
+                isHighlighted={isMatch && !!searchTerm}
+                onClick={onPersonClick}
+            />
+
+            {/* Connector line down from this person */}
+            {hasChildren && (
+                <div className="w-px h-6 bg-zinc-300" />
             )}
 
-            {/* Department header */}
-            <div className={cn(
-                'rounded-xl border-2 overflow-hidden transition-all',
-                colorScheme.border,
-                'shadow-sm hover:shadow-md'
-            )}>
-                {/* Department title bar */}
-                <div
-                    className={cn(
-                        'flex items-center gap-3 px-4 py-3 cursor-pointer select-none',
-                        colorScheme.accent,
-                        'text-white'
+            {/* Children row */}
+            {hasChildren && (
+                <div className="relative flex items-start">
+                    {/* Horizontal connector bar */}
+                    {children.length > 1 && (
+                        <div
+                            className="absolute top-0 h-px bg-zinc-300"
+                            style={{
+                                left: '50%',
+                                right: '50%',
+                                // Will be recalculated by the container
+                            }}
+                        />
                     )}
-                    onClick={() => setIsExpanded(!isExpanded)}
-                >
-                    <Building2 className="h-5 w-5 shrink-0 opacity-80" />
-                    <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-sm truncate">{department.name}</h3>
-                        {department.code && (
-                            <p className="text-xs opacity-75">{department.code}</p>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">
-                            <Users className="h-3 w-3" />
-                            {employeeCount}
-                        </span>
-                        {hasContent ? (
-                            isExpanded ? (
-                                <ChevronDown className="h-4 w-4" />
-                            ) : (
-                                <ChevronRight className="h-4 w-4" />
-                            )
-                        ) : null}
-                    </div>
-                </div>
 
-                {/* Expanded content */}
-                {isExpanded && (
-                    <div className={cn('p-4', colorScheme.bg)}>
-                        {/* Department Head */}
-                        {headEmployee && (
-                            <div className="mb-3">
-                                <EmployeeCard
-                                    employee={headEmployee}
-                                    isHead
-                                    colorScheme={colorScheme}
-                                    onClick={onEmployeeClick}
+                    <div className="flex gap-6 relative">
+                        {/* Horizontal bar across all children */}
+                        {children.length > 1 && (
+                            <HorizontalBar />
+                        )}
+
+                        {children.map((child) => (
+                            <div key={child.id} className="flex flex-col items-center">
+                                {/* Vertical connector from horizontal bar to child */}
+                                <div className="w-px h-6 bg-zinc-300" />
+                                <TreeNode
+                                    person={child}
+                                    searchTerm={searchTerm}
+                                    onPersonClick={onPersonClick}
                                 />
                             </div>
-                        )}
-
-                        {/* Team Members */}
-                        {filteredOther.length > 0 && (
-                            <div>
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                                    Team Members ({filteredOther.length})
-                                </p>
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                    {visibleEmployees.map((emp) => (
-                                        <EmployeeCard
-                                            key={emp.id}
-                                            employee={emp}
-                                            isHead={false}
-                                            colorScheme={colorScheme}
-                                            onClick={onEmployeeClick}
-                                        />
-                                    ))}
-                                </div>
-                                {filteredOther.length > 6 && !showAllEmployees && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowAllEmployees(true);
-                                        }}
-                                        className={cn(
-                                            'mt-2 text-xs font-medium transition-colors',
-                                            colorScheme.text,
-                                            'hover:underline'
-                                        )}
-                                    >
-                                        Show all {filteredOther.length} members
-                                    </button>
-                                )}
-                                {showAllEmployees && filteredOther.length > 6 && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowAllEmployees(false);
-                                        }}
-                                        className={cn(
-                                            'mt-2 text-xs font-medium transition-colors',
-                                            colorScheme.text,
-                                            'hover:underline'
-                                        )}
-                                    >
-                                        Show less
-                                    </button>
-                                )}
-                            </div>
-                        )}
-
-                        {!headEmployee && filteredOther.length === 0 && (
-                            <p className="text-xs text-zinc-400 italic">No employees assigned</p>
-                        )}
+                        ))}
                     </div>
-                )}
-            </div>
-
-            {/* Child departments */}
-            {isExpanded && children.length > 0 && (
-                <div className="mt-3 space-y-3">
-                    {children.map((child, idx) => (
-                        <DepartmentNode
-                            key={child.id}
-                            department={child}
-                            colorScheme={DEPT_COLORS[(level + idx + 1) % DEPT_COLORS.length]}
-                            level={level + 1}
-                            searchTerm={searchTerm}
-                            onEmployeeClick={onEmployeeClick}
-                        />
-                    ))}
                 </div>
             )}
         </div>
     );
 }
 
-function departmentHasMatch(dept, searchTerm) {
-    const term = searchTerm.toLowerCase();
-    if (dept.name.toLowerCase().includes(term)) return true;
-    if (dept.head_employee?.full_name?.toLowerCase().includes(term)) return true;
-    if (dept.employees?.some((e) =>
-        e.full_name.toLowerCase().includes(term) ||
-        e.position?.title?.toLowerCase().includes(term)
-    )) return true;
-    if (dept.children?.some((c) => departmentHasMatch(c, term))) return true;
-    return false;
+// Horizontal connector bar that spans across all sibling nodes
+function HorizontalBar() {
+    return (
+        <div
+            className="absolute top-0 bg-zinc-300"
+            style={{
+                height: '1px',
+                left: 'calc(50% / var(--child-count, 1))',
+                right: 'calc(50% / var(--child-count, 1))',
+                // Simplified: just connect from first child center to last child center
+                left: 0,
+                right: 0,
+                // Adjust to center on first and last child
+                marginLeft: 'calc(50% / var(--child-count))',
+                marginRight: 'calc(50% / var(--child-count))',
+            }}
+        />
+    );
+}
+
+function matchesPerson(person, term) {
+    const t = term.toLowerCase();
+    return (
+        person.full_name?.toLowerCase().includes(t) ||
+        person.position?.title?.toLowerCase().includes(t) ||
+        person.department?.name?.toLowerCase().includes(t) ||
+        person.employee_id?.toLowerCase().includes(t)
+    );
+}
+
+function hasTreeMatch(person, term) {
+    if (matchesPerson(person, term)) return true;
+    return (person.children || []).some((c) => hasTreeMatch(c, term));
+}
+
+// Better tree rendering with SVG connectors
+function OrgTreeSVG({ tree, searchTerm, onPersonClick }) {
+    if (tree.length === 0) return null;
+
+    return (
+        <div className="flex flex-col items-center gap-0">
+            {tree.map((root, idx) => (
+                <div key={root.id} className={cn(idx > 0 && 'mt-10')}>
+                    <TreeBranch
+                        person={root}
+                        searchTerm={searchTerm}
+                        onPersonClick={onPersonClick}
+                    />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function TreeBranch({ person, searchTerm, onPersonClick }) {
+    const children = (person.children || []).filter((child) => {
+        if (!searchTerm) return true;
+        return hasTreeMatch(child, searchTerm);
+    });
+
+    const hasChildren = children.length > 0;
+    const isMatch = searchTerm ? matchesPerson(person, searchTerm) : false;
+
+    if (searchTerm && !isMatch && !hasTreeMatch(person, searchTerm)) {
+        return null;
+    }
+
+    return (
+        <div className="flex flex-col items-center">
+            <PersonCard
+                person={person}
+                isHighlighted={isMatch && !!searchTerm}
+                onClick={onPersonClick}
+            />
+
+            {hasChildren && (
+                <>
+                    {/* Vertical line down */}
+                    <div className="w-px h-5 bg-zinc-300" />
+
+                    {/* Children wrapper with horizontal connector */}
+                    <div className="relative">
+                        {/* Horizontal bar */}
+                        {children.length > 1 && (
+                            <div className="absolute top-0 left-0 right-0 flex">
+                                <div className="flex-1" />
+                                {children.map((_, i) => (
+                                    <div key={i} className="flex-1" />
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 sm:gap-4 relative">
+                            {/* Horizontal connector line */}
+                            {children.length > 1 && (
+                                <div
+                                    className="absolute top-0 h-px bg-zinc-300"
+                                    style={{
+                                        left: `${100 / (children.length * 2)}%`,
+                                        right: `${100 / (children.length * 2)}%`,
+                                    }}
+                                />
+                            )}
+
+                            {children.map((child) => (
+                                <div key={child.id} className="flex flex-col items-center">
+                                    {/* Vertical stub down to child */}
+                                    <div className="w-px h-5 bg-zinc-300" />
+                                    <TreeBranch
+                                        person={child}
+                                        searchTerm={searchTerm}
+                                        onPersonClick={onPersonClick}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
 }
 
 export default function OrgChart() {
@@ -294,7 +305,7 @@ export default function OrgChart() {
         queryFn: fetchOrgChart,
     });
 
-    const departments = data?.data || [];
+    const tree = data?.data || [];
     const meta = data?.meta || {};
 
     const handleZoomIn = useCallback(() => {
@@ -302,14 +313,14 @@ export default function OrgChart() {
     }, []);
 
     const handleZoomOut = useCallback(() => {
-        setScale((s) => Math.max(s - 0.1, 0.5));
+        setScale((s) => Math.max(s - 0.1, 0.3));
     }, []);
 
     const handleReset = useCallback(() => {
         setScale(1);
     }, []);
 
-    const handleEmployeeClick = useCallback((id) => {
+    const handlePersonClick = useCallback((id) => {
         navigate(`/employees/${id}`);
     }, [navigate]);
 
@@ -336,11 +347,11 @@ export default function OrgChart() {
         <div className="space-y-6">
             <PageHeader
                 title="Organization Chart"
-                description="Visual overview of your company structure, departments, and team members"
+                description="Visual hierarchy of your company — click any person to view their profile"
             />
 
             {/* Stats bar */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border border-zinc-200 bg-white p-4">
                     <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
@@ -354,45 +365,39 @@ export default function OrgChart() {
                 </div>
                 <div className="rounded-lg border border-zinc-200 bg-white p-4">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100">
-                            <Building2 className="h-5 w-5 text-violet-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-zinc-900">{meta.total_departments ?? 0}</p>
-                            <p className="text-xs text-zinc-500">Departments</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                    <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
-                            <Users className="h-5 w-5 text-emerald-600" />
+                            <Link2 className="h-5 w-5 text-emerald-600" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-zinc-900">
-                                {departments.reduce((sum, d) => {
-                                    const headCount = d.head_employee ? 1 : 0;
-                                    return sum + headCount;
-                                }, 0)}
-                            </p>
-                            <p className="text-xs text-zinc-500">Dept. Heads</p>
+                            <p className="text-2xl font-bold text-zinc-900">{meta.linked_employees ?? 0}</p>
+                            <p className="text-xs text-zinc-500">Linked in Chart</p>
                         </div>
                     </div>
                 </div>
                 <div className="rounded-lg border border-zinc-200 bg-white p-4">
                     <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
-                            <Building2 className="h-5 w-5 text-amber-600" />
+                            <AlertCircle className="h-5 w-5 text-amber-600" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-zinc-900">
-                                {departments.reduce((sum, d) => sum + (d.children?.length || 0), 0)}
-                            </p>
-                            <p className="text-xs text-zinc-500">Sub-departments</p>
+                            <p className="text-2xl font-bold text-zinc-900">{meta.unlinked_employees ?? 0}</p>
+                            <p className="text-xs text-zinc-500">Not Linked</p>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Info banner for unlinked */}
+            {meta.unlinked_employees > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                        <strong>{meta.unlinked_employees} employee(s)</strong> don't have a "Reports To" assigned.
+                        Edit their profile to set their manager and they will appear in the hierarchy tree.
+                        Unlinked employees appear as separate root nodes at the top level.
+                    </div>
+                </div>
+            )}
 
             {/* Toolbar */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -430,38 +435,41 @@ export default function OrgChart() {
                 </div>
             </div>
 
-            {/* Org Chart */}
+            {/* Legend */}
+            <div className="flex flex-wrap gap-3 text-xs">
+                {Object.entries(LEVEL_COLORS).map(([level, colors]) => (
+                    <div key={level} className="flex items-center gap-1.5">
+                        <div className={cn('h-3 w-3 rounded-sm', colors.accent)} />
+                        <span className="text-zinc-500">Level {level}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Org Chart Tree */}
             <div
                 ref={containerRef}
-                className="overflow-auto rounded-xl border border-zinc-200 bg-zinc-50/50 p-6"
-                style={{ minHeight: '400px' }}
+                className="overflow-auto rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/50 p-8"
+                style={{ minHeight: '500px' }}
             >
                 <div
                     style={{
                         transform: `scale(${scale})`,
-                        transformOrigin: 'top left',
+                        transformOrigin: 'top center',
                         transition: 'transform 0.2s ease',
                     }}
                 >
-                    {departments.length === 0 ? (
+                    {tree.length === 0 ? (
                         <div className="flex h-64 flex-col items-center justify-center gap-2 text-zinc-400">
                             <Building2 className="h-12 w-12" />
-                            <p className="text-sm">No departments found</p>
-                            <p className="text-xs">Create departments and assign employees to see the organization chart</p>
+                            <p className="text-sm font-medium">No employees found</p>
+                            <p className="text-xs">Add employees and set their "Reports To" to build the org chart</p>
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            {departments.map((dept, idx) => (
-                                <DepartmentNode
-                                    key={dept.id}
-                                    department={dept}
-                                    colorScheme={DEPT_COLORS[idx % DEPT_COLORS.length]}
-                                    level={0}
-                                    searchTerm={search}
-                                    onEmployeeClick={handleEmployeeClick}
-                                />
-                            ))}
-                        </div>
+                        <OrgTreeSVG
+                            tree={tree}
+                            searchTerm={search}
+                            onPersonClick={handlePersonClick}
+                        />
                     )}
                 </div>
             </div>

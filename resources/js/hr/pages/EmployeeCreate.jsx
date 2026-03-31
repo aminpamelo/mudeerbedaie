@@ -18,7 +18,7 @@ import {
     Link2,
     Unlink,
 } from 'lucide-react';
-import { createEmployee, fetchDepartments, fetchPositions, fetchUnlinkedUsers } from '../lib/api';
+import { createEmployee, fetchDepartments, fetchPositions, fetchUnlinkedUsers, fetchEmployees } from '../lib/api';
 import { cn } from '../lib/utils';
 import PageHeader from '../components/PageHeader';
 import { Button } from '../components/ui/button';
@@ -286,6 +286,7 @@ export default function EmployeeCreate() {
     // Step 2: Employment Details
     const [departmentId, setDepartmentId] = useState('');
     const [positionId, setPositionId] = useState('');
+    const [reportsTo, setReportsTo] = useState('');
     const [employmentType, setEmploymentType] = useState('');
     const [joinDate, setJoinDate] = useState('');
     const [probationEndDate, setProbationEndDate] = useState('');
@@ -362,6 +363,13 @@ export default function EmployeeCreate() {
         enabled: !!departmentId,
     });
     const positions = positionsData?.data || [];
+
+    // Fetch all employees for "Reports To" dropdown
+    const { data: employeesData } = useQuery({
+        queryKey: ['hr', 'employees', 'all'],
+        queryFn: () => fetchEmployees({ per_page: 500, status: 'active' }),
+    });
+    const allEmployees = employeesData?.data || [];
 
     // Reset position when department changes
     useEffect(() => {
@@ -446,6 +454,7 @@ export default function EmployeeCreate() {
         // Employment
         if (departmentId) formData.append('department_id', departmentId);
         if (positionId) formData.append('position_id', positionId);
+        if (reportsTo) formData.append('reports_to', reportsTo);
         if (employmentType) formData.append('employment_type', employmentType);
         if (joinDate) formData.append('join_date', joinDate);
         if (probationEndDate) formData.append('probation_end_date', probationEndDate);
@@ -791,6 +800,22 @@ export default function EmployeeCreate() {
                                         {positions.map((pos) => (
                                             <SelectItem key={pos.id} value={String(pos.id)}>
                                                 {pos.title}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </FormField>
+
+                            <FormField label="Reports To" error={errors.reports_to}>
+                                <Select value={reportsTo} onValueChange={setReportsTo}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select manager (optional)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">None</SelectItem>
+                                        {allEmployees.map((emp) => (
+                                            <SelectItem key={emp.id} value={String(emp.id)}>
+                                                {emp.full_name} {emp.position?.title ? `— ${emp.position.title}` : ''}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
