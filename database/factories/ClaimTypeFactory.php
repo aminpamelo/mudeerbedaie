@@ -32,7 +32,15 @@ class ClaimTypeFactory extends Factory
             'yearly_limit' => fake()->randomElement([3000, 6000, 12000, null]),
             'requires_receipt' => fake()->boolean(80),
             'is_active' => true,
+            'is_mileage_type' => false,
             'sort_order' => self::$counter,
         ];
+    }
+
+    public function mileage(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_mileage_type' => true,
+        ]);
     }
 }

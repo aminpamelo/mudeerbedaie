@@ -18,7 +18,7 @@ class HrClaimRequestController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = ClaimRequest::query()
-            ->with(['employee.department', 'claimType']);
+            ->with(['employee.department', 'claimType', 'vehicleRate']);
 
         if ($status = $request->get('status')) {
             $query->where('status', $status);
@@ -50,7 +50,7 @@ class HrClaimRequestController extends Controller
      */
     public function show(ClaimRequest $claimRequest): JsonResponse
     {
-        $claimRequest->load(['employee.department', 'claimType']);
+        $claimRequest->load(['employee.department', 'claimType', 'vehicleRate']);
 
         return response()->json(['data' => $claimRequest]);
     }
