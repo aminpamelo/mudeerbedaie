@@ -15,6 +15,7 @@ class HrClaimTypeController extends Controller
     public function index(): JsonResponse
     {
         $claimTypes = ClaimType::query()
+            ->with(['vehicleRates' => fn ($q) => $q->active()->ordered()])
             ->ordered()
             ->get();
 
@@ -27,6 +28,7 @@ class HrClaimTypeController extends Controller
     public function store(StoreClaimTypeRequest $request): JsonResponse
     {
         $claimType = ClaimType::create($request->validated());
+        $claimType->load(['vehicleRates' => fn ($q) => $q->active()->ordered()]);
 
         return response()->json([
             'data' => $claimType,
@@ -42,7 +44,7 @@ class HrClaimTypeController extends Controller
         $type->update($request->validated());
 
         return response()->json([
-            'data' => $type->fresh(),
+            'data' => $type->fresh(['vehicleRates' => fn ($q) => $q->active()->ordered()]),
             'message' => 'Claim type updated successfully.',
         ]);
     }

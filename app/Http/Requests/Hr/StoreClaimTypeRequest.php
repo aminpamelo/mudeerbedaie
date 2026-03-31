@@ -35,6 +35,7 @@ class StoreClaimTypeRequest extends FormRequest
             'yearly_limit' => ['nullable', 'numeric', 'min:0'],
             'requires_receipt' => ['required', 'boolean'],
             'is_active' => ['boolean'],
+            'is_mileage_type' => ['boolean'],
             'sort_order' => ['integer', 'min:0'],
         ];
     }
