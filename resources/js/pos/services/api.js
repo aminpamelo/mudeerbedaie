@@ -114,6 +114,10 @@ export const saleApi = {
         const url = `${window.posConfig?.apiBaseUrl || '/api/pos'}/sales/export?${query}`;
         window.open(url, '_blank');
     },
+    receiptPdf: (id) => {
+        const url = `${window.posConfig?.apiBaseUrl || '/api/pos'}/sales/${id}/receipt-pdf`;
+        window.open(url, '_blank');
+    },
 };
 
 export const dashboardApi = {

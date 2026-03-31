@@ -470,6 +470,22 @@ class PosController extends Controller
     }
 
     /**
+     * Generate PDF receipt for a POS sale.
+     */
+    public function receiptPdf(ProductOrder $sale)
+    {
+        if ($sale->source !== 'pos') {
+            abort(403, 'Only POS sales can generate receipts.');
+        }
+
+        $sale->load(['items.itemable', 'customer']);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.pos-receipt', ['order' => $sale]);
+
+        return $pdf->download("receipt-{$sale->order_number}.pdf");
+    }
+
+    /**
      * Dashboard quick stats for POS sales.
      */
     public function dashboard(Request $request): JsonResponse
