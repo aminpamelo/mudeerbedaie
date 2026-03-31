@@ -324,7 +324,7 @@ export default function ClockInOut() {
     const queryClient = useQueryClient();
     const now = useLiveClock();
     const [isWfh, setIsWfh] = useState(false);
-    const [captureRef, setCaptureRef] = useState(null);
+    const captureRef = useRef(null);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [showConfirm, setShowConfirm] = useState(null); // 'in' | 'out' | null
@@ -382,8 +382,8 @@ export default function ClockInOut() {
                 formData.append('latitude', geoLocation.latitude);
                 formData.append('longitude', geoLocation.longitude);
             }
-            if (captureRef) {
-                const blob = await captureRef();
+            if (captureRef.current) {
+                const blob = await captureRef.current();
                 if (blob) {
                     formData.append('photo', blob, 'clock-in.jpg');
                 }
@@ -483,7 +483,7 @@ export default function ClockInOut() {
             </Card>
 
             {/* Camera Preview */}
-            <CameraPreview onCapture={setCaptureRef} isCapturing={isPending} />
+            <CameraPreview onCapture={(fn) => { captureRef.current = fn; }} isCapturing={isPending} />
 
             {/* WFH Toggle */}
             {!isClockedIn && !isCompleted && (
