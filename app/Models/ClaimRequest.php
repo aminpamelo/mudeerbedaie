@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class ClaimRequest extends Model
 {
@@ -45,6 +47,22 @@ class ClaimRequest extends Model
             'approved_at' => 'datetime',
             'paid_at' => 'datetime',
         ];
+    }
+
+    protected $appends = ['receipt_url'];
+
+    /**
+     * Get the full URL for the receipt file.
+     */
+    protected function receiptUrl(): Attribute
+    {
+        return Attribute::get(function () {
+            if (! $this->receipt_path) {
+                return null;
+            }
+
+            return Storage::disk('public')->url($this->receipt_path);
+        });
     }
 
     /**

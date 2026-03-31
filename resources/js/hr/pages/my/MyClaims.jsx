@@ -8,6 +8,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Upload,
+    Paperclip,
 } from 'lucide-react';
 import {
     fetchMyClaims,
@@ -241,6 +242,17 @@ export default function MyClaims() {
                                             <p className="text-xs text-zinc-500">
                                                 {formatDate(claim.claim_date)} &middot; {claim.description}
                                             </p>
+                                            {claim.receipt_url && (
+                                                <a
+                                                    href={claim.receipt_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                                                >
+                                                    <Paperclip className="h-3 w-3" />
+                                                    View Receipt
+                                                </a>
+                                            )}
                                         </div>
                                         <div className="ml-4 flex items-center gap-3">
                                             <span className="text-base font-semibold text-zinc-900">

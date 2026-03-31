@@ -11,6 +11,7 @@ import {
     FileText,
     Filter,
     CreditCard,
+    Paperclip,
 } from 'lucide-react';
 import {
     fetchClaimRequests,
@@ -304,6 +305,7 @@ export default function ClaimRequests() {
                                         <TableHead>Type</TableHead>
                                         <TableHead>Amount</TableHead>
                                         <TableHead>Date</TableHead>
+                                        <TableHead>Receipt</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
@@ -329,6 +331,22 @@ export default function ClaimRequests() {
                                                 </TableCell>
                                                 <TableCell className="text-sm text-zinc-500">
                                                     {formatDate(request.claim_date)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {request.receipt_url ? (
+                                                        <a
+                                                            href={request.receipt_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                                                        >
+                                                            <Paperclip className="h-3.5 w-3.5" />
+                                                            View
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-xs text-zinc-400">-</span>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', badge.className)}>
@@ -466,6 +484,20 @@ export default function ClaimRequests() {
                                     {STATUS_BADGE[selectedRequest.status]?.label || selectedRequest.status}
                                 </span>
                             </div>
+                            {selectedRequest.receipt_url && (
+                                <div className="flex justify-between">
+                                    <span className="text-zinc-500">Receipt</span>
+                                    <a
+                                        href={selectedRequest.receipt_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
+                                    >
+                                        <Paperclip className="h-3.5 w-3.5" />
+                                        View Document
+                                    </a>
+                                </div>
+                            )}
                             {selectedRequest.description && (
                                 <div>
                                     <span className="text-zinc-500">Description</span>
