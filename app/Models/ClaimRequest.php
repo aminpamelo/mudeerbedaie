@@ -18,6 +18,7 @@ class ClaimRequest extends Model
         'claim_number',
         'employee_id',
         'claim_type_id',
+        'vehicle_rate_id',
         'amount',
         'approved_amount',
         'claim_date',
@@ -30,6 +31,10 @@ class ClaimRequest extends Model
         'rejected_reason',
         'paid_at',
         'paid_reference',
+        'distance_km',
+        'origin',
+        'destination',
+        'trip_purpose',
     ];
 
     /**
@@ -46,6 +51,7 @@ class ClaimRequest extends Model
             'submitted_at' => 'datetime',
             'approved_at' => 'datetime',
             'paid_at' => 'datetime',
+            'distance_km' => 'decimal:2',
         ];
     }
 
@@ -71,6 +77,14 @@ class ClaimRequest extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    /**
+     * Get the vehicle rate for this claim request.
+     */
+    public function vehicleRate(): BelongsTo
+    {
+        return $this->belongsTo(ClaimTypeVehicleRate::class);
     }
 
     /**
