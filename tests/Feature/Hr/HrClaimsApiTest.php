@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\ClaimApprover;
 use App\Models\ClaimRequest;
 use App\Models\ClaimType;
+use App\Models\ClaimTypeVehicleRate;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
@@ -492,4 +493,119 @@ test('user without employee record gets 404 on my claims', function () {
     $response = $this->actingAs($user)->getJson('/api/hr/me/claims');
 
     $response->assertNotFound();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Mileage Claim Type Tests
+|--------------------------------------------------------------------------
+*/
+
+test('admin can create a mileage claim type', function () {
+    $admin = createClaimsAdminUser();
+
+    $response = $this->actingAs($admin)->postJson('/api/hr/claims/types', [
+        'name' => 'Petrol Mileage',
+        'code' => 'MILEAGE',
+        'monthly_limit' => 500,
+        'requires_receipt' => false,
+        'is_active' => true,
+        'is_mileage_type' => true,
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.name', 'Petrol Mileage')
+        ->assertJsonPath('data.is_mileage_type', true);
+
+    $this->assertDatabaseHas('claim_types', ['code' => 'MILEAGE', 'is_mileage_type' => true]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Vehicle Rate Tests
+|--------------------------------------------------------------------------
+*/
+
+test('admin can list vehicle rates for a claim type', function () {
+    $admin = createClaimsAdminUser();
+    $claimType = ClaimType::factory()->create(['is_mileage_type' => true]);
+
+    ClaimTypeVehicleRate::factory()->count(2)->create(['claim_type_id' => $claimType->id]);
+
+    $response = $this->actingAs($admin)->getJson("/api/hr/claims/types/{$claimType->id}/vehicle-rates");
+
+    $response->assertSuccessful()
+        ->assertJsonCount(2, 'data');
+});
+
+test('admin can create a vehicle rate', function () {
+    $admin = createClaimsAdminUser();
+    $claimType = ClaimType::factory()->create(['is_mileage_type' => true]);
+
+    $response = $this->actingAs($admin)->postJson("/api/hr/claims/types/{$claimType->id}/vehicle-rates", [
+        'name' => 'Car',
+        'rate_per_km' => 0.60,
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.name', 'Car')
+        ->assertJsonPath('data.rate_per_km', '0.60')
+        ->assertJsonPath('message', 'Vehicle rate created successfully.');
+
+    $this->assertDatabaseHas('claim_type_vehicle_rates', [
+        'claim_type_id' => $claimType->id,
+        'name' => 'Car',
+    ]);
+});
+
+test('admin can update a vehicle rate', function () {
+    $admin = createClaimsAdminUser();
+    $claimType = ClaimType::factory()->create(['is_mileage_type' => true]);
+    $rate = ClaimTypeVehicleRate::factory()->create(['claim_type_id' => $claimType->id]);
+
+    $response = $this->actingAs($admin)->putJson("/api/hr/claims/types/{$claimType->id}/vehicle-rates/{$rate->id}", [
+        'name' => 'Updated Vehicle',
+        'rate_per_km' => 0.75,
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJsonPath('data.name', 'Updated Vehicle')
+        ->assertJsonPath('message', 'Vehicle rate updated successfully.');
+});
+
+test('admin can delete a vehicle rate', function () {
+    $admin = createClaimsAdminUser();
+    $claimType = ClaimType::factory()->create(['is_mileage_type' => true]);
+    $rate = ClaimTypeVehicleRate::factory()->create(['claim_type_id' => $claimType->id]);
+
+    $response = $this->actingAs($admin)->deleteJson("/api/hr/claims/types/{$claimType->id}/vehicle-rates/{$rate->id}");
+
+    $response->assertSuccessful()
+        ->assertJsonPath('message', 'Vehicle rate deleted successfully.');
+
+    $this->assertDatabaseMissing('claim_type_vehicle_rates', ['id' => $rate->id]);
+});
+
+test('non-admin cannot create vehicle rates', function () {
+    $user = User::factory()->create(['role' => 'student']);
+    $claimType = ClaimType::factory()->create(['is_mileage_type' => true]);
+
+    $response = $this->actingAs($user)->postJson("/api/hr/claims/types/{$claimType->id}/vehicle-rates", [
+        'name' => 'Car',
+        'rate_per_km' => 0.60,
+    ]);
+
+    $response->assertForbidden();
+});
+
+test('vehicle rate validates required fields', function () {
+    $admin = createClaimsAdminUser();
+    $claimType = ClaimType::factory()->create(['is_mileage_type' => true]);
+
+    $response = $this->actingAs($admin)->postJson("/api/hr/claims/types/{$claimType->id}/vehicle-rates", []);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['name', 'rate_per_km']);
 });

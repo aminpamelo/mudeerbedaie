@@ -101,6 +101,7 @@ use App\Http\Controllers\Api\Hr\HrTrainingDashboardController;
 use App\Http\Controllers\Api\Hr\HrTrainingEnrollmentController;
 use App\Http\Controllers\Api\Hr\HrTrainingProgramController;
 use App\Http\Controllers\Api\Hr\HrTrainingReportController;
+use App\Http\Controllers\Api\Hr\HrVehicleRateController;
 use App\Http\Controllers\Api\Hr\HrWorkScheduleController;
 use App\Http\Controllers\Api\StudentTagController;
 use App\Http\Controllers\Api\TagController;
@@ -701,6 +702,12 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
 
     // Claim Types
     Route::apiResource('claims/types', HrClaimTypeController::class)->except('show')->names('api.hr.claims.types');
+
+    // Vehicle Rates (for mileage claim types)
+    Route::get('claims/types/{type}/vehicle-rates', [HrVehicleRateController::class, 'index'])->name('api.hr.claims.vehicle-rates.index');
+    Route::post('claims/types/{type}/vehicle-rates', [HrVehicleRateController::class, 'store'])->name('api.hr.claims.vehicle-rates.store');
+    Route::put('claims/types/{type}/vehicle-rates/{rate}', [HrVehicleRateController::class, 'update'])->name('api.hr.claims.vehicle-rates.update');
+    Route::delete('claims/types/{type}/vehicle-rates/{rate}', [HrVehicleRateController::class, 'destroy'])->name('api.hr.claims.vehicle-rates.destroy');
 
     // Claim Approvers
     Route::get('claims/approvers', [HrClaimApproverController::class, 'index'])->name('api.hr.claims.approvers.index');
