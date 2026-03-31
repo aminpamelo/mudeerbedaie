@@ -189,7 +189,16 @@ export default function WorkSchedules() {
     function handleSetDefault(schedule) {
         updateMutation.mutate({
             id: schedule.id,
-            data: { ...schedule, is_default: true },
+            data: {
+                name: schedule.name,
+                type: schedule.type,
+                start_time: (schedule.start_time || '').slice(0, 5),
+                end_time: (schedule.end_time || '').slice(0, 5),
+                break_duration_minutes: schedule.break_duration_minutes,
+                grace_period_minutes: schedule.grace_period_minutes,
+                working_days: schedule.working_days,
+                is_default: true,
+            },
         });
     }
 
