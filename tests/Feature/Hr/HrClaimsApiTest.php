@@ -609,3 +609,180 @@ test('vehicle rate validates required fields', function () {
     $response->assertUnprocessable()
         ->assertJsonValidationErrors(['name', 'rate_per_km']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Mileage Claim Submission Tests
+|--------------------------------------------------------------------------
+*/
+
+function createMileageEmployeeWithRecord(): array
+{
+    $department = Department::factory()->create();
+    $position = Position::factory()->create(['department_id' => $department->id]);
+    $user = User::factory()->create(['role' => 'employee']);
+    $employee = Employee::factory()->create([
+        'user_id' => $user->id,
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+        'status' => 'active',
+    ]);
+
+    return compact('user', 'employee', 'department', 'position');
+}
+
+test('employee can submit a mileage claim with auto-calculated amount', function () {
+    $data = createMileageEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create([
+        'is_mileage_type' => true,
+        'requires_receipt' => false,
+    ]);
+    $vehicleRate = ClaimTypeVehicleRate::factory()->create([
+        'claim_type_id' => $claimType->id,
+        'name' => 'Car',
+        'rate_per_km' => 0.60,
+    ]);
+
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/claims', [
+        'claim_type_id' => $claimType->id,
+        'vehicle_rate_id' => $vehicleRate->id,
+        'distance_km' => 50,
+        'origin' => 'Kuala Lumpur',
+        'destination' => 'Putrajaya',
+        'trip_purpose' => 'Client meeting',
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Travel to client office',
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.status', 'draft');
+
+    $claim = ClaimRequest::where('employee_id', $data['employee']->id)->first();
+    expect((float) $claim->amount)->toBe(30.00)
+        ->and($claim->vehicle_rate_id)->toBe($vehicleRate->id)
+        ->and((float) $claim->distance_km)->toBe(50.00)
+        ->and($claim->origin)->toBe('Kuala Lumpur')
+        ->and($claim->destination)->toBe('Putrajaya')
+        ->and($claim->trip_purpose)->toBe('Client meeting');
+});
+
+test('mileage claim requires vehicle_rate_id and distance_km', function () {
+    $data = createMileageEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create([
+        'is_mileage_type' => true,
+        'requires_receipt' => false,
+    ]);
+
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/claims', [
+        'claim_type_id' => $claimType->id,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Missing mileage fields',
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['vehicle_rate_id', 'distance_km', 'origin', 'destination', 'trip_purpose']);
+});
+
+test('mileage claim does not require manual amount', function () {
+    $data = createMileageEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create([
+        'is_mileage_type' => true,
+        'requires_receipt' => false,
+    ]);
+    $vehicleRate = ClaimTypeVehicleRate::factory()->create([
+        'claim_type_id' => $claimType->id,
+        'rate_per_km' => 0.30,
+    ]);
+
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/claims', [
+        'claim_type_id' => $claimType->id,
+        'vehicle_rate_id' => $vehicleRate->id,
+        'distance_km' => 100,
+        'origin' => 'Shah Alam',
+        'destination' => 'Klang',
+        'trip_purpose' => 'Delivery',
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Delivery run',
+    ]);
+
+    $response->assertCreated();
+
+    $claim = ClaimRequest::where('employee_id', $data['employee']->id)->first();
+    expect((float) $claim->amount)->toBe(30.00);
+});
+
+test('regular claim still requires amount field', function () {
+    $data = createMileageEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create([
+        'is_mileage_type' => false,
+        'requires_receipt' => false,
+    ]);
+
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/claims', [
+        'claim_type_id' => $claimType->id,
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Regular claim without amount',
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['amount']);
+});
+
+test('mileage claim warns when monthly limit exceeded', function () {
+    $data = createMileageEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create([
+        'is_mileage_type' => true,
+        'monthly_limit' => 100.00,
+        'requires_receipt' => false,
+    ]);
+    $vehicleRate = ClaimTypeVehicleRate::factory()->create([
+        'claim_type_id' => $claimType->id,
+        'rate_per_km' => 0.60,
+    ]);
+
+    ClaimRequest::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'claim_type_id' => $claimType->id,
+        'amount' => 80.00,
+        'status' => 'approved',
+        'claim_date' => now(),
+    ]);
+
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/claims', [
+        'claim_type_id' => $claimType->id,
+        'vehicle_rate_id' => $vehicleRate->id,
+        'distance_km' => 50,
+        'origin' => 'KL',
+        'destination' => 'PJ',
+        'trip_purpose' => 'Meeting',
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Over limit mileage claim',
+    ]);
+
+    $response->assertCreated();
+    expect($response->json('warning'))->not->toBeNull();
+});
+
+test('mileage claim rejects inactive vehicle rate', function () {
+    $data = createMileageEmployeeWithRecord();
+    $claimType = ClaimType::factory()->create([
+        'is_mileage_type' => true,
+        'requires_receipt' => false,
+    ]);
+    $vehicleRate = ClaimTypeVehicleRate::factory()->inactive()->create([
+        'claim_type_id' => $claimType->id,
+    ]);
+
+    $response = $this->actingAs($data['user'])->postJson('/api/hr/me/claims', [
+        'claim_type_id' => $claimType->id,
+        'vehicle_rate_id' => $vehicleRate->id,
+        'distance_km' => 50,
+        'origin' => 'KL',
+        'destination' => 'PJ',
+        'trip_purpose' => 'Meeting',
+        'claim_date' => now()->format('Y-m-d'),
+        'description' => 'Using inactive rate',
+    ]);
+
+    $response->assertStatus(404);
+});
