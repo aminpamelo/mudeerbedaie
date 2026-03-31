@@ -398,7 +398,16 @@ export default function ClockInOut() {
             setTimeout(() => setSuccess(null), 3000);
         },
         onError: (err) => {
-            setError(err?.response?.data?.message || 'Failed to clock in');
+            const data = err?.response?.data;
+            const validationErrors = data?.errors;
+            const firstValidationError = validationErrors
+                ? Object.values(validationErrors).flat()[0]
+                : null;
+            const msg = data?.message
+                || firstValidationError
+                || err?.message
+                || 'Failed to clock in';
+            setError(msg);
             setSuccess(null);
         },
     });
