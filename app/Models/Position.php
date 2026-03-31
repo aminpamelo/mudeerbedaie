@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Position extends Model
@@ -28,10 +29,20 @@ class Position extends Model
     }
 
     /**
-     * Get employees holding this position
+     * Get employees holding this position (legacy single FK)
      */
-    public function employees(): HasMany
+    public function directEmployees(): HasMany
     {
         return $this->hasMany(Employee::class);
+    }
+
+    /**
+     * Get employees assigned to this position (many-to-many)
+     */
+    public function employees(): BelongsToMany
+    {
+        return $this->belongsToMany(Employee::class, 'employee_position')
+            ->withPivot('is_primary')
+            ->withTimestamps();
     }
 }

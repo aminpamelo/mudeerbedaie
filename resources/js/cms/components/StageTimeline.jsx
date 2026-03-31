@@ -12,6 +12,20 @@ const STAGE_LABELS = {
     posted: 'Posted',
 };
 
+const STATUS_LABELS = {
+    pending: 'Pending',
+    in_progress: 'In Progress',
+    completed: 'Completed',
+};
+
+function formatStatus(status) {
+    return STATUS_LABELS[status] || status;
+}
+
+function getAssigneeName(assignee) {
+    return assignee.employee?.full_name || assignee.full_name || assignee.name || null;
+}
+
 function getInitials(name) {
     if (!name) return '?';
     return name
@@ -86,7 +100,7 @@ export default function StageTimeline({ stages = [], currentStage = 'idea' }) {
                                 {/* Status text */}
                                 {stageData?.status && (
                                     <span className="mt-0.5 text-[10px] text-slate-500">
-                                        {stageData.status}
+                                        {formatStatus(stageData.status)}
                                     </span>
                                 )}
 
@@ -99,7 +113,7 @@ export default function StageTimeline({ stages = [], currentStage = 'idea' }) {
                                                 className="h-6 w-6 border-2 border-white"
                                             >
                                                 <AvatarFallback className="text-[10px]">
-                                                    {getInitials(assignee.name || assignee.full_name)}
+                                                    {getInitials(getAssigneeName(assignee))}
                                                 </AvatarFallback>
                                             </Avatar>
                                         ))}
@@ -186,7 +200,7 @@ export default function StageTimeline({ stages = [], currentStage = 'idea' }) {
                                 </span>
                                 {stageData?.status && (
                                     <p className="text-xs text-slate-500">
-                                        {stageData.status}
+                                        {formatStatus(stageData.status)}
                                     </p>
                                 )}
                                 {stageData?.assignees?.length > 0 && (status === 'current' || status === 'completed') && (
@@ -197,7 +211,7 @@ export default function StageTimeline({ stages = [], currentStage = 'idea' }) {
                                                 className="h-6 w-6 border-2 border-white"
                                             >
                                                 <AvatarFallback className="text-[10px]">
-                                                    {getInitials(assignee.name || assignee.full_name)}
+                                                    {getInitials(getAssigneeName(assignee))}
                                                 </AvatarFallback>
                                             </Avatar>
                                         ))}

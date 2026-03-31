@@ -82,8 +82,7 @@ const TABS = [
 ];
 
 const DOC_TYPES = [
-    { value: 'ic_front', label: 'IC Front' },
-    { value: 'ic_back', label: 'IC Back' },
+    { value: 'ic', label: 'IC' },
     { value: 'offer_letter', label: 'Offer Letter' },
     { value: 'contract', label: 'Contract' },
     { value: 'bank_statement', label: 'Bank Statement' },

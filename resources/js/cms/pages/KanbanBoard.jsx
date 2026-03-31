@@ -65,17 +65,17 @@ function AssigneeAvatarStack({ assignees }) {
             {visible.map((assignee, index) => (
                 <div
                     key={assignee.id || index}
-                    title={assignee.full_name || assignee.name}
+                    title={assignee.full_name || assignee.name || 'Unknown'}
                 >
                     {assignee.profile_photo_url ? (
                         <img
                             src={assignee.profile_photo_url}
-                            alt={assignee.full_name || assignee.name}
+                            alt={assignee.full_name || assignee.name || 'Unknown'}
                             className="h-6 w-6 rounded-full border-2 border-white object-cover"
                         />
                     ) : (
                         <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-zinc-200 text-[10px] font-semibold text-zinc-600">
-                            {getInitials(assignee.full_name || assignee.name)}
+                            {getInitials(assignee.full_name || assignee.name || 'Unknown')}
                         </div>
                     )}
                 </div>
@@ -89,11 +89,27 @@ function AssigneeAvatarStack({ assignees }) {
     );
 }
 
+function getStageAssignees(content) {
+    if (!content.stages || content.stages.length === 0) return [];
+    const seen = new Set();
+    const result = [];
+    for (const stage of content.stages) {
+        for (const assignee of stage.assignees || []) {
+            const emp = assignee.employee;
+            if (emp && !seen.has(emp.id)) {
+                seen.add(emp.id);
+                result.push(emp);
+            }
+        }
+    }
+    return result;
+}
+
 function KanbanCard({ content }) {
     const navigate = useNavigate();
     const overdue = isOverdue(content.due_date);
     const priorityColor = PRIORITY_COLORS[content.priority] || 'bg-zinc-100 text-zinc-700';
-    const assignees = content.assignees || content.stage_assignees || [];
+    const assignees = getStageAssignees(content);
 
     return (
         <div
@@ -115,10 +131,10 @@ function KanbanCard({ content }) {
                 >
                     {capitalize(content.priority)}
                 </span>
-                {content.is_flagged && (
+                {content.is_flagged_for_ads && (
                     <Flag className="h-3.5 w-3.5 text-red-500" />
                 )}
-                {content.marked_for_ads && (
+                {content.is_marked_for_ads && (
                     <Megaphone className="h-3.5 w-3.5 text-indigo-500" />
                 )}
             </div>
@@ -173,8 +189,8 @@ export default function KanbanBoard() {
         queryFn: fetchKanban,
     });
 
-    // data is expected to be an object keyed by stage
-    const stages = data || {};
+    // data from API is wrapped: { data: { idea: [...], ... } }
+    const stages = data?.data || data || {};
 
     return (
         <div>

@@ -10,6 +10,7 @@ import EmployeeShow from './pages/EmployeeShow';
 import EmployeeEdit from './pages/EmployeeEdit';
 import Departments from './pages/Departments';
 import Positions from './pages/Positions';
+import OrgChart from './pages/OrgChart';
 
 // Admin - Attendance
 import AttendanceDashboard from './pages/attendance/AttendanceDashboard';
@@ -159,6 +160,7 @@ function AdminRoutes() {
             <Route path="employees/:id/edit" element={<EmployeeEdit />} />
             <Route path="departments" element={<Departments />} />
             <Route path="positions" element={<Positions />} />
+            <Route path="org-chart" element={<OrgChart />} />
 
             {/* Attendance */}
             <Route path="attendance" element={<AttendanceDashboard />} />

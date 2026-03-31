@@ -72,7 +72,7 @@ class CmsContentController extends Controller
         $validated = $request->validated();
 
         return DB::transaction(function () use ($validated, $request) {
-            $employee = Employee::where('user_id', $request->user()->id)->firstOrFail();
+            $employee = Employee::where('user_id', $request->user()->id)->first();
 
             $content = Content::create([
                 'title' => $validated['title'],
@@ -80,7 +80,7 @@ class CmsContentController extends Controller
                 'due_date' => $validated['due_date'] ?? null,
                 'priority' => $validated['priority'],
                 'stage' => 'idea',
-                'created_by' => $employee->id,
+                'created_by' => $employee?->id,
             ]);
 
             $stageNames = ['idea', 'shooting', 'editing', 'posting'];
@@ -289,7 +289,7 @@ class CmsContentController extends Controller
      */
     public function markForAds(Request $request, Content $content): JsonResponse
     {
-        $employee = Employee::where('user_id', $request->user()->id)->firstOrFail();
+        $employee = Employee::where('user_id', $request->user()->id)->first();
 
         if ($content->is_marked_for_ads) {
             $content->update([
@@ -300,7 +300,7 @@ class CmsContentController extends Controller
         } else {
             $content->update([
                 'is_marked_for_ads' => true,
-                'marked_by' => $employee->id,
+                'marked_by' => $employee?->id,
                 'marked_at' => now(),
             ]);
         }

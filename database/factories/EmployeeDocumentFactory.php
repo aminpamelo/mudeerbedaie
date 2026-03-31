@@ -17,7 +17,7 @@ class EmployeeDocumentFactory extends Factory
      */
     public function definition(): array
     {
-        $documentType = fake()->randomElement(['ic_front', 'ic_back', 'offer_letter', 'contract', 'bank_statement', 'epf_form', 'socso_form']);
+        $documentType = fake()->randomElement(['ic', 'offer_letter', 'contract', 'bank_statement', 'epf_form', 'socso_form']);
 
         return [
             'employee_id' => Employee::factory(),

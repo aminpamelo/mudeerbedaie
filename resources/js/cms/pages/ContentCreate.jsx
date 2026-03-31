@@ -249,7 +249,7 @@ export default function ContentCreate() {
                             return (
                                 <div
                                     key={stage.key}
-                                    className={`overflow-hidden rounded-lg border border-zinc-200 border-l-4 ${stage.borderColor}`}
+                                    className={`rounded-lg border border-zinc-200 border-l-4 ${stage.borderColor}`}
                                 >
                                     {/* Stage header */}
                                     <button

@@ -95,8 +95,7 @@ const EMPLOYMENT_TYPES = [
 ];
 
 const DOCUMENT_FIELDS = [
-    { key: 'ic_front', label: 'IC Front', required: false },
-    { key: 'ic_back', label: 'IC Back', required: false },
+    { key: 'ic', label: 'IC', required: false },
     { key: 'offer_letter', label: 'Offer Letter', required: false },
     { key: 'employment_contract', label: 'Employment Contract', required: false },
     { key: 'bank_statement', label: 'Bank Statement', required: false },
@@ -791,7 +790,7 @@ export default function EmployeeCreate() {
                                     <SelectContent>
                                         {positions.map((pos) => (
                                             <SelectItem key={pos.id} value={String(pos.id)}>
-                                                {pos.name}
+                                                {pos.title}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

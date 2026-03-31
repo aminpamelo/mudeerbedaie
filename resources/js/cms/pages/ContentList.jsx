@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -13,6 +13,7 @@ import {
     ArrowUp,
     ArrowDown,
     FileText,
+    Check,
 } from 'lucide-react';
 import { fetchContents } from '../lib/api';
 import { cn } from '../lib/utils';
@@ -99,6 +100,168 @@ function capitalize(str) {
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
+const PIPELINE_STAGES = [
+    { key: 'idea', full: 'Idea', color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-300' },
+    { key: 'shooting', full: 'Shooting', color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-300' },
+    { key: 'editing', full: 'Editing', color: 'bg-amber-500', text: 'text-amber-700', light: 'bg-amber-50', border: 'border-amber-300' },
+    { key: 'posting', full: 'Posting', color: 'bg-emerald-500', text: 'text-emerald-700', light: 'bg-emerald-50', border: 'border-emerald-300' },
+    { key: 'posted', full: 'Posted', color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-300' },
+];
+
+function isOverdue(dateString) {
+    if (!dateString) return false;
+    return new Date(dateString) < new Date();
+}
+
+function StageHoverCard({ stageData, stageDef, isCompleted, isCurrent, children }) {
+    const [open, setOpen] = useState(false);
+    const timeoutRef = useRef(null);
+
+    const hasData = stageData && (stageData.due_date || (stageData.assignees && stageData.assignees.length > 0));
+
+    function handleEnter() {
+        if (!hasData) return;
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => setOpen(true), 200);
+    }
+
+    function handleLeave() {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => setOpen(false), 150);
+    }
+
+    return (
+        <div
+            className="relative"
+            onMouseEnter={handleEnter}
+            onMouseLeave={handleLeave}
+        >
+            {children}
+            {open && hasData && (
+                <div
+                    className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg"
+                    style={{ minWidth: '180px' }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {/* Arrow */}
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-b border-r border-zinc-200 bg-white" />
+
+                    {/* Stage name */}
+                    <div className="mb-2 flex items-center gap-2">
+                        <div className={cn('h-2 w-2 rounded-full', stageDef.color)} />
+                        <span className="text-xs font-semibold text-zinc-900">{stageDef.full}</span>
+                        {isCompleted && (
+                            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">Done</span>
+                        )}
+                        {isCurrent && (
+                            <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">Current</span>
+                        )}
+                    </div>
+
+                    {/* Due date */}
+                    {stageData.due_date && (
+                        <div className="mb-2">
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Due Date</p>
+                            <p className={cn(
+                                'text-xs font-medium',
+                                isOverdue(stageData.due_date) && !isCompleted ? 'text-red-600' : 'text-zinc-700'
+                            )}>
+                                {formatDate(stageData.due_date)}
+                                {isOverdue(stageData.due_date) && !isCompleted && (
+                                    <span className="ml-1 text-[10px] text-red-500">(Overdue)</span>
+                                )}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* PIC / Assignees */}
+                    {stageData.assignees && stageData.assignees.length > 0 && (
+                        <div>
+                            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-400">PIC</p>
+                            <div className="space-y-1.5">
+                                {stageData.assignees.map((assignee, aIdx) => {
+                                    const emp = assignee.employee || assignee;
+                                    const name = emp.full_name || emp.name || 'Unknown';
+                                    return (
+                                        <div key={emp.id || aIdx} className="flex items-center gap-2">
+                                            {emp.profile_photo_url ? (
+                                                <img
+                                                    src={emp.profile_photo_url}
+                                                    alt={name}
+                                                    className="h-5 w-5 rounded-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[9px] font-semibold text-zinc-600">
+                                                    {getInitials(name)}
+                                                </div>
+                                            )}
+                                            <span className="text-xs text-zinc-700">{name}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function StagePipeline({ stage, stages = [] }) {
+    const currentIndex = PIPELINE_STAGES.findIndex((s) => s.key === stage);
+
+    function getStageData(stageKey) {
+        return stages.find((s) => s.stage === stageKey) || null;
+    }
+
+    return (
+        <div className="flex items-center">
+            {PIPELINE_STAGES.map((s, idx) => {
+                const isCompleted = idx < currentIndex;
+                const isCurrent = idx === currentIndex;
+                const stageData = getStageData(s.key);
+                const overdue = stageData?.due_date && isOverdue(stageData.due_date) && !isCompleted;
+
+                return (
+                    <div key={s.key} className="flex items-center">
+                        {/* Stage step */}
+                        <StageHoverCard
+                            stageData={stageData}
+                            stageDef={s}
+                            isCompleted={isCompleted}
+                            isCurrent={isCurrent}
+                        >
+                            <div
+                                className={cn(
+                                    'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-all border cursor-default',
+                                    isCompleted && `${s.color} text-white border-transparent`,
+                                    isCurrent && !overdue && `${s.light} ${s.text} ${s.border}`,
+                                    isCurrent && overdue && 'bg-red-50 text-red-700 border-red-300',
+                                    !isCompleted && !isCurrent && !overdue && 'bg-zinc-100 text-zinc-400 border-transparent',
+                                    !isCompleted && !isCurrent && overdue && 'bg-red-50 text-red-400 border-red-200',
+                                )}
+                            >
+                                {isCompleted && <Check className="h-3 w-3" />}
+                                <span>{s.full}</span>
+                            </div>
+                        </StageHoverCard>
+                        {/* Connector */}
+                        {idx < PIPELINE_STAGES.length - 1 && (
+                            <div
+                                className={cn(
+                                    'h-0.5 w-1.5 shrink-0',
+                                    idx < currentIndex ? s.color : 'bg-zinc-200'
+                                )}
+                            />
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 function StageBadge({ stage }) {
     const colorClass = STAGE_COLORS[stage] || 'bg-zinc-100 text-zinc-700';
     return (
@@ -145,6 +308,22 @@ function CreatorAvatar({ creator }) {
             {getInitials(creator.full_name || creator.name)}
         </div>
     );
+}
+
+function getUniqueAssigneesFromStages(content) {
+    if (!content.stages || content.stages.length === 0) return [];
+    const seen = new Set();
+    const result = [];
+    for (const stage of content.stages) {
+        for (const assignee of stage.assignees || []) {
+            const emp = assignee.employee;
+            if (emp && !seen.has(emp.id)) {
+                seen.add(emp.id);
+                result.push(emp);
+            }
+        }
+    }
+    return result;
 }
 
 function AssigneeStack({ assignees }) {
@@ -541,11 +720,11 @@ export default function ContentList() {
                     <EmptyState hasFilters={hasFilters} onClearFilters={clearFilters} />
                 ) : (
                     <>
-                        <Table>
+                        <Table className="table-fixed w-full">
                             <TableHeader>
                                 <TableRow>
                                     <TableHead
-                                        className="cursor-pointer select-none"
+                                        className="cursor-pointer select-none w-[35%]"
                                         onClick={() => handleSort('title')}
                                     >
                                         <div className="flex items-center">
@@ -562,7 +741,7 @@ export default function ContentList() {
                                         onClick={() => handleSort('stage')}
                                     >
                                         <div className="flex items-center">
-                                            Stage
+                                            Pipeline
                                             <SortIcon
                                                 column="stage"
                                                 currentSort={sort}
@@ -571,7 +750,7 @@ export default function ContentList() {
                                         </div>
                                     </TableHead>
                                     <TableHead
-                                        className="cursor-pointer select-none"
+                                        className="cursor-pointer select-none w-[8%]"
                                         onClick={() => handleSort('priority')}
                                     >
                                         <div className="flex items-center">
@@ -583,9 +762,9 @@ export default function ContentList() {
                                             />
                                         </div>
                                     </TableHead>
-                                    <TableHead>Assignees</TableHead>
+                                    <TableHead className="w-[12%]">Assignees</TableHead>
                                     <TableHead
-                                        className="cursor-pointer select-none"
+                                        className="cursor-pointer select-none w-[10%]"
                                         onClick={() => handleSort('due_date')}
                                     >
                                         <div className="flex items-center">
@@ -597,7 +776,7 @@ export default function ContentList() {
                                             />
                                         </div>
                                     </TableHead>
-                                    <TableHead className="w-24 text-right">Actions</TableHead>
+                                    <TableHead className="w-[7%] text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -608,29 +787,22 @@ export default function ContentList() {
                                         onClick={() => navigate(`/contents/${content.id}`)}
                                     >
                                         <TableCell>
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-3 min-w-0">
                                                 <CreatorAvatar creator={content.creator} />
-                                                <div className="min-w-0">
-                                                    <p className="truncate font-medium text-zinc-900">
-                                                        {content.title}
-                                                    </p>
-                                                    {content.description && (
-                                                        <p className="truncate text-xs text-zinc-500">
-                                                            {content.description}
-                                                        </p>
-                                                    )}
-                                                </div>
+                                                <p className="truncate text-sm font-medium text-zinc-900">
+                                                    {content.title}
+                                                </p>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <StageBadge stage={content.stage} />
+                                            <StagePipeline stage={content.stage} stages={content.stages || []} />
                                         </TableCell>
                                         <TableCell>
                                             <PriorityBadge priority={content.priority} />
                                         </TableCell>
                                         <TableCell>
                                             <AssigneeStack
-                                                assignees={content.assignees || content.stage_assignees}
+                                                assignees={getUniqueAssigneesFromStages(content)}
                                             />
                                         </TableCell>
                                         <TableCell className="whitespace-nowrap text-sm">

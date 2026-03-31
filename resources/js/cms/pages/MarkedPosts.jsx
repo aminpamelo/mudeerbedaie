@@ -90,13 +90,13 @@ function StageBadge({ stage }) {
 function StatusBadges({ content }) {
     return (
         <div className="flex items-center gap-1.5">
-            {content.flagged_for_ads && (
+            {content.is_flagged_for_ads && (
                 <Badge className="bg-orange-100 text-orange-800 text-[10px]">
                     <Flag className="mr-0.5 h-3 w-3" />
                     Flagged
                 </Badge>
             )}
-            {content.marked_for_ads && (
+            {content.is_marked_for_ads && (
                 <Badge className="bg-indigo-100 text-indigo-800 text-[10px]">
                     <Megaphone className="mr-0.5 h-3 w-3" />
                     Marked
@@ -210,9 +210,9 @@ export default function MarkedPosts() {
     // Filter contents client-side
     const allContents = data?.data || [];
     const markedContents = allContents.filter((c) => {
-        if (filter === 'flagged') return c.flagged_for_ads && !c.marked_for_ads;
-        if (filter === 'marked') return c.marked_for_ads;
-        return c.flagged_for_ads || c.marked_for_ads;
+        if (filter === 'flagged') return c.is_flagged_for_ads && !c.is_marked_for_ads;
+        if (filter === 'marked') return c.is_marked_for_ads;
+        return c.is_flagged_for_ads || c.is_marked_for_ads;
     });
 
     function getLatestStats(content) {
@@ -244,9 +244,9 @@ export default function MarkedPosts() {
                         {filter === tab.value && (
                             <span className="ml-1.5 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">
                                 {allContents.filter((c) => {
-                                    if (tab.value === 'flagged') return c.flagged_for_ads && !c.marked_for_ads;
-                                    if (tab.value === 'marked') return c.marked_for_ads;
-                                    return c.flagged_for_ads || c.marked_for_ads;
+                                    if (tab.value === 'flagged') return c.is_flagged_for_ads && !c.is_marked_for_ads;
+                                    if (tab.value === 'marked') return c.is_marked_for_ads;
+                                    return c.is_flagged_for_ads || c.is_marked_for_ads;
                                 }).length}
                             </span>
                         )}
@@ -317,7 +317,7 @@ export default function MarkedPosts() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
-                                                {content.marked_for_ads && (
+                                                {content.is_marked_for_ads && (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
@@ -344,9 +344,9 @@ export default function MarkedPosts() {
                                                     className="h-8 w-8"
                                                     onClick={() => markMutation.mutate(content.id)}
                                                     disabled={markMutation.isPending}
-                                                    title={content.marked_for_ads ? 'Unmark for ads' : 'Mark for ads'}
+                                                    title={content.is_marked_for_ads ? 'Unmark for ads' : 'Mark for ads'}
                                                 >
-                                                    {content.marked_for_ads ? (
+                                                    {content.is_marked_for_ads ? (
                                                         <ToggleRight className="h-4 w-4 text-indigo-600" />
                                                     ) : (
                                                         <ToggleLeft className="h-4 w-4" />

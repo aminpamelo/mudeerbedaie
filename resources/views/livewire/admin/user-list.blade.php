@@ -209,8 +209,8 @@ new class extends Component {
 
     <div class="mt-6 space-y-6">
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-            <flux:card class="p-6">
+        <div class="flex gap-4 overflow-x-auto pb-2">
+            <flux:card class="shrink-0 p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-3">
                         <flux:icon.users class="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -221,8 +221,8 @@ new class extends Component {
                     </div>
                 </div>
             </flux:card>
-            
-            <flux:card class="p-6">
+
+            <flux:card class="shrink-0 p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-green-50 dark:bg-green-900/30 p-3">
                         <flux:icon.check-circle class="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -233,8 +233,8 @@ new class extends Component {
                     </div>
                 </div>
             </flux:card>
-            
-            <flux:card class="p-6">
+
+            <flux:card class="shrink-0 p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-purple-50 dark:bg-purple-900/30 p-3">
                         <flux:icon.shield-check class="h-6 w-6 text-purple-600 dark:text-purple-400" />
@@ -245,8 +245,8 @@ new class extends Component {
                     </div>
                 </div>
             </flux:card>
-            
-            <flux:card class="p-6">
+
+            <flux:card class="shrink-0 p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-orange-50 dark:bg-orange-900/30 p-3">
                         <flux:icon.user-group class="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -257,8 +257,8 @@ new class extends Component {
                     </div>
                 </div>
             </flux:card>
-            
-            <flux:card class="p-6">
+
+            <flux:card class="shrink-0 p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-indigo-50 dark:bg-indigo-900/30 p-3">
                         <flux:icon.academic-cap class="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
@@ -270,7 +270,7 @@ new class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card class="p-6">
+            <flux:card class="shrink-0 p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-pink-50 dark:bg-pink-900/30 p-3">
                         <flux:icon.video-camera class="h-6 w-6 text-pink-600 dark:text-pink-400" />
@@ -282,7 +282,7 @@ new class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card class="p-6">
+            <flux:card class="shrink-0 p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-teal-50 dark:bg-teal-900/30 p-3">
                         <flux:icon.shield-check class="h-6 w-6 text-teal-600 dark:text-teal-400" />
@@ -294,7 +294,7 @@ new class extends Component {
                 </div>
             </flux:card>
 
-            <flux:card class="p-6">
+            <flux:card class="shrink-0 p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-green-50 dark:bg-green-900/30 p-3">
                         <flux:icon.briefcase class="h-6 w-6 text-green-600 dark:text-green-400" />

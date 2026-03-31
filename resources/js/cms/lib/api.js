@@ -44,7 +44,7 @@ export function deleteContent(id) {
 }
 
 export function updateContentStage(id, data) {
-    return api.put(`/contents/${id}/stage`, data).then((r) => r.data);
+    return api.patch(`/contents/${id}/stage`, data).then((r) => r.data);
 }
 
 export function addContentStats(id, data) {
@@ -52,7 +52,7 @@ export function addContentStats(id, data) {
 }
 
 export function markContentForAds(id) {
-    return api.post(`/contents/${id}/mark-for-ads`).then((r) => r.data);
+    return api.patch(`/contents/${id}/mark-for-ads`).then((r) => r.data);
 }
 
 export function fetchKanban() {
@@ -71,6 +71,10 @@ export function addStageAssignee(contentId, stage, data) {
 
 export function removeStageAssignee(contentId, stage, employeeId) {
     return api.delete(`/contents/${contentId}/stages/${stage}/assignees/${employeeId}`).then((r) => r.data);
+}
+
+export function updateStageDueDate(contentId, stage, data) {
+    return api.patch(`/contents/${contentId}/stages/${stage}/due-date`, data).then((r) => r.data);
 }
 
 // ─── Ad Campaigns ────────────────────────────────────────────────────────────
@@ -93,6 +97,12 @@ export function updateAdCampaign(id, data) {
 
 export function addAdStats(id, data) {
     return api.post(`/ad-campaigns/${id}/stats`, data).then((r) => r.data);
+}
+
+// ─── Performance Report ─────────────────────────────────────────────────────
+
+export function fetchPerformanceReport(params) {
+    return api.get('/performance-report', { params }).then((r) => r.data);
 }
 
 // ─── Employees (for assignee picker - uses HR API) ──────────────────────────

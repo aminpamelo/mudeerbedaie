@@ -109,7 +109,7 @@ class HrMyProfileController extends Controller
 
         $validated = $request->validate([
             'file' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,doc,docx'],
-            'document_type' => ['required', 'string', 'in:ic_front,ic_back,offer_letter,contract,bank_statement,epf_form,socso_form'],
+            'document_type' => ['required', 'string', 'in:ic,offer_letter,contract,bank_statement,epf_form,socso_form'],
             'title' => ['required', 'string', 'max:255'],
         ]);
 

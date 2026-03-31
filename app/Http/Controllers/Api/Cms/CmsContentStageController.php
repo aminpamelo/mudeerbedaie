@@ -38,6 +38,27 @@ class CmsContentStageController extends Controller
     }
 
     /**
+     * Update the due date for a content stage.
+     */
+    public function updateDueDate(Request $request, Content $content, string $stage): JsonResponse
+    {
+        $validated = $request->validate([
+            'due_date' => ['nullable', 'date'],
+        ]);
+
+        $contentStage = ContentStage::where('content_id', $content->id)
+            ->where('stage', $stage)
+            ->firstOrFail();
+
+        $contentStage->update(['due_date' => $validated['due_date']]);
+
+        return response()->json([
+            'data' => $contentStage,
+            'message' => 'Due date updated successfully.',
+        ]);
+    }
+
+    /**
      * Remove an assignee from a content stage.
      */
     public function removeAssignee(Content $content, string $stage, int $employeeId): JsonResponse

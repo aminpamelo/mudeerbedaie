@@ -123,10 +123,11 @@ function TableSkeleton() {
 export default function Dashboard() {
     const navigate = useNavigate();
 
-    const { data: stats, isLoading: statsLoading } = useQuery({
+    const { data: rawStats, isLoading: statsLoading } = useQuery({
         queryKey: ['cms', 'dashboard', 'stats'],
         queryFn: fetchDashboardStats,
     });
+    const stats = rawStats?.data ?? rawStats;
 
     const { data: topPostsData, isLoading: postsLoading } = useQuery({
         queryKey: ['cms', 'dashboard', 'top-posts'],
@@ -280,7 +281,7 @@ export default function Dashboard() {
                                                 {post.title}
                                             </TableCell>
                                             <TableCell className="text-slate-500">
-                                                {post.creator ?? '-'}
+                                                {post.creator?.full_name ?? post.creator?.name ?? (typeof post.creator === 'string' ? post.creator : '-')}
                                             </TableCell>
                                             <TableCell className="text-right font-semibold tabular-nums">
                                                 {(post.views ?? 0).toLocaleString()}

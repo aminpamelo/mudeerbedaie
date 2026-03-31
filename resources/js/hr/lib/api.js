@@ -61,6 +61,9 @@ export const createEmergencyContact = (id, data) => api.post(`/employees/${id}/e
 export const updateEmergencyContact = (employeeId, contactId, data) => api.put(`/employees/${employeeId}/emergency-contacts/${contactId}`, data).then(r => r.data);
 export const deleteEmergencyContact = (employeeId, contactId) => api.delete(`/employees/${employeeId}/emergency-contacts/${contactId}`).then(r => r.data);
 
+// ========== Organization Chart ==========
+export const fetchOrgChart = () => api.get('/org-chart').then(r => r.data);
+
 // ========== Departments ==========
 export const fetchDepartments = (params) => api.get('/departments', { params }).then(r => r.data);
 export const fetchDepartment = (id) => api.get(`/departments/${id}`).then(r => r.data);
@@ -76,6 +79,9 @@ export const fetchPosition = (id) => api.get(`/positions/${id}`).then(r => r.dat
 export const createPosition = (data) => api.post('/positions', data).then(r => r.data);
 export const updatePosition = (id, data) => api.put(`/positions/${id}`, data).then(r => r.data);
 export const deletePosition = (id) => api.delete(`/positions/${id}`).then(r => r.data);
+export const fetchPositionEmployees = (id) => api.get(`/positions/${id}/employees`).then(r => r.data);
+export const assignPositionEmployees = (id, employeeIds) => api.post(`/positions/${id}/assign-employees`, { employee_ids: employeeIds }).then(r => r.data);
+export const removePositionEmployee = (positionId, employeeId) => api.delete(`/positions/${positionId}/employees/${employeeId}`).then(r => r.data);
 
 // ========== Leave Dashboard ==========
 export const fetchLeaveDashboardStats = () => api.get('/leave/dashboard/stats').then(r => r.data);

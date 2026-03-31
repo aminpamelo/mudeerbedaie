@@ -12,6 +12,7 @@ import ContentCalendar from './pages/ContentCalendar';
 import MarkedPosts from './pages/MarkedPosts';
 import AdsList from './pages/AdsList';
 import AdCampaignDetail from './pages/AdCampaignDetail';
+import PerformanceReport from './pages/PerformanceReport';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -38,6 +39,7 @@ export default function App() {
                         <Route path="ads/marked" element={<MarkedPosts />} />
                         <Route path="ads" element={<AdsList />} />
                         <Route path="ads/:id" element={<AdCampaignDetail />} />
+                        <Route path="reports/performance" element={<PerformanceReport />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Route>
                 </Routes>

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Cms\CmsAdCampaignController;
 use App\Http\Controllers\Api\Cms\CmsContentController;
 use App\Http\Controllers\Api\Cms\CmsContentStageController;
 use App\Http\Controllers\Api\Cms\CmsDashboardController;
+use App\Http\Controllers\Api\Cms\CmsPerformanceReportController;
 use App\Http\Controllers\Api\ContactActivityController;
 use App\Http\Controllers\Api\Hr\HrApplicantController;
 use App\Http\Controllers\Api\Hr\HrAssetAssignmentController;
@@ -73,6 +74,7 @@ use App\Http\Controllers\Api\Hr\HrNotificationController;
 use App\Http\Controllers\Api\Hr\HrOfferLetterController;
 use App\Http\Controllers\Api\Hr\HrOnboardingController;
 use App\Http\Controllers\Api\Hr\HrOnboardingTemplateController;
+use App\Http\Controllers\Api\Hr\HrOrgChartController;
 use App\Http\Controllers\Api\Hr\HrOvertimeController;
 use App\Http\Controllers\Api\Hr\HrPayrollDashboardController;
 use App\Http\Controllers\Api\Hr\HrPayrollItemController;
@@ -468,6 +470,9 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::delete('employees/{employee}/documents/{document}', [HrEmployeeDocumentController::class, 'destroy'])->name('api.hr.employees.documents.destroy');
     Route::apiResource('employees.emergency-contacts', HrEmergencyContactController::class)->shallow()->names('api.hr.emergency-contacts');
 
+    // Organization Chart
+    Route::get('org-chart', HrOrgChartController::class)->name('api.hr.org-chart');
+
     // Departments
     Route::get('departments/tree', [HrDepartmentController::class, 'tree'])->name('api.hr.departments.tree');
     Route::get('departments/{department}/employees', [HrDepartmentController::class, 'employees'])->name('api.hr.departments.employees');
@@ -475,6 +480,9 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
 
     // Positions
     Route::apiResource('positions', HrPositionController::class)->names('api.hr.positions');
+    Route::get('positions/{position}/employees', [HrPositionController::class, 'employees'])->name('api.hr.positions.employees');
+    Route::post('positions/{position}/assign-employees', [HrPositionController::class, 'assignEmployees'])->name('api.hr.positions.assign');
+    Route::delete('positions/{position}/employees/{employee}', [HrPositionController::class, 'removeEmployee'])->name('api.hr.positions.remove-employee');
 
     // Office location settings for clock-in
     Route::get('settings/office-location', function () {
@@ -1047,9 +1055,13 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
     Route::post('contents/{content}/stats', [CmsContentController::class, 'addStats']);
     Route::patch('contents/{content}/mark-for-ads', [CmsContentController::class, 'markForAds']);
 
-    // Content Stage Assignees
+    // Content Stage Assignees & Due Date
+    Route::patch('contents/{content}/stages/{stage}/due-date', [CmsContentStageController::class, 'updateDueDate']);
     Route::post('contents/{content}/stages/{stage}/assignees', [CmsContentStageController::class, 'addAssignee']);
     Route::delete('contents/{content}/stages/{stage}/assignees/{employee}', [CmsContentStageController::class, 'removeAssignee']);
+
+    // Performance Report
+    Route::get('performance-report', [CmsPerformanceReportController::class, 'index']);
 
     // Ad Campaigns
     Route::apiResource('ads', CmsAdCampaignController::class)->parameters(['ads' => 'adCampaign']);

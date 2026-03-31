@@ -7,12 +7,15 @@ import {
     MoreHorizontal,
     Trash2,
     ChevronRight,
+    ChevronDown,
     Calendar,
     User,
     Megaphone,
     Flag,
     BarChart3,
     Clock,
+    X,
+    UserPlus,
 } from 'lucide-react';
 import {
     fetchContent,
@@ -20,6 +23,9 @@ import {
     addContentStats,
     markContentForAds,
     deleteContent,
+    addStageAssignee,
+    removeStageAssignee,
+    updateStageDueDate,
 } from '../lib/api';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/button';
@@ -51,6 +57,7 @@ import {
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
 import StageTimeline from '../components/StageTimeline';
 import StatsCard from '../components/StatsCard';
+import AssigneePicker from '../components/AssigneePicker';
 
 const STAGES = ['idea', 'shooting', 'editing', 'posting', 'posted'];
 
@@ -86,6 +93,20 @@ function formatDate(dateStr) {
     });
 }
 
+const STATUS_LABELS = {
+    pending: 'Pending',
+    in_progress: 'In Progress',
+    completed: 'Completed',
+};
+
+function formatStatus(status) {
+    return STATUS_LABELS[status] || status;
+}
+
+function getAssigneeName(assignee) {
+    return assignee.employee?.full_name || assignee.full_name || assignee.name || null;
+}
+
 function getInitials(name) {
     if (!name) return '?';
     return name
@@ -101,6 +122,7 @@ export default function ContentDetail() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
+    const [expandedStage, setExpandedStage] = useState(null);
     const [moveStageOpen, setMoveStageOpen] = useState(false);
     const [nextStage, setNextStage] = useState('');
     const [addStatsOpen, setAddStatsOpen] = useState(false);
@@ -143,6 +165,30 @@ export default function ContentDetail() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['cms', 'contents'] });
             navigate('/contents');
+        },
+    });
+
+    const addAssigneeMutation = useMutation({
+        mutationFn: ({ stage, employee_id, role }) =>
+            addStageAssignee(id, stage, { employee_id, role }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+        },
+    });
+
+    const removeAssigneeMutation = useMutation({
+        mutationFn: ({ stage, employeeId }) =>
+            removeStageAssignee(id, stage, employeeId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+        },
+    });
+
+    const updateDueDateMutation = useMutation({
+        mutationFn: ({ stage, due_date }) =>
+            updateStageDueDate(id, stage, { due_date: due_date || null }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
         },
     });
 
@@ -220,13 +266,13 @@ export default function ContentDetail() {
                             <Badge className={stageColors.badge}>
                                 {STAGE_LABELS[currentStage] || currentStage}
                             </Badge>
-                            {data.flagged_for_ads && (
+                            {data.is_flagged_for_ads && (
                                 <Badge className="bg-orange-100 text-orange-800">
                                     <Flag className="mr-1 h-3 w-3" />
                                     Flagged for Ads
                                 </Badge>
                             )}
-                            {data.marked_for_ads && (
+                            {data.is_marked_for_ads && (
                                 <Badge className="bg-indigo-100 text-indigo-800">
                                     <Megaphone className="mr-1 h-3 w-3" />
                                     Marked for Ads
@@ -235,10 +281,10 @@ export default function ContentDetail() {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
-                            {(data.creator?.name || data.created_by_name) && (
+                            {(data.creator?.full_name || data.created_by_name) && (
                                 <span className="flex items-center gap-1">
                                     <User className="h-3.5 w-3.5" />
-                                    {data.creator?.name || data.created_by_name}
+                                    {data.creator?.full_name || data.created_by_name}
                                 </span>
                             )}
                             <span className="flex items-center gap-1">
@@ -275,13 +321,13 @@ export default function ContentDetail() {
                         )}
 
                         <Button
-                            variant={data.marked_for_ads ? 'secondary' : 'outline'}
+                            variant={data.is_marked_for_ads ? 'secondary' : 'outline'}
                             size="sm"
                             onClick={() => markAdsMutation.mutate()}
                             disabled={markAdsMutation.isPending}
                         >
                             <Megaphone className="mr-1.5 h-3.5 w-3.5" />
-                            {data.marked_for_ads ? 'Marked' : 'Mark for Ads'}
+                            {data.is_marked_for_ads ? 'Marked' : 'Mark for Ads'}
                         </Button>
 
                         <DropdownMenu>
@@ -332,61 +378,196 @@ export default function ContentDetail() {
                             );
                             const isCurrent = stage === currentStage;
                             const colors = STAGE_COLORS[stage] || STAGE_COLORS.idea;
+                            const isExpanded = expandedStage === stage;
+                            const assignees = stageData?.assignees || [];
 
                             return (
                                 <div
                                     key={stage}
                                     className={cn(
-                                        'rounded-lg border p-3 transition-colors',
+                                        'rounded-lg border transition-colors',
                                         isCurrent
                                             ? `${colors.border} bg-white`
                                             : 'border-slate-100 bg-slate-50/50'
                                     )}
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <span className={cn('text-sm font-semibold', colors.text)}>
-                                            {STAGE_LABELS[stage]}
-                                        </span>
-                                        {stageData?.status && (
-                                            <Badge variant="secondary" className="text-[10px]">
-                                                {stageData.status}
-                                            </Badge>
-                                        )}
-                                    </div>
+                                    {/* Stage Header - clickable */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpandedStage(isExpanded ? null : stage)}
+                                        className="flex w-full items-center justify-between p-3 text-left hover:bg-slate-50/80 rounded-lg"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className={cn('text-sm font-semibold', colors.text)}>
+                                                {STAGE_LABELS[stage]}
+                                            </span>
+                                            {assignees.length > 0 && (
+                                                <span className="text-[10px] text-slate-400">
+                                                    {assignees.length} assignee{assignees.length !== 1 ? 's' : ''}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {stageData?.status && (
+                                                <Badge variant="secondary" className="text-[10px]">
+                                                    {formatStatus(stageData.status)}
+                                                </Badge>
+                                            )}
+                                            {isExpanded ? (
+                                                <ChevronDown className="h-4 w-4 text-slate-400" />
+                                            ) : (
+                                                <ChevronRight className="h-4 w-4 text-slate-400" />
+                                            )}
+                                        </div>
+                                    </button>
 
-                                    {stageData?.due_date && (
-                                        <p className="mt-1 text-xs text-slate-500">
-                                            Due: {formatDate(stageData.due_date)}
-                                        </p>
-                                    )}
-
-                                    {stageData?.assignees?.length > 0 && (
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                            {stageData.assignees.map((assignee, aIdx) => (
+                                    {/* Collapsed: show assignee avatars inline */}
+                                    {!isExpanded && assignees.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 px-3 pb-3 -mt-1">
+                                            {assignees.map((assignee, aIdx) => (
                                                 <div
                                                     key={assignee.id || aIdx}
-                                                    className="flex items-center gap-1.5"
+                                                    className="flex items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-0.5 pr-2"
                                                 >
                                                     <Avatar className="h-5 w-5">
-                                                        <AvatarFallback className="text-[9px]">
-                                                            {getInitials(assignee.name || assignee.full_name)}
+                                                        <AvatarFallback className="text-[8px] bg-slate-200">
+                                                            {getInitials(getAssigneeName(assignee))}
                                                         </AvatarFallback>
                                                     </Avatar>
-                                                    <span className="text-xs text-slate-600">
-                                                        {assignee.name || assignee.full_name}
+                                                    <span className="text-[11px] text-slate-600">
+                                                        {getAssigneeName(assignee) || 'Unknown'}
                                                     </span>
                                                     {assignee.role && (
-                                                        <Badge variant="outline" className="text-[9px] px-1 py-0">
-                                                            {assignee.role}
-                                                        </Badge>
+                                                        <span className="text-[10px] text-slate-400">
+                                                            ({assignee.role})
+                                                        </span>
                                                     )}
                                                 </div>
                                             ))}
                                         </div>
                                     )}
 
-                                    {!stageData && (
-                                        <p className="mt-1 text-xs text-slate-400">
+                                    {/* Expanded: full editing */}
+                                    {isExpanded && stage !== 'posted' && (
+                                        <div className="border-t border-slate-100 px-3 pb-3 pt-3 space-y-3">
+                                            {/* Due date - editable */}
+                                            <div className="flex items-center gap-2">
+                                                <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                                <label className="text-xs font-medium text-slate-500 shrink-0">Due Date</label>
+                                                <input
+                                                    type="date"
+                                                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                                    value={stageData?.due_date ? stageData.due_date.split('T')[0] : ''}
+                                                    onChange={(e) =>
+                                                        updateDueDateMutation.mutate({
+                                                            stage,
+                                                            due_date: e.target.value,
+                                                        })
+                                                    }
+                                                />
+                                                {stageData?.due_date && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            updateDueDateMutation.mutate({
+                                                                stage,
+                                                                due_date: null,
+                                                            })
+                                                        }
+                                                        className="text-slate-400 hover:text-red-500"
+                                                        title="Clear due date"
+                                                    >
+                                                        <X className="h-3.5 w-3.5" />
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Current assignees with remove */}
+                                            {assignees.length > 0 && (
+                                                <div className="space-y-1.5">
+                                                    <p className="text-xs font-medium text-slate-500">Assignees</p>
+                                                    {assignees.map((assignee, aIdx) => (
+                                                        <div
+                                                            key={assignee.id || aIdx}
+                                                            className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5"
+                                                        >
+                                                            <Avatar className="h-6 w-6">
+                                                                <AvatarFallback className="text-[9px]">
+                                                                    {getInitials(getAssigneeName(assignee))}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-xs font-medium text-slate-700">
+                                                                    {getAssigneeName(assignee) || 'Unknown'}
+                                                                </span>
+                                                                {assignee.role && (
+                                                                    <span className="ml-1.5 text-[10px] text-slate-400">
+                                                                        {assignee.role}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    removeAssigneeMutation.mutate({
+                                                                        stage,
+                                                                        employeeId: assignee.employee_id,
+                                                                    })
+                                                                }
+                                                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500"
+                                                            >
+                                                                <X className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Add assignee picker */}
+                                            <div>
+                                                <p className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1">
+                                                    <UserPlus className="h-3 w-3" />
+                                                    Add Assignee
+                                                </p>
+                                                <AssigneePicker
+                                                    assignees={assignees.map((a) => ({
+                                                        employee_id: a.employee_id,
+                                                        full_name: getAssigneeName(a),
+                                                        role: a.role || '',
+                                                    }))}
+                                                    onAssigneesChange={(newAssignees) => {
+                                                        // Find new additions
+                                                        const existingIds = assignees.map((a) => a.employee_id);
+                                                        const added = newAssignees.filter(
+                                                            (a) => !existingIds.includes(a.employee_id)
+                                                        );
+                                                        added.forEach((a) => {
+                                                            addAssigneeMutation.mutate({
+                                                                stage,
+                                                                employee_id: a.employee_id,
+                                                                role: a.role || null,
+                                                            });
+                                                        });
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Posted stage - no editing */}
+                                    {isExpanded && stage === 'posted' && (
+                                        <div className="border-t border-slate-100 px-3 pb-3 pt-3">
+                                            <p className="text-xs text-slate-400">
+                                                {data.posted_at
+                                                    ? `Posted on ${formatDate(data.posted_at)}`
+                                                    : 'Not yet posted'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* No stage data */}
+                                    {!stageData && !isExpanded && (
+                                        <p className="px-3 pb-3 -mt-1 text-xs text-slate-400">
                                             No details yet
                                         </p>
                                     )}

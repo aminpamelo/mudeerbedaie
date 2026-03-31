@@ -110,12 +110,12 @@ test('upload document stores file and creates record', function () {
     $response = $this->actingAs($user, 'sanctum')
         ->postJson(route('api.hr.me.documents.store'), [
             'file' => $file,
-            'document_type' => 'ic_front',
-            'title' => 'My IC Front',
+            'document_type' => 'ic',
+            'title' => 'My IC',
         ]);
 
     $response->assertCreated()
-        ->assertJsonPath('data.document_type', 'ic_front');
+        ->assertJsonPath('data.document_type', 'ic');
 
     expect($employee->documents()->count())->toBe(1);
 });

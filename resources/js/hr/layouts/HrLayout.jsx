@@ -55,6 +55,7 @@ import {
     BookOpen,
     Award,
     Wallet,
+    Network,
 } from 'lucide-react';
 import useHrStore from '../stores/useHrStore';
 import NotificationBell from '../components/NotificationBell';
@@ -65,6 +66,7 @@ const navigation = [
     { name: 'Employees', to: '/employees', icon: Users },
     { name: 'Departments', to: '/departments', icon: Building2 },
     { name: 'Positions', to: '/positions', icon: Briefcase },
+    { name: 'Org Chart', to: '/org-chart', icon: Network },
     {
         name: 'Attendance',
         icon: Clock,

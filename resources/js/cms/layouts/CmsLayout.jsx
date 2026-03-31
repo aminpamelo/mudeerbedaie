@@ -13,6 +13,7 @@ import {
     Calendar,
     Flag,
     BarChart3,
+    TrendingUp,
 } from 'lucide-react';
 import useCmsStore from '../stores/useCmsStore';
 import { cn } from '../lib/utils';
@@ -38,6 +39,7 @@ const navigation = [
             { name: 'Campaigns', to: '/ads', icon: BarChart3 },
         ],
     },
+    { name: 'Performance', to: '/reports/performance', icon: TrendingUp },
 ];
 
 function getExpandedSections(pathname) {
