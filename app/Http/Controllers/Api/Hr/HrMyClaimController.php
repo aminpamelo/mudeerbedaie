@@ -60,7 +60,7 @@ class HrMyClaimController extends Controller
         }
 
         $query = ClaimRequest::query()
-            ->with('claimType')
+            ->with('claimType', 'vehicleRate')
             ->where('employee_id', $employee->id);
 
         if ($status = $request->get('status')) {
@@ -83,7 +83,7 @@ class HrMyClaimController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $claimRequest->load('claimType');
+        $claimRequest->load('claimType', 'vehicleRate');
 
         return response()->json(['data' => $claimRequest]);
     }
@@ -104,6 +104,17 @@ class HrMyClaimController extends Controller
         return DB::transaction(function () use ($request, $employee, $validated) {
             $claimType = ClaimType::findOrFail($validated['claim_type_id']);
 
+            // Auto-calculate amount for mileage claims
+            $amount = $validated['amount'] ?? null;
+            if ($claimType->is_mileage_type) {
+                $vehicleRate = \App\Models\ClaimTypeVehicleRate::where('id', $validated['vehicle_rate_id'])
+                    ->where('claim_type_id', $claimType->id)
+                    ->where('is_active', true)
+                    ->firstOrFail();
+
+                $amount = round($validated['distance_km'] * $vehicleRate->rate_per_km, 2);
+            }
+
             $warning = null;
 
             $monthlyUsed = ClaimRequest::query()
@@ -121,9 +132,9 @@ class HrMyClaimController extends Controller
                 ->whereYear('claim_date', now()->year)
                 ->sum('amount');
 
-            if ($claimType->monthly_limit && ($monthlyUsed + $validated['amount']) > $claimType->monthly_limit) {
+            if ($claimType->monthly_limit && ($monthlyUsed + $amount) > $claimType->monthly_limit) {
                 $warning = 'This claim exceeds the monthly limit of RM'.number_format($claimType->monthly_limit, 2).'.';
-            } elseif ($claimType->yearly_limit && ($yearlyUsed + $validated['amount']) > $claimType->yearly_limit) {
+            } elseif ($claimType->yearly_limit && ($yearlyUsed + $amount) > $claimType->yearly_limit) {
                 $warning = 'This claim exceeds the yearly limit of RM'.number_format($claimType->yearly_limit, 2).'.';
             }
 
@@ -136,11 +147,16 @@ class HrMyClaimController extends Controller
                 'claim_number' => ClaimRequest::generateClaimNumber(),
                 'employee_id' => $employee->id,
                 'claim_type_id' => $validated['claim_type_id'],
-                'amount' => $validated['amount'],
+                'amount' => $amount,
                 'claim_date' => $validated['claim_date'],
                 'description' => $validated['description'],
                 'receipt_path' => $receiptPath,
                 'status' => 'draft',
+                'vehicle_rate_id' => $validated['vehicle_rate_id'] ?? null,
+                'distance_km' => $validated['distance_km'] ?? null,
+                'origin' => $validated['origin'] ?? null,
+                'destination' => $validated['destination'] ?? null,
+                'trip_purpose' => $validated['trip_purpose'] ?? null,
             ]);
 
             $claim->load('claimType');
@@ -180,6 +196,17 @@ class HrMyClaimController extends Controller
         }
 
         unset($validated['receipt']);
+
+        $claimType = $claimRequest->claimType;
+
+        if ($claimType->is_mileage_type && isset($validated['vehicle_rate_id'])) {
+            $vehicleRate = \App\Models\ClaimTypeVehicleRate::where('id', $validated['vehicle_rate_id'])
+                ->where('claim_type_id', $claimType->id)
+                ->where('is_active', true)
+                ->firstOrFail();
+
+            $validated['amount'] = round($validated['distance_km'] * $vehicleRate->rate_per_km, 2);
+        }
 
         $claimRequest->update($validated);
 

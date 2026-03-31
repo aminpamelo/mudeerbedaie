@@ -16,8 +16,23 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'sqlite') {
-            // SQLite doesn't support ENUM or column type changes in the same way.
-            // The column already exists as a string type in SQLite, so skip.
+            // SQLite: backup roles, recreate column with 'employee' added, restore roles
+            $roles = \Illuminate\Support\Facades\DB::table('users')->select('id', 'role')->get();
+
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('role');
+            });
+
+            Schema::table('users', function (Blueprint $table) {
+                $table->enum('role', ['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'class_admin', 'sales', 'employee'])
+                    ->default('student')
+                    ->after('email_verified_at');
+            });
+
+            foreach ($roles as $row) {
+                \Illuminate\Support\Facades\DB::table('users')->where('id', $row->id)->update(['role' => $row->role]);
+            }
+
             return;
         }
 
@@ -39,6 +54,29 @@ return new class extends Migration
      */
     public function down(): void
     {
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            $roles = \Illuminate\Support\Facades\DB::table('users')->select('id', 'role')->get();
+
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('role');
+            });
+
+            Schema::table('users', function (Blueprint $table) {
+                $table->enum('role', ['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'class_admin', 'sales'])
+                    ->default('student')
+                    ->after('email_verified_at');
+            });
+
+            foreach ($roles as $row) {
+                $role = $row->role === 'employee' ? 'student' : $row->role;
+                \Illuminate\Support\Facades\DB::table('users')->where('id', $row->id)->update(['role' => $role]);
+            }
+
+            return;
+        }
+
         Schema::table('users', function (Blueprint $table) {
             $table->enum('role', ['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'class_admin', 'sales'])
                 ->default('student')
