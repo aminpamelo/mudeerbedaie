@@ -19,6 +19,7 @@ class ClaimType extends Model
         'monthly_limit',
         'yearly_limit',
         'requires_receipt',
+        'is_mileage_type',
         'is_active',
         'sort_order',
     ];
@@ -34,6 +35,7 @@ class ClaimType extends Model
             'monthly_limit' => 'decimal:2',
             'yearly_limit' => 'decimal:2',
             'requires_receipt' => 'boolean',
+            'is_mileage_type' => 'boolean',
             'is_active' => 'boolean',
             'sort_order' => 'integer',
         ];
@@ -45,6 +47,14 @@ class ClaimType extends Model
     public function claimRequests(): HasMany
     {
         return $this->hasMany(ClaimRequest::class);
+    }
+
+    /**
+     * Get vehicle rates associated with this claim type.
+     */
+    public function vehicleRates(): HasMany
+    {
+        return $this->hasMany(ClaimTypeVehicleRate::class);
     }
 
     /**
