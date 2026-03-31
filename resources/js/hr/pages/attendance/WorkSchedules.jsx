@@ -51,13 +51,13 @@ import {
 } from '../../lib/api';
 
 const DAYS_OF_WEEK = [
-    { key: 'mon', label: 'Mon' },
-    { key: 'tue', label: 'Tue' },
-    { key: 'wed', label: 'Wed' },
-    { key: 'thu', label: 'Thu' },
-    { key: 'fri', label: 'Fri' },
-    { key: 'sat', label: 'Sat' },
-    { key: 'sun', label: 'Sun' },
+    { key: 'mon', num: 1, label: 'Mon' },
+    { key: 'tue', num: 2, label: 'Tue' },
+    { key: 'wed', num: 3, label: 'Wed' },
+    { key: 'thu', num: 4, label: 'Thu' },
+    { key: 'fri', num: 5, label: 'Fri' },
+    { key: 'sat', num: 6, label: 'Sat' },
+    { key: 'sun', num: 7, label: 'Sun' },
 ];
 
 const SCHEDULE_TYPES = [
@@ -277,10 +277,10 @@ export default function WorkSchedules() {
                                             {formatWorkingHours(schedule.start_time, schedule.end_time)}
                                         </TableCell>
                                         <TableCell className="text-sm text-zinc-600">
-                                            {schedule.break_duration ?? 0} min
+                                            {schedule.break_duration_minutes ?? schedule.break_duration ?? 0} min
                                         </TableCell>
                                         <TableCell className="text-sm text-zinc-600">
-                                            {schedule.grace_period ?? 0} min
+                                            {schedule.grace_period_minutes ?? schedule.grace_period ?? 0} min
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex gap-1">
@@ -289,7 +289,7 @@ export default function WorkSchedules() {
                                                         key={day.key}
                                                         className={cn(
                                                             'inline-flex h-6 w-6 items-center justify-center rounded text-[10px] font-medium',
-                                                            schedule.working_days?.includes(day.key)
+                                                            (schedule.working_days?.includes(day.key) || schedule.working_days?.includes(day.num))
                                                                 ? 'bg-blue-100 text-blue-700'
                                                                 : 'bg-zinc-100 text-zinc-400'
                                                         )}
