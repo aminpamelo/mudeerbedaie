@@ -209,7 +209,8 @@ new class extends Component {
 
     <div class="mt-6 space-y-6">
         <!-- Stats Cards -->
-        <div class="flex gap-4 overflow-x-auto pb-2">
+        <div class="-mx-4 px-4 sm:-mx-6 sm:px-6">
+        <div class="flex gap-4 overflow-x-auto pb-2" style="-webkit-overflow-scrolling: touch;">
             <flux:card class="shrink-0 p-6">
                 <div class="flex items-center">
                     <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-3">
@@ -305,6 +306,7 @@ new class extends Component {
                     </div>
                 </div>
             </flux:card>
+        </div>
         </div>
 
         <!-- Filters -->
