@@ -260,7 +260,6 @@ export default function Departments() {
                                 <TableRow>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Code</TableHead>
-                                    <TableHead>Head</TableHead>
                                     <TableHead>Employees</TableHead>
                                     <TableHead>Parent Department</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
@@ -274,11 +273,6 @@ export default function Departments() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary">{dept.code}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            {dept.head?.name || (
-                                                <span className="text-zinc-400">--</span>
-                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1.5">

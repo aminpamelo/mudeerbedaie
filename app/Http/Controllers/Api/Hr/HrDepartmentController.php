@@ -16,7 +16,7 @@ class HrDepartmentController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Department::query()->withCount('employees');
+        $query = Department::query()->with('parent:id,name')->withCount('employees');
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
