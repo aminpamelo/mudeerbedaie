@@ -10,7 +10,9 @@ use App\Services\Shipping\ShippingManager;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -32,6 +34,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Fix Livewire update route when domain-based routing adds a name prefix
+        Livewire::setUpdateRoute(function ($handle) {
+            return Route::post('/livewire/update', $handle)
+                ->middleware('web');
+        });
+
         Event::listen(MessageSending::class, BlockExampleEmails::class);
 
         Gate::define('manage-class', function (User $user, ClassModel $class) {
