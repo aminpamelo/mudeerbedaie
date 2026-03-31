@@ -5,6 +5,7 @@ import {
     ZoomIn,
     ZoomOut,
     Maximize2,
+    Minimize2,
     Users,
     Building2,
     Loader2,
@@ -76,7 +77,7 @@ function getColorForDepth(depth) {
 
 // ========== Zoom Controls ==========
 
-function ZoomControls({ scale, onZoomIn, onZoomOut, onReset }) {
+function ZoomControls({ scale, onZoomIn, onZoomOut, onReset, isFullscreen, onToggleFullscreen }) {
     return (
         <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white p-1">
             <Button variant="ghost" size="sm" onClick={onZoomOut} title="Zoom Out">
@@ -89,8 +90,8 @@ function ZoomControls({ scale, onZoomIn, onZoomOut, onReset }) {
                 <ZoomIn className="h-4 w-4" />
             </Button>
             <div className="mx-1 h-4 w-px bg-zinc-200" />
-            <Button variant="ghost" size="sm" onClick={onReset} title="Reset Zoom">
-                <Maximize2 className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={onToggleFullscreen} title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </Button>
         </div>
     );
@@ -386,10 +387,27 @@ function EmployeeView() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const containerRef = useRef(null);
+    const fullscreenRef = useRef(null);
     const [search, setSearch] = useState('');
     const [scale, setScale] = useState(1);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const [selectedPerson, setSelectedPerson] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
+
+    useEffect(() => {
+        const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', handleChange);
+        return () => document.removeEventListener('fullscreenchange', handleChange);
+    }, []);
+
+    const toggleFullscreen = useCallback(() => {
+        if (!fullscreenRef.current) return;
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            fullscreenRef.current.requestFullscreen();
+        }
+    }, []);
 
     const { data, isLoading, error } = useQuery({
         queryKey: ['hr', 'org-chart'],
@@ -454,35 +472,39 @@ function EmployeeView() {
                 </div>
             )}
 
-            {/* Toolbar */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <SearchBar value={search} onChange={setSearch} placeholder="Search employees, positions, departments..." />
-                <ZoomControls
-                    scale={scale}
-                    onZoomIn={() => setScale((s) => Math.min(s + 0.1, 1.5))}
-                    onZoomOut={() => setScale((s) => Math.max(s - 0.1, 0.3))}
-                    onReset={() => setScale(1)}
-                />
-            </div>
+            <div ref={fullscreenRef} className={cn(isFullscreen && 'bg-white p-6 overflow-auto')}>
+                {/* Toolbar */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <SearchBar value={search} onChange={setSearch} placeholder="Search employees, positions, departments..." />
+                    <ZoomControls
+                        scale={scale}
+                        onZoomIn={() => setScale((s) => Math.min(s + 0.1, 1.5))}
+                        onZoomOut={() => setScale((s) => Math.max(s - 0.1, 0.3))}
+                        onReset={() => setScale(1)}
+                        isFullscreen={isFullscreen}
+                        onToggleFullscreen={toggleFullscreen}
+                    />
+                </div>
 
-            {/* Legend */}
-            <div className="flex flex-wrap gap-3 text-xs">
-                {Object.entries(LEVEL_COLORS).map(([level, colors]) => (
-                    <div key={level} className="flex items-center gap-1.5">
-                        <div className={cn('h-3 w-3 rounded-sm', colors.accent)} />
-                        <span className="text-zinc-500">Level {level}</span>
+                {/* Legend */}
+                <div className="mt-4 flex flex-wrap gap-3 text-xs">
+                    {Object.entries(LEVEL_COLORS).map(([level, colors]) => (
+                        <div key={level} className="flex items-center gap-1.5">
+                            <div className={cn('h-3 w-3 rounded-sm', colors.accent)} />
+                            <span className="text-zinc-500">Level {level}</span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Tree */}
+                <div ref={containerRef} className={cn('mt-4 overflow-auto rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/50 p-8', isFullscreen && 'flex-1')} style={{ minHeight: isFullscreen ? 'calc(100vh - 120px)' : '500px' }}>
+                    <div style={{ transform: `scale(${scale})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
+                        {tree.length === 0 ? (
+                            <EmptyState icon={Building2} title="No employees found" subtitle="Add employees and set their 'Reports To' to build the org chart" />
+                        ) : (
+                            <EmployeeTree tree={tree} searchTerm={search} onPersonClick={handlePersonClick} />
+                        )}
                     </div>
-                ))}
-            </div>
-
-            {/* Tree */}
-            <div ref={containerRef} className="overflow-auto rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/50 p-8" style={{ minHeight: '500px' }}>
-                <div style={{ transform: `scale(${scale})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
-                    {tree.length === 0 ? (
-                        <EmptyState icon={Building2} title="No employees found" subtitle="Add employees and set their 'Reports To' to build the org chart" />
-                    ) : (
-                        <EmployeeTree tree={tree} searchTerm={search} onPersonClick={handlePersonClick} />
-                    )}
                 </div>
             </div>
 
@@ -797,10 +819,27 @@ function AssignParentModal({ dept, allDepartments, open, onOpenChange, onAssign,
 function DepartmentView() {
     const queryClient = useQueryClient();
     const containerRef = useRef(null);
+    const fullscreenRef = useRef(null);
     const [search, setSearch] = useState('');
     const [scale, setScale] = useState(1);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const [selectedDept, setSelectedDept] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
+
+    useEffect(() => {
+        const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', handleChange);
+        return () => document.removeEventListener('fullscreenchange', handleChange);
+    }, []);
+
+    const toggleFullscreen = useCallback(() => {
+        if (!fullscreenRef.current) return;
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            fullscreenRef.current.requestFullscreen();
+        }
+    }, []);
 
     const { data, isLoading, error } = useQuery({
         queryKey: ['hr', 'org-chart', 'departments'],
@@ -862,35 +901,39 @@ function DepartmentView() {
                 </div>
             )}
 
-            {/* Toolbar */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <SearchBar value={search} onChange={setSearch} placeholder="Search departments, employees..." />
-                <ZoomControls
-                    scale={scale}
-                    onZoomIn={() => setScale((s) => Math.min(s + 0.1, 1.5))}
-                    onZoomOut={() => setScale((s) => Math.max(s - 0.1, 0.3))}
-                    onReset={() => setScale(1)}
-                />
-            </div>
+            <div ref={fullscreenRef} className={cn(isFullscreen && 'bg-white p-6 overflow-auto')}>
+                {/* Toolbar */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <SearchBar value={search} onChange={setSearch} placeholder="Search departments, employees..." />
+                    <ZoomControls
+                        scale={scale}
+                        onZoomIn={() => setScale((s) => Math.min(s + 0.1, 1.5))}
+                        onZoomOut={() => setScale((s) => Math.max(s - 0.1, 0.3))}
+                        onReset={() => setScale(1)}
+                        isFullscreen={isFullscreen}
+                        onToggleFullscreen={toggleFullscreen}
+                    />
+                </div>
 
-            {/* Legend */}
-            <div className="flex flex-wrap gap-3 text-xs">
-                {Object.entries(DEPT_DEPTH_COLORS).map(([depth, colors]) => (
-                    <div key={depth} className="flex items-center gap-1.5">
-                        <div className={cn('h-3 w-3 rounded-sm', colors.accent)} />
-                        <span className="text-zinc-500">Depth {depth}</span>
+                {/* Legend */}
+                <div className="mt-4 flex flex-wrap gap-3 text-xs">
+                    {Object.entries(DEPT_DEPTH_COLORS).map(([depth, colors]) => (
+                        <div key={depth} className="flex items-center gap-1.5">
+                            <div className={cn('h-3 w-3 rounded-sm', colors.accent)} />
+                            <span className="text-zinc-500">Depth {depth}</span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Tree */}
+                <div ref={containerRef} className={cn('mt-4 overflow-auto rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/50 p-8', isFullscreen && 'flex-1')} style={{ minHeight: isFullscreen ? 'calc(100vh - 120px)' : '500px' }}>
+                    <div style={{ transform: `scale(${scale})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
+                        {tree.length === 0 ? (
+                            <EmptyState icon={Building2} title="No departments found" subtitle="Create departments and assign parent departments to build the hierarchy" />
+                        ) : (
+                            <DepartmentTree tree={tree} searchTerm={search} onDeptClick={handleDeptClick} />
+                        )}
                     </div>
-                ))}
-            </div>
-
-            {/* Tree */}
-            <div ref={containerRef} className="overflow-auto rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/50 p-8" style={{ minHeight: '500px' }}>
-                <div style={{ transform: `scale(${scale})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
-                    {tree.length === 0 ? (
-                        <EmptyState icon={Building2} title="No departments found" subtitle="Create departments and assign parent departments to build the hierarchy" />
-                    ) : (
-                        <DepartmentTree tree={tree} searchTerm={search} onDeptClick={handleDeptClick} />
-                    )}
                 </div>
             </div>
 
