@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Download,
@@ -115,6 +115,36 @@ function formatHours(totalMinutes) {
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
     return `${hours}h ${mins}m`;
+}
+
+function LiveTimer({ clockIn }) {
+    const [elapsed, setElapsed] = useState(() => {
+        const diff = Math.floor((Date.now() - new Date(clockIn).getTime()) / 1000);
+        return diff > 0 ? diff : 0;
+    });
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const diff = Math.floor((Date.now() - new Date(clockIn).getTime()) / 1000);
+            setElapsed(diff > 0 ? diff : 0);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [clockIn]);
+
+    const hours = Math.floor(elapsed / 3600);
+    const mins = Math.floor((elapsed % 3600) / 60);
+    const secs = elapsed % 60;
+    const display = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-mono font-semibold text-blue-700 ring-1 ring-blue-200">
+            <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-blue-500" />
+            </span>
+            {display}
+        </span>
+    );
 }
 
 function SkeletonTable() {
@@ -363,7 +393,10 @@ export default function AttendanceRecords() {
                                                 {formatTime(record.clock_out)}
                                             </TableCell>
                                             <TableCell className="text-sm text-zinc-600">
-                                                {formatHours(record.total_work_minutes)}
+                                                {record.clock_in && !record.clock_out
+                                                    ? <LiveTimer clockIn={record.clock_in} />
+                                                    : formatHours(record.total_work_minutes)
+                                                }
                                             </TableCell>
                                             <TableCell>
                                                 <AttendanceStatusBadge status={record.status} />
@@ -459,7 +492,10 @@ export default function AttendanceRecords() {
                                 </div>
                                 <div>
                                     <p className="text-xs font-medium text-zinc-500">Total Hours</p>
-                                    <p className="text-sm text-zinc-900">{formatHours(detailRecord.total_work_minutes)}</p>
+                                    {detailRecord.clock_in && !detailRecord.clock_out
+                                        ? <LiveTimer clockIn={detailRecord.clock_in} />
+                                        : <p className="text-sm text-zinc-900">{formatHours(detailRecord.total_work_minutes)}</p>
+                                    }
                                 </div>
                             </div>
 
