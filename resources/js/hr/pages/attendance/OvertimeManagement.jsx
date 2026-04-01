@@ -108,6 +108,7 @@ export default function OvertimeManagement() {
     const queryClient = useQueryClient();
     const [mainView, setMainView] = useState('overtime'); // 'overtime' | 'claims'
     const [activeTab, setActiveTab] = useState('all');
+    const [claimsTab, setClaimsTab] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'
     const [viewTarget, setViewTarget] = useState(null);
     const [rejectTarget, setRejectTarget] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
@@ -120,8 +121,8 @@ export default function OvertimeManagement() {
     });
 
     const { data: claimsData, isLoading: claimsLoading } = useQuery({
-        queryKey: ['hr', 'attendance', 'overtime-claims', activeTab],
-        queryFn: () => fetchOvertimeClaims({ status: activeTab !== 'all' ? activeTab : undefined }),
+        queryKey: ['hr', 'attendance', 'overtime-claims', claimsTab],
+        queryFn: () => fetchOvertimeClaims({ status: claimsTab !== 'all' ? claimsTab : undefined }),
         enabled: mainView === 'claims',
     });
 
@@ -210,6 +211,16 @@ export default function OvertimeManagement() {
             </div>
 
             {mainView === 'claims' ? (
+                <>
+                <Tabs value={claimsTab} onValueChange={setClaimsTab}>
+                    <TabsList>
+                        <TabsTrigger value="all">All</TabsTrigger>
+                        <TabsTrigger value="pending">Pending</TabsTrigger>
+                        <TabsTrigger value="approved">Approved</TabsTrigger>
+                        <TabsTrigger value="rejected">Rejected</TabsTrigger>
+                        <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+                    </TabsList>
+                </Tabs>
                 <Card>
                     <CardContent className="p-0">
                         {claimsLoading ? (
@@ -263,6 +274,7 @@ export default function OvertimeManagement() {
                         )}
                     </CardContent>
                 </Card>
+                </>
             ) : null}
 
             {mainView === 'overtime' ? (
