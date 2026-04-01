@@ -5,13 +5,17 @@ namespace App\Http\Controllers\Api\Hr;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\ClockInRequest;
 use App\Http\Requests\Hr\ClockOutRequest;
+use App\Http\Requests\Hr\StoreOvertimeClaimRequest;
 use App\Http\Requests\Hr\StoreOvertimeRequest;
 use App\Models\AttendanceLog;
 use App\Models\AttendancePenalty;
+use App\Models\DepartmentApprover;
 use App\Models\Employee;
 use App\Models\EmployeeSchedule;
+use App\Models\OvertimeClaimRequest;
 use App\Models\OvertimeRequest;
 use App\Models\Setting;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -402,25 +406,130 @@ class HrMyAttendanceController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $totals = OvertimeRequest::query()
+        $totalEarned = (float) OvertimeRequest::query()
             ->where('employee_id', $employee->id)
             ->where('status', 'completed')
-            ->select(
-                DB::raw('SUM(replacement_hours_earned) as total_earned'),
-                DB::raw('SUM(replacement_hours_used) as total_used')
-            )
-            ->first();
+            ->sum('replacement_hours_earned');
 
-        $totalEarned = (float) ($totals->total_earned ?? 0);
-        $totalUsed = (float) ($totals->total_used ?? 0);
+        $totalUsedMinutes = (int) OvertimeClaimRequest::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->sum('duration_minutes');
+
+        $totalUsed = round($totalUsedMinutes / 60, 1);
 
         return response()->json([
             'data' => [
                 'total_earned' => $totalEarned,
                 'total_used' => $totalUsed,
-                'available' => $totalEarned - $totalUsed,
+                'available' => round($totalEarned - $totalUsed, 1),
             ],
         ]);
+    }
+
+    /**
+     * List my OT claim requests.
+     */
+    public function myOvertimeClaims(Request $request): JsonResponse
+    {
+        $employee = $request->user()->employee;
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        $claims = OvertimeClaimRequest::query()
+            ->where('employee_id', $employee->id)
+            ->orderByDesc('claim_date')
+            ->paginate(15);
+
+        return response()->json($claims);
+    }
+
+    /**
+     * Submit a new OT claim request.
+     */
+    public function submitOvertimeClaim(StoreOvertimeClaimRequest $request): JsonResponse
+    {
+        $employee = $request->user()->employee;
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        $validated = $request->validated();
+
+        // Check sufficient balance
+        $totalEarned = (float) OvertimeRequest::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'completed')
+            ->sum('replacement_hours_earned');
+
+        $totalUsedMinutes = (int) OvertimeClaimRequest::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->sum('duration_minutes');
+
+        $availableMinutes = (int) round(($totalEarned * 60) - $totalUsedMinutes);
+
+        if ($validated['duration_minutes'] > $availableMinutes) {
+            return response()->json([
+                'message' => 'Insufficient OT balance. You have '.round($availableMinutes / 60, 1).'h available.',
+            ], 422);
+        }
+
+        $claim = OvertimeClaimRequest::create(array_merge($validated, [
+            'employee_id' => $employee->id,
+            'status' => 'pending',
+        ]));
+
+        // Notify OT approvers for this department
+        $approverEmployeeIds = DepartmentApprover::where('department_id', $employee->department_id)
+            ->where('approval_type', 'overtime')
+            ->pluck('approver_employee_id');
+
+        $notifiedUserIds = [];
+        foreach ($approverEmployeeIds as $approverEmployeeId) {
+            $approverEmployee = Employee::find($approverEmployeeId);
+            if ($approverEmployee?->user) {
+                $approverEmployee->user->notify(new \App\Notifications\Hr\OvertimeClaimSubmitted($claim));
+                $notifiedUserIds[] = $approverEmployee->user->id;
+            }
+        }
+
+        // Also notify HR admins not already notified
+        User::where('role', 'admin')->whereNotIn('id', $notifiedUserIds)->each(function ($admin) use ($claim) {
+            $admin->notify(new \App\Notifications\Hr\OvertimeClaimSubmitted($claim));
+        });
+
+        return response()->json([
+            'data' => $claim,
+            'message' => 'OT claim request submitted successfully.',
+        ], 201);
+    }
+
+    /**
+     * Cancel a pending OT claim request.
+     */
+    public function cancelOvertimeClaim(Request $request, OvertimeClaimRequest $overtimeClaimRequest): JsonResponse
+    {
+        $employee = $request->user()->employee;
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        if ($overtimeClaimRequest->employee_id !== $employee->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($overtimeClaimRequest->status !== 'pending') {
+            return response()->json(['message' => 'Only pending claims can be cancelled.'], 422);
+        }
+
+        $overtimeClaimRequest->update(['status' => 'cancelled']);
+
+        return response()->json(['message' => 'OT claim cancelled.']);
     }
 
     /**
