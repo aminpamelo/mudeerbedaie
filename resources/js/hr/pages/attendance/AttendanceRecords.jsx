@@ -370,7 +370,9 @@ export default function AttendanceRecords() {
                                             </TableCell>
                                             <TableCell className="text-sm">
                                                 {record.late_minutes > 0 ? (
-                                                    <span className="font-medium text-amber-600">{formatHours(record.late_minutes)}</span>
+                                                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">+{formatHours(record.late_minutes)}</span>
+                                                ) : record.clock_in ? (
+                                                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">On Time</span>
                                                 ) : (
                                                     <span className="text-zinc-400">-</span>
                                                 )}
@@ -465,7 +467,9 @@ export default function AttendanceRecords() {
                                 <div>
                                     <p className="text-xs font-medium text-zinc-500">Late</p>
                                     {detailRecord.late_minutes > 0 ? (
-                                        <span className="text-sm font-medium text-amber-600">{formatHours(detailRecord.late_minutes)}</span>
+                                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">+{formatHours(detailRecord.late_minutes)}</span>
+                                    ) : detailRecord.clock_in ? (
+                                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">On Time</span>
                                     ) : (
                                         <p className="text-sm text-zinc-900">-</p>
                                     )}
