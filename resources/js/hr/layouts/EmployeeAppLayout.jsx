@@ -43,6 +43,7 @@ const tabs = [
 
 const moreMenuItems = [
     { name: 'My Claims', to: '/my/claims', icon: Receipt, description: 'Submit and track expense claims' },
+    { name: 'My Exit Permissions', to: '/my/exit-permissions', icon: DoorOpen, description: 'Request and track exit permissions' },
     { name: 'My Payslips', to: '/my/payslips', icon: Wallet, description: 'View and download payslips' },
     { name: 'My Overtime', to: '/my/overtime', icon: Timer, description: 'View overtime requests' },
     { name: 'My Meetings', to: '/my/meetings', icon: CalendarRange, description: 'View your meeting invitations' },
