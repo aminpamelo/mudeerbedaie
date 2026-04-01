@@ -136,6 +136,10 @@ import MyOnboarding from './pages/my/MyOnboarding';
 import MyDisciplinary from './pages/my/MyDisciplinary';
 import MyResignation from './pages/my/MyResignation';
 import MyTraining from './pages/my/MyTraining';
+import MyApprovals from './pages/my/MyApprovals';
+import MyApprovalsOvertime from './pages/my/MyApprovalsOvertime';
+import MyApprovalsLeave from './pages/my/MyApprovalsLeave';
+import MyApprovalsClaims from './pages/my/MyApprovalsClaims';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -294,6 +298,10 @@ function EmployeeRoutes() {
             <Route path="my/disciplinary" element={<MyDisciplinary />} />
             <Route path="my/resignation" element={<MyResignation />} />
             <Route path="my/training" element={<MyTraining />} />
+            <Route path="my/approvals" element={<MyApprovals />} />
+            <Route path="my/approvals/overtime" element={<MyApprovalsOvertime />} />
+            <Route path="my/approvals/leave" element={<MyApprovalsLeave />} />
+            <Route path="my/approvals/claims" element={<MyApprovalsClaims />} />
             <Route path="notifications" element={<Notifications />} />
         </Route>
     );
