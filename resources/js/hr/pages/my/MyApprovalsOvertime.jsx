@@ -239,7 +239,7 @@ function ClaimCard({ claim, onApprove, onReject }) {
                     {claim.start_time && (
                         <div className="col-span-2 flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
                             <Clock className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                            <span className="text-xs text-zinc-700 font-medium">From {claim.start_time}</span>
+                            <span className="text-xs text-zinc-700 font-medium">From {formatTime(claim.start_time)}</span>
                         </div>
                     )}
                 </div>
@@ -304,6 +304,7 @@ export default function MyApprovalsOvertime() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['my-approvals-overtime'] });
             qc.invalidateQueries({ queryKey: ['my-approvals-summary'] });
+            setApproveDialog(null);
         },
     });
 
@@ -519,7 +520,6 @@ export default function MyApprovalsOvertime() {
                                     claimApproveMut.mutate(approveDialog.id);
                                 } else {
                                     approveMut.mutate(approveDialog.id);
-                                    setApproveDialog(null);
                                 }
                             }}
                             disabled={approveMut.isPending || claimApproveMut.isPending}
