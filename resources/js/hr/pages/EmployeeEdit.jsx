@@ -80,6 +80,7 @@ const EMPLOYMENT_TYPES = [
     { value: 'part_time', label: 'Part Time' },
     { value: 'contract', label: 'Contract' },
     { value: 'internship', label: 'Internship' },
+    { value: 'freelancer', label: 'Freelancer' },
 ];
 
 // Fields that require effective date and remarks when changed

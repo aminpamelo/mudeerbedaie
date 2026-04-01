@@ -409,6 +409,7 @@ class Employee extends Model
             'part_time' => 'Part Time',
             'contract' => 'Contract',
             'intern' => 'Intern',
+            'freelancer' => 'Freelancer',
             default => ucfirst($this->employment_type ?? ''),
         };
     }

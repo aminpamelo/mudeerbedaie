@@ -41,7 +41,7 @@ class StoreEmployeeRequest extends FormRequest
             'department_id' => ['nullable', 'exists:departments,id'],
             'position_id' => ['nullable', 'exists:positions,id'],
             'reports_to' => ['nullable', 'exists:employees,id'],
-            'employment_type' => ['nullable', 'in:full_time,part_time,contract,intern'],
+            'employment_type' => ['nullable', 'in:full_time,part_time,contract,intern,freelancer'],
             'join_date' => ['nullable', 'date'],
             'probation_end_date' => ['nullable', 'date', 'after:join_date'],
             'bank_name' => ['nullable', 'string'],

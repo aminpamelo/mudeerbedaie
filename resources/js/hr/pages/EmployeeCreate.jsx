@@ -92,6 +92,7 @@ const EMPLOYMENT_TYPES = [
     { value: 'part_time', label: 'Part-time' },
     { value: 'contract', label: 'Contract' },
     { value: 'intern', label: 'Intern' },
+    { value: 'freelancer', label: 'Freelancer' },
 ];
 
 const DOCUMENT_FIELDS = [

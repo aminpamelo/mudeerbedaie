@@ -40,7 +40,7 @@ class UpdateEmployeeRequest extends FormRequest
             'department_id' => ['sometimes', 'exists:departments,id'],
             'position_id' => ['sometimes', 'exists:positions,id'],
             'reports_to' => ['nullable', 'exists:employees,id'],
-            'employment_type' => ['sometimes', 'in:full_time,part_time,contract,intern'],
+            'employment_type' => ['sometimes', 'in:full_time,part_time,contract,intern,freelancer'],
             'join_date' => ['sometimes', 'date'],
             'probation_end_date' => ['nullable', 'date'],
             'confirmation_date' => ['nullable', 'date'],
