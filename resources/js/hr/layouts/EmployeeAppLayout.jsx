@@ -18,9 +18,20 @@ import {
     Gavel,
     LogOut,
     GraduationCap,
+    ShieldCheck,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from '../lib/utils';
 import NotificationBell from '../components/NotificationBell';
+import api from '../lib/api';
+
+function useApprovalSummary() {
+    return useQuery({
+        queryKey: ['my-approvals-summary'],
+        queryFn: () => api.get('/my-approvals/summary').then((r) => r.data),
+        staleTime: 1000 * 60 * 2,
+    });
+}
 
 const tabs = [
     { name: 'Clock', to: '/clock', icon: Clock },
@@ -87,7 +98,7 @@ function TopHeader({ user }) {
     );
 }
 
-function BottomTabs() {
+function BottomTabs({ moreItems }) {
     const [showMore, setShowMore] = useState(false);
     const navigate = useNavigate();
 
@@ -105,7 +116,7 @@ function BottomTabs() {
                             </button>
                         </div>
                         <div className="space-y-1">
-                            {moreMenuItems.map((item) => (
+                            {moreItems.map((item) => (
                                 <button
                                     key={item.name}
                                     onClick={() => {
@@ -178,7 +189,7 @@ function BottomTabs() {
     );
 }
 
-function DesktopSidebar({ user }) {
+function DesktopSidebar({ user, navItems }) {
     return (
         <aside className="hidden lg:flex lg:w-[260px] lg:shrink-0 lg:flex-col lg:border-r lg:border-slate-200/80 lg:bg-white">
             <div className="flex h-16 items-center gap-3 border-b border-slate-200/80 px-5">
@@ -192,7 +203,7 @@ function DesktopSidebar({ user }) {
             </div>
 
             <nav className="flex-1 space-y-0.5 px-3 py-4">
-                {sidebarNav.map((item) => (
+                {navItems.map((item) => (
                     <NavLink
                         key={item.name}
                         to={item.to}
@@ -244,9 +255,39 @@ export default function EmployeeAppLayout() {
     const config = window.hrConfig || {};
     const user = config.user || { name: 'User' };
 
+    const { data: approvalData } = useApprovalSummary();
+    const isApprover = approvalData?.isApprover ?? false;
+    const totalPending =
+        (approvalData?.overtime?.pending ?? 0) +
+        (approvalData?.leave?.pending ?? 0) +
+        (approvalData?.claims?.pending ?? 0);
+
+    const sidebarNavItems = isApprover
+        ? [
+              ...sidebarNav,
+              {
+                  name: totalPending > 0 ? `My Approvals (${totalPending})` : 'My Approvals',
+                  to: '/my/approvals',
+                  icon: ShieldCheck,
+              },
+          ]
+        : sidebarNav;
+
+    const moreItems = isApprover
+        ? [
+              ...moreMenuItems,
+              {
+                  name: 'My Approvals',
+                  to: '/my/approvals',
+                  icon: ShieldCheck,
+                  description: 'Review and approve team requests',
+              },
+          ]
+        : moreMenuItems;
+
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50">
-            <DesktopSidebar user={user} />
+            <DesktopSidebar user={user} navItems={sidebarNavItems} />
 
             <div className="flex flex-1 flex-col overflow-hidden">
                 <TopHeader user={user} />
@@ -257,7 +298,7 @@ export default function EmployeeAppLayout() {
                     </div>
                 </main>
 
-                <BottomTabs />
+                <BottomTabs moreItems={moreItems} />
             </div>
         </div>
     );
