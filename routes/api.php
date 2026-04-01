@@ -552,6 +552,11 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::get('me/overtime/balance', [HrMyAttendanceController::class, 'overtimeBalance'])->name('api.hr.my-attendance.overtime-balance');
     Route::delete('me/overtime/{overtimeRequest}', [HrMyAttendanceController::class, 'cancelOvertime'])->name('api.hr.my-attendance.overtime.cancel');
 
+    // OT Claims (employee)
+    Route::get('me/overtime/claims', [HrMyAttendanceController::class, 'myOvertimeClaims'])->name('api.hr.my-attendance.overtime-claims.index');
+    Route::post('me/overtime/claims', [HrMyAttendanceController::class, 'submitOvertimeClaim'])->name('api.hr.my-attendance.overtime-claims.store');
+    Route::delete('me/overtime/claims/{overtimeClaimRequest}', [HrMyAttendanceController::class, 'cancelOvertimeClaim'])->name('api.hr.my-attendance.overtime-claims.cancel');
+
     // HOD Approvals (scoped to assigned departments)
     Route::prefix('my-approvals')->group(function () {
         Route::get('summary', [HrMyApprovalController::class, 'summary']);
@@ -559,6 +564,11 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
         Route::get('overtime', [HrMyApprovalController::class, 'overtime']);
         Route::patch('overtime/{overtimeRequest}/approve', [HrMyApprovalController::class, 'approveOvertime']);
         Route::patch('overtime/{overtimeRequest}/reject', [HrMyApprovalController::class, 'rejectOvertime']);
+
+        // OT Claim approvals
+        Route::get('overtime-claims', [HrMyApprovalController::class, 'overtimeClaims']);
+        Route::patch('overtime-claims/{overtimeClaimRequest}/approve', [HrMyApprovalController::class, 'approveOvertimeClaim']);
+        Route::patch('overtime-claims/{overtimeClaimRequest}/reject', [HrMyApprovalController::class, 'rejectOvertimeClaim']);
 
         Route::get('leave', [HrMyApprovalController::class, 'leave']);
         Route::patch('leave/{leaveRequest}/approve', [HrMyApprovalController::class, 'approveLeave']);
@@ -601,6 +611,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
 
     // Overtime Admin
     Route::get('overtime', [HrOvertimeController::class, 'index'])->name('api.hr.overtime.index');
+    Route::get('overtime/claims', [HrOvertimeController::class, 'claims'])->name('api.hr.overtime-claims.index');
     Route::get('overtime/{overtimeRequest}', [HrOvertimeController::class, 'show'])->name('api.hr.overtime.show');
     Route::patch('overtime/{overtimeRequest}/approve', [HrOvertimeController::class, 'approve'])->name('api.hr.overtime.approve');
     Route::patch('overtime/{overtimeRequest}/reject', [HrOvertimeController::class, 'reject'])->name('api.hr.overtime.reject');
