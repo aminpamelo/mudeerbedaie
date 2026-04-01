@@ -432,6 +432,11 @@ class HrMyApprovalController extends Controller
     public function approveExitPermission(Request $request, OfficeExitPermission $officeExitPermission): JsonResponse
     {
         $employee = $this->getEmployee($request);
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
         $officeExitPermission->load('employee');
 
         $isAssigned = DepartmentApprover::where('approver_employee_id', $employee->id)
@@ -453,6 +458,11 @@ class HrMyApprovalController extends Controller
     public function rejectExitPermission(Request $request, OfficeExitPermission $officeExitPermission): JsonResponse
     {
         $employee = $this->getEmployee($request);
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
         $officeExitPermission->load('employee');
 
         $isAssigned = DepartmentApprover::where('approver_employee_id', $employee->id)
