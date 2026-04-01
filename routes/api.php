@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\Hr\HrEmployeeSalaryController;
 use App\Http\Controllers\Api\Hr\HrEmployeeScheduleController;
 use App\Http\Controllers\Api\Hr\HrExitChecklistController;
 use App\Http\Controllers\Api\Hr\HrExitInterviewController;
+use App\Http\Controllers\Api\Hr\HrExitPermissionNotifierController;
 use App\Http\Controllers\Api\Hr\HrFinalSettlementController;
 use App\Http\Controllers\Api\Hr\HrHolidayController;
 use App\Http\Controllers\Api\Hr\HrInterviewController;
@@ -62,6 +63,7 @@ use App\Http\Controllers\Api\Hr\HrMyAssetController;
 use App\Http\Controllers\Api\Hr\HrMyAttendanceController;
 use App\Http\Controllers\Api\Hr\HrMyClaimController;
 use App\Http\Controllers\Api\Hr\HrMyDisciplinaryController;
+use App\Http\Controllers\Api\Hr\HrMyExitPermissionController;
 use App\Http\Controllers\Api\Hr\HrMyLeaveController;
 use App\Http\Controllers\Api\Hr\HrMyMeetingController;
 use App\Http\Controllers\Api\Hr\HrMyOnboardingController;
@@ -73,6 +75,7 @@ use App\Http\Controllers\Api\Hr\HrMyTaskController;
 use App\Http\Controllers\Api\Hr\HrMyTrainingController;
 use App\Http\Controllers\Api\Hr\HrNotificationController;
 use App\Http\Controllers\Api\Hr\HrOfferLetterController;
+use App\Http\Controllers\Api\Hr\HrOfficeExitPermissionController;
 use App\Http\Controllers\Api\Hr\HrOnboardingController;
 use App\Http\Controllers\Api\Hr\HrOnboardingTemplateController;
 use App\Http\Controllers\Api\Hr\HrOrgChartController;
@@ -564,6 +567,11 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
         Route::get('claims', [HrMyApprovalController::class, 'claims']);
         Route::patch('claims/{claimRequest}/approve', [HrMyApprovalController::class, 'approveClaim']);
         Route::patch('claims/{claimRequest}/reject', [HrMyApprovalController::class, 'rejectClaim']);
+
+        // Exit Permissions - HOD Approvals
+        Route::get('exit-permissions', [HrMyApprovalController::class, 'exitPermissions']);
+        Route::patch('exit-permissions/{officeExitPermission}/approve', [HrMyApprovalController::class, 'approveExitPermission']);
+        Route::patch('exit-permissions/{officeExitPermission}/reject', [HrMyApprovalController::class, 'rejectExitPermission']);
     });
 
     // Attendance Analytics (must be before attendance/{attendanceLog} wildcard)
@@ -597,6 +605,24 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::patch('overtime/{overtimeRequest}/approve', [HrOvertimeController::class, 'approve'])->name('api.hr.overtime.approve');
     Route::patch('overtime/{overtimeRequest}/reject', [HrOvertimeController::class, 'reject'])->name('api.hr.overtime.reject');
     Route::patch('overtime/{overtimeRequest}/complete', [HrOvertimeController::class, 'complete'])->name('api.hr.overtime.complete');
+
+    // Office Exit Permissions - Admin
+    Route::get('exit-permissions', [HrOfficeExitPermissionController::class, 'index']);
+    Route::get('exit-permissions/{officeExitPermission}', [HrOfficeExitPermissionController::class, 'show']);
+    Route::patch('exit-permissions/{officeExitPermission}/approve', [HrOfficeExitPermissionController::class, 'approve']);
+    Route::patch('exit-permissions/{officeExitPermission}/reject', [HrOfficeExitPermissionController::class, 'reject']);
+    Route::get('exit-permissions/{officeExitPermission}/pdf', [HrOfficeExitPermissionController::class, 'pdf']);
+
+    // Exit Permission Notifiers - Admin
+    Route::get('exit-permission-notifiers', [HrExitPermissionNotifierController::class, 'index']);
+    Route::post('exit-permission-notifiers', [HrExitPermissionNotifierController::class, 'store']);
+    Route::delete('exit-permission-notifiers/{exitPermissionNotifier}', [HrExitPermissionNotifierController::class, 'destroy']);
+
+    // Exit Permissions - Employee Self-Service
+    Route::get('my/exit-permissions', [HrMyExitPermissionController::class, 'index']);
+    Route::post('my/exit-permissions', [HrMyExitPermissionController::class, 'store']);
+    Route::get('my/exit-permissions/{officeExitPermission}', [HrMyExitPermissionController::class, 'show']);
+    Route::delete('my/exit-permissions/{officeExitPermission}', [HrMyExitPermissionController::class, 'cancel']);
 
     // Holidays
     Route::apiResource('holidays', HrHolidayController::class)->names('api.hr.holidays');
