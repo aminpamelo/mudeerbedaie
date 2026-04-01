@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Models\AttendanceLog;
 use App\Models\ClaimApprover;
 use App\Models\ClaimRequest;
 use App\Models\DepartmentApprover;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\OfficeExitPermission;
+use App\Models\OvertimeClaimRequest;
 use App\Models\OvertimeRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -108,7 +110,7 @@ class HrMyApprovalController extends Controller
         }
 
         $query = OvertimeRequest::with([
-            'employee:id,name,position_id,department_id',
+            'employee:id,full_name,position_id,department_id',
             'employee.position:id,name',
             'employee.department:id,name',
         ])->whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds));
@@ -151,7 +153,7 @@ class HrMyApprovalController extends Controller
         }
 
         return response()->json($overtimeRequest->fresh([
-            'employee:id,name,position_id,department_id',
+            'employee:id,full_name,position_id,department_id',
             'employee.position:id,name',
             'employee.department:id,name',
         ]));
@@ -191,7 +193,132 @@ class HrMyApprovalController extends Controller
         }
 
         return response()->json($overtimeRequest->fresh([
-            'employee:id,name,position_id,department_id',
+            'employee:id,full_name,position_id,department_id',
+            'employee.position:id,name',
+            'employee.department:id,name',
+        ]));
+    }
+
+    // ── Overtime Claims ───────────────────────────────────────────────────────
+
+    public function overtimeClaims(Request $request): JsonResponse
+    {
+        $employee = $this->getEmployee($request);
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        $deptIds = $this->getDeptIds($employee->id, 'overtime');
+
+        if (empty($deptIds)) {
+            return response()->json(['data' => [], 'total' => 0, 'current_page' => 1, 'last_page' => 1]);
+        }
+
+        $query = OvertimeClaimRequest::with([
+            'employee:id,full_name,position_id,department_id',
+            'employee.position:id,name',
+            'employee.department:id,name',
+        ])->whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds));
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        return response()->json($query->orderByDesc('created_at')->paginate(20));
+    }
+
+    public function approveOvertimeClaim(Request $request, OvertimeClaimRequest $overtimeClaimRequest): JsonResponse
+    {
+        $employee = $this->getEmployee($request);
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        $deptIds = $this->getDeptIds($employee->id, 'overtime');
+
+        if (! in_array($overtimeClaimRequest->employee->department_id, $deptIds)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($overtimeClaimRequest->status !== 'pending') {
+            return response()->json(['message' => 'Only pending claims can be approved.'], 422);
+        }
+
+        $overtimeClaimRequest->update([
+            'status' => 'approved',
+            'approved_by' => $request->user()->id,
+            'approved_at' => now(),
+        ]);
+
+        // Link attendance record if it exists for that date
+        $attendanceLog = AttendanceLog::where('employee_id', $overtimeClaimRequest->employee_id)
+            ->where('date', $overtimeClaimRequest->claim_date)
+            ->first();
+
+        if ($attendanceLog) {
+            $newLateMinutes = max(0, $attendanceLog->late_minutes - $overtimeClaimRequest->duration_minutes);
+            $newStatus = ($newLateMinutes === 0 && $attendanceLog->status === 'late') ? 'present' : $attendanceLog->status;
+
+            $attendanceLog->update([
+                'ot_claim_id' => $overtimeClaimRequest->id,
+                'late_minutes' => $newLateMinutes,
+                'status' => $newStatus,
+            ]);
+
+            $overtimeClaimRequest->update(['attendance_id' => $attendanceLog->id]);
+        }
+
+        // Notify employee
+        if ($overtimeClaimRequest->employee->user) {
+            $overtimeClaimRequest->employee->user->notify(
+                new \App\Notifications\Hr\OvertimeClaimDecision($overtimeClaimRequest, 'approved')
+            );
+        }
+
+        return response()->json($overtimeClaimRequest->fresh([
+            'employee:id,full_name,position_id,department_id',
+            'employee.position:id,name',
+            'employee.department:id,name',
+        ]));
+    }
+
+    public function rejectOvertimeClaim(Request $request, OvertimeClaimRequest $overtimeClaimRequest): JsonResponse
+    {
+        $employee = $this->getEmployee($request);
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        $deptIds = $this->getDeptIds($employee->id, 'overtime');
+
+        if (! in_array($overtimeClaimRequest->employee->department_id, $deptIds)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($overtimeClaimRequest->status !== 'pending') {
+            return response()->json(['message' => 'Only pending claims can be rejected.'], 422);
+        }
+
+        $validated = $request->validate([
+            'rejection_reason' => ['required', 'string', 'min:5'],
+        ]);
+
+        $overtimeClaimRequest->update([
+            'status' => 'rejected',
+            'rejection_reason' => $validated['rejection_reason'],
+        ]);
+
+        if ($overtimeClaimRequest->employee->user) {
+            $overtimeClaimRequest->employee->user->notify(
+                new \App\Notifications\Hr\OvertimeClaimDecision($overtimeClaimRequest, 'rejected')
+            );
+        }
+
+        return response()->json($overtimeClaimRequest->fresh([
+            'employee:id,full_name,position_id,department_id',
             'employee.position:id,name',
             'employee.department:id,name',
         ]));
@@ -214,7 +341,7 @@ class HrMyApprovalController extends Controller
         }
 
         $query = LeaveRequest::with([
-            'employee:id,name,position_id,department_id',
+            'employee:id,full_name,position_id,department_id',
             'employee.position:id,name',
             'employee.department:id,name',
             'leaveType:id,name,color',
@@ -249,7 +376,7 @@ class HrMyApprovalController extends Controller
         $controller->approve($request, $leaveRequest);
 
         return response()->json($leaveRequest->fresh([
-            'employee:id,name,position_id,department_id',
+            'employee:id,full_name,position_id,department_id',
             'employee.position:id,name',
             'employee.department:id,name',
             'leaveType:id,name',
@@ -278,7 +405,7 @@ class HrMyApprovalController extends Controller
         $controller->reject($request, $leaveRequest);
 
         return response()->json($leaveRequest->fresh([
-            'employee:id,name,position_id,department_id',
+            'employee:id,full_name,position_id,department_id',
             'employee.position:id,name',
             'employee.department:id,name',
             'leaveType:id,name',
@@ -305,7 +432,7 @@ class HrMyApprovalController extends Controller
         }
 
         $query = ClaimRequest::with([
-            'employee:id,name,position_id,department_id',
+            'employee:id,full_name,position_id,department_id',
             'employee.position:id,name',
             'employee.department:id,name',
             'claimType:id,name',
@@ -357,7 +484,7 @@ class HrMyApprovalController extends Controller
         $controller->approve($request, $claimRequest);
 
         return response()->json($claimRequest->fresh([
-            'employee:id,name,position_id,department_id',
+            'employee:id,full_name,position_id,department_id',
             'employee.position:id,name',
             'employee.department:id,name',
             'claimType:id,name',
@@ -392,7 +519,7 @@ class HrMyApprovalController extends Controller
         $controller->reject($request, $claimRequest);
 
         return response()->json($claimRequest->fresh([
-            'employee:id,name,position_id,department_id',
+            'employee:id,full_name,position_id,department_id',
             'employee.position:id,name',
             'employee.department:id,name',
             'claimType:id,name',
