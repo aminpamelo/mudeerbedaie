@@ -176,8 +176,7 @@ export default function ClaimTypes() {
         setRateFormOpen(true);
     }
 
-    function handleRateSubmit(e) {
-        e.preventDefault();
+    function handleRateSubmit() {
         saveRateMutation.mutate({
             name: rateForm.name,
             rate_per_km: parseFloat(rateForm.rate_per_km),
@@ -440,9 +439,9 @@ export default function ClaimTypes() {
                                     </div>
                                 )}
 
-                                {/* Inline rate form */}
+                                {/* Inline rate form — uses div, NOT form, to avoid nested <form> */}
                                 {rateFormOpen && (
-                                    <form onSubmit={handleRateSubmit} className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
                                         <p className="text-xs font-medium text-blue-800">
                                             {editingRateId ? 'Edit Vehicle Rate' : 'New Vehicle Rate'}
                                         </p>
@@ -455,7 +454,6 @@ export default function ClaimTypes() {
                                                     value={rateForm.name}
                                                     onChange={(e) => setRateForm((r) => ({ ...r, name: e.target.value }))}
                                                     className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
-                                                    required
                                                 />
                                             </div>
                                             <div>
@@ -468,7 +466,6 @@ export default function ClaimTypes() {
                                                     value={rateForm.rate_per_km}
                                                     onChange={(e) => setRateForm((r) => ({ ...r, rate_per_km: e.target.value }))}
                                                     className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
-                                                    required
                                                 />
                                             </div>
                                         </div>
@@ -490,12 +487,17 @@ export default function ClaimTypes() {
                                             >
                                                 Cancel
                                             </Button>
-                                            <Button type="submit" size="sm" disabled={saveRateMutation.isPending}>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                disabled={saveRateMutation.isPending || !rateForm.name || !rateForm.rate_per_km}
+                                                onClick={handleRateSubmit}
+                                            >
                                                 {saveRateMutation.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                                                 {editingRateId ? 'Update' : 'Add'}
                                             </Button>
                                         </div>
-                                    </form>
+                                    </div>
                                 )}
 
                                 {form.is_mileage_type && !editingType && (
