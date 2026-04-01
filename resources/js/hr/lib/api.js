@@ -297,6 +297,11 @@ export const createClaimType = (data) => api.post('/claims/types', data).then(r 
 export const updateClaimType = (id, data) => api.put(`/claims/types/${id}`, data).then(r => r.data);
 export const deleteClaimType = (id) => api.delete(`/claims/types/${id}`).then(r => r.data);
 
+// ========== Vehicle Rates ==========
+export const createVehicleRate = (typeId, data) => api.post(`/claims/types/${typeId}/vehicle-rates`, data).then(r => r.data);
+export const updateVehicleRate = (typeId, rateId, data) => api.put(`/claims/types/${typeId}/vehicle-rates/${rateId}`, data).then(r => r.data);
+export const deleteVehicleRate = (typeId, rateId) => api.delete(`/claims/types/${typeId}/vehicle-rates/${rateId}`).then(r => r.data);
+
 // ========== Claim Requests ==========
 export const fetchClaimRequests = (params) => api.get('/claims/requests', { params }).then(r => r.data);
 export const fetchClaimRequest = (id) => api.get(`/claims/requests/${id}`).then(r => r.data);

@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Tags, Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tags, Loader2, Car, Fuel } from 'lucide-react';
 import {
     fetchClaimTypes,
     createClaimType,
     updateClaimType,
     deleteClaimType,
+    createVehicleRate,
+    updateVehicleRate,
+    deleteVehicleRate,
 } from '../../lib/api';
 import PageHeader from '../../components/PageHeader';
 import { Button } from '../../components/ui/button';
@@ -35,8 +38,11 @@ const EMPTY_FORM = {
     yearly_limit: '',
     requires_receipt: true,
     is_active: true,
+    is_mileage_type: false,
     sort_order: 0,
 };
+
+const EMPTY_RATE = { name: '', rate_per_km: '', is_active: true };
 
 function formatCurrency(amount) {
     if (amount === null || amount === undefined || amount === '') return '-';
@@ -50,6 +56,12 @@ export default function ClaimTypes() {
     const [form, setForm] = useState(EMPTY_FORM);
     const [deleteDialog, setDeleteDialog] = useState({ open: false, type: null });
     const [errors, setErrors] = useState({});
+
+    // Vehicle rate editing state (inline within the modal)
+    const [rateForm, setRateForm] = useState(EMPTY_RATE);
+    const [editingRateId, setEditingRateId] = useState(null);
+    const [rateFormOpen, setRateFormOpen] = useState(false);
+    const [localRates, setLocalRates] = useState([]); // rates for the claim type being edited
 
     const { data, isLoading } = useQuery({
         queryKey: ['hr', 'claims', 'types'],
@@ -66,6 +78,7 @@ export default function ClaimTypes() {
             setEditingType(null);
             setForm(EMPTY_FORM);
             setErrors({});
+            setLocalRates([]);
         },
         onError: (err) => {
             if (err.response?.data?.errors) {
@@ -82,12 +95,43 @@ export default function ClaimTypes() {
         },
     });
 
+    const saveRateMutation = useMutation({
+        mutationFn: (rateData) => {
+            if (editingRateId) {
+                return updateVehicleRate(editingType.id, editingRateId, rateData);
+            }
+            return createVehicleRate(editingType.id, rateData);
+        },
+        onSuccess: (res) => {
+            const savedRate = res.data;
+            if (editingRateId) {
+                setLocalRates((prev) => prev.map((r) => r.id === editingRateId ? savedRate : r));
+            } else {
+                setLocalRates((prev) => [...prev, savedRate]);
+            }
+            setRateFormOpen(false);
+            setEditingRateId(null);
+            setRateForm(EMPTY_RATE);
+            queryClient.invalidateQueries({ queryKey: ['hr', 'claims', 'types'] });
+        },
+    });
+
+    const deleteRateMutation = useMutation({
+        mutationFn: (rateId) => deleteVehicleRate(editingType.id, rateId),
+        onSuccess: (_, rateId) => {
+            setLocalRates((prev) => prev.filter((r) => r.id !== rateId));
+            queryClient.invalidateQueries({ queryKey: ['hr', 'claims', 'types'] });
+        },
+    });
+
     const types = data?.data || [];
 
     function openCreate() {
         setEditingType(null);
         setForm(EMPTY_FORM);
         setErrors({});
+        setLocalRates([]);
+        setRateFormOpen(false);
         setFormOpen(true);
     }
 
@@ -101,9 +145,12 @@ export default function ClaimTypes() {
             yearly_limit: type.yearly_limit ?? '',
             requires_receipt: type.requires_receipt ?? true,
             is_active: type.is_active ?? true,
+            is_mileage_type: type.is_mileage_type ?? false,
             sort_order: type.sort_order ?? 0,
         });
+        setLocalRates(type.vehicle_rates || []);
         setErrors({});
+        setRateFormOpen(false);
         setFormOpen(true);
     }
 
@@ -114,6 +161,27 @@ export default function ClaimTypes() {
             monthly_limit: form.monthly_limit !== '' ? parseFloat(form.monthly_limit) : null,
             yearly_limit: form.yearly_limit !== '' ? parseFloat(form.yearly_limit) : null,
             sort_order: parseInt(form.sort_order) || 0,
+        });
+    }
+
+    function openAddRate() {
+        setEditingRateId(null);
+        setRateForm(EMPTY_RATE);
+        setRateFormOpen(true);
+    }
+
+    function openEditRate(rate) {
+        setEditingRateId(rate.id);
+        setRateForm({ name: rate.name, rate_per_km: rate.rate_per_km, is_active: rate.is_active });
+        setRateFormOpen(true);
+    }
+
+    function handleRateSubmit(e) {
+        e.preventDefault();
+        saveRateMutation.mutate({
+            name: rateForm.name,
+            rate_per_km: parseFloat(rateForm.rate_per_km),
+            is_active: rateForm.is_active,
         });
     }
 
@@ -158,7 +226,17 @@ export default function ClaimTypes() {
                             <TableBody>
                                 {types.map((type) => (
                                     <TableRow key={type.id}>
-                                        <TableCell className="font-medium">{type.name}</TableCell>
+                                        <TableCell className="font-medium">
+                                            <div className="flex items-center gap-2">
+                                                {type.is_mileage_type && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                                        <Fuel className="h-3 w-3" />
+                                                        Mileage
+                                                    </span>
+                                                )}
+                                                {type.name}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="font-mono text-sm text-zinc-500">{type.code}</TableCell>
                                         <TableCell>{formatCurrency(type.monthly_limit)}</TableCell>
                                         <TableCell>{formatCurrency(type.yearly_limit)}</TableCell>
@@ -205,7 +283,7 @@ export default function ClaimTypes() {
 
             {/* Form Dialog */}
             <Dialog open={formOpen} onOpenChange={setFormOpen}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingType ? 'Edit Claim Type' : 'Add Claim Type'}</DialogTitle>
                         <DialogDescription>
@@ -293,6 +371,146 @@ export default function ClaimTypes() {
                                 Active
                             </label>
                         </div>
+
+                        {/* Mileage Toggle */}
+                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={form.is_mileage_type}
+                                    onChange={(e) => setForm((f) => ({ ...f, is_mileage_type: e.target.checked }))}
+                                    className="rounded"
+                                />
+                                <div>
+                                    <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-800">
+                                        <Fuel className="h-4 w-4 text-blue-600" />
+                                        Petrol / Mileage Claim
+                                    </div>
+                                    <p className="text-xs text-zinc-500">
+                                        Employees enter distance (km) and vehicle type. Amount is auto-calculated.
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+
+                        {/* Vehicle Rates — only shown when editing an existing mileage claim type */}
+                        {form.is_mileage_type && editingType && (
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
+                                        <Car className="h-4 w-4" />
+                                        Vehicle Rates (RM per km)
+                                    </label>
+                                    <Button type="button" variant="outline" size="sm" onClick={openAddRate}>
+                                        <Plus className="h-3.5 w-3.5 mr-1" />
+                                        Add Rate
+                                    </Button>
+                                </div>
+
+                                {localRates.length === 0 ? (
+                                    <p className="text-xs text-zinc-400 italic py-2">No vehicle rates yet. Add one above.</p>
+                                ) : (
+                                    <div className="rounded-lg border border-zinc-200 divide-y divide-zinc-100">
+                                        {localRates.map((rate) => (
+                                            <div key={rate.id} className="flex items-center justify-between px-3 py-2">
+                                                <div>
+                                                    <span className="text-sm font-medium text-zinc-800">{rate.name}</span>
+                                                    <span className="ml-2 text-xs text-zinc-500">RM {parseFloat(rate.rate_per_km).toFixed(2)}/km</span>
+                                                    {!rate.is_active && (
+                                                        <span className="ml-2 text-xs text-zinc-400">(inactive)</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Button type="button" variant="ghost" size="sm" onClick={() => openEditRate(rate)}>
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-red-500 hover:text-red-600"
+                                                        onClick={() => deleteRateMutation.mutate(rate.id)}
+                                                        disabled={deleteRateMutation.isPending}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Inline rate form */}
+                                {rateFormOpen && (
+                                    <form onSubmit={handleRateSubmit} className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                                        <p className="text-xs font-medium text-blue-800">
+                                            {editingRateId ? 'Edit Vehicle Rate' : 'New Vehicle Rate'}
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="mb-1 block text-xs font-medium text-zinc-700">Vehicle Name *</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. Car, Motorcycle"
+                                                    value={rateForm.name}
+                                                    onChange={(e) => setRateForm((r) => ({ ...r, name: e.target.value }))}
+                                                    className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="mb-1 block text-xs font-medium text-zinc-700">Rate (RM/km) *</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0.01"
+                                                    placeholder="e.g. 0.60"
+                                                    value={rateForm.rate_per_km}
+                                                    onChange={(e) => setRateForm((r) => ({ ...r, rate_per_km: e.target.value }))}
+                                                    className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:border-zinc-400 focus:outline-none"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <label className="flex items-center gap-2 text-xs text-zinc-700 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={rateForm.is_active}
+                                                onChange={(e) => setRateForm((r) => ({ ...r, is_active: e.target.checked }))}
+                                                className="rounded"
+                                            />
+                                            Active
+                                        </label>
+                                        <div className="flex gap-2 justify-end">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => { setRateFormOpen(false); setEditingRateId(null); setRateForm(EMPTY_RATE); }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button type="submit" size="sm" disabled={saveRateMutation.isPending}>
+                                                {saveRateMutation.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                                                {editingRateId ? 'Update' : 'Add'}
+                                            </Button>
+                                        </div>
+                                    </form>
+                                )}
+
+                                {form.is_mileage_type && !editingType && (
+                                    <p className="text-xs text-zinc-400 italic">Save the claim type first, then add vehicle rates.</p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Hint for new mileage type */}
+                        {form.is_mileage_type && !editingType && (
+                            <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+                                After creating this claim type, open it to add vehicle rates (Car, Motorcycle, etc.).
+                            </p>
+                        )}
+
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                                 Cancel
