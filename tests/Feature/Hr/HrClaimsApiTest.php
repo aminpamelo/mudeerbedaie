@@ -46,7 +46,7 @@ test('unauthenticated users get 401 on claims endpoints', function () {
     $this->getJson('/api/hr/claims/types')->assertUnauthorized();
     $this->getJson('/api/hr/claims/requests')->assertUnauthorized();
     $this->getJson('/api/hr/claims/approvers')->assertUnauthorized();
-    $this->getJson('/api/hr/claims/dashboard')->assertUnauthorized();
+    $this->getJson('/api/hr/claims/dashboard/stats')->assertUnauthorized();
     $this->getJson('/api/hr/me/claims')->assertUnauthorized();
 });
 
