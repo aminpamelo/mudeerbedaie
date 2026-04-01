@@ -140,6 +140,11 @@ import MyApprovals from './pages/my/MyApprovals';
 import MyApprovalsOvertime from './pages/my/MyApprovalsOvertime';
 import MyApprovalsLeave from './pages/my/MyApprovalsLeave';
 import MyApprovalsClaims from './pages/my/MyApprovalsClaims';
+import ExitPermissions from './pages/exitpermissions/ExitPermissions';
+import ExitPermissionNotifiers from './pages/exitpermissions/ExitPermissionNotifiers';
+import MyExitPermissions from './pages/my/MyExitPermissions';
+import ApplyExitPermission from './pages/my/ApplyExitPermission';
+import MyApprovalsExitPermissions from './pages/my/MyApprovalsExitPermissions';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -206,6 +211,10 @@ function AdminRoutes() {
             <Route path="claims/types" element={<ClaimTypes />} />
             <Route path="claims/approvers" element={<ClaimApprovers />} />
             <Route path="claims/reports" element={<ClaimsReports />} />
+
+            {/* Exit Permissions */}
+            <Route path="exit-permissions" element={<ExitPermissions />} />
+            <Route path="exit-permissions/notifiers" element={<ExitPermissionNotifiers />} />
 
             {/* Benefits */}
             <Route path="benefits" element={<BenefitsManagement />} />
@@ -298,10 +307,13 @@ function EmployeeRoutes() {
             <Route path="my/disciplinary" element={<MyDisciplinary />} />
             <Route path="my/resignation" element={<MyResignation />} />
             <Route path="my/training" element={<MyTraining />} />
+            <Route path="my/exit-permissions" element={<MyExitPermissions />} />
+            <Route path="my/exit-permissions/apply" element={<ApplyExitPermission />} />
             <Route path="my/approvals" element={<MyApprovals />} />
             <Route path="my/approvals/overtime" element={<MyApprovalsOvertime />} />
             <Route path="my/approvals/leave" element={<MyApprovalsLeave />} />
             <Route path="my/approvals/claims" element={<MyApprovalsClaims />} />
+            <Route path="my/approvals/exit-permissions" element={<MyApprovalsExitPermissions />} />
             <Route path="notifications" element={<Notifications />} />
         </Route>
     );

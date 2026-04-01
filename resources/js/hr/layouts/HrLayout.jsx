@@ -56,6 +56,7 @@ import {
     Award,
     Wallet,
     Network,
+    DoorOpen,
 } from 'lucide-react';
 import useHrStore from '../stores/useHrStore';
 import NotificationBell from '../components/NotificationBell';
@@ -119,6 +120,15 @@ const navigation = [
             { name: 'Types', to: '/claims/types', icon: Tags },
             { name: 'Approvers', to: '/claims/approvers', icon: UserCheck },
             { name: 'Reports', to: '/claims/reports', icon: BarChart2 },
+        ],
+    },
+    {
+        name: 'Exit Permissions',
+        icon: DoorOpen,
+        prefix: '/exit-permissions',
+        children: [
+            { name: 'Requests', to: '/exit-permissions', icon: FileText },
+            { name: 'Notifiers', to: '/exit-permissions/notifiers', icon: UserCheck },
         ],
     },
     {
