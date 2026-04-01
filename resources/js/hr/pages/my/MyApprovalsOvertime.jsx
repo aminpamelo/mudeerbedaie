@@ -1,29 +1,295 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, X, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Check, X, AlertCircle, Clock, Calendar, Building2, Briefcase, ChevronRight, Timer, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import api from '../../lib/api';
 
-const TABS = ['all', 'pending', 'approved', 'rejected', 'completed'];
+const TABS = [
+    { key: 'pending',   label: 'Pending' },
+    { key: 'approved',  label: 'Approved' },
+    { key: 'rejected',  label: 'Rejected' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'all',       label: 'All' },
+];
 
-const STATUS_COLORS = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800',
-    completed: 'bg-blue-100 text-blue-800',
-    cancelled: 'bg-slate-100 text-slate-600',
+const STATUS_CONFIG = {
+    pending:   { color: 'text-amber-700 bg-amber-50 border-amber-200',  dot: 'bg-amber-500',  border: 'border-l-amber-400' },
+    approved:  { color: 'text-emerald-700 bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500', border: 'border-l-emerald-400' },
+    rejected:  { color: 'text-red-700 bg-red-50 border-red-200',        dot: 'bg-red-500',    border: 'border-l-red-400' },
+    completed: { color: 'text-blue-700 bg-blue-50 border-blue-200',     dot: 'bg-blue-500',   border: 'border-l-blue-400' },
+    cancelled: { color: 'text-zinc-600 bg-zinc-100 border-zinc-200',    dot: 'bg-zinc-400',   border: 'border-l-zinc-300' },
 };
+
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatTime(timeStr) {
+    if (!timeStr) return '--:--';
+    return timeStr.length === 5 ? timeStr : new Date(`2000-01-01T${timeStr}`).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+}
+
+function getInitials(name) {
+    if (!name) return '?';
+    return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
+const AVATAR_COLORS = [
+    'bg-violet-100 text-violet-700',
+    'bg-sky-100 text-sky-700',
+    'bg-rose-100 text-rose-700',
+    'bg-amber-100 text-amber-700',
+    'bg-emerald-100 text-emerald-700',
+    'bg-indigo-100 text-indigo-700',
+];
+
+function avatarColor(name) {
+    if (!name) return AVATAR_COLORS[0];
+    const code = name.charCodeAt(0) % AVATAR_COLORS.length;
+    return AVATAR_COLORS[code];
+}
 
 function fetchOvertimeApprovals(status) {
     const params = status !== 'all' ? `?status=${status}` : '';
     return api.get(`/my-approvals/overtime${params}`).then((r) => r.data);
 }
 
+function SkeletonCard() {
+    return (
+        <div className="rounded-2xl bg-white border border-zinc-100 p-4 shadow-sm animate-pulse">
+            <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-full bg-zinc-100 shrink-0" />
+                <div className="flex-1 space-y-2">
+                    <div className="h-4 w-36 rounded bg-zinc-100" />
+                    <div className="h-3 w-24 rounded bg-zinc-100" />
+                </div>
+                <div className="h-5 w-16 rounded-full bg-zinc-100" />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="h-8 rounded-lg bg-zinc-50" />
+                <div className="h-8 rounded-lg bg-zinc-50" />
+            </div>
+        </div>
+    );
+}
+
+function OTCard({ req, onApprove, onReject }) {
+    const cfg = STATUS_CONFIG[req.status] ?? STATUS_CONFIG.cancelled;
+    const name = req.employee?.full_name ?? 'Unknown';
+
+    return (
+        <div
+            className={`rounded-2xl bg-white border border-zinc-100 border-l-4 ${cfg.border} shadow-sm overflow-hidden transition-shadow hover:shadow-md`}
+            style={{ animation: 'fadeSlideUp 0.3s ease both' }}
+        >
+            <div className="p-4">
+                {/* Header row */}
+                <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarColor(name)}`}>
+                            {getInitials(name)}
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold text-zinc-900 truncate">{name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                {req.employee?.department?.name && (
+                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
+                                        <Building2 className="h-3 w-3" />
+                                        {req.employee.department.name}
+                                    </span>
+                                )}
+                                {req.employee?.position?.name && (
+                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
+                                        <span className="text-zinc-300">·</span>
+                                        <Briefcase className="h-3 w-3" />
+                                        {req.employee.position.name}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <span className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${cfg.color}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                        {req.status}
+                    </span>
+                </div>
+
+                {/* Info grid */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                        <Calendar className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                        <span className="text-xs text-zinc-700 font-medium">{formatDate(req.requested_date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                        <Timer className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                        <span className="text-xs text-zinc-700 font-medium">{req.estimated_hours}h estimated</span>
+                    </div>
+                    {req.start_time && (
+                        <div className="col-span-2 flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                            <Clock className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                            <span className="text-xs text-zinc-700 font-medium">
+                                {formatTime(req.start_time)} – {formatTime(req.end_time)}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Reason */}
+                {req.reason && (
+                    <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                        <FileText className="h-3.5 w-3.5 text-zinc-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-zinc-500 line-clamp-2">{req.reason}</p>
+                    </div>
+                )}
+
+                {/* Rejection reason */}
+                {req.rejection_reason && (
+                    <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2">
+                        <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-600">{req.rejection_reason}</p>
+                    </div>
+                )}
+
+                {/* Actions */}
+                {req.status === 'pending' && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                            onClick={() => onApprove(req)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-emerald-700 active:scale-95"
+                        >
+                            <Check className="h-4 w-4" />
+                            Approve
+                        </button>
+                        <button
+                            onClick={() => onReject(req)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100 active:scale-95"
+                        >
+                            <X className="h-4 w-4" />
+                            Reject
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function ClaimCard({ claim, onApprove, onReject }) {
+    const cfg = STATUS_CONFIG[claim.status] ?? STATUS_CONFIG.cancelled;
+    const name = claim.employee?.full_name ?? 'Unknown';
+
+    function formatClaimDuration(minutes) {
+        if (!minutes) return '-';
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        if (h === 0) return `${m}min`;
+        if (m === 0) return `${h}h`;
+        return `${h}h ${m}min`;
+    }
+
+    return (
+        <div
+            className={`rounded-2xl bg-white border border-zinc-100 border-l-4 ${cfg.border} shadow-sm overflow-hidden transition-shadow hover:shadow-md`}
+            style={{ animation: 'fadeSlideUp 0.3s ease both' }}
+        >
+            <div className="p-4">
+                {/* Header row */}
+                <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarColor(name)}`}>
+                            {getInitials(name)}
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold text-zinc-900 truncate">{name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                {claim.employee?.department?.name && (
+                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
+                                        <Building2 className="h-3 w-3" />
+                                        {claim.employee.department.name}
+                                    </span>
+                                )}
+                                {claim.employee?.position?.name && (
+                                    <span className="flex items-center gap-0.5 text-xs text-zinc-400">
+                                        <span className="text-zinc-300">·</span>
+                                        <Briefcase className="h-3 w-3" />
+                                        {claim.employee.position.name}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <span className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${cfg.color}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                        {claim.status}
+                    </span>
+                </div>
+
+                {/* Info grid */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                        <Calendar className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                        <span className="text-xs text-zinc-700 font-medium">{formatDate(claim.claim_date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                        <Timer className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                        <span className="text-xs text-zinc-700 font-medium">{formatClaimDuration(claim.duration_minutes)}</span>
+                    </div>
+                    {claim.start_time && (
+                        <div className="col-span-2 flex items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                            <Clock className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                            <span className="text-xs text-zinc-700 font-medium">From {claim.start_time}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Notes */}
+                {claim.notes && (
+                    <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-zinc-50 px-3 py-2">
+                        <FileText className="h-3.5 w-3.5 text-zinc-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-zinc-500 line-clamp-2">{claim.notes}</p>
+                    </div>
+                )}
+
+                {/* Rejection reason */}
+                {claim.rejection_reason && (
+                    <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2">
+                        <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-600">{claim.rejection_reason}</p>
+                    </div>
+                )}
+
+                {/* Actions */}
+                {claim.status === 'pending' && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                            onClick={() => onApprove(claim)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-emerald-700 active:scale-95"
+                        >
+                            <Check className="h-4 w-4" />
+                            Approve
+                        </button>
+                        <button
+                            onClick={() => onReject(claim)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100 active:scale-95"
+                        >
+                            <X className="h-4 w-4" />
+                            Reject
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function MyApprovalsOvertime() {
     const navigate = useNavigate();
     const qc = useQueryClient();
     const [tab, setTab] = useState('pending');
+    const [type, setType] = useState('requests'); // 'requests' | 'claims'
+    const [approveDialog, setApproveDialog] = useState(null);
     const [rejectDialog, setRejectDialog] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
     const [actionError, setActionError] = useState('');
@@ -49,6 +315,38 @@ export default function MyApprovalsOvertime() {
             qc.invalidateQueries({ queryKey: ['my-approvals-summary'] });
             setRejectDialog(null);
             setRejectReason('');
+            setActionError('');
+        },
+        onError: (err) => setActionError(err.response?.data?.message ?? 'Failed to reject.'),
+    });
+
+    const { data: claimsData, isLoading: claimsLoading } = useQuery({
+        queryKey: ['my-approvals-overtime-claims', tab],
+        queryFn: () => {
+            const params = tab !== 'all' ? `?status=${tab}` : '';
+            return api.get(`/my-approvals/overtime-claims${params}`).then((r) => r.data);
+        },
+        enabled: type === 'claims',
+    });
+
+    const claimApproveMut = useMutation({
+        mutationFn: (id) => api.patch(`/my-approvals/overtime-claims/${id}/approve`),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['my-approvals-overtime-claims'] });
+            qc.invalidateQueries({ queryKey: ['my-approvals-summary'] });
+            setApproveDialog(null);
+        },
+    });
+
+    const claimRejectMut = useMutation({
+        mutationFn: ({ id, reason }) =>
+            api.patch(`/my-approvals/overtime-claims/${id}/reject`, { rejection_reason: reason }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['my-approvals-overtime-claims'] });
+            qc.invalidateQueries({ queryKey: ['my-approvals-summary'] });
+            setRejectDialog(null);
+            setRejectReason('');
+            setActionError('');
         },
         onError: (err) => setActionError(err.response?.data?.message ?? 'Failed to reject.'),
     });
@@ -56,126 +354,227 @@ export default function MyApprovalsOvertime() {
     const requests = data?.data ?? [];
 
     return (
-        <div className="mx-auto max-w-4xl p-4 lg:p-6">
-            <div className="mb-5 flex items-center gap-3">
-                <button onClick={() => navigate('/my/approvals')} className="text-slate-400 hover:text-slate-600">
-                    <ArrowLeft className="h-5 w-5" />
-                </button>
-                <h1 className="text-xl font-bold text-slate-800">Overtime Approvals</h1>
-            </div>
+        <>
+            <style>{`
+                @keyframes fadeSlideUp {
+                    from { opacity: 0; transform: translateY(8px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
 
-            <div className="mb-4 flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1">
-                {TABS.map((t) => (
-                    <button
-                        key={t}
-                        onClick={() => setTab(t)}
-                        className={`flex-shrink-0 rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
-                            tab === t ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                    >
-                        {t}
-                    </button>
-                ))}
-            </div>
+            <div className="flex flex-col h-full bg-zinc-50">
+                {/* Header */}
+                <div className="sticky top-0 z-10 bg-white border-b border-zinc-100 px-4 pt-4 pb-0 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                        <button
+                            onClick={() => navigate('/my/approvals')}
+                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-800"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                        </button>
+                        <div>
+                            <h1 className="text-base font-bold text-zinc-900">Overtime Approvals</h1>
+                            <p className="text-xs text-zinc-400">{requests.length} {tab === 'all' ? 'total' : tab} request{requests.length !== 1 ? 's' : ''}</p>
+                        </div>
+                    </div>
 
-            {isLoading ? (
-                <div className="flex h-32 items-center justify-center">
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600" />
+                    {/* Type switcher */}
+                    <div className="flex rounded-lg border border-zinc-200 p-0.5 bg-zinc-50 w-fit mb-3">
+                        <button
+                            onClick={() => setType('requests')}
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                                type === 'requests' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'
+                            }`}
+                        >
+                            OT Requests
+                        </button>
+                        <button
+                            onClick={() => setType('claims')}
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                                type === 'claims' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'
+                            }`}
+                        >
+                            OT Claims
+                        </button>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex gap-0 overflow-x-auto scrollbar-none -mb-px">
+                        {TABS.map((t) => (
+                            <button
+                                key={t.key}
+                                onClick={() => setTab(t.key)}
+                                className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                                    tab === t.key
+                                        ? 'border-zinc-900 text-zinc-900'
+                                        : 'border-transparent text-zinc-400 hover:text-zinc-600'
+                                }`}
+                            >
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            ) : requests.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-slate-400">
-                    No {tab === 'all' ? '' : tab} overtime requests
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {requests.map((req) => (
-                        <div key={req.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-slate-800">{req.employee?.name}</p>
-                                    <p className="text-sm text-slate-500">
-                                        {req.employee?.position?.name} · {req.employee?.department?.name}
-                                    </p>
-                                    <p className="mt-1 text-sm text-slate-600">
-                                        {req.requested_date} · {req.estimated_hours}h estimated
-                                    </p>
-                                    {req.reason && (
-                                        <p className="mt-1 text-sm text-slate-500 line-clamp-2">{req.reason}</p>
-                                    )}
-                                    {req.rejection_reason && (
-                                        <p className="mt-1 text-sm text-red-500">Reason: {req.rejection_reason}</p>
-                                    )}
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    {type === 'requests' ? (
+                        isLoading ? (
+                            <>
+                                <SkeletonCard />
+                                <SkeletonCard />
+                                <SkeletonCard />
+                            </>
+                        ) : requests.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 mb-3">
+                                    <Timer className="h-6 w-6 text-zinc-400" />
                                 </div>
-                                <span
-                                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium capitalize ${STATUS_COLORS[req.status] ?? 'bg-slate-100 text-slate-600'}`}
-                                >
-                                    {req.status}
-                                </span>
+                                <p className="text-sm font-semibold text-zinc-700">No {tab === 'all' ? '' : tab} requests</p>
+                                <p className="text-xs text-zinc-400 mt-1">Nothing to review right now</p>
                             </div>
-
-                            {req.status === 'pending' && (
-                                <div className="mt-3 flex gap-2">
-                                    <button
-                                        onClick={() => approveMut.mutate(req.id)}
-                                        disabled={approveMut.isPending}
-                                        className="flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                                    >
-                                        <Check className="h-4 w-4" /> Approve
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setRejectDialog({ id: req.id, name: req.employee?.name });
+                        ) : (
+                            requests.map((req, i) => (
+                                <div key={req.id} style={{ animationDelay: `${i * 0.05}s` }}>
+                                    <OTCard
+                                        req={req}
+                                        onApprove={(req) => setApproveDialog({ id: req.id, name: req.employee?.full_name, date: req.requested_date, hours: req.estimated_hours })}
+                                        onReject={(req) => {
+                                            setRejectDialog({ id: req.id, name: req.employee?.full_name });
                                             setRejectReason('');
                                             setActionError('');
                                         }}
-                                        className="flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-                                    >
-                                        <X className="h-4 w-4" /> Reject
-                                    </button>
+                                        approving={approveMut.isPending}
+                                    />
                                 </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            <Dialog open={!!rejectDialog} onOpenChange={() => setRejectDialog(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Reject Overtime Request</DialogTitle>
-                    </DialogHeader>
-                    <p className="text-sm text-slate-500">
-                        Rejecting request from <strong>{rejectDialog?.name}</strong>. Please provide a reason.
-                    </p>
-                    <textarea
-                        className="mt-2 w-full rounded-lg border border-slate-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                        rows={3}
-                        placeholder="Reason for rejection (min 5 characters)"
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
-                    />
-                    {actionError && (
-                        <p className="flex items-center gap-1 text-sm text-red-500">
-                            <AlertCircle className="h-4 w-4" /> {actionError}
-                        </p>
+                            ))
+                        )
+                    ) : (
+                        claimsLoading ? (
+                            <>
+                                <SkeletonCard />
+                                <SkeletonCard />
+                            </>
+                        ) : (claimsData?.data ?? []).length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 mb-3">
+                                    <Timer className="h-6 w-6 text-zinc-400" />
+                                </div>
+                                <p className="text-sm font-semibold text-zinc-700">No {tab === 'all' ? '' : tab} claims</p>
+                                <p className="text-xs text-zinc-400 mt-1">Nothing to review right now</p>
+                            </div>
+                        ) : (
+                            (claimsData?.data ?? []).map((claim, i) => (
+                                <div key={claim.id} style={{ animationDelay: `${i * 0.05}s` }}>
+                                    <ClaimCard
+                                        claim={claim}
+                                        onApprove={(c) => setApproveDialog({ id: c.id, name: c.employee?.full_name, date: c.claim_date, duration: c.duration_minutes })}
+                                        onReject={(c) => {
+                                            setRejectDialog({ id: c.id, name: c.employee?.full_name });
+                                            setRejectReason('');
+                                            setActionError('');
+                                        }}
+                                    />
+                                </div>
+                            ))
+                        )
                     )}
-                    <DialogFooter>
+                </div>
+            </div>
+
+            {/* Approve Confirmation Dialog */}
+            <Dialog open={!!approveDialog} onOpenChange={() => setApproveDialog(null)}>
+                <DialogContent className="rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-base">Approve Overtime Request</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <p className="text-sm text-zinc-500">
+                            You're about to approve the overtime request from{' '}
+                            <span className="font-semibold text-zinc-800">{approveDialog?.name}</span>.
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
+                                <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium mb-0.5">Date</p>
+                                <p className="text-sm font-semibold text-zinc-800">{formatDate(approveDialog?.date)}</p>
+                            </div>
+                            <div className="rounded-xl bg-zinc-50 px-3 py-2.5">
+                                <p className="text-[10px] uppercase tracking-wide text-zinc-400 font-medium mb-0.5">Duration</p>
+                                <p className="text-sm font-semibold text-zinc-800">
+                                    {approveDialog?.duration ? `${approveDialog.duration}min` : `${approveDialog?.hours}h estimated`}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2">
                         <button
-                            onClick={() => setRejectDialog(null)}
-                            className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            onClick={() => setApproveDialog(null)}
+                            className="flex-1 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition"
                         >
                             Cancel
                         </button>
                         <button
-                            onClick={() => rejectMut.mutate({ id: rejectDialog.id, reason: rejectReason })}
-                            disabled={rejectReason.length < 5 || rejectMut.isPending}
-                            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                            onClick={() => {
+                                if (type === 'claims') {
+                                    claimApproveMut.mutate(approveDialog.id);
+                                } else {
+                                    approveMut.mutate(approveDialog.id);
+                                    setApproveDialog(null);
+                                }
+                            }}
+                            disabled={approveMut.isPending || claimApproveMut.isPending}
+                            className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40 transition active:scale-95"
                         >
-                            {rejectMut.isPending ? 'Rejecting...' : 'Confirm Reject'}
+                            {(approveMut.isPending || claimApproveMut.isPending) ? 'Approving…' : 'Confirm Approve'}
                         </button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+
+            {/* Reject Dialog */}
+            <Dialog open={!!rejectDialog} onOpenChange={() => setRejectDialog(null)}>
+                <DialogContent className="rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-base">Reject Overtime Request</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-zinc-500">
+                        Rejecting request from <span className="font-semibold text-zinc-800">{rejectDialog?.name}</span>. Please provide a reason.
+                    </p>
+                    <textarea
+                        className="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent resize-none transition"
+                        rows={3}
+                        placeholder="Reason for rejection (min 5 characters)…"
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                    />
+                    {actionError && (
+                        <p className="flex items-center gap-1.5 text-sm text-red-600">
+                            <AlertCircle className="h-4 w-4 shrink-0" /> {actionError}
+                        </p>
+                    )}
+                    <DialogFooter className="gap-2">
+                        <button
+                            onClick={() => setRejectDialog(null)}
+                            className="flex-1 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (type === 'claims') {
+                                    claimRejectMut.mutate({ id: rejectDialog.id, reason: rejectReason });
+                                } else {
+                                    rejectMut.mutate({ id: rejectDialog.id, reason: rejectReason });
+                                }
+                            }}
+                            disabled={rejectReason.length < 5 || rejectMut.isPending || claimRejectMut.isPending}
+                            className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-40 transition active:scale-95"
+                        >
+                            {(rejectMut.isPending || claimRejectMut.isPending) ? 'Rejecting…' : 'Confirm Reject'}
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
