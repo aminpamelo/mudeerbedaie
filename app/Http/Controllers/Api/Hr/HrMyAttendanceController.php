@@ -406,23 +406,14 @@ class HrMyAttendanceController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $totalEarned = (float) OvertimeRequest::query()
-            ->where('employee_id', $employee->id)
-            ->where('status', 'completed')
-            ->sum('replacement_hours_earned');
-
-        $totalUsedMinutes = (int) OvertimeClaimRequest::query()
-            ->where('employee_id', $employee->id)
-            ->where('status', 'approved')
-            ->sum('duration_minutes');
-
-        $totalUsed = round($totalUsedMinutes / 60, 1);
+        $balance = $this->computeOvertimeBalance($employee);
+        $totalUsed = round($balance['total_used_minutes'] / 60, 1);
 
         return response()->json([
             'data' => [
-                'total_earned' => $totalEarned,
+                'total_earned' => $balance['total_earned'],
                 'total_used' => $totalUsed,
-                'available' => round($totalEarned - $totalUsed, 1),
+                'available' => round($balance['total_earned'] - $totalUsed, 1),
             ],
         ]);
     }
@@ -459,41 +450,40 @@ class HrMyAttendanceController extends Controller
 
         $validated = $request->validated();
 
-        // Check sufficient balance
-        $totalEarned = (float) OvertimeRequest::query()
-            ->where('employee_id', $employee->id)
-            ->where('status', 'completed')
-            ->sum('replacement_hours_earned');
+        $claim = DB::transaction(function () use ($validated, $employee) {
+            $balance = $this->computeOvertimeBalance($employee);
 
-        $totalUsedMinutes = (int) OvertimeClaimRequest::query()
-            ->where('employee_id', $employee->id)
-            ->where('status', 'approved')
-            ->sum('duration_minutes');
+            if ($validated['duration_minutes'] > $balance['available_minutes']) {
+                // We can't throw a validation exception from inside a transaction easily,
+                // so return null to signal failure
+                return null;
+            }
 
-        $availableMinutes = (int) round(($totalEarned * 60) - $totalUsedMinutes);
+            return OvertimeClaimRequest::create(array_merge($validated, [
+                'employee_id' => $employee->id,
+                'status' => 'pending',
+            ]));
+        });
 
-        if ($validated['duration_minutes'] > $availableMinutes) {
+        if (! $claim) {
+            $balance = $this->computeOvertimeBalance($employee);
+
             return response()->json([
-                'message' => 'Insufficient OT balance. You have '.round($availableMinutes / 60, 1).'h available.',
+                'message' => 'Insufficient OT balance. You have '.round($balance['available_minutes'] / 60, 1).'h available.',
             ], 422);
         }
 
-        $claim = OvertimeClaimRequest::create(array_merge($validated, [
-            'employee_id' => $employee->id,
-            'status' => 'pending',
-        ]));
-
         // Notify OT approvers for this department
-        $approverEmployeeIds = DepartmentApprover::where('department_id', $employee->department_id)
-            ->where('approval_type', 'overtime')
-            ->pluck('approver_employee_id');
+        $approvers = DepartmentApprover::forDepartment($employee->department_id)
+            ->forType('overtime')
+            ->with('approver.user')
+            ->get();
 
         $notifiedUserIds = [];
-        foreach ($approverEmployeeIds as $approverEmployeeId) {
-            $approverEmployee = Employee::find($approverEmployeeId);
-            if ($approverEmployee?->user) {
-                $approverEmployee->user->notify(new \App\Notifications\Hr\OvertimeClaimSubmitted($claim));
-                $notifiedUserIds[] = $approverEmployee->user->id;
+        foreach ($approvers as $deptApprover) {
+            if ($deptApprover->approver?->user) {
+                $deptApprover->approver->user->notify(new \App\Notifications\Hr\OvertimeClaimSubmitted($claim));
+                $notifiedUserIds[] = $deptApprover->approver->user->id;
             }
         }
 
@@ -557,6 +547,30 @@ class HrMyAttendanceController extends Controller
             'data' => $overtimeRequest->fresh(),
             'message' => 'Overtime request cancelled successfully.',
         ]);
+    }
+
+    /**
+     * Compute overtime replacement balance for an employee.
+     *
+     * @return array{total_earned: float, total_used_minutes: int, available_minutes: int}
+     */
+    private function computeOvertimeBalance(Employee $employee): array
+    {
+        $totalEarned = (float) OvertimeRequest::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'completed')
+            ->sum('replacement_hours_earned');
+
+        $totalUsedMinutes = (int) OvertimeClaimRequest::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->sum('duration_minutes');
+
+        return [
+            'total_earned' => $totalEarned,
+            'total_used_minutes' => $totalUsedMinutes,
+            'available_minutes' => (int) round(($totalEarned * 60) - $totalUsedMinutes),
+        ];
     }
 
     /**
