@@ -16,7 +16,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('department_id')->constrained('departments')->cascadeOnDelete();
             $table->foreignId('approver_employee_id')->constrained('employees')->cascadeOnDelete();
-            $table->enum('approval_type', ['overtime', 'leave', 'claims']);
+            $table->enum('approval_type', ['overtime', 'leave', 'claims', 'exit_permission']);
             $table->timestamps();
 
             $table->index(['department_id', 'approval_type']);

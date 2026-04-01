@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Timer, CalendarOff, Receipt, ShieldCheck } from 'lucide-react';
+import { Timer, CalendarOff, Receipt, ShieldCheck, DoorOpen } from 'lucide-react';
 import api from '../../lib/api';
 
 function fetchApprovalSummary() {
@@ -87,6 +87,14 @@ export default function MyApprovals() {
                     isAssigned={data?.claims?.isAssigned ?? false}
                     onClick={() => navigate('/my/approvals/claims')}
                     color="bg-green-500"
+                />
+                <StatCard
+                    icon={DoorOpen}
+                    label="Exit Permissions"
+                    pending={data?.exit_permission?.pending ?? 0}
+                    isAssigned={data?.exit_permission?.isAssigned ?? false}
+                    onClick={() => navigate('/my/approvals/exit-permissions')}
+                    color="bg-purple-500"
                 />
             </div>
         </div>

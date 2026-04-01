@@ -19,6 +19,7 @@ import {
     LogOut,
     GraduationCap,
     ShieldCheck,
+    DoorOpen,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '../lib/utils';
@@ -42,6 +43,7 @@ const tabs = [
 
 const moreMenuItems = [
     { name: 'My Claims', to: '/my/claims', icon: Receipt, description: 'Submit and track expense claims' },
+    { name: 'My Exit Permissions', to: '/my/exit-permissions', icon: DoorOpen, description: 'Request and track exit permissions' },
     { name: 'My Payslips', to: '/my/payslips', icon: Wallet, description: 'View and download payslips' },
     { name: 'My Overtime', to: '/my/overtime', icon: Timer, description: 'View overtime requests' },
     { name: 'My Meetings', to: '/my/meetings', icon: CalendarRange, description: 'View your meeting invitations' },
@@ -60,6 +62,7 @@ const sidebarNav = [
     { name: 'My Leave', to: '/my/leave', icon: CalendarOff },
     { name: 'Apply Leave', to: '/my/leave/apply', icon: FilePlus },
     { name: 'My Claims', to: '/my/claims', icon: Receipt },
+    { name: 'My Exit Permissions', to: '/my/exit-permissions', icon: DoorOpen },
     { name: 'My Payslips', to: '/my/payslips', icon: Wallet },
     { name: 'My Meetings', to: '/my/meetings', icon: CalendarRange },
     { name: 'My Tasks', to: '/my/tasks', icon: ListTodo },
@@ -256,11 +259,14 @@ export default function EmployeeAppLayout() {
     const user = config.user || { name: 'User' };
 
     const { data: approvalData } = useApprovalSummary();
-    const isApprover = approvalData?.isApprover ?? false;
+    const isApprover =
+        (approvalData?.isApprover ?? false) ||
+        (approvalData?.exit_permission?.isAssigned ?? false);
     const totalPending =
         (approvalData?.overtime?.pending ?? 0) +
         (approvalData?.leave?.pending ?? 0) +
-        (approvalData?.claims?.pending ?? 0);
+        (approvalData?.claims?.pending ?? 0) +
+        (approvalData?.exit_permission?.pending ?? 0);
 
     const sidebarNavItems = isApprover
         ? [

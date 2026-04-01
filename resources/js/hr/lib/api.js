@@ -623,4 +623,54 @@ export const fetchMyResignation = () => api.get('/me/resignation').then(r => r.d
 export const fetchMyTraining = () => api.get('/me/training').then(r => r.data);
 export const submitMyTrainingFeedback = (enrollmentId, data) => api.put(`/me/training/${enrollmentId}/feedback`, data).then(r => r.data);
 
+// ============================================================
+// Exit Permissions - Admin
+// ============================================================
+export const getExitPermissions = (params) =>
+    api.get('/exit-permissions', { params }).then((r) => r.data);
+
+export const adminApproveExitPermission = (id) =>
+    api.patch(`/exit-permissions/${id}/approve`).then((r) => r.data);
+
+export const adminRejectExitPermission = (id, data) =>
+    api.patch(`/exit-permissions/${id}/reject`, data).then((r) => r.data);
+
+export const getExitPermissionPdfUrl = (id) => `/api/hr/exit-permissions/${id}/pdf`;
+
+// ============================================================
+// Exit Permission Notifiers - Admin
+// ============================================================
+export const getExitPermissionNotifiers = (params) =>
+    api.get('/exit-permission-notifiers', { params }).then((r) => r.data);
+
+export const addExitPermissionNotifier = (data) =>
+    api.post('/exit-permission-notifiers', data).then((r) => r.data);
+
+export const removeExitPermissionNotifier = (id) =>
+    api.delete(`/exit-permission-notifiers/${id}`).then((r) => r.data);
+
+// ============================================================
+// Exit Permissions - Employee Self-Service
+// ============================================================
+export const getMyExitPermissions = (params) =>
+    api.get('/my/exit-permissions', { params }).then((r) => r.data);
+
+export const submitExitPermission = (data) =>
+    api.post('/my/exit-permissions', data).then((r) => r.data);
+
+export const cancelMyExitPermission = (id) =>
+    api.delete(`/my/exit-permissions/${id}`).then((r) => r.data);
+
+// ============================================================
+// Exit Permissions - HOD Approvals
+// ============================================================
+export const getMyApprovalsExitPermissions = (params) =>
+    api.get('/my-approvals/exit-permissions', { params }).then((r) => r.data);
+
+export const approveMyExitPermission = (id) =>
+    api.patch(`/my-approvals/exit-permissions/${id}/approve`).then((r) => r.data);
+
+export const rejectMyExitPermission = (id, data) =>
+    api.patch(`/my-approvals/exit-permissions/${id}/reject`, data).then((r) => r.data);
+
 export default api;

@@ -8,6 +8,7 @@ use App\Models\ClaimRequest;
 use App\Models\DepartmentApprover;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
+use App\Models\OfficeExitPermission;
 use App\Models\OvertimeRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,13 +73,21 @@ class HrMyApprovalController extends Controller
             $claimPending = $claimQuery->count();
         }
 
-        $isApprover = ! empty($otDepts) || ! empty($leaveDepts) || $isClaimsAssigned;
+        $exitDepts = $this->getDeptIds($employee->id, 'exit_permission');
+
+        $exitPending = empty($exitDepts) ? 0
+            : OfficeExitPermission::whereHas('employee', fn ($q) => $q->whereIn('department_id', $exitDepts))
+                ->where('status', 'pending')
+                ->count();
+
+        $isApprover = ! empty($otDepts) || ! empty($leaveDepts) || $isClaimsAssigned || ! empty($exitDepts);
 
         return response()->json([
             'isApprover' => $isApprover,
             'overtime' => ['pending' => $otPending, 'isAssigned' => ! empty($otDepts)],
             'leave' => ['pending' => $leavePending, 'isAssigned' => ! empty($leaveDepts)],
             'claims' => ['pending' => $claimPending, 'isAssigned' => $isClaimsAssigned],
+            'exit_permission' => ['pending' => $exitPending, 'isAssigned' => ! empty($exitDepts)],
         ]);
     }
 
@@ -388,5 +397,87 @@ class HrMyApprovalController extends Controller
             'employee.department:id,name',
             'claimType:id,name',
         ]));
+    }
+
+    // ── Exit Permissions ──────────────────────────────────────────────────────
+
+    public function exitPermissions(Request $request): JsonResponse
+    {
+        $employee = $this->getEmployee($request);
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        $depts = DepartmentApprover::where('approver_employee_id', $employee->id)
+            ->where('approval_type', 'exit_permission')
+            ->pluck('department_id')
+            ->toArray();
+
+        if (empty($depts)) {
+            return response()->json(['data' => []]);
+        }
+
+        $query = OfficeExitPermission::whereHas('employee', fn ($q) => $q->whereIn('department_id', $depts))
+            ->with(['employee.department', 'approver'])
+            ->latest();
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        return response()->json(['data' => $query->paginate(20)]);
+    }
+
+    public function approveExitPermission(Request $request, OfficeExitPermission $officeExitPermission): JsonResponse
+    {
+        $employee = $this->getEmployee($request);
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        $officeExitPermission->load('employee');
+
+        $isAssigned = DepartmentApprover::where('approver_employee_id', $employee->id)
+            ->where('approval_type', 'exit_permission')
+            ->where('department_id', $officeExitPermission->employee->department_id)
+            ->exists();
+
+        if (! $isAssigned) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if (! $officeExitPermission->isPending()) {
+            return response()->json(['message' => 'Only pending requests can be approved.'], 422);
+        }
+
+        return app(HrOfficeExitPermissionController::class)->approve($request, $officeExitPermission);
+    }
+
+    public function rejectExitPermission(Request $request, OfficeExitPermission $officeExitPermission): JsonResponse
+    {
+        $employee = $this->getEmployee($request);
+
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
+        $officeExitPermission->load('employee');
+
+        $isAssigned = DepartmentApprover::where('approver_employee_id', $employee->id)
+            ->where('approval_type', 'exit_permission')
+            ->where('department_id', $officeExitPermission->employee->department_id)
+            ->exists();
+
+        if (! $isAssigned) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if (! $officeExitPermission->isPending()) {
+            return response()->json(['message' => 'Only pending requests can be rejected.'], 422);
+        }
+
+        return app(HrOfficeExitPermissionController::class)->reject($request, $officeExitPermission);
     }
 }
