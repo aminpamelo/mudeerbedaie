@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Hr\RejectExitPermissionRequest;
 use App\Models\AttendanceLog;
 use App\Models\ExitPermissionNotifier;
 use App\Models\OfficeExitPermission;
@@ -74,20 +75,16 @@ class HrOfficeExitPermissionController extends Controller
         });
     }
 
-    public function reject(Request $request, OfficeExitPermission $officeExitPermission): JsonResponse
+    public function reject(RejectExitPermissionRequest $request, OfficeExitPermission $officeExitPermission): JsonResponse
     {
         if (! $officeExitPermission->isPending()) {
             return response()->json(['message' => 'Only pending requests can be rejected.'], 422);
         }
 
-        $validated = $request->validate([
-            'rejection_reason' => ['required', 'string', 'min:5'],
-        ]);
-
-        return DB::transaction(function () use ($request, $officeExitPermission, $validated): JsonResponse {
+        return DB::transaction(function () use ($request, $officeExitPermission): JsonResponse {
             $officeExitPermission->update([
                 'status' => 'rejected',
-                'rejection_reason' => $validated['rejection_reason'],
+                'rejection_reason' => $request->validated()['rejection_reason'],
             ]);
 
             $officeExitPermission->load('employee.user');
@@ -121,7 +118,7 @@ class HrOfficeExitPermissionController extends Controller
         return $pdf->download($filename);
     }
 
-    public function createAttendanceNote(OfficeExitPermission $permission): void
+    private function createAttendanceNote(OfficeExitPermission $permission): void
     {
         $note = 'Exit: '.$permission->exit_time.' - '.$permission->return_time
             .' ('.($permission->errand_type === 'company' ? 'Company' : 'Personal').')';
@@ -138,7 +135,7 @@ class HrOfficeExitPermissionController extends Controller
         $permission->update(['attendance_note_created' => true]);
     }
 
-    public function sendApprovalNotifications(OfficeExitPermission $permission, mixed $approver): void
+    private function sendApprovalNotifications(OfficeExitPermission $permission, mixed $approver): void
     {
         $permission->load('employee.user');
 

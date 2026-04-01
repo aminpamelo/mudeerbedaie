@@ -405,6 +405,10 @@ class HrMyApprovalController extends Controller
     {
         $employee = $this->getEmployee($request);
 
+        if (! $employee) {
+            return response()->json(['message' => 'Employee record not found.'], 404);
+        }
+
         $depts = DepartmentApprover::where('approver_employee_id', $employee->id)
             ->where('approval_type', 'exit_permission')
             ->pluck('department_id')
