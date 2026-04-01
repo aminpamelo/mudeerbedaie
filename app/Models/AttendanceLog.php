@@ -37,6 +37,7 @@ class AttendanceLog extends Model
         'is_overtime',
         'remarks',
         'approved_by',
+        'ot_claim_id',
     ];
 
     /**

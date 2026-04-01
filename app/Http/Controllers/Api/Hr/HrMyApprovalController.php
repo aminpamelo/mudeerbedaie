@@ -258,7 +258,7 @@ class HrMyApprovalController extends Controller
             ->first();
 
         if ($attendanceLog) {
-            $newLateMinutes = max(0, $attendanceLog->late_minutes - $overtimeClaimRequest->duration_minutes);
+            $newLateMinutes = max(0, (int) $attendanceLog->late_minutes - $overtimeClaimRequest->duration_minutes);
             $newStatus = ($newLateMinutes === 0 && $attendanceLog->status === 'late') ? 'present' : $attendanceLog->status;
 
             $attendanceLog->update([
