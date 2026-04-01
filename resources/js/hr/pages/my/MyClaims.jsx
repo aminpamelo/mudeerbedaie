@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Plus,
@@ -9,6 +9,10 @@ import {
     ChevronRight,
     Upload,
     Paperclip,
+    Car,
+    MapPin,
+    Route,
+    Calculator,
 } from 'lucide-react';
 import {
     fetchMyClaims,
@@ -52,6 +56,12 @@ const EMPTY_FORM = {
     claim_date: new Date().toISOString().split('T')[0],
     description: '',
     receipt: null,
+    // mileage fields
+    vehicle_rate_id: '',
+    distance_km: '',
+    origin: '',
+    destination: '',
+    trip_purpose: '',
 };
 
 function formatDate(dateStr) {
@@ -130,15 +140,55 @@ export default function MyClaims() {
     const limits = limitsData?.data || [];
     const claimTypes = claimTypesData?.data || [];
 
+    const selectedClaimType = useMemo(
+        () => claimTypes.find((t) => String(t.id) === String(form.claim_type_id)) || null,
+        [claimTypes, form.claim_type_id]
+    );
+    const isMileageType = selectedClaimType?.is_mileage_type === true;
+    const vehicleRates = selectedClaimType?.vehicle_rates?.filter((r) => r.is_active) || [];
+
+    const selectedRate = useMemo(
+        () => vehicleRates.find((r) => String(r.id) === String(form.vehicle_rate_id)) || null,
+        [vehicleRates, form.vehicle_rate_id]
+    );
+    const calculatedAmount = useMemo(() => {
+        if (!isMileageType || !selectedRate || !form.distance_km) return null;
+        const km = parseFloat(form.distance_km);
+        if (isNaN(km) || km <= 0) return null;
+        return Math.round(km * parseFloat(selectedRate.rate_per_km) * 100) / 100;
+    }, [isMileageType, selectedRate, form.distance_km]);
+
+    function handleClaimTypeChange(v) {
+        setForm((f) => ({
+            ...f,
+            claim_type_id: v,
+            // reset both amount and mileage fields when type changes
+            amount: '',
+            vehicle_rate_id: '',
+            distance_km: '',
+            origin: '',
+            destination: '',
+            trip_purpose: '',
+        }));
+    }
+
     function handleSubmitForm(e) {
         e.preventDefault();
         const formData = new FormData();
         formData.append('claim_type_id', form.claim_type_id);
-        formData.append('amount', form.amount);
         formData.append('claim_date', form.claim_date);
         formData.append('description', form.description);
         if (form.receipt) {
             formData.append('receipt', form.receipt);
+        }
+        if (isMileageType) {
+            formData.append('vehicle_rate_id', form.vehicle_rate_id);
+            formData.append('distance_km', form.distance_km);
+            formData.append('origin', form.origin);
+            formData.append('destination', form.destination);
+            formData.append('trip_purpose', form.trip_purpose);
+        } else {
+            formData.append('amount', form.amount);
         }
         createMutation.mutate(formData);
     }
@@ -242,6 +292,12 @@ export default function MyClaims() {
                                             <p className="text-xs text-zinc-500">
                                                 {formatDate(claim.claim_date)} &middot; {claim.description}
                                             </p>
+                                            {claim.distance_km && (
+                                                <p className="mt-0.5 flex items-center gap-1 text-xs text-blue-600">
+                                                    <Car className="h-3 w-3" />
+                                                    {claim.distance_km} km &middot; {claim.origin} → {claim.destination}
+                                                </p>
+                                            )}
                                             {claim.receipt_url && (
                                                 <a
                                                     href={claim.receipt_url}
@@ -312,7 +368,7 @@ export default function MyClaims() {
 
             {/* New Claim Form Dialog */}
             <Dialog open={formOpen} onOpenChange={setFormOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent className={isMileageType ? 'max-w-lg' : 'max-w-md'}>
                     <DialogHeader>
                         <DialogTitle>Submit New Claim</DialogTitle>
                         <DialogDescription>
@@ -322,24 +378,135 @@ export default function MyClaims() {
                     <form onSubmit={handleSubmitForm} className="space-y-4">
                         <div>
                             <label className="mb-1.5 block text-sm font-medium text-zinc-700">Claim Type *</label>
-                            <Select
-                                value={form.claim_type_id}
-                                onValueChange={(v) => setForm((f) => ({ ...f, claim_type_id: v }))}
-                            >
+                            <Select value={form.claim_type_id} onValueChange={handleClaimTypeChange}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select type..." />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {claimTypes.filter((t) => t.is_active).map((t) => (
                                         <SelectItem key={t.id} value={String(t.id)}>
-                                            {t.name}
+                                            <span className="flex items-center gap-2">
+                                                {t.is_mileage_type && <Car className="h-3.5 w-3.5 text-blue-500" />}
+                                                {t.name}
+                                            </span>
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                             {errors.claim_type_id && <p className="mt-1 text-xs text-red-600">{errors.claim_type_id[0]}</p>}
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+
+                        {isMileageType ? (
+                            <>
+                                {/* Mileage claim fields */}
+                                <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-4">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
+                                        <Route className="h-4 w-4" />
+                                        Mileage Details
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1.5 block text-sm font-medium text-zinc-700">Vehicle Type *</label>
+                                        <Select
+                                            value={form.vehicle_rate_id}
+                                            onValueChange={(v) => setForm((f) => ({ ...f, vehicle_rate_id: v }))}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select vehicle..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {vehicleRates.length === 0 ? (
+                                                    <SelectItem value="__none__" disabled>No vehicle rates configured</SelectItem>
+                                                ) : (
+                                                    vehicleRates.map((r) => (
+                                                        <SelectItem key={r.id} value={String(r.id)}>
+                                                            <span className="flex items-center justify-between gap-3 w-full">
+                                                                <span>{r.name}</span>
+                                                                <span className="text-xs text-zinc-500">RM {parseFloat(r.rate_per_km).toFixed(2)}/km</span>
+                                                            </span>
+                                                        </SelectItem>
+                                                    ))
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.vehicle_rate_id && <p className="mt-1 text-xs text-red-600">{errors.vehicle_rate_id[0]}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1.5 block text-sm font-medium text-zinc-700">Distance (km) *</label>
+                                        <input
+                                            type="number"
+                                            step="0.1"
+                                            min="0.1"
+                                            value={form.distance_km}
+                                            onChange={(e) => setForm((f) => ({ ...f, distance_km: e.target.value }))}
+                                            placeholder="e.g. 45.5"
+                                            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                            required
+                                        />
+                                        {errors.distance_km && <p className="mt-1 text-xs text-red-600">{errors.distance_km[0]}</p>}
+                                    </div>
+
+                                    {/* Auto-calculation preview */}
+                                    {calculatedAmount !== null && (
+                                        <div className="flex items-center gap-2 rounded-lg bg-white border border-blue-200 px-4 py-3">
+                                            <Calculator className="h-4 w-4 text-blue-500 shrink-0" />
+                                            <div className="text-sm text-zinc-600">
+                                                <span>{parseFloat(form.distance_km).toFixed(1)} km</span>
+                                                <span className="mx-1.5 text-zinc-400">×</span>
+                                                <span>RM {parseFloat(selectedRate.rate_per_km).toFixed(2)}/km</span>
+                                                <span className="mx-1.5 text-zinc-400">=</span>
+                                                <span className="font-semibold text-blue-700">RM {calculatedAmount.toFixed(2)}</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="mb-1.5 flex items-center gap-1 text-sm font-medium text-zinc-700">
+                                                <MapPin className="h-3.5 w-3.5 text-green-500" /> Origin *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={form.origin}
+                                                onChange={(e) => setForm((f) => ({ ...f, origin: e.target.value }))}
+                                                placeholder="e.g. Kuala Lumpur"
+                                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                                required
+                                            />
+                                            {errors.origin && <p className="mt-1 text-xs text-red-600">{errors.origin[0]}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="mb-1.5 flex items-center gap-1 text-sm font-medium text-zinc-700">
+                                                <MapPin className="h-3.5 w-3.5 text-red-500" /> Destination *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={form.destination}
+                                                onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value }))}
+                                                placeholder="e.g. Petaling Jaya"
+                                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                                required
+                                            />
+                                            {errors.destination && <p className="mt-1 text-xs text-red-600">{errors.destination[0]}</p>}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1.5 block text-sm font-medium text-zinc-700">Trip Purpose *</label>
+                                        <input
+                                            type="text"
+                                            value={form.trip_purpose}
+                                            onChange={(e) => setForm((f) => ({ ...f, trip_purpose: e.target.value }))}
+                                            placeholder="e.g. Client visit at ABC Sdn Bhd"
+                                            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                            required
+                                        />
+                                        {errors.trip_purpose && <p className="mt-1 text-xs text-red-600">{errors.trip_purpose[0]}</p>}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
                             <div>
                                 <label className="mb-1.5 block text-sm font-medium text-zinc-700">Amount (MYR) *</label>
                                 <input
@@ -349,47 +516,53 @@ export default function MyClaims() {
                                     value={form.amount}
                                     onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
                                     className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                                    required
+                                    required={!isMileageType}
                                 />
                                 {errors.amount && <p className="mt-1 text-xs text-red-600">{errors.amount[0]}</p>}
                             </div>
-                            <div>
-                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Claim Date *</label>
-                                <input
-                                    type="date"
-                                    value={form.claim_date}
-                                    onChange={(e) => setForm((f) => ({ ...f, claim_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                                    required
-                                />
-                                {errors.claim_date && <p className="mt-1 text-xs text-red-600">{errors.claim_date[0]}</p>}
-                            </div>
+                        )}
+
+                        <div>
+                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Claim Date *</label>
+                            <input
+                                type="date"
+                                value={form.claim_date}
+                                onChange={(e) => setForm((f) => ({ ...f, claim_date: e.target.value }))}
+                                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                required
+                            />
+                            {errors.claim_date && <p className="mt-1 text-xs text-red-600">{errors.claim_date[0]}</p>}
                         </div>
+
                         <div>
                             <label className="mb-1.5 block text-sm font-medium text-zinc-700">Description *</label>
                             <textarea
                                 value={form.description}
                                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                                rows={3}
+                                rows={2}
                                 required
                             />
                             {errors.description && <p className="mt-1 text-xs text-red-600">{errors.description[0]}</p>}
                         </div>
-                        <div>
-                            <label className="mb-1.5 block text-sm font-medium text-zinc-700">Receipt</label>
-                            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-500 hover:border-zinc-400 hover:text-zinc-600">
-                                <Upload className="h-4 w-4" />
-                                {form.receipt ? form.receipt.name : 'Upload receipt (PDF, JPG, PNG)'}
-                                <input
-                                    type="file"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    className="hidden"
-                                    onChange={(e) => setForm((f) => ({ ...f, receipt: e.target.files[0] || null }))}
-                                />
-                            </label>
-                            {errors.receipt && <p className="mt-1 text-xs text-red-600">{errors.receipt[0]}</p>}
-                        </div>
+
+                        {!isMileageType && (
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-zinc-700">Receipt</label>
+                                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-500 hover:border-zinc-400 hover:text-zinc-600">
+                                    <Upload className="h-4 w-4" />
+                                    {form.receipt ? form.receipt.name : 'Upload receipt (PDF, JPG, PNG)'}
+                                    <input
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        className="hidden"
+                                        onChange={(e) => setForm((f) => ({ ...f, receipt: e.target.files[0] || null }))}
+                                    />
+                                </label>
+                                {errors.receipt && <p className="mt-1 text-xs text-red-600">{errors.receipt[0]}</p>}
+                            </div>
+                        )}
+
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                                 Cancel

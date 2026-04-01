@@ -12,6 +12,9 @@ import {
     Filter,
     CreditCard,
     Paperclip,
+    Car,
+    MapPin,
+    Route,
 } from 'lucide-react';
 import {
     fetchClaimRequests,
@@ -110,6 +113,7 @@ export default function ClaimRequests() {
     const [detailLoading, setDetailLoading] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
     const [payReference, setPayReference] = useState('');
+    const [approvedAmount, setApprovedAmount] = useState('');
     const [actionDialog, setActionDialog] = useState({ open: false, type: null, request: null });
     const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -130,10 +134,11 @@ export default function ClaimRequests() {
     });
 
     const approveMutation = useMutation({
-        mutationFn: ({ id }) => approveClaimRequest(id, {}),
+        mutationFn: ({ id, approved_amount }) => approveClaimRequest(id, { approved_amount }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'claims', 'requests'] });
             setActionDialog({ open: false, type: null, request: null });
+            setApprovedAmount('');
         },
     });
 
@@ -195,12 +200,13 @@ export default function ClaimRequests() {
         setActionDialog({ open: true, type, request });
         setRejectReason('');
         setPayReference('');
+        setApprovedAmount(request?.amount ? String(request.amount) : '');
     }
 
     function confirmAction() {
         const { type, request } = actionDialog;
         if (type === 'approve') {
-            approveMutation.mutate({ id: request.id });
+            approveMutation.mutate({ id: request.id, approved_amount: approvedAmount });
         } else if (type === 'reject') {
             rejectMutation.mutate({ id: request.id, reason: rejectReason });
         } else if (type === 'pay') {
@@ -322,7 +328,10 @@ export default function ClaimRequests() {
                                                     {request.employee?.full_name || '-'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant="outline">
+                                                    <Badge variant="outline" className="gap-1">
+                                                        {request.claim_type?.is_mileage_type && (
+                                                            <Car className="h-3 w-3 text-blue-500" />
+                                                        )}
                                                         {request.claim_type?.name || '-'}
                                                     </Badge>
                                                 </TableCell>
@@ -436,7 +445,7 @@ export default function ClaimRequests() {
 
             {/* Detail Dialog */}
             <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-                <DialogContent>
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Claim Request Detail</DialogTitle>
                         <DialogDescription>
@@ -448,70 +457,150 @@ export default function ClaimRequests() {
                             <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
                         </div>
                     ) : selectedRequest && (
-                        <div className="space-y-3 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-zinc-500">Claim No.</span>
-                                <span className="font-mono font-medium">{selectedRequest.claim_number}</span>
+                        <div className="space-y-4 text-sm">
+                            {/* Header info */}
+                            <div className="grid grid-cols-2 gap-3 rounded-lg bg-zinc-50 p-3">
+                                <div>
+                                    <p className="text-xs text-zinc-500">Claim No.</p>
+                                    <p className="font-mono font-medium text-zinc-900">{selectedRequest.claim_number}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-zinc-500">Status</p>
+                                    <span className={cn(
+                                        'inline-block rounded-full px-2 py-0.5 text-xs font-medium',
+                                        STATUS_BADGE[selectedRequest.status]?.className || 'bg-zinc-100 text-zinc-600'
+                                    )}>
+                                        {STATUS_BADGE[selectedRequest.status]?.label || selectedRequest.status}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-zinc-500">Employee</p>
+                                    <p className="font-medium text-zinc-900">{selectedRequest.employee?.full_name || '-'}</p>
+                                    {selectedRequest.employee?.department?.name && (
+                                        <p className="text-xs text-zinc-400">{selectedRequest.employee.department.name}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-xs text-zinc-500">Claim Date</p>
+                                    <p className="font-medium text-zinc-900">{formatDate(selectedRequest.claim_date)}</p>
+                                </div>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-500">Employee</span>
-                                <span className="font-medium">{selectedRequest.employee?.full_name}</span>
+
+                            {/* Claim type + amounts */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-zinc-500">Claim Type</span>
+                                    <span className="inline-flex items-center gap-1.5 font-medium">
+                                        {selectedRequest.claim_type?.is_mileage_type && (
+                                            <Car className="h-3.5 w-3.5 text-blue-500" />
+                                        )}
+                                        {selectedRequest.claim_type?.name || '-'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-zinc-500">Claimed Amount</span>
+                                    <span className="font-semibold text-zinc-900">{formatCurrency(selectedRequest.amount)}</span>
+                                </div>
+                                {selectedRequest.approved_amount && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-zinc-500">Approved Amount</span>
+                                        <span className="font-semibold text-emerald-700">{formatCurrency(selectedRequest.approved_amount)}</span>
+                                    </div>
+                                )}
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-500">Type</span>
-                                <span className="font-medium">{selectedRequest.claim_type?.name}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-500">Amount</span>
-                                <span className="font-medium">{formatCurrency(selectedRequest.amount)}</span>
-                            </div>
-                            {selectedRequest.approved_amount && (
-                                <div className="flex justify-between">
-                                    <span className="text-zinc-500">Approved Amount</span>
-                                    <span className="font-medium">{formatCurrency(selectedRequest.approved_amount)}</span>
+
+                            {/* Mileage details */}
+                            {selectedRequest.distance_km && (
+                                <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-2">
+                                    <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                                        <Route className="h-3.5 w-3.5" />
+                                        Mileage Details
+                                    </div>
+                                    {selectedRequest.vehicle_rate && (
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-zinc-500">Vehicle Type</span>
+                                            <span className="font-medium">
+                                                {selectedRequest.vehicle_rate.name}
+                                                <span className="ml-1.5 text-xs text-zinc-400">
+                                                    RM {parseFloat(selectedRequest.vehicle_rate.rate_per_km).toFixed(2)}/km
+                                                </span>
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-zinc-500">Distance</span>
+                                        <span className="font-medium">{selectedRequest.distance_km} km</span>
+                                    </div>
+                                    {selectedRequest.origin && (
+                                        <div className="flex items-start justify-between gap-4">
+                                            <span className="text-zinc-500 shrink-0">Route</span>
+                                            <span className="font-medium text-right">
+                                                <span className="inline-flex items-center gap-1">
+                                                    <MapPin className="h-3 w-3 text-green-500" />
+                                                    {selectedRequest.origin}
+                                                </span>
+                                                <span className="mx-1.5 text-zinc-400">→</span>
+                                                <span className="inline-flex items-center gap-1">
+                                                    <MapPin className="h-3 w-3 text-red-500" />
+                                                    {selectedRequest.destination}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    )}
+                                    {selectedRequest.trip_purpose && (
+                                        <div className="flex items-start justify-between gap-4">
+                                            <span className="text-zinc-500 shrink-0">Purpose</span>
+                                            <span className="font-medium text-right">{selectedRequest.trip_purpose}</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                            <div className="flex justify-between">
-                                <span className="text-zinc-500">Date</span>
-                                <span className="font-medium">{formatDate(selectedRequest.claim_date)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-zinc-500">Status</span>
-                                <span className={cn(
-                                    'rounded-full px-2 py-0.5 text-xs font-medium',
-                                    STATUS_BADGE[selectedRequest.status]?.className || 'bg-zinc-100 text-zinc-600'
-                                )}>
-                                    {STATUS_BADGE[selectedRequest.status]?.label || selectedRequest.status}
-                                </span>
-                            </div>
-                            {selectedRequest.receipt_url && (
-                                <div className="flex justify-between">
-                                    <span className="text-zinc-500">Receipt</span>
+
+                            {/* Description */}
+                            {selectedRequest.description && (
+                                <div>
+                                    <p className="mb-1 text-zinc-500">Description</p>
+                                    <p className="rounded-lg bg-zinc-50 p-3 text-zinc-700">{selectedRequest.description}</p>
+                                </div>
+                            )}
+
+                            {/* Receipt */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-zinc-500">Receipt / Attachment</span>
+                                {selectedRequest.receipt_url ? (
                                     <a
                                         href={selectedRequest.receipt_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
+                                        className="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700"
                                     >
                                         <Paperclip className="h-3.5 w-3.5" />
                                         View Document
                                     </a>
+                                ) : (
+                                    <span className="text-zinc-400">No attachment</span>
+                                )}
+                            </div>
+
+                            {/* Paid reference */}
+                            {selectedRequest.paid_reference && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-zinc-500">Payment Reference</span>
+                                    <span className="font-mono font-medium text-zinc-900">{selectedRequest.paid_reference}</span>
                                 </div>
                             )}
-                            {selectedRequest.description && (
-                                <div>
-                                    <span className="text-zinc-500">Description</span>
-                                    <p className="mt-1 rounded-lg bg-zinc-50 p-3 text-zinc-700">
-                                        {selectedRequest.description}
-                                    </p>
+                            {selectedRequest.paid_at && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-zinc-500">Paid At</span>
+                                    <span className="font-medium text-zinc-900">{formatDate(selectedRequest.paid_at)}</span>
                                 </div>
                             )}
+
+                            {/* Rejection reason */}
                             {selectedRequest.rejected_reason && (
                                 <div>
-                                    <span className="text-zinc-500">Rejection Reason</span>
-                                    <p className="mt-1 rounded-lg bg-red-50 p-3 text-red-700">
-                                        {selectedRequest.rejected_reason}
-                                    </p>
+                                    <p className="mb-1 text-zinc-500">Rejection Reason</p>
+                                    <p className="rounded-lg bg-red-50 p-3 text-red-700">{selectedRequest.rejected_reason}</p>
                                 </div>
                             )}
                         </div>
@@ -544,6 +633,22 @@ export default function ClaimRequests() {
                                     {actionDialog.request.claim_number}
                                 </p>
                             </div>
+                            {actionDialog.type === 'approve' && (
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-zinc-700">
+                                        Approved Amount (MYR) *
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        value={approvedAmount}
+                                        onChange={(e) => setApprovedAmount(e.target.value)}
+                                        placeholder="Enter approved amount..."
+                                        className="w-full rounded-lg border border-zinc-300 p-3 text-sm focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                                    />
+                                </div>
+                            )}
                             {actionDialog.type === 'reject' && (
                                 <textarea
                                     value={rejectReason}
@@ -571,7 +676,7 @@ export default function ClaimRequests() {
                         <Button
                             variant={actionDialog.type === 'reject' ? 'destructive' : 'default'}
                             onClick={confirmAction}
-                            disabled={isActionLoading}
+                            disabled={isActionLoading || (actionDialog.type === 'approve' && !approvedAmount)}
                         >
                             {isActionLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                             {actionDialog.type === 'approve' && 'Approve'}
