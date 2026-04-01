@@ -73,6 +73,7 @@ const navigation = [
         prefix: '/attendance',
         children: [
             { name: 'Records', to: '/attendance/records', icon: ClipboardList },
+            { name: 'Monthly View', to: '/attendance/monthly', icon: CalendarRange },
             { name: 'Schedules', to: '/attendance/schedules', icon: CalendarClock },
             { name: 'Assignments', to: '/attendance/assignments', icon: UserCheck },
             { name: 'Overtime', to: '/attendance/overtime', icon: Timer },

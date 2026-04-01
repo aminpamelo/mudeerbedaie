@@ -8,11 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceLog extends Model
 {
     /** @use HasFactory<\Database\Factories\AttendanceLogFactory> */
     use HasFactory;
+
+    protected $appends = ['clock_in_photo_url', 'clock_out_photo_url'];
 
     protected $fillable = [
         'employee_id',
@@ -52,6 +55,22 @@ class AttendanceLog extends Model
             'early_leave_minutes' => 'integer',
             'total_work_minutes' => 'integer',
         ];
+    }
+
+    /**
+     * Get the full URL for the clock-in photo.
+     */
+    public function getClockInPhotoUrlAttribute(): ?string
+    {
+        return $this->clock_in_photo ? Storage::disk('public')->url($this->clock_in_photo) : null;
+    }
+
+    /**
+     * Get the full URL for the clock-out photo.
+     */
+    public function getClockOutPhotoUrlAttribute(): ?string
+    {
+        return $this->clock_out_photo ? Storage::disk('public')->url($this->clock_out_photo) : null;
     }
 
     /**

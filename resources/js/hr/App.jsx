@@ -15,6 +15,7 @@ import OrgChart from './pages/OrgChart';
 // Admin - Attendance
 import AttendanceDashboard from './pages/attendance/AttendanceDashboard';
 import AttendanceRecords from './pages/attendance/AttendanceRecords';
+import AttendanceMonthlyView from './pages/attendance/AttendanceMonthlyView';
 import WorkSchedules from './pages/attendance/WorkSchedules';
 import ScheduleAssignments from './pages/attendance/ScheduleAssignments';
 import OvertimeManagement from './pages/attendance/OvertimeManagement';
@@ -165,6 +166,7 @@ function AdminRoutes() {
             {/* Attendance */}
             <Route path="attendance" element={<AttendanceDashboard />} />
             <Route path="attendance/records" element={<AttendanceRecords />} />
+            <Route path="attendance/monthly" element={<AttendanceMonthlyView />} />
             <Route path="attendance/schedules" element={<WorkSchedules />} />
             <Route path="attendance/assignments" element={<ScheduleAssignments />} />
             <Route path="attendance/overtime" element={<OvertimeManagement />} />

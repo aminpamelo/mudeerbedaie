@@ -527,26 +527,26 @@ export default function AttendanceRecords() {
                                 </div>
                             )}
 
-                            {detailRecord.clock_in_photo && (
+                            {detailRecord.clock_in_photo_url && (
                                 <div>
                                     <p className="mb-2 flex items-center gap-1 text-xs font-medium text-zinc-500">
                                         <Camera className="h-3.5 w-3.5" /> Clock In Selfie
                                     </p>
                                     <img
-                                        src={detailRecord.clock_in_photo}
+                                        src={detailRecord.clock_in_photo_url}
                                         alt="Clock in selfie"
                                         className="h-32 w-32 rounded-lg border border-zinc-200 object-cover"
                                     />
                                 </div>
                             )}
 
-                            {detailRecord.clock_out_photo && (
+                            {detailRecord.clock_out_photo_url && (
                                 <div>
                                     <p className="mb-2 flex items-center gap-1 text-xs font-medium text-zinc-500">
                                         <Camera className="h-3.5 w-3.5" /> Clock Out Selfie
                                     </p>
                                     <img
-                                        src={detailRecord.clock_out_photo}
+                                        src={detailRecord.clock_out_photo_url}
                                         alt="Clock out selfie"
                                         className="h-32 w-32 rounded-lg border border-zinc-200 object-cover"
                                     />

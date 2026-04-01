@@ -140,6 +140,7 @@ export const deleteEmployeeSchedule = (id) => api.delete(`/employee-schedules/${
 // ========== Attendance ==========
 export const fetchAttendance = (params) => api.get('/attendance', { params }).then(r => r.data);
 export const fetchTodayAttendance = () => api.get('/attendance/today').then(r => r.data);
+export const fetchAttendanceMonthly = (params) => api.get('/attendance/monthly', { params }).then(r => r.data);
 export const fetchAttendanceLog = (id) => api.get(`/attendance/${id}`).then(r => r.data);
 export const updateAttendanceLog = (id, data) => api.put(`/attendance/${id}`, data).then(r => r.data);
 export const exportAttendance = (params) => api.get('/attendance/export', { params, responseType: 'blob' }).then(r => r.data);

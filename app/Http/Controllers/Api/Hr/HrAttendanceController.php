@@ -105,6 +105,95 @@ class HrAttendanceController extends Controller
     }
 
     /**
+     * Monthly attendance view grouped by employee with daily records.
+     */
+    public function monthly(Request $request): JsonResponse
+    {
+        $year = (int) $request->get('year', now()->year);
+        $month = (int) $request->get('month', now()->month);
+        $departmentId = $request->get('department_id');
+        $search = $request->get('search');
+
+        $startDate = Carbon::create($year, $month, 1)->startOfMonth();
+        $endDate = $startDate->copy()->endOfMonth();
+        $daysInMonth = $startDate->daysInMonth;
+
+        $employeeQuery = Employee::query()
+            ->where('status', 'active')
+            ->with('department');
+
+        if ($departmentId) {
+            $employeeQuery->where('department_id', $departmentId);
+        }
+
+        if ($search) {
+            $employeeQuery->where(function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('employee_id', 'like', "%{$search}%");
+            });
+        }
+
+        $employees = $employeeQuery->orderBy('full_name')->get();
+        $employeeIds = $employees->pluck('id');
+
+        $logs = AttendanceLog::query()
+            ->whereIn('employee_id', $employeeIds)
+            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->groupBy('employee_id')
+            ->map(fn ($employeeLogs) => $employeeLogs->keyBy(fn ($log) => Carbon::parse($log->date)->day));
+
+        $data = $employees->map(function (Employee $employee) use ($logs, $daysInMonth) {
+            $employeeLogs = $logs->get($employee->id, collect());
+            $days = [];
+
+            for ($day = 1; $day <= $daysInMonth; $day++) {
+                $log = $employeeLogs->get($day);
+                $days[$day] = $log ? [
+                    'id' => $log->id,
+                    'status' => $log->status,
+                    'clock_in' => $log->clock_in,
+                    'clock_out' => $log->clock_out,
+                    'total_work_minutes' => $log->total_work_minutes,
+                    'late_minutes' => $log->late_minutes,
+                    'early_leave_minutes' => $log->early_leave_minutes,
+                    'is_overtime' => $log->is_overtime,
+                    'remarks' => $log->remarks,
+                ] : null;
+            }
+
+            $presentCount = collect($days)->filter(fn ($d) => $d && in_array($d['status'], ['present', 'late', 'wfh', 'half_day']))->count();
+            $absentCount = collect($days)->filter(fn ($d) => $d && $d['status'] === 'absent')->count();
+            $lateCount = collect($days)->filter(fn ($d) => $d && $d['status'] === 'late')->count();
+            $leaveCount = collect($days)->filter(fn ($d) => $d && $d['status'] === 'on_leave')->count();
+
+            return [
+                'id' => $employee->id,
+                'employee_id' => $employee->employee_id,
+                'full_name' => $employee->full_name,
+                'department' => $employee->department?->name,
+                'days' => $days,
+                'summary' => [
+                    'present' => $presentCount,
+                    'absent' => $absentCount,
+                    'late' => $lateCount,
+                    'leave' => $leaveCount,
+                ],
+            ];
+        });
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'year' => $year,
+                'month' => $month,
+                'days_in_month' => $daysInMonth,
+                'start_of_month' => $startDate->toDateString(),
+            ],
+        ]);
+    }
+
+    /**
      * Export attendance logs as CSV filtered by date range.
      */
     public function export(Request $request): StreamedResponse

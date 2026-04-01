@@ -558,6 +558,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     // Attendance Admin
     Route::get('attendance', [HrAttendanceController::class, 'index'])->name('api.hr.attendance.index');
     Route::get('attendance/today', [HrAttendanceController::class, 'today'])->name('api.hr.attendance.today');
+    Route::get('attendance/monthly', [HrAttendanceController::class, 'monthly'])->name('api.hr.attendance.monthly');
     Route::get('attendance/export', [HrAttendanceController::class, 'export'])->name('api.hr.attendance.export');
     Route::get('attendance/{attendanceLog}', [HrAttendanceController::class, 'show'])->name('api.hr.attendance.show');
     Route::put('attendance/{attendanceLog}', [HrAttendanceController::class, 'update'])->name('api.hr.attendance.update');
