@@ -141,7 +141,11 @@ class HrMyApprovalController extends Controller
             );
         }
 
-        return response()->json($overtimeRequest->fresh(['employee.position', 'employee.department']));
+        return response()->json($overtimeRequest->fresh([
+            'employee:id,name,position_id,department_id',
+            'employee.position:id,name',
+            'employee.department:id,name',
+        ]));
     }
 
     public function rejectOvertime(Request $request, OvertimeRequest $overtimeRequest): JsonResponse
@@ -177,7 +181,11 @@ class HrMyApprovalController extends Controller
             );
         }
 
-        return response()->json($overtimeRequest->fresh(['employee.position', 'employee.department']));
+        return response()->json($overtimeRequest->fresh([
+            'employee:id,name,position_id,department_id',
+            'employee.position:id,name',
+            'employee.department:id,name',
+        ]));
     }
 
     // ── Leave ─────────────────────────────────────────────────────────────────
@@ -229,8 +237,14 @@ class HrMyApprovalController extends Controller
         }
 
         $controller = app(\App\Http\Controllers\Api\Hr\HrLeaveRequestController::class);
+        $controller->approve($request, $leaveRequest);
 
-        return $controller->approve($request, $leaveRequest);
+        return response()->json($leaveRequest->fresh([
+            'employee:id,name,position_id,department_id',
+            'employee.position:id,name',
+            'employee.department:id,name',
+            'leaveType:id,name',
+        ]));
     }
 
     public function rejectLeave(Request $request, LeaveRequest $leaveRequest): JsonResponse
@@ -252,8 +266,14 @@ class HrMyApprovalController extends Controller
         }
 
         $controller = app(\App\Http\Controllers\Api\Hr\HrLeaveRequestController::class);
+        $controller->reject($request, $leaveRequest);
 
-        return $controller->reject($request, $leaveRequest);
+        return response()->json($leaveRequest->fresh([
+            'employee:id,name,position_id,department_id',
+            'employee.position:id,name',
+            'employee.department:id,name',
+            'leaveType:id,name',
+        ]));
     }
 
     // ── Claims ────────────────────────────────────────────────────────────────
@@ -325,8 +345,14 @@ class HrMyApprovalController extends Controller
         }
 
         $controller = app(\App\Http\Controllers\Api\Hr\HrClaimRequestController::class);
+        $controller->approve($request, $claimRequest);
 
-        return $controller->approve($request, $claimRequest);
+        return response()->json($claimRequest->fresh([
+            'employee:id,name,position_id,department_id',
+            'employee.position:id,name',
+            'employee.department:id,name',
+            'claimType:id,name',
+        ]));
     }
 
     public function rejectClaim(Request $request, ClaimRequest $claimRequest): JsonResponse
@@ -354,7 +380,13 @@ class HrMyApprovalController extends Controller
         }
 
         $controller = app(\App\Http\Controllers\Api\Hr\HrClaimRequestController::class);
+        $controller->reject($request, $claimRequest);
 
-        return $controller->reject($request, $claimRequest);
+        return response()->json($claimRequest->fresh([
+            'employee:id,name,position_id,department_id',
+            'employee.position:id,name',
+            'employee.department:id,name',
+            'claimType:id,name',
+        ]));
     }
 }
