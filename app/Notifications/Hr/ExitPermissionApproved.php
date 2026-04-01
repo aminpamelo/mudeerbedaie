@@ -43,6 +43,16 @@ class ExitPermissionApproved extends BaseHrNotification
         return 'check-circle';
     }
 
+    public function toArray(object $notifiable): array
+    {
+        return [
+            'type' => 'exit_permission_approved',
+            'permission_id' => $this->permission->id,
+            'permission_number' => $this->permission->permission_number,
+            'message' => $this->body(),
+        ];
+    }
+
     public function toMail(object $notifiable): MailMessage
     {
         $employee = $this->permission->employee;

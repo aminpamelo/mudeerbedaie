@@ -38,6 +38,16 @@ class ExitPermissionRejected extends BaseHrNotification
         return 'x-circle';
     }
 
+    public function toArray(object $notifiable): array
+    {
+        return [
+            'type' => 'exit_permission_rejected',
+            'permission_id' => $this->permission->id,
+            'permission_number' => $this->permission->permission_number,
+            'message' => $this->body(),
+        ];
+    }
+
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
