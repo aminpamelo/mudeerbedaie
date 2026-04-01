@@ -158,6 +158,7 @@ export const fetchOvertimeRequest = (id) => api.get(`/overtime/${id}`).then(r =>
 export const approveOvertime = (id) => api.patch(`/overtime/${id}/approve`).then(r => r.data);
 export const rejectOvertime = (id, data) => api.patch(`/overtime/${id}/reject`, data).then(r => r.data);
 export const completeOvertime = (id, data) => api.patch(`/overtime/${id}/complete`, data).then(r => r.data);
+export const fetchOvertimeClaims = (params) => api.get('/overtime/claims', { params }).then(r => r.data);
 
 // ========== Holidays ==========
 export const fetchHolidays = (params) => api.get('/holidays', { params }).then(r => r.data);

@@ -6,6 +6,7 @@ import {
     XCircle,
     AlertCircle,
     Timer,
+    Eye,
 } from 'lucide-react';
 import {
     Card,
@@ -38,6 +39,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import { cn } from '../../lib/utils';
 import {
     fetchOvertimeRequests,
+    fetchOvertimeClaims,
     approveOvertime,
     rejectOvertime,
     completeOvertime,
@@ -73,6 +75,19 @@ function formatHours(hours) {
     return `${Number(hours).toFixed(1)}h`;
 }
 
+function formatDuration(minutes) {
+    if (!minutes && minutes !== 0) {
+        return '-';
+    }
+    const mins = Number(minutes);
+    if (mins < 60) {
+        return `${mins}min`;
+    }
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
 function SkeletonTable() {
     return (
         <div className="space-y-3">
@@ -91,7 +106,9 @@ function SkeletonTable() {
 
 export default function OvertimeManagement() {
     const queryClient = useQueryClient();
+    const [mainView, setMainView] = useState('overtime'); // 'overtime' | 'claims'
     const [activeTab, setActiveTab] = useState('all');
+    const [viewTarget, setViewTarget] = useState(null);
     const [rejectTarget, setRejectTarget] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
     const [completeTarget, setCompleteTarget] = useState(null);
@@ -102,11 +119,18 @@ export default function OvertimeManagement() {
         queryFn: () => fetchOvertimeRequests({ status: activeTab !== 'all' ? activeTab : undefined }),
     });
 
+    const { data: claimsData, isLoading: claimsLoading } = useQuery({
+        queryKey: ['hr', 'attendance', 'overtime-claims', activeTab],
+        queryFn: () => fetchOvertimeClaims({ status: activeTab !== 'all' ? activeTab : undefined }),
+        enabled: mainView === 'claims',
+    });
+
     const approveMutation = useMutation({
         mutationFn: approveOvertime,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'overtime'] });
         },
+        onError: (error) => alert(error?.response?.data?.message || 'Failed to approve overtime request'),
     });
 
     const rejectMutation = useMutation({
@@ -151,6 +175,8 @@ export default function OvertimeManagement() {
         completeMutation.mutate({ id: completeTarget.id, actual_hours: parseFloat(actualHours) });
     }
 
+    const claims = claimsData?.data || [];
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -158,6 +184,88 @@ export default function OvertimeManagement() {
                 description="Review and manage overtime requests"
             />
 
+            <div className="flex rounded-lg border border-zinc-200 p-0.5 bg-zinc-50 w-fit">
+                <button
+                    onClick={() => setMainView('overtime')}
+                    className={cn(
+                        'px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
+                        mainView === 'overtime'
+                            ? 'bg-white text-zinc-900 shadow-sm'
+                            : 'text-zinc-500 hover:text-zinc-700'
+                    )}
+                >
+                    OT Requests
+                </button>
+                <button
+                    onClick={() => setMainView('claims')}
+                    className={cn(
+                        'px-4 py-1.5 text-sm font-medium rounded-md transition-colors',
+                        mainView === 'claims'
+                            ? 'bg-white text-zinc-900 shadow-sm'
+                            : 'text-zinc-500 hover:text-zinc-700'
+                    )}
+                >
+                    OT Claims
+                </button>
+            </div>
+
+            {mainView === 'claims' ? (
+                <Card>
+                    <CardContent className="p-0">
+                        {claimsLoading ? (
+                            <SkeletonTable />
+                        ) : claims.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <Clock className="mb-3 h-10 w-10 text-zinc-300" />
+                                <p className="text-sm font-medium text-zinc-500">No claims found</p>
+                                <p className="text-xs text-zinc-400">No overtime claims have been submitted</p>
+                            </div>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Employee</TableHead>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>Start Time</TableHead>
+                                        <TableHead>Duration</TableHead>
+                                        <TableHead>Status</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {claims.map((claim) => (
+                                        <TableRow key={claim.id}>
+                                            <TableCell>
+                                                <div>
+                                                    <p className="text-sm font-medium text-zinc-900">
+                                                        {claim.employee?.full_name || 'Unknown'}
+                                                    </p>
+                                                    <p className="text-xs text-zinc-500">
+                                                        {claim.employee?.department?.name || ''}
+                                                    </p>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-zinc-900">
+                                                {formatDate(claim.claim_date)}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-zinc-600">
+                                                {claim.start_time ? claim.start_time.slice(0, 5) : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-zinc-600">
+                                                {formatDuration(claim.duration_minutes)}
+                                            </TableCell>
+                                            <TableCell>
+                                                <OTStatusBadge status={claim.status} />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </CardContent>
+                </Card>
+            ) : null}
+
+            {mainView === 'overtime' ? (
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
                     <TabsTrigger value="all">All</TabsTrigger>
@@ -233,6 +341,14 @@ export default function OvertimeManagement() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setViewTarget(request)}
+                                                            className="text-zinc-500 hover:text-zinc-700"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
                                                         {request.status === 'pending' && (
                                                             <>
                                                                 <Button
@@ -274,6 +390,98 @@ export default function OvertimeManagement() {
                     </Card>
                 </TabsContent>
             </Tabs>
+            ) : null}
+
+            {/* View Dialog */}
+            <Dialog open={!!viewTarget} onOpenChange={() => setViewTarget(null)}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Overtime Request Details</DialogTitle>
+                        <DialogDescription>
+                            {viewTarget?.employee?.full_name} — {formatDate(viewTarget?.date)}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Employee</p>
+                                <p className="mt-0.5 text-sm font-medium text-zinc-900">{viewTarget?.employee?.full_name || '-'}</p>
+                                <p className="text-xs text-zinc-500">{viewTarget?.employee?.department?.name || ''}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Status</p>
+                                <div className="mt-0.5">
+                                    <OTStatusBadge status={viewTarget?.status} />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Date</p>
+                                <p className="mt-0.5 text-sm text-zinc-900">{formatDate(viewTarget?.date)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Start Time</p>
+                                <p className="mt-0.5 text-sm text-zinc-900">{viewTarget?.start_time ? viewTarget.start_time.slice(0, 5) : '-'}</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Planned</p>
+                                <p className="mt-0.5 text-sm text-zinc-900">{formatHours(viewTarget?.planned_hours)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Actual</p>
+                                <p className="mt-0.5 text-sm text-zinc-900">{formatHours(viewTarget?.actual_hours)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Replacement</p>
+                                <p className="mt-0.5 text-sm text-zinc-900">{viewTarget?.replacement_hours ? formatHours(viewTarget.replacement_hours) : '-'}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Reason</p>
+                            <p className="mt-0.5 text-sm text-zinc-700">{viewTarget?.reason || '-'}</p>
+                        </div>
+                        {viewTarget?.rejection_reason && (
+                            <div className="rounded-md border border-red-100 bg-red-50 p-3">
+                                <p className="text-xs font-medium uppercase tracking-wide text-red-400">Rejection Reason</p>
+                                <p className="mt-0.5 text-sm text-red-700">{viewTarget.rejection_reason}</p>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setViewTarget(null)}>Close</Button>
+                        {viewTarget?.status === 'pending' && (
+                            <>
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => { setViewTarget(null); openReject(viewTarget); }}
+                                >
+                                    Reject
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={() => { handleApprove(viewTarget.id); setViewTarget(null); }}
+                                    disabled={approveMutation.isPending}
+                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                >
+                                    Approve
+                                </Button>
+                            </>
+                        )}
+                        {viewTarget?.status === 'approved' && (
+                            <Button
+                                size="sm"
+                                onClick={() => { setViewTarget(null); openComplete(viewTarget); }}
+                            >
+                                Complete
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Reject Dialog */}
             <Dialog open={!!rejectTarget} onOpenChange={() => setRejectTarget(null)}>
