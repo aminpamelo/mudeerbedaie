@@ -207,6 +207,9 @@ export const fetchMyOvertime = (params) => api.get('/me/overtime', { params }).t
 export const submitMyOvertime = (data) => api.post('/me/overtime', data).then(r => r.data);
 export const fetchMyOvertimeBalance = () => api.get('/me/overtime/balance').then(r => r.data);
 export const cancelMyOvertime = (id) => api.delete(`/me/overtime/${id}`).then(r => r.data);
+export const fetchMyOvertimeClaims = (params) => api.get('/me/overtime/claims', { params }).then(r => r.data);
+export const submitMyOvertimeClaim = (data) => api.post('/me/overtime/claims', data).then(r => r.data);
+export const cancelMyOvertimeClaim = (id) => api.delete(`/me/overtime/claims/${id}`).then(r => r.data);
 
 // ========== My Leave (Self-Service) ==========
 export const fetchMyLeaveBalances = () => api.get('/me/leave/balances').then(r => r.data);
@@ -635,7 +638,8 @@ export const adminApproveExitPermission = (id) =>
 export const adminRejectExitPermission = (id, data) =>
     api.patch(`/exit-permissions/${id}/reject`, data).then((r) => r.data);
 
-export const getExitPermissionPdfUrl = (id) => `/api/hr/exit-permissions/${id}/pdf`;
+export const downloadExitPermissionPdf = (id) =>
+    api.get(`/exit-permissions/${id}/pdf`, { responseType: 'blob' }).then((r) => r.data);
 
 // ============================================================
 // Exit Permission Notifiers - Admin
