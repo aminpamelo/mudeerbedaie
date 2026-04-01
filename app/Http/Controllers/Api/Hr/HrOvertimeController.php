@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Models\OvertimeClaimRequest;
 use App\Models\OvertimeRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -105,6 +106,33 @@ class HrOvertimeController extends Controller
             'data' => $overtimeRequest->fresh('employee'),
             'message' => 'Overtime request rejected.',
         ]);
+    }
+
+    /**
+     * List all OT claim requests (HR admin view).
+     */
+    public function claims(Request $request): JsonResponse
+    {
+        $query = OvertimeClaimRequest::query()
+            ->with(['employee.department']);
+
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+
+        if ($departmentId = $request->get('department_id')) {
+            $query->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId));
+        }
+
+        if ($dateFrom = $request->get('date_from')) {
+            $query->whereDate('claim_date', '>=', $dateFrom);
+        }
+
+        if ($dateTo = $request->get('date_to')) {
+            $query->whereDate('claim_date', '<=', $dateTo);
+        }
+
+        return response()->json($query->orderByDesc('claim_date')->paginate(15));
     }
 
     /**
