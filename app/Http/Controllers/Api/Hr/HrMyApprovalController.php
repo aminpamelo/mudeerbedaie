@@ -141,9 +141,11 @@ class HrMyApprovalController extends Controller
         }
 
         $overtimeRequest->update([
-            'status' => 'approved',
+            'status' => 'completed',
             'approved_by' => $request->user()->id,
             'approved_at' => now(),
+            'actual_hours' => $overtimeRequest->estimated_hours,
+            'replacement_hours_earned' => $overtimeRequest->estimated_hours,
         ]);
 
         if ($overtimeRequest->employee->user) {
