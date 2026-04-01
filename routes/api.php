@@ -57,6 +57,7 @@ use App\Http\Controllers\Api\Hr\HrMeetingController;
 use App\Http\Controllers\Api\Hr\HrMeetingDecisionController;
 use App\Http\Controllers\Api\Hr\HrMeetingRecordingController;
 use App\Http\Controllers\Api\Hr\HrMeetingSeriesController;
+use App\Http\Controllers\Api\Hr\HrMyApprovalController;
 use App\Http\Controllers\Api\Hr\HrMyAssetController;
 use App\Http\Controllers\Api\Hr\HrMyAttendanceController;
 use App\Http\Controllers\Api\Hr\HrMyClaimController;
@@ -547,6 +548,23 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::post('me/overtime', [HrMyAttendanceController::class, 'submitOvertime'])->name('api.hr.my-attendance.overtime.store');
     Route::get('me/overtime/balance', [HrMyAttendanceController::class, 'overtimeBalance'])->name('api.hr.my-attendance.overtime-balance');
     Route::delete('me/overtime/{overtimeRequest}', [HrMyAttendanceController::class, 'cancelOvertime'])->name('api.hr.my-attendance.overtime.cancel');
+
+    // HOD Approvals (scoped to assigned departments)
+    Route::prefix('my-approvals')->group(function () {
+        Route::get('summary', [HrMyApprovalController::class, 'summary']);
+
+        Route::get('overtime', [HrMyApprovalController::class, 'overtime']);
+        Route::patch('overtime/{overtimeRequest}/approve', [HrMyApprovalController::class, 'approveOvertime']);
+        Route::patch('overtime/{overtimeRequest}/reject', [HrMyApprovalController::class, 'rejectOvertime']);
+
+        Route::get('leave', [HrMyApprovalController::class, 'leave']);
+        Route::patch('leave/{leaveRequest}/approve', [HrMyApprovalController::class, 'approveLeave']);
+        Route::patch('leave/{leaveRequest}/reject', [HrMyApprovalController::class, 'rejectLeave']);
+
+        Route::get('claims', [HrMyApprovalController::class, 'claims']);
+        Route::patch('claims/{claimRequest}/approve', [HrMyApprovalController::class, 'approveClaim']);
+        Route::patch('claims/{claimRequest}/reject', [HrMyApprovalController::class, 'rejectClaim']);
+    });
 
     // Attendance Analytics (must be before attendance/{attendanceLog} wildcard)
     Route::get('attendance/analytics/overview', [HrAttendanceAnalyticsController::class, 'overview'])->name('api.hr.attendance-analytics.overview');

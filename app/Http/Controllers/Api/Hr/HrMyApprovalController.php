@@ -137,7 +137,7 @@ class HrMyApprovalController extends Controller
 
         if ($overtimeRequest->employee->user) {
             $overtimeRequest->employee->user->notify(
-                new \App\Notifications\Hr\OvertimeRequestDecision($overtimeRequest)
+                new \App\Notifications\Hr\OvertimeRequestDecision($overtimeRequest, 'approved')
             );
         }
 
@@ -173,7 +173,7 @@ class HrMyApprovalController extends Controller
 
         if ($overtimeRequest->employee->user) {
             $overtimeRequest->employee->user->notify(
-                new \App\Notifications\Hr\OvertimeRequestDecision($overtimeRequest)
+                new \App\Notifications\Hr\OvertimeRequestDecision($overtimeRequest, 'rejected')
             );
         }
 
