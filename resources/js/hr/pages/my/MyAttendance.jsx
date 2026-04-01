@@ -21,6 +21,12 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 
 // ---- Helpers ----
+
+/** Format a Date object to YYYY-MM-DD using local timezone (not UTC) */
+function toLocalDateKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function formatTime(dateStr) {
     if (!dateStr) return '--:--';
     return new Date(dateStr).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
@@ -88,7 +94,8 @@ export default function MyAttendance() {
     // Build lookup: date string -> record
     const recordsByDate = {};
     records.forEach((r) => {
-        const dateKey = r.date || (r.clock_in ? r.clock_in.substring(0, 10) : null);
+        const raw = r.date || r.clock_in;
+        const dateKey = raw ? toLocalDateKey(new Date(raw)) : null;
         if (dateKey) {
             recordsByDate[dateKey] = r;
         }
@@ -161,10 +168,10 @@ export default function MyAttendance() {
                             <div key={d} className="text-center text-[10px] font-medium text-slate-400 pb-1">{d}</div>
                         ))}
                         {calendarDays.map((date, i) => {
-                            const dateKey = date.toISOString().substring(0, 10);
+                            const dateKey = toLocalDateKey(date);
                             const record = recordsByDate[dateKey];
                             const isCurrentMonth = date.getMonth() === month;
-                            const isToday = dateKey === new Date().toISOString().substring(0, 10);
+                            const isToday = dateKey === toLocalDateKey(new Date());
                             const status = record?.status;
 
                             return (

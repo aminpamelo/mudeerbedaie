@@ -79,6 +79,116 @@ function useLiveClock() {
     return now;
 }
 
+// ---- Live Elapsed Timer Hook ----
+function useLiveElapsed(clockInTime) {
+    const [elapsed, setElapsed] = useState(0);
+    useEffect(() => {
+        if (!clockInTime) return;
+        const startMs = new Date(clockInTime).getTime();
+        const update = () => setElapsed(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
+        update();
+        const id = setInterval(update, 1000);
+        return () => clearInterval(id);
+    }, [clockInTime]);
+    return elapsed;
+}
+
+function formatElapsedParts(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return {
+        hours: String(h).padStart(2, '0'),
+        minutes: String(m).padStart(2, '0'),
+        seconds: String(s).padStart(2, '0'),
+        totalMinutes: Math.floor(seconds / 60),
+    };
+}
+
+// ---- Live Elapsed Timer Component ----
+function LiveElapsedTimer({ clockInTime }) {
+    const elapsed = useLiveElapsed(clockInTime);
+    const { hours, minutes, seconds, totalMinutes } = formatElapsedParts(elapsed);
+
+    // Progress against a standard 9-hour workday (540 min)
+    const scheduledMinutes = 540;
+    const progress = Math.min(totalMinutes / scheduledMinutes, 1);
+    const radius = 52;
+    const circumference = 2 * Math.PI * radius;
+    const dashOffset = circumference * (1 - progress);
+
+    return (
+        <div className="relative overflow-hidden rounded-2xl border border-amber-200/70 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50">
+            <div
+                className="pointer-events-none absolute inset-0 opacity-40"
+                style={{
+                    background: 'radial-gradient(ellipse at 50% 0%, rgb(251 191 36 / 0.3) 0%, transparent 70%)',
+                }}
+            />
+
+            <div className="relative flex flex-col items-center gap-3 py-5 px-4">
+                {/* Header badge */}
+                <div className="flex items-center gap-2 rounded-full bg-amber-100 border border-amber-200/80 px-3 py-1">
+                    <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+                    </span>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest text-amber-700">
+                        Session Active
+                    </span>
+                </div>
+
+                {/* SVG ring + time digits */}
+                <div className="relative">
+                    <svg
+                        width="136"
+                        height="136"
+                        viewBox="0 0 136 136"
+                        className="-rotate-90"
+                        aria-hidden="true"
+                    >
+                        <circle
+                            cx="68" cy="68" r={radius}
+                            fill="none"
+                            stroke="rgb(251 191 36 / 0.2)"
+                            strokeWidth="7"
+                        />
+                        <circle
+                            cx="68" cy="68" r={radius}
+                            fill="none"
+                            stroke="rgb(245 158 11)"
+                            strokeWidth="7"
+                            strokeLinecap="round"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={dashOffset}
+                            style={{ transition: 'stroke-dashoffset 1s linear' }}
+                        />
+                    </svg>
+
+                    {/* Inner digits */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+                        <span className="text-[9px] font-semibold uppercase tracking-widest text-amber-500">
+                            elapsed
+                        </span>
+                        <div className="flex items-baseline tabular-nums leading-none">
+                            <span className="text-[22px] font-bold text-amber-900 tracking-tight">{hours}</span>
+                            <span className="mx-px text-[18px] font-bold text-amber-600">:</span>
+                            <span className="text-[22px] font-bold text-amber-900 tracking-tight">{minutes}</span>
+                            <span className="mx-px text-[18px] font-bold text-amber-600">:</span>
+                            <span className="text-[18px] font-semibold text-amber-700 tracking-tight">{seconds}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Progress label */}
+                <p className="text-[11px] font-medium text-amber-600">
+                    {Math.round(progress * 100)}% of work day completed
+                </p>
+            </div>
+        </div>
+    );
+}
+
 // ---- GPS Location Hook ----
 function useGeoLocation(enabled) {
     const [location, setLocation] = useState(null); // { latitude, longitude }
@@ -416,8 +526,8 @@ export default function ClockInOut() {
         mutationFn: async () => {
             const formData = new FormData();
             try {
-                if (captureRef) {
-                    const blob = await captureRef();
+                if (captureRef.current) {
+                    const blob = await captureRef.current();
                     if (blob) {
                         formData.append('photo', blob, 'clock-out.jpg');
                     }
@@ -445,6 +555,10 @@ export default function ClockInOut() {
     });
 
     const isPending = clockInMut.isPending || clockOutMut.isPending;
+
+    // Live elapsed seconds when actively clocked in (used for Today's Record live update)
+    const liveElapsedSeconds = useLiveElapsed(isClockedIn ? today?.clock_in : null);
+    const liveElapsedMinutes = Math.floor(liveElapsedSeconds / 60);
 
     return (
         <div className="space-y-4 max-w-md mx-auto">
@@ -481,6 +595,11 @@ export default function ClockInOut() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Live Elapsed Timer — visible only when actively clocked in */}
+            {isClockedIn && (
+                <LiveElapsedTimer clockInTime={today?.clock_in} />
+            )}
 
             {/* Camera Preview */}
             <CameraPreview onCapture={(fn) => { captureRef.current = fn; }} isCapturing={isPending} />
@@ -575,8 +694,15 @@ export default function ClockInOut() {
                             </div>
                             <div>
                                 <p className="text-xs text-slate-500">Total Hours</p>
-                                <p className="text-sm font-semibold text-slate-800">
-                                    {today.total_work_minutes ? formatDuration(today.total_work_minutes) : '--:--'}
+                                <p className={cn(
+                                    'text-sm font-semibold tabular-nums',
+                                    isClockedIn ? 'text-amber-700' : 'text-slate-800'
+                                )}>
+                                    {today.total_work_minutes
+                                        ? formatDuration(today.total_work_minutes)
+                                        : isClockedIn
+                                            ? formatDuration(liveElapsedMinutes)
+                                            : '--:--'}
                                 </p>
                             </div>
                         </div>
