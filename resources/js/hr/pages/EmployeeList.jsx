@@ -453,7 +453,7 @@ export default function EmployeeList() {
                                         {employee.department?.name || '-'}
                                     </TableCell>
                                     <TableCell>
-                                        {employee.position?.name || '-'}
+                                        {employee.position?.title || '-'}
                                     </TableCell>
                                     <TableCell className="capitalize">
                                         {employee.employment_type_label || (Array.isArray(employee.employment_type) ? employee.employment_type.map(t => t.replace(/[-_]/g, ' ')).join(', ') : '-')}
@@ -523,7 +523,7 @@ export default function EmployeeList() {
                                                 {employee.department?.name || '-'}
                                             </p>
                                             <p className="truncate text-xs text-zinc-500">
-                                                {employee.position?.name || '-'}
+                                                {employee.position?.title || '-'}
                                             </p>
                                             <div className="mt-2">
                                                 <StatusBadge

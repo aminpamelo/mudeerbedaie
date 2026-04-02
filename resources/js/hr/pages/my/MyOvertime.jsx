@@ -29,6 +29,15 @@ import {
 } from '../../components/ui/dialog';
 
 // ---- Helpers ----
+function formatDecimalHours(decimalHours) {
+    const totalMins = Math.round((decimalHours ?? 0) * 60);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    if (h === 0) return `${m}min`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}min`;
+}
+
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -224,19 +233,19 @@ export default function MyOvertime() {
             <div className="grid grid-cols-3 gap-2">
                 <Card>
                     <CardContent className="py-3 text-center">
-                        <p className="text-lg font-bold text-emerald-600">{balance.total_earned ?? 0}h</p>
+                        <p className="text-lg font-bold text-emerald-600">{formatDecimalHours(balance.total_earned)}</p>
                         <p className="text-[10px] text-zinc-500">Earned</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="py-3 text-center">
-                        <p className="text-lg font-bold text-amber-600">{balance.total_used ?? 0}h</p>
+                        <p className="text-lg font-bold text-amber-600">{formatDecimalHours(balance.total_used)}</p>
                         <p className="text-[10px] text-zinc-500">Used</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="py-3 text-center">
-                        <p className="text-lg font-bold text-blue-600">{balance.available ?? 0}h</p>
+                        <p className="text-lg font-bold text-blue-600">{formatDecimalHours(balance.available)}</p>
                         <p className="text-[10px] text-zinc-500">Available</p>
                     </CardContent>
                 </Card>
@@ -435,7 +444,7 @@ export default function MyOvertime() {
                                         type="number"
                                         min="30"
                                         max="720"
-                                        step="15"
+                                        step="1"
                                         value={form.duration_minutes}
                                         onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
                                         placeholder="Custom minutes"
@@ -489,7 +498,7 @@ export default function MyOvertime() {
                     <DialogHeader>
                         <DialogTitle>New OT Claim</DialogTitle>
                         <DialogDescription>
-                            Claim your OT hours as time off. Available: <span className="font-semibold">{balance.available ?? 0}h</span>
+                            Claim your OT hours as time off. Available: <span className="font-semibold">{formatDecimalHours(balance.available)}</span>
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={(e) => {
@@ -548,7 +557,7 @@ export default function MyOvertime() {
                                     type="number"
                                     min="30"
                                     max="230"
-                                    step="15"
+                                    step="1"
                                     value={claimForm.duration_minutes}
                                     onChange={(e) => setClaimForm({ ...claimForm, duration_minutes: e.target.value })}
                                     placeholder="Custom minutes (30–230)"

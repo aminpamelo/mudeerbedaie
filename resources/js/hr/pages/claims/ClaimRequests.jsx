@@ -5,6 +5,7 @@ import {
     Eye,
     CheckCircle2,
     XCircle,
+    AlertCircle,
     ChevronLeft,
     ChevronRight,
     Loader2,
@@ -115,6 +116,7 @@ export default function ClaimRequests() {
     const [payReference, setPayReference] = useState('');
     const [approvedAmount, setApprovedAmount] = useState('');
     const [actionDialog, setActionDialog] = useState({ open: false, type: null, request: null });
+    const [actionError, setActionError] = useState('');
     const [filtersOpen, setFiltersOpen] = useState(false);
 
     const { data, isLoading } = useQuery({
@@ -134,21 +136,25 @@ export default function ClaimRequests() {
     });
 
     const approveMutation = useMutation({
-        mutationFn: ({ id, approved_amount }) => approveClaimRequest(id, { approved_amount }),
+        mutationFn: ({ id, approved_amount }) => approveClaimRequest(id, { approved_amount: parseFloat(approved_amount) }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'claims', 'requests'] });
             setActionDialog({ open: false, type: null, request: null });
             setApprovedAmount('');
+            setActionError('');
         },
+        onError: (err) => setActionError(err?.response?.data?.message || 'Failed to approve claim.'),
     });
 
     const rejectMutation = useMutation({
-        mutationFn: ({ id, reason }) => rejectClaimRequest(id, { reason }),
+        mutationFn: ({ id, reason }) => rejectClaimRequest(id, { rejected_reason: reason }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'claims', 'requests'] });
             setActionDialog({ open: false, type: null, request: null });
             setRejectReason('');
+            setActionError('');
         },
+        onError: (err) => setActionError(err?.response?.data?.message || 'Failed to reject claim.'),
     });
 
     const payMutation = useMutation({
@@ -201,6 +207,7 @@ export default function ClaimRequests() {
         setRejectReason('');
         setPayReference('');
         setApprovedAmount(request?.amount ? String(request.amount) : '');
+        setActionError('');
     }
 
     function confirmAction() {
@@ -609,7 +616,7 @@ export default function ClaimRequests() {
             </Dialog>
 
             {/* Action Dialog */}
-            <Dialog open={actionDialog.open} onOpenChange={() => setActionDialog({ open: false, type: null, request: null })}>
+            <Dialog open={actionDialog.open} onOpenChange={() => { setActionDialog({ open: false, type: null, request: null }); setActionError(''); }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
@@ -669,8 +676,14 @@ export default function ClaimRequests() {
                             )}
                         </div>
                     )}
+                    {actionError && (
+                        <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+                            <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                            <p className="text-sm text-red-700">{actionError}</p>
+                        </div>
+                    )}
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setActionDialog({ open: false, type: null, request: null })}>
+                        <Button variant="outline" onClick={() => { setActionDialog({ open: false, type: null, request: null }); setActionError(''); }}>
                             Cancel
                         </Button>
                         <Button

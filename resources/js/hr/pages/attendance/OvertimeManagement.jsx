@@ -139,7 +139,7 @@ export default function OvertimeManagement() {
     });
 
     const rejectMutation = useMutation({
-        mutationFn: ({ id, reason }) => rejectOvertime(id, { reason }),
+        mutationFn: ({ id, reason }) => rejectOvertime(id, { rejection_reason: reason }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'overtime'] });
             setRejectTarget(null);
