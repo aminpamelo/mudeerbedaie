@@ -435,6 +435,7 @@ export default function ClockInOut() {
     const now = useLiveClock();
     const [isWfh, setIsWfh] = useState(false);
     const captureRef = useRef(null);
+    const pendingPhotoRef = useRef(null);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [showConfirm, setShowConfirm] = useState(null); // 'in' | 'out' | null
@@ -525,15 +526,9 @@ export default function ClockInOut() {
     const clockOutMut = useMutation({
         mutationFn: async () => {
             const formData = new FormData();
-            try {
-                if (captureRef.current) {
-                    const blob = await captureRef.current();
-                    if (blob) {
-                        formData.append('photo', blob, 'clock-out.jpg');
-                    }
-                }
-            } catch {
-                // Camera capture failed, proceed without photo
+            if (pendingPhotoRef.current) {
+                formData.append('photo', pendingPhotoRef.current, 'clock-out.jpg');
+                pendingPhotoRef.current = null;
             }
             return clockOut(formData);
         },
@@ -653,7 +648,19 @@ export default function ClockInOut() {
                         <p className="text-sm text-slate-500">You're done for today</p>
                     </div>
                 ) : isClockedIn ? (
-                    <ClockButton type="out" isPending={clockOutMut.isPending} onClick={() => setShowConfirm('out')} />
+                    <ClockButton
+                        type="out"
+                        isPending={clockOutMut.isPending}
+                        onClick={async () => {
+                            pendingPhotoRef.current = null;
+                            try {
+                                if (captureRef.current) {
+                                    pendingPhotoRef.current = await captureRef.current();
+                                }
+                            } catch { /* ignore */ }
+                            setShowConfirm('out');
+                        }}
+                    />
                 ) : (
                     <ClockButton
                         type="in"
