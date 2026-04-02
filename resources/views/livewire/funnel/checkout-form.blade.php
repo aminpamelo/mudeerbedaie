@@ -494,7 +494,7 @@ new class extends Component
                 if (isset($this->selectedBumps[$bump->id])) {
                     $productOrder->items()->create([
                         'product_id' => $bump->product_id,
-                        'product_name' => $bump->name,
+                        'product_name' => $bump->headline,
                         'quantity_ordered' => 1,
                         'unit_price' => $bump->price,
                         'total_price' => $bump->price,
@@ -837,7 +837,7 @@ new class extends Component
                                                     <span class="text-sm font-bold text-green-700 uppercase">
                                                         {{ $bump->headline ?? 'Tambah Ini Ke Pesanan Anda' }}
                                                     </span>
-                                                    <h4 class="font-semibold text-gray-900 mt-1">{{ $bump->name }}</h4>
+                                                    <h4 class="font-semibold text-gray-900 mt-1">{{ $bump->headline }}</h4>
                                                     @if($bump->description)
                                                         <p class="text-sm text-gray-600 mt-1">{{ $bump->description }}</p>
                                                     @endif
@@ -881,7 +881,7 @@ new class extends Component
                         @foreach($step->orderBumps as $bump)
                             @if(isset($selectedBumps[$bump->id]))
                                 <div class="flex justify-between text-sm text-green-700">
-                                    <span>+ {{ $bump->name }}</span>
+                                    <span>+ {{ $bump->headline }}</span>
                                     <span class="font-medium">RM {{ number_format($bump->price, 2) }}</span>
                                 </div>
                             @endif

@@ -24,7 +24,7 @@
         @foreach($step->orderBumps as $bump)
             @if(isset($selectedBumps[$bump->id]))
                 <div class="flex justify-between text-sm text-green-700">
-                    <span>+ {{ $bump->name }}</span>
+                    <span>+ {{ $bump->headline }}</span>
                     <span class="font-medium">RM {{ number_format($bump->price, 2) }}</span>
                 </div>
             @endif
