@@ -456,7 +456,7 @@ export default function EmployeeList() {
                                         {employee.position?.name || '-'}
                                     </TableCell>
                                     <TableCell className="capitalize">
-                                        {employee.employment_type_label || employee.employment_type?.replace(/[-_]/g, ' ') || '-'}
+                                        {employee.employment_type_label || (Array.isArray(employee.employment_type) ? employee.employment_type.map(t => t.replace(/[-_]/g, ' ')).join(', ') : '-')}
                                     </TableCell>
                                     <TableCell>
                                         <StatusBadge status={employee.status} />

@@ -68,6 +68,7 @@ const navigation = [
     { name: 'Departments', to: '/departments', icon: Building2 },
     { name: 'Positions', to: '/positions', icon: Briefcase },
     { name: 'Org Chart', to: '/org-chart', icon: Network },
+    { name: 'Approvers', to: '/attendance/approvers', icon: UserCheck },
     {
         name: 'Attendance',
         icon: Clock,
@@ -80,7 +81,6 @@ const navigation = [
             { name: 'Overtime', to: '/attendance/overtime', icon: Timer },
             { name: 'Holidays', to: '/attendance/holidays', icon: CalendarDays },
             { name: 'Analytics', to: '/attendance/analytics', icon: BarChart3 },
-            { name: 'Approvers', to: '/attendance/approvers', icon: UserCheck },
             { name: 'Settings', to: '/attendance/settings', icon: Settings2 },
         ],
     },

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, X, Download, DoorOpen, AlertCircle } from 'lucide-react';
+import { Check, X, Download, DoorOpen, AlertCircle, Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -32,10 +32,15 @@ import {
     getExitPermissions,
     adminApproveExitPermission,
     adminRejectExitPermission,
-    getExitPermissionPdfUrl,
+    downloadExitPermissionPdf,
 } from '../../lib/api';
 
 const TABS = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
+
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 const STATUS_COLORS = {
     pending: 'bg-amber-100 text-amber-800',
@@ -79,6 +84,7 @@ export default function ExitPermissions() {
     const [rejectDialog, setRejectDialog] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
     const [actionError, setActionError] = useState('');
+    const [downloadingId, setDownloadingId] = useState(null);
 
     const params = {};
     if (tab !== 'all') {
@@ -113,7 +119,26 @@ export default function ExitPermissions() {
         onError: (err) => setActionError(err.response?.data?.message ?? 'Failed to reject.'),
     });
 
-    const records = data?.data ?? [];
+    const records = data?.data?.data ?? [];
+
+    async function handleDownloadPdf(record) {
+        setDownloadingId(record.id);
+        try {
+            const blob = await downloadExitPermissionPdf(record.id);
+            const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${record.permission_number ?? `EP-${record.id}`}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error('PDF download failed', e);
+        } finally {
+            setDownloadingId(null);
+        }
+    }
 
     function openRejectDialog(record) {
         setRejectDialog({ id: record.id, name: record.employee?.name });
@@ -193,7 +218,7 @@ export default function ExitPermissions() {
                                     <TableRow key={record.id}>
                                         <TableCell>
                                             <span className="font-mono text-sm text-zinc-600">
-                                                {record.permission_no ?? `EP-${record.id}`}
+                                                {record.permission_number ?? `EP-${record.id}`}
                                             </span>
                                         </TableCell>
                                         <TableCell>
@@ -205,7 +230,7 @@ export default function ExitPermissions() {
                                             </p>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="text-sm text-zinc-700">{record.exit_date}</span>
+                                            <span className="text-sm text-zinc-700">{formatDate(record.exit_date)}</span>
                                         </TableCell>
                                         <TableCell>
                                             <span className="text-sm text-zinc-700">
@@ -254,16 +279,18 @@ export default function ExitPermissions() {
                                                     </>
                                                 )}
                                                 {record.status === 'approved' && (
-                                                    <a
-                                                        href={getExitPermissionPdfUrl(record.id)}
-                                                        target="_blank"
-                                                        rel="noreferrer"
+                                                    <button
+                                                        onClick={() => handleDownloadPdf(record)}
+                                                        disabled={downloadingId === record.id}
                                                         title="Download PDF"
-                                                        className="flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                                                        className="flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
                                                     >
-                                                        <Download className="h-3.5 w-3.5" />
+                                                        {downloadingId === record.id
+                                                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                            : <Download className="h-3.5 w-3.5" />
+                                                        }
                                                         PDF
-                                                    </a>
+                                                    </button>
                                                 )}
                                             </div>
                                         </TableCell>

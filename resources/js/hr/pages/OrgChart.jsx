@@ -131,14 +131,14 @@ function PersonCard({ person, isHighlighted, onClick }) {
                     </Avatar>
                 </div>
 
-                {person.position?.title && (
-                    <span className={cn(
-                        'inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider mb-1.5',
+                {(person.positions?.length > 0 ? person.positions : person.position ? [person.position] : []).map((pos, i) => (
+                    <span key={pos.id ?? i} className={cn(
+                        'inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider mb-1',
                         colors.badge,
                     )}>
-                        {person.position.title}
+                        {pos.title}
                     </span>
-                )}
+                ))}
 
                 <p className="text-sm font-bold text-zinc-900 leading-tight">
                     {person.full_name}
@@ -311,14 +311,14 @@ function AssignManagerModal({ person, allEmployees, open, onOpenChange, onAssign
                         </Avatar>
                         <div className="min-w-0 flex-1">
                             <p className="font-bold text-zinc-900">{person.full_name}</p>
-                            {person.position?.title && (
-                                <span className={cn(
-                                    'inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                            {(person.positions?.length > 0 ? person.positions : person.position ? [person.position] : []).map((pos, i) => (
+                                <span key={pos.id ?? i} className={cn(
+                                    'inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider mr-1',
                                     colors.badge,
                                 )}>
-                                    {person.position.title}
+                                    {pos.title}
                                 </span>
-                            )}
+                            ))}
                             {person.department && (
                                 <p className="text-xs text-zinc-500 mt-0.5">{person.department.name}</p>
                             )}
@@ -346,16 +346,19 @@ function AssignManagerModal({ person, allEmployees, open, onOpenChange, onAssign
                             <SelectItem value="none">
                                 <span className="text-zinc-500">No manager (top level)</span>
                             </SelectItem>
-                            {eligibleManagers.map((emp) => (
-                                <SelectItem key={emp.id} value={String(emp.id)}>
-                                    <div className="flex items-center gap-2">
-                                        <span>{emp.full_name}</span>
-                                        {emp.position?.title && (
-                                            <span className="text-zinc-400 text-xs">— {emp.position.title}</span>
-                                        )}
-                                    </div>
-                                </SelectItem>
-                            ))}
+                            {eligibleManagers.map((emp) => {
+                                const posLabels = (emp.positions?.length > 0 ? emp.positions : emp.position ? [emp.position] : []).map(p => p.title).join(', ');
+                                return (
+                                    <SelectItem key={emp.id} value={String(emp.id)}>
+                                        <div className="flex items-center gap-2">
+                                            <span>{emp.full_name}</span>
+                                            {posLabels && (
+                                                <span className="text-zinc-400 text-xs">— {posLabels}</span>
+                                            )}
+                                        </div>
+                                    </SelectItem>
+                                );
+                            })}
                         </SelectContent>
                     </Select>
                 </div>
@@ -579,9 +582,9 @@ function DepartmentCard({ dept, depth, isHighlighted, onClick }) {
                                             {emp.is_head && <Crown className="h-3 w-3 text-amber-500 shrink-0" />}
                                             {emp.full_name}
                                         </p>
-                                        {emp.position?.title && (
-                                            <p className="text-[10px] text-zinc-500 truncate leading-tight">
-                                                {emp.position.title}
+                                        {(emp.positions?.length > 0 ? emp.positions : emp.position ? [emp.position] : []).length > 0 && (
+                                            <p className="text-[10px] text-zinc-500 leading-tight">
+                                                {(emp.positions?.length > 0 ? emp.positions : [emp.position]).map(p => p.title).join(' · ')}
                                             </p>
                                         )}
                                     </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Plus,
@@ -7,6 +7,9 @@ import {
     Users,
     Calendar,
     UserPlus,
+    ChevronDown,
+    ChevronRight,
+    Search,
 } from 'lucide-react';
 import {
     Card,
@@ -85,8 +88,12 @@ export default function ScheduleAssignments() {
     const queryClient = useQueryClient();
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [scheduleFilter, setScheduleFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [tableSearch, setTableSearch] = useState('');
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showBulkDialog, setShowBulkDialog] = useState(false);
+    const [showQuickAssignDialog, setShowQuickAssignDialog] = useState(false);
+    const [quickAssignEmployee, setQuickAssignEmployee] = useState(null);
     const [editTarget, setEditTarget] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [editForm, setEditForm] = useState({
@@ -95,20 +102,19 @@ export default function ScheduleAssignments() {
         custom_end_time: '',
         effective_from: '',
     });
+    const [quickAssignForm, setQuickAssignForm] = useState({
+        work_schedule_id: '',
+        effective_from: '',
+    });
     const [bulkForm, setBulkForm] = useState({
         employee_ids: [],
         work_schedule_id: '',
         effective_from: '',
     });
 
-    const filters = {
-        department_id: departmentFilter !== 'all' ? departmentFilter : undefined,
-        work_schedule_id: scheduleFilter !== 'all' ? scheduleFilter : undefined,
-    };
-
-    const { data, isLoading } = useQuery({
-        queryKey: ['hr', 'attendance', 'employee-schedules', filters],
-        queryFn: () => fetchEmployeeSchedules(filters),
+    const { data: assignmentsData, isLoading: assignmentsLoading } = useQuery({
+        queryKey: ['hr', 'attendance', 'employee-schedules'],
+        queryFn: () => fetchEmployeeSchedules({ per_page: 500 }),
     });
 
     const { data: schedulesData } = useQuery({
@@ -116,17 +122,26 @@ export default function ScheduleAssignments() {
         queryFn: fetchSchedules,
     });
 
-    const { data: employeesData } = useQuery({
+    const { data: employeesData, isLoading: employeesLoading } = useQuery({
         queryKey: ['hr', 'employees', 'all'],
-        queryFn: () => fetchEmployees({ per_page: 200, status: 'active' }),
+        queryFn: () => fetchEmployees({ per_page: 500, status: 'active' }),
     });
+
+    const isLoading = assignmentsLoading || employeesLoading;
 
     const assignMutation = useMutation({
         mutationFn: assignEmployeeSchedule,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'employee-schedules'] });
             setShowBulkDialog(false);
+            setShowQuickAssignDialog(false);
             setBulkForm({ employee_ids: [], work_schedule_id: '', effective_from: '' });
+            setQuickAssignForm({ work_schedule_id: '', effective_from: '' });
+            setQuickAssignEmployee(null);
+        },
+        onError: (error) => {
+            const message = error?.response?.data?.message || 'Failed to assign schedule. Please try again.';
+            alert(message);
         },
     });
 
@@ -137,6 +152,10 @@ export default function ScheduleAssignments() {
             setShowEditDialog(false);
             setEditTarget(null);
         },
+        onError: (error) => {
+            const message = error?.response?.data?.message || 'Failed to update schedule. Please try again.';
+            alert(message);
+        },
     });
 
     const deleteMutation = useMutation({
@@ -145,11 +164,114 @@ export default function ScheduleAssignments() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'employee-schedules'] });
             setDeleteTarget(null);
         },
+        onError: (error) => {
+            const message = error?.response?.data?.message || 'Failed to remove schedule assignment. Please try again.';
+            alert(message);
+            setDeleteTarget(null);
+        },
     });
 
-    const assignments = data?.data || [];
+    const [bulkSearch, setBulkSearch] = useState('');
+    const [collapsedDepts, setCollapsedDepts] = useState({});
+
+    const assignments = assignmentsData?.data || [];
     const schedules = schedulesData?.data || [];
     const employees = employeesData?.data || [];
+
+    // Build merged rows: all active employees with their assignment (if any)
+    const employeeRows = useMemo(() => {
+        const assignmentMap = {};
+        assignments.forEach((a) => {
+            const empId = a.employee_id ?? a.employee?.id;
+            if (empId) assignmentMap[empId] = a;
+        });
+        return employees.map((emp) => ({
+            ...emp,
+            assignment: assignmentMap[emp.id] || null,
+        }));
+    }, [employees, assignments]);
+
+    const unassignedCount = useMemo(
+        () => employeeRows.filter((r) => !r.assignment).length,
+        [employeeRows],
+    );
+
+    const departmentNames = useMemo(
+        () => [...new Set(employees.map((e) => e.department?.name).filter(Boolean))].sort(),
+        [employees],
+    );
+
+    const filteredRows = useMemo(() => {
+        return employeeRows.filter((row) => {
+            if (departmentFilter !== 'all' && row.department?.name !== departmentFilter) return false;
+            if (statusFilter === 'assigned' && !row.assignment) return false;
+            if (statusFilter === 'unassigned' && row.assignment) return false;
+            if (scheduleFilter !== 'all' && String(row.assignment?.work_schedule_id) !== scheduleFilter) return false;
+            if (tableSearch.trim()) {
+                const q = tableSearch.toLowerCase();
+                const matchName = row.full_name?.toLowerCase().includes(q);
+                const matchId = row.employee_id?.toLowerCase().includes(q);
+                const matchDept = row.department?.name?.toLowerCase().includes(q);
+                if (!matchName && !matchId && !matchDept) return false;
+            }
+            return true;
+        });
+    }, [employeeRows, departmentFilter, statusFilter, scheduleFilter, tableSearch]);
+
+    const filteredBulkEmployees = useMemo(() => {
+        if (!bulkSearch.trim()) return employees;
+        const q = bulkSearch.toLowerCase();
+        return employees.filter(
+            (emp) =>
+                emp.full_name?.toLowerCase().includes(q) ||
+                emp.department?.name?.toLowerCase().includes(q),
+        );
+    }, [employees, bulkSearch]);
+
+    const employeesByDept = useMemo(() => {
+        return filteredBulkEmployees.reduce((acc, emp) => {
+            const dept = emp.department?.name || 'No Department';
+            if (!acc[dept]) acc[dept] = [];
+            acc[dept].push(emp);
+            return acc;
+        }, {});
+    }, [filteredBulkEmployees]);
+
+    const deptNames = Object.keys(employeesByDept).sort();
+
+    function toggleDeptCollapse(dept) {
+        setCollapsedDepts((prev) => ({ ...prev, [dept]: !prev[dept] }));
+    }
+
+    function getDeptSelectionState(dept) {
+        const deptEmps = employeesByDept[dept] || [];
+        const selectedCount = deptEmps.filter((e) => bulkForm.employee_ids.includes(e.id)).length;
+        if (selectedCount === 0) return 'none';
+        if (selectedCount === deptEmps.length) return 'all';
+        return 'partial';
+    }
+
+    function toggleDeptEmployees(dept) {
+        const deptEmps = (employeesByDept[dept] || []).map((e) => e.id);
+        const state = getDeptSelectionState(dept);
+        setBulkForm((prev) => {
+            if (state === 'all') {
+                return { ...prev, employee_ids: prev.employee_ids.filter((id) => !deptEmps.includes(id)) };
+            } else {
+                const merged = [...new Set([...prev.employee_ids, ...deptEmps])];
+                return { ...prev, employee_ids: merged };
+            }
+        });
+    }
+
+    function toggleAllEmployees() {
+        const allIds = filteredBulkEmployees.map((e) => e.id);
+        const allSelected = allIds.every((id) => bulkForm.employee_ids.includes(id));
+        setBulkForm((prev) => ({
+            ...prev,
+            employee_ids: allSelected ? prev.employee_ids.filter((id) => !allIds.includes(id)) : [...new Set([...prev.employee_ids, ...allIds])],
+        }));
+    }
 
     function openEdit(assignment) {
         setEditTarget(assignment);
@@ -162,8 +284,22 @@ export default function ScheduleAssignments() {
         setShowEditDialog(true);
     }
 
+    function openQuickAssign(employee) {
+        setQuickAssignEmployee(employee);
+        setQuickAssignForm({ work_schedule_id: '', effective_from: '' });
+        setShowQuickAssignDialog(true);
+    }
+
     function handleSaveEdit() {
         updateMutation.mutate({ id: editTarget.id, data: editForm });
+    }
+
+    function handleQuickAssign() {
+        assignMutation.mutate({
+            employee_ids: [quickAssignEmployee.id],
+            work_schedule_id: quickAssignForm.work_schedule_id,
+            effective_from: quickAssignForm.effective_from,
+        });
     }
 
     function handleBulkAssign() {
@@ -192,26 +328,60 @@ export default function ScheduleAssignments() {
                 }
             />
 
+            {/* Summary badges */}
+            {!isLoading && unassignedCount > 0 && (
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setStatusFilter('unassigned')}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                    >
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                        {unassignedCount} employee{unassignedCount !== 1 ? 's' : ''} without a schedule
+                    </button>
+                    {statusFilter === 'unassigned' && (
+                        <button
+                            type="button"
+                            onClick={() => setStatusFilter('all')}
+                            className="text-xs text-zinc-400 hover:text-zinc-600"
+                        >
+                            Show all
+                        </button>
+                    )}
+                </div>
+            )}
+
             {/* Filters */}
             <Card>
                 <CardContent className="p-4">
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="w-48">
+                        {/* Search */}
+                        <div className="relative min-w-48 flex-1">
+                            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+                            <input
+                                type="text"
+                                placeholder="Search name, ID, department..."
+                                value={tableSearch}
+                                onChange={(e) => setTableSearch(e.target.value)}
+                                className="w-full rounded-md border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-300"
+                            />
+                        </div>
+
+                        <div className="w-44">
                             <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Department" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Departments</SelectItem>
-                                    {[...new Set(assignments.map((a) => a.employee?.department?.name).filter(Boolean))].map((name) => (
-                                        <SelectItem key={name} value={name}>
-                                            {name}
-                                        </SelectItem>
+                                    {departmentNames.map((name) => (
+                                        <SelectItem key={name} value={name}>{name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="w-48">
+
+                        <div className="w-44">
                             <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Schedule" />
@@ -219,10 +389,21 @@ export default function ScheduleAssignments() {
                                 <SelectContent>
                                     <SelectItem value="all">All Schedules</SelectItem>
                                     {schedules.map((s) => (
-                                        <SelectItem key={s.id} value={String(s.id)}>
-                                            {s.name}
-                                        </SelectItem>
+                                        <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="w-40">
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Employees</SelectItem>
+                                    <SelectItem value="assigned">Assigned</SelectItem>
+                                    <SelectItem value="unassigned">Unassigned</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -230,20 +411,16 @@ export default function ScheduleAssignments() {
                 </CardContent>
             </Card>
 
-            {/* Assignments Table */}
+            {/* Employees Table */}
             <Card>
                 <CardContent className="p-0">
                     {isLoading ? (
                         <SkeletonTable />
-                    ) : assignments.length === 0 ? (
+                    ) : filteredRows.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Calendar className="mb-3 h-10 w-10 text-zinc-300" />
-                            <p className="text-sm font-medium text-zinc-500">No schedule assignments</p>
-                            <p className="mb-4 text-xs text-zinc-400">Assign schedules to employees to track their attendance</p>
-                            <Button onClick={() => setShowBulkDialog(true)} size="sm">
-                                <UserPlus className="mr-2 h-4 w-4" />
-                                Assign Schedules
-                            </Button>
+                            <Users className="mb-3 h-10 w-10 text-zinc-300" />
+                            <p className="text-sm font-medium text-zinc-500">No employees found</p>
+                            <p className="text-xs text-zinc-400">Try adjusting your filters</p>
                         </div>
                     ) : (
                         <Table>
@@ -254,51 +431,68 @@ export default function ScheduleAssignments() {
                                     <TableHead>Current Schedule</TableHead>
                                     <TableHead>Custom Hours</TableHead>
                                     <TableHead>Effective From</TableHead>
-                                    <TableHead className="w-24">Actions</TableHead>
+                                    <TableHead className="w-28">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {assignments.map((assignment) => (
-                                    <TableRow key={assignment.id}>
+                                {filteredRows.map((row) => (
+                                    <TableRow key={row.id} className={!row.assignment ? 'bg-amber-50/40' : ''}>
                                         <TableCell>
                                             <div>
-                                                <p className="text-sm font-medium text-zinc-900">
-                                                    {assignment.employee?.full_name || 'Unknown'}
-                                                </p>
-                                                <p className="text-xs text-zinc-500">
-                                                    {assignment.employee?.employee_id || ''}
-                                                </p>
+                                                <p className="text-sm font-medium text-zinc-900">{row.full_name}</p>
+                                                <p className="text-xs text-zinc-500">{row.employee_id}</p>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-sm text-zinc-600">
-                                            {assignment.employee?.department?.name || '-'}
+                                            {row.department?.name || '-'}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="secondary">
-                                                {assignment.work_schedule?.name || '-'}
-                                            </Badge>
+                                            {row.assignment ? (
+                                                <Badge variant="secondary">
+                                                    {row.assignment.work_schedule?.name || '-'}
+                                                </Badge>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600">
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                                                    Not Assigned
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-sm text-zinc-600">
-                                            {assignment.custom_start_time && assignment.custom_end_time
-                                                ? `${assignment.custom_start_time.slice(0, 5)} - ${assignment.custom_end_time.slice(0, 5)}`
+                                            {row.assignment?.custom_start_time && row.assignment?.custom_end_time
+                                                ? `${row.assignment.custom_start_time.slice(0, 5)} - ${row.assignment.custom_end_time.slice(0, 5)}`
                                                 : '-'}
                                         </TableCell>
                                         <TableCell className="text-sm text-zinc-600">
-                                            {formatDate(assignment.effective_from)}
+                                            {row.assignment ? formatDate(row.assignment.effective_from) : '-'}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1">
-                                                <Button variant="ghost" size="sm" onClick={() => openEdit(assignment)}>
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => setDeleteTarget(assignment)}
-                                                    className="text-red-500 hover:text-red-700"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                {row.assignment ? (
+                                                    <>
+                                                        <Button variant="ghost" size="sm" onClick={() => openEdit(row.assignment)}>
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setDeleteTarget(row.assignment)}
+                                                            className="text-red-500 hover:text-red-700"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </>
+                                                ) : (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => openQuickAssign(row)}
+                                                        className="h-7 gap-1 text-xs font-medium text-zinc-700"
+                                                    >
+                                                        <Plus className="h-3.5 w-3.5" />
+                                                        Assign
+                                                    </Button>
+                                                )}
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -308,6 +502,52 @@ export default function ScheduleAssignments() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Quick Assign Dialog */}
+            <Dialog open={showQuickAssignDialog} onOpenChange={() => { setShowQuickAssignDialog(false); setQuickAssignEmployee(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Assign Schedule</DialogTitle>
+                        <DialogDescription>
+                            Assign a work schedule to {quickAssignEmployee?.full_name}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label>Schedule</Label>
+                            <Select value={quickAssignForm.work_schedule_id} onValueChange={(val) => setQuickAssignForm({ ...quickAssignForm, work_schedule_id: val })}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select schedule" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {schedules.map((s) => (
+                                        <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Effective From</Label>
+                            <Input
+                                type="date"
+                                value={quickAssignForm.effective_from}
+                                onChange={(e) => setQuickAssignForm({ ...quickAssignForm, effective_from: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setShowQuickAssignDialog(false); setQuickAssignEmployee(null); }}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleQuickAssign}
+                            disabled={assignMutation.isPending || !quickAssignForm.work_schedule_id || !quickAssignForm.effective_from}
+                        >
+                            {assignMutation.isPending ? 'Assigning...' : 'Assign Schedule'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Edit Assignment Dialog */}
             <Dialog open={showEditDialog} onOpenChange={() => { setShowEditDialog(false); setEditTarget(null); }}>
@@ -365,7 +605,7 @@ export default function ScheduleAssignments() {
                         <Button variant="outline" onClick={() => { setShowEditDialog(false); setEditTarget(null); }}>
                             Cancel
                         </Button>
-                        <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
+                        <Button onClick={handleSaveEdit} disabled={updateMutation.isPending || !editForm.work_schedule_id || !editForm.effective_from}>
                             {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
                         </Button>
                     </DialogFooter>
@@ -406,26 +646,104 @@ export default function ScheduleAssignments() {
                             />
                         </div>
                         <div>
-                            <Label className="mb-2 block">
-                                Select Employees ({bulkForm.employee_ids.length} selected)
-                            </Label>
-                            <div className="max-h-60 space-y-1 overflow-y-auto rounded-lg border border-zinc-200 p-2">
-                                {employees.length === 0 ? (
-                                    <p className="py-4 text-center text-sm text-zinc-400">No employees found</p>
+                            <div className="mb-2 flex items-center justify-between">
+                                <Label>
+                                    Select Employees
+                                    {bulkForm.employee_ids.length > 0 && (
+                                        <span className="ml-2 inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                                            {bulkForm.employee_ids.length} selected
+                                        </span>
+                                    )}
+                                </Label>
+                                {filteredBulkEmployees.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={toggleAllEmployees}
+                                        className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+                                    >
+                                        {filteredBulkEmployees.every((e) => bulkForm.employee_ids.includes(e.id))
+                                            ? 'Deselect All'
+                                            : 'Select All'}
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Search */}
+                            <div className="relative mb-2">
+                                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search employees or departments..."
+                                    value={bulkSearch}
+                                    onChange={(e) => setBulkSearch(e.target.value)}
+                                    className="w-full rounded-md border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-300"
+                                />
+                            </div>
+
+                            <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-200">
+                                {filteredBulkEmployees.length === 0 ? (
+                                    <p className="py-6 text-center text-sm text-zinc-400">No employees found</p>
                                 ) : (
-                                    employees.map((emp) => (
-                                        <label
-                                            key={emp.id}
-                                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-zinc-50"
-                                        >
-                                            <Checkbox
-                                                checked={bulkForm.employee_ids.includes(emp.id)}
-                                                onCheckedChange={() => toggleBulkEmployee(emp.id)}
-                                            />
-                                            <span className="text-sm text-zinc-900">{emp.full_name}</span>
-                                            <span className="text-xs text-zinc-400">{emp.department?.name}</span>
-                                        </label>
-                                    ))
+                                    deptNames.map((dept) => {
+                                        const deptEmps = employeesByDept[dept];
+                                        const selState = getDeptSelectionState(dept);
+                                        const isCollapsed = collapsedDepts[dept];
+                                        return (
+                                            <div key={dept}>
+                                                {/* Department header */}
+                                                <div className="flex items-center gap-2 border-b border-zinc-100 bg-zinc-50 px-3 py-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleDeptCollapse(dept)}
+                                                        className="flex items-center gap-1 text-zinc-500 hover:text-zinc-700 transition-colors"
+                                                    >
+                                                        {isCollapsed
+                                                            ? <ChevronRight className="h-3.5 w-3.5" />
+                                                            : <ChevronDown className="h-3.5 w-3.5" />}
+                                                    </button>
+                                                    <Checkbox
+                                                        checked={selState === 'all'}
+                                                        ref={(el) => {
+                                                            if (el) el.indeterminate = selState === 'partial';
+                                                        }}
+                                                        onCheckedChange={() => toggleDeptEmployees(dept)}
+                                                        className="h-3.5 w-3.5"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleDeptCollapse(dept)}
+                                                        className="flex flex-1 items-center justify-between"
+                                                    >
+                                                        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                                                            {dept}
+                                                        </span>
+                                                        <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs text-zinc-500">
+                                                            {deptEmps.filter((e) => bulkForm.employee_ids.includes(e.id)).length}/{deptEmps.length}
+                                                        </span>
+                                                    </button>
+                                                </div>
+
+                                                {/* Employees in dept */}
+                                                {!isCollapsed && deptEmps.map((emp) => (
+                                                    <label
+                                                        key={emp.id}
+                                                        className="flex cursor-pointer items-center gap-2.5 border-b border-zinc-50 px-4 py-2 last:border-0 hover:bg-zinc-50 transition-colors"
+                                                    >
+                                                        <Checkbox
+                                                            checked={bulkForm.employee_ids.includes(emp.id)}
+                                                            onCheckedChange={() => toggleBulkEmployee(emp.id)}
+                                                        />
+                                                        <div className="flex flex-1 items-center justify-between">
+                                                            <span className="text-sm text-zinc-900">{emp.full_name}</span>
+                                                            {emp.position?.name && (
+                                                                <span className="text-xs text-zinc-400">{emp.position?.name}</span>
+                                                            )}
+                                                        </div>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>
@@ -436,7 +754,7 @@ export default function ScheduleAssignments() {
                         </Button>
                         <Button
                             onClick={handleBulkAssign}
-                            disabled={assignMutation.isPending || !bulkForm.work_schedule_id || bulkForm.employee_ids.length === 0}
+                            disabled={assignMutation.isPending || !bulkForm.work_schedule_id || !bulkForm.effective_from || bulkForm.employee_ids.length === 0}
                         >
                             {assignMutation.isPending ? 'Assigning...' : `Assign to ${bulkForm.employee_ids.length} Employees`}
                         </Button>

@@ -129,13 +129,13 @@ export default function ExitPermissionNotifiers() {
 
     function handleSave() {
         addMutation.mutate({
-            department_id: form.department_id || null,
+            department_id: form.department_id,
             employee_id: form.employee_id,
         });
     }
 
     const isSaving = addMutation.isPending;
-    const canSave = !!form.employee_id;
+    const canSave = !!form.department_id && !!form.employee_id;
 
     return (
         <div className="space-y-6">
@@ -226,16 +226,15 @@ export default function ExitPermissionNotifiers() {
                     </DialogHeader>
                     <div className="space-y-4">
                         <div>
-                            <Label className="mb-1 block">Filter by Department (optional)</Label>
+                            <Label className="mb-1 block">Department</Label>
                             <Select
                                 value={form.department_id}
                                 onValueChange={handleDepartmentChange}
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="All departments" />
+                                    <SelectValue placeholder="Select department" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">All departments</SelectItem>
                                     {departments.map((dept) => (
                                         <SelectItem key={dept.id} value={String(dept.id)}>
                                             {dept.name}
@@ -258,7 +257,7 @@ export default function ExitPermissionNotifiers() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {filteredEmployees.length === 0 ? (
-                                        <SelectItem value="" disabled>
+                                        <SelectItem value="_none" disabled>
                                             No employees found
                                         </SelectItem>
                                     ) : (

@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Download,
     Eye,
-    ThumbsUp,
-    ThumbsDown,
+    CheckCircle2,
+    XCircle,
     ChevronLeft,
     ChevronRight,
     Loader2,
@@ -379,7 +379,7 @@ export default function ClaimRequests() {
                                                                     className="text-emerald-600 hover:text-emerald-700"
                                                                     onClick={() => handleAction('approve', request)}
                                                                 >
-                                                                    <ThumbsUp className="h-4 w-4" />
+                                                                    <CheckCircle2 className="h-4 w-4" />
                                                                 </Button>
                                                                 <Button
                                                                     variant="ghost"
@@ -387,7 +387,7 @@ export default function ClaimRequests() {
                                                                     className="text-red-600 hover:text-red-700"
                                                                     onClick={() => handleAction('reject', request)}
                                                                 >
-                                                                    <ThumbsDown className="h-4 w-4" />
+                                                                    <XCircle className="h-4 w-4" />
                                                                 </Button>
                                                             </>
                                                         )}

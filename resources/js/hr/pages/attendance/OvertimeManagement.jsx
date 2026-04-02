@@ -43,6 +43,8 @@ import {
     approveOvertime,
     rejectOvertime,
     completeOvertime,
+    approveOvertimeClaim,
+    rejectOvertimeClaim,
 } from '../../lib/api';
 
 const STATUS_CONFIG = {
@@ -114,6 +116,8 @@ export default function OvertimeManagement() {
     const [rejectReason, setRejectReason] = useState('');
     const [completeTarget, setCompleteTarget] = useState(null);
     const [actualHours, setActualHours] = useState('');
+    const [claimRejectTarget, setClaimRejectTarget] = useState(null);
+    const [claimRejectReason, setClaimRejectReason] = useState('');
 
     const { data, isLoading } = useQuery({
         queryKey: ['hr', 'attendance', 'overtime', activeTab],
@@ -150,6 +154,24 @@ export default function OvertimeManagement() {
             setCompleteTarget(null);
             setActualHours('');
         },
+    });
+
+    const claimApproveMutation = useMutation({
+        mutationFn: approveOvertimeClaim,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'overtime-claims'] });
+        },
+        onError: (error) => alert(error?.response?.data?.message || 'Failed to approve claim'),
+    });
+
+    const claimRejectMutation = useMutation({
+        mutationFn: ({ id, rejection_reason }) => rejectOvertimeClaim(id, { rejection_reason }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'overtime-claims'] });
+            setClaimRejectTarget(null);
+            setClaimRejectReason('');
+        },
+        onError: (error) => alert(error?.response?.data?.message || 'Failed to reject claim'),
     });
 
     const requests = data?.data || [];
@@ -240,6 +262,7 @@ export default function OvertimeManagement() {
                                         <TableHead>Start Time</TableHead>
                                         <TableHead>Duration</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead className="w-28">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -266,6 +289,29 @@ export default function OvertimeManagement() {
                                             </TableCell>
                                             <TableCell>
                                                 <OTStatusBadge status={claim.status} />
+                                            </TableCell>
+                                            <TableCell>
+                                                {claim.status === 'pending' && (
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => claimApproveMutation.mutate(claim.id)}
+                                                            disabled={claimApproveMutation.isPending}
+                                                            className="text-emerald-600 hover:text-emerald-700"
+                                                        >
+                                                            <CheckCircle className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => { setClaimRejectTarget(claim); setClaimRejectReason(''); }}
+                                                            className="text-red-500 hover:text-red-700"
+                                                        >
+                                                            <XCircle className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -314,7 +360,6 @@ export default function OvertimeManagement() {
                                             <TableHead>Actual Hours</TableHead>
                                             <TableHead>Reason</TableHead>
                                             <TableHead>Status</TableHead>
-                                            <TableHead>Replacement Hours</TableHead>
                                             <TableHead className="w-32">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -332,7 +377,7 @@ export default function OvertimeManagement() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-sm text-zinc-900">
-                                                    {formatDate(request.date)}
+                                                    {formatDate(request.requested_date)}
                                                 </TableCell>
                                                 <TableCell className="text-sm text-zinc-600">
                                                     {formatHours(request.planned_hours)}
@@ -347,9 +392,6 @@ export default function OvertimeManagement() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <OTStatusBadge status={request.status} />
-                                                </TableCell>
-                                                <TableCell className="text-sm text-zinc-600">
-                                                    {request.replacement_hours ? formatHours(request.replacement_hours) : '-'}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-1">
@@ -410,7 +452,7 @@ export default function OvertimeManagement() {
                     <DialogHeader>
                         <DialogTitle>Overtime Request Details</DialogTitle>
                         <DialogDescription>
-                            {viewTarget?.employee?.full_name} — {formatDate(viewTarget?.date)}
+                            {viewTarget?.employee?.full_name} — {formatDate(viewTarget?.requested_date)}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -430,7 +472,7 @@ export default function OvertimeManagement() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Date</p>
-                                <p className="mt-0.5 text-sm text-zinc-900">{formatDate(viewTarget?.date)}</p>
+                                <p className="mt-0.5 text-sm text-zinc-900">{formatDate(viewTarget?.requested_date)}</p>
                             </div>
                             <div>
                                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Start Time</p>
@@ -501,7 +543,7 @@ export default function OvertimeManagement() {
                     <DialogHeader>
                         <DialogTitle>Reject Overtime Request</DialogTitle>
                         <DialogDescription>
-                            Reject overtime request for {rejectTarget?.employee?.full_name} on {formatDate(rejectTarget?.date)}
+                            Reject overtime request for {rejectTarget?.employee?.full_name} on {formatDate(rejectTarget?.requested_date)}
                         </DialogDescription>
                     </DialogHeader>
                     <div>
@@ -528,13 +570,46 @@ export default function OvertimeManagement() {
                 </DialogContent>
             </Dialog>
 
+            {/* Claim Reject Dialog */}
+            <Dialog open={!!claimRejectTarget} onOpenChange={() => setClaimRejectTarget(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reject OT Claim</DialogTitle>
+                        <DialogDescription>
+                            Reject OT claim for {claimRejectTarget?.employee?.full_name} on {formatDate(claimRejectTarget?.claim_date)}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div>
+                        <Label>Reason for Rejection</Label>
+                        <Textarea
+                            value={claimRejectReason}
+                            onChange={(e) => setClaimRejectReason(e.target.value)}
+                            placeholder="Provide a reason for rejection..."
+                            rows={3}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setClaimRejectTarget(null)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => claimRejectMutation.mutate({ id: claimRejectTarget.id, rejection_reason: claimRejectReason })}
+                            disabled={claimRejectMutation.isPending || !claimRejectReason}
+                        >
+                            {claimRejectMutation.isPending ? 'Rejecting...' : 'Reject'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Complete Dialog */}
             <Dialog open={!!completeTarget} onOpenChange={() => setCompleteTarget(null)}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Complete Overtime</DialogTitle>
                         <DialogDescription>
-                            Record actual hours for {completeTarget?.employee?.full_name} on {formatDate(completeTarget?.date)}
+                            Record actual hours for {completeTarget?.employee?.full_name} on {formatDate(completeTarget?.requested_date)}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">

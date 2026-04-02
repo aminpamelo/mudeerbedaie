@@ -70,11 +70,13 @@ class ResignationRequest extends Model
 
     public static function calculateNoticePeriod(Employee $employee): int
     {
-        if ($employee->employment_type === 'probation') {
+        $employeeTypes = is_array($employee->employment_type) ? $employee->employment_type : [$employee->employment_type];
+
+        if (in_array('probation', $employeeTypes)) {
             return 14;
         }
 
-        if (in_array($employee->employment_type, ['contract', 'intern'])) {
+        if (count(array_intersect($employeeTypes, ['contract', 'intern'])) > 0) {
             return 30;
         }
 

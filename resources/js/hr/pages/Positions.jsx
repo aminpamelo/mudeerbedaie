@@ -83,6 +83,9 @@ function ExpandedEmployees({ position }) {
             setSelectedEmployeeIds([]);
             setEmployeeSearch('');
         },
+        onError: (error) => {
+            alert(error?.response?.data?.message || 'Failed to assign employees.');
+        },
     });
 
     const removeMutation = useMutation({
@@ -91,6 +94,9 @@ function ExpandedEmployees({ position }) {
             queryClient.invalidateQueries({ queryKey: ['hr', 'positions'] });
             queryClient.invalidateQueries({ queryKey: ['hr', 'positions', position.id, 'employees'] });
             setRemoveTarget(null);
+        },
+        onError: (error) => {
+            alert(error?.response?.data?.message || 'Failed to remove employee from position.');
         },
     });
 
@@ -770,7 +776,7 @@ export default function Positions() {
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={isSaving}>
+                            <Button type="submit" disabled={!formData.title || !formData.department_id || !formData.level || isSaving}>
                                 {isSaving && (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 )}

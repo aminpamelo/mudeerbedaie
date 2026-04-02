@@ -73,6 +73,7 @@ export default function MyEmploymentInfo() {
             queryClient.invalidateQueries({ queryKey: ['my-profile'] });
             setEditingBank(false);
         },
+        onError: () => {},
     });
 
     const startEditBank = () => {
@@ -199,7 +200,7 @@ export default function MyEmploymentInfo() {
                             <div className="flex items-center gap-2 pt-1">
                                 <button
                                     onClick={saveBank}
-                                    disabled={bankMutation.isPending}
+                                    disabled={bankMutation.isPending || !bankName.trim()}
                                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                                 >
                                     {bankMutation.isPending ? (

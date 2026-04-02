@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,7 +11,7 @@ import {
     Trash2,
     Download,
 } from 'lucide-react';
-import { getMyExitPermissions, cancelMyExitPermission, getExitPermissionPdfUrl } from '../../lib/api';
+import { getMyExitPermissions, cancelMyExitPermission, downloadExitPermissionPdf } from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -40,15 +41,39 @@ const ERRAND_CONFIG = {
 };
 
 // ========== MAIN COMPONENT ==========
+function downloadBlob(blob, filename) {
+    const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+}
+
 export default function MyExitPermissions() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const [downloadingId, setDownloadingId] = useState(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ['my-exit-permissions'],
         queryFn: () => getMyExitPermissions(),
     });
-    const permissions = data?.data ?? [];
+    const permissions = data?.data?.data ?? [];
+
+    async function handleDownloadPdf(permission) {
+        setDownloadingId(permission.id);
+        try {
+            const blob = await downloadExitPermissionPdf(permission.id);
+            downloadBlob(blob, `${permission.permission_number ?? `EP-${permission.id}`}.pdf`);
+        } catch (e) {
+            console.error('PDF download failed', e);
+        } finally {
+            setDownloadingId(null);
+        }
+    }
 
     const cancelMut = useMutation({
         mutationFn: cancelMyExitPermission,
@@ -124,15 +149,17 @@ export default function MyExitPermissions() {
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0 ml-2">
                                             {permission.status === 'approved' && (
-                                                <a
-                                                    href={getExitPermissionPdfUrl(permission.id)}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center justify-center h-7 w-7 rounded text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors"
+                                                <button
+                                                    onClick={() => handleDownloadPdf(permission)}
+                                                    disabled={downloadingId === permission.id}
+                                                    className="inline-flex items-center justify-center h-7 w-7 rounded text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors disabled:opacity-50"
                                                     title="Download PDF"
                                                 >
-                                                    <Download className="h-3.5 w-3.5" />
-                                                </a>
+                                                    {downloadingId === permission.id
+                                                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                        : <Download className="h-3.5 w-3.5" />
+                                                    }
+                                                </button>
                                             )}
                                             {permission.status === 'pending' && (
                                                 <Button

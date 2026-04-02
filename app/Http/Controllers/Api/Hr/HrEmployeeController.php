@@ -43,7 +43,7 @@ class HrEmployeeController extends Controller
         }
 
         if ($employmentType = $request->get('employment_type')) {
-            $query->where('employment_type', $employmentType);
+            $query->where('employment_type', 'like', "%\"{$employmentType}\"%");
         }
 
         $sortBy = $request->get('sort_by', 'full_name');
@@ -231,8 +231,8 @@ class HrEmployeeController extends Controller
                     'employee_id' => $employee->id,
                     'change_type' => $changeTypeMap[$field],
                     'field_name' => $field,
-                    'old_value' => (string) $employee->{$field},
-                    'new_value' => (string) $validated[$field],
+                    'old_value' => is_array($employee->{$field}) ? implode(',', $employee->{$field}) : (string) $employee->{$field},
+                    'new_value' => is_array($validated[$field]) ? implode(',', $validated[$field]) : (string) $validated[$field],
                     'effective_date' => now(),
                     'remarks' => "Updated {$field}",
                     'changed_by' => $request->user()->id,
@@ -370,7 +370,7 @@ class HrEmployeeController extends Controller
                     $employee->full_name,
                     $employee->department?->name,
                     $employee->position?->title,
-                    $employee->employment_type,
+                    $employee->employment_type_label,
                     $employee->status,
                     $employee->join_date?->format('Y-m-d'),
                     $employee->phone,

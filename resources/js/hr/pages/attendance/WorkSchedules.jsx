@@ -100,6 +100,7 @@ export default function WorkSchedules() {
     const [editingSchedule, setEditingSchedule] = useState(null);
     const [form, setForm] = useState({ ...EMPTY_FORM });
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [formErrors, setFormErrors] = useState({});
 
     const { data, isLoading } = useQuery({
         queryKey: ['hr', 'attendance', 'schedules'],
@@ -112,6 +113,7 @@ export default function WorkSchedules() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'schedules'] });
             closeDialog();
         },
+        onError: (err) => setFormErrors(err?.response?.data?.errors || {}),
     });
 
     const updateMutation = useMutation({
@@ -120,6 +122,7 @@ export default function WorkSchedules() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'schedules'] });
             closeDialog();
         },
+        onError: (err) => setFormErrors(err?.response?.data?.errors || {}),
     });
 
     const deleteMutation = useMutation({
@@ -128,6 +131,7 @@ export default function WorkSchedules() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'schedules'] });
             setDeleteTarget(null);
         },
+        onError: (error) => alert(error?.response?.data?.message || 'Failed to delete schedule'),
     });
 
     const schedules = data?.data || [];
@@ -161,6 +165,7 @@ export default function WorkSchedules() {
         setShowDialog(false);
         setEditingSchedule(null);
         setForm({ ...EMPTY_FORM });
+        setFormErrors({});
     }
 
     function buildPayload(formData) {
@@ -449,7 +454,7 @@ export default function WorkSchedules() {
                         <Button variant="outline" onClick={closeDialog}>
                             Cancel
                         </Button>
-                        <Button onClick={handleSave} disabled={isSaving || !form.name}>
+                        <Button onClick={handleSave} disabled={isSaving || !form.name || !form.type || !form.start_time || !form.end_time}>
                             {isSaving ? 'Saving...' : editingSchedule ? 'Update Schedule' : 'Create Schedule'}
                         </Button>
                     </DialogFooter>

@@ -7,6 +7,7 @@ import {
     Building2,
     Shield,
     Users,
+    Search,
 } from 'lucide-react';
 import {
     Card,
@@ -36,6 +37,7 @@ import {
     SelectValue,
 } from '../../components/ui/select';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Checkbox } from '../../components/ui/checkbox';
@@ -182,27 +184,47 @@ export default function DepartmentApprovers() {
     const isSaving = createMutation.isPending || updateMutation.isPending;
 
     function ApproverSelector({ label, field }) {
+        const [search, setSearch] = useState('');
+        const filtered = employees.filter((emp) => {
+            const q = search.toLowerCase();
+            return (
+                emp.full_name?.toLowerCase().includes(q) ||
+                emp.department?.name?.toLowerCase().includes(q)
+            );
+        });
+
         return (
             <div>
                 <Label className="mb-2 block">{label} ({form[field].length} selected)</Label>
-                <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-zinc-200 p-2">
-                    {employees.length === 0 ? (
-                        <p className="py-3 text-center text-sm text-zinc-400">No employees found</p>
-                    ) : (
-                        employees.map((emp) => (
-                            <label
-                                key={emp.id}
-                                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-zinc-50"
-                            >
-                                <Checkbox
-                                    checked={form[field].includes(emp.id)}
-                                    onCheckedChange={() => toggleApprover(field, emp.id)}
-                                />
-                                <span className="text-sm text-zinc-900">{emp.full_name}</span>
-                                <span className="text-xs text-zinc-400">{emp.department?.name}</span>
-                            </label>
-                        ))
-                    )}
+                <div className="rounded-lg border border-zinc-200">
+                    <div className="relative border-b border-zinc-100 px-2 py-1.5">
+                        <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+                        <Input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search employee..."
+                            className="h-7 border-0 pl-7 text-xs shadow-none focus-visible:ring-0"
+                        />
+                    </div>
+                    <div className="max-h-36 space-y-1 overflow-y-auto p-2">
+                        {filtered.length === 0 ? (
+                            <p className="py-3 text-center text-sm text-zinc-400">No employees found</p>
+                        ) : (
+                            filtered.map((emp) => (
+                                <label
+                                    key={emp.id}
+                                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-zinc-50"
+                                >
+                                    <Checkbox
+                                        checked={form[field].includes(emp.id)}
+                                        onCheckedChange={() => toggleApprover(field, emp.id)}
+                                    />
+                                    <span className="text-sm text-zinc-900">{emp.full_name}</span>
+                                    <span className="text-xs text-zinc-400">{emp.department?.name}</span>
+                                </label>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
         );

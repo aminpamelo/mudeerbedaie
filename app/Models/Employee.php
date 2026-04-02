@@ -77,6 +77,7 @@ class Employee extends Model
             'contract_end_date' => 'date',
             'resignation_date' => 'date',
             'last_working_date' => 'date',
+            'employment_type' => 'array',
         ];
     }
 
@@ -404,14 +405,18 @@ class Employee extends Model
      */
     public function getEmploymentTypeLabelAttribute(): string
     {
-        return match ($this->employment_type) {
+        $map = [
             'full_time' => 'Full Time',
             'part_time' => 'Part Time',
             'contract' => 'Contract',
             'intern' => 'Intern',
+            'internship' => 'Internship',
             'freelancer' => 'Freelancer',
-            default => ucfirst($this->employment_type ?? ''),
-        };
+        ];
+
+        $types = is_array($this->employment_type) ? $this->employment_type : [$this->employment_type];
+
+        return implode(', ', array_map(fn ($t) => $map[$t] ?? ucfirst((string) $t), array_filter($types)));
     }
 
     /**

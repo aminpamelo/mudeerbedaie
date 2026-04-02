@@ -102,7 +102,7 @@ function ContactForm({ contact, onSave, onCancel, isPending, error }) {
                     <Button
                         size="sm"
                         onClick={() => onSave(formData)}
-                        disabled={isPending}
+                        disabled={isPending || !formData.name.trim() || !formData.relationship.trim() || !formData.phone.trim()}
                     >
                         {isPending ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -161,6 +161,9 @@ export default function MyEmergencyContacts() {
         mutationFn: deleteMyEmergencyContact,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my-emergency-contacts'] });
+        },
+        onError: (error) => {
+            alert(error?.response?.data?.message || 'Failed to delete emergency contact.');
         },
     });
 

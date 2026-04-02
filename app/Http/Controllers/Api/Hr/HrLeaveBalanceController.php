@@ -129,7 +129,8 @@ class HrLeaveBalanceController extends Controller
                     $matchingEntitlement = $entitlements
                         ->where('leave_type_id', $leaveType->id)
                         ->filter(function ($ent) use ($employee, $serviceMonths) {
-                            $typeMatch = $ent->employment_type === 'all' || $ent->employment_type === $employee->employment_type;
+                            $employeeTypes = is_array($employee->employment_type) ? $employee->employment_type : [$employee->employment_type];
+                            $typeMatch = $ent->employment_type === 'all' || in_array($ent->employment_type, $employeeTypes);
                             $minMatch = $serviceMonths >= $ent->min_service_months;
                             $maxMatch = $ent->max_service_months === null || $serviceMonths <= $ent->max_service_months;
 

@@ -113,12 +113,18 @@ export default function LeaveTypes() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'leave', 'types'] });
             setDeleteDialog({ open: false, leaveType: null });
         },
+        onError: (error) => {
+            alert(error?.response?.data?.message || 'Failed to delete leave type.');
+        },
     });
 
     const toggleActiveMutation = useMutation({
         mutationFn: ({ id, isActive }) => updateLeaveType(id, { is_active: isActive }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'leave', 'types'] });
+        },
+        onError: (error) => {
+            alert(error?.response?.data?.message || 'Failed to update leave type status.');
         },
     });
 
@@ -409,7 +415,7 @@ export default function LeaveTypes() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={closeFormDialog}>Cancel</Button>
-                        <Button onClick={handleSubmit} disabled={!form.name || isSaving}>
+                        <Button onClick={handleSubmit} disabled={!form.name || !form.code || isSaving}>
                             {isSaving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                             {formDialog.mode === 'create' ? 'Create' : 'Save Changes'}
                         </Button>

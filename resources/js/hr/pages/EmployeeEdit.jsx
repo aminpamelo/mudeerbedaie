@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, AlertCircle } from 'lucide-react';
 import {
     fetchEmployee,
     updateEmployee,
@@ -67,30 +67,63 @@ const MALAYSIAN_BANKS = [
     'BSN (Bank Simpanan Nasional)',
 ];
 
-const GENDER_OPTIONS = ['Male', 'Female'];
+const GENDER_OPTIONS = [
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+];
 
-const RELIGION_OPTIONS = ['Islam', 'Christianity', 'Buddhism', 'Hinduism', 'Sikhism', 'Other'];
+const RELIGION_OPTIONS = [
+    { value: 'islam', label: 'Islam' },
+    { value: 'christian', label: 'Christianity' },
+    { value: 'buddhist', label: 'Buddhism' },
+    { value: 'hindu', label: 'Hinduism' },
+    { value: 'sikh', label: 'Sikhism' },
+    { value: 'other', label: 'Other' },
+];
 
-const RACE_OPTIONS = ['Malay', 'Chinese', 'Indian', 'Bumiputera Sabah', 'Bumiputera Sarawak', 'Other'];
+const RACE_OPTIONS = [
+    { value: 'malay', label: 'Malay' },
+    { value: 'chinese', label: 'Chinese' },
+    { value: 'indian', label: 'Indian' },
+    { value: 'other', label: 'Other' },
+];
 
-const MARITAL_OPTIONS = ['Single', 'Married', 'Divorced', 'Widowed'];
+const MARITAL_OPTIONS = [
+    { value: 'single', label: 'Single' },
+    { value: 'married', label: 'Married' },
+    { value: 'divorced', label: 'Divorced' },
+    { value: 'widowed', label: 'Widowed' },
+];
 
 const EMPLOYMENT_TYPES = [
     { value: 'full_time', label: 'Full Time' },
     { value: 'part_time', label: 'Part Time' },
     { value: 'contract', label: 'Contract' },
-    { value: 'internship', label: 'Internship' },
+    { value: 'intern', label: 'Intern' },
     { value: 'freelancer', label: 'Freelancer' },
 ];
 
 // Fields that require effective date and remarks when changed
 const TRACKED_FIELDS = ['department_id', 'position_id', 'status', 'employment_type'];
 
+// Maps each field name to its tab id so we can auto-navigate on error
+const FIELD_TAB_MAP = {
+    full_name: 'personal', ic_number: 'personal',
+    date_of_birth: 'personal', gender: 'personal', religion: 'personal',
+    race: 'personal', marital_status: 'personal', phone: 'personal',
+    personal_email: 'personal', address_line_1: 'personal', address_line_2: 'personal',
+    postcode: 'personal', city: 'personal', state: 'personal',
+    department_id: 'employment', position_id: 'employment', reports_to: 'employment',
+    employment_type: 'employment', join_date: 'employment', probation_end_date: 'employment',
+    contract_end_date: 'employment', notes: 'employment',
+    bank_name: 'bank', bank_account_number: 'bank', epf_number: 'bank',
+    socso_number: 'bank', tax_number: 'bank',
+};
+
 function getDefaultForm() {
     return {
         // Personal
-        first_name: '',
-        last_name: '',
+        full_name: '',
         ic_number: '',
         date_of_birth: '',
         gender: '',
@@ -108,7 +141,7 @@ function getDefaultForm() {
         department_id: '',
         position_id: '',
         reports_to: '',
-        employment_type: '',
+        employment_type: [],
         join_date: '',
         probation_end_date: '',
         contract_end_date: '',
@@ -129,6 +162,7 @@ export default function EmployeeEdit() {
 
     const [activeTab, setActiveTab] = useState('personal');
     const [form, setForm] = useState(getDefaultForm);
+    const [formReady, setFormReady] = useState(false);
     const [originalValues, setOriginalValues] = useState({});
     const [trackedChanges, setTrackedChanges] = useState({});
     const [errors, setErrors] = useState({});
@@ -180,8 +214,7 @@ export default function EmployeeEdit() {
         if (!emp?.id) return;
 
         const values = {
-            first_name: emp.first_name || '',
-            last_name: emp.last_name || '',
+            full_name: emp.full_name || '',
             ic_number: emp.ic_number || '',
             date_of_birth: emp.date_of_birth || '',
             gender: emp.gender || '',
@@ -198,7 +231,11 @@ export default function EmployeeEdit() {
             department_id: emp.department_id ? String(emp.department_id) : '',
             position_id: emp.position_id ? String(emp.position_id) : '',
             reports_to: emp.reports_to ? String(emp.reports_to) : '',
-            employment_type: emp.employment_type || '',
+            employment_type: Array.isArray(emp.employment_type)
+                ? emp.employment_type
+                : emp.employment_type
+                    ? [emp.employment_type]
+                    : [],
             join_date: emp.join_date || '',
             probation_end_date: emp.probation_end_date || '',
             contract_end_date: emp.contract_end_date || '',
@@ -212,7 +249,10 @@ export default function EmployeeEdit() {
         setForm(values);
         setOriginalValues(values);
         setTrackedChanges({});
+        setFormReady(true);
     }, [employee]);
+
+    const [errorBanner, setErrorBanner] = useState(null);
 
     // Mutation
     const mutation = useMutation({
@@ -223,8 +263,28 @@ export default function EmployeeEdit() {
             navigate(`/employees/${id}`);
         },
         onError: (error) => {
-            if (error.response?.data?.errors) {
-                setErrors(error.response.data.errors);
+            const fieldErrors = error.response?.data?.errors || {};
+            setErrors(fieldErrors);
+
+            // Find which tab has the first error and switch to it
+            const errorFields = Object.keys(fieldErrors);
+            if (errorFields.length > 0) {
+                const firstTab = FIELD_TAB_MAP[errorFields[0]];
+                if (firstTab) setActiveTab(firstTab);
+
+                // Count errors per tab for the banner message
+                const tabCounts = {};
+                errorFields.forEach((f) => {
+                    const t = FIELD_TAB_MAP[f] || 'personal';
+                    tabCounts[t] = (tabCounts[t] || 0) + 1;
+                });
+                const tabLabels = { personal: 'Personal Info', employment: 'Employment', bank: 'Bank & Statutory' };
+                const summary = Object.entries(tabCounts)
+                    .map(([t, n]) => `${n} in ${tabLabels[t]}`)
+                    .join(', ');
+                setErrorBanner(`Please fix ${errorFields.length} validation error${errorFields.length > 1 ? 's' : ''} (${summary}).`);
+            } else {
+                setErrorBanner(error.response?.data?.message || 'Failed to save. Please try again.');
             }
         },
     });
@@ -233,7 +293,11 @@ export default function EmployeeEdit() {
         setForm((prev) => ({ ...prev, [field]: value }));
 
         // Track changes for monitored fields
-        if (TRACKED_FIELDS.includes(field) && value !== originalValues[field]) {
+        const isSameAsOriginal = Array.isArray(value) && Array.isArray(originalValues[field])
+            ? JSON.stringify([...value].sort()) === JSON.stringify([...originalValues[field]].sort())
+            : value === originalValues[field];
+
+        if (TRACKED_FIELDS.includes(field) && !isSameAsOriginal) {
             setTrackedChanges((prev) => ({
                 ...prev,
                 [field]: {
@@ -241,7 +305,7 @@ export default function EmployeeEdit() {
                     remarks: prev[field]?.remarks || '',
                 },
             }));
-        } else if (TRACKED_FIELDS.includes(field) && value === originalValues[field]) {
+        } else if (TRACKED_FIELDS.includes(field) && isSameAsOriginal) {
             setTrackedChanges((prev) => {
                 const next = { ...prev };
                 delete next[field];
@@ -254,6 +318,8 @@ export default function EmployeeEdit() {
             setErrors((prev) => {
                 const next = { ...prev };
                 delete next[field];
+                // Clear banner if no errors remain
+                if (Object.keys(next).length === 0) setErrorBanner(null);
                 return next;
             });
         }
@@ -284,13 +350,18 @@ export default function EmployeeEdit() {
             }
         }
 
+        // Keep employment_type as array (don't null it)
+        if (payload.employment_type === null) {
+            payload.employment_type = [];
+        }
+
         mutation.mutate(payload);
     }
 
     const emp = employee?.data || employee || {};
-    const fullName = [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.name || '';
+    const fullName = emp.full_name || emp.name || '';
 
-    if (isLoading) {
+    if (isLoading || !formReady) {
         return (
             <div className="flex items-center justify-center py-20">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900" />
@@ -340,23 +411,48 @@ export default function EmployeeEdit() {
             {/* Tabs */}
             <div className="border-b border-zinc-200">
                 <nav className="-mb-px flex gap-4" aria-label="Tabs">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setActiveTab(tab.id)}
-                            className={cn(
-                                'whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition-colors',
-                                activeTab === tab.id
-                                    ? 'border-zinc-900 text-zinc-900'
-                                    : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700'
-                            )}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
+                    {TABS.map((tab) => {
+                        const tabErrorCount = Object.keys(errors).filter(
+                            (f) => (FIELD_TAB_MAP[f] || 'personal') === tab.id
+                        ).length;
+                        return (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => setActiveTab(tab.id)}
+                                className={cn(
+                                    'relative whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition-colors',
+                                    activeTab === tab.id
+                                        ? 'border-zinc-900 text-zinc-900'
+                                        : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700'
+                                )}
+                            >
+                                {tab.label}
+                                {tabErrorCount > 0 && (
+                                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                                        {tabErrorCount}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
                 </nav>
             </div>
+
+            {/* Error Banner */}
+            {errorBanner && (
+                <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                    <span>{errorBanner}</span>
+                    <button
+                        type="button"
+                        onClick={() => setErrorBanner(null)}
+                        className="ml-auto shrink-0 text-red-400 hover:text-red-600"
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit}>
@@ -368,26 +464,21 @@ export default function EmployeeEdit() {
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                                <FormField
-                                    label="First Name"
-                                    error={errors.first_name}
-                                    required
-                                >
-                                    <Input
-                                        value={form.first_name}
-                                        onChange={(e) => setField('first_name', e.target.value)}
-                                    />
-                                </FormField>
-                                <FormField label="Last Name" error={errors.last_name}>
-                                    <Input
-                                        value={form.last_name}
-                                        onChange={(e) => setField('last_name', e.target.value)}
-                                    />
-                                </FormField>
+                                <div className="sm:col-span-2">
+                                    <FormField
+                                        label="Full Name"
+                                        error={errors.full_name}
+                                        required
+                                    >
+                                        <Input
+                                            value={form.full_name}
+                                            onChange={(e) => setField('full_name', e.target.value)}
+                                        />
+                                    </FormField>
+                                </div>
                                 <FormField
                                     label="IC Number"
                                     error={errors.ic_number}
-                                    required
                                 >
                                     <Input
                                         value={form.ic_number}
@@ -415,8 +506,8 @@ export default function EmployeeEdit() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             {GENDER_OPTIONS.map((g) => (
-                                                <SelectItem key={g} value={g}>
-                                                    {g}
+                                                <SelectItem key={g.value} value={g.value}>
+                                                    {g.label}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -432,8 +523,8 @@ export default function EmployeeEdit() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             {RELIGION_OPTIONS.map((r) => (
-                                                <SelectItem key={r} value={r}>
-                                                    {r}
+                                                <SelectItem key={r.value} value={r.value}>
+                                                    {r.label}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -449,8 +540,8 @@ export default function EmployeeEdit() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             {RACE_OPTIONS.map((r) => (
-                                                <SelectItem key={r} value={r}>
-                                                    {r}
+                                                <SelectItem key={r.value} value={r.value}>
+                                                    {r.label}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -466,8 +557,8 @@ export default function EmployeeEdit() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             {MARITAL_OPTIONS.map((m) => (
-                                                <SelectItem key={m} value={m}>
-                                                    {m}
+                                                <SelectItem key={m.value} value={m.value}>
+                                                    {m.label}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -663,23 +754,36 @@ export default function EmployeeEdit() {
                                         label="Employment Type"
                                         error={errors.employment_type}
                                     >
-                                        <Select
-                                            value={form.employment_type}
-                                            onValueChange={(val) =>
-                                                setField('employment_type', val)
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select type" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {EMPLOYMENT_TYPES.map((t) => (
-                                                    <SelectItem key={t.value} value={t.value}>
+                                        <div className="flex flex-wrap gap-2 rounded-lg border border-zinc-200 bg-white p-3">
+                                            {EMPLOYMENT_TYPES.map((t) => {
+                                                const checked = Array.isArray(form.employment_type) && form.employment_type.includes(t.value);
+                                                return (
+                                                    <label
+                                                        key={t.value}
+                                                        className={cn(
+                                                            'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors select-none',
+                                                            checked
+                                                                ? 'border-zinc-900 bg-zinc-900 text-white'
+                                                                : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400'
+                                                        )}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            className="sr-only"
+                                                            checked={checked}
+                                                            onChange={() => {
+                                                                const current = Array.isArray(form.employment_type) ? form.employment_type : [];
+                                                                const next = checked
+                                                                    ? current.filter((v) => v !== t.value)
+                                                                    : [...current, t.value];
+                                                                setField('employment_type', next);
+                                                            }}
+                                                        />
                                                         {t.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
                                     </FormField>
                                     {trackedChanges.employment_type && (
                                         <TrackedChangeFields

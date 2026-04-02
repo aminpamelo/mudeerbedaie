@@ -65,7 +65,7 @@ export default function MyApprovalsExitPermissions() {
         onError: (err) => setActionError(err.response?.data?.message ?? 'Failed to reject.'),
     });
 
-    const requests = data?.data ?? [];
+    const requests = data?.data?.data ?? [];
 
     return (
         <div className="mx-auto max-w-4xl p-4 lg:p-6">

@@ -119,7 +119,7 @@ class HrAttendanceController extends Controller
         $daysInMonth = $startDate->daysInMonth;
 
         $employeeQuery = Employee::query()
-            ->where('status', 'active')
+            ->whereNotIn('status', ['terminated', 'resigned'])
             ->with('department');
 
         if ($departmentId) {

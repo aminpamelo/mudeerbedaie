@@ -11,7 +11,7 @@ class HrExitPermissionNotifierController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = ExitPermissionNotifier::with(['department', 'employee'])
+        $query = ExitPermissionNotifier::with(['department', 'employee.department', 'employee.position'])
             ->orderBy('department_id');
 
         if ($request->filled('department_id')) {
@@ -31,7 +31,7 @@ class HrExitPermissionNotifierController extends Controller
         $notifier = ExitPermissionNotifier::firstOrCreate($validated);
 
         return response()->json([
-            'data' => $notifier->load(['department', 'employee']),
+            'data' => $notifier->load(['department', 'employee.department', 'employee.position']),
             'message' => 'Notifier added.',
         ], 201);
     }

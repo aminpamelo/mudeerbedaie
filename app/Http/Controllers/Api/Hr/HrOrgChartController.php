@@ -22,6 +22,7 @@ class HrOrgChartController extends Controller
             ->whereNotIn('status', ['terminated', 'resigned'])
             ->with([
                 'position:id,title,level',
+                'positions:id,title,level',
                 'department:id,name,code',
             ])
             ->select('id', 'full_name', 'profile_photo', 'position_id', 'department_id', 'employee_id', 'status', 'reports_to')
@@ -86,16 +87,33 @@ class HrOrgChartController extends Controller
                 return strcmp($a->full_name, $b->full_name);
             });
 
+            // Merge primary position with many-to-many positions, deduplicated
+            $allPositions = $node->positions->map(fn ($p) => [
+                'id' => $p->id,
+                'title' => $p->title,
+                'level' => $p->level,
+                'is_primary' => (bool) $p->pivot->is_primary,
+            ])->sortByDesc('is_primary')->values()->all();
+
+            // If no many-to-many positions, fall back to position_id
+            if (empty($allPositions) && $node->position) {
+                $allPositions = [[
+                    'id' => $node->position->id,
+                    'title' => $node->position->title,
+                    'level' => $node->position->level,
+                    'is_primary' => true,
+                ]];
+            }
+
+            $primaryPosition = $allPositions[0] ?? null;
+
             $result[] = [
                 'id' => $node->id,
                 'employee_id' => $node->employee_id,
                 'full_name' => $node->full_name,
                 'profile_photo_url' => $node->profile_photo_url,
-                'position' => $node->position ? [
-                    'id' => $node->position->id,
-                    'title' => $node->position->title,
-                    'level' => $node->position->level,
-                ] : null,
+                'position' => $primaryPosition,
+                'positions' => $allPositions,
                 'department' => $node->department ? [
                     'id' => $node->department->id,
                     'name' => $node->department->name,
@@ -166,7 +184,7 @@ class HrOrgChartController extends Controller
         // Load active employees for each department
         $employeesByDept = Employee::query()
             ->whereNotIn('status', ['terminated', 'resigned'])
-            ->with('position:id,title,level')
+            ->with(['position:id,title,level', 'positions:id,title,level'])
             ->select('id', 'full_name', 'profile_photo', 'position_id', 'department_id', 'employee_id')
             ->orderBy('full_name')
             ->get()
@@ -279,17 +297,33 @@ class HrOrgChartController extends Controller
                     ] : null,
                 ] : null,
                 'employee_count' => $node->employees_count,
-                'employees' => $sortedEmployees->map(fn ($emp) => [
-                    'id' => $emp->id,
-                    'full_name' => $emp->full_name,
-                    'profile_photo_url' => $emp->profile_photo_url,
-                    'employee_id' => $emp->employee_id,
-                    'position' => $emp->position ? [
-                        'title' => $emp->position->title,
-                        'level' => $emp->position->level,
-                    ] : null,
-                    'is_head' => $emp->id === $headId,
-                ])->values()->all(),
+                'employees' => $sortedEmployees->map(function ($emp) use ($headId) {
+                    $allPositions = $emp->positions->map(fn ($p) => [
+                        'id' => $p->id,
+                        'title' => $p->title,
+                        'level' => $p->level,
+                        'is_primary' => (bool) $p->pivot->is_primary,
+                    ])->sortByDesc('is_primary')->values()->all();
+
+                    if (empty($allPositions) && $emp->position) {
+                        $allPositions = [[
+                            'id' => $emp->position->id,
+                            'title' => $emp->position->title,
+                            'level' => $emp->position->level,
+                            'is_primary' => true,
+                        ]];
+                    }
+
+                    return [
+                        'id' => $emp->id,
+                        'full_name' => $emp->full_name,
+                        'profile_photo_url' => $emp->profile_photo_url,
+                        'employee_id' => $emp->employee_id,
+                        'position' => $allPositions[0] ?? null,
+                        'positions' => $allPositions,
+                        'is_head' => $emp->id === $headId,
+                    ];
+                })->values()->all(),
                 'children' => $this->buildDepartmentTree($children, $childrenMap, $employeesByDept),
             ];
         }

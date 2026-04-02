@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Models\AttendanceLog;
 use App\Models\OvertimeClaimRequest;
 use App\Models\OvertimeRequest;
 use Illuminate\Http\JsonResponse;
@@ -135,6 +136,82 @@ class HrOvertimeController extends Controller
         }
 
         return response()->json($query->orderByDesc('claim_date')->paginate(15));
+    }
+
+    /**
+     * Approve an OT claim request (HR admin).
+     */
+    public function approveClaim(Request $request, OvertimeClaimRequest $overtimeClaimRequest): JsonResponse
+    {
+        if ($overtimeClaimRequest->status !== 'pending') {
+            return response()->json(['message' => 'Only pending claims can be approved.'], 422);
+        }
+
+        $overtimeClaimRequest->update([
+            'status' => 'approved',
+            'approved_by' => $request->user()->id,
+            'approved_at' => now(),
+        ]);
+
+        $attendanceLog = AttendanceLog::where('employee_id', $overtimeClaimRequest->employee_id)
+            ->where('date', $overtimeClaimRequest->claim_date)
+            ->first();
+
+        if ($attendanceLog) {
+            $newLateMinutes = max(0, (int) $attendanceLog->late_minutes - $overtimeClaimRequest->duration_minutes);
+            $newStatus = ($newLateMinutes === 0 && $attendanceLog->status === 'late') ? 'present' : $attendanceLog->status;
+
+            $attendanceLog->update([
+                'ot_claim_id' => $overtimeClaimRequest->id,
+                'late_minutes' => $newLateMinutes,
+                'status' => $newStatus,
+            ]);
+
+            $overtimeClaimRequest->update(['attendance_id' => $attendanceLog->id]);
+        }
+
+        $overtimeClaimRequest->load('employee.user');
+        if ($overtimeClaimRequest->employee->user) {
+            $overtimeClaimRequest->employee->user->notify(
+                new \App\Notifications\Hr\OvertimeClaimDecision($overtimeClaimRequest, 'approved')
+            );
+        }
+
+        return response()->json([
+            'data' => $overtimeClaimRequest->fresh(['employee.department']),
+            'message' => 'OT claim approved successfully.',
+        ]);
+    }
+
+    /**
+     * Reject an OT claim request (HR admin).
+     */
+    public function rejectClaim(Request $request, OvertimeClaimRequest $overtimeClaimRequest): JsonResponse
+    {
+        if ($overtimeClaimRequest->status !== 'pending') {
+            return response()->json(['message' => 'Only pending claims can be rejected.'], 422);
+        }
+
+        $validated = $request->validate([
+            'rejection_reason' => ['required', 'string', 'min:5'],
+        ]);
+
+        $overtimeClaimRequest->update([
+            'status' => 'rejected',
+            'rejection_reason' => $validated['rejection_reason'],
+        ]);
+
+        $overtimeClaimRequest->load('employee.user');
+        if ($overtimeClaimRequest->employee->user) {
+            $overtimeClaimRequest->employee->user->notify(
+                new \App\Notifications\Hr\OvertimeClaimDecision($overtimeClaimRequest, 'rejected')
+            );
+        }
+
+        return response()->json([
+            'data' => $overtimeClaimRequest->fresh(['employee.department']),
+            'message' => 'OT claim rejected.',
+        ]);
     }
 
     /**

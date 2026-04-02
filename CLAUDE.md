@@ -182,6 +182,30 @@ password: password
 
 ## Important Development Guidelines
 
+### Migration Compatibility (MySQL + SQLite)
+- **All migrations must work on both MySQL (production) and SQLite (development)**
+- Use `DB::getDriverName()` to branch logic whenever doing column type changes:
+
+```php
+$driver = DB::getDriverName();
+
+if ($driver === 'mysql') {
+    // MySQL: raw ALTER TABLE for column type changes
+    DB::statement('ALTER TABLE table MODIFY column TEXT NULL');
+} else {
+    // SQLite: rename → add new col → copy data → drop old
+    Schema::table('table', fn (Blueprint $t) => $t->renameColumn('column', 'column_old'));
+    Schema::table('table', fn (Blueprint $t) => $t->text('column')->nullable());
+    // migrate data...
+    Schema::table('table', fn (Blueprint $t) => $t->dropColumn('column_old'));
+}
+```
+
+- **Never** use `renameColumn` on an `enum` column on MySQL without this pattern — it requires Doctrine DBAL and may fail
+- **Never** use `$table->change()` to alter an `enum` on SQLite — SQLite does not support column modification
+- Always snapshot existing data before altering a column, then re-encode after the structural change
+- The `down()` method must also use the same dual-driver pattern
+
 ### Flux UI Component Usage
 - **Always use proper Flux UI components** instead of custom HTML for headers and layouts
 - **Header spacing pattern**: Use the following structure for consistent admin page headers:

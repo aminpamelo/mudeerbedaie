@@ -195,6 +195,7 @@ export default function HolidayCalendar() {
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [importYear, setImportYear] = useState(String(currentYear));
     const [form, setForm] = useState({ ...EMPTY_FORM });
+    const [formErrors, setFormErrors] = useState({});
 
     const { data, isLoading } = useQuery({
         queryKey: ['hr', 'attendance', 'holidays', selectedYear],
@@ -207,6 +208,7 @@ export default function HolidayCalendar() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'holidays'] });
             closeDialog();
         },
+        onError: (err) => setFormErrors(err?.response?.data?.errors || {}),
     });
 
     const updateMutation = useMutation({
@@ -215,6 +217,7 @@ export default function HolidayCalendar() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'holidays'] });
             closeDialog();
         },
+        onError: (err) => setFormErrors(err?.response?.data?.errors || {}),
     });
 
     const deleteMutation = useMutation({
@@ -223,6 +226,7 @@ export default function HolidayCalendar() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'holidays'] });
             setDeleteTarget(null);
         },
+        onError: (error) => alert(error?.response?.data?.message || 'Failed to delete holiday'),
     });
 
     const importMutation = useMutation({
@@ -231,6 +235,7 @@ export default function HolidayCalendar() {
             queryClient.invalidateQueries({ queryKey: ['hr', 'attendance', 'holidays'] });
             setShowImportDialog(false);
         },
+        onError: (error) => alert(error?.response?.data?.message || 'Failed to import holidays'),
     });
 
     const holidays = data?.data || [];
@@ -257,6 +262,7 @@ export default function HolidayCalendar() {
         setShowDialog(false);
         setEditTarget(null);
         setForm({ ...EMPTY_FORM });
+        setFormErrors({});
     }
 
     function handleSave() {

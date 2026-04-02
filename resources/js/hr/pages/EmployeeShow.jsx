@@ -357,7 +357,7 @@ export default function EmployeeShow() {
 
     const emp = employee?.data || employee || {};
 
-    const fullName = [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.name || '';
+    const fullName = emp.full_name || [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.name || '';
 
     if (isLoading) {
         return (
@@ -843,6 +843,7 @@ export default function EmployeeShow() {
 
 function PersonalTab({ employee, showIc, setShowIc }) {
     const fullName =
+        employee.full_name ||
         [employee.first_name, employee.last_name].filter(Boolean).join(' ') ||
         employee.name ||
         '';
@@ -893,10 +894,10 @@ function PersonalTab({ employee, showIc, setShowIc }) {
                                 : '-'
                         }
                     />
-                    <InfoRow label="Gender" value={employee.gender} />
-                    <InfoRow label="Religion" value={employee.religion} />
-                    <InfoRow label="Race" value={employee.race} />
-                    <InfoRow label="Marital Status" value={employee.marital_status} />
+                    <InfoRow label="Gender" value={{ male: 'Male', female: 'Female' }[employee.gender] || employee.gender} />
+                    <InfoRow label="Religion" value={{ islam: 'Islam', christian: 'Christianity', buddhist: 'Buddhism', hindu: 'Hinduism', sikh: 'Sikhism', other: 'Other' }[employee.religion] || employee.religion} />
+                    <InfoRow label="Race" value={{ malay: 'Malay', chinese: 'Chinese', indian: 'Indian', other: 'Other' }[employee.race] || employee.race} />
+                    <InfoRow label="Marital Status" value={{ single: 'Single', married: 'Married', divorced: 'Divorced', widowed: 'Widowed' }[employee.marital_status] || employee.marital_status} />
                     <InfoRow label="Phone" value={employee.phone} />
                     <InfoRow label="Personal Email" value={employee.personal_email} />
                     <div className="sm:col-span-2">
@@ -919,7 +920,7 @@ function EmploymentTab({ employee }) {
                     <InfoRow label="Employee ID" value={employee.employee_id} />
                     <InfoRow label="Department" value={employee.department?.name} />
                     <InfoRow label="Position" value={employee.position?.name} />
-                    <InfoRow label="Employment Type" value={employee.employment_type} />
+                    <InfoRow label="Employment Type" value={employee.employment_type_label || (Array.isArray(employee.employment_type) ? employee.employment_type.map(t => t.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())).join(', ') : '')} />
                     <InfoRow label="Join Date" value={formatDate(employee.join_date)} />
                     <InfoRow label="Probation End" value={formatDate(employee.probation_end_date)} />
                     <InfoRow label="Confirmation Date" value={formatDate(employee.confirmation_date)} />

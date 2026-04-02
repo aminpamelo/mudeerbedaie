@@ -458,7 +458,7 @@ export default function Departments() {
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={isSaving}>
+                            <Button type="submit" disabled={!formData.name || !formData.code || isSaving}>
                                 {isSaving && (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 )}
