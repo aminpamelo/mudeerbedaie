@@ -92,6 +92,7 @@ const navigation = [
             { name: 'Requests', to: '/leave/requests', icon: FileText },
             { name: 'Calendar', to: '/leave/calendar', icon: Calendar },
             { name: 'Balances', to: '/leave/balances', icon: Scale },
+            { name: 'Entitlements', to: '/leave/entitlements', icon: BookOpen },
             { name: 'Types', to: '/leave/types', icon: Tags },
         ],
     },

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Hr;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\StoreLeaveEntitlementRequest;
 use App\Models\LeaveEntitlement;
+use App\Models\LeaveType;
 use Illuminate\Http\JsonResponse;
 
 class HrLeaveEntitlementController extends Controller
@@ -18,8 +19,7 @@ class HrLeaveEntitlementController extends Controller
             ->with('leaveType')
             ->orderBy('leave_type_id')
             ->orderBy('min_service_months')
-            ->get()
-            ->groupBy('leave_type_id');
+            ->get();
 
         return response()->json(['data' => $entitlements]);
     }

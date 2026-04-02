@@ -119,7 +119,7 @@ export default function LeaveTypes() {
     });
 
     const toggleActiveMutation = useMutation({
-        mutationFn: ({ id, isActive }) => updateLeaveType(id, { is_active: isActive }),
+        mutationFn: ({ id, data }) => updateLeaveType(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'leave', 'types'] });
         },
@@ -175,7 +175,20 @@ export default function LeaveTypes() {
     }
 
     function handleToggleActive(lt) {
-        toggleActiveMutation.mutate({ id: lt.id, isActive: !lt.is_active });
+        toggleActiveMutation.mutate({
+            id: lt.id,
+            data: {
+                name: lt.name,
+                code: lt.code,
+                is_paid: lt.is_paid,
+                is_attachment_required: lt.is_attachment_required,
+                gender_restriction: lt.gender_restriction || null,
+                color: lt.color,
+                sort_order: lt.sort_order,
+                description: lt.description || '',
+                is_active: !lt.is_active,
+            },
+        });
     }
 
     const isSaving = createMutation.isPending || updateMutation.isPending;

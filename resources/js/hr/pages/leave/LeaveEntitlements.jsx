@@ -50,20 +50,20 @@ import {
 } from '../../components/ui/dialog';
 
 const EMPLOYMENT_TYPES = [
-    { value: 'full-time', label: 'Full-time' },
-    { value: 'part-time', label: 'Part-time' },
+    { value: 'full_time', label: 'Full-time' },
+    { value: 'part_time', label: 'Part-time' },
     { value: 'contract', label: 'Contract' },
     { value: 'intern', label: 'Intern' },
 ];
 
 const EMPTY_FORM = {
     leave_type_id: '',
-    employment_type: 'full-time',
+    employment_type: 'full_time',
     min_service_months: 0,
     max_service_months: '',
     days_per_year: 0,
     is_prorated: true,
-    carry_forward_days: 0,
+    carry_forward_max: 0,
 };
 
 function SkeletonTable() {
@@ -136,12 +136,16 @@ export default function LeaveEntitlements() {
     const entitlements = data?.data || [];
     const leaveTypes = leaveTypesData?.data || [];
 
+    // Seed from ALL leave types so types with no rules still appear
     const groupedEntitlements = {};
+    leaveTypes.forEach((lt) => {
+        groupedEntitlements[lt.id] = { leaveType: lt, rules: [] };
+    });
     entitlements.forEach((ent) => {
         const typeId = ent.leave_type_id;
         if (!groupedEntitlements[typeId]) {
             groupedEntitlements[typeId] = {
-                leaveType: ent.leave_type || leaveTypes.find((lt) => lt.id === typeId) || { name: 'Unknown', id: typeId },
+                leaveType: ent.leave_type || { name: 'Unknown', id: typeId },
                 rules: [],
             };
         }
@@ -165,7 +169,7 @@ export default function LeaveEntitlements() {
             max_service_months: ent.max_service_months ?? '',
             days_per_year: ent.days_per_year ?? 0,
             is_prorated: ent.is_prorated ?? true,
-            carry_forward_days: ent.carry_forward_days ?? 0,
+            carry_forward_max: ent.carry_forward_max ?? 0,
         });
         setFormDialog({ open: true, mode: 'edit', data: ent });
     }
@@ -182,7 +186,7 @@ export default function LeaveEntitlements() {
             min_service_months: Number(form.min_service_months),
             max_service_months: form.max_service_months !== '' ? Number(form.max_service_months) : null,
             days_per_year: Number(form.days_per_year),
-            carry_forward_days: Number(form.carry_forward_days),
+            carry_forward_max: Number(form.carry_forward_max),
         };
         if (formDialog.mode === 'create') {
             createMutation.mutate(payload);
@@ -249,9 +253,9 @@ export default function LeaveEntitlements() {
                         return (
                             <Card key={typeId}>
                                 <CardContent className="p-0">
-                                    <button
+                                    <div
                                         onClick={() => toggleType(typeId)}
-                                        className="flex w-full items-center justify-between p-4 text-left hover:bg-zinc-50"
+                                        className="flex w-full cursor-pointer items-center justify-between p-4 text-left hover:bg-zinc-50"
                                     >
                                         <div className="flex items-center gap-3">
                                             {isExpanded ? (
@@ -277,7 +281,7 @@ export default function LeaveEntitlements() {
                                             <Plus className="mr-1 h-3.5 w-3.5" />
                                             Add Rule
                                         </Button>
-                                    </button>
+                                    </div>
                                     {isExpanded && (
                                         <div className="border-t border-zinc-100 px-4 pb-4">
                                             <Table>
@@ -310,7 +314,7 @@ export default function LeaveEntitlements() {
                                                                 </Badge>
                                                             </TableCell>
                                                             <TableCell className="text-sm text-zinc-600">
-                                                                {rule.carry_forward_days ?? 0} days
+                                                                {rule.carry_forward_max ?? 0} days
                                                             </TableCell>
                                                             <TableCell className="text-right">
                                                                 <div className="flex items-center justify-end gap-1">
@@ -420,8 +424,8 @@ export default function LeaveEntitlements() {
                                 <Input
                                     type="number"
                                     min="0"
-                                    value={form.carry_forward_days}
-                                    onChange={(e) => setForm({ ...form, carry_forward_days: e.target.value })}
+                                    value={form.carry_forward_max}
+                                    onChange={(e) => setForm({ ...form, carry_forward_max: e.target.value })}
                                 />
                             </div>
                         </div>
