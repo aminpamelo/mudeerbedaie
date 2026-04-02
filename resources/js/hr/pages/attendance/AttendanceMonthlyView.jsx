@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     ChevronLeft,
@@ -147,12 +147,34 @@ function DetailModal({ dayData, employeeName, date, onClose }) {
                                 <Clock className="h-3 w-3" /> Clock In
                             </p>
                             <p className="text-lg font-semibold text-zinc-900">{formatTime(dayData.clock_in)}</p>
+                            {dayData.clock_in_photo_url ? (
+                                <img
+                                    src={dayData.clock_in_photo_url}
+                                    alt="Clock in photo"
+                                    className="mt-2 h-28 w-full rounded-md object-cover"
+                                />
+                            ) : (
+                                <div className="mt-2 flex h-28 w-full items-center justify-center rounded-md bg-zinc-100">
+                                    <Camera className="h-6 w-6 text-zinc-300" />
+                                </div>
+                            )}
                         </div>
                         <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-3">
                             <p className="mb-1 flex items-center gap-1 text-xs font-medium text-zinc-400">
                                 <Clock className="h-3 w-3" /> Clock Out
                             </p>
                             <p className="text-lg font-semibold text-zinc-900">{formatTime(dayData.clock_out)}</p>
+                            {dayData.clock_out_photo_url ? (
+                                <img
+                                    src={dayData.clock_out_photo_url}
+                                    alt="Clock out photo"
+                                    className="mt-2 h-28 w-full rounded-md object-cover"
+                                />
+                            ) : (
+                                <div className="mt-2 flex h-28 w-full items-center justify-center rounded-md bg-zinc-100">
+                                    <Camera className="h-6 w-6 text-zinc-300" />
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -221,7 +243,6 @@ export default function AttendanceMonthlyView() {
     const [department, setDepartment] = useState('all');
     const [search, setSearch] = useState('');
     const [selectedCell, setSelectedCell] = useState(null);
-    const scrollRef = useRef(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ['hr', 'attendance', 'monthly', year, month, department, search],
@@ -349,112 +370,110 @@ export default function AttendanceMonthlyView() {
                 </div>
             </div>
 
-            {/* Table */}
+            {/* Table — single scroll container so header + rows move together */}
             <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xs">
-                {/* Sticky header row */}
-                <div className="sticky top-0 z-10 flex border-b border-zinc-200 bg-zinc-50">
-                    {/* Employee column header */}
-                    <div className="w-52 shrink-0 border-r border-zinc-200 px-4 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Employee</p>
-                    </div>
-                    {/* Day headers - scrollable */}
-                    <div
-                        ref={scrollRef}
-                        className="flex flex-1 overflow-x-auto"
-                        style={{ scrollbarWidth: 'none' }}
-                    >
-                        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-                            const dow = getDayOfWeek(year, month, day);
-                            const weekend = isWeekend(year, month, day);
-                            const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day;
-                            return (
-                                <div
-                                    key={day}
-                                    className={cn(
-                                        'flex w-9 shrink-0 flex-col items-center justify-center py-2',
-                                        weekend ? 'bg-zinc-100/60' : '',
-                                        isToday ? 'bg-blue-50' : '',
-                                    )}
-                                >
-                                    <span className={cn(
-                                        'text-[10px] font-medium',
-                                        weekend ? 'text-zinc-400' : 'text-zinc-500',
-                                        isToday ? 'text-blue-600 font-bold' : '',
-                                    )}>
-                                        {DAY_ABBR[dow]}
-                                    </span>
-                                    <span className={cn(
-                                        'text-xs font-semibold',
-                                        weekend ? 'text-zinc-400' : 'text-zinc-700',
-                                        isToday ? 'text-blue-600' : '',
-                                    )}>
-                                        {day}
-                                    </span>
-                                </div>
-                            );
-                        })}
-                        {/* Summary columns header */}
-                        <div className="flex shrink-0 items-center border-l border-zinc-200 bg-zinc-50 px-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Summary</span>
-                        </div>
-                    </div>
-                </div>
+                <div className="overflow-x-auto">
+                    <div style={{ minWidth: `${208 + daysInMonth * 36 + 100}px` }}>
 
-                {/* Rows */}
-                <div className="divide-y divide-zinc-100">
-                    {isLoading ? (
-                        Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
-                    ) : employees.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <Calendar className="mb-3 h-10 w-10 text-zinc-200" />
-                            <p className="text-sm font-medium text-zinc-400">No employees found</p>
-                        </div>
-                    ) : (
-                        employees.map((emp) => (
-                            <div key={emp.id} className="flex items-center hover:bg-zinc-50/60">
-                                {/* Employee info - fixed */}
-                                <div className="w-52 shrink-0 border-r border-zinc-100 px-4 py-2.5">
-                                    <p className="truncate text-sm font-medium text-zinc-900">{emp.full_name}</p>
-                                    <p className="truncate text-xs text-zinc-400">{emp.employee_id} · {emp.department}</p>
-                                </div>
-                                {/* Day cells - scrollable (synced with header) */}
-                                <div className="flex flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-                                        const dayData = emp.days?.[day];
-                                        const weekend = isWeekend(year, month, day);
-                                        const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day;
-                                        return (
-                                            <div
-                                                key={day}
-                                                className={cn(
-                                                    'flex w-9 shrink-0 items-center justify-center py-1.5',
-                                                    weekend ? 'bg-zinc-50/80' : '',
-                                                    isToday ? 'bg-blue-50/40' : '',
-                                                )}
-                                            >
-                                                {dayData ? (
-                                                    <StatusDot
-                                                        status={dayData.status}
-                                                        isToday={isToday}
-                                                        onClick={() => openCell(emp, day, dayData)}
-                                                    />
-                                                ) : (
-                                                    <EmptyDot isWeekend={weekend} isToday={isToday} />
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                    {/* Summary pills */}
-                                    <div className="flex shrink-0 items-center gap-1 border-l border-zinc-100 px-2">
-                                        <SummaryPill count={emp.summary?.present} variant="present" />
-                                        <SummaryPill count={emp.summary?.absent} variant="absent" />
-                                        <SummaryPill count={emp.summary?.late} variant="late" />
-                                        <SummaryPill count={emp.summary?.leave} variant="leave" />
-                                    </div>
-                                </div>
+                        {/* Sticky header row */}
+                        <div className="sticky top-0 z-20 flex border-b border-zinc-200 bg-zinc-50">
+                            {/* Employee column header — also sticky left */}
+                            <div className="sticky left-0 z-30 w-52 shrink-0 border-r border-zinc-200 bg-zinc-50 px-4 py-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Employee</p>
                             </div>
-                        ))
-                    )}
+                            {/* Day headers */}
+                            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                                const dow = getDayOfWeek(year, month, day);
+                                const weekend = isWeekend(year, month, day);
+                                const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day;
+                                return (
+                                    <div
+                                        key={day}
+                                        className={cn(
+                                            'flex w-9 shrink-0 flex-col items-center justify-center py-2',
+                                            weekend ? 'bg-zinc-100/60' : '',
+                                            isToday ? 'bg-blue-50' : '',
+                                        )}
+                                    >
+                                        <span className={cn(
+                                            'text-[10px] font-medium',
+                                            weekend ? 'text-zinc-400' : 'text-zinc-500',
+                                            isToday && 'text-blue-600 font-bold',
+                                        )}>
+                                            {DAY_ABBR[dow]}
+                                        </span>
+                                        <span className={cn(
+                                            'text-xs font-semibold',
+                                            weekend ? 'text-zinc-400' : 'text-zinc-700',
+                                            isToday && 'text-blue-600',
+                                        )}>
+                                            {day}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                            {/* Summary header */}
+                            <div className="flex shrink-0 items-center border-l border-zinc-200 px-3">
+                                <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Summary</span>
+                            </div>
+                        </div>
+
+                        {/* Rows */}
+                        <div className="divide-y divide-zinc-100">
+                            {isLoading ? (
+                                Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
+                            ) : employees.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-center">
+                                    <Calendar className="mb-3 h-10 w-10 text-zinc-200" />
+                                    <p className="text-sm font-medium text-zinc-400">No employees found</p>
+                                </div>
+                            ) : (
+                                employees.map((emp) => (
+                                    <div key={emp.id} className="flex items-center hover:bg-zinc-50/60">
+                                        {/* Employee info — sticky left */}
+                                        <div className="sticky left-0 z-10 w-52 shrink-0 border-r border-zinc-100 bg-white px-4 py-2.5 group-hover:bg-zinc-50/60">
+                                            <p className="truncate text-sm font-medium text-zinc-900">{emp.full_name}</p>
+                                            <p className="truncate text-xs text-zinc-400">{emp.employee_id}{emp.department ? ` · ${emp.department}` : ''}</p>
+                                        </div>
+                                        {/* Day cells */}
+                                        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                                            const dayData = emp.days?.[day];
+                                            const weekend = isWeekend(year, month, day);
+                                            const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day;
+                                            return (
+                                                <div
+                                                    key={day}
+                                                    className={cn(
+                                                        'flex w-9 shrink-0 items-center justify-center py-1.5',
+                                                        weekend ? 'bg-zinc-50/80' : '',
+                                                        isToday ? 'bg-blue-50/40' : '',
+                                                    )}
+                                                >
+                                                    {dayData ? (
+                                                        <StatusDot
+                                                            status={dayData.status}
+                                                            isToday={isToday}
+                                                            onClick={() => openCell(emp, day, dayData)}
+                                                        />
+                                                    ) : (
+                                                        <EmptyDot isWeekend={weekend} isToday={isToday} />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                        {/* Summary pills */}
+                                        <div className="flex shrink-0 items-center gap-1 border-l border-zinc-100 px-3">
+                                            <SummaryPill count={emp.summary?.present} variant="present" />
+                                            <SummaryPill count={emp.summary?.absent} variant="absent" />
+                                            <SummaryPill count={emp.summary?.late} variant="late" />
+                                            <SummaryPill count={emp.summary?.leave} variant="leave" />
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                    </div>
                 </div>
             </div>
 

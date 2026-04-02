@@ -159,6 +159,8 @@ class HrAttendanceController extends Controller
                     'early_leave_minutes' => $log->early_leave_minutes,
                     'is_overtime' => $log->is_overtime,
                     'remarks' => $log->remarks,
+                    'clock_in_photo_url' => $log->clock_in_photo_url,
+                    'clock_out_photo_url' => $log->clock_out_photo_url,
                 ] : null;
             }
 
