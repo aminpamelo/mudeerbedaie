@@ -16,6 +16,11 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
         show_orders_in_admin: true,
         disable_shipping: false,
         product_selection_mode: 'multi',
+        shipping_settings: {
+            enabled: false,
+            semenanjung_cost: '',
+            sabah_sarawak_cost: '',
+        },
     });
     const [saving, setSaving] = useState(false);
 
@@ -30,6 +35,11 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                 show_orders_in_admin: funnel.show_orders_in_admin ?? true,
                 disable_shipping: funnel.disable_shipping ?? false,
                 product_selection_mode: funnel.settings?.product_selection_mode || 'multi',
+                shipping_settings: {
+                    enabled: funnel.shipping_settings?.enabled ?? false,
+                    semenanjung_cost: funnel.shipping_settings?.semenanjung_cost ?? '',
+                    sabah_sarawak_cost: funnel.shipping_settings?.sabah_sarawak_cost ?? '',
+                },
             });
         }
     }, [funnel]);
@@ -43,6 +53,11 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                 description: form.description,
                 show_orders_in_admin: form.show_orders_in_admin,
                 disable_shipping: form.disable_shipping,
+                shipping_settings: {
+                    enabled: form.shipping_settings.enabled,
+                    semenanjung_cost: parseFloat(form.shipping_settings.semenanjung_cost) || 0,
+                    sabah_sarawak_cost: parseFloat(form.shipping_settings.sabah_sarawak_cost) || 0,
+                },
                 settings: {
                     ...funnel.settings,
                     meta_title: form.meta_title,
@@ -235,6 +250,100 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
                             : 'Multiple products — customers can select more than one product.'}
                     </p>
                 </div>
+            </div>
+
+            {/* Shipping Cost Settings */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Shipping Cost Settings</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                    Set flat-rate shipping fees by delivery zone. Customers will select their zone at checkout.
+                </p>
+
+                <div className="flex items-start justify-between">
+                    <div className="flex-1 mr-4">
+                        <p className="text-sm font-medium text-gray-900">Enable shipping cost</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                            When enabled, customers must select a delivery zone and the corresponding fee will be added to their order total.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setForm({
+                            ...form,
+                            shipping_settings: {
+                                ...form.shipping_settings,
+                                enabled: !form.shipping_settings.enabled,
+                            },
+                        })}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                            form.shipping_settings.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                        }`}
+                        role="switch"
+                        aria-checked={form.shipping_settings.enabled}
+                    >
+                        <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                form.shipping_settings.enabled ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                        />
+                    </button>
+                </div>
+
+                {form.shipping_settings.enabled && (
+                    <div className="border-t border-gray-200 mt-6 pt-6 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Semenanjung Malaysia (RM)
+                                </label>
+                                <div className="flex items-center">
+                                    <span className="px-3 py-2 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-500 text-sm">RM</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={form.shipping_settings.semenanjung_cost}
+                                        onChange={(e) => setForm({
+                                            ...form,
+                                            shipping_settings: {
+                                                ...form.shipping_settings,
+                                                semenanjung_cost: e.target.value,
+                                            },
+                                        })}
+                                        placeholder="0.00"
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">West Malaysia delivery fee</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Sabah &amp; Sarawak (RM)
+                                </label>
+                                <div className="flex items-center">
+                                    <span className="px-3 py-2 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-500 text-sm">RM</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={form.shipping_settings.sabah_sarawak_cost}
+                                        onChange={(e) => setForm({
+                                            ...form,
+                                            shipping_settings: {
+                                                ...form.shipping_settings,
+                                                sabah_sarawak_cost: e.target.value,
+                                            },
+                                        })}
+                                        placeholder="0.00"
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">East Malaysia delivery fee</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Save Button */}

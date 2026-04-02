@@ -40,7 +40,17 @@
             ->filter(fn($b) => isset($selectedBumps[$b->id]))
             ->sum('price');
 
-        $total = $subtotal + $bumpsTotal;
+        $shippingCostEnabled = $shippingCostEnabled ?? false;
+        $shippingZone = $shippingZone ?? 'semenanjung';
+        $shippingSemenanjungCost = $shippingSemenanjungCost ?? 0;
+        $shippingSabahSarawakCost = $shippingSabahSarawakCost ?? 0;
+
+        $shippingCost = 0;
+        if ($shippingCostEnabled) {
+            $shippingCost = $shippingZone === 'sabah_sarawak' ? $shippingSabahSarawakCost : $shippingSemenanjungCost;
+        }
+
+        $total = $subtotal + $bumpsTotal + $shippingCost;
     @endphp
 
     <div class="border-t pt-4">
@@ -53,6 +63,13 @@
             <div class="flex justify-between mb-2 text-green-700">
                 <span>Tambahan Pesanan</span>
                 <span class="font-medium">RM {{ number_format($bumpsTotal, 2) }}</span>
+            </div>
+        @endif
+
+        @if($shippingCostEnabled)
+            <div class="flex justify-between mb-2 text-gray-600">
+                <span>Penghantaran ({{ $shippingZone === 'sabah_sarawak' ? 'Sabah & Sarawak' : 'Semenanjung' }})</span>
+                <span class="font-medium">RM {{ number_format($shippingCost, 2) }}</span>
             </div>
         @endif
 

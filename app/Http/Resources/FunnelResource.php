@@ -35,6 +35,7 @@ class FunnelResource extends JsonResource
 
             // Checkout settings
             'disable_shipping' => $this->disable_shipping ?? false,
+            'shipping_settings' => $this->shipping_settings,
 
             // Payment settings
             'payment_settings' => $this->payment_settings,

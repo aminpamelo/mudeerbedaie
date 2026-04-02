@@ -31,6 +31,7 @@ class Funnel extends Model
         'affiliate_custom_url',
         'show_orders_in_admin',
         'disable_shipping',
+        'shipping_settings',
         'payment_settings',
         'published_at',
     ];
@@ -44,6 +45,7 @@ class Funnel extends Model
             'affiliate_enabled' => 'boolean',
             'show_orders_in_admin' => 'boolean',
             'disable_shipping' => 'boolean',
+            'shipping_settings' => 'array',
             'payment_settings' => 'array',
             'published_at' => 'datetime',
         ];

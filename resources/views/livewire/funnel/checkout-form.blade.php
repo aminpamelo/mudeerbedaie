@@ -54,6 +54,14 @@ new class extends Component
 
     public string $productSelectionMode = 'multi';
 
+    public string $shippingZone = 'semenanjung';
+
+    public bool $shippingCostEnabled = false;
+
+    public float $shippingSemenanjungCost = 0;
+
+    public float $shippingSabahSarawakCost = 0;
+
     public string $countryCode = '+60';
 
     public function mount(Funnel $funnel, FunnelStep $step, ?FunnelSession $session = null): void
@@ -63,6 +71,11 @@ new class extends Component
         $this->funnelSession = $session;
         $this->disableShipping = (bool) $funnel->disable_shipping;
         $this->productSelectionMode = $funnel->settings['product_selection_mode'] ?? 'multi';
+
+        $shippingSettings = $funnel->shipping_settings ?? [];
+        $this->shippingCostEnabled = ! $this->disableShipping && (bool) ($shippingSettings['enabled'] ?? false);
+        $this->shippingSemenanjungCost = (float) ($shippingSettings['semenanjung_cost'] ?? 0);
+        $this->shippingSabahSarawakCost = (float) ($shippingSettings['sabah_sarawak_cost'] ?? 0);
 
         $this->loadCart();
         $this->prefillFromSession();
@@ -315,9 +328,20 @@ new class extends Component
         return $total;
     }
 
+    public function calculateShippingCost(): float
+    {
+        if (! $this->shippingCostEnabled) {
+            return 0;
+        }
+
+        return $this->shippingZone === 'sabah_sarawak'
+            ? $this->shippingSabahSarawakCost
+            : $this->shippingSemenanjungCost;
+    }
+
     public function calculateTotal(): float
     {
-        return $this->calculateSubtotal() + $this->calculateBumpsTotal();
+        return $this->calculateSubtotal() + $this->calculateBumpsTotal() + $this->calculateShippingCost();
     }
 
     public function proceedToInformation(): void
@@ -426,6 +450,7 @@ new class extends Component
                 'billing_address' => $billingAddress,
                 'shipping_address' => $billingAddress,
                 'subtotal' => $this->calculateSubtotal(),
+                'shipping_cost' => $this->calculateShippingCost(),
                 'discount_amount' => 0,
                 'tax_amount' => 0,
                 'total_amount' => $this->calculateTotal(),
@@ -1044,6 +1069,42 @@ new class extends Component
                             </div>
                         </div>
 
+                        {{-- Shipping Zone Selector --}}
+                        @if(!$disableShipping && $shippingCostEnabled)
+                        <div>
+                            <h4 class="font-medium text-gray-900 mb-3">Zon Penghantaran</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors {{ $shippingZone === 'semenanjung' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300' }}">
+                                    <input
+                                        type="radio"
+                                        wire:model.live="shippingZone"
+                                        value="semenanjung"
+                                        class="text-blue-600 focus:ring-blue-500"
+                                    >
+                                    <div class="flex-1">
+                                        <p class="font-medium text-gray-900 text-sm">Semenanjung Malaysia</p>
+                                        <p class="text-xs text-gray-500">West Malaysia</p>
+                                    </div>
+                                    <span class="font-semibold text-sm text-gray-800">RM {{ number_format($shippingSemenanjungCost, 2) }}</span>
+                                </label>
+
+                                <label class="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors {{ $shippingZone === 'sabah_sarawak' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300' }}">
+                                    <input
+                                        type="radio"
+                                        wire:model.live="shippingZone"
+                                        value="sabah_sarawak"
+                                        class="text-blue-600 focus:ring-blue-500"
+                                    >
+                                    <div class="flex-1">
+                                        <p class="font-medium text-gray-900 text-sm">Sabah &amp; Sarawak</p>
+                                        <p class="text-xs text-gray-500">East Malaysia</p>
+                                    </div>
+                                    <span class="font-semibold text-sm text-gray-800">RM {{ number_format($shippingSabahSarawakCost, 2) }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        @endif
+
                         {{-- Billing Address --}}
                         @if(!$disableShipping)
                         <div>
@@ -1131,7 +1192,7 @@ new class extends Component
 
             {{-- Order Summary Sidebar --}}
             <div class="lg:col-span-1">
-                @include('livewire.funnel.partials.order-summary', ['step' => $step, 'selectedProducts' => $selectedProducts, 'selectedBumps' => $selectedBumps])
+                @include('livewire.funnel.partials.order-summary', ['step' => $step, 'selectedProducts' => $selectedProducts, 'selectedBumps' => $selectedBumps, 'shippingCostEnabled' => $shippingCostEnabled, 'shippingZone' => $shippingZone, 'shippingSemenanjungCost' => $shippingSemenanjungCost, 'shippingSabahSarawakCost' => $shippingSabahSarawakCost])
             </div>
         </div>
 
@@ -1258,7 +1319,7 @@ new class extends Component
 
             {{-- Order Summary Sidebar --}}
             <div class="lg:col-span-1">
-                @include('livewire.funnel.partials.order-summary', ['step' => $step, 'selectedProducts' => $selectedProducts, 'selectedBumps' => $selectedBumps])
+                @include('livewire.funnel.partials.order-summary', ['step' => $step, 'selectedProducts' => $selectedProducts, 'selectedBumps' => $selectedBumps, 'shippingCostEnabled' => $shippingCostEnabled, 'shippingZone' => $shippingZone, 'shippingSemenanjungCost' => $shippingSemenanjungCost, 'shippingSabahSarawakCost' => $shippingSabahSarawakCost])
             </div>
         </div>
     @endif
