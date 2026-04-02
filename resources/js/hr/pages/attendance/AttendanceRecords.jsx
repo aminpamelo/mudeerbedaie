@@ -477,15 +477,41 @@ export default function AttendanceRecords() {
                     </DialogHeader>
                     {detailRecord && (
                         <div className="space-y-4">
+                            {/* Clock In / Clock Out with photos */}
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
+                                <div className="space-y-2">
                                     <p className="text-xs font-medium text-zinc-500">Clock In</p>
                                     <p className="text-sm text-zinc-900">{formatTime(detailRecord.clock_in)}</p>
+                                    {detailRecord.clock_in_photo_url ? (
+                                        <img
+                                            src={detailRecord.clock_in_photo_url}
+                                            alt="Clock in selfie"
+                                            className="h-28 w-full rounded-lg border border-zinc-200 object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex h-28 w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50">
+                                            <Camera className="h-5 w-5 text-zinc-300" />
+                                        </div>
+                                    )}
                                 </div>
-                                <div>
+                                <div className="space-y-2">
                                     <p className="text-xs font-medium text-zinc-500">Clock Out</p>
                                     <p className="text-sm text-zinc-900">{formatTime(detailRecord.clock_out)}</p>
+                                    {detailRecord.clock_out_photo_url ? (
+                                        <img
+                                            src={detailRecord.clock_out_photo_url}
+                                            alt="Clock out selfie"
+                                            className="h-28 w-full rounded-lg border border-zinc-200 object-cover"
+                                        />
+                                    ) : (
+                                        <div className="flex h-28 w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50">
+                                            <Camera className="h-5 w-5 text-zinc-300" />
+                                        </div>
+                                    )}
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <p className="text-xs font-medium text-zinc-500">Status</p>
                                     <AttendanceStatusBadge status={detailRecord.status} />
@@ -524,32 +550,6 @@ export default function AttendanceRecords() {
                                 <div className="flex items-center gap-2 text-sm text-zinc-600">
                                     <MapPin className="h-4 w-4 text-zinc-400" />
                                     <span>IP: {detailRecord.clock_in_ip}</span>
-                                </div>
-                            )}
-
-                            {detailRecord.clock_in_photo_url && (
-                                <div>
-                                    <p className="mb-2 flex items-center gap-1 text-xs font-medium text-zinc-500">
-                                        <Camera className="h-3.5 w-3.5" /> Clock In Selfie
-                                    </p>
-                                    <img
-                                        src={detailRecord.clock_in_photo_url}
-                                        alt="Clock in selfie"
-                                        className="h-32 w-32 rounded-lg border border-zinc-200 object-cover"
-                                    />
-                                </div>
-                            )}
-
-                            {detailRecord.clock_out_photo_url && (
-                                <div>
-                                    <p className="mb-2 flex items-center gap-1 text-xs font-medium text-zinc-500">
-                                        <Camera className="h-3.5 w-3.5" /> Clock Out Selfie
-                                    </p>
-                                    <img
-                                        src={detailRecord.clock_out_photo_url}
-                                        alt="Clock out selfie"
-                                        className="h-32 w-32 rounded-lg border border-zinc-200 object-cover"
-                                    />
                                 </div>
                             )}
 
