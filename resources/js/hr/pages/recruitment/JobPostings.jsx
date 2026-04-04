@@ -57,8 +57,8 @@ const STATUS_OPTIONS = [
 
 const TYPE_OPTIONS = [
     { value: 'all', label: 'All Types' },
-    { value: 'full-time', label: 'Full-time' },
-    { value: 'part-time', label: 'Part-time' },
+    { value: 'full_time', label: 'Full-time' },
+    { value: 'part_time', label: 'Part-time' },
     { value: 'contract', label: 'Contract' },
     { value: 'intern', label: 'Intern' },
 ];
@@ -72,7 +72,7 @@ const STATUS_BADGE = {
 const EMPTY_FORM = {
     title: '',
     department_id: '',
-    employment_type: 'full-time',
+    employment_type: 'full_time',
     vacancies: 1,
     description: '',
     requirements: '',
@@ -169,7 +169,7 @@ export default function JobPostings() {
         setForm({
             title: posting.title || '',
             department_id: posting.department_id ? String(posting.department_id) : '',
-            employment_type: posting.employment_type || 'full-time',
+            employment_type: posting.employment_type || 'full_time',
             vacancies: posting.vacancies || 1,
             description: posting.description || '',
             requirements: posting.requirements || '',
@@ -287,7 +287,7 @@ export default function JobPostings() {
                                     <TableCell className="font-medium">{posting.title}</TableCell>
                                     <TableCell>{posting.department?.name || '-'}</TableCell>
                                     <TableCell className="capitalize">
-                                        {posting.employment_type?.replace('-', ' ') || '-'}
+                                        {posting.employment_type?.replace('_', ' ') || '-'}
                                     </TableCell>
                                     <TableCell>{posting.vacancies ?? '-'}</TableCell>
                                     <TableCell>{posting.applicants_count ?? 0}</TableCell>
