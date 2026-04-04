@@ -20,6 +20,10 @@ new class extends Component
 
     public string $selectedPeriod = 'this_month';
 
+    public string $customStartDate = '';
+
+    public string $customEndDate = '';
+
     public string $selectedStatus = 'all';
 
     public string $search = '';
@@ -79,8 +83,28 @@ new class extends Component
 
     public function updatedSelectedPeriod(): void
     {
+        if ($this->selectedPeriod !== 'custom') {
+            $this->customStartDate = '';
+            $this->customEndDate = '';
+        }
         $this->resetPage();
         $this->loadReportData();
+    }
+
+    public function updatedCustomStartDate(): void
+    {
+        if ($this->selectedPeriod === 'custom' && $this->customStartDate && $this->customEndDate) {
+            $this->resetPage();
+            $this->loadReportData();
+        }
+    }
+
+    public function updatedCustomEndDate(): void
+    {
+        if ($this->selectedPeriod === 'custom' && $this->customStartDate && $this->customEndDate) {
+            $this->resetPage();
+            $this->loadReportData();
+        }
     }
 
     public function updatedSelectedStatus(): void
@@ -232,12 +256,19 @@ new class extends Component
         }
 
         if ($this->selectedPeriod !== 'all') {
-            match ($this->selectedPeriod) {
-                'today' => $query->whereDate('order_date', today()),
-                'this_week' => $query->whereBetween('order_date', [now()->startOfWeek(), now()->endOfWeek()]),
-                'this_month' => $query->whereBetween('order_date', [now()->startOfMonth(), now()->endOfMonth()]),
-                default => null,
-            };
+            if ($this->selectedPeriod === 'custom' && $this->customStartDate && $this->customEndDate) {
+                $query->whereBetween('order_date', [
+                    Carbon::parse($this->customStartDate)->startOfDay(),
+                    Carbon::parse($this->customEndDate)->endOfDay(),
+                ]);
+            } else {
+                match ($this->selectedPeriod) {
+                    'today' => $query->whereDate('order_date', today()),
+                    'this_week' => $query->whereBetween('order_date', [now()->startOfWeek(), now()->endOfWeek()]),
+                    'this_month' => $query->whereBetween('order_date', [now()->startOfMonth(), now()->endOfMonth()]),
+                    default => null,
+                };
+            }
         }
 
         return $query;
@@ -642,8 +673,18 @@ new class extends Component
                     <option value="today">Today</option>
                     <option value="this_week">This Week</option>
                     <option value="this_month">This Month</option>
+                    <option value="custom">Custom Range</option>
                 </flux:select>
             </div>
+
+            @if($selectedPeriod === 'custom')
+                <div class="w-full sm:w-40">
+                    <flux:input wire:model.live="customStartDate" type="date" label="Start Date" />
+                </div>
+                <div class="w-full sm:w-40">
+                    <flux:input wire:model.live="customEndDate" type="date" label="End Date" />
+                </div>
+            @endif
 
             <div class="w-full sm:w-36">
                 <flux:select wire:model.live="selectedStatus" label="Payment Status">
