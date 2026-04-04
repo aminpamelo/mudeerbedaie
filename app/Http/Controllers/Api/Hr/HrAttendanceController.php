@@ -161,6 +161,12 @@ class HrAttendanceController extends Controller
                     'remarks' => $log->remarks,
                     'clock_in_photo_url' => $log->clock_in_photo_url,
                     'clock_out_photo_url' => $log->clock_out_photo_url,
+                    'clock_in_ip' => $log->clock_in_ip,
+                    'clock_out_ip' => $log->clock_out_ip,
+                    'clock_in_latitude' => $log->clock_in_latitude,
+                    'clock_in_longitude' => $log->clock_in_longitude,
+                    'clock_out_latitude' => $log->clock_out_latitude,
+                    'clock_out_longitude' => $log->clock_out_longitude,
                 ] : null;
             }
 

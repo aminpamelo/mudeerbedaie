@@ -11,6 +11,9 @@ import {
     Users,
     TrendingUp,
     Search,
+    ExternalLink,
+    Wifi,
+    AlertTriangle,
 } from 'lucide-react';
 import {
     Dialog,
@@ -122,10 +125,12 @@ function SummaryPill({ count, variant }) {
 function DetailModal({ dayData, employeeName, date, onClose }) {
     if (!dayData) { return null; }
     const config = STATUS_CONFIG[dayData.status] || { label: dayData.status, bg: 'bg-zinc-100', text: 'text-zinc-700' };
+    const hasClockInLocation = dayData.clock_in_latitude && dayData.clock_in_longitude;
+    const hasClockOutLocation = dayData.clock_out_latitude && dayData.clock_out_longitude;
 
     return (
         <Dialog open onOpenChange={onClose}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold text-white', config.bg)}>
@@ -140,7 +145,7 @@ function DetailModal({ dayData, employeeName, date, onClose }) {
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    {/* Time grid */}
+                    {/* Clock In / Clock Out */}
                     <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-3">
                             <p className="mb-1 flex items-center gap-1 text-xs font-medium text-zinc-400">
@@ -198,6 +203,7 @@ function DetailModal({ dayData, employeeName, date, onClose }) {
                         </div>
                     </div>
 
+                    {/* Overtime */}
                     {dayData.is_overtime && (
                         <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">
                             <TrendingUp className="h-4 w-4" />
@@ -205,6 +211,102 @@ function DetailModal({ dayData, employeeName, date, onClose }) {
                         </div>
                     )}
 
+                    {/* Location Map */}
+                    {(hasClockInLocation || hasClockOutLocation) && (
+                        <div className="space-y-2">
+                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Location</p>
+
+                            {hasClockInLocation && (
+                                <div className="overflow-hidden rounded-lg border border-zinc-200">
+                                    <a
+                                        href={`https://www.google.com/maps?q=${dayData.clock_in_latitude},${dayData.clock_in_longitude}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block relative group"
+                                    >
+                                        <img
+                                            src={`https://maps.googleapis.com/maps/api/staticmap?center=${dayData.clock_in_latitude},${dayData.clock_in_longitude}&zoom=15&size=480x120&scale=2&markers=color:red%7C${dayData.clock_in_latitude},${dayData.clock_in_longitude}&key=${window.hrConfig?.googleMapsKey || ''}`}
+                                            alt="Clock-in location"
+                                            className="w-full h-28 object-cover bg-zinc-100"
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                e.target.nextElementSibling?.classList.remove('hidden');
+                                            }}
+                                        />
+                                        <div className="hidden w-full h-28 bg-gradient-to-br from-blue-50 via-sky-50 to-indigo-50 flex items-center justify-center">
+                                            <div className="text-center">
+                                                <MapPin className="h-6 w-6 text-blue-500 mx-auto mb-1" />
+                                                <p className="text-xs font-medium text-blue-700">
+                                                    {Number(dayData.clock_in_latitude).toFixed(5)}, {Number(dayData.clock_in_longitude).toFixed(5)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                            <span className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm backdrop-blur-sm">
+                                                <ExternalLink className="h-3 w-3" />
+                                                Open in Google Maps
+                                            </span>
+                                        </div>
+                                    </a>
+                                    <div className="flex items-center justify-between bg-zinc-50 px-3 py-2">
+                                        <div className="flex items-center gap-1.5">
+                                            <MapPin className="h-3.5 w-3.5 text-blue-500" />
+                                            <span className="text-xs font-medium text-zinc-600">
+                                                {dayData.status === 'wfh' ? 'WFH Location' : 'Clock-in Location'}
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] font-mono text-zinc-400">
+                                            {Number(dayData.clock_in_latitude).toFixed(5)}, {Number(dayData.clock_in_longitude).toFixed(5)}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {hasClockOutLocation && (
+                                <div className="overflow-hidden rounded-lg border border-zinc-200">
+                                    <a
+                                        href={`https://www.google.com/maps?q=${dayData.clock_out_latitude},${dayData.clock_out_longitude}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block relative group"
+                                    >
+                                        <div className="w-full h-10 bg-gradient-to-r from-zinc-50 to-zinc-100 flex items-center justify-center">
+                                            <div className="flex items-center gap-1.5">
+                                                <MapPin className="h-3.5 w-3.5 text-zinc-500" />
+                                                <span className="text-xs font-medium text-zinc-600">Clock-out Location</span>
+                                                <ExternalLink className="h-3 w-3 text-zinc-400 group-hover:text-blue-500 transition-colors" />
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* IP Address */}
+                    {(dayData.clock_in_ip || dayData.clock_out_ip) && (
+                        <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Network</p>
+                            <div className="flex flex-wrap gap-2">
+                                {dayData.clock_in_ip && (
+                                    <div className="flex items-center gap-1.5 rounded-lg bg-zinc-50 px-3 py-1.5">
+                                        <Wifi className="h-3 w-3 text-zinc-400" />
+                                        <span className="text-xs text-zinc-500">In:</span>
+                                        <span className="text-xs font-mono text-zinc-700">{dayData.clock_in_ip}</span>
+                                    </div>
+                                )}
+                                {dayData.clock_out_ip && (
+                                    <div className="flex items-center gap-1.5 rounded-lg bg-zinc-50 px-3 py-1.5">
+                                        <Wifi className="h-3 w-3 text-zinc-400" />
+                                        <span className="text-xs text-zinc-500">Out:</span>
+                                        <span className="text-xs font-mono text-zinc-700">{dayData.clock_out_ip}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Remarks */}
                     {dayData.remarks && (
                         <div className="flex items-start gap-2 rounded-lg bg-zinc-50 px-3 py-2.5">
                             <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
