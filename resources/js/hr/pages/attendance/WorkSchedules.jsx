@@ -73,6 +73,7 @@ const EMPTY_FORM = {
     end_time: '18:00',
     break_duration: 60,
     grace_period: 15,
+    min_hours_per_day: 8,
     working_days: ['mon', 'tue', 'wed', 'thu', 'fri'],
     is_default: false,
 };
@@ -155,6 +156,7 @@ export default function WorkSchedules() {
             end_time: (schedule.end_time || '18:00').slice(0, 5),
             break_duration: schedule.break_duration_minutes ?? schedule.break_duration ?? 60,
             grace_period: schedule.grace_period_minutes ?? schedule.grace_period ?? 15,
+            min_hours_per_day: schedule.min_hours_per_day ?? 8,
             working_days: days,
             is_default: schedule.is_default || false,
         });
@@ -170,7 +172,7 @@ export default function WorkSchedules() {
 
     function buildPayload(formData) {
         const dayMap = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 7 };
-        return {
+        const payload = {
             name: formData.name,
             type: formData.type,
             start_time: formData.start_time,
@@ -180,6 +182,10 @@ export default function WorkSchedules() {
             working_days: formData.working_days.map((d) => dayMap[d] || d),
             is_default: formData.is_default,
         };
+        if (formData.type === 'flexible') {
+            payload.min_hours_per_day = formData.min_hours_per_day;
+        }
+        return payload;
     }
 
     function handleSave() {
@@ -360,6 +366,16 @@ export default function WorkSchedules() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
+                        {Object.keys(formErrors).length > 0 && (
+                            <div className="rounded-md border border-red-200 bg-red-50 p-3">
+                                <p className="text-sm font-medium text-red-800">Please fix the following errors:</p>
+                                <ul className="mt-1 list-inside list-disc text-xs text-red-600">
+                                    {Object.entries(formErrors).map(([field, messages]) => (
+                                        <li key={field}>{Array.isArray(messages) ? messages[0] : messages}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                         <div>
                             <Label>Schedule Name</Label>
                             <Input
@@ -367,6 +383,7 @@ export default function WorkSchedules() {
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                                 placeholder="e.g. Standard Office Hours"
                             />
+                            {formErrors.name && <p className="mt-1 text-xs text-red-500">{formErrors.name[0]}</p>}
                         </div>
                         <div>
                             <Label>Type</Label>
@@ -383,24 +400,42 @@ export default function WorkSchedules() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label>Start Time</Label>
-                                <Input
-                                    type="time"
-                                    value={form.start_time}
-                                    onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-                                />
+                        {form.type !== 'flexible' && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Start Time</Label>
+                                    <Input
+                                        type="time"
+                                        value={form.start_time}
+                                        onChange={(e) => setForm({ ...form, start_time: e.target.value })}
+                                    />
+                                    {formErrors.start_time && <p className="mt-1 text-xs text-red-500">{formErrors.start_time[0]}</p>}
+                                </div>
+                                <div>
+                                    <Label>End Time</Label>
+                                    <Input
+                                        type="time"
+                                        value={form.end_time}
+                                        onChange={(e) => setForm({ ...form, end_time: e.target.value })}
+                                    />
+                                    {formErrors.end_time && <p className="mt-1 text-xs text-red-500">{formErrors.end_time[0]}</p>}
+                                </div>
                             </div>
+                        )}
+                        {form.type === 'flexible' && (
                             <div>
-                                <Label>End Time</Label>
+                                <Label>Minimum Hours Per Day</Label>
                                 <Input
-                                    type="time"
-                                    value={form.end_time}
-                                    onChange={(e) => setForm({ ...form, end_time: e.target.value })}
+                                    type="number"
+                                    value={form.min_hours_per_day}
+                                    onChange={(e) => setForm({ ...form, min_hours_per_day: parseFloat(e.target.value) || 0 })}
+                                    min={1}
+                                    max={24}
+                                    step={0.5}
                                 />
+                                {formErrors.min_hours_per_day && <p className="mt-1 text-xs text-red-500">{formErrors.min_hours_per_day[0]}</p>}
                             </div>
-                        </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label>Break Duration (min)</Label>
@@ -410,6 +445,7 @@ export default function WorkSchedules() {
                                     onChange={(e) => setForm({ ...form, break_duration: parseInt(e.target.value) || 0 })}
                                     min={0}
                                 />
+                                {formErrors.break_duration_minutes && <p className="mt-1 text-xs text-red-500">{formErrors.break_duration_minutes[0]}</p>}
                             </div>
                             <div>
                                 <Label>Grace Period (min)</Label>
@@ -419,6 +455,7 @@ export default function WorkSchedules() {
                                     onChange={(e) => setForm({ ...form, grace_period: parseInt(e.target.value) || 0 })}
                                     min={0}
                                 />
+                                {formErrors.grace_period_minutes && <p className="mt-1 text-xs text-red-500">{formErrors.grace_period_minutes[0]}</p>}
                             </div>
                         </div>
                         <div>
@@ -454,7 +491,7 @@ export default function WorkSchedules() {
                         <Button variant="outline" onClick={closeDialog}>
                             Cancel
                         </Button>
-                        <Button onClick={handleSave} disabled={isSaving || !form.name || !form.type || !form.start_time || !form.end_time}>
+                        <Button onClick={handleSave} disabled={isSaving || !form.name || !form.type || (form.type !== 'flexible' && (!form.start_time || !form.end_time))}>
                             {isSaving ? 'Saving...' : editingSchedule ? 'Update Schedule' : 'Create Schedule'}
                         </Button>
                     </DialogFooter>
