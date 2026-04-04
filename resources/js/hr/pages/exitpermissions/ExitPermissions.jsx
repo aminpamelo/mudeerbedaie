@@ -223,7 +223,7 @@ export default function ExitPermissions() {
                                         </TableCell>
                                         <TableCell>
                                             <p className="text-sm font-medium text-zinc-900">
-                                                {record.employee?.name}
+                                                {record.employee?.full_name}
                                             </p>
                                             <p className="text-xs text-zinc-400">
                                                 {record.employee?.department?.name}
