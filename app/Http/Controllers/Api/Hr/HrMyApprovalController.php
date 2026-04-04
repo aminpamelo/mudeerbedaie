@@ -45,10 +45,17 @@ class HrMyApprovalController extends Controller
             ->where('is_active', true)
             ->exists();
 
-        $otPending = empty($otDepts) ? 0
+        $otRequestPending = empty($otDepts) ? 0
             : OvertimeRequest::whereHas('employee', fn ($q) => $q->whereIn('department_id', $otDepts))
                 ->where('status', 'pending')
                 ->count();
+
+        $otClaimPending = empty($otDepts) ? 0
+            : OvertimeClaimRequest::whereHas('employee', fn ($q) => $q->whereIn('department_id', $otDepts))
+                ->where('status', 'pending')
+                ->count();
+
+        $otPending = $otRequestPending + $otClaimPending;
 
         $leavePending = empty($leaveDepts) ? 0
             : LeaveRequest::whereHas('employee', fn ($q) => $q->whereIn('department_id', $leaveDepts))

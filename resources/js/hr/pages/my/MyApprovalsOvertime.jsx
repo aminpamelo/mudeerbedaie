@@ -294,7 +294,7 @@ export default function MyApprovalsOvertime() {
     const [rejectReason, setRejectReason] = useState('');
     const [actionError, setActionError] = useState('');
 
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, isError, error } = useQuery({
         queryKey: ['my-approvals-overtime', tab],
         queryFn: () => fetchOvertimeApprovals(tab),
     });
@@ -321,7 +321,7 @@ export default function MyApprovalsOvertime() {
         onError: (err) => setActionError(err.response?.data?.message ?? 'Failed to reject.'),
     });
 
-    const { data: claimsData, isLoading: claimsLoading } = useQuery({
+    const { data: claimsData, isLoading: claimsLoading, isError: isClaimsError, error: claimsError } = useQuery({
         queryKey: ['my-approvals-overtime-claims', tab],
         queryFn: () => {
             const params = tab !== 'all' ? `?status=${tab}` : '';
@@ -426,6 +426,14 @@ export default function MyApprovalsOvertime() {
                                 <SkeletonCard />
                                 <SkeletonCard />
                             </>
+                        ) : isError ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 mb-3">
+                                    <AlertCircle className="h-6 w-6 text-red-400" />
+                                </div>
+                                <p className="text-sm font-semibold text-zinc-700">Failed to load requests</p>
+                                <p className="text-xs text-zinc-400 mt-1">{error?.response?.data?.message || error?.message || 'Something went wrong'}</p>
+                            </div>
                         ) : requests.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
                                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 mb-3">
@@ -456,6 +464,14 @@ export default function MyApprovalsOvertime() {
                                 <SkeletonCard />
                                 <SkeletonCard />
                             </>
+                        ) : isClaimsError ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 mb-3">
+                                    <AlertCircle className="h-6 w-6 text-red-400" />
+                                </div>
+                                <p className="text-sm font-semibold text-zinc-700">Failed to load claims</p>
+                                <p className="text-xs text-zinc-400 mt-1">{claimsError?.response?.data?.message || claimsError?.message || 'Something went wrong'}</p>
+                            </div>
                         ) : (claimsData?.data ?? []).length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
                                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 mb-3">
