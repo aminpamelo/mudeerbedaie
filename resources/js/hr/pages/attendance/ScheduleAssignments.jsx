@@ -183,7 +183,9 @@ export default function ScheduleAssignments() {
         const assignmentMap = {};
         assignments.forEach((a) => {
             const empId = a.employee_id ?? a.employee?.id;
-            if (empId) assignmentMap[empId] = a;
+            // Only consider active assignments (no end date or end date in the future)
+            const isActive = !a.effective_to || new Date(a.effective_to) >= new Date();
+            if (empId && isActive) assignmentMap[empId] = a;
         });
         return employees.map((emp) => ({
             ...emp,

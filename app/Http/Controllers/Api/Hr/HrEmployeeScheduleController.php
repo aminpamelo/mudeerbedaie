@@ -26,7 +26,8 @@ class HrEmployeeScheduleController extends Controller
             $query->where('work_schedule_id', $workScheduleId);
         }
 
-        $schedules = $query->orderByDesc('effective_from')->paginate(15);
+        $perPage = min((int) $request->get('per_page', 15), 500);
+        $schedules = $query->orderByDesc('effective_from')->paginate($perPage);
 
         return response()->json($schedules);
     }
@@ -50,6 +51,11 @@ class HrEmployeeScheduleController extends Controller
             $created = [];
 
             foreach ($validated['employee_ids'] as $employeeId) {
+                // Deactivate any existing active schedules for this employee
+                EmployeeSchedule::where('employee_id', $employeeId)
+                    ->where(fn ($q) => $q->whereNull('effective_to')->orWhere('effective_to', '>=', now()))
+                    ->update(['effective_to' => now()->subDay()]);
+
                 $employeeSchedule = EmployeeSchedule::create([
                     'employee_id' => $employeeId,
                     'work_schedule_id' => $validated['work_schedule_id'],
