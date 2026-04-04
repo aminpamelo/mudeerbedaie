@@ -560,6 +560,10 @@ class FunnelCheckoutService
                         'amount' => $upsellProduct->funnel_price,
                     ], $upsellStep);
 
+                    // Calculate affiliate commission for upsell if applicable
+                    app(AffiliateCommissionService::class)
+                        ->calculateCommission($funnelOrder, $session);
+
                     return [
                         'success' => true,
                         'order' => $order,

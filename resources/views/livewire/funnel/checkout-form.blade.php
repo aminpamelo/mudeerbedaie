@@ -563,6 +563,12 @@ new class extends Component
                     );
                 }
 
+                // Calculate affiliate commission if applicable
+                if ($this->funnelSession && $funnelOrder) {
+                    app(\App\Services\Funnel\AffiliateCommissionService::class)
+                        ->calculateCommission($funnelOrder, $this->funnelSession);
+                }
+
                 // Trigger funnel automations for purchase completed
                 app(\App\Services\Funnel\FunnelAutomationService::class)
                     ->triggerPurchaseCompleted($productOrder, $this->funnelSession);

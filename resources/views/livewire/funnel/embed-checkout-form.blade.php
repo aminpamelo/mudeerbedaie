@@ -437,7 +437,7 @@ new class extends Component
             }
 
             // Create FunnelOrder to track this in funnel analytics
-            FunnelOrder::create([
+            $funnelOrder = FunnelOrder::create([
                 'funnel_id' => $this->funnel->id,
                 'session_id' => $this->funnelSession?->id,
                 'product_order_id' => $productOrder->id,
@@ -500,6 +500,12 @@ new class extends Component
 
                 $funnelAnalytics = \App\Models\FunnelAnalytics::getOrCreateForToday($this->funnel->id);
                 $funnelAnalytics->incrementConversions($this->calculateTotal());
+
+                // Calculate affiliate commission if applicable
+                if ($this->funnelSession && $funnelOrder) {
+                    app(\App\Services\Funnel\AffiliateCommissionService::class)
+                        ->calculateCommission($funnelOrder, $this->funnelSession);
+                }
 
                 $this->redirectToNextStep($productOrder);
 

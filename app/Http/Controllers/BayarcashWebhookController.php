@@ -9,6 +9,7 @@ use App\Models\FunnelSession;
 use App\Models\Order;
 use App\Models\ProductOrder;
 use App\Services\BayarcashService;
+use App\Services\Funnel\AffiliateCommissionService;
 use App\Services\Funnel\FacebookPixelService;
 use App\Services\Funnel\FunnelAutomationService;
 use Illuminate\Http\RedirectResponse;
@@ -183,6 +184,10 @@ class BayarcashWebhookController extends Controller
 
             // Trigger funnel automations for purchase completed
             $this->automationService->triggerPurchaseCompleted($order, $funnelOrder->session);
+
+            // Calculate affiliate commission if applicable
+            app(AffiliateCommissionService::class)
+                ->calculateCommission($funnelOrder, $funnelOrder->session);
         }
 
         // Mark cart as recovered
@@ -516,6 +521,10 @@ class BayarcashWebhookController extends Controller
 
         // Trigger funnel automations for purchase completed
         $this->automationService->triggerPurchaseCompleted($order, $funnelOrder->session);
+
+        // Calculate affiliate commission if applicable
+        app(AffiliateCommissionService::class)
+            ->calculateCommission($funnelOrder, $funnelOrder->session);
 
         // Mark cart as recovered
         if (isset($metadata['session_uuid'])) {
