@@ -108,7 +108,7 @@ export default function MyApprovalsExitPermissions() {
                                     <div className="min-w-0">
                                         <p className="font-semibold text-slate-800">{req.employee?.name}</p>
                                         <p className="text-sm text-slate-500">
-                                            {req.employee?.position?.name} · {req.employee?.department?.name}
+                                            {req.employee?.position?.title} · {req.employee?.department?.name}
                                         </p>
                                         <div className="mt-1 flex items-center gap-2 flex-wrap">
                                             <p className="text-sm text-slate-600">

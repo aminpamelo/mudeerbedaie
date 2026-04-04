@@ -98,11 +98,11 @@ function LeaveCard({ req, onApprove, onReject }) {
                                         {req.employee.department.name}
                                     </span>
                                 )}
-                                {req.employee?.position?.name && (
+                                {req.employee?.position?.title && (
                                     <span className="flex items-center gap-0.5 text-xs text-zinc-400">
                                         <span className="text-zinc-300">·</span>
                                         <Briefcase className="h-3 w-3" />
-                                        {req.employee.position.name}
+                                        {req.employee.position.title}
                                     </span>
                                 )}
                             </div>

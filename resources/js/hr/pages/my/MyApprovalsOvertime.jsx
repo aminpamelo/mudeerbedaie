@@ -100,11 +100,11 @@ function OTCard({ req, onApprove, onReject }) {
                                         {req.employee.department.name}
                                     </span>
                                 )}
-                                {req.employee?.position?.name && (
+                                {req.employee?.position?.title && (
                                     <span className="flex items-center gap-0.5 text-xs text-zinc-400">
                                         <span className="text-zinc-300">·</span>
                                         <Briefcase className="h-3 w-3" />
-                                        {req.employee.position.name}
+                                        {req.employee.position.title}
                                     </span>
                                 )}
                             </div>
@@ -210,11 +210,11 @@ function ClaimCard({ claim, onApprove, onReject }) {
                                         {claim.employee.department.name}
                                     </span>
                                 )}
-                                {claim.employee?.position?.name && (
+                                {claim.employee?.position?.title && (
                                     <span className="flex items-center gap-0.5 text-xs text-zinc-400">
                                         <span className="text-zinc-300">·</span>
                                         <Briefcase className="h-3 w-3" />
-                                        {claim.employee.position.name}
+                                        {claim.employee.position.title}
                                     </span>
                                 )}
                             </div>

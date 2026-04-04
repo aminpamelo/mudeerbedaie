@@ -118,7 +118,7 @@ class HrMyApprovalController extends Controller
 
         $query = OvertimeRequest::with([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
         ])->whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds));
 
@@ -163,7 +163,7 @@ class HrMyApprovalController extends Controller
 
         return response()->json($overtimeRequest->fresh([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
         ]));
     }
@@ -203,7 +203,7 @@ class HrMyApprovalController extends Controller
 
         return response()->json($overtimeRequest->fresh([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
         ]));
     }
@@ -226,7 +226,7 @@ class HrMyApprovalController extends Controller
 
         $query = OvertimeClaimRequest::with([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
         ])->whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds));
 
@@ -288,7 +288,7 @@ class HrMyApprovalController extends Controller
 
         return response()->json($overtimeClaimRequest->fresh([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
         ]));
     }
@@ -328,7 +328,7 @@ class HrMyApprovalController extends Controller
 
         return response()->json($overtimeClaimRequest->fresh([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
         ]));
     }
@@ -351,7 +351,7 @@ class HrMyApprovalController extends Controller
 
         $query = LeaveRequest::with([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
             'leaveType:id,name,color',
         ])->whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds));
@@ -386,7 +386,7 @@ class HrMyApprovalController extends Controller
 
         return response()->json($leaveRequest->fresh([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
             'leaveType:id,name',
         ]));
@@ -415,7 +415,7 @@ class HrMyApprovalController extends Controller
 
         return response()->json($leaveRequest->fresh([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
             'leaveType:id,name',
         ]));
@@ -442,7 +442,7 @@ class HrMyApprovalController extends Controller
 
         $query = ClaimRequest::with([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
             'claimType:id,name',
         ]);
@@ -494,7 +494,7 @@ class HrMyApprovalController extends Controller
 
         return response()->json($claimRequest->fresh([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
             'claimType:id,name',
         ]));
@@ -529,7 +529,7 @@ class HrMyApprovalController extends Controller
 
         return response()->json($claimRequest->fresh([
             'employee:id,full_name,position_id,department_id',
-            'employee.position:id,name',
+            'employee.position:id,title',
             'employee.department:id,name',
             'claimType:id,name',
         ]));
