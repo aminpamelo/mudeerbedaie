@@ -15,6 +15,8 @@ import {
     ExternalLink,
     Globe,
     Wifi,
+    Timer,
+    DoorOpen,
 } from 'lucide-react';
 import {
     Card,
@@ -471,7 +473,7 @@ export default function AttendanceRecords() {
 
             {/* Detail Dialog */}
             <Dialog open={!!detailRecord} onOpenChange={() => setDetailRecord(null)}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Attendance Detail</DialogTitle>
                         <DialogDescription>
@@ -609,6 +611,93 @@ export default function AttendanceRecords() {
                                             <span className="text-xs">IP: <span className="font-mono">{detailRecord.clock_in_ip}</span></span>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* OT Claim */}
+                            {detailRecord.ot_claim && (
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">OT Claim</p>
+                                    <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Timer className="h-4 w-4 text-blue-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-zinc-800">
+                                                        {(() => {
+                                                            const mins = detailRecord.ot_claim.duration_minutes;
+                                                            const h = Math.floor(mins / 60);
+                                                            const m = mins % 60;
+                                                            return `${h}h ${m}m`;
+                                                        })()}
+                                                    </p>
+                                                    {detailRecord.ot_claim.start_time && (
+                                                        <p className="text-xs text-zinc-500">
+                                                            Starting at {detailRecord.ot_claim.start_time.slice(0, 5)}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <span className={cn(
+                                                'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                                detailRecord.ot_claim.status === 'approved' && 'bg-emerald-100 text-emerald-700',
+                                                detailRecord.ot_claim.status === 'pending' && 'bg-amber-100 text-amber-700',
+                                                detailRecord.ot_claim.status === 'rejected' && 'bg-red-100 text-red-700',
+                                                detailRecord.ot_claim.status === 'cancelled' && 'bg-zinc-100 text-zinc-500',
+                                            )}>
+                                                {detailRecord.ot_claim.status.charAt(0).toUpperCase() + detailRecord.ot_claim.status.slice(1)}
+                                            </span>
+                                        </div>
+                                        {detailRecord.ot_claim.notes && (
+                                            <p className="mt-2 text-xs text-zinc-500 border-t border-blue-100 pt-2">{detailRecord.ot_claim.notes}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Exit Permissions */}
+                            {detailRecord.exit_permissions?.length > 0 && (
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                                        Exit Permission{detailRecord.exit_permissions.length > 1 ? 's' : ''}
+                                    </p>
+                                    <div className="space-y-2">
+                                        {detailRecord.exit_permissions.map((perm) => (
+                                            <div key={perm.id} className="rounded-lg border border-violet-100 bg-violet-50/50 p-3">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <DoorOpen className="h-4 w-4 text-violet-500" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-zinc-800">
+                                                                {perm.exit_time?.slice(0, 5)} — {perm.return_time?.slice(0, 5)}
+                                                            </p>
+                                                            <p className="text-xs text-zinc-500">
+                                                                <span className={cn(
+                                                                    'inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium mr-1',
+                                                                    perm.errand_type === 'company' ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700',
+                                                                )}>
+                                                                    {perm.errand_type === 'company' ? 'Company' : 'Personal'}
+                                                                </span>
+                                                                {perm.permission_number}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <span className={cn(
+                                                        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                                        perm.status === 'approved' && 'bg-emerald-100 text-emerald-700',
+                                                        perm.status === 'pending' && 'bg-amber-100 text-amber-700',
+                                                        perm.status === 'rejected' && 'bg-red-100 text-red-700',
+                                                        perm.status === 'cancelled' && 'bg-zinc-100 text-zinc-500',
+                                                    )}>
+                                                        {perm.status.charAt(0).toUpperCase() + perm.status.slice(1)}
+                                                    </span>
+                                                </div>
+                                                {perm.purpose && (
+                                                    <p className="mt-2 text-xs text-zinc-500 border-t border-violet-100 pt-2">{perm.purpose}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 

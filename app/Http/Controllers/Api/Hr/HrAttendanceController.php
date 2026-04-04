@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Hr;
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceLog;
 use App\Models\Employee;
+use App\Models\OfficeExitPermission;
+use App\Models\OvertimeClaimRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -42,6 +44,9 @@ class HrAttendanceController extends Controller
 
         $logs = $query->orderByDesc('date')->paginate(15);
 
+        // Attach OT claims and exit permissions to each log
+        $this->attachRelatedRecords($logs->getCollection());
+
         return response()->json($logs);
     }
 
@@ -56,6 +61,8 @@ class HrAttendanceController extends Controller
             ->with(['employee.department'])
             ->whereDate('date', $today)
             ->get();
+
+        $this->attachRelatedRecords($logs);
 
         $activeEmployees = Employee::query()
             ->where('status', 'active')
@@ -143,13 +150,34 @@ class HrAttendanceController extends Controller
             ->groupBy('employee_id')
             ->map(fn ($employeeLogs) => $employeeLogs->keyBy(fn ($log) => Carbon::parse($log->date)->day));
 
-        $data = $employees->map(function (Employee $employee) use ($logs, $daysInMonth) {
+        // Fetch OT claims for all employees in this month
+        $otClaims = OvertimeClaimRequest::query()
+            ->whereIn('employee_id', $employeeIds)
+            ->whereBetween('claim_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->groupBy('employee_id')
+            ->map(fn ($claims) => $claims->keyBy(fn ($c) => Carbon::parse($c->claim_date)->day));
+
+        // Fetch exit permissions for all employees in this month
+        $exitPermissions = OfficeExitPermission::query()
+            ->whereIn('employee_id', $employeeIds)
+            ->whereBetween('exit_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->groupBy('employee_id')
+            ->map(fn ($perms) => $perms->groupBy(fn ($p) => Carbon::parse($p->exit_date)->day));
+
+        $data = $employees->map(function (Employee $employee) use ($logs, $otClaims, $exitPermissions, $daysInMonth) {
             $employeeLogs = $logs->get($employee->id, collect());
+            $employeeOtClaims = $otClaims->get($employee->id, collect());
+            $employeeExitPerms = $exitPermissions->get($employee->id, collect());
             $days = [];
 
             for ($day = 1; $day <= $daysInMonth; $day++) {
                 $log = $employeeLogs->get($day);
-                $days[$day] = $log ? [
+                $otClaim = $employeeOtClaims->get($day);
+                $dayExitPerms = $employeeExitPerms->get($day, collect());
+
+                $dayData = $log ? [
                     'id' => $log->id,
                     'status' => $log->status,
                     'clock_in' => $log->clock_in,
@@ -168,6 +196,32 @@ class HrAttendanceController extends Controller
                     'clock_out_latitude' => $log->clock_out_latitude,
                     'clock_out_longitude' => $log->clock_out_longitude,
                 ] : null;
+
+                // Attach OT claim if exists for this day
+                if ($dayData && $otClaim) {
+                    $dayData['ot_claim'] = [
+                        'id' => $otClaim->id,
+                        'start_time' => $otClaim->start_time,
+                        'duration_minutes' => $otClaim->duration_minutes,
+                        'status' => $otClaim->status,
+                        'notes' => $otClaim->notes,
+                    ];
+                }
+
+                // Attach exit permissions if exist for this day
+                if ($dayData && $dayExitPerms->isNotEmpty()) {
+                    $dayData['exit_permissions'] = $dayExitPerms->map(fn ($p) => [
+                        'id' => $p->id,
+                        'permission_number' => $p->permission_number,
+                        'exit_time' => $p->exit_time,
+                        'return_time' => $p->return_time,
+                        'errand_type' => $p->errand_type,
+                        'purpose' => $p->purpose,
+                        'status' => $p->status,
+                    ])->values()->all();
+                }
+
+                $days[$day] = $dayData;
             }
 
             $presentCount = collect($days)->filter(fn ($d) => $d && in_array($d['status'], ['present', 'late', 'wfh', 'half_day']))->count();
@@ -247,5 +301,58 @@ class HrAttendanceController extends Controller
         }, 'attendance-'.now()->format('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv',
         ]);
+    }
+
+    /**
+     * Attach OT claims and exit permissions to a collection of attendance logs.
+     *
+     * @param  \Illuminate\Support\Collection<int, AttendanceLog>  $logs
+     */
+    private function attachRelatedRecords(\Illuminate\Support\Collection $logs): void
+    {
+        if ($logs->isEmpty()) {
+            return;
+        }
+
+        $employeeIds = $logs->pluck('employee_id')->unique();
+        $dates = $logs->pluck('date')->map(fn ($d) => Carbon::parse($d)->toDateString())->unique();
+
+        // Fetch OT claims matching employee_id + date combos
+        $otClaims = OvertimeClaimRequest::query()
+            ->whereIn('employee_id', $employeeIds)
+            ->whereIn('claim_date', $dates)
+            ->get()
+            ->keyBy(fn ($c) => $c->employee_id.'_'.Carbon::parse($c->claim_date)->toDateString());
+
+        // Fetch exit permissions matching employee_id + date combos
+        $exitPerms = OfficeExitPermission::query()
+            ->whereIn('employee_id', $employeeIds)
+            ->whereIn('exit_date', $dates)
+            ->get()
+            ->groupBy(fn ($p) => $p->employee_id.'_'.Carbon::parse($p->exit_date)->toDateString());
+
+        foreach ($logs as $log) {
+            $key = $log->employee_id.'_'.Carbon::parse($log->date)->toDateString();
+
+            $otClaim = $otClaims->get($key);
+            $log->setAttribute('ot_claim', $otClaim ? [
+                'id' => $otClaim->id,
+                'start_time' => $otClaim->start_time,
+                'duration_minutes' => $otClaim->duration_minutes,
+                'status' => $otClaim->status,
+                'notes' => $otClaim->notes,
+            ] : null);
+
+            $perms = $exitPerms->get($key, collect());
+            $log->setAttribute('exit_permissions', $perms->map(fn ($p) => [
+                'id' => $p->id,
+                'permission_number' => $p->permission_number,
+                'exit_time' => $p->exit_time,
+                'return_time' => $p->return_time,
+                'errand_type' => $p->errand_type,
+                'purpose' => $p->purpose,
+                'status' => $p->status,
+            ])->values()->all());
+        }
     }
 }
