@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     ChevronLeft,
@@ -123,6 +123,36 @@ function SummaryPill({ count, variant }) {
     );
 }
 
+function LiveTimer({ clockIn }) {
+    const [elapsed, setElapsed] = useState(() => {
+        const diff = Math.floor((Date.now() - new Date(clockIn).getTime()) / 1000);
+        return diff > 0 ? diff : 0;
+    });
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const diff = Math.floor((Date.now() - new Date(clockIn).getTime()) / 1000);
+            setElapsed(diff > 0 ? diff : 0);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [clockIn]);
+
+    const hours = Math.floor(elapsed / 3600);
+    const mins = Math.floor((elapsed % 3600) / 60);
+    const secs = elapsed % 60;
+    const display = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-mono font-semibold text-blue-700 ring-1 ring-blue-200">
+            <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-blue-500" />
+            </span>
+            {display}
+        </span>
+    );
+}
+
 function DetailModal({ dayData, employeeName, date, onClose }) {
     if (!dayData) { return null; }
     const config = STATUS_CONFIG[dayData.status] || { label: dayData.status, bg: 'bg-zinc-100', text: 'text-zinc-700' };
@@ -188,7 +218,10 @@ function DetailModal({ dayData, employeeName, date, onClose }) {
                     <div className="grid grid-cols-3 gap-2">
                         <div className="rounded-lg bg-zinc-50 p-2.5 text-center">
                             <p className="text-xs text-zinc-400">Total</p>
-                            <p className="text-sm font-semibold text-zinc-800">{formatHours(dayData.total_work_minutes)}</p>
+                            {dayData.clock_in && !dayData.clock_out
+                                ? <LiveTimer clockIn={dayData.clock_in} />
+                                : <p className="text-sm font-semibold text-zinc-800">{formatHours(dayData.total_work_minutes)}</p>
+                            }
                         </div>
                         <div className={cn('rounded-lg p-2.5 text-center', dayData.late_minutes > 0 ? 'bg-amber-50' : 'bg-zinc-50')}>
                             <p className="text-xs text-zinc-400">Late</p>
