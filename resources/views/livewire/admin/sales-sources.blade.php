@@ -15,7 +15,7 @@ new class extends Component
 
     public function mount(): void
     {
-        if (! auth()->user()->hasAnyRole(['admin', 'class_admin', 'sales'])) {
+        if (! auth()->user()->hasAnyRole(['admin', 'employee', 'class_admin', 'sales'])) {
             abort(403, 'Access denied');
         }
     }
