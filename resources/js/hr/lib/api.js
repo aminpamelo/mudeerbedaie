@@ -619,7 +619,7 @@ export const fetchTrainingReports = (params) => api.get('/training/reports', { p
 
 // ========== My Disciplinary (Employee Self-Service) ==========
 export const fetchMyDisciplinary = () => api.get('/me/disciplinary').then(r => r.data);
-export const respondToDisciplinary = (id, data) => api.post(`/me/disciplinary/${id}/respond`, data).then(r => r.data);
+export const respondToDisciplinary = (id, data) => api.post(`/me/disciplinary/${id}/respond`, { employee_response: data.response }).then(r => r.data);
 
 // ========== My Resignation (Employee Self-Service) ==========
 export const submitMyResignation = (data) => api.post('/me/resignation', data).then(r => r.data);
