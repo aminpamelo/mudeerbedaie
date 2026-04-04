@@ -358,8 +358,9 @@ function ClockButton({ type, isPending, onClick, disabled }) {
 
 // ---- Location Status Indicator ----
 function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh }) {
-    if (isWfh) return null;
-    if (!officeConfig?.require_location) return null;
+    // For WFH: always show location status (required)
+    // For Office: only show if require_location is enabled
+    if (!isWfh && !officeConfig?.require_location) return null;
 
     if (geoLoading) {
         return (
@@ -375,6 +376,25 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
             <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200/80 p-3">
                 <MapPinOff className="h-4 w-4 text-rose-500 shrink-0" />
                 <p className="text-sm text-rose-700">{geoError}</p>
+                {isWfh && (
+                    <p className="text-xs text-rose-600 mt-1">Location is required for WFH clock-in. Please enable GPS in your browser settings.</p>
+                )}
+            </div>
+        );
+    }
+
+    // WFH location status
+    if (isWfh && location) {
+        return (
+            <div className="flex items-center gap-2 rounded-xl border p-3 bg-indigo-50 border-indigo-200/80">
+                <MapPin className="h-4 w-4 shrink-0 text-indigo-500" />
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-indigo-700">Location captured</p>
+                    <p className="text-xs text-indigo-600">
+                        Your WFH location will be recorded when you clock in
+                    </p>
+                </div>
+                <CheckCircle2 className="h-4 w-4 text-indigo-500 shrink-0" />
             </div>
         );
     }
@@ -468,14 +488,19 @@ export default function ClockInOut() {
     const isClockedIn = today?.clock_in && !today?.clock_out;
     const isCompleted = today?.clock_in && today?.clock_out;
 
-    // Enable GPS when in Office mode & not completed/clocked-in
-    const needsGps = !isWfh && !isCompleted && officeConfig?.require_location;
+    // Enable GPS for WFH (always required) or Office mode (if require_location enabled)
+    const needsGps = !isCompleted && (isWfh || officeConfig?.require_location);
     const { location: geoLocation, error: geoError, loading: geoLoading } = useGeoLocation(needsGps);
 
-    // Determine if clock-in should be disabled (office mode + location required + not in range)
-    const isOfficeLocationBlocked = (() => {
-        if (isWfh || !officeConfig?.require_location) return false;
-        if (!geoLocation) return true; // no location yet
+    // Determine if clock-in should be disabled due to location issues
+    const isLocationBlocked = (() => {
+        // WFH: must have location before clock-in
+        if (isWfh) {
+            return !geoLocation;
+        }
+        // Office: check if require_location is enabled and validate range
+        if (!officeConfig?.require_location) return false;
+        if (!geoLocation) return true;
         const distance = calculateDistance(
             geoLocation.latitude,
             geoLocation.longitude,
@@ -489,7 +514,7 @@ export default function ClockInOut() {
         mutationFn: async () => {
             const formData = new FormData();
             formData.append('is_wfh', isWfh ? '1' : '0');
-            if (geoLocation && !isWfh) {
+            if (geoLocation) {
                 formData.append('latitude', geoLocation.latitude);
                 formData.append('longitude', geoLocation.longitude);
             }
@@ -666,7 +691,7 @@ export default function ClockInOut() {
                         type="in"
                         isPending={clockInMut.isPending}
                         onClick={() => setShowConfirm('in')}
-                        disabled={isOfficeLocationBlocked}
+                        disabled={isLocationBlocked}
                     />
                 )}
             </div>

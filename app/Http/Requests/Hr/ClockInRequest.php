@@ -16,12 +16,20 @@ class ClockInRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'photo' => ['required_without:is_wfh', 'image', 'max:2048'],
             'is_wfh' => ['boolean'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
+
+        // Location is required for WFH clock-in
+        if ($this->boolean('is_wfh')) {
+            $rules['latitude'] = ['required', 'numeric', 'between:-90,90'];
+            $rules['longitude'] = ['required', 'numeric', 'between:-180,180'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -32,6 +40,8 @@ class ClockInRequest extends FormRequest
         return [
             'photo.required_without' => 'A photo is required when not working from home.',
             'photo.max' => 'Photo must not exceed 2MB.',
+            'latitude.required' => 'Location is required for WFH clock-in. Please enable GPS.',
+            'longitude.required' => 'Location is required for WFH clock-in. Please enable GPS.',
         ];
     }
 }

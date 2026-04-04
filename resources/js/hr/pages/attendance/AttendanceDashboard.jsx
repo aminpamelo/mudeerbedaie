@@ -23,6 +23,7 @@ import {
     RefreshCw,
     TrendingDown,
     Building2,
+    MapPin,
 } from 'lucide-react';
 import {
     Card,
@@ -403,6 +404,7 @@ export default function AttendanceDashboard() {
                                     <TableHead>Clock In</TableHead>
                                     <TableHead>Clock Out</TableHead>
                                     <TableHead>Status</TableHead>
+                                    <TableHead>Location</TableHead>
                                     <TableHead>Late (min)</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -430,6 +432,22 @@ export default function AttendanceDashboard() {
                                         </TableCell>
                                         <TableCell>
                                             <AttendanceStatusBadge status={record.status} />
+                                        </TableCell>
+                                        <TableCell>
+                                            {record.clock_in_latitude && record.clock_in_longitude ? (
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${record.clock_in_latitude},${record.clock_in_longitude}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                                    title={`${record.clock_in_latitude}, ${record.clock_in_longitude}`}
+                                                >
+                                                    <MapPin className="h-3 w-3" />
+                                                    View Map
+                                                </a>
+                                            ) : (
+                                                <span className="text-xs text-zinc-400">-</span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-sm text-zinc-600">
                                             {record.late_minutes > 0 ? (
