@@ -62,6 +62,8 @@ class FunnelAffiliateController extends Controller
                     'ref_code' => $affiliate->ref_code,
                     'status' => $affiliate->status,
                     'joined_at' => $affiliate->pivot->joined_at,
+                    'affiliate_url' => $affiliate->getAffiliateUrl($funnel),
+                    'affiliate_custom_url' => $affiliate->getAffiliateCustomUrl($funnel),
                     'stats' => [
                         'views' => $views,
                         'checkout_fills' => $checkoutFills,

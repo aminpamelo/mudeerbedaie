@@ -303,6 +303,57 @@ export default function AffiliatesTab({ funnelUuid, showToast }) {
     );
 }
 
+// Copy to clipboard helper
+function CopyButton({ text }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            // Fallback for older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    return (
+        <button
+            onClick={handleCopy}
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                copied
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            title={copied ? 'Copied!' : 'Copy link'}
+        >
+            {copied ? (
+                <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied
+                </>
+            ) : (
+                <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                    Copy
+                </>
+            )}
+        </button>
+    );
+}
+
 // Affiliates List Section
 function AffiliatesSection({ affiliates, funnelUuid }) {
     if (affiliates.length === 0) {
@@ -330,6 +381,7 @@ function AffiliatesSection({ affiliates, funnelUuid }) {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ref Code</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Affiliate Link</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Views</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Checkout Fills</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">TY Views</th>
@@ -350,6 +402,16 @@ function AffiliatesSection({ affiliates, funnelUuid }) {
                                     <span className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-mono text-xs">
                                         {affiliate.ref_code}
                                     </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-500 truncate max-w-[200px] text-xs" title={affiliate.affiliate_custom_url || affiliate.affiliate_url}>
+                                                {affiliate.affiliate_custom_url || affiliate.affiliate_url}
+                                            </span>
+                                            <CopyButton text={affiliate.affiliate_custom_url || affiliate.affiliate_url} />
+                                        </div>
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-900 text-right">
                                     {(affiliate.stats?.views || 0).toLocaleString()}
