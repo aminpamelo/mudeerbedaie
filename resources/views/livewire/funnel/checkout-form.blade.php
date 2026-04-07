@@ -909,7 +909,7 @@ new class extends Component
 
                         <div class="flex justify-between text-lg font-bold border-t pt-2 mt-2">
                             <span>Jumlah</span>
-                            <span>RM {{ number_format($this->calculateTotal(), 2) }}</span>
+                            <span>RM {{ number_format($this->calculateSubtotal() + $this->calculateBumpsTotal(), 2) }}</span>
                         </div>
                     </div>
 
@@ -917,7 +917,7 @@ new class extends Component
                         wire:click="proceedToInformation"
                         class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
                     >
-                        Teruskan ke Pembayaran
+                        Teruskan ke Maklumat
                         <svg class="inline-block w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
