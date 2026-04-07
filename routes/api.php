@@ -303,6 +303,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::get('funnels/{uuid}/commissions', [FunnelAffiliateController::class, 'commissions'])->name('api.funnels.commissions.index');
     Route::post('funnels/{uuid}/commissions/{commissionId}/approve', [FunnelAffiliateController::class, 'approveCommission'])->name('api.funnels.commissions.approve');
     Route::post('funnels/{uuid}/commissions/{commissionId}/reject', [FunnelAffiliateController::class, 'rejectCommission'])->name('api.funnels.commissions.reject');
+    Route::post('funnels/{uuid}/commissions/{commissionId}/mark-paid', [FunnelAffiliateController::class, 'markAsPaid'])->name('api.funnels.commissions.mark-paid');
     Route::post('funnels/{uuid}/commissions/bulk-approve', [FunnelAffiliateController::class, 'bulkApprove'])->name('api.funnels.commissions.bulk-approve');
 });
 

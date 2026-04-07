@@ -400,6 +400,11 @@ export const affiliateApi = {
         body: JSON.stringify({ notes }),
     }),
 
+    // Mark commission as paid
+    markAsPaid: (funnelUuid, commissionId) => request(`/funnels/${funnelUuid}/commissions/${commissionId}/mark-paid`, {
+        method: 'POST',
+    }),
+
     // Bulk approve commissions
     bulkApprove: (funnelUuid) => request(`/funnels/${funnelUuid}/commissions/bulk-approve`, {
         method: 'POST',

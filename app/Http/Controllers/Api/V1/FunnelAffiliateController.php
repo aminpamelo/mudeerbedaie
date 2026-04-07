@@ -258,8 +258,8 @@ class FunnelAffiliateController extends Controller
         $funnel = Funnel::where('uuid', $uuid)->firstOrFail();
         $commission = FunnelAffiliateCommission::where('funnel_id', $funnel->id)->findOrFail($commissionId);
 
-        if (! $commission->isPending()) {
-            return response()->json(['message' => 'Commission is not pending.'], 422);
+        if ($commission->isPaid()) {
+            return response()->json(['message' => 'Commission is already paid.'], 422);
         }
 
         $commission->approve($request->user()->id);
@@ -272,13 +272,27 @@ class FunnelAffiliateController extends Controller
         $funnel = Funnel::where('uuid', $uuid)->firstOrFail();
         $commission = FunnelAffiliateCommission::where('funnel_id', $funnel->id)->findOrFail($commissionId);
 
-        if (! $commission->isPending()) {
-            return response()->json(['message' => 'Commission is not pending.'], 422);
+        if ($commission->isPaid()) {
+            return response()->json(['message' => 'Commission is already paid.'], 422);
         }
 
         $commission->reject($request->user()->id, $request->input('notes'));
 
         return response()->json(['message' => 'Commission rejected.']);
+    }
+
+    public function markAsPaid(Request $request, string $uuid, int $commissionId): JsonResponse
+    {
+        $funnel = Funnel::where('uuid', $uuid)->firstOrFail();
+        $commission = FunnelAffiliateCommission::where('funnel_id', $funnel->id)->findOrFail($commissionId);
+
+        if (! $commission->isApproved()) {
+            return response()->json(['message' => 'Commission must be approved before marking as paid.'], 422);
+        }
+
+        $commission->markAsPaid();
+
+        return response()->json(['message' => 'Commission marked as paid.']);
     }
 
     public function bulkApprove(Request $request, string $uuid): JsonResponse

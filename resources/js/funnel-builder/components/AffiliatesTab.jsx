@@ -135,6 +135,18 @@ export default function AffiliatesTab({ funnelUuid, showToast }) {
         }
     };
 
+    // Mark as paid
+    const handleMarkPaid = async (commissionId) => {
+        if (!confirm('Mark this commission as paid?')) return;
+        try {
+            await affiliateApi.markAsPaid(funnelUuid, commissionId);
+            showToast('Commission marked as paid', 'success');
+            loadCommissions();
+        } catch (err) {
+            showToast('Failed to mark commission as paid', 'error');
+        }
+    };
+
     // Bulk approve
     const handleBulkApprove = async () => {
         if (!confirm('Approve all pending commissions?')) return;
@@ -265,6 +277,7 @@ export default function AffiliatesTab({ funnelUuid, showToast }) {
                             onPageChange={setCommissionsPage}
                             onApprove={handleApprove}
                             onReject={handleReject}
+                            onMarkPaid={handleMarkPaid}
                             onBulkApprove={handleBulkApprove}
                         />
                     )}
@@ -447,7 +460,7 @@ function AffiliatesSection({ affiliates, funnelUuid }) {
 }
 
 // Commissions Section
-function CommissionsSection({ commissions, meta, filter, onFilterChange, page, onPageChange, onApprove, onReject, onBulkApprove }) {
+function CommissionsSection({ commissions, meta, filter, onFilterChange, page, onPageChange, onApprove, onReject, onMarkPaid, onBulkApprove }) {
     const statusColors = {
         pending: 'bg-yellow-100 text-yellow-800',
         approved: 'bg-green-100 text-green-800',
@@ -537,22 +550,43 @@ function CommissionsSection({ commissions, meta, filter, onFilterChange, page, o
                                             {new Date(commission.created_at).toLocaleDateString()}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {commission.status === 'pending' && (
-                                                <div className="flex items-center justify-end gap-2">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {commission.status === 'pending' && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => onApprove(commission.id)}
+                                                            className="px-3 py-1 bg-green-100 text-green-700 hover:bg-green-200 rounded text-xs font-medium"
+                                                        >
+                                                            Approve
+                                                        </button>
+                                                        <button
+                                                            onClick={() => onReject(commission.id)}
+                                                            className="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded text-xs font-medium"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {commission.status === 'approved' && (
+                                                    <button
+                                                        onClick={() => onMarkPaid(commission.id)}
+                                                        className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-xs font-medium"
+                                                    >
+                                                        Mark Paid
+                                                    </button>
+                                                )}
+                                                {commission.status === 'rejected' && (
                                                     <button
                                                         onClick={() => onApprove(commission.id)}
                                                         className="px-3 py-1 bg-green-100 text-green-700 hover:bg-green-200 rounded text-xs font-medium"
                                                     >
-                                                        Approve
+                                                        Re-approve
                                                     </button>
-                                                    <button
-                                                        onClick={() => onReject(commission.id)}
-                                                        className="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded text-xs font-medium"
-                                                    >
-                                                        Reject
-                                                    </button>
-                                                </div>
-                                            )}
+                                                )}
+                                                {commission.status === 'paid' && (
+                                                    <span className="text-xs text-gray-400">—</span>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

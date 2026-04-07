@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FunnelOrder extends Model
 {
@@ -51,6 +52,11 @@ class FunnelOrder extends Model
     public function step(): BelongsTo
     {
         return $this->belongsTo(FunnelStep::class, 'step_id');
+    }
+
+    public function commission(): HasOne
+    {
+        return $this->hasOne(FunnelAffiliateCommission::class, 'funnel_order_id');
     }
 
     // Type helpers
