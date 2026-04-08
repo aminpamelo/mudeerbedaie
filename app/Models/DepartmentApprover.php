@@ -16,6 +16,7 @@ class DepartmentApprover extends Model
         'department_id',
         'approver_employee_id',
         'approval_type',
+        'tier',
     ];
 
     /**
@@ -48,5 +49,13 @@ class DepartmentApprover extends Model
     public function scopeForDepartment(Builder $query, int $departmentId): Builder
     {
         return $query->where('department_id', $departmentId);
+    }
+
+    /**
+     * Scope to filter by approval tier.
+     */
+    public function scopeForTier(Builder $query, int $tier): Builder
+    {
+        return $query->where('tier', $tier);
     }
 }
