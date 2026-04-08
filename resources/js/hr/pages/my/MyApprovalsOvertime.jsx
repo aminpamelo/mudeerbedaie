@@ -4,6 +4,7 @@ import { ArrowLeft, Check, X, AlertCircle, Clock, Calendar, Building2, Briefcase
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import api from '../../lib/api';
+import TierProgressBar from '../../components/TierProgressBar';
 
 const TABS = [
     { key: 'pending',   label: 'Pending' },
@@ -152,6 +153,15 @@ function OTCard({ req, onApprove, onReject }) {
                     </div>
                 )}
 
+                {/* Tier Progress */}
+                <TierProgressBar
+                    maxTier={req.max_tier}
+                    currentTier={req.current_approval_tier}
+                    approvalLogs={req.approval_logs || []}
+                    tierApprovers={req.tier_approvers || {}}
+                    status={req.status}
+                />
+
                 {/* Actions */}
                 {req.status === 'pending' && (
                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -259,6 +269,15 @@ function ClaimCard({ claim, onApprove, onReject }) {
                         <p className="text-xs text-red-600">{claim.rejection_reason}</p>
                     </div>
                 )}
+
+                {/* Tier Progress */}
+                <TierProgressBar
+                    maxTier={claim.max_tier}
+                    currentTier={claim.current_approval_tier}
+                    approvalLogs={claim.approval_logs || []}
+                    tierApprovers={claim.tier_approvers || {}}
+                    status={claim.status}
+                />
 
                 {/* Actions */}
                 {claim.status === 'pending' && (

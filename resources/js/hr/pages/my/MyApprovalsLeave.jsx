@@ -4,6 +4,7 @@ import { ArrowLeft, Check, X, AlertCircle, Calendar, Building2, Briefcase, Calen
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import api from '../../lib/api';
+import TierProgressBar from '../../components/TierProgressBar';
 
 const TABS = [
     { key: 'pending',   label: 'Pending' },
@@ -156,6 +157,15 @@ function LeaveCard({ req, onApprove, onReject }) {
                         <p className="text-xs text-red-600">{req.rejection_reason}</p>
                     </div>
                 )}
+
+                {/* Tier Progress */}
+                <TierProgressBar
+                    maxTier={req.max_tier}
+                    currentTier={req.current_approval_tier}
+                    approvalLogs={req.approval_logs || []}
+                    tierApprovers={req.tier_approvers || {}}
+                    status={req.status}
+                />
 
                 {/* Actions */}
                 {req.status === 'pending' && (
