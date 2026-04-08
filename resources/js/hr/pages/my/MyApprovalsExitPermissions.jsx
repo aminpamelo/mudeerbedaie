@@ -4,6 +4,7 @@ import { ArrowLeft, Check, X, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { getMyApprovalsExitPermissions, approveMyExitPermission, rejectMyExitPermission } from '../../lib/api';
+import TierProgressBar from '../../components/TierProgressBar';
 
 const TABS = ['pending', 'approved', 'rejected', 'all'];
 
@@ -138,6 +139,14 @@ export default function MyApprovalsExitPermissions() {
                                         {req.status}
                                     </span>
                                 </div>
+
+                                <TierProgressBar
+                                    maxTier={req.max_tier}
+                                    currentTier={req.current_approval_tier}
+                                    approvalLogs={req.approval_logs || []}
+                                    tierApprovers={req.tier_approvers || {}}
+                                    status={req.status}
+                                />
 
                                 {req.status === 'pending' && (
                                     <div className="mt-3 flex gap-2">
