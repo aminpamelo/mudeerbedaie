@@ -58,14 +58,16 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
     return R * c;
 }
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_COLORS = {
     present: 'bg-teal-500',
     late: 'bg-amber-500',
     absent: 'bg-rose-500',
     wfh: 'bg-indigo-500',
+    on_leave: 'bg-violet-500',
     leave: 'bg-violet-500',
     holiday: 'bg-slate-300',
+    off_day: 'bg-slate-300',
     none: 'bg-slate-200',
 };
 
@@ -449,6 +451,47 @@ function LocationStatus({ location, geoError, geoLoading, officeConfig, isWfh })
     return null;
 }
 
+// ---- Clock-Out Location Status (for office employees clocking out remotely) ----
+function ClockOutLocationStatus({ location, geoError, geoLoading }) {
+    if (geoLoading) {
+        return (
+            <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-3">
+                <Loader2 className="h-4 w-4 animate-spin text-slate-500 shrink-0" />
+                <p className="text-sm text-slate-600">Getting your location for clock-out...</p>
+            </div>
+        );
+    }
+
+    if (geoError) {
+        return (
+            <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200/80 p-3">
+                <MapPinOff className="h-4 w-4 text-rose-500 shrink-0" />
+                <div>
+                    <p className="text-sm text-rose-700">{geoError}</p>
+                    <p className="text-xs text-rose-600 mt-1">GPS location is required to clock out. Please enable location services.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (location) {
+        return (
+            <div className="flex items-center gap-2 rounded-xl border p-3 bg-blue-50 border-blue-200/80">
+                <MapPin className="h-4 w-4 shrink-0 text-blue-500" />
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-blue-700">Location captured for clock-out</p>
+                    <p className="text-xs text-blue-600">
+                        Your current location will be recorded when you clock out
+                    </p>
+                </div>
+                <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0" />
+            </div>
+        );
+    }
+
+    return null;
+}
+
 // ========== MAIN COMPONENT ==========
 export default function ClockInOut() {
     const queryClient = useQueryClient();
@@ -488,8 +531,12 @@ export default function ClockInOut() {
     const isClockedIn = today?.clock_in && !today?.clock_out;
     const isCompleted = today?.clock_in && today?.clock_out;
 
-    // Enable GPS for WFH (always required) or Office mode (if require_location enabled)
-    const needsGps = !isCompleted && (isWfh || officeConfig?.require_location);
+    // Enable GPS for:
+    // - Before clock-in: WFH (always) or Office (if require_location enabled)
+    // - After clock-in: needed for clock-out location capture (both office and WFH)
+    const isOfficeSession = isClockedIn && today?.status !== 'wfh';
+    const isWfhSession = isClockedIn && today?.status === 'wfh';
+    const needsGps = !isCompleted && (isWfh || officeConfig?.require_location || isClockedIn);
     const { location: geoLocation, error: geoError, loading: geoLoading } = useGeoLocation(needsGps);
 
     // Determine if clock-in should be disabled due to location issues
@@ -548,12 +595,22 @@ export default function ClockInOut() {
         },
     });
 
+    // Block clock-out if GPS not available (both office and WFH)
+    const isClockOutLocationBlocked = (() => {
+        if (!isClockedIn) return false;
+        return !geoLocation;
+    })();
+
     const clockOutMut = useMutation({
         mutationFn: async () => {
             const formData = new FormData();
             if (pendingPhotoRef.current) {
                 formData.append('photo', pendingPhotoRef.current, 'clock-out.jpg');
                 pendingPhotoRef.current = null;
+            }
+            if (geoLocation) {
+                formData.append('latitude', geoLocation.latitude);
+                formData.append('longitude', geoLocation.longitude);
             }
             return clockOut(formData);
         },
@@ -652,7 +709,7 @@ export default function ClockInOut() {
                 </div>
             )}
 
-            {/* Location Status */}
+            {/* Location Status — before clock-in */}
             {!isClockedIn && !isCompleted && (
                 <LocationStatus
                     location={geoLocation}
@@ -660,6 +717,15 @@ export default function ClockInOut() {
                     geoLoading={geoLoading}
                     officeConfig={officeConfig}
                     isWfh={isWfh}
+                />
+            )}
+
+            {/* Location Status — during clock-out (both office and WFH) */}
+            {isClockedIn && (
+                <ClockOutLocationStatus
+                    location={geoLocation}
+                    geoError={geoError}
+                    geoLoading={geoLoading}
                 />
             )}
 
@@ -685,6 +751,7 @@ export default function ClockInOut() {
                             } catch { /* ignore */ }
                             setShowConfirm('out');
                         }}
+                        disabled={isClockOutLocationBlocked}
                     />
                 ) : (
                     <ClockButton
@@ -753,9 +820,21 @@ export default function ClockInOut() {
                         <span className="text-sm font-medium text-slate-800">
                             {today?.schedule_start && today?.schedule_end
                                 ? `${today.schedule_start} - ${today.schedule_end}`
-                                : '9:00 AM - 6:00 PM'}
+                                : '-'}
                         </span>
                     </div>
+                    {today?.is_on_leave && (
+                        <div className="mt-2 flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2">
+                            <div className="h-2 w-2 rounded-full bg-violet-500" />
+                            <span className="text-xs font-medium text-violet-700">You are on leave today</span>
+                        </div>
+                    )}
+                    {today?.is_working_day === false && !today?.is_on_leave && (
+                        <div className="mt-2 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="h-2 w-2 rounded-full bg-slate-400" />
+                            <span className="text-xs font-medium text-slate-600">Today is your off day</span>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -764,12 +843,14 @@ export default function ClockInOut() {
                 <CardContent className="py-4">
                     <h3 className="text-sm font-medium text-slate-600 mb-3">This Week</h3>
                     <div className="flex justify-between">
-                        {DAY_LABELS.map((day, i) => {
-                            const dayData = weekSummary[i];
+                        {weekSummary.map((dayData, i) => {
                             const status = dayData?.status || 'none';
                             return (
-                                <div key={day} className="flex flex-col items-center gap-1.5">
-                                    <span className="text-[10px] font-medium text-slate-500">{day}</span>
+                                <div key={i} className="flex flex-col items-center gap-1.5">
+                                    <span className={cn(
+                                        'text-[10px] font-medium',
+                                        dayData?.is_working_day === false ? 'text-slate-300' : 'text-slate-500'
+                                    )}>{DAY_LABELS[i]}</span>
                                     <div className={cn(
                                         'h-3 w-3 rounded-full',
                                         DAY_COLORS[status] || DAY_COLORS.none
@@ -784,6 +865,8 @@ export default function ClockInOut() {
                             { label: 'Late', color: 'bg-amber-500' },
                             { label: 'Absent', color: 'bg-rose-500' },
                             { label: 'WFH', color: 'bg-indigo-500' },
+                            { label: 'On Leave', color: 'bg-violet-500' },
+                            { label: 'Off Day', color: 'bg-slate-300' },
                         ].map((item) => (
                             <div key={item.label} className="flex items-center gap-1">
                                 <div className={cn('h-2 w-2 rounded-full', item.color)} />

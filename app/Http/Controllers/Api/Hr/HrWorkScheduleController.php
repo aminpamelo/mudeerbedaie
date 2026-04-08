@@ -16,7 +16,11 @@ class HrWorkScheduleController extends Controller
     public function index(): JsonResponse
     {
         $schedules = WorkSchedule::query()
-            ->withCount('employeeSchedules')
+            ->withCount(['employeeSchedules' => function ($query) {
+                $query->where('effective_from', '<=', now())
+                    ->where(fn ($q) => $q->whereNull('effective_to')->orWhere('effective_to', '>=', now()))
+                    ->whereHas('employee', fn ($q) => $q->whereNotIn('status', ['terminated', 'resigned']));
+            }])
             ->orderBy('name')
             ->get();
 

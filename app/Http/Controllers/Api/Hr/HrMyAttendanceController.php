@@ -186,6 +186,13 @@ class HrMyAttendanceController extends Controller
             return response()->json(['message' => 'You have already clocked out today.'], 422);
         }
 
+        // Require GPS location for clock-out (both office and WFH)
+        if (! $request->filled('latitude') || ! $request->filled('longitude')) {
+            return response()->json([
+                'message' => 'GPS location is required for clock-out. Please enable your location services.',
+            ], 422);
+        }
+
         return DB::transaction(function () use ($request, $employee, $log, $today) {
             $photoPath = null;
             if ($request->hasFile('photo')) {
@@ -216,6 +223,8 @@ class HrMyAttendanceController extends Controller
                 'clock_out' => $clockOutTime,
                 'clock_out_photo' => $photoPath,
                 'clock_out_ip' => $request->ip(),
+                'clock_out_latitude' => $request->input('latitude'),
+                'clock_out_longitude' => $request->input('longitude'),
                 'total_work_minutes' => $totalWorkMinutes,
                 'early_leave_minutes' => $earlyLeaveMinutes,
             ]);
@@ -242,7 +251,7 @@ class HrMyAttendanceController extends Controller
     }
 
     /**
-     * My today's attendance status.
+     * My today's attendance status (includes schedule info).
      */
     public function today(Request $request): JsonResponse
     {
@@ -257,7 +266,36 @@ class HrMyAttendanceController extends Controller
             ->whereDate('date', Carbon::today())
             ->first();
 
-        return response()->json(['data' => $log]);
+        $schedule = EmployeeSchedule::query()
+            ->where('employee_id', $employee->id)
+            ->active()
+            ->with('workSchedule')
+            ->first();
+
+        $workSchedule = $schedule?->workSchedule;
+        $startTime = $schedule?->custom_start_time ?? $workSchedule?->start_time;
+        $endTime = $schedule?->custom_end_time ?? $workSchedule?->end_time;
+        $workingDays = $workSchedule?->working_days ?? [1, 2, 3, 4, 5];
+        $todayIso = Carbon::today()->dayOfWeekIso;
+        $isWorkingDay = in_array($todayIso, $workingDays);
+
+        // Check if today is an approved leave day
+        $isOnLeave = \App\Models\LeaveRequest::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->where('start_date', '<=', Carbon::today()->toDateString())
+            ->where('end_date', '>=', Carbon::today()->toDateString())
+            ->exists();
+
+        $data = $log ? $log->toArray() : [];
+        $data['schedule_start'] = $startTime ? Carbon::parse($startTime)->format('g:i A') : null;
+        $data['schedule_end'] = $endTime ? Carbon::parse($endTime)->format('g:i A') : null;
+        $data['schedule_name'] = $workSchedule?->name;
+        $data['working_days'] = $workingDays;
+        $data['is_working_day'] = $isWorkingDay;
+        $data['is_on_leave'] = $isOnLeave;
+
+        return response()->json(['data' => $data]);
     }
 
     /**
@@ -303,29 +341,75 @@ class HrMyAttendanceController extends Controller
     }
 
     /**
-     * Get daily attendance statuses for the current week (Mon-Fri).
+     * Get daily attendance statuses for the current week (Mon-Sun).
+     * Respects employee's schedule working_days to show off days.
      */
     private function weekSummary(Employee $employee): JsonResponse
     {
         $startOfWeek = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $endOfWeek = $startOfWeek->copy()->addDays(6); // Sunday
 
         $logs = AttendanceLog::query()
             ->where('employee_id', $employee->id)
-            ->whereBetween('date', [$startOfWeek->toDateString(), $startOfWeek->copy()->addDays(4)->toDateString()])
+            ->whereBetween('date', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
             ->get()
             ->keyBy(fn ($log) => Carbon::parse($log->date)->dayOfWeekIso);
 
+        // Get employee's schedule to determine working days
+        $schedule = EmployeeSchedule::query()
+            ->where('employee_id', $employee->id)
+            ->active()
+            ->with('workSchedule')
+            ->first();
+
+        $workingDays = $schedule?->workSchedule?->working_days ?? [1, 2, 3, 4, 5];
+
+        // Check for approved leave requests this week
+        $leaveRequests = \App\Models\LeaveRequest::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'approved')
+            ->where(function ($q) use ($startOfWeek, $endOfWeek) {
+                $q->whereBetween('start_date', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
+                    ->orWhereBetween('end_date', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
+                    ->orWhere(function ($q2) use ($startOfWeek, $endOfWeek) {
+                        $q2->where('start_date', '<=', $startOfWeek->toDateString())
+                            ->where('end_date', '>=', $endOfWeek->toDateString());
+                    });
+            })
+            ->get();
+
         $days = [];
-        for ($i = 1; $i <= 5; $i++) {
-            $log = $logs->get($i);
+        for ($i = 1; $i <= 7; $i++) {
             $day = $startOfWeek->copy()->addDays($i - 1);
+            $log = $logs->get($i);
+            $isWorkingDay = in_array($i, $workingDays);
+
+            // Check if this day falls within an approved leave
+            $isOnLeave = $leaveRequests->contains(function ($leave) use ($day) {
+                return $day->between(Carbon::parse($leave->start_date), Carbon::parse($leave->end_date));
+            });
+
+            if ($log) {
+                $status = $log->status;
+            } elseif ($isOnLeave) {
+                $status = 'on_leave';
+            } elseif (! $isWorkingDay) {
+                $status = 'off_day';
+            } elseif ($day->lte(Carbon::today())) {
+                $status = 'absent';
+            } else {
+                $status = 'none';
+            }
+
             $days[] = [
                 'date' => $day->toDateString(),
-                'status' => $log?->status ?? ($day->lte(Carbon::today()) ? 'absent' : 'none'),
+                'day_iso' => $i,
+                'is_working_day' => $isWorkingDay,
+                'status' => $status,
             ];
         }
 
-        return response()->json(['data' => ['days' => $days]]);
+        return response()->json(['data' => ['days' => $days, 'working_days' => $workingDays]]);
     }
 
     /**

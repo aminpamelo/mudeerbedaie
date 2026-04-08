@@ -127,7 +127,7 @@ class HrAttendanceController extends Controller
 
         $employeeQuery = Employee::query()
             ->whereNotIn('status', ['terminated', 'resigned'])
-            ->with('department');
+            ->with(['department', 'currentSchedule.workSchedule']);
 
         if ($departmentId) {
             $employeeQuery->where('department_id', $departmentId);
@@ -229,11 +229,21 @@ class HrAttendanceController extends Controller
             $lateCount = collect($days)->filter(fn ($d) => $d && $d['status'] === 'late')->count();
             $leaveCount = collect($days)->filter(fn ($d) => $d && $d['status'] === 'on_leave')->count();
 
+            $schedule = $employee->currentSchedule;
+            $workSchedule = $schedule?->workSchedule;
+
             return [
                 'id' => $employee->id,
                 'employee_id' => $employee->employee_id,
                 'full_name' => $employee->full_name,
                 'department' => $employee->department?->name,
+                'schedule' => $workSchedule ? [
+                    'name' => $workSchedule->name,
+                    'type' => $workSchedule->type,
+                    'start_time' => $schedule->custom_start_time ?? $workSchedule->start_time,
+                    'end_time' => $schedule->custom_end_time ?? $workSchedule->end_time,
+                    'working_days' => $workSchedule->working_days,
+                ] : null,
                 'days' => $days,
                 'summary' => [
                     'present' => $presentCount,

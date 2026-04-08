@@ -61,6 +61,18 @@ function isWeekend(year, month, day) {
     return dow === 0 || dow === 6;
 }
 
+// Check if a day is a non-working day based on employee's schedule working_days
+// working_days uses ISO format: 1=Mon, 2=Tue, ..., 7=Sun
+// JS getDay() returns: 0=Sun, 1=Mon, ..., 6=Sat
+function isOffDay(year, month, day, workingDays) {
+    if (!workingDays || workingDays.length === 0) {
+        return isWeekend(year, month, day);
+    }
+    const jsDow = getDayOfWeek(year, month, day);
+    const isoDow = jsDow === 0 ? 7 : jsDow; // Convert JS Sunday(0) to ISO Sunday(7)
+    return !workingDays.includes(isoDow);
+}
+
 function formatTime(timeString) {
     if (!timeString) { return '-'; }
     const date = new Date(timeString);
@@ -651,19 +663,46 @@ export default function AttendanceMonthlyView() {
                                         {/* Employee info — sticky left */}
                                         <div className="sticky left-0 z-10 w-52 shrink-0 border-r border-zinc-100 bg-white px-4 py-2.5 group-hover:bg-zinc-50/60">
                                             <p className="truncate text-sm font-medium text-zinc-900">{emp.full_name}</p>
-                                            <p className="truncate text-xs text-zinc-400">{emp.employee_id}{emp.department ? ` · ${emp.department}` : ''}</p>
+                                            <p className="truncate text-xs text-zinc-400">{emp.employee_id}{emp.department ? ` · ${emp.department.toUpperCase()}` : ''}</p>
+                                            {emp.schedule && (
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <p className="truncate text-[10px] text-zinc-400">
+                                                        <Clock className="inline h-2.5 w-2.5 mr-0.5 -mt-px" />
+                                                        {emp.schedule.start_time?.slice(0, 5)} - {emp.schedule.end_time?.slice(0, 5)}
+                                                    </p>
+                                                    {emp.schedule.working_days && (
+                                                        <div className="flex gap-px">
+                                                            {['M','T','W','T','F','S','S'].map((label, idx) => {
+                                                                const isoDay = idx + 1; // 1=Mon ... 7=Sun
+                                                                const isWorking = emp.schedule.working_days.includes(isoDay);
+                                                                return (
+                                                                    <span
+                                                                        key={idx}
+                                                                        className={cn(
+                                                                            'flex h-3 w-3 items-center justify-center rounded-full text-[6px] font-bold',
+                                                                            isWorking ? 'bg-emerald-500 text-white' : 'bg-zinc-200 text-zinc-400',
+                                                                        )}
+                                                                    >
+                                                                        {label}
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         {/* Day cells */}
                                         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
                                             const dayData = emp.days?.[day];
-                                            const weekend = isWeekend(year, month, day);
+                                            const offDay = isOffDay(year, month, day, emp.schedule?.working_days);
                                             const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day;
                                             return (
                                                 <div
                                                     key={day}
                                                     className={cn(
                                                         'flex w-9 shrink-0 items-center justify-center py-1.5',
-                                                        weekend ? 'bg-zinc-50/80' : '',
+                                                        offDay ? 'bg-zinc-50/80' : '',
                                                         isToday ? 'bg-blue-50/40' : '',
                                                     )}
                                                 >
@@ -674,7 +713,7 @@ export default function AttendanceMonthlyView() {
                                                             onClick={() => openCell(emp, day, dayData)}
                                                         />
                                                     ) : (
-                                                        <EmptyDot isWeekend={weekend} isToday={isToday} />
+                                                        <EmptyDot isWeekend={offDay} isToday={isToday} />
                                                     )}
                                                 </div>
                                             );
