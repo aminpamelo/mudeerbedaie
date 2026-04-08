@@ -64,6 +64,93 @@ class HrMyApprovalController extends Controller
         });
     }
 
+    /**
+     * Append tier info (max_tier, tier_approvers) to each item in paginated results.
+     * This lets the frontend show who approved at each tier and what's still pending.
+     */
+    private function appendTierInfo($paginator, string $approvalType)
+    {
+        // Cache max tiers per department to avoid repeated queries
+        $maxTierCache = [];
+        $tierApproversCache = [];
+
+        $paginator->getCollection()->transform(function ($item) use ($approvalType, &$maxTierCache, &$tierApproversCache) {
+            $deptId = $item->employee->department_id ?? null;
+
+            if (! $deptId) {
+                return $item;
+            }
+
+            // Get max tier for this department+type
+            if (! isset($maxTierCache[$deptId])) {
+                $maxTierCache[$deptId] = DepartmentApprover::where('department_id', $deptId)
+                    ->where('approval_type', $approvalType)
+                    ->max('tier') ?? 1;
+            }
+
+            // Get all tier approvers for this department+type (with names)
+            if (! isset($tierApproversCache[$deptId])) {
+                $tierApproversCache[$deptId] = DepartmentApprover::where('department_id', $deptId)
+                    ->where('approval_type', $approvalType)
+                    ->with('approver:id,full_name')
+                    ->orderBy('tier')
+                    ->get()
+                    ->groupBy('tier')
+                    ->map(fn ($group) => $group->map(fn ($da) => [
+                        'id' => $da->approver_employee_id,
+                        'full_name' => $da->approver->full_name ?? 'Unknown',
+                    ])->values())
+                    ->toArray();
+            }
+
+            $item->max_tier = $maxTierCache[$deptId];
+            $item->tier_approvers = $tierApproversCache[$deptId];
+
+            return $item;
+        });
+
+        return $paginator;
+    }
+
+    /**
+     * Get per-tier pending counts for the summary dashboard.
+     *
+     * @return array<int, int> [tier => pending_count]
+     */
+    private function getTierBreakdown(array $departmentIds, string $approvalType): array
+    {
+        if (empty($departmentIds)) {
+            return [];
+        }
+
+        $maxTier = DepartmentApprover::whereIn('department_id', $departmentIds)
+            ->where('approval_type', $approvalType)
+            ->max('tier') ?? 1;
+
+        $modelMap = [
+            'overtime' => [OvertimeRequest::class, OvertimeClaimRequest::class],
+            'leave' => [LeaveRequest::class],
+            'claims' => [ClaimRequest::class],
+            'exit_permission' => [OfficeExitPermission::class],
+        ];
+
+        $models = $modelMap[$approvalType] ?? [];
+        $breakdown = [];
+
+        for ($tier = 1; $tier <= $maxTier; $tier++) {
+            $count = 0;
+            foreach ($models as $model) {
+                $count += $model::whereHas('employee', fn ($q) => $q->whereIn('department_id', $departmentIds))
+                    ->where('status', 'pending')
+                    ->where('current_approval_tier', $tier)
+                    ->count();
+            }
+            $breakdown[$tier] = $count;
+        }
+
+        return $breakdown;
+    }
+
     public function summary(Request $request): JsonResponse
     {
         $employee = $this->getEmployee($request);
@@ -180,12 +267,35 @@ class HrMyApprovalController extends Controller
 
         $isApprover = ! empty($otDepts) || ! empty($leaveDepts) || $isClaimsAssigned || ! empty($exitDepts);
 
+        // Collect unique tiers the approver is assigned to per type
+        $collectMyTiers = fn (array $deptTiers) => collect($deptTiers)->flatten()->unique()->sort()->values()->toArray();
+
         return response()->json([
             'isApprover' => $isApprover,
-            'overtime' => ['pending' => $otPending, 'isAssigned' => ! empty($otDepts)],
-            'leave' => ['pending' => $leavePending, 'isAssigned' => ! empty($leaveDepts)],
-            'claims' => ['pending' => $claimPending, 'isAssigned' => $isClaimsAssigned],
-            'exit_permission' => ['pending' => $exitPending, 'isAssigned' => ! empty($exitDepts)],
+            'overtime' => [
+                'pending' => $otPending,
+                'isAssigned' => ! empty($otDepts),
+                'myTiers' => $collectMyTiers($otDeptTiers),
+                'tierBreakdown' => $this->getTierBreakdown($otDepts, 'overtime'),
+            ],
+            'leave' => [
+                'pending' => $leavePending,
+                'isAssigned' => ! empty($leaveDepts),
+                'myTiers' => $collectMyTiers($leaveDeptTiers),
+                'tierBreakdown' => $this->getTierBreakdown($leaveDepts, 'leave'),
+            ],
+            'claims' => [
+                'pending' => $claimPending,
+                'isAssigned' => $isClaimsAssigned,
+                'myTiers' => $collectMyTiers($claimDeptTiers),
+                'tierBreakdown' => $this->getTierBreakdown($claimDepts, 'claims'),
+            ],
+            'exit_permission' => [
+                'pending' => $exitPending,
+                'isAssigned' => ! empty($exitDepts),
+                'myTiers' => $collectMyTiers($exitDeptTiers),
+                'tierBreakdown' => $this->getTierBreakdown($exitDepts, 'exit_permission'),
+            ],
         ]);
     }
 
@@ -210,6 +320,7 @@ class HrMyApprovalController extends Controller
             'employee:id,full_name,position_id,department_id',
             'employee.position:id,title',
             'employee.department:id,name',
+            'approvalLogs.approver:id,full_name',
         ])->whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds));
 
         if ($request->filled('status') && $request->status !== 'all') {
@@ -221,7 +332,9 @@ class HrMyApprovalController extends Controller
             $this->applyTierFilter($query, $deptTiers);
         }
 
-        return response()->json($query->orderByDesc('created_at')->paginate(20));
+        $result = $query->orderByDesc('created_at')->paginate(20);
+
+        return response()->json($this->appendTierInfo($result, 'overtime'));
     }
 
     public function approveOvertime(Request $request, OvertimeRequest $overtimeRequest): JsonResponse
@@ -334,6 +447,7 @@ class HrMyApprovalController extends Controller
             'employee:id,full_name,position_id,department_id',
             'employee.position:id,title',
             'employee.department:id,name',
+            'approvalLogs.approver:id,full_name',
         ])->whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds));
 
         if ($request->filled('status') && $request->status !== 'all') {
@@ -345,7 +459,9 @@ class HrMyApprovalController extends Controller
             $this->applyTierFilter($query, $deptTiers);
         }
 
-        return response()->json($query->orderByDesc('created_at')->paginate(20));
+        $result = $query->orderByDesc('created_at')->paginate(20);
+
+        return response()->json($this->appendTierInfo($result, 'overtime'));
     }
 
     public function approveOvertimeClaim(Request $request, OvertimeClaimRequest $overtimeClaimRequest): JsonResponse
@@ -476,6 +592,7 @@ class HrMyApprovalController extends Controller
             'employee.position:id,title',
             'employee.department:id,name',
             'leaveType:id,name,color',
+            'approvalLogs.approver:id,full_name',
         ])->whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds));
 
         if ($request->filled('status') && $request->status !== 'all') {
@@ -487,7 +604,9 @@ class HrMyApprovalController extends Controller
             $this->applyTierFilter($query, $deptTiers);
         }
 
-        return response()->json($query->orderByDesc('created_at')->paginate(20));
+        $result = $query->orderByDesc('created_at')->paginate(20);
+
+        return response()->json($this->appendTierInfo($result, 'leave'));
     }
 
     public function approveLeave(Request $request, LeaveRequest $leaveRequest): JsonResponse
@@ -587,6 +706,7 @@ class HrMyApprovalController extends Controller
             'employee.position:id,title',
             'employee.department:id,name',
             'claimType:id,name',
+            'approvalLogs.approver:id,full_name',
         ]);
 
         $isPendingFilter = ! $request->filled('status') || $request->status === 'pending';
@@ -620,7 +740,9 @@ class HrMyApprovalController extends Controller
             $query->where('status', $request->status);
         }
 
-        return response()->json($query->orderByDesc('created_at')->paginate(20));
+        $result = $query->orderByDesc('created_at')->paginate(20);
+
+        return response()->json($this->appendTierInfo($result, 'claims'));
     }
 
     public function approveClaim(Request $request, ClaimRequest $claimRequest): JsonResponse
@@ -754,7 +876,7 @@ class HrMyApprovalController extends Controller
         }
 
         $query = OfficeExitPermission::whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds))
-            ->with(['employee.department', 'approver'])
+            ->with(['employee.department', 'approver', 'approvalLogs.approver:id,full_name'])
             ->latest();
 
         if ($request->filled('status')) {
@@ -766,7 +888,9 @@ class HrMyApprovalController extends Controller
             $this->applyTierFilter($query, $deptTiers);
         }
 
-        return response()->json(['data' => $query->paginate(20)]);
+        $result = $query->paginate(20);
+
+        return response()->json(['data' => $this->appendTierInfo($result, 'exit_permission')]);
     }
 
     public function approveExitPermission(Request $request, OfficeExitPermission $officeExitPermission): JsonResponse

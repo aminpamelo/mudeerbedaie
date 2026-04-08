@@ -43,6 +43,31 @@ class HrMyExitPermissionController extends Controller
             'status' => 'pending',
         ]);
 
+        // Notify department approvers
+        $permission->load('employee.department');
+        $notifiedUserIds = [];
+
+        $approvers = \App\Models\DepartmentApprover::forDepartment(
+            $employee->department_id
+        )->forType('exit_permission')->with('approver.user')->get();
+
+        foreach ($approvers as $deptApprover) {
+            if ($deptApprover->approver?->user) {
+                $deptApprover->approver->user->notify(
+                    new \App\Notifications\Hr\ExitPermissionSubmitted($permission)
+                );
+                $notifiedUserIds[] = $deptApprover->approver->user->id;
+            }
+        }
+
+        // Also notify admin users who weren't already notified as approvers
+        $admins = \App\Models\User::where('role', 'admin')
+            ->whereNotIn('id', $notifiedUserIds)
+            ->get();
+        foreach ($admins as $admin) {
+            $admin->notify(new \App\Notifications\Hr\ExitPermissionSubmitted($permission));
+        }
+
         return response()->json([
             'data' => $permission->load('employee'),
             'message' => 'Exit permission request submitted successfully.',

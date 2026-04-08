@@ -442,13 +442,34 @@ export default function MyOvertime() {
                                 <div className="flex items-center gap-2">
                                     <Input
                                         type="number"
-                                        min="30"
-                                        max="720"
+                                        min="0"
+                                        max="12"
                                         step="1"
-                                        value={form.duration_minutes}
-                                        onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
-                                        placeholder="Custom minutes"
-                                        required
+                                        value={form.duration_minutes ? Math.floor(parseInt(form.duration_minutes) / 60) || '' : ''}
+                                        onChange={(e) => {
+                                            const hrs = parseInt(e.target.value) || 0;
+                                            const currentMins = form.duration_minutes ? parseInt(form.duration_minutes) % 60 : 0;
+                                            const total = hrs * 60 + currentMins;
+                                            setForm({ ...form, duration_minutes: total > 0 ? String(total) : '' });
+                                        }}
+                                        placeholder="0"
+                                        className="w-20"
+                                    />
+                                    <span className="text-xs text-zinc-400 shrink-0">hr</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max="59"
+                                        step="5"
+                                        value={form.duration_minutes ? parseInt(form.duration_minutes) % 60 || '' : ''}
+                                        onChange={(e) => {
+                                            const mins = parseInt(e.target.value) || 0;
+                                            const currentHrs = form.duration_minutes ? Math.floor(parseInt(form.duration_minutes) / 60) : 0;
+                                            const total = currentHrs * 60 + mins;
+                                            setForm({ ...form, duration_minutes: total > 0 ? String(total) : '' });
+                                        }}
+                                        placeholder="0"
+                                        className="w-20"
                                     />
                                     <span className="text-xs text-zinc-400 shrink-0">min</span>
                                 </div>
@@ -553,16 +574,40 @@ export default function MyOvertime() {
                                         </button>
                                     ))}
                                 </div>
-                                <Input
-                                    type="number"
-                                    min="30"
-                                    max="230"
-                                    step="1"
-                                    value={claimForm.duration_minutes}
-                                    onChange={(e) => setClaimForm({ ...claimForm, duration_minutes: e.target.value })}
-                                    placeholder="Custom minutes (30–230)"
-                                    required
-                                />
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max="12"
+                                        step="1"
+                                        value={claimForm.duration_minutes ? Math.floor(parseInt(claimForm.duration_minutes) / 60) || '' : ''}
+                                        onChange={(e) => {
+                                            const hrs = parseInt(e.target.value) || 0;
+                                            const currentMins = claimForm.duration_minutes ? parseInt(claimForm.duration_minutes) % 60 : 0;
+                                            const total = hrs * 60 + currentMins;
+                                            setClaimForm({ ...claimForm, duration_minutes: total > 0 ? String(total) : '' });
+                                        }}
+                                        placeholder="0"
+                                        className="w-20"
+                                    />
+                                    <span className="text-xs text-zinc-400 shrink-0">hr</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max="59"
+                                        step="5"
+                                        value={claimForm.duration_minutes ? parseInt(claimForm.duration_minutes) % 60 || '' : ''}
+                                        onChange={(e) => {
+                                            const mins = parseInt(e.target.value) || 0;
+                                            const currentHrs = claimForm.duration_minutes ? Math.floor(parseInt(claimForm.duration_minutes) / 60) : 0;
+                                            const total = currentHrs * 60 + mins;
+                                            setClaimForm({ ...claimForm, duration_minutes: total > 0 ? String(total) : '' });
+                                        }}
+                                        placeholder="0"
+                                        className="w-20"
+                                    />
+                                    <span className="text-xs text-zinc-400 shrink-0">min</span>
+                                </div>
                             </div>
                         </div>
                         <div>

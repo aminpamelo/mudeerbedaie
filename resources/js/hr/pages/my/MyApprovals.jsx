@@ -58,8 +58,10 @@ const MODULES = [
     },
 ];
 
-function ModuleCard({ module, pending, isAssigned, onClick }) {
+function ModuleCard({ module, pending, isAssigned, myTiers, tierBreakdown, onClick }) {
     const Icon = module.icon;
+    const hasTiers = myTiers && myTiers.length > 0;
+    const hasBreakdown = tierBreakdown && Object.keys(tierBreakdown).length > 1;
 
     return (
         <button
@@ -79,6 +81,25 @@ function ModuleCard({ module, pending, isAssigned, onClick }) {
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-zinc-900">{module.label}</p>
                     <p className="text-xs text-zinc-400 mt-0.5">{module.description}</p>
+                    {isAssigned && hasTiers && hasBreakdown && (
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className="inline-flex items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600">
+                                You: Tier {myTiers.join(', ')}
+                            </span>
+                            {Object.entries(tierBreakdown).map(([tier, count]) => (
+                                <span
+                                    key={tier}
+                                    className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+                                        count > 0
+                                            ? 'bg-amber-50 text-amber-700'
+                                            : 'bg-zinc-50 text-zinc-400'
+                                    }`}
+                                >
+                                    T{tier}: {count}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -167,6 +188,8 @@ export default function MyApprovals() {
                                     module={module}
                                     pending={mod?.pending ?? 0}
                                     isAssigned={mod?.isAssigned ?? false}
+                                    myTiers={mod?.myTiers ?? []}
+                                    tierBreakdown={mod?.tierBreakdown ?? {}}
                                     onClick={() => navigate(module.route)}
                                 />
                             </div>

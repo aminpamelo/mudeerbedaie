@@ -120,7 +120,7 @@ export default function App() {
             classId: null,
             unitPrice: parseFloat(pkg.price),
             sku: null,
-            image: null,
+            image: pkg.featured_image || null,
         });
     }, [addToCart]);
 

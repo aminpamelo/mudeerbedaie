@@ -6,9 +6,13 @@ use App\Models\Course;
 use App\Models\ClassModel;
 use App\Models\Warehouse;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 new class extends Component {
+    use WithFileUploads;
+
     public $name = '';
     public $slug = '';
     public $description = '';
@@ -24,6 +28,9 @@ new class extends Component {
     public $default_warehouse_id = '';
     public $meta_title = '';
     public $meta_description = '';
+
+    // Featured image
+    public $featured_image;
 
     // Package items
     public $selectedProducts = [];
@@ -50,6 +57,7 @@ new class extends Component {
             'max_purchases' => 'nullable|integer|min:1',
             'track_stock' => 'boolean',
             'default_warehouse_id' => 'nullable|exists:warehouses,id',
+            'featured_image' => 'nullable|image|max:5120',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
             'selectedProducts' => 'array',
@@ -175,6 +183,13 @@ new class extends Component {
             return;
         }
 
+        // Handle featured image upload
+        $featuredImageUrl = null;
+        if ($this->featured_image) {
+            $path = $this->featured_image->store('packages', 'public');
+            $featuredImageUrl = Storage::url($path);
+        }
+
         // Create the package
         $package = Package::create([
             'name' => $this->name,
@@ -191,6 +206,7 @@ new class extends Component {
             'max_purchases' => $this->max_purchases ?: null,
             'track_stock' => $this->track_stock,
             'default_warehouse_id' => $this->default_warehouse_id,
+            'featured_image' => $featuredImageUrl,
             'meta_title' => $this->meta_title,
             'meta_description' => $this->meta_description,
             'created_by' => auth()->id(),
@@ -285,6 +301,35 @@ new class extends Component {
                             <flux:textarea wire:model="description" rows="4" placeholder="Detailed package description..." />
                             <flux:error name="description" />
                         </flux:field>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Featured Image -->
+        <div class="bg-white dark:bg-zinc-800 shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4">Featured Image</h3>
+
+                <div class="space-y-4">
+                    @if($featured_image)
+                        <div class="relative inline-block">
+                            <img src="{{ $featured_image->temporaryUrl() }}" alt="Preview" class="h-48 w-48 rounded-lg object-cover">
+                            <button type="button" wire:click="$set('featured_image', null)" class="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-sm hover:bg-red-600">
+                                <flux:icon name="x-mark" class="h-4 w-4" />
+                            </button>
+                        </div>
+                    @endif
+
+                    <flux:field>
+                        <flux:label>Upload Image</flux:label>
+                        <input type="file" wire:model="featured_image" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100" />
+                        <flux:error name="featured_image" />
+                        <p class="mt-1 text-xs text-gray-500">Max file size: 5MB. Supported formats: JPG, PNG, GIF, WebP</p>
+                    </flux:field>
+
+                    <div wire:loading wire:target="featured_image" class="text-sm text-blue-600">
+                        Uploading image...
                     </div>
                 </div>
             </div>

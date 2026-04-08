@@ -116,10 +116,24 @@ class HrLeaveBalanceController extends Controller
             $entitlements = LeaveEntitlement::all();
             $initialized = 0;
 
+            // Collect leave types with gender restrictions for cleanup
+            $genderRestrictedTypes = $leaveTypes->whereNotNull('gender_restriction');
+
             foreach ($employees as $employee) {
                 $serviceMonths = $employee->join_date
                     ? (int) $employee->join_date->diffInMonths(Carbon::create($year, 1, 1))
                     : 0;
+
+                // Remove stale balance records where gender no longer matches
+                foreach ($genderRestrictedTypes as $restrictedType) {
+                    if ($restrictedType->gender_restriction !== $employee->gender) {
+                        LeaveBalance::query()
+                            ->where('employee_id', $employee->id)
+                            ->where('leave_type_id', $restrictedType->id)
+                            ->where('year', $year)
+                            ->delete();
+                    }
+                }
 
                 foreach ($leaveTypes as $leaveType) {
                     if ($leaveType->gender_restriction && $leaveType->gender_restriction !== $employee->gender) {

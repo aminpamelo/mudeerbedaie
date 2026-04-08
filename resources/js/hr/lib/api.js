@@ -680,4 +680,17 @@ export const approveMyExitPermission = (id) =>
 export const rejectMyExitPermission = (id, data) =>
     api.patch(`/my-approvals/exit-permissions/${id}/reject`, data).then((r) => r.data);
 
+// ========== PWA Settings ==========
+export const fetchPwaSettings = () => api.get('/settings/pwa').then(r => r.data);
+export const updatePwaSettings = (data) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+            formData.append(key, value);
+        }
+    });
+    return api.post('/settings/pwa', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+};
 export default api;

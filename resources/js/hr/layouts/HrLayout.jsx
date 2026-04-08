@@ -57,6 +57,7 @@ import {
     Wallet,
     Network,
     DoorOpen,
+    Smartphone,
 } from 'lucide-react';
 import useHrStore from '../stores/useHrStore';
 import NotificationBell from '../components/NotificationBell';
@@ -217,6 +218,14 @@ const navigation = [
             { name: 'All Meetings', to: '/meetings', icon: CalendarDays },
             { name: 'Meeting Series', to: '/meetings/series', icon: ListOrdered },
             { name: 'Task Dashboard', to: '/meetings/tasks', icon: ListTodo },
+        ],
+    },
+    {
+        name: 'Settings',
+        icon: Settings2,
+        prefix: '/settings',
+        children: [
+            { name: 'PWA', to: '/settings/pwa', icon: Smartphone },
         ],
     },
 ];

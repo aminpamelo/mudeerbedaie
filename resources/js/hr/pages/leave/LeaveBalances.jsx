@@ -281,7 +281,7 @@ export default function LeaveBalances() {
                                         <TableRow>
                                             <TableHead>Employee</TableHead>
                                             <TableHead>Department</TableHead>
-                                            {leaveTypes.slice(0, 6).map((lt) => (
+                                            {leaveTypes.map((lt) => (
                                                 <TableHead key={lt.id} className="text-center">
                                                     <span className="text-xs">{lt.code || lt.name}</span>
                                                 </TableHead>
@@ -296,7 +296,7 @@ export default function LeaveBalances() {
                                                 <TableCell className="text-sm text-zinc-500">
                                                     {employee.department?.name || '-'}
                                                 </TableCell>
-                                                {leaveTypes.slice(0, 6).map((lt) => {
+                                                {leaveTypes.map((lt) => {
                                                     const balance = employee.balances?.find(
                                                         (b) => b.leave_type_id === lt.id
                                                     );

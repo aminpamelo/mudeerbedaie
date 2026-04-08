@@ -24,6 +24,7 @@ class StoreAssetAssignmentRequest extends FormRequest
         return [
             'asset_id' => ['required', 'exists:assets,id'],
             'employee_id' => ['required', 'exists:employees,id'],
+            'assigned_by' => ['required', 'exists:employees,id'],
             'assigned_date' => ['required', 'date'],
             'expected_return_date' => ['nullable', 'date', 'after_or_equal:assigned_date'],
             'notes' => ['nullable', 'string'],

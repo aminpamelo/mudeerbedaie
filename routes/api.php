@@ -91,6 +91,7 @@ use App\Http\Controllers\Api\Hr\HrPerformanceReviewController;
 use App\Http\Controllers\Api\Hr\HrPipController;
 use App\Http\Controllers\Api\Hr\HrPositionController;
 use App\Http\Controllers\Api\Hr\HrPushSubscriptionController;
+use App\Http\Controllers\Api\Hr\HrPwaSettingController;
 use App\Http\Controllers\Api\Hr\HrRatingScaleController;
 use App\Http\Controllers\Api\Hr\HrRecruitmentDashboardController;
 use App\Http\Controllers\Api\Hr\HrResignationController;
@@ -747,6 +748,10 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     // Payroll Settings
     Route::get('payroll/settings', [HrPayrollSettingController::class, 'index'])->name('api.hr.payroll.settings.index');
     Route::put('payroll/settings', [HrPayrollSettingController::class, 'update'])->name('api.hr.payroll.settings.update');
+
+    // PWA Settings
+    Route::get('settings/pwa', [HrPwaSettingController::class, 'index'])->name('api.hr.settings.pwa.index');
+    Route::post('settings/pwa', [HrPwaSettingController::class, 'update'])->name('api.hr.settings.pwa.update');
 
     // My Payslips (Employee Self-Service)
     Route::get('me/payslips', [HrMyPayslipController::class, 'index'])->name('api.hr.me.payslips.index');

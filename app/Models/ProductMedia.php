@@ -11,6 +11,8 @@ class ProductMedia extends Model
 {
     use HasFactory;
 
+    protected $appends = ['url'];
+
     protected $fillable = [
         'product_id',
         'type',

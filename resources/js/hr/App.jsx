@@ -113,6 +113,9 @@ import EmployeeCertifications from './pages/training/EmployeeCertifications';
 import TrainingBudgets from './pages/training/TrainingBudgets';
 import TrainingReports from './pages/training/TrainingReports';
 
+// Admin - Settings
+import PwaSettings from './pages/settings/PwaSettings';
+
 // Shared pages
 import ClockInOut from './pages/ClockInOut';
 import Notifications from './pages/Notifications';
@@ -278,6 +281,9 @@ function AdminRoutes() {
             <Route path="training/employee-certifications" element={<EmployeeCertifications />} />
             <Route path="training/budgets" element={<TrainingBudgets />} />
             <Route path="training/reports" element={<TrainingReports />} />
+
+            {/* Settings */}
+            <Route path="settings/pwa" element={<PwaSettings />} />
 
             {/* Shared */}
             <Route path="clock" element={<ClockInOut />} />

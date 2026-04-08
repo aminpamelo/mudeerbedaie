@@ -118,6 +118,9 @@ export default function AssetAssignments() {
         onError: (err) => {
             if (err.response?.data?.errors) {
                 setErrors(err.response.data.errors);
+            } else {
+                const message = err.response?.data?.message || 'Failed to assign asset. Please try again.';
+                setErrors({ _general: [message] });
             }
         },
     });
@@ -284,6 +287,11 @@ export default function AssetAssignments() {
                         <DialogDescription>Assign an available asset to an employee.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleAssign} className="space-y-4">
+                        {errors._general && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                {errors._general[0]}
+                            </div>
+                        )}
                         <div>
                             <label className="mb-1.5 block text-sm font-medium text-zinc-700">Asset *</label>
                             <Select value={assignForm.asset_id} onValueChange={(v) => setAssignForm((f) => ({ ...f, asset_id: v }))}>
@@ -354,7 +362,7 @@ export default function AssetAssignments() {
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setAssignDialog(false)}>Cancel</Button>
-                            <Button type="submit" disabled={assignMutation.isPending || !assignForm.asset_id || !assignForm.employee_id}>
+                            <Button type="submit" disabled={assignMutation.isPending || !assignForm.asset_id || !assignForm.employee_id || !assignForm.assigned_by}>
                                 {assignMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                                 Assign
                             </Button>

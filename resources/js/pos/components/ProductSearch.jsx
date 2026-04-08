@@ -177,9 +177,9 @@ function ItemCard({ item, type, onClick }) {
         >
             {/* Image or Placeholder */}
             <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
-                {item.primary_image?.url ? (
+                {item.primary_image?.url || item.featured_image ? (
                     <img
-                        src={item.primary_image.url}
+                        src={item.primary_image?.url || item.featured_image}
                         alt={item.name}
                         className="w-full h-full object-cover"
                     />

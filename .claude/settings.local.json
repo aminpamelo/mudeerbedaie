@@ -1,5 +1,8 @@
 {
   "disabledMcpjsonServers": [
     "laravel-boost"
-  ]
+  ],
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  }
 }

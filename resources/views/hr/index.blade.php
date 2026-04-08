@@ -8,7 +8,7 @@
 
     <title>{{ config('app.name', 'Laravel') }} - HR Management</title>
 
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="{{ route('hr.manifest') }}">
     <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

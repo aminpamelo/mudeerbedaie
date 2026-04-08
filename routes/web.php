@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Hr\HrPwaSettingController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\ImpersonationController;
@@ -475,6 +476,9 @@ Route::middleware(['auth', 'role:admin,employee,admin_livehost'])->prefix('admin
 // ============================================================================
 // HR MODULE - React SPA (separate admin dashboard)
 // ============================================================================
+// PWA manifest must be publicly accessible for install prompts
+Route::get('hr/manifest.json', [HrPwaSettingController::class, 'manifest'])->name('hr.manifest');
+
 Route::middleware(['auth', 'role:admin,employee'])->group(function () {
     Route::get('hr', fn () => view('hr.index'))->name('hr.dashboard');
     Route::get('hr/{any}', fn () => view('hr.index'))->where('any', '.*')->name('hr.catchall');

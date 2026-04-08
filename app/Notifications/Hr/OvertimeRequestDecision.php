@@ -13,7 +13,7 @@ class OvertimeRequestDecision extends BaseHrNotification
 
     protected function channels(): array
     {
-        return ['database', 'push'];
+        return ['database', 'mail', 'push'];
     }
 
     protected function title(): string

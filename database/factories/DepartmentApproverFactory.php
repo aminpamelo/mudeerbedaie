@@ -22,6 +22,7 @@ class DepartmentApproverFactory extends Factory
             'department_id' => Department::factory(),
             'approver_employee_id' => Employee::factory(),
             'approval_type' => fake()->randomElement(['overtime', 'leave', 'claims']),
+            'tier' => 1,
         ];
     }
 }

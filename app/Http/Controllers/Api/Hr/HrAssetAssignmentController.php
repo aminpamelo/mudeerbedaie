@@ -47,7 +47,7 @@ class HrAssetAssignmentController extends Controller
     {
         $validated = $request->validated();
 
-        return DB::transaction(function () use ($request, $validated) {
+        return DB::transaction(function () use ($validated) {
             $asset = Asset::findOrFail($validated['asset_id']);
 
             if ($asset->status !== 'available') {
@@ -56,12 +56,10 @@ class HrAssetAssignmentController extends Controller
                 ], 422);
             }
 
-            $assigningEmployee = $request->user()->employee;
-
             $assignment = AssetAssignment::create([
                 'asset_id' => $validated['asset_id'],
                 'employee_id' => $validated['employee_id'],
-                'assigned_by' => $assigningEmployee?->id,
+                'assigned_by' => $validated['assigned_by'],
                 'assigned_date' => $validated['assigned_date'],
                 'expected_return_date' => $validated['expected_return_date'] ?? null,
                 'notes' => $validated['notes'] ?? null,

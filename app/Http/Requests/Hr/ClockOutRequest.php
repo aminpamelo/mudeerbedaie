@@ -23,6 +23,8 @@ class ClockOutRequest extends FormRequest
     {
         return [
             'photo' => ['nullable', 'image', 'max:2048'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 
@@ -34,6 +36,8 @@ class ClockOutRequest extends FormRequest
         return [
             'photo.image' => 'The photo must be a valid image.',
             'photo.max' => 'Photo must not exceed 2MB.',
+            'latitude.numeric' => 'Invalid latitude value.',
+            'longitude.numeric' => 'Invalid longitude value.',
         ];
     }
 }
