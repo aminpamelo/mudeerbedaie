@@ -69,26 +69,169 @@ function SkeletonTable() {
     );
 }
 
-function ApproverBadges({ approvers }) {
-    if (!approvers || approvers.length === 0) {
+function TieredApproverBadges({ approversByTier }) {
+    if (!approversByTier || Object.keys(approversByTier).length === 0) {
         return <span className="text-sm text-zinc-400">Not assigned</span>;
     }
+
+    const sortedTiers = Object.entries(approversByTier).sort(([a], [b]) => Number(a) - Number(b));
+
     return (
-        <div className="flex flex-wrap gap-1">
-            {approvers.map((approver) => (
-                <Badge key={approver.id} variant="secondary" className="text-xs">
-                    {approver.full_name}
-                </Badge>
+        <div className="space-y-1">
+            {sortedTiers.map(([tier, approvers]) => (
+                <div key={tier} className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-zinc-400 uppercase shrink-0">T{tier}</span>
+                    <div className="flex flex-wrap gap-1">
+                        {(approvers || []).map((approver) => (
+                            <Badge key={approver.id} variant="secondary" className="text-xs">
+                                {approver.full_name}
+                            </Badge>
+                        ))}
+                    </div>
+                </div>
             ))}
+        </div>
+    );
+}
+
+function TierBlock({ tierData, tierIndex, totalTiers, employees, onToggle, onRemove }) {
+    const [search, setSearch] = useState('');
+    const filtered = employees.filter((emp) => {
+        const q = search.toLowerCase();
+        return (
+            emp.full_name?.toLowerCase().includes(q) ||
+            emp.department?.name?.toLowerCase().includes(q)
+        );
+    });
+
+    return (
+        <div className="rounded-lg border border-zinc-200">
+            <div className="flex items-center justify-between bg-zinc-50 px-3 py-1.5 rounded-t-lg border-b border-zinc-200">
+                <span className="text-xs font-semibold text-zinc-600">
+                    Tier {tierData.tier}
+                    <span className="ml-1.5 text-zinc-400 font-normal">
+                        ({tierData.employee_ids.length} approver{tierData.employee_ids.length !== 1 ? 's' : ''})
+                    </span>
+                </span>
+                {totalTiers > 1 && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={onRemove}
+                        className="h-6 w-6 p-0 text-red-400 hover:text-red-600"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                )}
+            </div>
+            <div className="relative border-b border-zinc-100 px-2 py-1.5">
+                <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+                <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search employee..."
+                    className="h-7 border-0 pl-7 text-xs shadow-none focus-visible:ring-0"
+                />
+            </div>
+            <div className="max-h-28 space-y-1 overflow-y-auto p-2">
+                {filtered.length === 0 ? (
+                    <p className="py-2 text-center text-xs text-zinc-400">No employees found</p>
+                ) : (
+                    filtered.map((emp) => (
+                        <label
+                            key={emp.id}
+                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-zinc-50"
+                        >
+                            <Checkbox
+                                checked={tierData.employee_ids.includes(emp.id)}
+                                onCheckedChange={() => onToggle(emp.id)}
+                            />
+                            <span className="text-sm text-zinc-900">{emp.full_name}</span>
+                            <span className="text-xs text-zinc-400">{emp.department?.name}</span>
+                        </label>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+}
+
+function TieredApproverSelector({ label, field, form, setForm, employees }) {
+    const tiers = form[field] || [{ tier: 1, employee_ids: [] }];
+
+    function addTier() {
+        const nextTier = tiers.length + 1;
+        setForm((prev) => ({
+            ...prev,
+            [field]: [...prev[field], { tier: nextTier, employee_ids: [] }],
+        }));
+    }
+
+    function removeTier(index) {
+        if (tiers.length <= 1) return;
+        setForm((prev) => ({
+            ...prev,
+            [field]: prev[field]
+                .filter((_, i) => i !== index)
+                .map((t, i) => ({ ...t, tier: i + 1 })),
+        }));
+    }
+
+    function toggleEmployee(tierIndex, employeeId) {
+        setForm((prev) => ({
+            ...prev,
+            [field]: prev[field].map((t, i) =>
+                i === tierIndex
+                    ? {
+                          ...t,
+                          employee_ids: t.employee_ids.includes(employeeId)
+                              ? t.employee_ids.filter((id) => id !== employeeId)
+                              : [...t.employee_ids, employeeId],
+                      }
+                    : t
+            ),
+        }));
+    }
+
+    const totalSelected = tiers.reduce((sum, t) => sum + t.employee_ids.length, 0);
+
+    return (
+        <div>
+            <Label className="mb-2 block">{label} ({totalSelected} selected)</Label>
+            <div className="space-y-3">
+                {tiers.map((tierData, tierIndex) => (
+                    <TierBlock
+                        key={tierIndex}
+                        tierData={tierData}
+                        tierIndex={tierIndex}
+                        totalTiers={tiers.length}
+                        employees={employees}
+                        onToggle={(empId) => toggleEmployee(tierIndex, empId)}
+                        onRemove={() => removeTier(tierIndex)}
+                    />
+                ))}
+            </div>
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addTier}
+                className="mt-2 w-full"
+            >
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Add Tier {tiers.length + 1}
+            </Button>
         </div>
     );
 }
 
 const EMPTY_FORM = {
     department_id: '',
-    ot_approver_ids: [],
-    leave_approver_ids: [],
-    claims_approver_ids: [],
+    ot_approvers: [{ tier: 1, employee_ids: [] }],
+    leave_approvers: [{ tier: 1, employee_ids: [] }],
+    claims_approvers: [{ tier: 1, employee_ids: [] }],
+    exit_permission_approvers: [{ tier: 1, employee_ids: [] }],
 };
 
 export default function DepartmentApprovers() {
@@ -149,11 +292,24 @@ export default function DepartmentApprovers() {
 
     function openEdit(item) {
         setEditTarget(item);
+
+        const parseTiers = (approversByTier) => {
+            if (!approversByTier || typeof approversByTier !== 'object' || Object.keys(approversByTier).length === 0) {
+                return [{ tier: 1, employee_ids: [] }];
+            }
+            const tiers = Object.entries(approversByTier).map(([tier, approvers]) => ({
+                tier: parseInt(tier),
+                employee_ids: (approvers || []).map((a) => a.id),
+            }));
+            return tiers.length > 0 ? tiers.sort((a, b) => a.tier - b.tier) : [{ tier: 1, employee_ids: [] }];
+        };
+
         setForm({
             department_id: String(item.department_id || ''),
-            ot_approver_ids: item.ot_approvers?.map((a) => a.id) || [],
-            leave_approver_ids: item.leave_approvers?.map((a) => a.id) || [],
-            claims_approver_ids: item.claims_approvers?.map((a) => a.id) || [],
+            ot_approvers: parseTiers(item.ot_approvers),
+            leave_approvers: parseTiers(item.leave_approvers),
+            claims_approvers: parseTiers(item.claims_approvers),
+            exit_permission_approvers: parseTiers(item.exit_permission_approvers),
         });
         setShowDialog(true);
     }
@@ -172,69 +328,13 @@ export default function DepartmentApprovers() {
         }
     }
 
-    function toggleApprover(field, employeeId) {
-        setForm((prev) => ({
-            ...prev,
-            [field]: prev[field].includes(employeeId)
-                ? prev[field].filter((id) => id !== employeeId)
-                : [...prev[field], employeeId],
-        }));
-    }
-
     const isSaving = createMutation.isPending || updateMutation.isPending;
-
-    function ApproverSelector({ label, field }) {
-        const [search, setSearch] = useState('');
-        const filtered = employees.filter((emp) => {
-            const q = search.toLowerCase();
-            return (
-                emp.full_name?.toLowerCase().includes(q) ||
-                emp.department?.name?.toLowerCase().includes(q)
-            );
-        });
-
-        return (
-            <div>
-                <Label className="mb-2 block">{label} ({form[field].length} selected)</Label>
-                <div className="rounded-lg border border-zinc-200">
-                    <div className="relative border-b border-zinc-100 px-2 py-1.5">
-                        <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
-                        <Input
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search employee..."
-                            className="h-7 border-0 pl-7 text-xs shadow-none focus-visible:ring-0"
-                        />
-                    </div>
-                    <div className="max-h-36 space-y-1 overflow-y-auto p-2">
-                        {filtered.length === 0 ? (
-                            <p className="py-3 text-center text-sm text-zinc-400">No employees found</p>
-                        ) : (
-                            filtered.map((emp) => (
-                                <label
-                                    key={emp.id}
-                                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-zinc-50"
-                                >
-                                    <Checkbox
-                                        checked={form[field].includes(emp.id)}
-                                        onCheckedChange={() => toggleApprover(field, emp.id)}
-                                    />
-                                    <span className="text-sm text-zinc-900">{emp.full_name}</span>
-                                    <span className="text-xs text-zinc-400">{emp.department?.name}</span>
-                                </label>
-                            ))
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Department Approvers"
-                description="Configure approval chains for overtime, leave, and claims by department"
+                description="Configure approval chains for overtime, leave, claims, and exit permissions by department"
                 action={
                     <Button onClick={openCreate}>
                         <Plus className="mr-2 h-4 w-4" />
@@ -251,7 +351,7 @@ export default function DepartmentApprovers() {
                         <div className="flex flex-col items-center justify-center py-16 text-center">
                             <Shield className="mb-3 h-10 w-10 text-zinc-300" />
                             <p className="text-sm font-medium text-zinc-500">No approver configurations</p>
-                            <p className="mb-4 text-xs text-zinc-400">Set up department approvers for overtime, leave, and claims</p>
+                            <p className="mb-4 text-xs text-zinc-400">Set up department approvers for overtime, leave, claims, and exit permissions</p>
                             <Button onClick={openCreate} size="sm">
                                 <Plus className="mr-2 h-4 w-4" />
                                 Add Configuration
@@ -265,6 +365,7 @@ export default function DepartmentApprovers() {
                                     <TableHead>OT Approver</TableHead>
                                     <TableHead>Leave Approver</TableHead>
                                     <TableHead>Claims Approver</TableHead>
+                                    <TableHead>Exit Permission Approver</TableHead>
                                     <TableHead className="w-24">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -280,13 +381,16 @@ export default function DepartmentApprovers() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <ApproverBadges approvers={item.ot_approvers} />
+                                            <TieredApproverBadges approversByTier={item.ot_approvers} />
                                         </TableCell>
                                         <TableCell>
-                                            <ApproverBadges approvers={item.leave_approvers} />
+                                            <TieredApproverBadges approversByTier={item.leave_approvers} />
                                         </TableCell>
                                         <TableCell>
-                                            <ApproverBadges approvers={item.claims_approvers} />
+                                            <TieredApproverBadges approversByTier={item.claims_approvers} />
+                                        </TableCell>
+                                        <TableCell>
+                                            <TieredApproverBadges approversByTier={item.exit_permission_approvers} />
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1">
@@ -343,9 +447,10 @@ export default function DepartmentApprovers() {
                             </Select>
                         </div>
 
-                        <ApproverSelector label="OT Approvers" field="ot_approver_ids" />
-                        <ApproverSelector label="Leave Approvers" field="leave_approver_ids" />
-                        <ApproverSelector label="Claims Approvers" field="claims_approver_ids" />
+                        <TieredApproverSelector label="OT Approvers" field="ot_approvers" form={form} setForm={setForm} employees={employees} />
+                        <TieredApproverSelector label="Leave Approvers" field="leave_approvers" form={form} setForm={setForm} employees={employees} />
+                        <TieredApproverSelector label="Claims Approvers" field="claims_approvers" form={form} setForm={setForm} employees={employees} />
+                        <TieredApproverSelector label="Exit Permission Approvers" field="exit_permission_approvers" form={form} setForm={setForm} employees={employees} />
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={closeDialog}>
