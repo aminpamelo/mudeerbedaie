@@ -19,18 +19,27 @@ class HrDepartmentApproverController extends Controller
         $approvers = DepartmentApprover::query()
             ->with(['department', 'approver'])
             ->orderBy('department_id')
+            ->orderBy('tier')
             ->get();
 
         $grouped = $approvers->groupBy('department_id')->map(function ($items, $departmentId) {
             $first = $items->first();
 
+            $groupByType = function ($type) use ($items) {
+                return $items->where('approval_type', $type)
+                    ->groupBy('tier')
+                    ->map(fn ($tierItems) => $tierItems->map(fn ($a) => $a->approver)->filter()->values())
+                    ->toArray();
+            };
+
             return [
                 'id' => $departmentId,
                 'department_id' => (int) $departmentId,
                 'department' => $first->department,
-                'ot_approvers' => $items->where('approval_type', 'overtime')->map(fn ($a) => $a->approver)->filter()->values(),
-                'leave_approvers' => $items->where('approval_type', 'leave')->map(fn ($a) => $a->approver)->filter()->values(),
-                'claims_approvers' => $items->where('approval_type', 'claims')->map(fn ($a) => $a->approver)->filter()->values(),
+                'ot_approvers' => $groupByType('overtime'),
+                'leave_approvers' => $groupByType('leave'),
+                'claims_approvers' => $groupByType('claims'),
+                'exit_permission_approvers' => $groupByType('exit_permission'),
             ];
         })->values();
 
@@ -44,12 +53,22 @@ class HrDepartmentApproverController extends Controller
     {
         $validated = $request->validate([
             'department_id' => ['required', 'exists:departments,id'],
-            'ot_approver_ids' => ['array'],
-            'ot_approver_ids.*' => ['exists:employees,id'],
-            'leave_approver_ids' => ['array'],
-            'leave_approver_ids.*' => ['exists:employees,id'],
-            'claims_approver_ids' => ['array'],
-            'claims_approver_ids.*' => ['exists:employees,id'],
+            'ot_approvers' => ['array'],
+            'ot_approvers.*.tier' => ['required', 'integer', 'min:1'],
+            'ot_approvers.*.employee_ids' => ['required', 'array'],
+            'ot_approvers.*.employee_ids.*' => ['exists:employees,id'],
+            'leave_approvers' => ['array'],
+            'leave_approvers.*.tier' => ['required', 'integer', 'min:1'],
+            'leave_approvers.*.employee_ids' => ['required', 'array'],
+            'leave_approvers.*.employee_ids.*' => ['exists:employees,id'],
+            'claims_approvers' => ['array'],
+            'claims_approvers.*.tier' => ['required', 'integer', 'min:1'],
+            'claims_approvers.*.employee_ids' => ['required', 'array'],
+            'claims_approvers.*.employee_ids.*' => ['exists:employees,id'],
+            'exit_permission_approvers' => ['array'],
+            'exit_permission_approvers.*.tier' => ['required', 'integer', 'min:1'],
+            'exit_permission_approvers.*.employee_ids' => ['required', 'array'],
+            'exit_permission_approvers.*.employee_ids.*' => ['exists:employees,id'],
         ]);
 
         return DB::transaction(function () use ($validated) {
@@ -58,10 +77,11 @@ class HrDepartmentApproverController extends Controller
             // Remove existing approvers for this department
             DepartmentApprover::where('department_id', $departmentId)->delete();
 
-            // Insert new approvers
-            $this->insertApprovers($departmentId, 'overtime', $validated['ot_approver_ids'] ?? []);
-            $this->insertApprovers($departmentId, 'leave', $validated['leave_approver_ids'] ?? []);
-            $this->insertApprovers($departmentId, 'claims', $validated['claims_approver_ids'] ?? []);
+            // Insert new tiered approvers
+            $this->insertTieredApprovers($departmentId, 'overtime', $validated['ot_approvers'] ?? []);
+            $this->insertTieredApprovers($departmentId, 'leave', $validated['leave_approvers'] ?? []);
+            $this->insertTieredApprovers($departmentId, 'claims', $validated['claims_approvers'] ?? []);
+            $this->insertTieredApprovers($departmentId, 'exit_permission', $validated['exit_permission_approvers'] ?? []);
 
             return response()->json([
                 'message' => 'Department approver configuration saved successfully.',
@@ -76,12 +96,22 @@ class HrDepartmentApproverController extends Controller
     {
         $validated = $request->validate([
             'department_id' => ['required', 'exists:departments,id'],
-            'ot_approver_ids' => ['array'],
-            'ot_approver_ids.*' => ['exists:employees,id'],
-            'leave_approver_ids' => ['array'],
-            'leave_approver_ids.*' => ['exists:employees,id'],
-            'claims_approver_ids' => ['array'],
-            'claims_approver_ids.*' => ['exists:employees,id'],
+            'ot_approvers' => ['array'],
+            'ot_approvers.*.tier' => ['required', 'integer', 'min:1'],
+            'ot_approvers.*.employee_ids' => ['required', 'array'],
+            'ot_approvers.*.employee_ids.*' => ['exists:employees,id'],
+            'leave_approvers' => ['array'],
+            'leave_approvers.*.tier' => ['required', 'integer', 'min:1'],
+            'leave_approvers.*.employee_ids' => ['required', 'array'],
+            'leave_approvers.*.employee_ids.*' => ['exists:employees,id'],
+            'claims_approvers' => ['array'],
+            'claims_approvers.*.tier' => ['required', 'integer', 'min:1'],
+            'claims_approvers.*.employee_ids' => ['required', 'array'],
+            'claims_approvers.*.employee_ids.*' => ['exists:employees,id'],
+            'exit_permission_approvers' => ['array'],
+            'exit_permission_approvers.*.tier' => ['required', 'integer', 'min:1'],
+            'exit_permission_approvers.*.employee_ids' => ['required', 'array'],
+            'exit_permission_approvers.*.employee_ids.*' => ['exists:employees,id'],
         ]);
 
         return DB::transaction(function () use ($validated) {
@@ -90,10 +120,11 @@ class HrDepartmentApproverController extends Controller
             // Remove existing approvers for this department
             DepartmentApprover::where('department_id', $departmentId)->delete();
 
-            // Insert new approvers
-            $this->insertApprovers($departmentId, 'overtime', $validated['ot_approver_ids'] ?? []);
-            $this->insertApprovers($departmentId, 'leave', $validated['leave_approver_ids'] ?? []);
-            $this->insertApprovers($departmentId, 'claims', $validated['claims_approver_ids'] ?? []);
+            // Insert new tiered approvers
+            $this->insertTieredApprovers($departmentId, 'overtime', $validated['ot_approvers'] ?? []);
+            $this->insertTieredApprovers($departmentId, 'leave', $validated['leave_approvers'] ?? []);
+            $this->insertTieredApprovers($departmentId, 'claims', $validated['claims_approvers'] ?? []);
+            $this->insertTieredApprovers($departmentId, 'exit_permission', $validated['exit_permission_approvers'] ?? []);
 
             return response()->json([
                 'message' => 'Department approver configuration updated successfully.',
@@ -113,16 +144,20 @@ class HrDepartmentApproverController extends Controller
     }
 
     /**
-     * Insert approver records for a department and type.
+     * Insert tiered approver records for a department and type.
      */
-    private function insertApprovers(int $departmentId, string $type, array $employeeIds): void
+    private function insertTieredApprovers(int $departmentId, string $type, array $tiers): void
     {
-        foreach ($employeeIds as $employeeId) {
-            DepartmentApprover::create([
-                'department_id' => $departmentId,
-                'approver_employee_id' => $employeeId,
-                'approval_type' => $type,
-            ]);
+        foreach ($tiers as $tierData) {
+            $tier = $tierData['tier'];
+            foreach ($tierData['employee_ids'] as $employeeId) {
+                DepartmentApprover::create([
+                    'department_id' => $departmentId,
+                    'approver_employee_id' => $employeeId,
+                    'approval_type' => $type,
+                    'tier' => $tier,
+                ]);
+            }
         }
     }
 }
