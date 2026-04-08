@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class OfficeExitPermission extends Model
 {
@@ -26,6 +27,7 @@ class OfficeExitPermission extends Model
         'rejection_reason',
         'cc_notified_at',
         'attendance_note_created',
+        'current_approval_tier',
     ];
 
     protected function casts(): array
@@ -79,5 +81,13 @@ class OfficeExitPermission extends Model
     public function isApproved(): bool
     {
         return $this->status === 'approved';
+    }
+
+    /**
+     * Get the approval logs for this office exit permission.
+     */
+    public function approvalLogs(): MorphMany
+    {
+        return $this->morphMany(ApprovalLog::class, 'approvable');
     }
 }

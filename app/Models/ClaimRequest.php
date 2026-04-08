@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\Storage;
 
 class ClaimRequest extends Model
@@ -35,6 +36,7 @@ class ClaimRequest extends Model
         'origin',
         'destination',
         'trip_purpose',
+        'current_approval_tier',
     ];
 
     /**
@@ -148,5 +150,13 @@ class ClaimRequest extends Model
         }
 
         return $prefix.str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Get the approval logs for this claim request.
+     */
+    public function approvalLogs(): MorphMany
+    {
+        return $this->morphMany(ApprovalLog::class, 'approvable');
     }
 }

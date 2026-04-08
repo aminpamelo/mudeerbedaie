@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 
 class LeaveRequest extends Model
@@ -29,6 +30,7 @@ class LeaveRequest extends Model
         'rejection_reason',
         'is_replacement_leave',
         'replacement_hours_deducted',
+        'current_approval_tier',
     ];
 
     /**
@@ -96,5 +98,13 @@ class LeaveRequest extends Model
     {
         return $query->where('start_date', '<=', $end)
             ->where('end_date', '>=', $start);
+    }
+
+    /**
+     * Get the approval logs for this leave request.
+     */
+    public function approvalLogs(): MorphMany
+    {
+        return $this->morphMany(ApprovalLog::class, 'approvable');
     }
 }

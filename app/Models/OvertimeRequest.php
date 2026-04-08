@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class OvertimeRequest extends Model
 {
@@ -26,6 +27,7 @@ class OvertimeRequest extends Model
         'rejection_reason',
         'replacement_hours_earned',
         'replacement_hours_used',
+        'current_approval_tier',
     ];
 
     /**
@@ -91,5 +93,13 @@ class OvertimeRequest extends Model
     public function getReplacementBalanceAttribute(): float
     {
         return (float) $this->replacement_hours_earned - (float) $this->replacement_hours_used;
+    }
+
+    /**
+     * Get the approval logs for this overtime request.
+     */
+    public function approvalLogs(): MorphMany
+    {
+        return $this->morphMany(ApprovalLog::class, 'approvable');
     }
 }
