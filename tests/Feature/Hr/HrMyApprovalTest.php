@@ -146,6 +146,7 @@ test('ot approver can approve a pending request in their department', function (
         'department_id' => $dept->id,
         'approver_employee_id' => $employee->id,
         'approval_type' => 'overtime',
+        'tier' => 1,
     ]);
 
     $request = OvertimeRequest::factory()->create(['employee_id' => $subordinate->id, 'status' => 'pending']);
@@ -154,7 +155,7 @@ test('ot approver can approve a pending request in their department', function (
         ->patchJson("/api/hr/my-approvals/overtime/{$request->id}/approve")
         ->assertSuccessful();
 
-    expect($request->fresh()->status)->toBe('approved');
+    expect($request->fresh()->status)->toBe('completed');
 });
 
 test('ot approver cannot approve request from another department', function () {

@@ -382,7 +382,7 @@ test('admin can approve overtime request', function () {
         ->assertJsonPath('message', 'Overtime request approved successfully.');
 
     $otRequest->refresh();
-    expect($otRequest->status)->toBe('approved');
+    expect($otRequest->status)->toBe('completed');
     expect($otRequest->approved_by)->toBe($admin->id);
     expect($otRequest->approved_at)->not->toBeNull();
 });
@@ -515,17 +515,19 @@ test('admin can create an approver for a department', function () {
 
     $response = $this->actingAs($admin)->postJson('/api/hr/department-approvers', [
         'department_id' => $data['department']->id,
-        'approver_employee_id' => $data['employee']->id,
-        'approval_type' => 'overtime',
+        'ot_approvers' => [
+            ['tier' => 1, 'employee_ids' => [$data['employee']->id]],
+        ],
     ]);
 
     $response->assertCreated()
-        ->assertJsonPath('message', 'Department approver created successfully.');
+        ->assertJsonPath('message', 'Department approver configuration saved successfully.');
 
     $this->assertDatabaseHas('department_approvers', [
         'department_id' => $data['department']->id,
         'approver_employee_id' => $data['employee']->id,
         'approval_type' => 'overtime',
+        'tier' => 1,
     ]);
 });
 
@@ -553,10 +555,10 @@ test('admin can delete an approver', function () {
         'approver_employee_id' => $data['employee']->id,
     ]);
 
-    $response = $this->actingAs($admin)->deleteJson("/api/hr/department-approvers/{$approver->id}");
+    $response = $this->actingAs($admin)->deleteJson("/api/hr/department-approvers/{$data['department']->id}");
 
     $response->assertSuccessful()
-        ->assertJsonPath('message', 'Department approver deleted successfully.');
+        ->assertJsonPath('message', 'Department approver configuration deleted successfully.');
 
     $this->assertDatabaseMissing('department_approvers', ['id' => $approver->id]);
 });
