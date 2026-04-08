@@ -12,6 +12,7 @@ use App\Models\LeaveRequest;
 use App\Models\OfficeExitPermission;
 use App\Models\OvertimeClaimRequest;
 use App\Models\OvertimeRequest;
+use App\Services\Hr\TierApprovalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,9 +26,42 @@ class HrMyApprovalController extends Controller
             ->toArray();
     }
 
+    /**
+     * Get department IDs grouped with their tier(s) for the given approver and type.
+     *
+     * @return array<int, array<int, int>> [dept_id => [tier1, tier2], ...]
+     */
+    private function getDeptIdsForTier(int $employeeId, string $type): array
+    {
+        return DepartmentApprover::where('approver_employee_id', $employeeId)
+            ->where('approval_type', $type)
+            ->get(['department_id', 'tier'])
+            ->groupBy('department_id')
+            ->map(fn ($items) => $items->pluck('tier')->toArray())
+            ->toArray();
+    }
+
     private function getEmployee(Request $request): ?Employee
     {
         return $request->user()->employee;
+    }
+
+    /**
+     * Apply tier-aware filtering to a query builder.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  array<int, array<int, int>>  $deptTiers
+     */
+    private function applyTierFilter($query, array $deptTiers): void
+    {
+        $query->where(function ($query) use ($deptTiers) {
+            foreach ($deptTiers as $deptId => $tiers) {
+                $query->orWhere(function ($q) use ($deptId, $tiers) {
+                    $q->whereHas('employee', fn ($sq) => $sq->where('department_id', $deptId))
+                        ->whereIn('current_approval_tier', $tiers);
+                });
+            }
+        });
     }
 
     public function summary(Request $request): JsonResponse
@@ -38,29 +72,61 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $otDepts = $this->getDeptIds($employee->id, 'overtime');
-        $leaveDepts = $this->getDeptIds($employee->id, 'leave');
-        $claimDepts = $this->getDeptIds($employee->id, 'claims');
-        $isIndividualClaims = ClaimApprover::where('approver_id', $employee->id)
-            ->where('is_active', true)
-            ->exists();
+        // Overtime (requests + claims)
+        $otDeptTiers = $this->getDeptIdsForTier($employee->id, 'overtime');
+        $otDepts = array_keys($otDeptTiers);
 
         $otRequestPending = empty($otDepts) ? 0
             : OvertimeRequest::whereHas('employee', fn ($q) => $q->whereIn('department_id', $otDepts))
                 ->where('status', 'pending')
+                ->where(function ($query) use ($otDeptTiers) {
+                    foreach ($otDeptTiers as $deptId => $tiers) {
+                        $query->orWhere(function ($q) use ($deptId, $tiers) {
+                            $q->whereHas('employee', fn ($sq) => $sq->where('department_id', $deptId))
+                                ->whereIn('current_approval_tier', $tiers);
+                        });
+                    }
+                })
                 ->count();
 
         $otClaimPending = empty($otDepts) ? 0
             : OvertimeClaimRequest::whereHas('employee', fn ($q) => $q->whereIn('department_id', $otDepts))
                 ->where('status', 'pending')
+                ->where(function ($query) use ($otDeptTiers) {
+                    foreach ($otDeptTiers as $deptId => $tiers) {
+                        $query->orWhere(function ($q) use ($deptId, $tiers) {
+                            $q->whereHas('employee', fn ($sq) => $sq->where('department_id', $deptId))
+                                ->whereIn('current_approval_tier', $tiers);
+                        });
+                    }
+                })
                 ->count();
 
         $otPending = $otRequestPending + $otClaimPending;
 
+        // Leave
+        $leaveDeptTiers = $this->getDeptIdsForTier($employee->id, 'leave');
+        $leaveDepts = array_keys($leaveDeptTiers);
+
         $leavePending = empty($leaveDepts) ? 0
             : LeaveRequest::whereHas('employee', fn ($q) => $q->whereIn('department_id', $leaveDepts))
                 ->where('status', 'pending')
+                ->where(function ($query) use ($leaveDeptTiers) {
+                    foreach ($leaveDeptTiers as $deptId => $tiers) {
+                        $query->orWhere(function ($q) use ($deptId, $tiers) {
+                            $q->whereHas('employee', fn ($sq) => $sq->where('department_id', $deptId))
+                                ->whereIn('current_approval_tier', $tiers);
+                        });
+                    }
+                })
                 ->count();
+
+        // Claims (dept-based + individual)
+        $claimDeptTiers = $this->getDeptIdsForTier($employee->id, 'claims');
+        $claimDepts = array_keys($claimDeptTiers);
+        $isIndividualClaims = ClaimApprover::where('approver_id', $employee->id)
+            ->where('is_active', true)
+            ->exists();
 
         $claimPending = 0;
         $isClaimsAssigned = ! empty($claimDepts) || $isIndividualClaims;
@@ -69,12 +135,25 @@ class HrMyApprovalController extends Controller
             $claimQuery = ClaimRequest::where('status', 'pending');
 
             if (! empty($claimDepts) && $isIndividualClaims) {
-                $claimQuery->where(function ($q) use ($claimDepts, $employee) {
-                    $q->whereHas('employee', fn ($sq) => $sq->whereIn('department_id', $claimDepts))
-                        ->orWhereHas('employee.claimApprovers', fn ($sq) => $sq->where('approver_id', $employee->id)->where('is_active', true));
+                $claimQuery->where(function ($q) use ($claimDeptTiers, $employee) {
+                    $q->where(function ($deptQ) use ($claimDeptTiers) {
+                        foreach ($claimDeptTiers as $deptId => $tiers) {
+                            $deptQ->orWhere(function ($sq) use ($deptId, $tiers) {
+                                $sq->whereHas('employee', fn ($esq) => $esq->where('department_id', $deptId))
+                                    ->whereIn('current_approval_tier', $tiers);
+                            });
+                        }
+                    })->orWhereHas('employee.claimApprovers', fn ($sq) => $sq->where('approver_id', $employee->id)->where('is_active', true));
                 });
             } elseif (! empty($claimDepts)) {
-                $claimQuery->whereHas('employee', fn ($q) => $q->whereIn('department_id', $claimDepts));
+                $claimQuery->where(function ($q) use ($claimDeptTiers) {
+                    foreach ($claimDeptTiers as $deptId => $tiers) {
+                        $q->orWhere(function ($sq) use ($deptId, $tiers) {
+                            $sq->whereHas('employee', fn ($esq) => $esq->where('department_id', $deptId))
+                                ->whereIn('current_approval_tier', $tiers);
+                        });
+                    }
+                });
             } else {
                 $claimQuery->whereHas('employee.claimApprovers', fn ($q) => $q->where('approver_id', $employee->id)->where('is_active', true));
             }
@@ -82,11 +161,21 @@ class HrMyApprovalController extends Controller
             $claimPending = $claimQuery->count();
         }
 
-        $exitDepts = $this->getDeptIds($employee->id, 'exit_permission');
+        // Exit permissions
+        $exitDeptTiers = $this->getDeptIdsForTier($employee->id, 'exit_permission');
+        $exitDepts = array_keys($exitDeptTiers);
 
         $exitPending = empty($exitDepts) ? 0
             : OfficeExitPermission::whereHas('employee', fn ($q) => $q->whereIn('department_id', $exitDepts))
                 ->where('status', 'pending')
+                ->where(function ($query) use ($exitDeptTiers) {
+                    foreach ($exitDeptTiers as $deptId => $tiers) {
+                        $query->orWhere(function ($q) use ($deptId, $tiers) {
+                            $q->whereHas('employee', fn ($sq) => $sq->where('department_id', $deptId))
+                                ->whereIn('current_approval_tier', $tiers);
+                        });
+                    }
+                })
                 ->count();
 
         $isApprover = ! empty($otDepts) || ! empty($leaveDepts) || $isClaimsAssigned || ! empty($exitDepts);
@@ -110,7 +199,8 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'overtime');
+        $deptTiers = $this->getDeptIdsForTier($employee->id, 'overtime');
+        $deptIds = array_keys($deptTiers);
 
         if (empty($deptIds)) {
             return response()->json(['data' => [], 'total' => 0, 'current_page' => 1, 'last_page' => 1]);
@@ -126,6 +216,11 @@ class HrMyApprovalController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Only apply tier filter for pending requests (show history without tier filter)
+        if (! $request->filled('status') || $request->status === 'pending') {
+            $this->applyTierFilter($query, $deptTiers);
+        }
+
         return response()->json($query->orderByDesc('created_at')->paginate(20));
     }
 
@@ -137,9 +232,11 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'overtime');
+        $service = app(TierApprovalService::class);
+        $deptId = $overtimeRequest->employee->department_id;
+        $currentTier = $overtimeRequest->current_approval_tier;
 
-        if (! in_array($overtimeRequest->employee->department_id, $deptIds)) {
+        if (! $service->isApproverForTier($employee->id, $deptId, 'overtime', $currentTier)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -147,18 +244,22 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Only pending requests can be approved.'], 422);
         }
 
-        $overtimeRequest->update([
-            'status' => 'completed',
-            'approved_by' => $request->user()->id,
-            'approved_at' => now(),
-            'actual_hours' => $overtimeRequest->estimated_hours,
-            'replacement_hours_earned' => $overtimeRequest->estimated_hours,
-        ]);
+        $result = $service->approve($overtimeRequest, $employee, 'overtime', $deptId);
 
-        if ($overtimeRequest->employee->user) {
-            $overtimeRequest->employee->user->notify(
-                new \App\Notifications\Hr\OvertimeRequestDecision($overtimeRequest, 'approved')
-            );
+        if ($result['fully_approved']) {
+            $overtimeRequest->update([
+                'status' => 'completed',
+                'approved_by' => $request->user()->id,
+                'approved_at' => now(),
+                'actual_hours' => $overtimeRequest->estimated_hours,
+                'replacement_hours_earned' => $overtimeRequest->estimated_hours,
+            ]);
+
+            if ($overtimeRequest->employee->user) {
+                $overtimeRequest->employee->user->notify(
+                    new \App\Notifications\Hr\OvertimeRequestDecision($overtimeRequest, 'approved')
+                );
+            }
         }
 
         return response()->json($overtimeRequest->fresh([
@@ -176,9 +277,11 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'overtime');
+        $service = app(TierApprovalService::class);
+        $deptId = $overtimeRequest->employee->department_id;
+        $currentTier = $overtimeRequest->current_approval_tier;
 
-        if (! in_array($overtimeRequest->employee->department_id, $deptIds)) {
+        if (! $service->isApproverForTier($employee->id, $deptId, 'overtime', $currentTier)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -189,6 +292,8 @@ class HrMyApprovalController extends Controller
         $validated = $request->validate([
             'rejection_reason' => ['required', 'string', 'min:5'],
         ]);
+
+        $service->reject($overtimeRequest, $employee, $validated['rejection_reason']);
 
         $overtimeRequest->update([
             'status' => 'rejected',
@@ -218,7 +323,8 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'overtime');
+        $deptTiers = $this->getDeptIdsForTier($employee->id, 'overtime');
+        $deptIds = array_keys($deptTiers);
 
         if (empty($deptIds)) {
             return response()->json(['data' => [], 'total' => 0, 'current_page' => 1, 'last_page' => 1]);
@@ -234,6 +340,11 @@ class HrMyApprovalController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Only apply tier filter for pending requests
+        if (! $request->filled('status') || $request->status === 'pending') {
+            $this->applyTierFilter($query, $deptTiers);
+        }
+
         return response()->json($query->orderByDesc('created_at')->paginate(20));
     }
 
@@ -245,9 +356,11 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'overtime');
+        $service = app(TierApprovalService::class);
+        $deptId = $overtimeClaimRequest->employee->department_id;
+        $currentTier = $overtimeClaimRequest->current_approval_tier;
 
-        if (! in_array($overtimeClaimRequest->employee->department_id, $deptIds)) {
+        if (! $service->isApproverForTier($employee->id, $deptId, 'overtime', $currentTier)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -255,35 +368,39 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Only pending claims can be approved.'], 422);
         }
 
-        $overtimeClaimRequest->update([
-            'status' => 'approved',
-            'approved_by' => $request->user()->id,
-            'approved_at' => now(),
-        ]);
+        $result = $service->approve($overtimeClaimRequest, $employee, 'overtime', $deptId);
 
-        // Link attendance record if it exists for that date
-        $attendanceLog = AttendanceLog::where('employee_id', $overtimeClaimRequest->employee_id)
-            ->where('date', $overtimeClaimRequest->claim_date)
-            ->first();
-
-        if ($attendanceLog) {
-            $newLateMinutes = max(0, (int) $attendanceLog->late_minutes - $overtimeClaimRequest->duration_minutes);
-            $newStatus = ($newLateMinutes === 0 && $attendanceLog->status === 'late') ? 'present' : $attendanceLog->status;
-
-            $attendanceLog->update([
-                'ot_claim_id' => $overtimeClaimRequest->id,
-                'late_minutes' => $newLateMinutes,
-                'status' => $newStatus,
+        if ($result['fully_approved']) {
+            $overtimeClaimRequest->update([
+                'status' => 'approved',
+                'approved_by' => $request->user()->id,
+                'approved_at' => now(),
             ]);
 
-            $overtimeClaimRequest->update(['attendance_id' => $attendanceLog->id]);
-        }
+            // Link attendance record if it exists for that date
+            $attendanceLog = AttendanceLog::where('employee_id', $overtimeClaimRequest->employee_id)
+                ->where('date', $overtimeClaimRequest->claim_date)
+                ->first();
 
-        // Notify employee
-        if ($overtimeClaimRequest->employee->user) {
-            $overtimeClaimRequest->employee->user->notify(
-                new \App\Notifications\Hr\OvertimeClaimDecision($overtimeClaimRequest, 'approved')
-            );
+            if ($attendanceLog) {
+                $newLateMinutes = max(0, (int) $attendanceLog->late_minutes - $overtimeClaimRequest->duration_minutes);
+                $newStatus = ($newLateMinutes === 0 && $attendanceLog->status === 'late') ? 'present' : $attendanceLog->status;
+
+                $attendanceLog->update([
+                    'ot_claim_id' => $overtimeClaimRequest->id,
+                    'late_minutes' => $newLateMinutes,
+                    'status' => $newStatus,
+                ]);
+
+                $overtimeClaimRequest->update(['attendance_id' => $attendanceLog->id]);
+            }
+
+            // Notify employee
+            if ($overtimeClaimRequest->employee->user) {
+                $overtimeClaimRequest->employee->user->notify(
+                    new \App\Notifications\Hr\OvertimeClaimDecision($overtimeClaimRequest, 'approved')
+                );
+            }
         }
 
         return response()->json($overtimeClaimRequest->fresh([
@@ -301,9 +418,11 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'overtime');
+        $service = app(TierApprovalService::class);
+        $deptId = $overtimeClaimRequest->employee->department_id;
+        $currentTier = $overtimeClaimRequest->current_approval_tier;
 
-        if (! in_array($overtimeClaimRequest->employee->department_id, $deptIds)) {
+        if (! $service->isApproverForTier($employee->id, $deptId, 'overtime', $currentTier)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -314,6 +433,8 @@ class HrMyApprovalController extends Controller
         $validated = $request->validate([
             'rejection_reason' => ['required', 'string', 'min:5'],
         ]);
+
+        $service->reject($overtimeClaimRequest, $employee, $validated['rejection_reason']);
 
         $overtimeClaimRequest->update([
             'status' => 'rejected',
@@ -343,7 +464,8 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'leave');
+        $deptTiers = $this->getDeptIdsForTier($employee->id, 'leave');
+        $deptIds = array_keys($deptTiers);
 
         if (empty($deptIds)) {
             return response()->json(['data' => [], 'total' => 0, 'current_page' => 1, 'last_page' => 1]);
@@ -360,6 +482,11 @@ class HrMyApprovalController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Only apply tier filter for pending requests
+        if (! $request->filled('status') || $request->status === 'pending') {
+            $this->applyTierFilter($query, $deptTiers);
+        }
+
         return response()->json($query->orderByDesc('created_at')->paginate(20));
     }
 
@@ -371,9 +498,11 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'leave');
+        $service = app(TierApprovalService::class);
+        $deptId = $leaveRequest->employee->department_id;
+        $currentTier = $leaveRequest->current_approval_tier;
 
-        if (! in_array($leaveRequest->employee->department_id, $deptIds)) {
+        if (! $service->isApproverForTier($employee->id, $deptId, 'leave', $currentTier)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -381,8 +510,12 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Only pending requests can be approved.'], 422);
         }
 
-        $controller = app(\App\Http\Controllers\Api\Hr\HrLeaveRequestController::class);
-        $controller->approve($request, $leaveRequest);
+        $result = $service->approve($leaveRequest, $employee, 'leave', $deptId);
+
+        if ($result['fully_approved']) {
+            $controller = app(\App\Http\Controllers\Api\Hr\HrLeaveRequestController::class);
+            $controller->approve($request, $leaveRequest);
+        }
 
         return response()->json($leaveRequest->fresh([
             'employee:id,full_name,position_id,department_id',
@@ -400,15 +533,23 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'leave');
+        $service = app(TierApprovalService::class);
+        $deptId = $leaveRequest->employee->department_id;
+        $currentTier = $leaveRequest->current_approval_tier;
 
-        if (! in_array($leaveRequest->employee->department_id, $deptIds)) {
+        if (! $service->isApproverForTier($employee->id, $deptId, 'leave', $currentTier)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         if ($leaveRequest->status !== 'pending') {
             return response()->json(['message' => 'Only pending requests can be rejected.'], 422);
         }
+
+        $validated = $request->validate([
+            'rejection_reason' => ['required', 'string', 'min:5'],
+        ]);
+
+        $service->reject($leaveRequest, $employee, $validated['rejection_reason']);
 
         $controller = app(\App\Http\Controllers\Api\Hr\HrLeaveRequestController::class);
         $controller->reject($request, $leaveRequest);
@@ -431,7 +572,8 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'claims');
+        $deptTiers = $this->getDeptIdsForTier($employee->id, 'claims');
+        $deptIds = array_keys($deptTiers);
         $isIndividualClaims = ClaimApprover::where('approver_id', $employee->id)
             ->where('is_active', true)
             ->exists();
@@ -447,13 +589,29 @@ class HrMyApprovalController extends Controller
             'claimType:id,name',
         ]);
 
+        $isPendingFilter = ! $request->filled('status') || $request->status === 'pending';
+
         if (! empty($deptIds) && $isIndividualClaims) {
-            $query->where(function ($q) use ($deptIds, $employee) {
-                $q->whereHas('employee', fn ($sq) => $sq->whereIn('department_id', $deptIds))
-                    ->orWhereHas('employee.claimApprovers', fn ($sq) => $sq->where('approver_id', $employee->id)->where('is_active', true));
+            $query->where(function ($q) use ($deptIds, $deptTiers, $employee, $isPendingFilter) {
+                $q->where(function ($deptQ) use ($deptIds, $deptTiers, $isPendingFilter) {
+                    $deptQ->whereHas('employee', fn ($sq) => $sq->whereIn('department_id', $deptIds));
+                    if ($isPendingFilter) {
+                        $deptQ->where(function ($tierQ) use ($deptTiers) {
+                            foreach ($deptTiers as $deptId => $tiers) {
+                                $tierQ->orWhere(function ($sq) use ($deptId, $tiers) {
+                                    $sq->whereHas('employee', fn ($esq) => $esq->where('department_id', $deptId))
+                                        ->whereIn('current_approval_tier', $tiers);
+                                });
+                            }
+                        });
+                    }
+                })->orWhereHas('employee.claimApprovers', fn ($sq) => $sq->where('approver_id', $employee->id)->where('is_active', true));
             });
         } elseif (! empty($deptIds)) {
             $query->whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds));
+            if ($isPendingFilter) {
+                $this->applyTierFilter($query, $deptTiers);
+            }
         } else {
             $query->whereHas('employee.claimApprovers', fn ($q) => $q->where('approver_id', $employee->id)->where('is_active', true));
         }
@@ -473,24 +631,47 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'claims');
+        $service = app(TierApprovalService::class);
+        $deptId = $claimRequest->employee->department_id;
+        $currentTier = $claimRequest->current_approval_tier;
+
+        // Check individual approver (bypasses tier system)
         $isIndividualApprover = ClaimApprover::where('approver_id', $employee->id)
             ->where('employee_id', $claimRequest->employee_id)
             ->where('is_active', true)
             ->exists();
 
-        $inDept = ! empty($deptIds) && in_array($claimRequest->employee->department_id, $deptIds);
+        $deptIds = $this->getDeptIds($employee->id, 'claims');
+        $inDept = ! empty($deptIds) && in_array($deptId, $deptIds);
 
         if (! $inDept && ! $isIndividualApprover) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // For department-based approvers, check tier authorization
+        if ($inDept && ! $isIndividualApprover) {
+            if (! $service->isApproverForTier($employee->id, $deptId, 'claims', $currentTier)) {
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
         }
 
         if ($claimRequest->status !== 'pending') {
             return response()->json(['message' => 'Only pending requests can be approved.'], 422);
         }
 
-        $controller = app(\App\Http\Controllers\Api\Hr\HrClaimRequestController::class);
-        $controller->approve($request, $claimRequest);
+        if ($isIndividualApprover) {
+            // Individual approvers bypass tier system — approve directly
+            $controller = app(\App\Http\Controllers\Api\Hr\HrClaimRequestController::class);
+            $controller->approve($request, $claimRequest);
+        } else {
+            // Department-based: use tier approval
+            $result = $service->approve($claimRequest, $employee, 'claims', $deptId);
+
+            if ($result['fully_approved']) {
+                $controller = app(\App\Http\Controllers\Api\Hr\HrClaimRequestController::class);
+                $controller->approve($request, $claimRequest);
+            }
+        }
 
         return response()->json($claimRequest->fresh([
             'employee:id,full_name,position_id,department_id',
@@ -508,20 +689,40 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $deptIds = $this->getDeptIds($employee->id, 'claims');
+        $service = app(TierApprovalService::class);
+        $deptId = $claimRequest->employee->department_id;
+        $currentTier = $claimRequest->current_approval_tier;
+
+        // Check individual approver (bypasses tier system)
         $isIndividualApprover = ClaimApprover::where('approver_id', $employee->id)
             ->where('employee_id', $claimRequest->employee_id)
             ->where('is_active', true)
             ->exists();
 
-        $inDept = ! empty($deptIds) && in_array($claimRequest->employee->department_id, $deptIds);
+        $deptIds = $this->getDeptIds($employee->id, 'claims');
+        $inDept = ! empty($deptIds) && in_array($deptId, $deptIds);
 
         if (! $inDept && ! $isIndividualApprover) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        // For department-based approvers, check tier authorization
+        if ($inDept && ! $isIndividualApprover) {
+            if (! $service->isApproverForTier($employee->id, $deptId, 'claims', $currentTier)) {
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
+        }
+
         if ($claimRequest->status !== 'pending') {
             return response()->json(['message' => 'Only pending requests can be rejected.'], 422);
+        }
+
+        $validated = $request->validate([
+            'rejection_reason' => ['required', 'string', 'min:5'],
+        ]);
+
+        if (! $isIndividualApprover) {
+            $service->reject($claimRequest, $employee, $validated['rejection_reason']);
         }
 
         $controller = app(\App\Http\Controllers\Api\Hr\HrClaimRequestController::class);
@@ -545,21 +746,24 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Employee record not found.'], 404);
         }
 
-        $depts = DepartmentApprover::where('approver_employee_id', $employee->id)
-            ->where('approval_type', 'exit_permission')
-            ->pluck('department_id')
-            ->toArray();
+        $deptTiers = $this->getDeptIdsForTier($employee->id, 'exit_permission');
+        $deptIds = array_keys($deptTiers);
 
-        if (empty($depts)) {
+        if (empty($deptIds)) {
             return response()->json(['data' => []]);
         }
 
-        $query = OfficeExitPermission::whereHas('employee', fn ($q) => $q->whereIn('department_id', $depts))
+        $query = OfficeExitPermission::whereHas('employee', fn ($q) => $q->whereIn('department_id', $deptIds))
             ->with(['employee.department', 'approver'])
             ->latest();
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        }
+
+        // Only apply tier filter for pending requests
+        if (! $request->filled('status') || $request->status === 'pending') {
+            $this->applyTierFilter($query, $deptTiers);
         }
 
         return response()->json(['data' => $query->paginate(20)]);
@@ -575,12 +779,11 @@ class HrMyApprovalController extends Controller
 
         $officeExitPermission->load('employee');
 
-        $isAssigned = DepartmentApprover::where('approver_employee_id', $employee->id)
-            ->where('approval_type', 'exit_permission')
-            ->where('department_id', $officeExitPermission->employee->department_id)
-            ->exists();
+        $service = app(TierApprovalService::class);
+        $deptId = $officeExitPermission->employee->department_id;
+        $currentTier = $officeExitPermission->current_approval_tier;
 
-        if (! $isAssigned) {
+        if (! $service->isApproverForTier($employee->id, $deptId, 'exit_permission', $currentTier)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -588,7 +791,16 @@ class HrMyApprovalController extends Controller
             return response()->json(['message' => 'Only pending requests can be approved.'], 422);
         }
 
-        return app(HrOfficeExitPermissionController::class)->approve($request, $officeExitPermission);
+        $result = $service->approve($officeExitPermission, $employee, 'exit_permission', $deptId);
+
+        if ($result['fully_approved']) {
+            return app(HrOfficeExitPermissionController::class)->approve($request, $officeExitPermission);
+        }
+
+        return response()->json($officeExitPermission->fresh([
+            'employee.department',
+            'approver',
+        ]));
     }
 
     public function rejectExitPermission(Request $request, OfficeExitPermission $officeExitPermission): JsonResponse
@@ -601,18 +813,23 @@ class HrMyApprovalController extends Controller
 
         $officeExitPermission->load('employee');
 
-        $isAssigned = DepartmentApprover::where('approver_employee_id', $employee->id)
-            ->where('approval_type', 'exit_permission')
-            ->where('department_id', $officeExitPermission->employee->department_id)
-            ->exists();
+        $service = app(TierApprovalService::class);
+        $deptId = $officeExitPermission->employee->department_id;
+        $currentTier = $officeExitPermission->current_approval_tier;
 
-        if (! $isAssigned) {
+        if (! $service->isApproverForTier($employee->id, $deptId, 'exit_permission', $currentTier)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         if (! $officeExitPermission->isPending()) {
             return response()->json(['message' => 'Only pending requests can be rejected.'], 422);
         }
+
+        $validated = $request->validate([
+            'rejection_reason' => ['required', 'string', 'min:5'],
+        ]);
+
+        $service->reject($officeExitPermission, $employee, $validated['rejection_reason']);
 
         return app(HrOfficeExitPermissionController::class)->reject($request, $officeExitPermission);
     }
