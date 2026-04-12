@@ -25,7 +25,10 @@ class TikTokAnalyticsSyncService
     {
         $client = $this->getClient($account);
 
-        $response = $client->Analytics->getShopPerformance();
+        $response = $client->Analytics->getShopPerformance([
+            'start_date_ge' => now()->subDays(30)->format('Y-m-d'),
+            'end_date_lt' => now()->format('Y-m-d'),
+        ]);
 
         return TiktokShopPerformanceSnapshot::create([
             'platform_account_id' => $account->id,
@@ -47,7 +50,11 @@ class TikTokAnalyticsSyncService
     {
         $client = $this->getClient($account);
 
-        $response = $client->Analytics->getShopVideoPerformanceList(['page_size' => 100]);
+        $response = $client->Analytics->getShopVideoPerformanceList([
+            'start_date_ge' => now()->subDays(30)->format('Y-m-d'),
+            'end_date_lt' => now()->format('Y-m-d'),
+            'page_size' => 100,
+        ]);
 
         $videos = $response['videos'] ?? $response['data'] ?? [];
         $count = 0;
@@ -89,7 +96,11 @@ class TikTokAnalyticsSyncService
     {
         $client = $this->getClient($account);
 
-        $response = $client->Analytics->getShopProductPerformanceList(['page_size' => 100]);
+        $response = $client->Analytics->getShopProductPerformanceList([
+            'start_date_ge' => now()->subDays(30)->format('Y-m-d'),
+            'end_date_lt' => now()->format('Y-m-d'),
+            'page_size' => 100,
+        ]);
 
         $products = $response['products'] ?? $response['data'] ?? [];
         $count = 0;
@@ -151,6 +162,9 @@ class TikTokAnalyticsSyncService
             $this->authService->refreshToken($account);
         }
 
-        return $this->clientFactory->createClientForAccount($account);
+        $client = $this->clientFactory->createClientForAccount($account);
+        $client->useVersion($this->clientFactory->getApiVersion());
+
+        return $client;
     }
 }

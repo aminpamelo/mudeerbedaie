@@ -230,6 +230,9 @@ class TikTokAffiliateSyncService
             $this->authService->refreshToken($account);
         }
 
-        return $this->clientFactory->createClientForAccount($account);
+        $client = $this->clientFactory->createClientForAccount($account);
+        $client->useVersion($this->clientFactory->getApiVersion());
+
+        return $client;
     }
 }
