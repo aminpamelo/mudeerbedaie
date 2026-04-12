@@ -105,6 +105,24 @@ export function fetchPerformanceReport(params) {
     return api.get('/performance-report', { params }).then((r) => r.data);
 }
 
+// ─── Affiliates / Creators ─────────────────────────────────────────────────
+
+export function fetchCreators(params) {
+    return api.get('/affiliates/creators', { params }).then((r) => r.data);
+}
+
+export function fetchCreatorDetail(id) {
+    return api.get(`/affiliates/creators/${id}`).then((r) => r.data);
+}
+
+export function fetchAffiliateOrders(params) {
+    return api.get('/affiliates/orders', { params }).then((r) => r.data);
+}
+
+export function fetchContentCreators(contentId) {
+    return api.get(`/contents/${contentId}/creators`).then((r) => r.data);
+}
+
 // ─── Employees (for assignee picker - uses HR API) ──────────────────────────
 
 export function fetchEmployees(params) {

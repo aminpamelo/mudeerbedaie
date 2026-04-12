@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Cms\CmsAdCampaignController;
+use App\Http\Controllers\Api\Cms\CmsAffiliateController;
 use App\Http\Controllers\Api\Cms\CmsContentController;
 use App\Http\Controllers\Api\Cms\CmsContentStageController;
 use App\Http\Controllers\Api\Cms\CmsDashboardController;
@@ -1142,4 +1143,10 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
     // Ad Campaigns
     Route::apiResource('ads', CmsAdCampaignController::class)->parameters(['ads' => 'adCampaign']);
     Route::post('ads/{adCampaign}/stats', [CmsAdCampaignController::class, 'addStats']);
+
+    // Affiliate / Creators
+    Route::get('affiliates/creators', [CmsAffiliateController::class, 'creators']);
+    Route::get('affiliates/creators/{creator}', [CmsAffiliateController::class, 'creatorDetail']);
+    Route::get('affiliates/orders', [CmsAffiliateController::class, 'affiliateOrders']);
+    Route::get('contents/{content}/creators', [CmsAffiliateController::class, 'contentCreators']);
 });
