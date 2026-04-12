@@ -23,6 +23,8 @@ class Content extends Model
         'priority',
         'tiktok_url',
         'tiktok_post_id',
+        'video_url',
+        'platform_account_id',
         'is_flagged_for_ads',
         'is_marked_for_ads',
         'marked_by',
@@ -93,6 +95,14 @@ class Content extends Model
     public function adCampaigns(): HasMany
     {
         return $this->hasMany(AdCampaign::class);
+    }
+
+    /**
+     * Get the TikTok Shop account this content was posted from.
+     */
+    public function platformAccount(): BelongsTo
+    {
+        return $this->belongsTo(PlatformAccount::class);
     }
 
     /**

@@ -13,6 +13,8 @@ class ContentStat extends Model
         'likes',
         'comments',
         'shares',
+        'source',
+        'raw_response',
         'fetched_at',
     ];
 
@@ -24,6 +26,11 @@ class ContentStat extends Model
     protected function casts(): array
     {
         return [
+            'views' => 'integer',
+            'likes' => 'integer',
+            'comments' => 'integer',
+            'shares' => 'integer',
+            'raw_response' => 'array',
             'fetched_at' => 'datetime',
         ];
     }
