@@ -49,6 +49,18 @@ class Content extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (Content $content): void {
+            if ($content->isDirty('tiktok_url') && $content->tiktok_url) {
+                $videoId = \App\Services\TikTok\TikTokUrlParser::extractVideoId($content->tiktok_url);
+                if ($videoId) {
+                    $content->tiktok_post_id = $videoId;
+                }
+            }
+        });
+    }
+
     /**
      * Get the employee who created this content
      */
