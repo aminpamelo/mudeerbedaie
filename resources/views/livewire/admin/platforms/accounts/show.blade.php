@@ -7,8 +7,13 @@ use App\Models\Platform;
 use App\Models\PlatformAccount;
 use App\Models\PlatformSkuMapping;
 use App\Models\ProductOrder;
+use App\Models\TiktokAffiliateOrder;
+use App\Models\TiktokCreator;
+use App\Models\TiktokFinanceStatement;
+use App\Models\TiktokFinanceTransaction;
+use App\Models\TiktokProductPerformance;
+use App\Models\TiktokShopPerformanceSnapshot;
 use App\Services\TikTok\TikTokOrderSyncService;
-use App\Services\TikTok\TikTokProductSyncService;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -92,6 +97,13 @@ new class extends Component
             // Product sync stats
             'linked_products' => PlatformSkuMapping::where('platform_account_id', $this->account->id)->where('is_active', true)->count(),
             'pending_products' => PendingPlatformProduct::where('platform_account_id', $this->account->id)->where('status', 'pending')->count(),
+            // TikTok data stats
+            'analytics_snapshots' => TiktokShopPerformanceSnapshot::where('platform_account_id', $this->account->id)->count(),
+            'product_performance' => TiktokProductPerformance::where('platform_account_id', $this->account->id)->count(),
+            'creators' => TiktokCreator::where('platform_account_id', $this->account->id)->count(),
+            'affiliate_orders' => TiktokAffiliateOrder::where('platform_account_id', $this->account->id)->count(),
+            'finance_statements' => TiktokFinanceStatement::where('platform_account_id', $this->account->id)->count(),
+            'finance_transactions' => TiktokFinanceTransaction::where('platform_account_id', $this->account->id)->count(),
         ];
 
         $this->lastSyncResult = $this->account->metadata['last_order_sync_result'] ?? null;
@@ -605,6 +617,27 @@ new class extends Component
                     @else
                         <flux:badge size="sm" color="{{ $activeTab === 'products' ? 'blue' : 'zinc' }}">{{ number_format($syncStats['linked_products'] ?? 0) }}</flux:badge>
                     @endif
+                </button>
+                <button
+                    wire:click="setTab('analytics')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 {{ $activeTab === 'analytics' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    Analytics
+                    <flux:badge size="sm" color="{{ $activeTab === 'analytics' ? 'blue' : 'zinc' }}">{{ number_format($syncStats['analytics_snapshots'] ?? 0) }}</flux:badge>
+                </button>
+                <button
+                    wire:click="setTab('affiliates')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 {{ $activeTab === 'affiliates' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    Affiliates
+                    <flux:badge size="sm" color="{{ $activeTab === 'affiliates' ? 'blue' : 'zinc' }}">{{ number_format($syncStats['creators'] ?? 0) }}</flux:badge>
+                </button>
+                <button
+                    wire:click="setTab('finance')"
+                    class="py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 {{ $activeTab === 'finance' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                >
+                    Finance
+                    <flux:badge size="sm" color="{{ $activeTab === 'finance' ? 'blue' : 'zinc' }}">{{ number_format($syncStats['finance_statements'] ?? 0) }}</flux:badge>
                 </button>
             </nav>
         </div>
@@ -1354,6 +1387,344 @@ new class extends Component
                         </div>
                     </flux:button>
                 </div>
+            </div>
+        </div>
+
+    @elseif($activeTab === 'analytics')
+        {{-- Analytics Tab Content --}}
+        <div class="space-y-6">
+            {{-- Last Sync Info --}}
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <flux:heading size="lg">Shop Performance</flux:heading>
+                    <flux:text size="sm" class="text-zinc-500">
+                        Last sync: {{ $account->last_analytics_sync_at ? $account->last_analytics_sync_at->diffForHumans() : 'Never' }}
+                    </flux:text>
+                </div>
+
+                @php
+                    $latestSnapshot = \App\Models\TiktokShopPerformanceSnapshot::where('platform_account_id', $account->id)
+                        ->latest('fetched_at')->first();
+                @endphp
+
+                @if($latestSnapshot)
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <div class="text-center p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg">
+                            <flux:text size="sm" class="text-zinc-500">Orders</flux:text>
+                            <p class="text-xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($latestSnapshot->total_orders) }}</p>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg">
+                            <flux:text size="sm" class="text-zinc-500">GMV</flux:text>
+                            <p class="text-xl font-bold text-emerald-600">RM {{ number_format($latestSnapshot->total_gmv, 2) }}</p>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg">
+                            <flux:text size="sm" class="text-zinc-500">Buyers</flux:text>
+                            <p class="text-xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($latestSnapshot->total_buyers) }}</p>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg">
+                            <flux:text size="sm" class="text-zinc-500">Video Views</flux:text>
+                            <p class="text-xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($latestSnapshot->total_video_views) }}</p>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg">
+                            <flux:text size="sm" class="text-zinc-500">Impressions</flux:text>
+                            <p class="text-xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($latestSnapshot->total_product_impressions) }}</p>
+                        </div>
+                        <div class="text-center p-3 bg-gray-50 dark:bg-zinc-700/50 rounded-lg">
+                            <flux:text size="sm" class="text-zinc-500">Conversion</flux:text>
+                            <p class="text-xl font-bold text-blue-600">{{ number_format($latestSnapshot->conversion_rate, 2) }}%</p>
+                        </div>
+                    </div>
+                @else
+                    <div class="text-center py-12">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-600">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                        </svg>
+                        <flux:heading size="sm" class="mt-3">No analytics data yet</flux:heading>
+                        <flux:text size="sm" class="mt-1 text-zinc-500">
+                            Run <code class="bg-gray-100 dark:bg-zinc-700 px-1.5 py-0.5 rounded text-xs">php artisan tiktok:sync-analytics</code> to pull shop performance data.
+                        </flux:text>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Product Performance --}}
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+                <flux:heading size="lg" class="mb-4">Product Performance</flux:heading>
+
+                @php
+                    $productPerformance = \App\Models\TiktokProductPerformance::where('platform_account_id', $account->id)
+                        ->latest('fetched_at')->limit(20)->get();
+                @endphp
+
+                @if($productPerformance->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-zinc-700 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                                    <th class="px-4 py-3">Product ID</th>
+                                    <th class="px-4 py-3 text-right">Impressions</th>
+                                    <th class="px-4 py-3 text-right">Clicks</th>
+                                    <th class="px-4 py-3 text-right">Orders</th>
+                                    <th class="px-4 py-3 text-right">GMV</th>
+                                    <th class="px-4 py-3 text-right">Conversion</th>
+                                    <th class="px-4 py-3 text-right">Fetched</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-zinc-700">
+                                @foreach($productPerformance as $pp)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                        <td class="px-4 py-3 font-mono text-xs">{{ $pp->tiktok_product_id }}</td>
+                                        <td class="px-4 py-3 text-right">{{ number_format($pp->impressions) }}</td>
+                                        <td class="px-4 py-3 text-right">{{ number_format($pp->clicks) }}</td>
+                                        <td class="px-4 py-3 text-right">{{ number_format($pp->orders) }}</td>
+                                        <td class="px-4 py-3 text-right font-medium text-emerald-600">RM {{ number_format($pp->gmv, 2) }}</td>
+                                        <td class="px-4 py-3 text-right">{{ number_format($pp->conversion_rate, 2) }}%</td>
+                                        <td class="px-4 py-3 text-right text-zinc-400 text-xs">{{ $pp->fetched_at->diffForHumans() }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center py-8">
+                        <flux:text size="sm" class="text-zinc-500">No product performance data yet.</flux:text>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+    @elseif($activeTab === 'affiliates')
+        {{-- Affiliates Tab Content --}}
+        <div class="space-y-6">
+            {{-- Creators --}}
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <flux:heading size="lg">Affiliate Creators</flux:heading>
+                    <flux:text size="sm" class="text-zinc-500">
+                        Last sync: {{ $account->last_affiliate_sync_at ? $account->last_affiliate_sync_at->diffForHumans() : 'Never' }}
+                    </flux:text>
+                </div>
+
+                @php
+                    $creators = \App\Models\TiktokCreator::where('platform_account_id', $account->id)
+                        ->orderByDesc('total_gmv')->limit(20)->get();
+                @endphp
+
+                @if($creators->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-zinc-700 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                                    <th class="px-4 py-3">#</th>
+                                    <th class="px-4 py-3">Creator</th>
+                                    <th class="px-4 py-3 text-right">Followers</th>
+                                    <th class="px-4 py-3 text-right">GMV</th>
+                                    <th class="px-4 py-3 text-right">Orders</th>
+                                    <th class="px-4 py-3 text-right">Commission</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-zinc-700">
+                                @foreach($creators as $idx => $creator)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                        <td class="px-4 py-3 text-zinc-400 font-mono">{{ $idx + 1 }}</td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-3">
+                                                @if($creator->avatar_url)
+                                                    <img src="{{ $creator->avatar_url }}" class="h-8 w-8 rounded-full object-cover" alt="">
+                                                @else
+                                                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                                        {{ substr($creator->display_name ?? '?', 0, 1) }}
+                                                    </div>
+                                                @endif
+                                                <div>
+                                                    <p class="font-medium text-zinc-800 dark:text-zinc-200">{{ $creator->display_name ?? 'Unknown' }}</p>
+                                                    @if($creator->handle)
+                                                        <p class="text-xs text-zinc-400">{{ $creator->handle }}</p>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-mono text-zinc-600 dark:text-zinc-400">{{ number_format($creator->follower_count) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono font-semibold text-emerald-600">RM {{ number_format($creator->total_gmv, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-zinc-600 dark:text-zinc-400">{{ number_format($creator->total_orders) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-amber-600">RM {{ number_format($creator->total_commission, 2) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center py-12">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-600">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                        </svg>
+                        <flux:heading size="sm" class="mt-3">No affiliate creators yet</flux:heading>
+                        <flux:text size="sm" class="mt-1 text-zinc-500">
+                            Run <code class="bg-gray-100 dark:bg-zinc-700 px-1.5 py-0.5 rounded text-xs">php artisan tiktok:sync-affiliates</code> to pull creator data.
+                        </flux:text>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Affiliate Orders --}}
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+                <flux:heading size="lg" class="mb-4">Recent Affiliate Orders</flux:heading>
+
+                @php
+                    $affiliateOrders = \App\Models\TiktokAffiliateOrder::where('platform_account_id', $account->id)
+                        ->with('creator:id,display_name,handle,avatar_url')
+                        ->latest('order_created_at')->limit(20)->get();
+                @endphp
+
+                @if($affiliateOrders->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-zinc-700 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                                    <th class="px-4 py-3">Order ID</th>
+                                    <th class="px-4 py-3">Creator</th>
+                                    <th class="px-4 py-3 text-right">Amount</th>
+                                    <th class="px-4 py-3 text-right">Commission</th>
+                                    <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3 text-right">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-zinc-700">
+                                @foreach($affiliateOrders as $ao)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                        <td class="px-4 py-3 font-mono text-xs">{{ Str::limit($ao->tiktok_order_id, 16) }}</td>
+                                        <td class="px-4 py-3">
+                                            <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200">{{ $ao->creator?->display_name ?? 'Unknown' }}</p>
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-mono text-emerald-600">RM {{ number_format($ao->total_amount, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-amber-600">RM {{ number_format($ao->commission_amount, 2) }}</td>
+                                        <td class="px-4 py-3">
+                                            <flux:badge size="sm" color="{{ $ao->status === 'completed' ? 'green' : ($ao->status === 'cancelled' ? 'red' : 'zinc') }}">
+                                                {{ ucfirst($ao->status ?? 'unknown') }}
+                                            </flux:badge>
+                                        </td>
+                                        <td class="px-4 py-3 text-right text-zinc-400 text-xs">{{ $ao->order_created_at?->format('M d, Y') }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center py-8">
+                        <flux:text size="sm" class="text-zinc-500">No affiliate orders yet.</flux:text>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+    @elseif($activeTab === 'finance')
+        {{-- Finance Tab Content --}}
+        <div class="space-y-6">
+            {{-- Finance Statements --}}
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <flux:heading size="lg">Finance Statements</flux:heading>
+                    <flux:text size="sm" class="text-zinc-500">
+                        Last sync: {{ $account->last_finance_sync_at ? $account->last_finance_sync_at->diffForHumans() : 'Never' }}
+                    </flux:text>
+                </div>
+
+                @php
+                    $statements = \App\Models\TiktokFinanceStatement::where('platform_account_id', $account->id)
+                        ->latest('statement_time')->limit(20)->get();
+                @endphp
+
+                @if($statements->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-zinc-700 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                                    <th class="px-4 py-3">Statement ID</th>
+                                    <th class="px-4 py-3">Type</th>
+                                    <th class="px-4 py-3 text-right">Total Amount</th>
+                                    <th class="px-4 py-3 text-right">Revenue</th>
+                                    <th class="px-4 py-3 text-right">Fees</th>
+                                    <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3 text-right">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-zinc-700">
+                                @foreach($statements as $stmt)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                        <td class="px-4 py-3 font-mono text-xs">{{ Str::limit($stmt->tiktok_statement_id, 16) }}</td>
+                                        <td class="px-4 py-3">
+                                            <flux:badge size="sm" color="zinc">{{ $stmt->statement_type ?? 'N/A' }}</flux:badge>
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-mono font-semibold text-zinc-800 dark:text-zinc-200">RM {{ number_format($stmt->total_amount, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-emerald-600">RM {{ number_format($stmt->revenue, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-red-500">RM {{ number_format($stmt->fees, 2) }}</td>
+                                        <td class="px-4 py-3">
+                                            <flux:badge size="sm" color="{{ $stmt->payment_status === 'paid' ? 'green' : ($stmt->payment_status === 'pending' ? 'amber' : 'zinc') }}">
+                                                {{ ucfirst($stmt->payment_status ?? 'unknown') }}
+                                            </flux:badge>
+                                        </td>
+                                        <td class="px-4 py-3 text-right text-zinc-400 text-xs">{{ $stmt->statement_time?->format('M d, Y') }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center py-12">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-600">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+                        </svg>
+                        <flux:heading size="sm" class="mt-3">No finance data yet</flux:heading>
+                        <flux:text size="sm" class="mt-1 text-zinc-500">
+                            Run <code class="bg-gray-100 dark:bg-zinc-700 px-1.5 py-0.5 rounded text-xs">php artisan tiktok:sync-finance</code> to pull financial statements.
+                        </flux:text>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Recent Transactions --}}
+            <div class="bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 p-6">
+                <flux:heading size="lg" class="mb-4">Recent Transactions</flux:heading>
+
+                @php
+                    $transactions = \App\Models\TiktokFinanceTransaction::where('platform_account_id', $account->id)
+                        ->latest('created_at')->limit(20)->get();
+                @endphp
+
+                @if($transactions->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-zinc-700 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                                    <th class="px-4 py-3">Order ID</th>
+                                    <th class="px-4 py-3">Type</th>
+                                    <th class="px-4 py-3 text-right">Amount</th>
+                                    <th class="px-4 py-3 text-right">Commission</th>
+                                    <th class="px-4 py-3 text-right">Shipping Fee</th>
+                                    <th class="px-4 py-3 text-right">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-zinc-700">
+                                @foreach($transactions as $tx)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                        <td class="px-4 py-3 font-mono text-xs">{{ Str::limit($tx->tiktok_order_id ?? '-', 16) }}</td>
+                                        <td class="px-4 py-3">
+                                            <flux:badge size="sm" color="zinc">{{ $tx->transaction_type ?? 'N/A' }}</flux:badge>
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-mono text-zinc-800 dark:text-zinc-200">RM {{ number_format($tx->amount, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-amber-600">RM {{ number_format($tx->commission, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-zinc-500">RM {{ number_format($tx->shipping_fee, 2) }}</td>
+                                        <td class="px-4 py-3 text-right text-zinc-400 text-xs">{{ $tx->created_at->diffForHumans() }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center py-8">
+                        <flux:text size="sm" class="text-zinc-500">No transactions yet.</flux:text>
+                    </div>
+                @endif
             </div>
         </div>
     @endif
