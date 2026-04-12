@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -16,9 +16,15 @@ import {
     Clock,
     X,
     UserPlus,
+    Video,
+    Link as LinkIcon,
+    ExternalLink,
+    Save,
+    Users,
 } from 'lucide-react';
 import {
     fetchContent,
+    updateContent,
     updateContentStage,
     addContentStats,
     markContentForAds,
@@ -26,8 +32,10 @@ import {
     addStageAssignee,
     removeStageAssignee,
     updateStageDueDate,
+    fetchContentCreators,
 } from '../lib/api';
 import { cn } from '../lib/utils';
+import { toastSuccess, toastError } from '../lib/toast';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -117,6 +125,51 @@ function getInitials(name) {
         .slice(0, 2);
 }
 
+/**
+ * Convert a Google Drive share URL into an embeddable /preview URL.
+ * Supports formats:
+ *   - https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+ *   - https://drive.google.com/file/d/FILE_ID/edit
+ *   - https://drive.google.com/open?id=FILE_ID
+ *   - https://drive.google.com/uc?id=FILE_ID
+ */
+function getGoogleDriveEmbedUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    if (!/drive\.google\.com/i.test(url)) return null;
+
+    // /file/d/{id}/...
+    const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileMatch) return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
+
+    // ?id={id} or &id={id}
+    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch) return `https://drive.google.com/file/d/${idMatch[1]}/preview`;
+
+    return null;
+}
+
+/**
+ * Convert a TikTok video URL into the official embed player URL.
+ * Supports formats:
+ *   - https://www.tiktok.com/@username/video/1234567890
+ *   - https://www.tiktok.com/video/1234567890
+ *   - https://m.tiktok.com/v/1234567890.html
+ */
+function getTiktokEmbedUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    if (!/tiktok\.com/i.test(url)) return null;
+
+    // /video/{id}
+    const videoMatch = url.match(/\/video\/(\d+)/);
+    if (videoMatch) return `https://www.tiktok.com/player/v1/${videoMatch[1]}`;
+
+    // /v/{id}.html (mobile share)
+    const mobileMatch = url.match(/\/v\/(\d+)\.html/);
+    if (mobileMatch) return `https://www.tiktok.com/player/v1/${mobileMatch[1]}`;
+
+    return null;
+}
+
 export default function ContentDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -128,11 +181,22 @@ export default function ContentDetail() {
     const [addStatsOpen, setAddStatsOpen] = useState(false);
     const [statsForm, setStatsForm] = useState({ views: '', likes: '', comments: '', shares: '' });
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [videoForm, setVideoForm] = useState({ video_url: '', tiktok_url: '' });
 
     const { data: content, isLoading } = useQuery({
         queryKey: ['cms', 'content', id],
         queryFn: () => fetchContent(id),
     });
+
+    useEffect(() => {
+        const data = content?.data || content;
+        if (data) {
+            setVideoForm({
+                video_url: data.video_url || '',
+                tiktok_url: data.tiktok_url || '',
+            });
+        }
+    }, [content]);
 
     const moveStageMutation = useMutation({
         mutationFn: (data) => updateContentStage(id, data),
@@ -141,7 +205,9 @@ export default function ContentDetail() {
             queryClient.invalidateQueries({ queryKey: ['cms', 'contents'] });
             setMoveStageOpen(false);
             setNextStage('');
+            toastSuccess('Stage updated');
         },
+        onError: (error) => toastError(error, 'Failed to update stage'),
     });
 
     const addStatsMutation = useMutation({
@@ -150,22 +216,28 @@ export default function ContentDetail() {
             queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
             setAddStatsOpen(false);
             setStatsForm({ views: '', likes: '', comments: '', shares: '' });
+            toastSuccess('Stats added');
         },
+        onError: (error) => toastError(error, 'Failed to add stats'),
     });
 
     const markAdsMutation = useMutation({
         mutationFn: () => markContentForAds(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            toastSuccess('Marked for ads');
         },
+        onError: (error) => toastError(error, 'Failed to update ads mark'),
     });
 
     const deleteMutation = useMutation({
         mutationFn: () => deleteContent(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['cms', 'contents'] });
+            toastSuccess('Content deleted');
             navigate('/contents');
         },
+        onError: (error) => toastError(error, 'Failed to delete content'),
     });
 
     const addAssigneeMutation = useMutation({
@@ -173,7 +245,9 @@ export default function ContentDetail() {
             addStageAssignee(id, stage, { employee_id, role }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            toastSuccess('Assignee added');
         },
+        onError: (error) => toastError(error, 'Failed to add assignee'),
     });
 
     const removeAssigneeMutation = useMutation({
@@ -181,7 +255,19 @@ export default function ContentDetail() {
             removeStageAssignee(id, stage, employeeId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            toastSuccess('Assignee removed');
         },
+        onError: (error) => toastError(error, 'Failed to remove assignee'),
+    });
+
+    const updateVideoMutation = useMutation({
+        mutationFn: (data) => updateContent(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            queryClient.invalidateQueries({ queryKey: ['cms', 'contents'] });
+            toastSuccess('Video links updated');
+        },
+        onError: (error) => toastError(error, 'Failed to update video links'),
     });
 
     const updateDueDateMutation = useMutation({
@@ -189,7 +275,9 @@ export default function ContentDetail() {
             updateStageDueDate(id, stage, { due_date: due_date || null }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            toastSuccess('Due date updated');
         },
+        onError: (error) => toastError(error, 'Failed to update due date'),
     });
 
     if (isLoading) {
@@ -213,6 +301,13 @@ export default function ContentDetail() {
 
     const data = content.data || content;
     const currentStage = data.current_stage || data.stage || 'idea';
+
+    const { data: contentCreators = [] } = useQuery({
+        queryKey: ['content-creators', id],
+        queryFn: () => fetchContentCreators(id).then((r) => r.data),
+        enabled: currentStage === 'posted',
+    });
+
     const currentStageIndex = STAGES.indexOf(currentStage);
     const availableNextStages = STAGES.slice(currentStageIndex + 1);
     const stageColors = STAGE_COLORS[currentStage] || STAGE_COLORS.idea;
@@ -231,6 +326,20 @@ export default function ContentDetail() {
             shares: parseInt(statsForm.shares, 10) || 0,
         });
     }
+
+    function handleSaveVideoLinks() {
+        updateVideoMutation.mutate({
+            video_url: videoForm.video_url.trim() || null,
+            tiktok_url: videoForm.tiktok_url.trim() || null,
+        });
+    }
+
+    const hasVideoChanges =
+        (videoForm.video_url || '') !== (data?.video_url || '') ||
+        (videoForm.tiktok_url || '') !== (data?.tiktok_url || '');
+
+    const driveEmbedUrl = getGoogleDriveEmbedUrl(videoForm.video_url);
+    const tiktokEmbedUrl = getTiktokEmbedUrl(videoForm.tiktok_url);
 
     function handleOpenMoveStage() {
         if (availableNextStages.length > 0) {
@@ -596,8 +705,200 @@ export default function ContentDetail() {
                             </CardContent>
                         </Card>
                     )}
+
+                    {/* Creator Promotions */}
+                    {currentStage === 'posted' && contentCreators.length > 0 && (
+                        <Card className="mt-4">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Users className="h-4 w-4 text-purple-500" />
+                                    Promoted by {contentCreators.length} Creator{contentCreators.length !== 1 && 's'}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-3">
+                                    {contentCreators.map((cc) => (
+                                        <div key={cc.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
+                                            <div className="flex items-center gap-3">
+                                                {cc.creator?.avatar_url ? (
+                                                    <img src={cc.creator.avatar_url} className="h-8 w-8 rounded-full" alt="" />
+                                                ) : (
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-600">
+                                                        {(cc.creator?.display_name || '?')[0]}
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <p className="text-sm font-medium">{cc.creator?.display_name}</p>
+                                                    <p className="text-xs text-slate-400">{cc.creator?.handle}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-4 text-xs text-slate-500">
+                                                <span>{(cc.views || 0).toLocaleString()} views</span>
+                                                <span>{(cc.orders || 0).toLocaleString()} orders</span>
+                                                <span className="font-medium text-emerald-600">
+                                                    RM {parseFloat(cc.gmv || 0).toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
+
+            {/* Video Links */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Video className="h-5 w-5 text-indigo-500" />
+                        Video
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid gap-6 md:grid-cols-2">
+                        {/* Raw/edited video link column */}
+                        <div className="space-y-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="video-url" className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                                    <LinkIcon className="h-3.5 w-3.5" />
+                                    Raw / Edited Video Link
+                                </Label>
+                                <p className="text-[11px] text-slate-400">
+                                    Paste a link to the edited video file (e.g. Google Drive, Dropbox) so the Posting team can grab it.
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        id="video-url"
+                                        type="url"
+                                        placeholder="https://drive.google.com/..."
+                                        value={videoForm.video_url}
+                                        onChange={(e) =>
+                                            setVideoForm((f) => ({ ...f, video_url: e.target.value }))
+                                        }
+                                    />
+                                    {data.video_url && (
+                                        <a
+                                            href={data.video_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
+                                            title="Open video link"
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
+                                        </a>
+                                    )}
+                                </div>
+                                {videoForm.video_url && !driveEmbedUrl && (
+                                    <p className="text-[11px] text-amber-600">
+                                        Preview only supports Google Drive file links. Other links will still save.
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                                    Preview
+                                </p>
+                                {driveEmbedUrl ? (
+                                    <div className="aspect-video overflow-hidden rounded-md border border-slate-200 bg-slate-900">
+                                        <iframe
+                                            key={driveEmbedUrl}
+                                            src={driveEmbedUrl}
+                                            title="Google Drive video preview"
+                                            allow="autoplay"
+                                            allowFullScreen
+                                            className="h-full w-full"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="flex aspect-video items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-center">
+                                        <p className="px-4 text-xs text-slate-400">
+                                            Paste a Google Drive file link to preview the video here.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* TikTok post URL column */}
+                        <div className="space-y-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="tiktok-url" className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                                    <LinkIcon className="h-3.5 w-3.5" />
+                                    TikTok Post URL
+                                </Label>
+                                <p className="text-[11px] text-slate-400">
+                                    The final TikTok URL after the video has been posted.
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        id="tiktok-url"
+                                        type="url"
+                                        placeholder="https://www.tiktok.com/@user/video/..."
+                                        value={videoForm.tiktok_url}
+                                        onChange={(e) =>
+                                            setVideoForm((f) => ({ ...f, tiktok_url: e.target.value }))
+                                        }
+                                    />
+                                    {data.tiktok_url && (
+                                        <a
+                                            href={data.tiktok_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
+                                            title="Open TikTok post"
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
+                                        </a>
+                                    )}
+                                </div>
+                                {videoForm.tiktok_url && !tiktokEmbedUrl && (
+                                    <p className="text-[11px] text-amber-600">
+                                        Couldn't parse a video ID. Use a full URL like https://www.tiktok.com/@user/video/123...
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                                    Preview
+                                </p>
+                                {tiktokEmbedUrl ? (
+                                    <div className="mx-auto aspect-[9/16] w-full max-w-[260px] overflow-hidden rounded-md border border-slate-200 bg-slate-900">
+                                        <iframe
+                                            key={tiktokEmbedUrl}
+                                            src={tiktokEmbedUrl}
+                                            title="TikTok video preview"
+                                            allow="autoplay; encrypted-media; picture-in-picture"
+                                            allowFullScreen
+                                            className="h-full w-full"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="mx-auto flex aspect-[9/16] w-full max-w-[260px] items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-center">
+                                        <p className="px-4 text-xs text-slate-400">
+                                            Paste a TikTok video URL to preview it here.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                        <Button
+                            size="sm"
+                            onClick={handleSaveVideoLinks}
+                            disabled={!hasVideoChanges || updateVideoMutation.isPending}
+                        >
+                            <Save className="mr-1.5 h-3.5 w-3.5" />
+                            {updateVideoMutation.isPending ? 'Saving...' : 'Save Links'}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Description */}
             {data.description && (

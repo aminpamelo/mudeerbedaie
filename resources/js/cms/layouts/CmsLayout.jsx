@@ -14,6 +14,7 @@ import {
     Flag,
     BarChart3,
     TrendingUp,
+    Users,
 } from 'lucide-react';
 import useCmsStore from '../stores/useCmsStore';
 import { cn } from '../lib/utils';
@@ -40,6 +41,7 @@ const navigation = [
         ],
     },
     { name: 'Performance', to: '/reports/performance', icon: TrendingUp },
+    { name: 'Creators', to: '/creators', icon: Users },
 ];
 
 function getExpandedSections(pathname) {
