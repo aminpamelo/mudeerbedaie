@@ -72,3 +72,12 @@ Schedule::command('hr:check-probation-endings')->dailyAt('09:00');
 
 // HR Notifications - Expiring documents check (daily 9 AM)
 Schedule::command('hr:check-expiring-documents')->dailyAt('09:00');
+
+// TikTok Shop analytics sync - daily at 4 AM
+Schedule::command('tiktok:sync-analytics')->dailyAt('04:00');
+
+// TikTok Shop affiliate sync - daily at 5 AM
+Schedule::command('tiktok:sync-affiliates')->dailyAt('05:00');
+
+// TikTok Shop finance sync - daily at 6 AM (after WhatsApp cost sync also at 6 AM, staggered by queue)
+Schedule::command('tiktok:sync-finance')->dailyAt('06:00');
