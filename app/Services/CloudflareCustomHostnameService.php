@@ -17,9 +17,21 @@ class CloudflareCustomHostnameService
             ->asJson();
     }
 
+    /**
+     * Ensure Cloudflare API credentials are configured before making any calls.
+     */
+    private function ensureConfigured(): void
+    {
+        if (empty(config('services.cloudflare.api_token')) || empty(config('services.cloudflare.zone_id'))) {
+            throw new \RuntimeException(
+                'Cloudflare for SaaS is not configured. Please set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID in your .env file.'
+            );
+        }
+    }
+
     private function zoneId(): string
     {
-        return config('services.cloudflare.zone_id');
+        return config('services.cloudflare.zone_id') ?? '';
     }
 
     /**
@@ -29,6 +41,8 @@ class CloudflareCustomHostnameService
      */
     public function createHostname(string $domain): array
     {
+        $this->ensureConfigured();
+
         $response = $this->client()->post(
             "{$this->baseUrl}/zones/{$this->zoneId()}/custom_hostnames",
             [
@@ -72,6 +86,8 @@ class CloudflareCustomHostnameService
      */
     public function getHostnameStatus(string $hostnameId): array
     {
+        $this->ensureConfigured();
+
         $response = $this->client()->get(
             "{$this->baseUrl}/zones/{$this->zoneId()}/custom_hostnames/{$hostnameId}"
         );
@@ -102,6 +118,8 @@ class CloudflareCustomHostnameService
      */
     public function deleteHostname(string $hostnameId): bool
     {
+        $this->ensureConfigured();
+
         $response = $this->client()->delete(
             "{$this->baseUrl}/zones/{$this->zoneId()}/custom_hostnames/{$hostnameId}"
         );
