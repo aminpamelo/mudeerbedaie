@@ -9,7 +9,13 @@ use App\Http\Controllers\TeacherController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
-Route::get('/', function () {
+Route::get('/', function (\Illuminate\Http\Request $request) {
+    // Check for custom domain - serve funnel if detected
+    $customDomain = $request->attributes->get('custom_domain');
+    if ($customDomain) {
+        return app(App\Http\Controllers\PublicFunnelController::class)->showFromCustomDomain($request);
+    }
+
     if (auth()->check()) {
         return redirect()->route('dashboard');
     }
@@ -604,5 +610,19 @@ Route::middleware(['auth'])->group(function () {
         Route::post('admin/students/{student}/payment-methods/generate-magic-link', [App\Http\Controllers\PaymentController::class, 'generateMagicLink'])->name('admin.students.payment-methods.generate-magic-link');
     });
 });
+
+// ============================================================================
+// CUSTOM DOMAIN FUNNEL ROUTES - Must be last (catch-all for custom domain requests)
+// These controller methods check for 'custom_domain' request attribute set by
+// ResolveCustomDomain middleware, and abort(404) if not present, so they only
+// activate when a custom domain is detected.
+// Note: The root '/' route is handled in the home route above.
+// ============================================================================
+Route::post('/optin', [App\Http\Controllers\PublicFunnelController::class, 'submitOptinFromCustomDomain'])
+    ->name('funnel.custom-domain.optin');
+
+Route::get('/{stepSlug}', [App\Http\Controllers\PublicFunnelController::class, 'showStepFromCustomDomain'])
+    ->name('funnel.custom-domain.step')
+    ->where('stepSlug', '^(?!f$|api|admin|livewire|embed|stripe|webhooks|login|register|dashboard|settings|teacher|funnel-builder|hr|pos|cms|affiliate|_).*');
 
 require __DIR__.'/auth.php';

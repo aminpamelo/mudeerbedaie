@@ -562,6 +562,126 @@ class PublicFunnelController extends Controller
     }
 
     /**
+     * Serve funnel landing page via custom domain.
+     */
+    public function showFromCustomDomain(Request $request): View|\Illuminate\Http\Response
+    {
+        $customDomain = $request->attributes->get('custom_domain');
+
+        if (! $customDomain) {
+            abort(404);
+        }
+
+        $funnel = $customDomain->funnel;
+
+        if (! $funnel || ! $funnel->isPublished()) {
+            abort(404, 'Funnel not found or not published');
+        }
+
+        $funnel->load(['steps' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')]);
+
+        $step = $funnel->steps->first();
+        if (! $step) {
+            abort(404, 'Funnel has no active steps');
+        }
+
+        return $this->renderStep($request, $funnel, $step);
+    }
+
+    /**
+     * Serve a specific funnel step via custom domain.
+     */
+    public function showStepFromCustomDomain(Request $request, string $stepSlug): View|\Illuminate\Http\Response
+    {
+        $customDomain = $request->attributes->get('custom_domain');
+
+        if (! $customDomain) {
+            abort(404);
+        }
+
+        $funnel = $customDomain->funnel;
+
+        if (! $funnel || ! $funnel->isPublished()) {
+            abort(404, 'Funnel not found or not published');
+        }
+
+        $step = $funnel->steps()
+            ->where('slug', $stepSlug)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        return $this->renderStep($request, $funnel, $step);
+    }
+
+    /**
+     * Handle opt-in submission via custom domain.
+     */
+    public function submitOptinFromCustomDomain(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $customDomain = $request->attributes->get('custom_domain');
+
+        if (! $customDomain) {
+            abort(404);
+        }
+
+        $funnel = $customDomain->funnel;
+
+        if (! $funnel || ! $funnel->isPublished()) {
+            abort(404);
+        }
+
+        $request->validate([
+            'email' => ['required', 'email'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'step_id' => ['required', 'integer'],
+        ]);
+
+        $step = $funnel->steps()->findOrFail($request->input('step_id'));
+
+        // Get session
+        $sessionKey = "funnel_session_{$funnel->id}";
+        $sessionUuid = $request->cookie($sessionKey) ?: session($sessionKey);
+        $session = $sessionUuid ? FunnelSession::where('uuid', $sessionUuid)->first() : null;
+
+        if ($session) {
+            // Update session with contact info
+            $session->update([
+                'email' => $request->input('email'),
+                'phone' => $request->input('phone'),
+            ]);
+
+            // Track opt-in event
+            $session->trackEvent('optin', [
+                'step_id' => $step->id,
+                'email' => $request->input('email'),
+            ]);
+
+            // Track Facebook Pixel Lead event
+            $this->pixelService->trackLead($funnel, $request, [
+                'email' => $request->input('email'),
+                'name' => $request->input('name'),
+                'phone' => $request->input('phone'),
+                'content_name' => $funnel->name.' - '.$step->name,
+            ], $session);
+        }
+
+        // Get next step URL (use custom domain path since we're on a custom domain)
+        $nextStep = $step->next_step_id
+            ? $funnel->steps()->find($step->next_step_id)
+            : $funnel->steps()->where('sort_order', '>', $step->sort_order)->first();
+
+        $redirectUrl = $nextStep
+            ? "/{$nextStep->slug}"
+            : '/';
+
+        return response()->json([
+            'success' => true,
+            'redirect_url' => $redirectUrl,
+        ]);
+    }
+
+    /**
      * Recover abandoned cart.
      */
     public function recoverCart(Request $request, string $slug, string $sessionUuid): View
