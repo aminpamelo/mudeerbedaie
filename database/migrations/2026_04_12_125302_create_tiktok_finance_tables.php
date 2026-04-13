@@ -46,7 +46,7 @@ return new class extends Migration
                 $table->timestamp('order_created_at')->nullable();
                 $table->json('raw_response')->nullable();
                 $table->timestamps();
-                $table->index(['platform_account_id', 'tiktok_order_id']);
+                $table->index(['platform_account_id', 'tiktok_order_id'], 'tft_account_order_idx');
             });
         }
     }
