@@ -29,6 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'affiliate' => \App\Http\Middleware\AffiliateAuth::class,
         ]);
 
+        // Resolve custom domains early so context is available to all middleware
+        $middleware->web(prepend: [
+            \App\Http\Middleware\ResolveCustomDomain::class,
+        ]);
+
         // Add SetLocale middleware to web group
         $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,
