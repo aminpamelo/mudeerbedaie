@@ -411,6 +411,30 @@ export const affiliateApi = {
     }),
 };
 
+/**
+ * Custom Domain API
+ */
+export const customDomainApi = {
+    // Get custom domain for a funnel
+    get: (funnelUuid) => request(`/funnels/${funnelUuid}/custom-domain`),
+
+    // Add custom domain
+    add: (funnelUuid, data) => request(`/funnels/${funnelUuid}/custom-domain`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
+
+    // Check domain verification status
+    checkStatus: (funnelUuid) => request(`/funnels/${funnelUuid}/custom-domain/check-status`, {
+        method: 'POST',
+    }),
+
+    // Remove custom domain
+    remove: (funnelUuid) => request(`/funnels/${funnelUuid}/custom-domain`, {
+        method: 'DELETE',
+    }),
+};
+
 export default {
     funnel: funnelApi,
     step: stepApi,
@@ -422,4 +446,5 @@ export default {
     template: templateApi,
     media: mediaApi,
     affiliate: affiliateApi,
+    customDomain: customDomainApi,
 };
