@@ -119,4 +119,12 @@ return [
         'retry_delay_seconds' => env('TIKTOK_RETRY_DELAY', 5),
     ],
 
+    'cloudflare' => [
+        'api_token' => env('CLOUDFLARE_API_TOKEN'),
+        'zone_id' => env('CLOUDFLARE_ZONE_ID'),
+        'fallback_origin' => env('CLOUDFLARE_FALLBACK_ORIGIN'),
+        'cname_target' => env('CUSTOM_DOMAIN_CNAME_TARGET'),
+        'subdomain_base' => env('CUSTOM_DOMAIN_SUBDOMAIN_BASE', 'kelasify.com'),
+    ],
+
 ];
