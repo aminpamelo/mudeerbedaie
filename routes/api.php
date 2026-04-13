@@ -112,6 +112,7 @@ use App\Http\Controllers\Api\Hr\HrWorkScheduleController;
 use App\Http\Controllers\Api\StudentTagController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\V1\AffiliateDashboardController;
+use App\Http\Controllers\Api\V1\CustomDomainController;
 use App\Http\Controllers\Api\V1\FunnelAffiliateController;
 use App\Http\Controllers\Api\V1\FunnelAutomationController;
 use App\Http\Controllers\Api\V1\FunnelCheckoutController;
@@ -307,6 +308,12 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::post('funnels/{uuid}/commissions/{commissionId}/reject', [FunnelAffiliateController::class, 'rejectCommission'])->name('api.funnels.commissions.reject');
     Route::post('funnels/{uuid}/commissions/{commissionId}/mark-paid', [FunnelAffiliateController::class, 'markAsPaid'])->name('api.funnels.commissions.mark-paid');
     Route::post('funnels/{uuid}/commissions/bulk-approve', [FunnelAffiliateController::class, 'bulkApprove'])->name('api.funnels.commissions.bulk-approve');
+
+    // Custom Domain management
+    Route::get('funnels/{uuid}/custom-domain', [CustomDomainController::class, 'show'])->name('api.funnels.custom-domain.show');
+    Route::post('funnels/{uuid}/custom-domain', [CustomDomainController::class, 'store'])->name('api.funnels.custom-domain.store');
+    Route::post('funnels/{uuid}/custom-domain/check-status', [CustomDomainController::class, 'checkStatus'])->name('api.funnels.custom-domain.check-status');
+    Route::delete('funnels/{uuid}/custom-domain', [CustomDomainController::class, 'destroy'])->name('api.funnels.custom-domain.destroy');
 });
 
 /*
