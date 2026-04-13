@@ -20,6 +20,10 @@ Schedule::job(new \App\Jobs\Funnel\DetectAbandonedSessions)->everyFifteenMinutes
 Schedule::job(new \App\Jobs\Funnel\ProcessCartAbandonment)->everyThirtyMinutes();
 Schedule::job(new \App\Jobs\Funnel\UpdateFunnelAnalytics)->dailyAt('02:00');
 
+// Custom domain verification
+Schedule::job(new \App\Jobs\Funnel\VerifyCustomDomains)->everyFiveMinutes()->withoutOverlapping();
+Schedule::job(new \App\Jobs\Funnel\CleanupFailedDomains)->daily()->at('03:30');
+
 // TikTok Shop order sync - runs every 15 minutes for active accounts with auto-sync enabled
 Schedule::command('tiktok:sync-orders --all --queue --days=1')
     ->everyFifteenMinutes()
