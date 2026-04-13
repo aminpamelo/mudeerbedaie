@@ -459,6 +459,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get custom domains for this user
+     */
+    public function customDomains(): HasMany
+    {
+        return $this->hasMany(CustomDomain::class);
+    }
+
+    /**
      * Check if user is HR admin (currently same as admin role)
      */
     public function isHrAdmin(): bool
