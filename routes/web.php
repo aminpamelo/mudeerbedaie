@@ -614,6 +614,8 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
+require __DIR__.'/auth.php';
+
 // ============================================================================
 // CUSTOM DOMAIN FUNNEL ROUTES - Must be last (catch-all for custom domain requests)
 // These controller methods check for 'custom_domain' request attribute set by
@@ -626,6 +628,4 @@ Route::post('/optin', [App\Http\Controllers\PublicFunnelController::class, 'subm
 
 Route::get('/{stepSlug}', [App\Http\Controllers\PublicFunnelController::class, 'showStepFromCustomDomain'])
     ->name('funnel.custom-domain.step')
-    ->where('stepSlug', '^(?!f$|api|admin|livewire|embed|stripe|webhooks|login|register|dashboard|settings|teacher|funnel-builder|hr|pos|cms|affiliate|_).*');
-
-require __DIR__.'/auth.php';
+    ->where('stepSlug', '^(?!f$|api|admin|livewire|embed|stripe|webhooks|login|register|logout|verify-email|forgot-password|reset-password|confirm-password|dashboard|settings|teacher|funnel-builder|hr|pos|cms|affiliate|_).*');
