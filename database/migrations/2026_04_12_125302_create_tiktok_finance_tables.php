@@ -49,6 +49,7 @@ return new class extends Migration
                 $table->index(['platform_account_id', 'tiktok_order_id']);
             });
         }
+    }
 
     /**
      * Reverse the migrations.
