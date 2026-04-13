@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { fetchContents, markContentForAds, createAdCampaign } from '../lib/api';
 import { cn } from '../lib/utils';
+import { toastSuccess, toastError } from '../lib/toast';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
@@ -167,7 +168,9 @@ export default function MarkedPosts() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['cms', 'marked-posts'] });
             queryClient.invalidateQueries({ queryKey: ['cms', 'contents'] });
+            toastSuccess('Mark status updated');
         },
+        onError: (error) => toastError(error, 'Failed to update mark status'),
     });
 
     const createCampaignMutation = useMutation({
@@ -176,8 +179,10 @@ export default function MarkedPosts() {
             queryClient.invalidateQueries({ queryKey: ['cms', 'ad-campaigns'] });
             setCampaignOpen(false);
             resetCampaignForm();
+            toastSuccess('Ad campaign created');
             navigate('/ads');
         },
+        onError: (error) => toastError(error, 'Failed to create ad campaign'),
     });
 
     function resetCampaignForm() {

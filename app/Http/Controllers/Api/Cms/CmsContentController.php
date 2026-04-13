@@ -79,6 +79,8 @@ class CmsContentController extends Controller
                 'description' => $validated['description'] ?? null,
                 'due_date' => $validated['due_date'] ?? null,
                 'priority' => $validated['priority'],
+                'tiktok_url' => $validated['tiktok_url'] ?? null,
+                'video_url' => $validated['video_url'] ?? null,
                 'stage' => 'idea',
                 'created_by' => $employee?->id,
             ]);

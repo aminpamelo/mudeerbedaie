@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelasify - TikTok Shop Integration Design Document</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: #1a1a2e;
+            line-height: 1.5;
+            background: #fff;
+            padding: 40px;
+            max-width: 210mm;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 3px solid #1a1a2e;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+
+        .header-left h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+
+        .header-left p {
+            font-size: 14px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .header-right {
+            text-align: right;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Section */
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a1a2e;
+            border-left: 4px solid #00b4d8;
+            padding-left: 10px;
+            margin-bottom: 12px;
+        }
+
+        .section-content {
+            font-size: 13px;
+            color: #444;
+        }
+
+        /* Info grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .info-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px 16px;
+        }
+
+        .info-card .label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .info-card .value {
+            font-size: 14px;
+            color: #1a1a2e;
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        /* Data flow diagram */
+        .flow-diagram {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 24px;
+            margin: 12px 0;
+        }
+
+        .flow-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .flow-box {
+            background: #fff;
+            border: 2px solid #00b4d8;
+            border-radius: 8px;
+            padding: 10px 16px;
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .flow-box.source {
+            background: #000;
+            color: #fff;
+            border-color: #000;
+        }
+
+        .flow-box.backend {
+            background: #e3f2fd;
+            border-color: #1976d2;
+        }
+
+        .flow-box.frontend {
+            background: #e8f5e9;
+            border-color: #388e3c;
+        }
+
+        .flow-box.storage {
+            background: #fff3e0;
+            border-color: #f57c00;
+        }
+
+        .flow-box .box-title {
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .flow-box .box-desc {
+            font-size: 10px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .flow-box.source .box-desc {
+            color: #ccc;
+        }
+
+        .flow-arrow {
+            font-size: 20px;
+            color: #999;
+        }
+
+        .flow-arrow-down {
+            text-align: center;
+            font-size: 20px;
+            color: #999;
+            margin: 4px 0;
+        }
+
+        /* Feature table */
+        .feature-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin: 8px 0;
+        }
+
+        .feature-table th {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .feature-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: top;
+        }
+
+        .feature-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .scope-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .scope-analytics { background: #e3f2fd; color: #1565c0; }
+        .scope-finance { background: #fff3e0; color: #e65100; }
+        .scope-affiliate { background: #f3e5f5; color: #7b1fa2; }
+
+        /* Use cases */
+        .use-case-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .use-case-list li {
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .use-case-list li .icon {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            background: #00b4d8;
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        /* Tech stack */
+        .tech-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 8px 0;
+        }
+
+        .tech-tag {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        /* Security */
+        .security-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .security-list li {
+            font-size: 11px;
+            color: #444;
+            padding: 6px 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+        }
+
+        .security-list li::before {
+            content: "\2713 ";
+            color: #2e7d32;
+            font-weight: 700;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 24px;
+            padding-top: 12px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 11px;
+            color: #999;
+        }
+
+        /* Page break */
+        .page-break {
+            page-break-before: always;
+            margin-top: 40px;
+        }
+
+        /* API endpoints */
+        .endpoint {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 11px;
+            background: #f5f5f5;
+            padding: 1px 6px;
+            border-radius: 3px;
+            color: #d63384;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PAGE 1 -->
+    <div class="header">
+        <div class="header-left">
+            <h1>Kelasify</h1>
+            <p>Multi-Channel Management Platform &mdash; Product Design Document</p>
+        </div>
+        <div class="header-right">
+            <div><strong>TikTok Shop Integration</strong></div>
+            <div>App ID: 7597481708427413256</div>
+            <div>Version 1.0 &bull; April 2026</div>
+            <div style="margin-top: 4px;"><span class="badge">Malaysia Market</span></div>
+        </div>
+    </div>
+
+    <!-- Overview -->
+    <div class="section">
+        <div class="section-title">1. Application Overview</div>
+        <div class="section-content">
+            <p>Kelasify is a multi-channel management platform serving Malaysian e-commerce sellers. The TikTok Shop integration enables sellers to manage their TikTok Shop operations from a centralized dashboard &mdash; syncing analytics, financial data, and affiliate performance into actionable insights.</p>
+        </div>
+        <div class="info-grid" style="margin-top: 12px;">
+            <div class="info-card">
+                <div class="label">Platform URL</div>
+                <div class="value">https://kelasify.com</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Target Market</div>
+                <div class="value">Malaysia &mdash; Local Sellers</div>
+            </div>
+            <div class="info-card">
+                <div class="label">App Type</div>
+                <div class="value">Custom Multi-Channel Management</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Integration Method</div>
+                <div class="value">TikTok Shop Open API (OAuth 2.0)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Flow -->
+    <div class="section">
+        <div class="section-title">2. System Architecture &amp; Data Flow</div>
+        <div class="flow-diagram">
+            <div class="flow-row">
+                <div class="flow-box source">
+                    <div class="box-title">TikTok Shop Open API</div>
+                    <div class="box-desc">Analytics / Finance / Affiliate</div>
+                </div>
+                <div class="flow-arrow">&rarr;</div>
+                <div class="flow-box backend">
+                    <div class="box-title">Laravel Backend</div>
+                    <div class="box-desc">Sync Services &amp; Artisan Commands</div>
+                </div>
+                <div class="flow-arrow">&rarr;</div>
+                <div class="flow-box storage">
+                    <div class="box-title">MySQL Database</div>
+                    <div class="box-desc">Structured Data Storage</div>
+                </div>
+            </div>
+            <div class="flow-arrow-down">&darr;</div>
+            <div class="flow-row">
+                <div class="flow-box frontend">
+                    <div class="box-title">Admin Dashboard</div>
+                    <div class="box-desc">Livewire (Analytics, Finance, Affiliates tabs)</div>
+                </div>
+                <div style="width: 30px;"></div>
+                <div class="flow-box frontend">
+                    <div class="box-title">CMS Dashboard</div>
+                    <div class="box-desc">React SPA (Creator Leaderboard, Content Stats)</div>
+                </div>
+            </div>
+        </div>
+        <div class="section-content" style="margin-top: 8px;">
+            <strong>Sync Process:</strong> Scheduled Artisan commands call TikTok Shop API endpoints via OAuth 2.0 &rarr; response data is normalized and stored in MySQL &rarr; Admin and CMS dashboards render the data in real-time.
+        </div>
+    </div>
+
+    <!-- API Scopes & Features -->
+    <div class="section">
+        <div class="section-title">3. API Scopes &amp; Features</div>
+        <table class="feature-table">
+            <thead>
+                <tr>
+                    <th>Scope</th>
+                    <th>API Endpoints Used</th>
+                    <th>Features</th>
+                    <th>Data Stored</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="scope-badge scope-analytics">Analytics</span></td>
+                    <td>
+                        <span class="endpoint">GET /analytics/shop/performance</span><br>
+                        <span class="endpoint">GET /analytics/shop/video/list</span><br>
+                        <span class="endpoint">GET /analytics/shop/product/list</span>
+                    </td>
+                    <td>
+                        Shop performance overview<br>
+                        Video performance stats<br>
+                        Product performance metrics
+                    </td>
+                    <td>
+                        Orders, GMV, buyers, views, impressions, conversion rate, per-video &amp; per-product breakdowns
+                    </td>
+                </tr>
+                <tr>
+                    <td><span class="scope-badge scope-finance">Finance</span></td>
+                    <td>
+                        <span class="endpoint">GET /finance/settlements</span><br>
+                        <span class="endpoint">GET /finance/transactions</span>
+                    </td>
+                    <td>
+                        Settlement statements<br>
+                        Transaction details
+                    </td>
+                    <td>
+                        Statement type, amounts, revenue, fees, adjustments, payment status, settlement dates
+                    </td>
+                </tr>
+                <tr>
+                    <td><span class="scope-badge scope-affiliate">Affiliate</span></td>
+                    <td>
+                        <span class="endpoint">GET /affiliate_seller/marketplace/creators</span><br>
+                        <span class="endpoint">GET /affiliate_seller/creator/performance</span><br>
+                        <span class="endpoint">GET /affiliate_seller/orders</span><br>
+                        <span class="endpoint">GET /affiliate_seller/content</span>
+                    </td>
+                    <td>
+                        Creator marketplace search<br>
+                        Creator performance tracking<br>
+                        Affiliate order management<br>
+                        Creator content analytics
+                    </td>
+                    <td>
+                        Creator profiles, followers, GMV, orders, commission, collaboration content, order details
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGE 2 -->
+    <div class="page-break"></div>
+
+    <!-- Key Use Cases -->
+    <div class="section">
+        <div class="section-title">4. Key Use Cases</div>
+        <ul class="use-case-list">
+            <li>
+                <div class="icon">1</div>
+                <div>
+                    <strong>Performance Monitoring</strong> &mdash; Sellers view their TikTok Shop's overall performance (total orders, GMV, buyers, video views, conversion rates) from the Admin Dashboard's Analytics tab, enabling data-driven business decisions.
+                </div>
+            </li>
+            <li>
+                <div class="icon">2</div>
+                <div>
+                    <strong>Content Performance Tracking</strong> &mdash; Track which videos drive the most engagement and sales. Per-video metrics (views, likes, comments, shares) are synced and linked to content items in the CMS for ROI analysis.
+                </div>
+            </li>
+            <li>
+                <div class="icon">3</div>
+                <div>
+                    <strong>Financial Reconciliation</strong> &mdash; Access settlement statements and transaction details to reconcile TikTok Shop payouts, track revenue, platform fees, and adjustments in one centralized view.
+                </div>
+            </li>
+            <li>
+                <div class="icon">4</div>
+                <div>
+                    <strong>Affiliate Program Management</strong> &mdash; View a leaderboard of affiliate creators ranked by GMV, monitor creator-generated orders and commissions, and evaluate creator content performance for collaboration decisions.
+                </div>
+            </li>
+            <li>
+                <div class="icon">5</div>
+                <div>
+                    <strong>Product Performance Analysis</strong> &mdash; Compare product-level metrics (impressions, clicks, orders, conversion rates) to identify top-performing products and optimize catalog strategy on TikTok Shop.
+                </div>
+            </li>
+        </ul>
+    </div>
+
+    <!-- UI Screens -->
+    <div class="section">
+        <div class="section-title">5. User Interface Screens</div>
+        <table class="feature-table">
+            <thead>
+                <tr>
+                    <th>Screen</th>
+                    <th>Location</th>
+                    <th>Data Displayed</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>TikTok Account Detail</strong></td>
+                    <td>Admin &rarr; Platforms &rarr; Accounts &rarr; [Account]</td>
+                    <td>Account info, OAuth status, sync history, tabbed data views</td>
+                </tr>
+                <tr>
+                    <td><strong>Analytics Tab</strong></td>
+                    <td>Account Detail &rarr; Analytics</td>
+                    <td>Shop KPI cards (orders, GMV, buyers, views, impressions, conversion) + product performance table</td>
+                </tr>
+                <tr>
+                    <td><strong>Finance Tab</strong></td>
+                    <td>Account Detail &rarr; Finance</td>
+                    <td>Settlement statements table + recent transactions list with amounts, fees, and status</td>
+                </tr>
+                <tr>
+                    <td><strong>Affiliates Tab</strong></td>
+                    <td>Account Detail &rarr; Affiliates</td>
+                    <td>Creator leaderboard (avatar, followers, GMV, orders, commission) + affiliate orders table</td>
+                </tr>
+                <tr>
+                    <td><strong>Creator Leaderboard</strong></td>
+                    <td>CMS &rarr; Creators</td>
+                    <td>Searchable, sortable creator list with avatars, followers, GMV, and order counts</td>
+                </tr>
+                <tr>
+                    <td><strong>Content Detail</strong></td>
+                    <td>CMS &rarr; Content &rarr; [Item]</td>
+                    <td>Per-content TikTok stats + list of affiliate creators promoting the content</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Tech Stack -->
+    <div class="section">
+        <div class="section-title">6. Technology Stack</div>
+        <div class="tech-row">
+            <span class="tech-tag">Laravel 12 (PHP 8.3)</span>
+            <span class="tech-tag">Livewire 3 + Volt</span>
+            <span class="tech-tag">React 19 SPA</span>
+            <span class="tech-tag">MySQL</span>
+            <span class="tech-tag">Tailwind CSS 4</span>
+            <span class="tech-tag">TanStack Query</span>
+            <span class="tech-tag">ecomphp/tiktokshop-php SDK</span>
+            <span class="tech-tag">OAuth 2.0</span>
+        </div>
+    </div>
+
+    <!-- Security & Data Privacy -->
+    <div class="section">
+        <div class="section-title">7. Security &amp; Data Privacy</div>
+        <ul class="security-list">
+            <li>OAuth 2.0 tokens encrypted at rest (AES-256)</li>
+            <li>Automatic token refresh before expiry</li>
+            <li>HTTPS enforced for all API communication</li>
+            <li>Role-based access control (Admin only)</li>
+            <li>API credentials stored in secure vault table</li>
+            <li>All API responses logged for audit trail</li>
+            <li>CSRF protection on all forms</li>
+            <li>Data access limited to authorized shop only</li>
+        </ul>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p><strong>Kelasify</strong> &mdash; Multi-Channel Management Platform &bull; https://kelasify.com</p>
+        <p>Prepared for TikTok Shop Partner Center App Review &bull; April 2026</p>
+    </div>
+
+</body>
+</html>

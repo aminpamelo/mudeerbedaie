@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, ChevronDown, ChevronRight, Lightbulb, Camera, Film, Send } from 'lucide-react';
 import { createContent } from '../lib/api';
+import { toastSuccess, toastError } from '../lib/toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -78,6 +79,7 @@ export default function ContentCreate() {
     const mutation = useMutation({
         mutationFn: (data) => createContent(data),
         onSuccess: (response) => {
+            toastSuccess('Content created');
             const contentId = response?.data?.id || response?.id;
             if (contentId) {
                 navigate(`/contents/${contentId}`);
@@ -89,6 +91,7 @@ export default function ContentCreate() {
             if (error.response?.status === 422) {
                 setErrors(error.response.data.errors || {});
             }
+            toastError(error, 'Failed to create content');
         },
     });
 

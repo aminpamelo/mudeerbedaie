@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 import { fetchAdCampaign, updateAdCampaign, addAdStats } from '../lib/api';
 import { cn } from '../lib/utils';
+import { toastSuccess, toastError } from '../lib/toast';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -155,7 +156,9 @@ export default function AdCampaignDetail() {
             queryClient.invalidateQueries({ queryKey: ['cms', 'ad-campaign', id] });
             queryClient.invalidateQueries({ queryKey: ['cms', 'ad-campaigns'] });
             setEditOpen(false);
+            toastSuccess('Campaign updated');
         },
+        onError: (error) => toastError(error, 'Failed to update campaign'),
     });
 
     const addStatsMutation = useMutation({
@@ -164,7 +167,9 @@ export default function AdCampaignDetail() {
             queryClient.invalidateQueries({ queryKey: ['cms', 'ad-campaign', id] });
             setAddStatsOpen(false);
             setStatsForm({ impressions: '', clicks: '', spend: '', conversions: '' });
+            toastSuccess('Stats added');
         },
+        onError: (error) => toastError(error, 'Failed to add stats'),
     });
 
     if (isLoading) {

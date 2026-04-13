@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, ChevronDown, ChevronRight, Lightbulb, Camera, Film, Send } from 'lucide-react';
 import { fetchContent, updateContent } from '../lib/api';
+import { toastSuccess, toastError } from '../lib/toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -69,6 +70,7 @@ export default function ContentEdit() {
         priority: 'medium',
         due_date: '',
         tiktok_url: '',
+        video_url: '',
         stages: [
             { stage: 'idea', due_date: '', assignees: [] },
             { stage: 'shooting', due_date: '', assignees: [] },
@@ -91,6 +93,7 @@ export default function ContentEdit() {
                 priority: c.priority || 'medium',
                 due_date: c.due_date ? c.due_date.split('T')[0] : '',
                 tiktok_url: c.tiktok_url || '',
+                video_url: c.video_url || '',
                 stages: ['idea', 'shooting', 'editing', 'posting'].map(stageName => {
                     const stage = c.stages?.find(s => s.stage === stageName);
                     return {
@@ -110,12 +113,14 @@ export default function ContentEdit() {
     const mutation = useMutation({
         mutationFn: (data) => updateContent(id, data),
         onSuccess: () => {
+            toastSuccess('Content updated');
             navigate(`/contents/${id}`);
         },
         onError: (error) => {
             if (error.response?.status === 422) {
                 setErrors(error.response.data.errors || {});
             }
+            toastError(error, 'Failed to update content');
         },
     });
 
@@ -268,6 +273,21 @@ export default function ContentEdit() {
                                     <p className="text-sm text-red-500">{getFieldError('due_date')}</p>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Raw / edited video link */}
+                        <div className="space-y-2">
+                            <Label htmlFor="video_url">Raw / Edited Video Link</Label>
+                            <Input
+                                id="video_url"
+                                type="url"
+                                value={form.video_url}
+                                onChange={(e) => updateField('video_url', e.target.value)}
+                                placeholder="https://drive.google.com/..."
+                            />
+                            {getFieldError('video_url') && (
+                                <p className="text-sm text-red-500">{getFieldError('video_url')}</p>
+                            )}
                         </div>
 
                         {/* TikTok URL - only visible for posting/posted stages */}

@@ -27,6 +27,7 @@ class UpdateContentRequest extends FormRequest
             'due_date' => ['nullable', 'date'],
             'priority' => ['sometimes', 'in:low,medium,high,urgent'],
             'tiktok_url' => ['nullable', 'string', 'url', 'max:500'],
+            'video_url' => ['nullable', 'string', 'url', 'max:500'],
             'stages' => ['nullable', 'array'],
             'stages.*.stage' => ['required', 'in:idea,shooting,editing,posting'],
             'stages.*.due_date' => ['nullable', 'date'],

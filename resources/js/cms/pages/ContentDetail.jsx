@@ -188,12 +188,20 @@ export default function ContentDetail() {
         queryFn: () => fetchContent(id),
     });
 
+    const contentData = content?.data || content;
+    const currentStage = contentData?.current_stage || contentData?.stage || 'idea';
+
+    const { data: contentCreators = [] } = useQuery({
+        queryKey: ['content-creators', id],
+        queryFn: () => fetchContentCreators(id).then((r) => r.data),
+        enabled: currentStage === 'posted',
+    });
+
     useEffect(() => {
-        const data = content?.data || content;
-        if (data) {
+        if (contentData) {
             setVideoForm({
-                video_url: data.video_url || '',
-                tiktok_url: data.tiktok_url || '',
+                video_url: contentData.video_url || '',
+                tiktok_url: contentData.tiktok_url || '',
             });
         }
     }, [content]);
@@ -299,14 +307,7 @@ export default function ContentDetail() {
         );
     }
 
-    const data = content.data || content;
-    const currentStage = data.current_stage || data.stage || 'idea';
-
-    const { data: contentCreators = [] } = useQuery({
-        queryKey: ['content-creators', id],
-        queryFn: () => fetchContentCreators(id).then((r) => r.data),
-        enabled: currentStage === 'posted',
-    });
+    const data = contentData;
 
     const currentStageIndex = STAGES.indexOf(currentStage);
     const availableNextStages = STAGES.slice(currentStageIndex + 1);
