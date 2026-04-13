@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('tiktok_creator_contents')) {
+            return;
+        }
+
         Schema::create('tiktok_creator_contents', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tiktok_creator_id')->constrained('tiktok_creators')->cascadeOnDelete();

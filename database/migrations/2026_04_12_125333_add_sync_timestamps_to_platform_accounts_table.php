@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('platform_accounts', 'last_affiliate_sync_at')) {
+            return;
+        }
+
         $driver = DB::getDriverName();
 
         if ($driver === 'mysql') {

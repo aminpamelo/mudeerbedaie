@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('contents', 'platform_account_id')) {
+            return;
+        }
+
         Schema::table('contents', function (Blueprint $table) {
             $table->foreignId('platform_account_id')
                 ->nullable()

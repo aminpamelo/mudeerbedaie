@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('content_stats', 'source')) {
+            return;
+        }
+
         Schema::table('content_stats', function (Blueprint $table) {
             $table->string('source', 32)->default('manual')->after('shares');
             $table->json('raw_response')->nullable()->after('source');
