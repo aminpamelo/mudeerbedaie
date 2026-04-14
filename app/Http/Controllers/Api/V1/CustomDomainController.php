@@ -66,7 +66,7 @@ class CustomDomainController extends Controller
                 'required',
                 'string',
                 'max:255',
-                'unique:custom_domains,domain',
+                Rule::unique('custom_domains', 'domain')->whereNull('deleted_at'),
                 'regex:/^[a-zA-Z0-9][a-zA-Z0-9\-\.]*[a-zA-Z0-9]$/',
             ],
             'type' => ['required', Rule::in(['custom', 'subdomain'])],
