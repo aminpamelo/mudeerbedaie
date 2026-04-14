@@ -76,9 +76,7 @@ export default function SettingsTab({ funnelUuid, funnel, onRefresh, showToast }
         setDomainLoading(true);
         setDomainError('');
         try {
-            const domain = domainType === 'subdomain'
-                ? `${domainInput.trim()}.kelasify.com`
-                : domainInput.trim();
+            const domain = domainInput.trim();
 
             const response = await customDomainApi.add(funnelUuid, {
                 domain,

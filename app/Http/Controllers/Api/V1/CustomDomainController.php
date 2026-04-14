@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CustomDomain;
 use App\Models\Funnel;
 use App\Services\CloudflareCustomHostnameService;
+use App\Services\ServerAvatarDomainService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -15,7 +16,8 @@ use Illuminate\Validation\Rule;
 class CustomDomainController extends Controller
 {
     public function __construct(
-        private CloudflareCustomHostnameService $cloudflare
+        private CloudflareCustomHostnameService $cloudflare,
+        private ServerAvatarDomainService $serverAvatar,
     ) {}
 
     /**
@@ -113,6 +115,9 @@ class CustomDomainController extends Controller
 
         $customDomain->save();
 
+        // Register domain with ServerAvatar so the web server accepts it
+        $this->serverAvatar->addDomain($customDomain->full_domain);
+
         return response()->json([
             'data' => [
                 'uuid' => $customDomain->uuid,
@@ -204,6 +209,9 @@ class CustomDomainController extends Controller
                 ]);
             }
         }
+
+        // Remove domain from ServerAvatar
+        $this->serverAvatar->removeDomain($domain->full_domain);
 
         $cacheKey = $domain->type === 'subdomain'
             ? "custom_domain:subdomain:{$domain->domain}"

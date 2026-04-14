@@ -127,4 +127,11 @@ return [
         'subdomain_base' => env('CUSTOM_DOMAIN_SUBDOMAIN_BASE', 'kelasify.com'),
     ],
 
+    'serveravatar' => [
+        'api_token' => env('SERVERAVATAR_API_TOKEN'),
+        'organization_id' => env('SERVERAVATAR_ORGANIZATION_ID'),
+        'server_id' => env('SERVERAVATAR_SERVER_ID'),
+        'application_id' => env('SERVERAVATAR_APPLICATION_ID'),
+    ],
+
 ];
