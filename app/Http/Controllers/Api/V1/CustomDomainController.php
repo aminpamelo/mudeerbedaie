@@ -83,6 +83,9 @@ class CustomDomainController extends Controller
             ]);
         }
 
+        // Remove any soft-deleted record with the same domain to avoid unique index conflict
+        CustomDomain::onlyTrashed()->where('domain', $domain)->forceDelete();
+
         $customDomain = new CustomDomain([
             'funnel_id' => $funnel->id,
             'user_id' => $request->user()->id,
