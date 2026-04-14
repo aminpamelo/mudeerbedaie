@@ -360,6 +360,13 @@ class PosController extends Controller
             };
         }
 
+        if ($dateFrom = $request->get('date_from')) {
+            $query->whereDate('order_date', '>=', $dateFrom);
+        }
+        if ($dateTo = $request->get('date_to')) {
+            $query->whereDate('order_date', '<=', $dateTo);
+        }
+
         if ($request->get('today')) {
             $query->whereDate('order_date', today());
         }
@@ -762,6 +769,13 @@ class PosController extends Controller
                 'this_month' => $query->whereBetween('order_date', [now()->startOfMonth(), now()->endOfMonth()]),
                 default => null,
             };
+        }
+
+        if ($dateFrom = $request->get('date_from')) {
+            $query->whereDate('order_date', '>=', $dateFrom);
+        }
+        if ($dateTo = $request->get('date_to')) {
+            $query->whereDate('order_date', '<=', $dateTo);
         }
 
         $query->whereJsonContains('metadata->salesperson_id', $request->user()->id);

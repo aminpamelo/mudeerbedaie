@@ -18,6 +18,7 @@ const PERIOD_OPTIONS = [
     { value: 'today', label: 'Today' },
     { value: 'this_week', label: 'This Week' },
     { value: 'this_month', label: 'This Month' },
+    { value: 'custom', label: 'Custom Range' },
 ];
 
 const PAYMENT_OPTIONS = [
@@ -50,6 +51,8 @@ export default function SalesHistory({ isMobile = false }) {
     const [notesValue, setNotesValue] = useState('');
     const [savingDetails, setSavingDetails] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
     const handleExport = () => {
         setExporting(true);
@@ -58,7 +61,11 @@ export default function SalesHistory({ isMobile = false }) {
             if (search) params.search = search;
             if (statusFilter) params.status = statusFilter;
             if (paymentFilter) params.payment_method = paymentFilter;
-            if (periodFilter) params.period = periodFilter;
+            if (periodFilter && periodFilter !== 'custom') params.period = periodFilter;
+            if (periodFilter === 'custom') {
+                if (dateFrom) params.date_from = dateFrom;
+                if (dateTo) params.date_to = dateTo;
+            }
             saleApi.exportCsv(params);
         } catch (err) {
             console.error('Failed to export:', err);
@@ -75,7 +82,11 @@ export default function SalesHistory({ isMobile = false }) {
             if (searchTerm) params.search = searchTerm;
             if (filters.status) params.status = filters.status;
             if (filters.payment_method) params.payment_method = filters.payment_method;
-            if (filters.period) params.period = filters.period;
+            if (filters.period && filters.period !== 'custom') params.period = filters.period;
+            if (filters.period === 'custom') {
+                if (filters.date_from) params.date_from = filters.date_from;
+                if (filters.date_to) params.date_to = filters.date_to;
+            }
 
             const response = await saleApi.list(params);
             const data = response.data || [];
@@ -93,14 +104,15 @@ export default function SalesHistory({ isMobile = false }) {
         }
     };
 
-    const currentFilters = { status: statusFilter, payment_method: paymentFilter, period: periodFilter };
+    const currentFilters = { status: statusFilter, payment_method: paymentFilter, period: periodFilter, date_from: dateFrom, date_to: dateTo };
     const hasActiveFilters = statusFilter || paymentFilter || periodFilter;
 
     useEffect(() => {
+        if (periodFilter === 'custom' && !dateFrom && !dateTo) return;
         setPage(1);
         const timer = setTimeout(() => fetchSales(search, 1, currentFilters), 300);
         return () => clearTimeout(timer);
-    }, [search, statusFilter, paymentFilter, periodFilter]);
+    }, [search, statusFilter, paymentFilter, periodFilter, dateFrom, dateTo]);
 
     const handleStatusChange = async (newStatus) => {
         if (!selectedSale || updating) return;
@@ -502,7 +514,10 @@ export default function SalesHistory({ isMobile = false }) {
 
                     <select
                         value={periodFilter}
-                        onChange={(e) => setPeriodFilter(e.target.value)}
+                        onChange={(e) => {
+                            setPeriodFilter(e.target.value);
+                            if (e.target.value !== 'custom') { setDateFrom(''); setDateTo(''); }
+                        }}
                         className={`px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 shrink-0 ${
                             periodFilter ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600'
                         }`}
@@ -512,9 +527,27 @@ export default function SalesHistory({ isMobile = false }) {
                         ))}
                     </select>
 
+                    {periodFilter === 'custom' && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                className="px-2 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <span className="text-gray-400 text-sm">to</span>
+                            <input
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                className="px-2 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                    )}
+
                     {hasActiveFilters && (
                         <button
-                            onClick={() => { setStatusFilter(''); setPaymentFilter(''); setPeriodFilter(''); }}
+                            onClick={() => { setStatusFilter(''); setPaymentFilter(''); setPeriodFilter(''); setDateFrom(''); setDateTo(''); }}
                             className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
                         >
                             Clear filters
