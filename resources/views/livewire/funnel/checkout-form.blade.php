@@ -559,7 +559,7 @@ new class extends Component
                         $productOrder,
                         $this->funnelSession,
                         null,
-                        url("/f/{$this->funnel->slug}")
+                        request()->fullUrl()
                     );
                 }
 
@@ -644,13 +644,21 @@ new class extends Component
             ? $this->funnel->steps()->find($this->step->next_step_id)
             : $this->funnel->steps()->where('sort_order', '>', $this->step->sort_order)->first();
 
+        $isCustomDomain = request()->attributes->has('custom_domain');
+
         if ($nextStep) {
-            $this->redirect("/f/{$this->funnel->slug}/{$nextStep->slug}?order={$productOrder->order_number}");
+            $url = $isCustomDomain
+                ? "/{$nextStep->slug}?order={$productOrder->order_number}"
+                : "/f/{$this->funnel->slug}/{$nextStep->slug}?order={$productOrder->order_number}";
+            $this->redirect($url);
         } else {
             // No next step - show thank you
             session()->flash('order_completed', true);
             session()->flash('order_number', $productOrder->order_number);
-            $this->redirect("/f/{$this->funnel->slug}?complete=1&order={$productOrder->order_number}");
+            $url = $isCustomDomain
+                ? "/?complete=1&order={$productOrder->order_number}"
+                : "/f/{$this->funnel->slug}?complete=1&order={$productOrder->order_number}";
+            $this->redirect($url);
         }
     }
 

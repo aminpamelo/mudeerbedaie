@@ -518,7 +518,8 @@
             stepSlug: '{{ $step->slug }}',
             stepType: '{{ $step->type }}',
             sessionUuid: '{{ $session->uuid }}',
-            nextStepUrl: '{{ $nextStep ? "/f/{$funnel->slug}/{$nextStep->slug}" : '' }}',
+            isCustomDomain: {{ !empty($isCustomDomain) ? 'true' : 'false' }},
+            nextStepUrl: '{{ $nextStep ? (!empty($isCustomDomain) ? "/{$nextStep->slug}" : "/f/{$funnel->slug}/{$nextStep->slug}") : '' }}',
             csrfToken: '{{ csrf_token() }}',
         };
 
@@ -578,7 +579,8 @@
                 form.classList.add('loading');
 
                 try {
-                    const response = await fetch(`/f/${window.funnelConfig.funnelSlug}/optin`, {
+                    const optinUrl = window.funnelConfig.isCustomDomain ? '/optin' : `/f/${window.funnelConfig.funnelSlug}/optin`;
+                    const response = await fetch(optinUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -685,7 +687,7 @@
 
         function goToCheckout() {
             // Find checkout step
-            window.location.href = `/f/${window.funnelConfig.funnelSlug}/checkout`;
+            window.location.href = window.funnelConfig.isCustomDomain ? '/checkout' : `/f/${window.funnelConfig.funnelSlug}/checkout`;
         }
 
         // Track ANY link clicks on thank you pages

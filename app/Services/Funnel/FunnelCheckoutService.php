@@ -389,7 +389,7 @@ class FunnelCheckoutService
                         $order,
                         $funnelOrder->session,
                         null, // Will generate new event ID
-                        url("/f/{$funnel->slug}/thank-you")
+                        request()->fullUrl()
                     );
 
                     // Calculate affiliate commission if applicable

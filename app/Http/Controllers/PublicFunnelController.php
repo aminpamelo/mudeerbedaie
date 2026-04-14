@@ -161,6 +161,8 @@ class PublicFunnelController extends Controller
         // Track Facebook Pixel events (server-side) and get event IDs for client-side
         $pixelData = $this->trackPixelEvents($request, $funnel, $step, $session, $products);
 
+        $isCustomDomain = $request->attributes->has('custom_domain');
+
         return view('funnel.show', [
             'funnel' => $funnel,
             'step' => $step,
@@ -170,6 +172,7 @@ class PublicFunnelController extends Controller
             'orderBumps' => $orderBumps,
             'nextStep' => $nextStep,
             'session' => $session,
+            'isCustomDomain' => $isCustomDomain,
             'customCss' => $content?->custom_css,
             'customJs' => $content?->custom_js,
             'metaTitle' => $content?->meta_title ?: $step->name,
@@ -204,7 +207,10 @@ class PublicFunnelController extends Controller
         $trackingScripts = [];
 
         // Funnel config script
-        $nextStepUrl = $nextStep ? "/f/{$funnel->slug}/{$nextStep->slug}" : '';
+        $isCustomDomain = $request->attributes->has('custom_domain');
+        $nextStepUrl = $nextStep
+            ? ($isCustomDomain ? "/{$nextStep->slug}" : "/f/{$funnel->slug}/{$nextStep->slug}")
+            : '';
         $trackingScripts[] = '<script>';
         $trackingScripts[] = 'window.funnelConfig = {';
         $trackingScripts[] = "  funnelId: {$funnel->id},";
@@ -215,6 +221,7 @@ class PublicFunnelController extends Controller
         $trackingScripts[] = "  stepType: '".e($step->type)."',";
         $trackingScripts[] = "  sessionUuid: '".e($session->uuid)."',";
         $trackingScripts[] = "  nextStepUrl: '".e($nextStepUrl)."',";
+        $trackingScripts[] = '  isCustomDomain: '.($isCustomDomain ? 'true' : 'false').',';
         $trackingScripts[] = "  csrfToken: '".csrf_token()."',";
         $trackingScripts[] = '};';
         $trackingScripts[] = '</script>';

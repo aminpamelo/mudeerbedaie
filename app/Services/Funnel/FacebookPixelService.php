@@ -506,7 +506,7 @@ class FacebookPixelService
             $userData,
             $customData,
             $eventId,
-            $eventSourceUrl ?? url("/f/{$funnel->slug}")
+            $eventSourceUrl ?? request()->fullUrl()
         );
 
         // Store event ID in order metadata for client-side deduplication
