@@ -8,6 +8,7 @@ use App\Notifications\Hr\ClockInReminder;
 use App\Notifications\Hr\ClockOutReminder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class SendClockReminders extends Command
 {
@@ -47,15 +48,20 @@ class SendClockReminders extends Command
             $shiftStart = Carbon::parse($today.' '.$startTime);
             $reminderWindow = $shiftStart->copy()->subMinutes(15);
 
-            if ($now->between($reminderWindow, $shiftStart)) {
-                $hasClockedIn = AttendanceLog::where('employee_id', $schedule->employee_id)
-                    ->where('date', $today)
-                    ->whereNotNull('clock_in')
-                    ->exists();
+            if ($now->gte($reminderWindow) && $now->lt($shiftStart)) {
+                $cacheKey = "clock_in_reminder_{$schedule->employee_id}_{$today}";
 
-                if (! $hasClockedIn) {
-                    $schedule->employee->user->notify(new ClockInReminder($startTime));
-                    $clockInCount++;
+                if (! Cache::has($cacheKey)) {
+                    $hasClockedIn = AttendanceLog::where('employee_id', $schedule->employee_id)
+                        ->where('date', $today)
+                        ->whereNotNull('clock_in')
+                        ->exists();
+
+                    if (! $hasClockedIn) {
+                        $schedule->employee->user->notify(new ClockInReminder($startTime));
+                        Cache::put($cacheKey, true, $shiftStart);
+                        $clockInCount++;
+                    }
                 }
             }
 
@@ -63,15 +69,20 @@ class SendClockReminders extends Command
             $shiftEnd = Carbon::parse($today.' '.$endTime);
             $clockOutWindow = $shiftEnd->copy()->subMinutes(15);
 
-            if ($now->between($clockOutWindow, $shiftEnd)) {
-                $hasClockedOut = AttendanceLog::where('employee_id', $schedule->employee_id)
-                    ->where('date', $today)
-                    ->whereNotNull('clock_out')
-                    ->exists();
+            if ($now->gte($clockOutWindow) && $now->lt($shiftEnd)) {
+                $cacheKey = "clock_out_reminder_{$schedule->employee_id}_{$today}";
 
-                if (! $hasClockedOut) {
-                    $schedule->employee->user->notify(new ClockOutReminder($endTime));
-                    $clockOutCount++;
+                if (! Cache::has($cacheKey)) {
+                    $hasClockedOut = AttendanceLog::where('employee_id', $schedule->employee_id)
+                        ->where('date', $today)
+                        ->whereNotNull('clock_out')
+                        ->exists();
+
+                    if (! $hasClockedOut) {
+                        $schedule->employee->user->notify(new ClockOutReminder($endTime));
+                        Cache::put($cacheKey, true, $shiftEnd);
+                        $clockOutCount++;
+                    }
                 }
             }
         }

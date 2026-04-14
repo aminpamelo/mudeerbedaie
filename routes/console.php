@@ -48,7 +48,7 @@ Schedule::command('hr:penalty-summary')->monthlyOn(1, '08:00');
 Schedule::command('hr:initialize-leave-balances')->yearlyOn(1, 1, '00:01');
 
 // HR Notifications - Clock reminders (every 15 min)
-Schedule::command('hr:send-clock-reminders')->everyFifteenMinutes();
+Schedule::command('hr:send-clock-reminders')->everyFifteenMinutes()->withoutOverlapping();
 
 // HR Notifications - Late alerts (every 15 min during work hours)
 Schedule::command('hr:send-late-alerts')->everyFifteenMinutes()->between('8:00', '18:00');
