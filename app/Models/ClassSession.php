@@ -47,8 +47,10 @@ class ClassSession extends Model
         'verified_by',
         'verifier_role',
         'payout_status',
-        'upsell_funnel_id',
-        'upsell_pic_user_id',
+        'upsell_funnel_ids',
+        'upsell_pic_user_ids',
+        'upsell_teacher_commission_rate',
+        'upsell_teacher_ids',
     ];
 
     protected function casts(): array
@@ -59,6 +61,10 @@ class ClassSession extends Model
             'completed_at' => 'datetime',
             'started_at' => 'datetime',
             'verified_at' => 'datetime',
+            'upsell_funnel_ids' => 'array',
+            'upsell_pic_user_ids' => 'array',
+            'upsell_teacher_commission_rate' => 'decimal:2',
+            'upsell_teacher_ids' => 'array',
         ];
     }
 
@@ -92,19 +98,35 @@ class ClassSession extends Model
         return $this->belongsTo(Teacher::class, 'assigned_to');
     }
 
-    public function upsellFunnel(): BelongsTo
+    public function upsellFunnels(): \Illuminate\Database\Eloquent\Collection
     {
-        return $this->belongsTo(Funnel::class, 'upsell_funnel_id');
+        $ids = $this->upsell_funnel_ids ?? [];
+
+        return $ids ? Funnel::whereIn('id', $ids)->get() : new \Illuminate\Database\Eloquent\Collection;
     }
 
-    public function upsellPic(): BelongsTo
+    public function upsellTeachers(): \Illuminate\Database\Eloquent\Collection
     {
-        return $this->belongsTo(User::class, 'upsell_pic_user_id');
+        $ids = $this->upsell_teacher_ids ?? [];
+
+        return $ids ? User::whereIn('id', $ids)->get() : new \Illuminate\Database\Eloquent\Collection;
+    }
+
+    public function upsellPics(): \Illuminate\Database\Eloquent\Collection
+    {
+        $ids = $this->upsell_pic_user_ids ?? [];
+
+        return $ids ? User::whereIn('id', $ids)->get() : new \Illuminate\Database\Eloquent\Collection;
     }
 
     public function funnelOrders(): HasMany
     {
         return $this->hasMany(FunnelOrder::class, 'class_session_id');
+    }
+
+    public function funnelSessions(): HasMany
+    {
+        return $this->hasMany(FunnelSession::class, 'class_session_id');
     }
 
     /**
