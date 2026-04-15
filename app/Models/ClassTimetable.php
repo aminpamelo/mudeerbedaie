@@ -50,6 +50,9 @@ class ClassTimetable extends Model
         $sessionCount = 0;
         $maxSessions = $this->total_sessions ?: 50;
 
+        // Eager load active upsell configs for this timetable
+        $this->load('upsells');
+
         while ($currentDate <= $endDate && $sessionCount < $maxSessions) {
             $dayOfWeek = strtolower($currentDate->format('l'));
             $timesForDay = [];
@@ -74,12 +77,21 @@ class ClassTimetable extends Model
                     break;
                 }
 
+                // Look up upsell config for this slot
+                $upsellConfig = $this->upsells
+                    ->where('is_active', true)
+                    ->where('day_of_week', $dayOfWeek)
+                    ->where('time_slot', $time)
+                    ->first();
+
                 $sessions[] = [
                     'class_id' => $this->class_id,
                     'session_date' => $currentDate->toDateString(),
                     'session_time' => $time,
                     'duration_minutes' => $this->class->duration_minutes ?? 60,
                     'status' => 'scheduled',
+                    'upsell_funnel_id' => $upsellConfig?->funnel_id,
+                    'upsell_pic_user_id' => $upsellConfig?->pic_user_id,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
