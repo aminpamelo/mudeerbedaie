@@ -7382,7 +7382,7 @@ new class extends Component
                                             {{ ucfirst(\Carbon\Carbon::parse($session->session_date)->format('l')) }}
                                         </td>
                                         <td class="py-2 px-3 text-sm text-zinc-600 dark:text-zinc-400 tabular-nums">
-                                            {{ \Carbon\Carbon::createFromFormat('H:i', $session->session_time)->format('h:i A') }}
+                                            {{ \Carbon\Carbon::parse($session->session_time)->format('h:i A') }}
                                         </td>
                                         <td class="py-2 px-3">
                                             @php
