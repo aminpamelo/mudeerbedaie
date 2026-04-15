@@ -12,7 +12,7 @@
                 currentRoute: '{{ request()->route()?->getName() }}',
                 sectionRoutes: {
                     'platform': ['dashboard'],
-                    'administration': ['courses.*', 'users.*', 'students.*', 'teachers.*', 'classes.*', 'class-categories.*', 'admin.sessions.*', 'admin.payslips.*', 'enrollments.*'],
+                    'administration': ['courses.*', 'users.*', 'students.*', 'teachers.*', 'classes.*', 'class-categories.*', 'admin.sessions.*', 'admin.payslips.*', 'enrollments.*', 'admin.upsell-dashboard'],
                     'subscription': ['orders.*', 'admin.payments*'],
                     'products': ['products.*', 'product-categories.*', 'product-attributes.*'],
                     'crm': ['crm.*'],
@@ -139,6 +139,7 @@
                     <flux:navlist.item icon="table-cells" :href="route('admin.master-timetable')" :current="request()->routeIs('admin.master-timetable')" wire:navigate>{{ __('Master Timetable') }}</flux:navlist.item>
                     <flux:navlist.item icon="banknotes" :href="route('admin.payslips.index')" :current="request()->routeIs('admin.payslips.*')" wire:navigate>{{ __('Payslips') }}</flux:navlist.item>
                     <flux:navlist.item icon="clipboard" :href="route('enrollments.index')" :current="request()->routeIs('enrollments.*')" wire:navigate>{{ __('Enrollments') }}</flux:navlist.item>
+                    <flux:navlist.item icon="gift" :href="route('admin.upsell-dashboard')" :current="request()->routeIs('admin.upsell-dashboard')" wire:navigate>{{ __('Upsell Dashboard') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group

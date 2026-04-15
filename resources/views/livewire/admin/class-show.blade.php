@@ -7534,7 +7534,7 @@ new class extends Component
                                             }"
                                             @click.outside="open = false; search = ''"
                                         >
-                                            <div class="relative">
+                                            <div class="relative" wire:ignore>
                                                 <div class="flex flex-wrap gap-1 items-center min-h-[30px]">
                                                     <template x-for="id in selectedIds" :key="id">
                                                         <span class="inline-flex items-center gap-0.5 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 text-[10px] leading-tight px-1.5 py-0.5 rounded-full max-w-[120px]">
@@ -7592,7 +7592,7 @@ new class extends Component
                                             }"
                                             @click.outside="open = false; search = ''"
                                         >
-                                            <div class="relative">
+                                            <div class="relative" wire:ignore>
                                                 <div class="flex flex-wrap gap-1 items-center min-h-[30px]">
                                                     <template x-for="id in selectedIds" :key="id">
                                                         <span class="inline-flex items-center gap-0.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] leading-tight px-1.5 py-0.5 rounded-full max-w-[120px]">
@@ -7650,7 +7650,7 @@ new class extends Component
                                             }"
                                             @click.outside="open = false; search = ''"
                                         >
-                                            <div class="relative">
+                                            <div class="relative" wire:ignore>
                                                 <div class="flex flex-wrap gap-1 items-center min-h-[30px]">
                                                     <template x-for="id in selectedIds" :key="id">
                                                         <span class="inline-flex items-center gap-0.5 bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 text-[10px] leading-tight px-1.5 py-0.5 rounded-full max-w-[120px]">

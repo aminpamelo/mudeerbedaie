@@ -5,7 +5,9 @@
 
 /* Base resets for funnel builder */
 .funnel-builder-app {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: inherit;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* Puck Editor Customizations */

@@ -90,8 +90,8 @@ class ClassTimetable extends Model
                     'session_time' => $time,
                     'duration_minutes' => $this->class->duration_minutes ?? 60,
                     'status' => 'scheduled',
-                    'upsell_funnel_id' => $upsellConfig?->funnel_id,
-                    'upsell_pic_user_id' => $upsellConfig?->pic_user_id,
+                    'upsell_funnel_ids' => $upsellConfig?->funnel_id ? json_encode([$upsellConfig->funnel_id]) : null,
+                    'upsell_pic_user_ids' => $upsellConfig?->pic_user_id ? json_encode([$upsellConfig->pic_user_id]) : null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];

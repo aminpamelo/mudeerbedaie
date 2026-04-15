@@ -194,6 +194,9 @@ Route::middleware(['auth', 'role:admin,employee,class_admin'])->prefix('admin')-
     Volt::route('teachers/{teacher}', 'admin.teacher-show')->name('teachers.show');
     Volt::route('teachers/{teacher}/edit', 'admin.teacher-edit')->name('teachers.edit');
 
+    // Upsell Dashboard
+    Volt::route('upsell-dashboard', 'admin.upsell-dashboard')->name('admin.upsell-dashboard');
+
     // Class routes
     Volt::route('classes', 'admin.class-list')->name('classes.index');
     Volt::route('classes/create', 'admin.class-create')->name('classes.create');

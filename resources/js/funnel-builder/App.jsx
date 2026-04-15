@@ -159,35 +159,34 @@ export default function App() {
     };
 
     return (
-        <div className="funnel-builder-app min-h-screen bg-gray-50">
+        <div className="funnel-builder-app min-h-screen bg-zinc-50 dark:bg-zinc-950">
             {currentView === VIEWS.LIST && (
-                <header className="bg-white border-b border-gray-200">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <a href="/admin/funnels" className="text-gray-500 hover:text-gray-700">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                <header className="border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                        <div className="flex h-14 items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <a href="/admin/funnels" className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300">
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                                     </svg>
                                 </a>
-                                <h1 className="text-xl font-bold text-gray-900">Funnel Builder</h1>
+                                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
+                                <h1 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Funnel Builder</h1>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <a
-                                    href="/docs/funnel-builder"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-gray-500 hover:text-gray-700 text-sm"
-                                >
-                                    Documentation
-                                </a>
-                            </div>
+                            <a
+                                href="/docs/funnel-builder"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+                            >
+                                Docs
+                            </a>
                         </div>
                     </div>
                 </header>
             )}
 
-            <main className={currentView === VIEWS.LIST ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8' : ''}>
+            <main className={currentView === VIEWS.LIST ? 'mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8' : ''}>
                 {renderView()}
             </main>
         </div>

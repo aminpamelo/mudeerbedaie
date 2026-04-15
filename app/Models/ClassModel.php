@@ -421,7 +421,7 @@ class ClassModel extends Model
         ClassSession::upsert(
             $sessionsData,
             ['class_id', 'session_date', 'session_time'], // Unique key columns
-            ['duration_minutes', 'upsell_funnel_id', 'upsell_pic_user_id'] // Update these if session exists
+            ['duration_minutes', 'upsell_funnel_ids', 'upsell_pic_user_ids'] // Update these if session exists
         );
 
         return count($sessionsData);

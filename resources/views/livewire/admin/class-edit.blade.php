@@ -68,7 +68,7 @@ new class extends Component {
         $this->date_time = $class->date_time->format('Y-m-d\TH:i');
         $this->duration_minutes = $class->duration_minutes;
         $this->class_type = $class->class_type;
-        $this->max_capacity = $class->max_capacity;
+        $this->max_capacity = $class->class_type === 'individual' ? 1 : $class->max_capacity;
         $this->location = $class->location;
         $this->meeting_url = $class->meeting_url;
         $this->whatsapp_group_link = $class->whatsapp_group_link;
@@ -164,10 +164,9 @@ new class extends Component {
     {
         $validated = $this->validate();
 
-        // Additional validation for individual classes
-        if ($this->class_type === 'individual' && !empty($this->max_capacity) && $this->max_capacity > 1) {
-            $this->addError('max_capacity', 'Individual classes should not have capacity greater than 1.');
-            return;
+        // Auto-correct max_capacity for individual classes
+        if ($this->class_type === 'individual') {
+            $this->max_capacity = 1;
         }
 
         // Check if changing course affects existing attendance records
