@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Models\ClassModel;
-use App\Models\ClassSession;
 use App\Models\ClassTimetable;
 use App\Models\ClassTimetableUpsell;
 use App\Models\Course;
@@ -46,38 +45,64 @@ test('admin can view upsell tab on class detail page', function () {
         ->assertOk();
 });
 
-test('admin can assign funnel to a session inline', function () {
+test('admin can add funnel to a session', function () {
     $session = $this->class->sessions()->first();
 
     Volt::actingAs($this->admin)
         ->test('admin.class-show', ['class' => $this->class])
-        ->call('updateSessionUpsell', $session->id, 'upsell_funnel_id', $this->funnel->id)
+        ->call('addSessionFunnel', $session->id, $this->funnel->id)
         ->assertHasNoErrors();
 
-    expect($session->fresh()->upsell_funnel_id)->toBe($this->funnel->id);
+    expect($session->fresh()->upsell_funnel_ids)->toBe([$this->funnel->id]);
 });
 
-test('admin can assign PIC to a session inline', function () {
+test('admin can add multiple funnels to a session', function () {
     $session = $this->class->sessions()->first();
+    $funnel2 = Funnel::factory()->published()->create(['user_id' => $this->admin->id]);
 
     Volt::actingAs($this->admin)
         ->test('admin.class-show', ['class' => $this->class])
-        ->call('updateSessionUpsell', $session->id, 'upsell_pic_user_id', $this->admin->id)
+        ->call('addSessionFunnel', $session->id, $this->funnel->id)
+        ->call('addSessionFunnel', $session->id, $funnel2->id)
         ->assertHasNoErrors();
 
-    expect($session->fresh()->upsell_pic_user_id)->toBe($this->admin->id);
+    expect($session->fresh()->upsell_funnel_ids)->toBe([$this->funnel->id, $funnel2->id]);
 });
 
-test('admin can clear funnel from a session', function () {
+test('admin can add PIC to a session', function () {
     $session = $this->class->sessions()->first();
-    $session->update(['upsell_funnel_id' => $this->funnel->id]);
 
     Volt::actingAs($this->admin)
         ->test('admin.class-show', ['class' => $this->class])
-        ->call('updateSessionUpsell', $session->id, 'upsell_funnel_id', '')
+        ->call('addSessionPic', $session->id, $this->admin->id)
         ->assertHasNoErrors();
 
-    expect($session->fresh()->upsell_funnel_id)->toBeNull();
+    expect($session->fresh()->upsell_pic_user_ids)->toBe([$this->admin->id]);
+});
+
+test('admin can remove funnel from a session', function () {
+    $session = $this->class->sessions()->first();
+    $funnel2 = Funnel::factory()->published()->create(['user_id' => $this->admin->id]);
+    $session->update(['upsell_funnel_ids' => [$this->funnel->id, $funnel2->id]]);
+
+    Volt::actingAs($this->admin)
+        ->test('admin.class-show', ['class' => $this->class])
+        ->call('removeSessionFunnel', $session->id, $this->funnel->id)
+        ->assertHasNoErrors();
+
+    expect($session->fresh()->upsell_funnel_ids)->toBe([$funnel2->id]);
+});
+
+test('removing last funnel sets column to null', function () {
+    $session = $this->class->sessions()->first();
+    $session->update(['upsell_funnel_ids' => [$this->funnel->id]]);
+
+    Volt::actingAs($this->admin)
+        ->test('admin.class-show', ['class' => $this->class])
+        ->call('removeSessionFunnel', $session->id, $this->funnel->id)
+        ->assertHasNoErrors();
+
+    expect($session->fresh()->upsell_funnel_ids)->toBeNull();
 });
 
 test('sessions inherit upsell config from timetable slots', function () {
@@ -97,17 +122,58 @@ test('sessions inherit upsell config from timetable slots', function () {
     expect($mondaySessions)->not->toBeEmpty();
 
     foreach ($mondaySessions as $session) {
-        expect($session->upsell_funnel_id)->toBe($this->funnel->id);
-        expect($session->upsell_pic_user_id)->toBe($this->admin->id);
+        expect($session->upsell_funnel_ids)->toBe([$this->funnel->id]);
+        expect($session->upsell_pic_user_ids)->toBe([$this->admin->id]);
     }
 
     $wednesdaySessions = $this->class->sessions()->where('session_time', '14:00')->get();
     expect($wednesdaySessions)->not->toBeEmpty();
 
     foreach ($wednesdaySessions as $session) {
-        expect($session->upsell_funnel_id)->toBeNull();
-        expect($session->upsell_pic_user_id)->toBeNull();
+        expect($session->upsell_funnel_ids)->toBeNull();
+        expect($session->upsell_pic_user_ids)->toBeNull();
     }
+});
+
+test('upsell tab shows visitor count for sessions with funnel visits', function () {
+    $session = $this->class->sessions()->first();
+    $session->update(['upsell_funnel_ids' => [$this->funnel->id]]);
+
+    \App\Models\FunnelSession::factory()->count(3)->create([
+        'funnel_id' => $this->funnel->id,
+        'class_session_id' => $session->id,
+    ]);
+
+    Volt::actingAs($this->admin)
+        ->test('admin.class-show', ['class' => $this->class])
+        ->set('activeTab', 'upsell')
+        ->assertSee('Visitors');
+});
+
+test('upsell stats conversion rate uses visitors as denominator', function () {
+    $session = $this->class->sessions()->first();
+    $session->update(['upsell_funnel_ids' => [$this->funnel->id]]);
+
+    // Create 10 funnel visitors for this class session
+    $funnelSessions = \App\Models\FunnelSession::factory()->count(10)->create([
+        'funnel_id' => $this->funnel->id,
+        'class_session_id' => $session->id,
+    ]);
+
+    // Create 2 orders (conversions) linked to this class session
+    \App\Models\FunnelOrder::factory()->count(2)->create([
+        'funnel_id' => $this->funnel->id,
+        'class_session_id' => $session->id,
+        'session_id' => $funnelSessions->first()->id,
+        'funnel_revenue' => 50.00,
+    ]);
+
+    $component = Volt::actingAs($this->admin)
+        ->test('admin.class-show', ['class' => $this->class])
+        ->set('activeTab', 'upsell');
+
+    // Conversion rate should be 2/10 = 20%
+    $component->assertSee('20');
 });
 
 test('upsell sessions list shows all sessions', function () {
