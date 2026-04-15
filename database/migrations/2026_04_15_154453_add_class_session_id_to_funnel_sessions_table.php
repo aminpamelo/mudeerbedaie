@@ -18,14 +18,15 @@ return new class extends Migration
         DB::table('funnel_sessions')
             ->whereNotNull('metadata')
             ->whereNull('class_session_id')
-            ->orderBy('id')
-            ->each(function ($row) {
-                $metadata = json_decode($row->metadata, true);
+            ->chunkById(100, function ($rows) {
+                foreach ($rows as $row) {
+                    $metadata = json_decode($row->metadata, true);
 
-                if (! empty($metadata['class_session_id'])) {
-                    DB::table('funnel_sessions')
-                        ->where('id', $row->id)
-                        ->update(['class_session_id' => $metadata['class_session_id']]);
+                    if (! empty($metadata['class_session_id'])) {
+                        DB::table('funnel_sessions')
+                            ->where('id', $row->id)
+                            ->update(['class_session_id' => $metadata['class_session_id']]);
+                    }
                 }
             });
     }

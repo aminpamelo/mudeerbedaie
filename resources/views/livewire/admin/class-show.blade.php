@@ -3680,6 +3680,7 @@ new class extends Component
             ->with(['funnelOrders.funnel', 'funnelOrders.productOrder'])
             ->withCount(['funnelOrders as upsell_orders_count' => fn ($q) => $q->whereNotNull('class_session_id')])
             ->withSum(['funnelOrders as upsell_revenue' => fn ($q) => $q->whereNotNull('class_session_id')], 'funnel_revenue')
+            ->withCount(['funnelSessions as upsell_visitors_count'])
             ->find($this->upsellDetailSessionId);
     }
 
@@ -7769,7 +7770,7 @@ new class extends Component
                 <div class="grid grid-cols-4 gap-3 mb-6">
                     <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 text-center">
                         <span class="text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Visitors</span>
-                        <p class="text-lg font-semibold text-blue-600 dark:text-blue-400 mt-0.5 tabular-nums">{{ \App\Models\FunnelSession::where('class_session_id', $detail->id)->count() }}</p>
+                        <p class="text-lg font-semibold text-blue-600 dark:text-blue-400 mt-0.5 tabular-nums">{{ $detail->upsell_visitors_count ?? 0 }}</p>
                     </div>
                     <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 text-center">
                         <span class="text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Funnels</span>
