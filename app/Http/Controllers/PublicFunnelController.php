@@ -112,6 +112,13 @@ class PublicFunnelController extends Controller
         // Get or create session
         $session = $this->getOrCreateSession($request, $funnel);
 
+        // Capture class session reference for upsell tracking
+        if ($request->has('cls') && $session) {
+            $metadata = $session->metadata ?? [];
+            $metadata['class_session_id'] = (int) $request->input('cls');
+            $session->update(['metadata' => $metadata]);
+        }
+
         // Track page view
         $this->trackPageView($session, $step);
 

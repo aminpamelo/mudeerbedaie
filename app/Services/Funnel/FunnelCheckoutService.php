@@ -275,6 +275,7 @@ class FunnelCheckoutService
             'funnel_revenue' => $total,
             'bumps_offered' => $step->orderBumps()->where('is_active', true)->count(),
             'bumps_accepted' => $bumps->count(),
+            'class_session_id' => $session->metadata['class_session_id'] ?? null,
         ]);
     }
 
@@ -548,6 +549,7 @@ class FunnelCheckoutService
                         'step_id' => $upsellStep->id,
                         'order_type' => 'upsell',
                         'funnel_revenue' => $upsellProduct->funnel_price,
+                        'class_session_id' => $session->metadata['class_session_id'] ?? null,
                     ]);
 
                     // Track upsell accepted
