@@ -152,14 +152,6 @@ new class extends Component
     public array $selectedShipmentIds = [];
 
     // Upsell tab properties
-    public bool $showUpsellModal = false;
-    public ?int $editingUpsellId = null;
-    public string $upsellDayOfWeek = '';
-    public string $upsellTimeSlot = '';
-    public ?int $upsellFunnelId = null;
-    public ?int $upsellPicUserId = null;
-    public string $upsellNotes = '';
-    public bool $upsellIsActive = true;
     public string $upsellDateFrom = '';
     public string $upsellDateTo = '';
     public ?int $upsellFilterPicId = null;
@@ -3572,191 +3564,9 @@ new class extends Component
             ->get(['id', 'name']);
     }
 
-    public function getTimetableUpsellsProperty()
-    {
-        if (! $this->class->timetable) {
-            return collect();
-        }
-
-        return $this->class->timetable->upsells()
-            ->with(['funnel', 'pic'])
-            ->get();
-    }
-
-    public function getAvailableSlotsProperty()
-    {
-        if (! $this->class->timetable) {
-            return [];
-        }
-
-        $schedule = $this->class->timetable->weekly_schedule;
-        $slots = [];
-
-        if ($this->class->timetable->recurrence_pattern === 'monthly') {
-            foreach ($schedule as $weekKey => $days) {
-                if (! is_array($days)) {
-                    continue;
-                }
-                foreach ($days as $day => $times) {
-                    if (! is_array($times)) {
-                        continue;
-                    }
-                    foreach ($times as $time) {
-                        $slots[] = ['day' => $day, 'time' => $time, 'label' => ucfirst($day) . ' ' . $time . ' (' . str_replace('_', ' ', ucfirst($weekKey)) . ')'];
-                    }
-                }
-            }
-        } else {
-            foreach ($schedule as $day => $times) {
-                if (! is_array($times)) {
-                    continue;
-                }
-                foreach ($times as $time) {
-                    $slots[] = ['day' => $day, 'time' => $time, 'label' => ucfirst($day) . ' ' . $time];
-                }
-            }
-        }
-
-        return $slots;
-    }
-
-    public function openUpsellModal(?int $upsellId = null): void
-    {
-        if ($upsellId) {
-            $upsell = \App\Models\ClassTimetableUpsell::findOrFail($upsellId);
-            $this->editingUpsellId = $upsell->id;
-            $this->upsellDayOfWeek = $upsell->day_of_week;
-            $this->upsellTimeSlot = $upsell->time_slot;
-            $this->upsellFunnelId = $upsell->funnel_id;
-            $this->upsellPicUserId = $upsell->pic_user_id;
-            $this->upsellNotes = $upsell->notes ?? '';
-            $this->upsellIsActive = $upsell->is_active;
-        } else {
-            $this->resetUpsellForm();
-        }
-        $this->showUpsellModal = true;
-    }
-
-    public function resetUpsellForm(): void
-    {
-        $this->editingUpsellId = null;
-        $this->upsellDayOfWeek = '';
-        $this->upsellTimeSlot = '';
-        $this->upsellFunnelId = null;
-        $this->upsellPicUserId = null;
-        $this->upsellNotes = '';
-        $this->upsellIsActive = true;
-    }
-
-    public function saveUpsell(): void
-    {
-        $this->validate([
-            'upsellDayOfWeek' => 'required|string',
-            'upsellTimeSlot' => 'required|string',
-            'upsellFunnelId' => 'required|exists:funnels,id',
-            'upsellPicUserId' => 'required|exists:users,id',
-        ]);
-
-        \App\Models\ClassTimetableUpsell::updateOrCreate(
-            [
-                'class_timetable_id' => $this->class->timetable->id,
-                'day_of_week' => $this->upsellDayOfWeek,
-                'time_slot' => $this->upsellTimeSlot,
-            ],
-            [
-                'funnel_id' => $this->upsellFunnelId,
-                'pic_user_id' => $this->upsellPicUserId,
-                'is_active' => $this->upsellIsActive,
-                'notes' => $this->upsellNotes ?: null,
-            ]
-        );
-
-        $this->showUpsellModal = false;
-        $this->resetUpsellForm();
-
-        // Sync upsell config to future sessions
-        $this->syncUpsellToSessions();
-
-        session()->flash('success', 'Upsell configuration saved successfully.');
-    }
-
-    public function deleteUpsell(int $upsellId): void
-    {
-        \App\Models\ClassTimetableUpsell::where('id', $upsellId)
-            ->where('class_timetable_id', $this->class->timetable->id)
-            ->delete();
-
-        session()->flash('success', 'Upsell configuration removed.');
-    }
-
-    public function toggleUpsellActive(int $upsellId): void
-    {
-        $upsell = \App\Models\ClassTimetableUpsell::findOrFail($upsellId);
-        $upsell->update(['is_active' => ! $upsell->is_active]);
-    }
-
-    public function syncUpsellToSessions(): void
-    {
-        if (! $this->class->timetable) {
-            return;
-        }
-
-        $upsells = $this->class->timetable->upsells()->active()->get();
-
-        $sessions = $this->class->sessions()
-            ->where('status', 'scheduled')
-            ->where('session_date', '>=', now()->toDateString())
-            ->get();
-
-        foreach ($sessions as $session) {
-            $dayOfWeek = strtolower(\Carbon\Carbon::parse($session->session_date)->format('l'));
-            $upsell = $upsells->first(fn ($u) => $u->day_of_week === $dayOfWeek && $u->time_slot === $session->session_time);
-
-            $session->update([
-                'upsell_funnel_id' => $upsell?->funnel_id,
-                'upsell_pic_user_id' => $upsell?->pic_user_id,
-            ]);
-        }
-    }
-
-    public function getUpsellStatsProperty(): array
-    {
-        $query = \App\Models\FunnelOrder::whereNotNull('class_session_id')
-            ->whereHas('classSession', function ($q) {
-                $q->where('class_id', $this->class->id);
-            });
-
-        if ($this->upsellDateFrom) {
-            $query->whereHas('classSession', fn ($q) => $q->where('session_date', '>=', $this->upsellDateFrom));
-        }
-        if ($this->upsellDateTo) {
-            $query->whereHas('classSession', fn ($q) => $q->where('session_date', '<=', $this->upsellDateTo));
-        }
-
-        $orders = $query->get();
-
-        $totalSessions = $this->class->sessions()
-            ->whereNotNull('upsell_funnel_id')
-            ->when($this->upsellDateFrom, fn ($q) => $q->where('session_date', '>=', $this->upsellDateFrom))
-            ->when($this->upsellDateTo, fn ($q) => $q->where('session_date', '<=', $this->upsellDateTo))
-            ->count();
-
-        $totalConversions = $orders->count();
-        $totalRevenue = $orders->sum('funnel_revenue');
-        $conversionRate = $totalSessions > 0 ? round(($totalConversions / $totalSessions) * 100, 1) : 0;
-
-        return [
-            'total_sessions' => $totalSessions,
-            'total_conversions' => $totalConversions,
-            'total_revenue' => $totalRevenue,
-            'conversion_rate' => $conversionRate,
-        ];
-    }
-
-    public function getUpsellSessionReportsProperty()
+    public function getUpsellSessionsProperty()
     {
         return $this->class->sessions()
-            ->whereNotNull('upsell_funnel_id')
             ->with(['upsellFunnel', 'upsellPic'])
             ->withCount(['funnelOrders as upsell_orders_count' => function ($q) {
                 $q->whereNotNull('class_session_id');
@@ -3768,9 +3578,43 @@ new class extends Component
             ->when($this->upsellDateTo, fn ($q) => $q->where('session_date', '<=', $this->upsellDateTo))
             ->when($this->upsellFilterPicId, fn ($q) => $q->where('upsell_pic_user_id', $this->upsellFilterPicId))
             ->when($this->upsellFilterFunnelId, fn ($q) => $q->where('upsell_funnel_id', $this->upsellFilterFunnelId))
-            ->orderByDesc('session_date')
-            ->limit(50)
+            ->orderBy('session_date')
+            ->orderBy('session_time')
             ->get();
+    }
+
+    public function updateSessionUpsell(int $sessionId, string $field, $value): void
+    {
+        $session = $this->class->sessions()->findOrFail($sessionId);
+
+        $value = $value === '' || $value === null ? null : (int) $value;
+
+        $session->update([$field => $value]);
+    }
+
+    public function getUpsellStatsProperty(): array
+    {
+        $sessions = $this->class->sessions()
+            ->whereNotNull('upsell_funnel_id')
+            ->when($this->upsellDateFrom, fn ($q) => $q->where('session_date', '>=', $this->upsellDateFrom))
+            ->when($this->upsellDateTo, fn ($q) => $q->where('session_date', '<=', $this->upsellDateTo));
+
+        $totalSessions = $sessions->count();
+
+        $orders = \App\Models\FunnelOrder::whereNotNull('class_session_id')
+            ->whereIn('class_session_id', $sessions->clone()->pluck('id'))
+            ->get();
+
+        $totalConversions = $orders->count();
+        $totalRevenue = $orders->sum('funnel_revenue');
+        $conversionRate = $totalSessions > 0 ? round(($totalConversions / $totalSessions) * 100, 1) : 0;
+
+        return [
+            'total_sessions' => $totalSessions,
+            'total_conversions' => $totalConversions,
+            'total_revenue' => $totalRevenue,
+            'conversion_rate' => $conversionRate,
+        ];
     }
 };
 
@@ -7462,218 +7306,149 @@ new class extends Component
 
         <!-- Upsell Tab -->
         <div class="{{ $activeTab === 'upsell' ? 'block' : 'hidden' }}">
-            @if($class->timetable)
-                {{-- Upsell Configuration Section --}}
-                <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6 mb-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <div>
-                            <flux:heading size="lg">Upsell Configuration</flux:heading>
-                            <flux:text class="mt-1">Assign funnels and PICs to timetable slots</flux:text>
-                        </div>
-                        <flux:button variant="primary" size="sm" wire:click="openUpsellModal()">
-                            + Add Upsell
-                        </flux:button>
+            @if($class->sessions->count() > 0)
+                {{-- Summary Stats --}}
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Sessions with Upsell</span>
+                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mt-1 tabular-nums">{{ $this->upsellStats['total_sessions'] }}</p>
                     </div>
-
-                    @if($this->timetableUpsells->count() > 0)
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead>
-                                    <tr class="border-b border-zinc-200 dark:border-zinc-700">
-                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Day</th>
-                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Time</th>
-                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Funnel</th>
-                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">PIC</th>
-                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Status</th>
-                                        <th class="text-right py-3 px-4 font-medium text-zinc-500">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($this->timetableUpsells as $upsell)
-                                        <tr wire:key="upsell-{{ $upsell->id }}" class="border-b border-zinc-100 dark:border-zinc-700/50">
-                                            <td class="py-3 px-4 font-medium">{{ ucfirst($upsell->day_of_week) }}</td>
-                                            <td class="py-3 px-4">{{ \Carbon\Carbon::createFromFormat('H:i', $upsell->time_slot)->format('h:i A') }}</td>
-                                            <td class="py-3 px-4">{{ $upsell->funnel->name }}</td>
-                                            <td class="py-3 px-4">{{ $upsell->pic->name }}</td>
-                                            <td class="py-3 px-4">
-                                                <button wire:click="toggleUpsellActive({{ $upsell->id }})" class="inline-flex items-center gap-1.5">
-                                                    @if($upsell->is_active)
-                                                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                                                        <span class="text-green-700 dark:text-green-400">Active</span>
-                                                    @else
-                                                        <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
-                                                        <span class="text-zinc-500">Inactive</span>
-                                                    @endif
-                                                </button>
-                                            </td>
-                                            <td class="py-3 px-4 text-right">
-                                                <div class="flex items-center justify-end gap-2">
-                                                    <flux:button variant="ghost" size="xs" wire:click="openUpsellModal({{ $upsell->id }})">
-                                                        Edit
-                                                    </flux:button>
-                                                    <flux:button variant="ghost" size="xs" wire:click="deleteUpsell({{ $upsell->id }})" wire:confirm="Remove this upsell configuration?">
-                                                        Delete
-                                                    </flux:button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <div class="text-center py-8">
-                            <flux:icon name="gift" class="w-12 h-12 mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
-                            <flux:heading size="md">No Upsell Configured</flux:heading>
-                            <flux:text class="mt-1">Add upsell funnels to your timetable slots to start tracking conversions.</flux:text>
-                        </div>
-                    @endif
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Conversions</span>
+                        <p class="text-xl font-semibold text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">{{ $this->upsellStats['total_conversions'] }}</p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</span>
+                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mt-1 tabular-nums">RM {{ number_format($this->upsellStats['total_revenue'], 2) }}</p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Conversion Rate</span>
+                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mt-1 tabular-nums">{{ $this->upsellStats['conversion_rate'] }}%</p>
+                    </div>
                 </div>
 
-                {{-- Conversion Report Section --}}
-                <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-                    <div class="mb-4">
-                        <flux:heading size="lg">Conversion Report</flux:heading>
-                        <flux:text class="mt-1">Track upsell performance per session</flux:text>
-                    </div>
-
-                    {{-- Summary Cards --}}
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <div class="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-4">
-                            <flux:text class="text-xs font-medium text-zinc-500 uppercase">Sessions with Upsell</flux:text>
-                            <p class="text-2xl font-bold mt-1">{{ $this->upsellStats['total_sessions'] }}</p>
-                        </div>
-                        <div class="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-4">
-                            <flux:text class="text-xs font-medium text-zinc-500 uppercase">Conversions</flux:text>
-                            <p class="text-2xl font-bold mt-1 text-green-600">{{ $this->upsellStats['total_conversions'] }}</p>
-                        </div>
-                        <div class="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-4">
-                            <flux:text class="text-xs font-medium text-zinc-500 uppercase">Revenue</flux:text>
-                            <p class="text-2xl font-bold mt-1">RM {{ number_format($this->upsellStats['total_revenue'], 2) }}</p>
-                        </div>
-                        <div class="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-4">
-                            <flux:text class="text-xs font-medium text-zinc-500 uppercase">Conversion Rate</flux:text>
-                            <p class="text-2xl font-bold mt-1">{{ $this->upsellStats['conversion_rate'] }}%</p>
-                        </div>
-                    </div>
-
-                    {{-- Filters --}}
-                    <div class="flex flex-wrap gap-3 mb-4">
+                {{-- Filters --}}
+                <div class="flex items-end gap-2 flex-wrap mb-4">
+                    <div class="w-36 shrink-0">
                         <flux:input type="date" wire:model.live="upsellDateFrom" label="From" size="sm" />
+                    </div>
+                    <div class="w-36 shrink-0">
                         <flux:input type="date" wire:model.live="upsellDateTo" label="To" size="sm" />
+                    </div>
+                    <div class="w-40 shrink-0">
                         <flux:select wire:model.live="upsellFilterFunnelId" label="Funnel" size="sm" placeholder="All Funnels">
                             @foreach($this->availableFunnels as $funnel)
                                 <flux:select.option value="{{ $funnel->id }}">{{ $funnel->name }}</flux:select.option>
                             @endforeach
                         </flux:select>
+                    </div>
+                    <div class="w-40 shrink-0">
                         <flux:select wire:model.live="upsellFilterPicId" label="PIC" size="sm" placeholder="All PICs">
                             @foreach($this->upsellAvailablePics as $pic)
                                 <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
                             @endforeach
                         </flux:select>
                     </div>
+                </div>
 
-                    {{-- Session Report Table --}}
-                    @if($this->upsellSessionReports->count() > 0)
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead>
-                                    <tr class="border-b border-zinc-200 dark:border-zinc-700">
-                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Session</th>
-                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Date</th>
-                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">PIC</th>
-                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Funnel</th>
-                                        <th class="text-right py-3 px-4 font-medium text-zinc-500">Orders</th>
-                                        <th class="text-right py-3 px-4 font-medium text-zinc-500">Revenue</th>
+                {{-- Session List with Inline Upsell Management --}}
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Session Upsell Management</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Assign funnels and PICs directly to each session</p>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                                    <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Date</th>
+                                    <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Day</th>
+                                    <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Time</th>
+                                    <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</th>
+                                    <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 min-w-[180px]">Funnel</th>
+                                    <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 min-w-[160px]">PIC</th>
+                                    <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Orders</th>
+                                    <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
+                                @forelse($this->upsellSessions as $session)
+                                    <tr wire:key="upsell-session-{{ $session->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                                        <td class="py-2 px-3 text-sm text-zinc-900 dark:text-zinc-100 tabular-nums whitespace-nowrap">
+                                            {{ \Carbon\Carbon::parse($session->session_date)->format('M d, Y') }}
+                                        </td>
+                                        <td class="py-2 px-3 text-sm text-zinc-600 dark:text-zinc-400">
+                                            {{ ucfirst(\Carbon\Carbon::parse($session->session_date)->format('l')) }}
+                                        </td>
+                                        <td class="py-2 px-3 text-sm text-zinc-600 dark:text-zinc-400 tabular-nums">
+                                            {{ \Carbon\Carbon::createFromFormat('H:i', $session->session_time)->format('h:i A') }}
+                                        </td>
+                                        <td class="py-2 px-3">
+                                            @php
+                                                $statusColors = [
+                                                    'scheduled' => 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+                                                    'ongoing' => 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+                                                    'completed' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+                                                    'cancelled' => 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+                                                    'no_show' => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-500/20 dark:text-zinc-400',
+                                                ];
+                                            @endphp
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium {{ $statusColors[$session->status] ?? 'bg-zinc-100 text-zinc-700' }}">
+                                                {{ ucfirst(str_replace('_', ' ', $session->status)) }}
+                                            </span>
+                                        </td>
+                                        <td class="py-1.5 px-3">
+                                            <select
+                                                wire:change="updateSessionUpsell({{ $session->id }}, 'upsell_funnel_id', $event.target.value)"
+                                                class="w-full text-xs rounded-md border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 focus:border-blue-500 focus:ring-blue-500 py-1.5"
+                                            >
+                                                <option value="">— No Funnel —</option>
+                                                @foreach($this->availableFunnels as $funnel)
+                                                    <option value="{{ $funnel->id }}" @selected($session->upsell_funnel_id == $funnel->id)>{{ $funnel->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+                                        <td class="py-1.5 px-3">
+                                            <select
+                                                wire:change="updateSessionUpsell({{ $session->id }}, 'upsell_pic_user_id', $event.target.value)"
+                                                class="w-full text-xs rounded-md border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 focus:border-blue-500 focus:ring-blue-500 py-1.5"
+                                            >
+                                                <option value="">— No PIC —</option>
+                                                @foreach($this->upsellAvailablePics as $pic)
+                                                    <option value="{{ $pic->id }}" @selected($session->upsell_pic_user_id == $pic->id)>{{ $pic->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+                                        <td class="py-2 px-3 text-right font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">
+                                            {{ $session->upsell_orders_count ?? 0 }}
+                                        </td>
+                                        <td class="py-2 px-3 text-right font-medium text-zinc-900 dark:text-zinc-100 tabular-nums whitespace-nowrap">
+                                            RM {{ number_format($session->upsell_revenue ?? 0, 2) }}
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($this->upsellSessionReports as $report)
-                                        <tr wire:key="upsell-report-{{ $report->id }}" class="border-b border-zinc-100 dark:border-zinc-700/50">
-                                            <td class="py-3 px-4 font-medium">
-                                                {{ ucfirst(\Carbon\Carbon::parse($report->session_date)->format('D')) }}
-                                                {{ \Carbon\Carbon::createFromFormat('H:i', $report->session_time)->format('h:i A') }}
-                                            </td>
-                                            <td class="py-3 px-4">{{ \Carbon\Carbon::parse($report->session_date)->format('M d, Y') }}</td>
-                                            <td class="py-3 px-4">{{ $report->upsellPic?->name ?? '—' }}</td>
-                                            <td class="py-3 px-4">{{ $report->upsellFunnel?->name ?? '—' }}</td>
-                                            <td class="py-3 px-4 text-right font-medium">{{ $report->upsell_orders_count ?? 0 }}</td>
-                                            <td class="py-3 px-4 text-right font-medium">RM {{ number_format($report->upsell_revenue ?? 0, 2) }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <div class="text-center py-8 text-zinc-400">
-                            <flux:text>No conversion data available yet.</flux:text>
-                        </div>
-                    @endif
+                                @empty
+                                    <tr>
+                                        <td colspan="8" class="py-8 text-center">
+                                            <flux:icon name="calendar" class="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
+                                            <p class="text-xs text-zinc-400 dark:text-zinc-500">No sessions found matching your filters.</p>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             @else
-                {{-- No Timetable Empty State --}}
-                <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-12 text-center">
-                    <flux:icon name="calendar" class="w-12 h-12 mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
-                    <flux:heading size="md">No Timetable Configured</flux:heading>
-                    <flux:text class="mt-1">This class doesn't have a recurring timetable. Configure a timetable first to set up upsells.</flux:text>
+                {{-- No Sessions Empty State --}}
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 py-12 px-6 text-center">
+                    <flux:icon name="calendar" class="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
+                    <h4 class="text-sm font-medium text-zinc-500 dark:text-zinc-400">No Sessions Available</h4>
+                    <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">This class doesn't have any sessions yet. Configure a timetable and generate sessions first.</p>
                 </div>
             @endif
         </div>
         <!-- End Upsell Tab -->
-
-        {{-- Upsell Modal --}}
-        <flux:modal wire:model="showUpsellModal" class="max-w-lg">
-            <div class="space-y-6">
-                <flux:heading size="lg">{{ $editingUpsellId ? 'Edit' : 'Add' }} Upsell Configuration</flux:heading>
-
-                <div class="space-y-4">
-                    {{-- Slot Selection --}}
-                    @php
-                        $uniqueDays = collect($this->availableSlots)->pluck('day')->unique()->values();
-                    @endphp
-                    <flux:select wire:model.live="upsellDayOfWeek" label="Day" placeholder="Select day...">
-                        @foreach($uniqueDays as $day)
-                            <flux:select.option value="{{ $day }}">{{ ucfirst($day) }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-
-                    @if($upsellDayOfWeek)
-                        <flux:select wire:model="upsellTimeSlot" label="Time Slot" placeholder="Select time...">
-                            @foreach($this->availableSlots as $slot)
-                                @if($slot['day'] === $upsellDayOfWeek)
-                                    <flux:select.option value="{{ $slot['time'] }}">{{ \Carbon\Carbon::createFromFormat('H:i', $slot['time'])->format('h:i A') }}</flux:select.option>
-                                @endif
-                            @endforeach
-                        </flux:select>
-                    @endif
-
-                    {{-- Funnel Selection --}}
-                    <flux:select wire:model="upsellFunnelId" label="Funnel" placeholder="Select funnel...">
-                        @foreach($this->availableFunnels as $funnel)
-                            <flux:select.option value="{{ $funnel->id }}">{{ $funnel->name }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-
-                    {{-- PIC Selection --}}
-                    <flux:select wire:model="upsellPicUserId" label="Person In Charge (PIC)" placeholder="Select PIC...">
-                        @foreach($this->upsellAvailablePics as $pic)
-                            <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-
-                    {{-- Notes --}}
-                    <flux:textarea wire:model="upsellNotes" label="Notes (optional)" placeholder="Instructions for the PIC..." rows="3" />
-
-                    {{-- Active Toggle --}}
-                    <flux:switch wire:model="upsellIsActive" label="Active" description="Enable upsell for this slot" />
-                </div>
-
-                <div class="flex justify-end gap-3">
-                    <flux:button variant="ghost" wire:click="$set('showUpsellModal', false)">Cancel</flux:button>
-                    <flux:button variant="primary" wire:click="saveUpsell">Save</flux:button>
-                </div>
-            </div>
-        </flux:modal>
 
     </div>
 
