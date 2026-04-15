@@ -24,6 +24,7 @@ class FunnelOrder extends Model
         'downsells_accepted',
         'bumps_offered',
         'bumps_accepted',
+        'class_session_id',
     ];
 
     protected function casts(): array
@@ -57,6 +58,11 @@ class FunnelOrder extends Model
     public function commission(): HasOne
     {
         return $this->hasOne(FunnelAffiliateCommission::class, 'funnel_order_id');
+    }
+
+    public function classSession(): BelongsTo
+    {
+        return $this->belongsTo(ClassSession::class, 'class_session_id');
     }
 
     // Type helpers

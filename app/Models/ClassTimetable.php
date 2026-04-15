@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ClassTimetable extends Model
 {
@@ -30,6 +31,11 @@ class ClassTimetable extends Model
     public function class(): BelongsTo
     {
         return $this->belongsTo(ClassModel::class, 'class_id');
+    }
+
+    public function upsells(): HasMany
+    {
+        return $this->hasMany(ClassTimetableUpsell::class, 'class_timetable_id');
     }
 
     public function generateSessions(): array

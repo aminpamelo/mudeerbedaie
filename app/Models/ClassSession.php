@@ -47,6 +47,8 @@ class ClassSession extends Model
         'verified_by',
         'verifier_role',
         'payout_status',
+        'upsell_funnel_id',
+        'upsell_pic_user_id',
     ];
 
     protected function casts(): array
@@ -88,6 +90,21 @@ class ClassSession extends Model
     public function assignedTeacher(): BelongsTo
     {
         return $this->belongsTo(Teacher::class, 'assigned_to');
+    }
+
+    public function upsellFunnel(): BelongsTo
+    {
+        return $this->belongsTo(Funnel::class, 'upsell_funnel_id');
+    }
+
+    public function upsellPic(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'upsell_pic_user_id');
+    }
+
+    public function funnelOrders(): HasMany
+    {
+        return $this->hasMany(FunnelOrder::class, 'class_session_id');
     }
 
     /**
