@@ -39,6 +39,7 @@ class FunnelSession extends Model
         'ip_address',
         'user_agent',
         'metadata',
+        'class_session_id',
     ];
 
     protected function casts(): array
@@ -99,6 +100,11 @@ class FunnelSession extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(FunnelOrder::class, 'session_id');
+    }
+
+    public function classSession(): BelongsTo
+    {
+        return $this->belongsTo(ClassSession::class, 'class_session_id');
     }
 
     public function cart(): HasOne
