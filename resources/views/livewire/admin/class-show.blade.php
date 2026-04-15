@@ -156,6 +156,8 @@ new class extends Component
     public string $upsellDateTo = '';
     public ?int $upsellFilterPicId = null;
     public ?int $upsellFilterFunnelId = null;
+    public ?int $upsellDetailSessionId = null;
+    public bool $showUpsellDetailModal = false;
 
     // Student item selection properties
     public array $selectedShipmentItemIds = [];
@@ -3567,50 +3569,144 @@ new class extends Component
     public function getUpsellSessionsProperty()
     {
         return $this->class->sessions()
-            ->with(['upsellFunnel', 'upsellPic'])
+            ->with(['assignedTeacher.user'])
             ->withCount(['funnelOrders as upsell_orders_count' => function ($q) {
                 $q->whereNotNull('class_session_id');
             }])
             ->withSum(['funnelOrders as upsell_revenue' => function ($q) {
                 $q->whereNotNull('class_session_id');
             }], 'funnel_revenue')
+            ->withCount(['funnelSessions as upsell_visitors_count'])
             ->when($this->upsellDateFrom, fn ($q) => $q->where('session_date', '>=', $this->upsellDateFrom))
             ->when($this->upsellDateTo, fn ($q) => $q->where('session_date', '<=', $this->upsellDateTo))
-            ->when($this->upsellFilterPicId, fn ($q) => $q->where('upsell_pic_user_id', $this->upsellFilterPicId))
-            ->when($this->upsellFilterFunnelId, fn ($q) => $q->where('upsell_funnel_id', $this->upsellFilterFunnelId))
+            ->when($this->upsellFilterPicId, fn ($q) => $q->whereJsonContains('upsell_pic_user_ids', (int) $this->upsellFilterPicId))
+            ->when($this->upsellFilterFunnelId, fn ($q) => $q->whereJsonContains('upsell_funnel_ids', (int) $this->upsellFilterFunnelId))
             ->orderBy('session_date')
             ->orderBy('session_time')
             ->get();
     }
 
-    public function updateSessionUpsell(int $sessionId, string $field, $value): void
+    public function addSessionFunnel(int $sessionId, int $funnelId): void
     {
         $session = $this->class->sessions()->findOrFail($sessionId);
+        $ids = $session->upsell_funnel_ids ?? [];
 
-        $value = $value === '' || $value === null ? null : (int) $value;
+        if (! in_array($funnelId, $ids)) {
+            $ids[] = $funnelId;
+            $session->update(['upsell_funnel_ids' => $ids]);
+        }
+    }
 
-        $session->update([$field => $value]);
+    public function removeSessionFunnel(int $sessionId, int $funnelId): void
+    {
+        $session = $this->class->sessions()->findOrFail($sessionId);
+        $ids = array_values(array_diff($session->upsell_funnel_ids ?? [], [$funnelId]));
+        $session->update(['upsell_funnel_ids' => empty($ids) ? null : $ids]);
+    }
+
+    public function addSessionPic(int $sessionId, int $userId): void
+    {
+        $session = $this->class->sessions()->findOrFail($sessionId);
+        $ids = $session->upsell_pic_user_ids ?? [];
+
+        if (! in_array($userId, $ids)) {
+            $ids[] = $userId;
+            $session->update(['upsell_pic_user_ids' => $ids]);
+        }
+    }
+
+    public function removeSessionPic(int $sessionId, int $userId): void
+    {
+        $session = $this->class->sessions()->findOrFail($sessionId);
+        $ids = array_values(array_diff($session->upsell_pic_user_ids ?? [], [$userId]));
+        $session->update(['upsell_pic_user_ids' => empty($ids) ? null : $ids]);
+    }
+
+    public function getUpsellAvailableTeachersProperty()
+    {
+        return \App\Models\User::where('status', 'active')
+            ->where(function ($q) {
+                $q->whereHas('teacher')
+                    ->orWhereIn('role', ['admin', 'class_admin']);
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    public function addSessionTeacher(int $sessionId, int $userId): void
+    {
+        $session = $this->class->sessions()->findOrFail($sessionId);
+        $ids = $session->upsell_teacher_ids ?? [];
+
+        if (! in_array($userId, $ids)) {
+            $ids[] = $userId;
+            $session->update(['upsell_teacher_ids' => $ids]);
+        }
+    }
+
+    public function removeSessionTeacher(int $sessionId, int $userId): void
+    {
+        $session = $this->class->sessions()->findOrFail($sessionId);
+        $ids = array_values(array_diff($session->upsell_teacher_ids ?? [], [$userId]));
+        $session->update(['upsell_teacher_ids' => empty($ids) ? null : $ids]);
+    }
+
+    public function updateSessionCommissionRate(int $sessionId, $rate): void
+    {
+        $session = $this->class->sessions()->findOrFail($sessionId);
+        $rate = $rate === '' || $rate === null ? null : (float) $rate;
+        $session->update(['upsell_teacher_commission_rate' => $rate]);
+    }
+
+    public function showUpsellDetail(int $sessionId): void
+    {
+        $this->upsellDetailSessionId = $sessionId;
+        $this->showUpsellDetailModal = true;
+    }
+
+    public function closeUpsellDetail(): void
+    {
+        $this->showUpsellDetailModal = false;
+        $this->upsellDetailSessionId = null;
+    }
+
+    public function getUpsellDetailSessionProperty()
+    {
+        if (! $this->upsellDetailSessionId) {
+            return null;
+        }
+
+        return $this->class->sessions()
+            ->with(['funnelOrders.funnel', 'funnelOrders.productOrder'])
+            ->withCount(['funnelOrders as upsell_orders_count' => fn ($q) => $q->whereNotNull('class_session_id')])
+            ->withSum(['funnelOrders as upsell_revenue' => fn ($q) => $q->whereNotNull('class_session_id')], 'funnel_revenue')
+            ->find($this->upsellDetailSessionId);
     }
 
     public function getUpsellStatsProperty(): array
     {
         $sessions = $this->class->sessions()
-            ->whereNotNull('upsell_funnel_id')
+            ->whereNotNull('upsell_funnel_ids')
             ->when($this->upsellDateFrom, fn ($q) => $q->where('session_date', '>=', $this->upsellDateFrom))
             ->when($this->upsellDateTo, fn ($q) => $q->where('session_date', '<=', $this->upsellDateTo));
 
         $totalSessions = $sessions->count();
 
+        $sessionIds = $sessions->clone()->pluck('id');
+
+        $totalVisitors = \App\Models\FunnelSession::whereIn('class_session_id', $sessionIds)->count();
+
         $orders = \App\Models\FunnelOrder::whereNotNull('class_session_id')
-            ->whereIn('class_session_id', $sessions->clone()->pluck('id'))
+            ->whereIn('class_session_id', $sessionIds)
             ->get();
 
         $totalConversions = $orders->count();
         $totalRevenue = $orders->sum('funnel_revenue');
-        $conversionRate = $totalSessions > 0 ? round(($totalConversions / $totalSessions) * 100, 1) : 0;
+        $conversionRate = $totalVisitors > 0 ? round(($totalConversions / $totalVisitors) * 100, 1) : 0;
 
         return [
             'total_sessions' => $totalSessions,
+            'total_visitors' => $totalVisitors,
             'total_conversions' => $totalConversions,
             'total_revenue' => $totalRevenue,
             'conversion_rate' => $conversionRate,
@@ -7308,10 +7404,14 @@ new class extends Component
         <div class="{{ $activeTab === 'upsell' ? 'block' : 'hidden' }}">
             @if($class->sessions->count() > 0)
                 {{-- Summary Stats --}}
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
                     <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
                         <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Sessions with Upsell</span>
                         <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mt-1 tabular-nums">{{ $this->upsellStats['total_sessions'] }}</p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Visitors</span>
+                        <p class="text-xl font-semibold text-blue-600 dark:text-blue-400 mt-1 tabular-nums">{{ $this->upsellStats['total_visitors'] }}</p>
                     </div>
                     <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
                         <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Conversions</span>
@@ -7368,8 +7468,13 @@ new class extends Component
                                     <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</th>
                                     <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 min-w-[180px]">Funnel</th>
                                     <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 min-w-[160px]">PIC</th>
+                                    <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Teacher</th>
+                                    <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Commission %</th>
+                                    <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Visitors</th>
                                     <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Orders</th>
                                     <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</th>
+                                    <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Commission</th>
+                                    <th class="text-center py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -7398,27 +7503,194 @@ new class extends Component
                                                 {{ ucfirst(str_replace('_', ' ', $session->status)) }}
                                             </span>
                                         </td>
-                                        <td class="py-1.5 px-3">
-                                            <select
-                                                wire:change="updateSessionUpsell({{ $session->id }}, 'upsell_funnel_id', $event.target.value)"
-                                                class="w-full text-xs rounded-md border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 focus:border-blue-500 focus:ring-blue-500 py-1.5"
-                                            >
-                                                <option value="">— No Funnel —</option>
-                                                @foreach($this->availableFunnels as $funnel)
-                                                    <option value="{{ $funnel->id }}" @selected($session->upsell_funnel_id == $funnel->id)>{{ $funnel->name }}</option>
-                                                @endforeach
-                                            </select>
+                                        {{-- Funnel Multi-Select --}}
+                                        <td class="py-1.5 px-3"
+                                            x-data="{
+                                                open: false,
+                                                search: '',
+                                                selectedIds: @js($session->upsell_funnel_ids ?? []),
+                                                items: @js($this->availableFunnels->map(fn($f) => ['id' => $f->id, 'name' => $f->name])->values()),
+                                                get filtered() {
+                                                    let available = this.items.filter(i => !this.selectedIds.includes(i.id));
+                                                    if (!this.search) return available;
+                                                    return available.filter(i => i.name.toLowerCase().includes(this.search.toLowerCase()));
+                                                },
+                                                getName(id) {
+                                                    let item = this.items.find(i => i.id === id);
+                                                    return item ? item.name : '';
+                                                },
+                                                add(id) {
+                                                    if (!this.selectedIds.includes(id)) {
+                                                        this.selectedIds.push(id);
+                                                        $wire.addSessionFunnel({{ $session->id }}, id);
+                                                    }
+                                                    this.search = '';
+                                                },
+                                                remove(id) {
+                                                    this.selectedIds = this.selectedIds.filter(i => i !== id);
+                                                    $wire.removeSessionFunnel({{ $session->id }}, id);
+                                                }
+                                            }"
+                                            @click.outside="open = false; search = ''"
+                                        >
+                                            <div class="relative">
+                                                <div class="flex flex-wrap gap-1 items-center min-h-[30px]">
+                                                    <template x-for="id in selectedIds" :key="id">
+                                                        <span class="inline-flex items-center gap-0.5 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 text-[10px] leading-tight px-1.5 py-0.5 rounded-full max-w-[120px]">
+                                                            <span x-text="getName(id)" class="truncate"></span>
+                                                            <button @click.stop="remove(id)" type="button" class="hover:text-blue-900 dark:hover:text-blue-100 shrink-0">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                            </button>
+                                                        </span>
+                                                    </template>
+                                                    <button @click="open = !open" type="button" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-0.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                                    </button>
+                                                </div>
+                                                <div x-show="open" x-transition.opacity.duration.150ms class="absolute z-50 mt-1 w-56 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-lg shadow-lg" style="display: none;">
+                                                    <div class="p-1.5">
+                                                        <input x-model="search" @keydown.escape="open = false; search = ''" type="text" placeholder="Search funnel..." class="w-full text-xs rounded-md border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 py-1.5 px-2 focus:border-blue-500 focus:ring-blue-500" @click.stop />
+                                                    </div>
+                                                    <div class="max-h-40 overflow-y-auto">
+                                                        <template x-for="item in filtered" :key="item.id">
+                                                            <button @click="add(item.id)" type="button" class="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors" x-text="item.name"></button>
+                                                        </template>
+                                                        <div x-show="filtered.length === 0 && search" class="px-3 py-2 text-xs text-zinc-400">No funnels found</div>
+                                                        <div x-show="filtered.length === 0 && !search" class="px-3 py-2 text-xs text-zinc-400">All funnels assigned</div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td class="py-1.5 px-3">
-                                            <select
-                                                wire:change="updateSessionUpsell({{ $session->id }}, 'upsell_pic_user_id', $event.target.value)"
-                                                class="w-full text-xs rounded-md border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 focus:border-blue-500 focus:ring-blue-500 py-1.5"
-                                            >
-                                                <option value="">— No PIC —</option>
-                                                @foreach($this->upsellAvailablePics as $pic)
-                                                    <option value="{{ $pic->id }}" @selected($session->upsell_pic_user_id == $pic->id)>{{ $pic->name }}</option>
-                                                @endforeach
-                                            </select>
+                                        {{-- PIC Multi-Select --}}
+                                        <td class="py-1.5 px-3"
+                                            x-data="{
+                                                open: false,
+                                                search: '',
+                                                selectedIds: @js($session->upsell_pic_user_ids ?? []),
+                                                items: @js($this->upsellAvailablePics->map(fn($p) => ['id' => $p->id, 'name' => $p->name])->values()),
+                                                get filtered() {
+                                                    let available = this.items.filter(i => !this.selectedIds.includes(i.id));
+                                                    if (!this.search) return available;
+                                                    return available.filter(i => i.name.toLowerCase().includes(this.search.toLowerCase()));
+                                                },
+                                                getName(id) {
+                                                    let item = this.items.find(i => i.id === id);
+                                                    return item ? item.name : '';
+                                                },
+                                                add(id) {
+                                                    if (!this.selectedIds.includes(id)) {
+                                                        this.selectedIds.push(id);
+                                                        $wire.addSessionPic({{ $session->id }}, id);
+                                                    }
+                                                    this.search = '';
+                                                },
+                                                remove(id) {
+                                                    this.selectedIds = this.selectedIds.filter(i => i !== id);
+                                                    $wire.removeSessionPic({{ $session->id }}, id);
+                                                }
+                                            }"
+                                            @click.outside="open = false; search = ''"
+                                        >
+                                            <div class="relative">
+                                                <div class="flex flex-wrap gap-1 items-center min-h-[30px]">
+                                                    <template x-for="id in selectedIds" :key="id">
+                                                        <span class="inline-flex items-center gap-0.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] leading-tight px-1.5 py-0.5 rounded-full max-w-[120px]">
+                                                            <span x-text="getName(id)" class="truncate"></span>
+                                                            <button @click.stop="remove(id)" type="button" class="hover:text-emerald-900 dark:hover:text-emerald-100 shrink-0">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                            </button>
+                                                        </span>
+                                                    </template>
+                                                    <button @click="open = !open" type="button" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-0.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                                    </button>
+                                                </div>
+                                                <div x-show="open" x-transition.opacity.duration.150ms class="absolute z-50 mt-1 w-56 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-lg shadow-lg" style="display: none;">
+                                                    <div class="p-1.5">
+                                                        <input x-model="search" @keydown.escape="open = false; search = ''" type="text" placeholder="Search PIC..." class="w-full text-xs rounded-md border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 py-1.5 px-2 focus:border-blue-500 focus:ring-blue-500" @click.stop />
+                                                    </div>
+                                                    <div class="max-h-40 overflow-y-auto">
+                                                        <template x-for="item in filtered" :key="item.id">
+                                                            <button @click="add(item.id)" type="button" class="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors" x-text="item.name"></button>
+                                                        </template>
+                                                        <div x-show="filtered.length === 0 && search" class="px-3 py-2 text-xs text-zinc-400">No PICs found</div>
+                                                        <div x-show="filtered.length === 0 && !search" class="px-3 py-2 text-xs text-zinc-400">All PICs assigned</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        {{-- Teacher Multi-Select --}}
+                                        <td class="py-1.5 px-3"
+                                            x-data="{
+                                                open: false,
+                                                search: '',
+                                                selectedIds: @js($session->upsell_teacher_ids ?? []),
+                                                items: @js($this->upsellAvailableTeachers->map(fn($u) => ['id' => $u->id, 'name' => $u->name])->values()),
+                                                get filtered() {
+                                                    let available = this.items.filter(i => !this.selectedIds.includes(i.id));
+                                                    if (!this.search) return available;
+                                                    return available.filter(i => i.name.toLowerCase().includes(this.search.toLowerCase()));
+                                                },
+                                                getName(id) {
+                                                    let item = this.items.find(i => i.id === id);
+                                                    return item ? item.name : '';
+                                                },
+                                                add(id) {
+                                                    if (!this.selectedIds.includes(id)) {
+                                                        this.selectedIds.push(id);
+                                                        $wire.addSessionTeacher({{ $session->id }}, id);
+                                                    }
+                                                    this.search = '';
+                                                },
+                                                remove(id) {
+                                                    this.selectedIds = this.selectedIds.filter(i => i !== id);
+                                                    $wire.removeSessionTeacher({{ $session->id }}, id);
+                                                }
+                                            }"
+                                            @click.outside="open = false; search = ''"
+                                        >
+                                            <div class="relative">
+                                                <div class="flex flex-wrap gap-1 items-center min-h-[30px]">
+                                                    <template x-for="id in selectedIds" :key="id">
+                                                        <span class="inline-flex items-center gap-0.5 bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 text-[10px] leading-tight px-1.5 py-0.5 rounded-full max-w-[120px]">
+                                                            <span x-text="getName(id)" class="truncate"></span>
+                                                            <button @click.stop="remove(id)" type="button" class="hover:text-violet-900 dark:hover:text-violet-100 shrink-0">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                            </button>
+                                                        </span>
+                                                    </template>
+                                                    <button @click="open = !open" type="button" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-0.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                                    </button>
+                                                </div>
+                                                <div x-show="open" x-transition.opacity.duration.150ms class="absolute z-50 mt-1 w-56 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-lg shadow-lg" style="display: none;">
+                                                    <div class="p-1.5">
+                                                        <input x-model="search" @keydown.escape="open = false; search = ''" type="text" placeholder="Search teacher..." class="w-full text-xs rounded-md border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 py-1.5 px-2 focus:border-blue-500 focus:ring-blue-500" @click.stop />
+                                                    </div>
+                                                    <div class="max-h-40 overflow-y-auto">
+                                                        <template x-for="item in filtered" :key="item.id">
+                                                            <button @click="add(item.id)" type="button" class="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors" x-text="item.name"></button>
+                                                        </template>
+                                                        <div x-show="filtered.length === 0 && search" class="px-3 py-2 text-xs text-zinc-400">No teachers found</div>
+                                                        <div x-show="filtered.length === 0 && !search" class="px-3 py-2 text-xs text-zinc-400">All teachers assigned</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        {{-- Commission Rate --}}
+                                        <td class="py-1.5 px-3 text-right">
+                                            <div class="flex items-center justify-end gap-1">
+                                                <input type="number"
+                                                       value="{{ $session->upsell_teacher_commission_rate ?? '' }}"
+                                                       min="0" max="100" step="0.5"
+                                                       placeholder="—"
+                                                       class="w-16 text-right text-xs rounded-md border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 py-1.5 px-2 focus:border-blue-500 focus:ring-blue-500 tabular-nums"
+                                                       wire:change="updateSessionCommissionRate({{ $session->id }}, $event.target.value)" />
+                                                <span class="text-xs text-zinc-400">%</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-2 px-3 text-right font-medium text-blue-600 dark:text-blue-400 tabular-nums">
+                                            {{ $session->upsell_visitors_count ?? 0 }}
                                         </td>
                                         <td class="py-2 px-3 text-right font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">
                                             {{ $session->upsell_orders_count ?? 0 }}
@@ -7426,10 +7698,23 @@ new class extends Component
                                         <td class="py-2 px-3 text-right font-medium text-zinc-900 dark:text-zinc-100 tabular-nums whitespace-nowrap">
                                             RM {{ number_format($session->upsell_revenue ?? 0, 2) }}
                                         </td>
+                                        {{-- Calculated Commission --}}
+                                        <td class="py-2 px-3 text-right font-medium tabular-nums whitespace-nowrap {{ ($session->upsell_teacher_commission_rate && ($session->upsell_revenue ?? 0) > 0) ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400' }}">
+                                            @if($session->upsell_teacher_commission_rate && ($session->upsell_revenue ?? 0) > 0)
+                                                RM {{ number_format(($session->upsell_revenue * $session->upsell_teacher_commission_rate / 100), 2) }}
+                                            @else
+                                                RM 0.00
+                                            @endif
+                                        </td>
+                                        <td class="py-2 px-3 text-center">
+                                            <flux:button variant="ghost" size="sm" wire:click="showUpsellDetail({{ $session->id }})">
+                                                <flux:icon name="eye" class="w-4 h-4" />
+                                            </flux:button>
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="py-8 text-center">
+                                        <td colspan="13" class="py-8 text-center">
                                             <flux:icon name="calendar" class="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
                                             <p class="text-xs text-zinc-400 dark:text-zinc-500">No sessions found matching your filters.</p>
                                         </td>
@@ -7451,6 +7736,237 @@ new class extends Component
         <!-- End Upsell Tab -->
 
     </div>
+
+    <!-- Upsell Session Detail Modal -->
+    <flux:modal name="upsell-detail" :show="$showUpsellDetailModal" wire:model="showUpsellDetailModal" class="md:w-3xl">
+        @if($this->upsellDetailSession)
+            @php
+                $detail = $this->upsellDetailSession;
+                $funnels = $detail->upsellFunnels();
+                $pics = $detail->upsellPics();
+                $orders = $detail->funnelOrders->where('class_session_id', $detail->id);
+                $statusColors = [
+                    'scheduled' => 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+                    'ongoing' => 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+                    'completed' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+                    'cancelled' => 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+                    'no_show' => 'bg-zinc-100 text-zinc-700 dark:bg-zinc-500/20 dark:text-zinc-400',
+                ];
+            @endphp
+            <div class="pt-6">
+                {{-- Header --}}
+                <div class="flex items-start justify-between mb-6">
+                    <div>
+                        <flux:heading size="lg">Session Upsell Detail</flux:heading>
+                        <flux:text class="mt-1">{{ $detail->session_date->format('l, M d, Y') }} at {{ \Carbon\Carbon::parse($detail->session_time)->format('h:i A') }}</flux:text>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {{ $statusColors[$detail->status] ?? 'bg-zinc-100 text-zinc-700' }}">
+                        {{ ucfirst(str_replace('_', ' ', $detail->status)) }}
+                    </span>
+                </div>
+
+                {{-- Summary Cards --}}
+                <div class="grid grid-cols-4 gap-3 mb-6">
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 text-center">
+                        <span class="text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Visitors</span>
+                        <p class="text-lg font-semibold text-blue-600 dark:text-blue-400 mt-0.5 tabular-nums">{{ \App\Models\FunnelSession::where('class_session_id', $detail->id)->count() }}</p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 text-center">
+                        <span class="text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Funnels</span>
+                        <p class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 tabular-nums">{{ $funnels->count() }}</p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 text-center">
+                        <span class="text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Orders</span>
+                        <p class="text-lg font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">{{ $detail->upsell_orders_count ?? 0 }}</p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 text-center">
+                        <span class="text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</span>
+                        <p class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 tabular-nums">RM {{ number_format($detail->upsell_revenue ?? 0, 2) }}</p>
+                    </div>
+                </div>
+
+                {{-- Assigned Funnels --}}
+                <div class="mb-5">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Assigned Funnels</h4>
+                    @if($funnels->isNotEmpty())
+                        <div class="space-y-3">
+                            @foreach($funnels as $funnel)
+                                @php
+                                    $funnelOrders = $orders->where('funnel_id', $funnel->id);
+                                    $funnelRevenue = $funnelOrders->sum('funnel_revenue');
+                                    $salesUrl = route('funnel.show', $funnel->slug) . '?cls=' . $detail->id;
+                                @endphp
+                                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-500/20">
+                                                <flux:icon name="funnel" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                            </span>
+                                            <div>
+                                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $funnel->name }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-xs font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">{{ $funnelOrders->count() }} {{ Str::plural('order', $funnelOrders->count()) }}</p>
+                                            <p class="text-[11px] text-zinc-400 tabular-nums">RM {{ number_format($funnelRevenue, 2) }}</p>
+                                        </div>
+                                    </div>
+                                    {{-- Sales Page Link --}}
+                                    <div class="flex items-center gap-2 mt-2 rounded-md bg-zinc-50 dark:bg-zinc-800 px-3 py-2"
+                                         x-data="{ copied: false }">
+                                        <flux:icon name="link" class="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                                        <a href="{{ $salesUrl }}" target="_blank" class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate flex-1">
+                                            {{ $salesUrl }}
+                                        </a>
+                                        <button type="button"
+                                                @click="navigator.clipboard.writeText('{{ $salesUrl }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                                class="shrink-0 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors flex items-center gap-1">
+                                            <template x-if="!copied">
+                                                <span class="flex items-center gap-1">
+                                                    <flux:icon name="clipboard" class="w-3.5 h-3.5" />
+                                                    Copy
+                                                </span>
+                                            </template>
+                                            <template x-if="copied">
+                                                <span class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                                    <flux:icon name="check" class="w-3.5 h-3.5" />
+                                                    Copied!
+                                                </span>
+                                            </template>
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700 py-4 text-center">
+                            <p class="text-xs text-zinc-400 dark:text-zinc-500">No funnels assigned to this session</p>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Assigned PICs --}}
+                <div class="mb-5">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Assigned PICs</h4>
+                    @if($pics->isNotEmpty())
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($pics as $pic)
+                                <div class="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2">
+                                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
+                                        {{ strtoupper(substr($pic->name, 0, 1)) }}
+                                    </span>
+                                    <div>
+                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $pic->name }}</p>
+                                        <p class="text-[11px] text-zinc-400 dark:text-zinc-500">{{ ucfirst(str_replace('_', ' ', $pic->role ?? '')) }}</p>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700 py-4 text-center">
+                            <p class="text-xs text-zinc-400 dark:text-zinc-500">No PICs assigned to this session</p>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Teachers & Commission --}}
+                <div class="mb-5">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Teachers & Commission</h4>
+                    @php
+                        $upsellTeachers = $detail->upsellTeachers();
+                        $commissionRate = $detail->upsell_teacher_commission_rate;
+                        $revenue = $detail->upsell_revenue ?? 0;
+                        $commissionAmount = ($commissionRate && $revenue > 0) ? ($revenue * $commissionRate / 100) : 0;
+                    @endphp
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                        {{-- Commission Summary --}}
+                        <div class="flex items-center justify-between mb-3 pb-3 border-b border-zinc-100 dark:border-zinc-700">
+                            <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                                @if($commissionRate)
+                                    Commission Rate: <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $commissionRate }}%</span>
+                                @else
+                                    No commission rate set
+                                @endif
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-semibold {{ $commissionAmount > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400' }} tabular-nums">
+                                    RM {{ number_format($commissionAmount, 2) }}
+                                </p>
+                            </div>
+                        </div>
+                        {{-- Teacher List --}}
+                        @if($upsellTeachers->isNotEmpty())
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($upsellTeachers as $teacher)
+                                    <div class="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2">
+                                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-400 text-xs font-semibold">
+                                            {{ strtoupper(substr($teacher->name, 0, 1)) }}
+                                        </span>
+                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $teacher->name }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-xs text-zinc-400 dark:text-zinc-500">No teachers assigned to this session</p>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Orders Table --}}
+                <div>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Order History</h4>
+                    @if($orders->isNotEmpty())
+                        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
+                                        <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Order</th>
+                                        <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Funnel</th>
+                                        <th class="text-left py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Type</th>
+                                        <th class="text-right py-2 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                    @foreach($orders as $order)
+                                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                                            <td class="py-2 px-3 text-xs text-zinc-900 dark:text-zinc-100 tabular-nums">#{{ $order->id }}</td>
+                                            <td class="py-2 px-3 text-xs text-zinc-600 dark:text-zinc-400">{{ $order->funnel?->name ?? '—' }}</td>
+                                            <td class="py-2 px-3">
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {{ $order->order_type === 'main' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' }}">
+                                                    {{ ucfirst($order->order_type ?? 'main') }}
+                                                </span>
+                                            </td>
+                                            <td class="py-2 px-3 text-right text-xs font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">
+                                                RM {{ number_format($order->funnel_revenue, 2) }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                                    <tr>
+                                        <td colspan="3" class="py-2 px-3 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Total</td>
+                                        <td class="py-2 px-3 text-right text-xs font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                                            RM {{ number_format($orders->sum('funnel_revenue'), 2) }}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    @else
+                        <div class="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700 py-6 text-center">
+                            <flux:icon name="shopping-bag" class="w-6 h-6 mx-auto text-zinc-300 dark:text-zinc-600 mb-1" />
+                            <p class="text-xs text-zinc-400 dark:text-zinc-500">No orders linked to this session yet</p>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Close Button --}}
+                <div class="mt-6 flex justify-end">
+                    <flux:button variant="ghost" wire:click="closeUpsellDetail">Close</flux:button>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
 
     <!-- Generate Shipment Modal -->
     <flux:modal name="generate-shipment" :show="$showShipmentModal" wire:model="showShipmentModal">
