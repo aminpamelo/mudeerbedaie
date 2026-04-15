@@ -13,7 +13,7 @@ new class extends Component {
 
     public $search = '';
     public $courseFilter = '';
-    public $statusFilter = '';
+    public $statusFilter = 'active';
     public $classTypeFilter = '';
     public $categoryFilter = '';
     public $viewMode = 'grouped'; // 'list', 'grouped', or 'pic'
@@ -66,7 +66,7 @@ new class extends Component {
     {
         $this->search = '';
         $this->courseFilter = '';
-        $this->statusFilter = '';
+        $this->statusFilter = 'active';
         $this->classTypeFilter = '';
         $this->categoryFilter = '';
         $this->resetPage();
@@ -386,75 +386,45 @@ new class extends Component {
 ?>
 
 <div>
-    <div class="mb-6 flex items-center justify-between">
+    <div class="mb-5 flex items-start justify-between">
         <div>
-            <flux:heading size="xl">Classes</flux:heading>
-            <flux:text class="mt-2">Manage classes and schedules</flux:text>
+            <div class="flex items-center gap-3">
+                <flux:heading size="xl">Classes</flux:heading>
+                <div class="hidden sm:flex items-center gap-1.5">
+                    <span class="inline-flex items-center rounded-md bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-300">{{ $this->stats['total'] }} total</span>
+                    <span class="inline-flex items-center rounded-md bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-xs font-medium tabular-nums text-emerald-700 dark:text-emerald-400">{{ $this->stats['active'] }} active</span>
+                    <span class="inline-flex items-center rounded-md bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 text-xs font-medium tabular-nums text-amber-700 dark:text-amber-400">{{ $this->stats['upcoming'] }} upcoming</span>
+                </div>
+            </div>
+            <flux:text class="mt-0.5">Manage classes, schedules & assignments</flux:text>
         </div>
-        <div class="flex items-center gap-2">
-            <flux:button variant="ghost" wire:click="openCategoryManageModal" icon="folder">
-                Manage Categories
+        <div class="flex items-center gap-2 shrink-0">
+            <flux:button variant="ghost" wire:click="openCategoryManageModal" icon="folder" size="sm">
+                Categories
             </flux:button>
-            <flux:button variant="primary" href="{{ route('classes.create') }}" icon="plus">
-                Schedule New Class
+            <flux:button variant="primary" href="{{ route('classes.create') }}" icon="plus" size="sm">
+                New Class
             </flux:button>
         </div>
     </div>
 
-    <div class="mt-6 space-y-6">
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <flux:card class="p-6">
-                <div class="flex items-center">
-                    <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-3">
-                        <flux:icon.calendar-days class="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->stats['total'] }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Classes</p>
-                    </div>
+    <div class="space-y-4">
+        <!-- Toolbar -->
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+            <!-- Filters Row -->
+            <div class="flex items-center gap-2 p-2.5">
+                <div class="flex-1 min-w-0">
+                    <flux:input
+                        wire:model.live.debounce.300ms="search"
+                        placeholder="Search classes, courses, teachers..."
+                        icon="magnifying-glass"
+                        size="sm"
+                    />
                 </div>
-            </flux:card>
 
-            <flux:card class="p-6">
-                <div class="flex items-center">
-                    <div class="rounded-md bg-green-50 dark:bg-green-900/30 p-3">
-                        <flux:icon.clock class="h-6 w-6 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->stats['active'] }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Active</p>
-                    </div>
-                </div>
-            </flux:card>
-
-            <flux:card class="p-6">
-                <div class="flex items-center">
-                    <div class="rounded-md bg-amber-50 dark:bg-amber-900/30 p-3">
-                        <flux:icon.forward class="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ $this->stats['upcoming'] }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Upcoming</p>
-                    </div>
-                </div>
-            </flux:card>
-        </div>
-
-        <!-- Filters -->
-        <flux:card>
-            <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
-                    <div class="md:col-span-2">
-                        <flux:input
-                            wire:model.live.debounce.300ms="search"
-                            placeholder="Search classes..."
-                            icon="magnifying-glass"
-                        />
-                    </div>
-
-                    <div>
-                        <flux:select wire:model.live="courseFilter">
+                <div class="hidden lg:flex items-center gap-2">
+                    <div class="w-40 shrink-0">
+                        <flux:select wire:model.live="courseFilter" size="sm">
                             <flux:select.option value="">All Courses</flux:select.option>
                             @foreach($this->courses as $course)
                                 <flux:select.option value="{{ $course->id }}">{{ $course->name }}</flux:select.option>
@@ -462,8 +432,8 @@ new class extends Component {
                         </flux:select>
                     </div>
 
-                    <div>
-                        <flux:select wire:model.live="categoryFilter">
+                    <div class="w-40 shrink-0">
+                        <flux:select wire:model.live="categoryFilter" size="sm">
                             <flux:select.option value="">All Categories</flux:select.option>
                             @foreach($this->categories as $category)
                                 <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
@@ -471,8 +441,8 @@ new class extends Component {
                         </flux:select>
                     </div>
 
-                    <div>
-                        <flux:select wire:model.live="statusFilter">
+                    <div class="w-32 shrink-0">
+                        <flux:select wire:model.live="statusFilter" size="sm">
                             <flux:select.option value="">All Status</flux:select.option>
                             <flux:select.option value="draft">Draft</flux:select.option>
                             <flux:select.option value="active">Active</flux:select.option>
@@ -482,8 +452,8 @@ new class extends Component {
                         </flux:select>
                     </div>
 
-                    <div>
-                        <flux:select wire:model.live="classTypeFilter">
+                    <div class="w-28 shrink-0">
+                        <flux:select wire:model.live="classTypeFilter" size="sm">
                             <flux:select.option value="">All Types</flux:select.option>
                             <flux:select.option value="individual">Individual</flux:select.option>
                             <flux:select.option value="group">Group</flux:select.option>
@@ -491,585 +461,462 @@ new class extends Component {
                     </div>
                 </div>
 
-                <div class="mt-4 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <flux:button
-                            wire:click="setViewMode('list')"
-                            variant="{{ $viewMode === 'list' ? 'primary' : 'ghost' }}"
-                            size="sm"
-                            icon="list-bullet"
-                        >
-                            List View
-                        </flux:button>
-                        <flux:button
-                            wire:click="setViewMode('grouped')"
-                            variant="{{ $viewMode === 'grouped' ? 'primary' : 'ghost' }}"
-                            size="sm"
-                            icon="squares-2x2"
-                        >
-                            Group by Category
-                        </flux:button>
-                        <flux:button
-                            wire:click="setViewMode('pic')"
-                            variant="{{ $viewMode === 'pic' ? 'primary' : 'ghost' }}"
-                            size="sm"
-                            icon="user-circle"
-                        >
-                            Group by PIC
-                        </flux:button>
-                    </div>
-                    <flux:button
-                        wire:click="clearFilters"
-                        variant="ghost"
-                        icon="x-mark"
-                    >
-                        Clear Filters
-                    </flux:button>
-                </div>
-            </div>
-        </flux:card>
-
-        @if($viewMode === 'list')
-        <!-- Classes List View (List) -->
-        <flux:card>
-            <div class="overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
-                    <flux:heading size="lg">Classes List</flux:heading>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                        <thead class="bg-gray-50 dark:bg-zinc-700/50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Class</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Course</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teacher</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PICs</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Schedule</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Students</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
-                            @forelse ($this->classes as $class)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors duration-150">
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div>
-                                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ $class->title }}</div>
-                                            @if($class->description)
-                                                <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                                                    {{ Str::limit($class->description, 50) }}
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <button
-                                            wire:click="openCategoryModal({{ $class->id }})"
-                                            class="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors group"
-                                            title="Click to edit categories"
-                                        >
-                                            @forelse($class->categories as $category)
-                                                <span
-                                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                                                    style="background-color: {{ $category->color }}20; color: {{ $category->color }}"
-                                                >
-                                                    <span class="w-2 h-2 rounded-full" style="background-color: {{ $category->color }}"></span>
-                                                    {{ $category->name }}
-                                                </span>
-                                            @empty
-                                                <span class="text-xs text-gray-400 group-hover:text-gray-600 flex items-center gap-1">
-                                                    <flux:icon.plus class="w-3 h-3" />
-                                                    Add category
-                                                </span>
-                                            @endforelse
-                                        </button>
-                                    </td>
-
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->course->name }}</div>
-                                    </td>
-
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center gap-2">
-                                            <flux:avatar size="sm" :name="$class->teacher->fullName" />
-                                            <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->teacher->fullName }}</div>
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <button
-                                            wire:click="openPicModal({{ $class->id }})"
-                                            class="flex items-center gap-1 cursor-pointer hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors group"
-                                            title="Click to assign PICs"
-                                        >
-                                            @if($class->pics->count() > 0)
-                                                <div class="flex -space-x-2">
-                                                    @foreach($class->pics->take(3) as $pic)
-                                                        <flux:avatar size="xs" :name="$pic->name" class="ring-2 ring-white" />
-                                                    @endforeach
-                                                </div>
-                                                @if($class->pics->count() > 3)
-                                                    <span class="text-xs text-gray-500 ml-1">+{{ $class->pics->count() - 3 }}</span>
-                                                @endif
-                                            @else
-                                                <span class="text-xs text-gray-400 group-hover:text-gray-600 flex items-center gap-1">
-                                                    <flux:icon.plus class="w-3 h-3" />
-                                                    Add PIC
-                                                </span>
-                                            @endif
-                                        </button>
-                                    </td>
-
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div>
-                                            <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->date_time->format('M d, Y') }}</div>
-                                            <div class="text-sm text-gray-500">
-                                                {{ $class->date_time->format('g:i A') }} ({{ $class->formatted_duration }})
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <flux:badge size="sm" :class="$class->status_badge_class">
-                                            {{ ucfirst($class->status) }}
-                                        </flux:badge>
-                                    </td>
-
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900">
-                                            {{ $class->active_students_count }} student(s)
-                                        </div>
-                                        <div class="text-xs text-gray-500">
-                                            {{ $class->completed_sessions_count }}/{{ $class->total_sessions_count }} sessions
-                                        </div>
-                                    </td>
-
-                                    <td class="px-6 py-4 whitespace-nowrap text-right">
-                                        <div class="flex items-center justify-end gap-2">
-                                            <flux:button
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="folder"
-                                                wire:click="openCategoryModal({{ $class->id }})"
-                                                title="Edit categories"
-                                            />
-                                            <flux:button
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="user-group"
-                                                wire:click="openPicModal({{ $class->id }})"
-                                                title="Assign PICs"
-                                            />
-                                            <flux:button
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="eye"
-                                                href="{{ route('classes.show', $class) }}"
-                                            />
-                                            <flux:button
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="pencil"
-                                                href="{{ route('classes.edit', $class) }}"
-                                            />
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="9" class="px-6 py-12 text-center">
-                                        <div class="text-gray-500">
-                                            <flux:icon.calendar-days class="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                                            <p class="text-gray-600">No classes found</p>
-                                            @if($search || $courseFilter || $statusFilter || $classTypeFilter || $categoryFilter)
-                                                <flux:button
-                                                    wire:click="clearFilters"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    class="mt-2"
-                                                >
-                                                    Clear filters
-                                                </flux:button>
-                                            @endif
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Pagination -->
-                @if($this->classes->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700">
-                        {{ $this->classes->links() }}
-                    </div>
+                @if($search || $courseFilter || $statusFilter !== 'active' || $classTypeFilter || $categoryFilter)
+                    <flux:button wire:click="clearFilters" variant="ghost" size="sm" icon="x-mark" title="Reset filters" />
                 @endif
             </div>
-        </flux:card>
-        @elseif($viewMode === 'grouped')
-        <!-- Grouped by Category View -->
-        <div class="space-y-4">
-            @forelse($this->groupedClasses as $index => $group)
-                <flux:card x-data="{ expanded: true }">
-                    <div class="overflow-hidden">
-                        <button
-                            @click="expanded = !expanded"
-                            class="w-full px-6 py-4 border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer"
-                        >
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    @if($group['category'])
-                                        <div
-                                            class="w-4 h-4 rounded-full flex-shrink-0"
-                                            style="background-color: {{ $group['category']->color }}"
-                                        ></div>
-                                        <flux:heading size="lg">{{ $group['category']->name }}</flux:heading>
-                                        <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
-                                    @else
-                                        <div class="w-4 h-4 rounded-full flex-shrink-0 bg-gray-300"></div>
-                                        <flux:heading size="lg">Uncategorized</flux:heading>
-                                        <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
+
+            <!-- Mobile Filters (shown below on smaller screens) -->
+            <div class="lg:hidden border-t border-zinc-100 dark:border-zinc-700 p-2.5">
+                <div class="grid grid-cols-2 gap-2">
+                    <flux:select wire:model.live="courseFilter" size="sm">
+                        <flux:select.option value="">All Courses</flux:select.option>
+                        @foreach($this->courses as $course)
+                            <flux:select.option value="{{ $course->id }}">{{ $course->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:select wire:model.live="categoryFilter" size="sm">
+                        <flux:select.option value="">All Categories</flux:select.option>
+                        @foreach($this->categories as $category)
+                            <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:select wire:model.live="statusFilter" size="sm">
+                        <flux:select.option value="">All Status</flux:select.option>
+                        <flux:select.option value="draft">Draft</flux:select.option>
+                        <flux:select.option value="active">Active</flux:select.option>
+                        <flux:select.option value="completed">Completed</flux:select.option>
+                        <flux:select.option value="suspended">Suspended</flux:select.option>
+                        <flux:select.option value="cancelled">Cancelled</flux:select.option>
+                    </flux:select>
+                    <flux:select wire:model.live="classTypeFilter" size="sm">
+                        <flux:select.option value="">All Types</flux:select.option>
+                        <flux:select.option value="individual">Individual</flux:select.option>
+                        <flux:select.option value="group">Group</flux:select.option>
+                    </flux:select>
+                </div>
+            </div>
+
+            <!-- View Toggle + Count -->
+            <div class="flex items-center justify-between border-t border-zinc-100 dark:border-zinc-700 px-2.5 py-1.5">
+                <div class="inline-flex items-center rounded-md bg-zinc-100 dark:bg-zinc-700/50 p-0.5">
+                    <button
+                        wire:click="setViewMode('list')"
+                        class="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-all {{ $viewMode === 'list' ? 'bg-white dark:bg-zinc-600 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200' }}"
+                    >
+                        <flux:icon name="list-bullet" class="w-3.5 h-3.5" />
+                        List
+                    </button>
+                    <button
+                        wire:click="setViewMode('grouped')"
+                        class="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-all {{ $viewMode === 'grouped' ? 'bg-white dark:bg-zinc-600 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200' }}"
+                    >
+                        <flux:icon name="squares-2x2" class="w-3.5 h-3.5" />
+                        Category
+                    </button>
+                    <button
+                        wire:click="setViewMode('pic')"
+                        class="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-all {{ $viewMode === 'pic' ? 'bg-white dark:bg-zinc-600 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200' }}"
+                    >
+                        <flux:icon name="user-circle" class="w-3.5 h-3.5" />
+                        PIC
+                    </button>
+                </div>
+                <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    @if($viewMode === 'list')
+                        {{ $this->classes->total() }} classes
+                    @elseif($viewMode === 'grouped')
+                        {{ collect($this->groupedClasses)->sum(fn($g) => $g['classes']->count()) }} classes
+                    @else
+                        {{ collect($this->groupedByPicClasses)->sum(fn($g) => $g['classes']->count()) }} classes
+                    @endif
+                </span>
+            </div>
+        </div>
+
+        @if($viewMode === 'list')
+        <!-- List View -->
+        <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead>
+                        <tr class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-800/80">
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Class</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Category</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Teacher</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">PICs</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Schedule</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Progress</th>
+                            <th class="px-3 py-2 w-20"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/50">
+                        @forelse ($this->classes as $class)
+                            <tr wire:key="list-{{ $class->id }}" class="group hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
+                                <td class="px-3 py-2 whitespace-nowrap">
+                                    <a href="{{ route('classes.show', $class) }}" class="block">
+                                        <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $class->title }}</div>
+                                        <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</div>
+                                    </a>
+                                </td>
+
+                                <td class="px-3 py-2 whitespace-nowrap">
+                                    <button
+                                        wire:click="openCategoryModal({{ $class->id }})"
+                                        class="flex flex-wrap gap-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded p-0.5 -m-0.5 transition-colors group/cat"
+                                        title="Edit categories"
+                                    >
+                                        @forelse($class->categories as $category)
+                                            <span
+                                                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-medium"
+                                                style="background-color: {{ $category->color }}15; color: {{ $category->color }}"
+                                            >
+                                                <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ $category->color }}"></span>
+                                                {{ $category->name }}
+                                            </span>
+                                        @empty
+                                            <span class="text-xs text-zinc-400 group-hover/cat:text-zinc-600 dark:group-hover/cat:text-zinc-300 flex items-center gap-0.5">
+                                                <flux:icon.plus class="w-3 h-3" />
+                                                Add
+                                            </span>
+                                        @endforelse
+                                    </button>
+                                </td>
+
+                                <td class="px-3 py-2 whitespace-nowrap">
+                                    <div class="flex items-center gap-1.5">
+                                        <flux:avatar size="xs" :name="$class->teacher->fullName" />
+                                        <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $class->teacher->fullName }}</span>
+                                    </div>
+                                </td>
+
+                                <td class="px-3 py-2 whitespace-nowrap">
+                                    <button
+                                        wire:click="openPicModal({{ $class->id }})"
+                                        class="flex items-center gap-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded p-0.5 -m-0.5 transition-colors group/pic"
+                                        title="Assign PICs"
+                                    >
+                                        @if($class->pics->count() > 0)
+                                            <div class="flex -space-x-1.5">
+                                                @foreach($class->pics->take(3) as $pic)
+                                                    <flux:avatar size="xs" :name="$pic->name" class="ring-1 ring-white dark:ring-zinc-800" />
+                                                @endforeach
+                                            </div>
+                                            @if($class->pics->count() > 3)
+                                                <span class="text-[11px] text-zinc-500 ml-0.5">+{{ $class->pics->count() - 3 }}</span>
+                                            @endif
+                                        @else
+                                            <span class="text-xs text-zinc-400 group-hover/pic:text-zinc-600 dark:group-hover/pic:text-zinc-300 flex items-center gap-0.5">
+                                                <flux:icon.plus class="w-3 h-3" />
+                                                Add
+                                            </span>
+                                        @endif
+                                    </button>
+                                </td>
+
+                                <td class="px-3 py-2 whitespace-nowrap">
+                                    <div class="text-sm text-zinc-700 dark:text-zinc-300">{{ $class->date_time->format('M d, Y') }}</div>
+                                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ $class->date_time->format('g:i A') }} · {{ $class->formatted_duration }}</div>
+                                </td>
+
+                                <td class="px-3 py-2 whitespace-nowrap">
+                                    <flux:badge size="sm" :class="$class->status_badge_class">
+                                        {{ ucfirst($class->status) }}
+                                    </flux:badge>
+                                </td>
+
+                                <td class="px-3 py-2 whitespace-nowrap">
+                                    <div class="text-sm tabular-nums text-zinc-700 dark:text-zinc-300">
+                                        {{ $class->active_students_count }} <span class="text-zinc-400">stu</span>
+                                    </div>
+                                    <div class="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                                        {{ $class->completed_sessions_count }}/{{ $class->total_sessions_count }} sess
+                                    </div>
+                                </td>
+
+                                <td class="px-3 py-2 whitespace-nowrap text-right">
+                                    <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <flux:button size="xs" variant="ghost" icon="eye" href="{{ route('classes.show', $class) }}" title="View" />
+                                        <flux:button size="xs" variant="ghost" icon="pencil" href="{{ route('classes.edit', $class) }}" title="Edit" />
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8" class="px-4 py-12 text-center">
+                                    <flux:icon.calendar-days class="h-8 w-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                                    <p class="text-sm text-zinc-500 dark:text-zinc-400">No classes found</p>
+                                    @if($search || $courseFilter || $statusFilter !== 'active' || $classTypeFilter || $categoryFilter)
+                                        <flux:button wire:click="clearFilters" variant="ghost" size="sm" class="mt-2">
+                                            Reset filters
+                                        </flux:button>
                                     @endif
-                                </div>
-                                <flux:icon
-                                    name="chevron-down"
-                                    class="w-5 h-5 text-gray-400 transition-transform duration-200"
-                                    ::class="expanded ? 'rotate-180' : ''"
-                                />
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if($this->classes->hasPages())
+                <div class="px-3 py-2.5 border-t border-zinc-200 dark:border-zinc-700">
+                    {{ $this->classes->links() }}
+                </div>
+            @endif
+        </div>
+        @elseif($viewMode === 'grouped')
+        <!-- Category View -->
+        <div class="space-y-2.5">
+            @forelse($this->groupedClasses as $index => $group)
+                <div x-data="{ expanded: true }" class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+                    <button
+                        @click="expanded = !expanded"
+                        class="w-full px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/30 transition-colors cursor-pointer"
+                    >
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                @if($group['category'])
+                                    <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: {{ $group['category']->color }}"></span>
+                                    <span class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{{ $group['category']->name }}</span>
+                                @else
+                                    <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-zinc-300 dark:bg-zinc-600"></span>
+                                    <span class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">Uncategorized</span>
+                                @endif
+                                <span class="inline-flex items-center rounded-md bg-zinc-100 dark:bg-zinc-700 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">{{ $group['classes']->count() }}</span>
                             </div>
-                            @if($group['category'] && $group['category']->description)
-                                <flux:text class="mt-1 text-left">{{ $group['category']->description }}</flux:text>
-                            @endif
-                        </button>
+                            <flux:icon
+                                name="chevron-down"
+                                class="w-3.5 h-3.5 text-zinc-400 transition-transform duration-200"
+                                ::class="expanded ? 'rotate-180' : ''"
+                            />
+                        </div>
+                    </button>
 
-                        <div x-show="expanded" x-collapse class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                                <thead class="bg-gray-50 dark:bg-zinc-700/50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Class</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Course</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teacher</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PICs</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Schedule</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Students</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
-                                    @foreach($group['classes'] as $class)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors duration-150">
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $class->title }}</div>
-                                                    @if($class->description)
-                                                        <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                                                            {{ Str::limit($class->description, 50) }}
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </td>
+                    <div x-show="expanded" x-collapse class="overflow-x-auto border-t border-zinc-200 dark:border-zinc-700">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="border-b border-zinc-100 dark:border-zinc-700/50 bg-zinc-50/50 dark:bg-zinc-800/50">
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Class</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Teacher</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">PICs</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Schedule</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Progress</th>
+                                    <th class="px-3 py-1.5 w-20"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/50">
+                                @foreach($group['classes'] as $class)
+                                    <tr wire:key="grouped-{{ $class->id }}" class="group hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <a href="{{ route('classes.show', $class) }}" class="block">
+                                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $class->title }}</div>
+                                                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</div>
+                                            </a>
+                                        </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->course->name }}</div>
-                                            </td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="flex items-center gap-1.5">
+                                                <flux:avatar size="xs" :name="$class->teacher->fullName" />
+                                                <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $class->teacher->fullName }}</span>
+                                            </div>
+                                        </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="flex items-center gap-2">
-                                                    <flux:avatar size="sm" :name="$class->teacher->fullName" />
-                                                    <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->teacher->fullName }}</div>
-                                                </div>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <button
-                                                    wire:click="openPicModal({{ $class->id }})"
-                                                    class="flex items-center gap-1 cursor-pointer hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors group"
-                                                    title="Click to assign PICs"
-                                                >
-                                                    @if($class->pics->count() > 0)
-                                                        <div class="flex -space-x-2">
-                                                            @foreach($class->pics->take(3) as $pic)
-                                                                <flux:avatar size="xs" :name="$pic->name" class="ring-2 ring-white" />
-                                                            @endforeach
-                                                        </div>
-                                                        @if($class->pics->count() > 3)
-                                                            <span class="text-xs text-gray-500 ml-1">+{{ $class->pics->count() - 3 }}</span>
-                                                        @endif
-                                                    @else
-                                                        <span class="text-xs text-gray-400 group-hover:text-gray-600 flex items-center gap-1">
-                                                            <flux:icon.plus class="w-3 h-3" />
-                                                            Add PIC
-                                                        </span>
-                                                    @endif
-                                                </button>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->date_time->format('M d, Y') }}</div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                                                        {{ $class->date_time->format('g:i A') }} ({{ $class->formatted_duration }})
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <button
+                                                wire:click="openPicModal({{ $class->id }})"
+                                                class="flex items-center gap-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded p-0.5 -m-0.5 transition-colors group/pic"
+                                                title="Assign PICs"
+                                            >
+                                                @if($class->pics->count() > 0)
+                                                    <div class="flex -space-x-1.5">
+                                                        @foreach($class->pics->take(3) as $pic)
+                                                            <flux:avatar size="xs" :name="$pic->name" class="ring-1 ring-white dark:ring-zinc-800" />
+                                                        @endforeach
                                                     </div>
-                                                </div>
-                                            </td>
+                                                    @if($class->pics->count() > 3)
+                                                        <span class="text-[11px] text-zinc-500 ml-0.5">+{{ $class->pics->count() - 3 }}</span>
+                                                    @endif
+                                                @else
+                                                    <span class="text-xs text-zinc-400 group-hover/pic:text-zinc-600 dark:group-hover/pic:text-zinc-300 flex items-center gap-0.5">
+                                                        <flux:icon.plus class="w-3 h-3" />
+                                                        Add
+                                                    </span>
+                                                @endif
+                                            </button>
+                                        </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <flux:badge size="sm" :class="$class->status_badge_class">
-                                                    {{ ucfirst($class->status) }}
-                                                </flux:badge>
-                                            </td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-700 dark:text-zinc-300">{{ $class->date_time->format('M d, Y') }}</div>
+                                            <div class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ $class->date_time->format('g:i A') }} · {{ $class->formatted_duration }}</div>
+                                        </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900 dark:text-gray-100">
-                                                    {{ $class->active_students_count }} student(s)
-                                                </div>
-                                                <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                    {{ $class->completed_sessions_count }}/{{ $class->total_sessions_count }} sessions
-                                                </div>
-                                            </td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <flux:badge size="sm" :class="$class->status_badge_class">
+                                                {{ ucfirst($class->status) }}
+                                            </flux:badge>
+                                        </td>
 
-                                            <td class="px-6 py-4 whitespace-nowrap text-right">
-                                                <div class="flex items-center justify-end gap-2">
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon="folder"
-                                                        wire:click="openCategoryModal({{ $class->id }})"
-                                                        title="Edit categories"
-                                                    />
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon="user-group"
-                                                        wire:click="openPicModal({{ $class->id }})"
-                                                        title="Assign PICs"
-                                                    />
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon="eye"
-                                                        href="{{ route('classes.show', $class) }}"
-                                                    />
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon="pencil"
-                                                        href="{{ route('classes.edit', $class) }}"
-                                                    />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="text-sm tabular-nums text-zinc-700 dark:text-zinc-300">
+                                                {{ $class->active_students_count }} <span class="text-zinc-400">stu</span>
+                                            </div>
+                                            <div class="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                                                {{ $class->completed_sessions_count }}/{{ $class->total_sessions_count }} sess
+                                            </div>
+                                        </td>
+
+                                        <td class="px-3 py-2 whitespace-nowrap text-right">
+                                            <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <flux:button size="xs" variant="ghost" icon="eye" href="{{ route('classes.show', $class) }}" title="View" />
+                                                <flux:button size="xs" variant="ghost" icon="pencil" href="{{ route('classes.edit', $class) }}" title="Edit" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                </flux:card>
+                </div>
             @empty
-                <flux:card>
-                    <div class="px-6 py-12 text-center">
-                        <div class="text-gray-500">
-                            <flux:icon.calendar-days class="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                            <p class="text-gray-600">No classes found</p>
-                            @if($search || $courseFilter || $statusFilter || $classTypeFilter || $categoryFilter)
-                                <flux:button
-                                    wire:click="clearFilters"
-                                    variant="ghost"
-                                    size="sm"
-                                    class="mt-2"
-                                >
-                                    Clear filters
-                                </flux:button>
-                            @endif
-                        </div>
-                    </div>
-                </flux:card>
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-12 text-center">
+                    <flux:icon.calendar-days class="h-8 w-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400">No classes found</p>
+                    @if($search || $courseFilter || $statusFilter !== 'active' || $classTypeFilter || $categoryFilter)
+                        <flux:button wire:click="clearFilters" variant="ghost" size="sm" class="mt-2">
+                            Reset filters
+                        </flux:button>
+                    @endif
+                </div>
             @endforelse
         </div>
         @elseif($viewMode === 'pic')
-        <!-- Grouped by PIC View -->
-        <div class="space-y-4">
+        <!-- PIC View -->
+        <div class="space-y-2.5">
             @forelse($this->groupedByPicClasses as $index => $group)
-                <flux:card x-data="{ expanded: true }">
-                    <div class="overflow-hidden">
-                        <button
-                            @click="expanded = !expanded"
-                            class="w-full px-6 py-4 border-b border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer"
-                        >
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    @if($group['pic'])
-                                        <flux:avatar size="sm" :name="$group['pic']->name" />
-                                        <div class="text-left">
-                                            <flux:heading size="lg">{{ $group['pic']->name }}</flux:heading>
-                                            <flux:text class="text-sm text-gray-500">{{ $group['pic']->email }}</flux:text>
-                                        </div>
-                                        <flux:badge size="sm" color="zinc">{{ $group['pic']->role_name }}</flux:badge>
-                                        <flux:badge size="sm" color="blue">{{ $group['classes']->count() }} classes</flux:badge>
-                                    @else
-                                        <div class="w-8 h-8 rounded-full flex-shrink-0 bg-gray-300 flex items-center justify-center">
-                                            <flux:icon.user class="w-4 h-4 text-gray-500" />
-                                        </div>
-                                        <flux:heading size="lg">No PIC Assigned</flux:heading>
-                                        <flux:badge size="sm" color="zinc">{{ $group['classes']->count() }} classes</flux:badge>
-                                    @endif
-                                </div>
-                                <flux:icon
-                                    name="chevron-down"
-                                    class="w-5 h-5 text-gray-400 transition-transform duration-200"
-                                    ::class="expanded ? 'rotate-180' : ''"
-                                />
+                <div x-data="{ expanded: true }" class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+                    <button
+                        @click="expanded = !expanded"
+                        class="w-full px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/30 transition-colors cursor-pointer"
+                    >
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                @if($group['pic'])
+                                    <flux:avatar size="xs" :name="$group['pic']->name" />
+                                    <span class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{{ $group['pic']->name }}</span>
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $group['pic']->role_name }}</span>
+                                @else
+                                    <div class="w-6 h-6 rounded-full flex-shrink-0 bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                                        <flux:icon.user class="w-3 h-3 text-zinc-400" />
+                                    </div>
+                                    <span class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">No PIC Assigned</span>
+                                @endif
+                                <span class="inline-flex items-center rounded-md bg-zinc-100 dark:bg-zinc-700 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">{{ $group['classes']->count() }}</span>
                             </div>
-                        </button>
+                            <flux:icon
+                                name="chevron-down"
+                                class="w-3.5 h-3.5 text-zinc-400 transition-transform duration-200"
+                                ::class="expanded ? 'rotate-180' : ''"
+                            />
+                        </div>
+                    </button>
 
-                        <div x-show="expanded" x-collapse class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                                <thead class="bg-gray-50 dark:bg-zinc-700/50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Class</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Course</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teacher</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Schedule</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Students</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    <div x-show="expanded" x-collapse class="overflow-x-auto border-t border-zinc-200 dark:border-zinc-700">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="border-b border-zinc-100 dark:border-zinc-700/50 bg-zinc-50/50 dark:bg-zinc-800/50">
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Class</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Category</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Teacher</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Schedule</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                                    <th class="px-3 py-1.5 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Progress</th>
+                                    <th class="px-3 py-1.5 w-20"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/50">
+                                @foreach($group['classes'] as $class)
+                                    <tr wire:key="pic-{{ $class->id }}" class="group hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <a href="{{ route('classes.show', $class) }}" class="block">
+                                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $class->title }}</div>
+                                                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</div>
+                                            </a>
+                                        </td>
+
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <button
+                                                wire:click="openCategoryModal({{ $class->id }})"
+                                                class="flex flex-wrap gap-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded p-0.5 -m-0.5 transition-colors group/cat"
+                                                title="Edit categories"
+                                            >
+                                                @forelse($class->categories as $category)
+                                                    <span
+                                                        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-medium"
+                                                        style="background-color: {{ $category->color }}15; color: {{ $category->color }}"
+                                                    >
+                                                        <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ $category->color }}"></span>
+                                                        {{ $category->name }}
+                                                    </span>
+                                                @empty
+                                                    <span class="text-xs text-zinc-400 group-hover/cat:text-zinc-600 dark:group-hover/cat:text-zinc-300 flex items-center gap-0.5">
+                                                        <flux:icon.plus class="w-3 h-3" />
+                                                        Add
+                                                    </span>
+                                                @endforelse
+                                            </button>
+                                        </td>
+
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="flex items-center gap-1.5">
+                                                <flux:avatar size="xs" :name="$class->teacher->fullName" />
+                                                <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $class->teacher->fullName }}</span>
+                                            </div>
+                                        </td>
+
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="text-sm text-zinc-700 dark:text-zinc-300">{{ $class->date_time->format('M d, Y') }}</div>
+                                            <div class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ $class->date_time->format('g:i A') }} · {{ $class->formatted_duration }}</div>
+                                        </td>
+
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <flux:badge size="sm" :class="$class->status_badge_class">
+                                                {{ ucfirst($class->status) }}
+                                            </flux:badge>
+                                        </td>
+
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="text-sm tabular-nums text-zinc-700 dark:text-zinc-300">
+                                                {{ $class->active_students_count }} <span class="text-zinc-400">stu</span>
+                                            </div>
+                                            <div class="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                                                {{ $class->completed_sessions_count }}/{{ $class->total_sessions_count }} sess
+                                            </div>
+                                        </td>
+
+                                        <td class="px-3 py-2 whitespace-nowrap text-right">
+                                            <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <flux:button size="xs" variant="ghost" icon="eye" href="{{ route('classes.show', $class) }}" title="View" />
+                                                <flux:button size="xs" variant="ghost" icon="pencil" href="{{ route('classes.edit', $class) }}" title="Edit" />
+                                            </div>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
-                                    @foreach($group['classes'] as $class)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors duration-150">
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $class->title }}</div>
-                                                    @if($class->description)
-                                                        <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                                                            {{ Str::limit($class->description, 50) }}
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <button
-                                                    wire:click="openCategoryModal({{ $class->id }})"
-                                                    class="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-100 rounded-lg p-1 -m-1 transition-colors group"
-                                                    title="Click to edit categories"
-                                                >
-                                                    @forelse($class->categories as $category)
-                                                        <span
-                                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                                                            style="background-color: {{ $category->color }}20; color: {{ $category->color }}"
-                                                        >
-                                                            <span class="w-2 h-2 rounded-full" style="background-color: {{ $category->color }}"></span>
-                                                            {{ $category->name }}
-                                                        </span>
-                                                    @empty
-                                                        <span class="text-xs text-gray-400 group-hover:text-gray-600 flex items-center gap-1">
-                                                            <flux:icon.plus class="w-3 h-3" />
-                                                            Add
-                                                        </span>
-                                                    @endforelse
-                                                </button>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->course->name }}</div>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="flex items-center gap-2">
-                                                    <flux:avatar size="sm" :name="$class->teacher->fullName" />
-                                                    <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->teacher->fullName }}</div>
-                                                </div>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div>
-                                                    <div class="text-sm text-gray-900 dark:text-gray-100">{{ $class->date_time->format('M d, Y') }}</div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                                                        {{ $class->date_time->format('g:i A') }} ({{ $class->formatted_duration }})
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <flux:badge size="sm" :class="$class->status_badge_class">
-                                                    {{ ucfirst($class->status) }}
-                                                </flux:badge>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900 dark:text-gray-100">
-                                                    {{ $class->active_students_count }} student(s)
-                                                </div>
-                                                <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                    {{ $class->completed_sessions_count }}/{{ $class->total_sessions_count }} sessions
-                                                </div>
-                                            </td>
-
-                                            <td class="px-6 py-4 whitespace-nowrap text-right">
-                                                <div class="flex items-center justify-end gap-2">
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon="folder"
-                                                        wire:click="openCategoryModal({{ $class->id }})"
-                                                        title="Edit categories"
-                                                    />
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon="user-group"
-                                                        wire:click="openPicModal({{ $class->id }})"
-                                                        title="Assign PICs"
-                                                    />
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon="eye"
-                                                        href="{{ route('classes.show', $class) }}"
-                                                    />
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon="pencil"
-                                                        href="{{ route('classes.edit', $class) }}"
-                                                    />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                </flux:card>
+                </div>
             @empty
-                <flux:card>
-                    <div class="px-6 py-12 text-center">
-                        <div class="text-gray-500">
-                            <flux:icon.calendar-days class="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                            <p class="text-gray-600">No classes found</p>
-                            @if($search || $courseFilter || $statusFilter || $classTypeFilter || $categoryFilter)
-                                <flux:button
-                                    wire:click="clearFilters"
-                                    variant="ghost"
-                                    size="sm"
-                                    class="mt-2"
-                                >
-                                    Clear filters
-                                </flux:button>
-                            @endif
-                        </div>
-                    </div>
-                </flux:card>
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-12 text-center">
+                    <flux:icon.calendar-days class="h-8 w-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400">No classes found</p>
+                    @if($search || $courseFilter || $statusFilter !== 'active' || $classTypeFilter || $categoryFilter)
+                        <flux:button wire:click="clearFilters" variant="ghost" size="sm" class="mt-2">
+                            Reset filters
+                        </flux:button>
+                    @endif
+                </div>
             @endforelse
         </div>
         @endif

@@ -1012,86 +1012,84 @@ new class extends Component {
 <div class="space-y-6">
     <!-- Statistics Strip -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4">
+        <div class="relative overflow-hidden rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4">
             <div class="flex items-center gap-3">
                 <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700">
                     <flux:icon name="users" class="size-5 text-zinc-500 dark:text-zinc-400" />
                 </div>
                 <div class="min-w-0">
-                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 truncate">Total Students</flux:text>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 truncate">Total Students</span>
                     <p class="text-xl font-semibold text-zinc-900 dark:text-white tabular-nums">{{ $stats['total_students'] }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4">
+        <div class="relative overflow-hidden rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4">
             <div class="flex items-center gap-3">
-                <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
-                    <flux:icon name="document-check" class="size-5 text-emerald-600 dark:text-emerald-400" />
+                <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700">
+                    <flux:icon name="document-check" class="size-5 text-zinc-500 dark:text-zinc-400" />
                 </div>
                 <div class="min-w-0">
-                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 truncate">Issued</flux:text>
-                    <p class="text-xl font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{{ $stats['issued_count'] }}</p>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 truncate">Issued</span>
+                    <p class="text-xl font-semibold text-zinc-900 dark:text-white tabular-nums">{{ $stats['issued_count'] }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4">
+        <div class="relative overflow-hidden rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4">
             <div class="flex items-center gap-3">
-                <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-900/30">
-                    <flux:icon name="clock" class="size-5 text-amber-600 dark:text-amber-400" />
+                <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700">
+                    <flux:icon name="clock" class="size-5 text-zinc-500 dark:text-zinc-400" />
                 </div>
                 <div class="min-w-0">
-                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 truncate">Pending</flux:text>
-                    <p class="text-xl font-semibold text-amber-600 dark:text-amber-400 tabular-nums">{{ $stats['pending_count'] }}</p>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 truncate">Pending</span>
+                    <p class="text-xl font-semibold text-zinc-900 dark:text-white tabular-nums">{{ $stats['pending_count'] }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="relative overflow-hidden rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4">
+        <div class="relative overflow-hidden rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4">
             <div class="flex items-center gap-3">
-                <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/30">
-                    <flux:icon name="chart-bar" class="size-5 text-blue-600 dark:text-blue-400" />
+                <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700">
+                    <flux:icon name="chart-bar" class="size-5 text-zinc-500 dark:text-zinc-400" />
                 </div>
                 <div class="min-w-0">
-                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 truncate">Completion</flux:text>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400 truncate">Completion</span>
                     <p class="text-xl font-semibold text-zinc-900 dark:text-white tabular-nums">{{ $stats['completion_rate'] }}%</p>
                 </div>
             </div>
             {{-- Progress bar --}}
             <div class="absolute bottom-0 inset-x-0 h-1 bg-zinc-100 dark:bg-zinc-700">
-                <div class="h-full bg-blue-500 transition-all duration-500" style="width: {{ min($stats['completion_rate'], 100) }}%"></div>
+                <div class="h-full bg-zinc-400 dark:bg-zinc-500 transition-all duration-500" style="width: {{ min($stats['completion_rate'], 100) }}%"></div>
             </div>
         </div>
     </div>
 
     <!-- Assigned Certificates -->
-    <flux:card>
-        <div class="p-5">
-            <div class="flex items-center justify-between mb-5">
-                <div>
-                    <flux:heading size="lg">Templates</flux:heading>
-                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Certificate templates assigned to this class</flux:text>
-                </div>
-                <div class="flex items-center gap-2">
-                    <flux:button variant="subtle" wire:click="openAssignModal" icon="plus">
-                        Add Template
-                    </flux:button>
-                    @if($assignedCertificates->isNotEmpty())
-                        <flux:button variant="primary" wire:click="openBulkIssueModal" icon="document-plus">
-                            Issue Certificates
-                        </flux:button>
-                    @endif
-                </div>
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3 flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Templates</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Certificate templates assigned to this class</p>
             </div>
+            <div class="flex items-center gap-2">
+                <flux:button variant="subtle" wire:click="openAssignModal" icon="plus">
+                    Add Template
+                </flux:button>
+                @if($assignedCertificates->isNotEmpty())
+                    <flux:button variant="primary" wire:click="openBulkIssueModal" icon="document-plus">
+                        Issue Certificates
+                    </flux:button>
+                @endif
+            </div>
+        </div>
 
+        <div class="px-5 py-4">
             @if($assignedCertificates->isEmpty())
-                <div class="text-center py-10">
-                    <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 mb-3">
-                        <flux:icon name="document-text" class="size-6 text-zinc-400" />
-                    </div>
-                    <flux:heading size="sm" class="text-zinc-600 dark:text-zinc-300">No templates assigned</flux:heading>
-                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Click "Add Template" to assign a certificate to this class</flux:text>
+                <div class="text-center py-8">
+                    <flux:icon name="document-text" class="w-8 h-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-2" />
+                    <h4 class="text-sm font-medium text-zinc-500">No templates assigned</h4>
+                    <p class="text-xs text-zinc-400 mt-1">Click "Add Template" to assign a certificate to this class</p>
                 </div>
             @else
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1103,14 +1101,14 @@ new class extends Component {
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2">
-                                        <flux:heading size="sm" class="truncate">{{ $certificate->name }}</flux:heading>
+                                        <h4 class="text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">{{ $certificate->name }}</h4>
                                         @if($defaultCertificate && $defaultCertificate->id === $certificate->id)
                                             <flux:badge color="blue" size="sm">Default</flux:badge>
                                         @endif
                                     </div>
-                                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                                         {{ $certificate->formatted_size }}
-                                    </flux:text>
+                                    </span>
                                 </div>
                             </div>
                             <div class="mt-3 flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-700/50">
@@ -1140,19 +1138,19 @@ new class extends Component {
                 </div>
             @endif
         </div>
-    </flux:card>
+    </div>
 
     <!-- Section Tabs -->
     <div class="flex items-center gap-1 border-b border-zinc-200 dark:border-zinc-700 mb-4">
         <button
             wire:click="$set('activeSection', 'certificates')"
-            class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {{ $activeSection === 'certificates' ? 'border-blue-500 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
+            class="pb-2.5 px-3 text-sm font-medium border-b-2 transition-colors {{ $activeSection === 'certificates' ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
         >
             Issued Certificates
         </button>
         <button
             wire:click="$set('activeSection', 'send-logs')"
-            class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {{ $activeSection === 'send-logs' ? 'border-blue-500 text-blue-600' : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300' }}"
+            class="pb-2.5 px-3 text-sm font-medium border-b-2 transition-colors {{ $activeSection === 'send-logs' ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
         >
             Send Logs
             @php
@@ -1168,58 +1166,60 @@ new class extends Component {
 
     <!-- Issued Certificates List -->
     @if($activeSection === 'certificates')
-    <flux:card>
-        <div class="p-5">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div>
-                    <flux:heading size="lg">Issued Certificates</flux:heading>
-                    @if($issuedCertificates->total() > 0)
-                        <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{{ $issuedCertificates->total() }} {{ Str::plural('certificate', $issuedCertificates->total()) }} issued</flux:text>
-                    @endif
-                </div>
-                <div class="flex items-center gap-2">
-                    <flux:input
-                        wire:model.live.debounce.300ms="searchStudent"
-                        placeholder="Search student..."
-                        icon="magnifying-glass"
-                        size="sm"
-                    />
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Issued Certificates</h3>
+                @if($issuedCertificates->total() > 0)
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{{ $issuedCertificates->total() }} {{ Str::plural('certificate', $issuedCertificates->total()) }} issued</p>
+                @endif
+            </div>
+            <div class="flex items-center gap-2">
+                <flux:input
+                    wire:model.live.debounce.300ms="searchStudent"
+                    placeholder="Search student..."
+                    icon="magnifying-glass"
+                    size="sm"
+                />
+                <div class="w-40 shrink-0">
                     <flux:select wire:model.live="filterStatus" size="sm">
                         <option value="all">All Status</option>
                         <option value="issued">Issued</option>
                         <option value="revoked">Revoked</option>
                     </flux:select>
-                    @if($issuedCertificates->total() > 0)
-                        <flux:button
-                            variant="outline"
-                            size="sm"
-                            wire:click="regenerateAllPdfs"
-                            wire:confirm="Regenerate ALL issued certificate PDFs for this class? This will update them with the latest template design."
-                            wire:loading.attr="disabled"
-                            wire:target="regenerateAllPdfs"
-                        >
-                            <div class="flex items-center justify-center">
-                                <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
-                                <span wire:loading.remove wire:target="regenerateAllPdfs">Regenerate All</span>
-                                <span wire:loading wire:target="regenerateAllPdfs">Regenerating...</span>
-                            </div>
-                        </flux:button>
-                    @endif
                 </div>
+                @if($issuedCertificates->total() > 0)
+                    <flux:button
+                        variant="outline"
+                        size="sm"
+                        wire:click="regenerateAllPdfs"
+                        wire:confirm="Regenerate ALL issued certificate PDFs for this class? This will update them with the latest template design."
+                        wire:loading.attr="disabled"
+                        wire:target="regenerateAllPdfs"
+                    >
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="arrow-path" class="w-4 h-4 mr-1" />
+                            <span wire:loading.remove wire:target="regenerateAllPdfs">Regenerate All</span>
+                            <span wire:loading wire:target="regenerateAllPdfs">Regenerating...</span>
+                        </div>
+                    </flux:button>
+                @endif
             </div>
+        </div>
 
+        <div class="px-5 py-4">
             {{-- Bulk Action Bar --}}
             @if($issuedCertificates->isNotEmpty())
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 px-1">
                     <div class="flex items-center gap-3">
                         <flux:checkbox wire:model.live="selectAllIssued" />
-                        <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-400">
+                        <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400">
                             @if(count($selectedIssueIds) > 0)
                                 {{ count($selectedIssueIds) }} {{ Str::plural('certificate', count($selectedIssueIds)) }} selected
                             @else
                                 Select all on this page
                             @endif
-                        </flux:text>
+                        </span>
                     </div>
 
                     @if(count($selectedIssueIds) > 0)
@@ -1308,35 +1308,33 @@ new class extends Component {
             @endif
 
             @if($issuedCertificates->isEmpty())
-                <div class="text-center py-12">
-                    <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 mb-3">
-                        <flux:icon name="document-check" class="size-6 text-zinc-400" />
-                    </div>
-                    <flux:heading size="sm" class="text-zinc-600 dark:text-zinc-300">No certificates issued yet</flux:heading>
-                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Issue certificates to students using the button above</flux:text>
+                <div class="text-center py-8">
+                    <flux:icon name="document-check" class="w-8 h-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-2" />
+                    <h4 class="text-sm font-medium text-zinc-500">No certificates issued yet</h4>
+                    <p class="text-xs text-zinc-400 mt-1">Issue certificates to students using the button above</p>
                 </div>
             @else
                 <div class="overflow-x-auto -mx-5">
                     <table class="min-w-full">
                         <thead>
-                            <tr class="border-y border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50">
-                                <th class="pl-5 pr-2 py-2.5 w-10"></th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Certificate</th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Number</th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Issue Date</th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
-                                <th class="px-5 py-2.5 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Sent</th>
-                                <th class="px-5 py-2.5 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Actions</th>
+                            <tr class="bg-zinc-50 dark:bg-zinc-800">
+                                <th class="pl-3 pr-2 py-2 w-10"></th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Student</th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Certificate</th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Number</th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Issue Date</th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</th>
+                                <th class="px-3 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Sent</th>
+                                <th class="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
                             @foreach($issuedCertificates as $issue)
                                 <tr wire:key="issued-cert-{{ $issue->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                                    <td class="pl-5 pr-2 py-3 w-10">
+                                    <td class="pl-3 pr-2 py-2 w-10">
                                         <flux:checkbox wire:model.live="selectedIssueIds" value="{{ $issue->id }}" />
                                     </td>
-                                    <td class="px-5 py-3">
+                                    <td class="px-3 py-2">
                                         @if($issue->student)
                                             <div class="space-y-1">
                                                 {{-- Editable Student Name --}}
@@ -1400,23 +1398,23 @@ new class extends Component {
                                             <span class="text-sm text-zinc-400">Unknown Student</span>
                                         @endif
                                     </td>
-                                    <td class="px-5 py-3 whitespace-nowrap">
+                                    <td class="px-3 py-2 whitespace-nowrap">
                                         <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $issue->certificate?->name ?? 'Unknown Certificate' }}</span>
                                     </td>
-                                    <td class="px-5 py-3 whitespace-nowrap">
-                                        <code class="text-xs font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">{{ $issue->certificate_number }}</code>
+                                    <td class="px-3 py-2 whitespace-nowrap">
+                                        <code class="text-xs font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded tabular-nums">{{ $issue->certificate_number }}</code>
                                     </td>
-                                    <td class="px-5 py-3 whitespace-nowrap">
+                                    <td class="px-3 py-2 whitespace-nowrap">
                                         <span class="text-sm text-zinc-500 dark:text-zinc-400">{{ $issue->issue_date->format('M d, Y') }}</span>
                                     </td>
-                                    <td class="px-5 py-3 whitespace-nowrap">
+                                    <td class="px-3 py-2 whitespace-nowrap">
                                         @if($issue->status === 'issued')
                                             <flux:badge color="green" size="sm">Issued</flux:badge>
                                         @else
                                             <flux:badge color="red" size="sm">{{ ucfirst($issue->status) }}</flux:badge>
                                         @endif
                                     </td>
-                                    <td class="px-5 py-3 whitespace-nowrap text-center">
+                                    <td class="px-3 py-2 whitespace-nowrap text-center">
                                         @php
                                             $sendLogs = $issue->logs->whereIn('action', ['sent_email', 'sent_whatsapp', 'sent_waba']);
                                             $hasSent = $sendLogs->isNotEmpty();
@@ -1437,7 +1435,7 @@ new class extends Component {
                                             <span class="text-xs text-zinc-400">—</span>
                                         @endif
                                     </td>
-                                    <td class="px-5 py-3 whitespace-nowrap text-right">
+                                    <td class="px-3 py-2 whitespace-nowrap text-right">
                                         <div class="flex items-center justify-end gap-1">
                                             @if($issue->hasFile())
                                                 <flux:button variant="ghost" size="sm" href="{{ $issue->getFileUrl() }}" target="_blank" icon="eye" />
@@ -1483,30 +1481,30 @@ new class extends Component {
                     </table>
                 </div>
 
-                <div class="mt-4 px-5">
+                <div class="mt-4">
                     {{ $issuedCertificates->links() }}
                 </div>
             @endif
         </div>
-    </flux:card>
+    </div>
     @endif
 
     <!-- Send Logs Section -->
     @if($activeSection === 'send-logs')
-    <flux:card>
-        <div class="p-5">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div>
-                    <flux:heading size="lg">Send Logs</flux:heading>
-                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">History of all certificate deliveries for this class</flux:text>
-                </div>
-                <div class="flex items-center gap-2">
-                    <flux:input
-                        wire:model.live.debounce.300ms="logSearch"
-                        placeholder="Search student..."
-                        icon="magnifying-glass"
-                        size="sm"
-                    />
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Send Logs</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">History of all certificate deliveries for this class</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <flux:input
+                    wire:model.live.debounce.300ms="logSearch"
+                    placeholder="Search student..."
+                    icon="magnifying-glass"
+                    size="sm"
+                />
+                <div class="w-40 shrink-0">
                     <flux:select wire:model.live="logActionFilter" size="sm">
                         <option value="all">All Channels</option>
                         <option value="sent_email">Email</option>
@@ -1515,38 +1513,39 @@ new class extends Component {
                     </flux:select>
                 </div>
             </div>
+        </div>
+
+        <div class="px-5 py-4">
 
             @if($this->sendLogs->isEmpty())
-                <div class="text-center py-12">
-                    <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 mb-3">
-                        <flux:icon name="paper-airplane" class="size-6 text-zinc-400" />
-                    </div>
-                    <flux:heading size="sm" class="text-zinc-600 dark:text-zinc-300">No send logs yet</flux:heading>
-                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Logs will appear here when certificates are sent to students</flux:text>
+                <div class="text-center py-8">
+                    <flux:icon name="paper-airplane" class="w-8 h-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-2" />
+                    <h4 class="text-sm font-medium text-zinc-500">No send logs yet</h4>
+                    <p class="text-xs text-zinc-400 mt-1">Logs will appear here when certificates are sent to students</p>
                 </div>
             @else
                 <div class="overflow-x-auto -mx-5">
                     <table class="min-w-full">
                         <thead>
-                            <tr class="border-y border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50">
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Certificate</th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Channel</th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Sent By</th>
-                                <th class="px-5 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Date</th>
+                            <tr class="bg-zinc-50 dark:bg-zinc-800">
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Student</th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Certificate</th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Channel</th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Sent By</th>
+                                <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Date</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
                             @foreach($this->sendLogs as $log)
                                 <tr wire:key="send-log-{{ $log->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                                    <td class="px-5 py-3">
+                                    <td class="px-3 py-2">
                                         <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ $log->certificateIssue?->student?->user?->name ?? 'Unknown' }}</span>
                                     </td>
-                                    <td class="px-5 py-3">
+                                    <td class="px-3 py-2">
                                         <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $log->certificateIssue?->certificate?->name ?? '-' }}</span>
                                     </td>
-                                    <td class="px-5 py-3">
+                                    <td class="px-3 py-2">
                                         @if($log->action === 'sent_email')
                                             <flux:badge color="blue" size="sm">Email</flux:badge>
                                         @elseif($log->action === 'sent_whatsapp')
@@ -1555,7 +1554,7 @@ new class extends Component {
                                             <flux:badge color="emerald" size="sm">WABA</flux:badge>
                                         @endif
                                     </td>
-                                    <td class="px-5 py-3">
+                                    <td class="px-3 py-2">
                                         @php $logMeta = $log->metadata ?? []; @endphp
                                         @if(($logMeta['status'] ?? '') === 'sent')
                                             <flux:badge color="green" size="sm">Sent</flux:badge>
@@ -1580,10 +1579,10 @@ new class extends Component {
                                             <span class="text-xs text-zinc-400">—</span>
                                         @endif
                                     </td>
-                                    <td class="px-5 py-3">
+                                    <td class="px-3 py-2">
                                         <span class="text-sm text-zinc-500 dark:text-zinc-400">{{ $log->user?->name ?? 'System' }}</span>
                                     </td>
-                                    <td class="px-5 py-3">
+                                    <td class="px-3 py-2">
                                         <span class="text-sm text-zinc-500 dark:text-zinc-400">{{ $log->created_at->format('M d, Y H:i') }}</span>
                                     </td>
                                 </tr>
@@ -1592,12 +1591,12 @@ new class extends Component {
                     </table>
                 </div>
 
-                <div class="mt-4 px-5">
+                <div class="mt-4">
                     {{ $this->sendLogs->links() }}
                 </div>
             @endif
         </div>
-    </flux:card>
+    </div>
     @endif
 
     <!-- Send Error Detail Modal -->
@@ -1606,8 +1605,8 @@ new class extends Component {
         <flux:modal name="send-error-detail" class="max-w-md">
             <div class="space-y-4">
                 <div>
-                    <flux:heading size="lg">Send Failed</flux:heading>
-                    <flux:text class="mt-1 text-sm text-zinc-500">Details about the failed delivery</flux:text>
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Send Failed</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Details about the failed delivery</p>
                 </div>
 
                 <div class="space-y-3">
@@ -1647,9 +1646,9 @@ new class extends Component {
     <flux:modal wire:model="showLogModal" class="max-w-lg">
         <div class="space-y-4">
             <div>
-                <flux:heading size="lg">Certificate Send History</flux:heading>
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Certificate Send History</h3>
                 @if($this->logIssue)
-                    <flux:text class="mt-1 text-sm text-zinc-500">{{ $this->logIssue->student?->user?->name ?? 'Unknown' }} — {{ $this->logIssue->certificate?->name ?? '' }}</flux:text>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{{ $this->logIssue->student?->user?->name ?? 'Unknown' }} — {{ $this->logIssue->certificate?->name ?? '' }}</p>
                 @endif
             </div>
 
@@ -1722,7 +1721,7 @@ new class extends Component {
                 </div>
             @else
                 <div class="text-center py-6">
-                    <flux:text class="text-sm text-zinc-500">No logs found for this certificate</flux:text>
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400">No logs found for this certificate</p>
                 </div>
             @endif
 
@@ -1736,8 +1735,8 @@ new class extends Component {
     <flux:modal wire:model="showAssignModal" class="max-w-lg">
         <div class="space-y-6">
             <div>
-                <flux:heading size="lg">Add Certificate Template</flux:heading>
-                <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Assign a certificate template to this class</flux:text>
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Add Certificate Template</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Assign a certificate template to this class</p>
             </div>
 
             <flux:separator />
@@ -1746,9 +1745,9 @@ new class extends Component {
                 <flux:field>
                     <flux:label>Certificate Template</flux:label>
                     @if($availableCertificates->isEmpty())
-                        <div class="text-center py-6 border border-zinc-200 dark:border-zinc-700 rounded-lg">
-                            <flux:icon name="document-text" class="size-8 mx-auto mb-2 text-zinc-400" />
-                            <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">All active certificates are already assigned</flux:text>
+                        <div class="text-center py-8 border border-zinc-200 dark:border-zinc-700 rounded-lg">
+                            <flux:icon name="document-text" class="w-8 h-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-2" />
+                            <p class="text-xs text-zinc-400">All active certificates are already assigned</p>
                         </div>
                     @else
                         <flux:select wire:model="assignCertificateId">
@@ -1781,10 +1780,10 @@ new class extends Component {
             <div class="space-y-4">
                 <div class="flex items-center justify-between">
                     <div>
-                        <flux:heading size="lg">{{ $previewCertificate->name }}</flux:heading>
-                        <flux:text class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ $previewCertificate->name }}</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                             {{ $previewCertificate->formatted_size }}
-                        </flux:text>
+                        </p>
                     </div>
                     <div class="flex items-center gap-2">
                         <flux:button variant="subtle" size="sm" href="{{ route('certificates.edit', $previewCertificate) }}" icon="pencil">
@@ -1919,8 +1918,8 @@ new class extends Component {
     <flux:modal wire:model="showBulkIssueModal" class="max-w-2xl">
         <div class="space-y-6">
             <div>
-                <flux:heading size="lg">Issue Certificates</flux:heading>
-                <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Select a template and choose which students should receive certificates</flux:text>
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Issue Certificates</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Select a template and choose which students should receive certificates</p>
             </div>
 
             <flux:separator />
@@ -1991,12 +1990,12 @@ new class extends Component {
     <flux:modal wire:model="showSendModal" class="max-w-lg">
         <div class="space-y-6">
             <div>
-                <flux:heading size="lg">
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     {{ $isBulkSend ? 'Send Certificates' : 'Send Certificate' }}
-                </flux:heading>
-                <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                </h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                     {{ $isBulkSend ? count($sendIssueIds) . ' ' . Str::plural('certificate', count($sendIssueIds)) . ' will be sent' : 'Send this certificate to the student' }}
-                </flux:text>
+                </p>
             </div>
 
             <flux:separator />
@@ -2077,13 +2076,13 @@ new class extends Component {
                         <flux:error name="selectedWabaTemplateId" />
 
                         @if(empty($this->wabaTemplates))
-                            <flux:text class="text-xs text-amber-600 mt-1">
+                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                 No templates found. Create one in <a href="{{ route('admin.whatsapp.templates') }}" class="underline" target="_blank">WhatsApp Templates</a>.
-                            </flux:text>
+                            </p>
                         @elseif(!collect($this->wabaTemplates)->contains('status', 'APPROVED'))
-                            <flux:text class="text-xs text-amber-600 mt-1">
+                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                 No approved templates yet. Templates must be approved by Meta before sending.
-                            </flux:text>
+                            </p>
                         @endif
                     </flux:field>
 
@@ -2095,7 +2094,7 @@ new class extends Component {
                         @endphp
                         @if($bodyComponent)
                             <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 bg-zinc-50 dark:bg-zinc-800/50">
-                                <flux:text class="text-xs font-medium text-zinc-500 mb-1">Template Preview</flux:text>
+                                <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Template Preview</span>
                                 <p class="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-line">{!! e($bodyComponent['text'] ?? '') !!}</p>
                                 @if(!empty($selectedTemplate['variable_mappings']['body'] ?? []))
                                     <div class="mt-2 flex flex-wrap gap-1">
@@ -2152,13 +2151,13 @@ new class extends Component {
                     <flux:label>Message</flux:label>
                     <flux:textarea wire:model="sendMessage" rows="6" placeholder="Enter the message to send with the certificate..." />
                     <flux:error name="sendMessage" />
-                    <flux:text class="text-xs text-zinc-400 mt-1">
+                    <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
                         @if($sendChannel === 'both' && $whatsappProvider === 'waba')
                             This message will be used for the email body. WhatsApp will use the selected template.
                         @else
                             This message will be included in the email body and/or WhatsApp text message. The certificate PDF will be attached automatically.
                         @endif
-                    </flux:text>
+                    </p>
                 </flux:field>
             @endif
 

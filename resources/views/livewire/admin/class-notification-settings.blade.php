@@ -1470,26 +1470,26 @@ new class extends Component
 
 <div class="space-y-6">
     <!-- Auto-Schedule Toggle Section -->
-    <flux:card>
-        <div class="p-6">
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <div class="px-5 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 {{ $autoScheduleEnabled ? 'bg-green-100' : 'bg-gray-100' }} rounded-xl flex items-center justify-center transition-colors">
+                    <div class="w-10 h-10 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
                         @if($autoScheduleEnabled)
-                            <flux:icon.bolt class="w-6 h-6 text-green-600" />
+                            <flux:icon.bolt class="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
                         @else
-                            <flux:icon.hand-raised class="w-6 h-6 text-gray-500" />
+                            <flux:icon.hand-raised class="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
                         @endif
                     </div>
                     <div>
-                        <flux:heading size="lg">Mod Penjadualan Notifikasi</flux:heading>
-                        <flux:text class="text-gray-500 mt-1">
+                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Mod Penjadualan Notifikasi</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                             @if($autoScheduleEnabled)
-                                <span class="text-green-600 font-medium">Automatik</span> — Sistem akan menjadualkan notifikasi secara automatik setiap hari untuk 7 hari akan datang.
+                                <span class="text-zinc-900 dark:text-zinc-100 font-medium">Automatik</span> — Sistem akan menjadualkan notifikasi secara automatik setiap hari untuk 7 hari akan datang.
                             @else
-                                <span class="text-gray-600 font-medium">Manual</span> — Klik butang untuk menjadualkan notifikasi secara manual.
+                                <span class="text-zinc-600 dark:text-zinc-300 font-medium">Manual</span> — Klik butang untuk menjadualkan notifikasi secara manual.
                             @endif
-                        </flux:text>
+                        </p>
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
@@ -1509,12 +1509,12 @@ new class extends Component
             </div>
 
             @if($autoScheduleEnabled)
-                <div class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div class="mt-4 p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg">
                     <div class="flex items-start gap-3">
-                        <flux:icon.information-circle class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <flux:icon.information-circle class="w-5 h-5 text-zinc-400 dark:text-zinc-500 flex-shrink-0 mt-0.5" />
                         <div>
-                            <p class="text-sm font-medium text-green-800">Penjadualan Automatik Aktif</p>
-                            <p class="text-sm text-green-700 mt-1">
+                            <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Penjadualan Automatik Aktif</p>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                                 Sistem akan menjadualkan notifikasi secara automatik setiap hari pada jam 00:30 untuk 7 hari akan datang.
                                 Pastikan tetapan notifikasi di bawah telah diaktifkan.
                             </p>
@@ -1523,43 +1523,42 @@ new class extends Component
                 </div>
             @endif
         </div>
-    </flux:card>
+    </div>
 
     <!-- Quick Actions Section (Manual Scheduling) -->
-    <flux:card>
-        <div class="p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <flux:heading size="lg">Jadualkan Notifikasi</flux:heading>
-                    <flux:text class="text-gray-500 mt-1">
-                        Jadualkan notifikasi berdasarkan jadual waktu kelas (7 hari akan datang).
-                    </flux:text>
-                </div>
-                @if(!$autoScheduleEnabled)
-                    <flux:button
-                        variant="primary"
-                        wire:click="scheduleAllUpcomingNotifications"
-                        wire:loading.attr="disabled"
-                        icon="bell-alert"
-                    >
-                        <span wire:loading.remove wire:target="scheduleAllUpcomingNotifications">Jadualkan Semua</span>
-                        <span wire:loading wire:target="scheduleAllUpcomingNotifications">Menjadualkan...</span>
-                    </flux:button>
-                @else
-                    <flux:badge color="green" size="lg">
-                        <flux:icon.bolt class="w-4 h-4 mr-1" />
-                        Dijadualkan Automatik
-                    </flux:badge>
-                @endif
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3 flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Jadualkan Notifikasi</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Jadualkan notifikasi berdasarkan jadual waktu kelas (7 hari akan datang).
+                </p>
             </div>
-
+            @if(!$autoScheduleEnabled)
+                <flux:button
+                    variant="primary"
+                    wire:click="scheduleAllUpcomingNotifications"
+                    wire:loading.attr="disabled"
+                    icon="bell-alert"
+                >
+                    <span wire:loading.remove wire:target="scheduleAllUpcomingNotifications">Jadualkan Semua</span>
+                    <span wire:loading wire:target="scheduleAllUpcomingNotifications">Menjadualkan...</span>
+                </flux:button>
+            @else
+                <flux:badge color="green" size="lg">
+                    <flux:icon.bolt class="w-4 h-4 mr-1" />
+                    Dijadualkan Automatik
+                </flux:badge>
+            @endif
+        </div>
+        <div class="px-5 py-4">
             @if($this->timetable && $this->timetable->is_active)
                 @php
                     $upcomingSlots = $this->upcomingTimetableSlots;
                     $scheduledSlots = $this->scheduledSlots;
                 @endphp
                 @if(count($upcomingSlots) > 0)
-                    <div class="border border-gray-200 rounded-lg divide-y divide-gray-200">
+                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg divide-y divide-zinc-200 dark:divide-zinc-700">
                         @foreach(array_slice($upcomingSlots, 0, 5) as $slot)
                             @php
                                 $slotDate = \Carbon\Carbon::parse($slot['session_date']);
@@ -1569,33 +1568,33 @@ new class extends Component
                                 $pendingCount = $scheduledSlots[$slotKey]['pending'] ?? 0;
                                 $sentCount = $scheduledSlots[$slotKey]['sent'] ?? 0;
                             @endphp
-                            <div class="flex items-center justify-between p-3 hover:bg-gray-50 {{ $isScheduled ? 'bg-green-50/50' : '' }}">
+                            <div class="flex items-center justify-between px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 {{ $isScheduled ? 'bg-zinc-50 dark:bg-zinc-800/50' : '' }}">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex-shrink-0 w-10 h-10 {{ $isScheduled ? 'bg-green-100' : 'bg-blue-100' }} rounded-lg flex items-center justify-center">
+                                    <div class="flex-shrink-0 w-9 h-9 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
                                         @if($isScheduled)
-                                            <flux:icon.check-circle class="w-5 h-5 text-green-600" />
+                                            <flux:icon.check-circle class="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
                                         @else
-                                            <flux:icon.calendar class="w-5 h-5 text-blue-600" />
+                                            <flux:icon.calendar class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                                         @endif
                                     </div>
                                     <div>
-                                        <p class="font-medium text-gray-900">
+                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                             {{ $slotDate->format('d M Y') }} ({{ $slotDate->locale('ms')->dayName }})
                                         </p>
-                                        <p class="text-sm text-gray-500">
+                                        <p class="text-xs text-zinc-500 dark:text-zinc-400">
                                             {{ $slotTime->format('g:i A') }}
                                         </p>
                                     </div>
                                     @if($isScheduled)
                                         <div class="flex items-center gap-2">
                                             @if($pendingCount > 0)
-                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full">
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-xs rounded-full">
                                                     <flux:icon.clock class="w-3 h-3" />
                                                     {{ $pendingCount }} menunggu
                                                 </span>
                                             @endif
                                             @if($sentCount > 0)
-                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs rounded-full">
                                                     <flux:icon.check class="w-3 h-3" />
                                                     {{ $sentCount }} dihantar
                                                 </span>
@@ -1605,8 +1604,8 @@ new class extends Component
                                 </div>
                                 @if($isScheduled && $pendingCount > 0)
                                     <div class="flex items-center gap-2">
-                                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 text-sm font-medium rounded-lg">
-                                            <flux:icon.check-circle class="w-4 h-4" />
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-medium rounded-lg">
+                                            <flux:icon.check-circle class="w-3.5 h-3.5" />
                                             Telah Dijadualkan
                                         </span>
                                         <flux:button
@@ -1627,8 +1626,8 @@ new class extends Component
                                         </flux:button>
                                     </div>
                                 @elseif($autoScheduleEnabled)
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg">
-                                        <flux:icon.bolt class="w-4 h-4" />
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-xs font-medium rounded-lg">
+                                        <flux:icon.bolt class="w-3.5 h-3.5" />
                                         Auto
                                     </span>
                                 @else
@@ -1647,42 +1646,41 @@ new class extends Component
                         @endforeach
                     </div>
                     @if(count($upcomingSlots) > 5)
-                        <p class="text-sm text-gray-500 mt-2 text-center">
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-2 text-center">
                             Dan {{ count($upcomingSlots) - 5 }} slot lagi dalam 7 hari akan datang
                         </p>
                     @endif
                 @else
-                    <div class="text-center py-6 text-gray-500">
-                        <flux:icon.calendar-days class="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                        <p>Tiada slot jadual waktu dalam 7 hari akan datang.</p>
+                    <div class="text-center py-8">
+                        <flux:icon.calendar-days class="w-8 h-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400">Tiada slot jadual waktu dalam 7 hari akan datang.</p>
                     </div>
                 @endif
             @else
-                <div class="text-center py-6">
-                    <flux:icon.exclamation-triangle class="w-8 h-8 mx-auto mb-2 text-yellow-500" />
-                    <p class="text-gray-700 font-medium">Jadual waktu tidak aktif</p>
-                    <p class="text-sm text-gray-500 mt-1">Sila aktifkan jadual waktu untuk menjadualkan notifikasi.</p>
+                <div class="text-center py-8">
+                    <flux:icon.exclamation-triangle class="w-8 h-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                    <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Jadual waktu tidak aktif</p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Sila aktifkan jadual waktu untuk menjadualkan notifikasi.</p>
                 </div>
             @endif
         </div>
-    </flux:card>
+    </div>
 
     <!-- Notification Settings Section -->
-    <flux:card>
-        <div class="p-6">
-            <div class="mb-6">
-                <flux:heading size="lg">Tetapan Notifikasi Kelas</flux:heading>
-                <flux:text class="text-gray-500 mt-1">
-                    Konfigurasikan notifikasi yang akan dihantar kepada pelajar dan guru untuk kelas ini.
-                </flux:text>
-            </div>
-
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Tetapan Notifikasi Kelas</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                Konfigurasikan notifikasi yang akan dihantar kepada pelajar dan guru untuk kelas ini.
+            </p>
+        </div>
+        <div class="px-5 py-4">
             <!-- Channel Sub-tabs -->
-            <div class="flex border-b border-gray-200 mb-4">
+            <div class="flex border-b border-zinc-200 dark:border-zinc-700 mb-4">
                 <button
                     type="button"
                     wire:click="setActiveMainTab('email')"
-                    class="flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'email' ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50' }}"
+                    class="flex-1 px-4 py-2.5 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'email' ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
                 >
                     <flux:icon.envelope class="w-4 h-4" />
                     E-mel
@@ -1690,13 +1688,13 @@ new class extends Component
                         $emailEnabledCount = $this->settings->where('is_enabled', true)->where('email_enabled', true)->count();
                     @endphp
                     @if($emailEnabledCount > 0)
-                        <flux:badge color="blue" size="sm">{{ $emailEnabledCount }}</flux:badge>
+                        <flux:badge color="zinc" size="sm">{{ $emailEnabledCount }}</flux:badge>
                     @endif
                 </button>
                 <button
                     type="button"
                     wire:click="setActiveMainTab('whatsapp')"
-                    class="flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'whatsapp' ? 'border-green-500 text-green-600 bg-green-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50' }}"
+                    class="flex-1 px-4 py-2.5 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'whatsapp' ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
                 >
                     <flux:icon.device-phone-mobile class="w-4 h-4" />
                     WhatsApp
@@ -1704,20 +1702,20 @@ new class extends Component
                         $whatsappEnabledCount = $this->settings->where('is_enabled', true)->where('whatsapp_enabled', true)->count();
                     @endphp
                     @if($whatsappEnabledCount > 0)
-                        <flux:badge color="green" size="sm">{{ $whatsappEnabledCount }}</flux:badge>
+                        <flux:badge color="zinc" size="sm">{{ $whatsappEnabledCount }}</flux:badge>
                     @endif
                 </button>
             </div>
 
             <!-- Global Channel Toggle -->
             @if($activeMainTab === 'email')
-                <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                <div class="p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg mb-4">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <flux:icon.envelope class="w-5 h-5 text-blue-600" />
+                            <flux:icon.envelope class="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
                             <div>
-                                <p class="font-medium text-blue-900">Aktifkan Saluran E-mel</p>
-                                <p class="text-sm text-blue-700">Kawalan utama untuk semua notifikasi e-mel kelas ini</p>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Aktifkan Saluran E-mel</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Kawalan utama untuk semua notifikasi e-mel kelas ini</p>
                             </div>
                         </div>
                         <flux:switch
@@ -1725,20 +1723,20 @@ new class extends Component
                         />
                     </div>
                     @if(!$emailChannelEnabled)
-                        <div class="mt-3 p-2 bg-blue-100 rounded text-sm text-blue-800">
+                        <div class="mt-3 p-2 bg-zinc-100 dark:bg-zinc-700 rounded text-xs text-zinc-600 dark:text-zinc-300">
                             <flux:icon.information-circle class="w-4 h-4 inline mr-1" />
                             Semua notifikasi e-mel dinyahaktifkan. Aktifkan suis di atas untuk menghantar notifikasi e-mel.
                         </div>
                     @endif
                 </div>
             @else
-                <div class="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                <div class="p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg mb-4">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <flux:icon.device-phone-mobile class="w-5 h-5 text-green-600" />
+                            <flux:icon.device-phone-mobile class="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
                             <div>
-                                <p class="font-medium text-green-900">Aktifkan Saluran WhatsApp</p>
-                                <p class="text-sm text-green-700">Kawalan utama untuk semua notifikasi WhatsApp kelas ini</p>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Aktifkan Saluran WhatsApp</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Kawalan utama untuk semua notifikasi WhatsApp kelas ini</p>
                             </div>
                         </div>
                         <flux:switch
@@ -1746,7 +1744,7 @@ new class extends Component
                         />
                     </div>
                     @if(!$whatsappChannelEnabled)
-                        <div class="mt-3 p-2 bg-green-100 rounded text-sm text-green-800">
+                        <div class="mt-3 p-2 bg-zinc-100 dark:bg-zinc-700 rounded text-xs text-zinc-600 dark:text-zinc-300">
                             <flux:icon.information-circle class="w-4 h-4 inline mr-1" />
                             Semua notifikasi WhatsApp dinyahaktifkan. Aktifkan suis di atas untuk menghantar notifikasi WhatsApp.
                         </div>
@@ -1754,7 +1752,7 @@ new class extends Component
                 </div>
             @endif
 
-            <div class="space-y-4">
+            <div class="space-y-3">
                 @php $typeLabels = $this->getTypeLabels(); @endphp
                 @foreach($this->settings as $setting)
                     @php
@@ -1767,10 +1765,10 @@ new class extends Component
                         $isEmailEnabled = $setting->email_enabled ?? ($setting->is_enabled && !$isWhatsappEnabled);
                         $currentChannelEnabled = $activeMainTab === 'email' ? $isEmailEnabled : $isWhatsappEnabled;
                     @endphp
-                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors {{ !$currentChannelEnabled ? 'opacity-60' : '' }}">
+                    <div class="flex items-center justify-between px-4 py-3 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors {{ !$currentChannelEnabled ? 'opacity-60' : '' }}">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <p class="font-medium text-gray-900">{{ $label['name'] }}</p>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $label['name'] }}</p>
                                 @if($activeMainTab === 'email')
                                     @if($isEmailEnabled)
                                         <flux:badge color="blue" size="sm">
@@ -1808,22 +1806,22 @@ new class extends Component
                                     </flux:badge>
                                 @endif
                             </div>
-                            <p class="text-sm text-gray-500 mt-1">{{ $label['description'] }}</p>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{{ $label['description'] }}</p>
 
                             {{-- Channel-specific template info --}}
                             @if($activeMainTab === 'email')
                                 @if($setting->template)
-                                    <p class="text-xs text-gray-400 mt-1">
+                                    <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
                                         <flux:icon.document-text class="w-3 h-3 inline mr-0.5" />
                                         Templat: {{ $setting->template->name }}
                                         @if($readiness['source'] === 'custom_visual')
-                                            <span class="text-blue-600">(Templat visual tersuai)</span>
+                                            <span class="text-zinc-600 dark:text-zinc-300">(Templat visual tersuai)</span>
                                         @elseif($readiness['source'] === 'custom_text')
-                                            <span class="text-blue-600">(Templat teks tersuai)</span>
+                                            <span class="text-zinc-600 dark:text-zinc-300">(Templat teks tersuai)</span>
                                         @endif
                                     </p>
                                 @elseif($setting->hasCustomTemplate())
-                                    <p class="text-xs text-blue-600 mt-1">
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-300 mt-1">
                                         <flux:icon.document-text class="w-3 h-3 inline mr-0.5" />
                                         @if($readiness['source'] === 'custom_visual')
                                             Templat visual tersuai
@@ -1832,7 +1830,7 @@ new class extends Component
                                         @endif
                                     </p>
                                 @elseif($isEmailEnabled && !$readiness['ready'])
-                                    <p class="text-xs text-amber-600 mt-1">
+                                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                         <flux:icon.exclamation-circle class="w-3 h-3 inline mr-0.5" />
                                         Sila tetapkan templat atau kandungan tersuai
                                     </p>
@@ -1840,7 +1838,7 @@ new class extends Component
                             @else
                                 {{-- WhatsApp tab --}}
                                 @if($setting->hasCustomWhatsAppTemplate())
-                                    <p class="text-xs text-green-600 mt-1">
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-300 mt-1">
                                         <flux:icon.document-text class="w-3 h-3 inline mr-0.5" />
                                         Templat WhatsApp tersuai
                                         @if($setting->hasWhatsAppImage())
@@ -1849,7 +1847,7 @@ new class extends Component
                                         @endif
                                     </p>
                                 @elseif($isWhatsappEnabled)
-                                    <p class="text-xs text-gray-400 mt-1">
+                                    <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
                                         <flux:icon.arrow-path class="w-3 h-3 inline mr-0.5" />
                                         Auto-tukar dari templat e-mel
                                     </p>
@@ -1857,15 +1855,15 @@ new class extends Component
                             @endif
                         </div>
                         <div class="flex items-center gap-3">
-                            <div class="flex items-center gap-1.5 text-sm text-gray-500">
+                            <div class="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
                                 @if($setting->send_to_students)
-                                    <span class="inline-flex items-center gap-1 text-xs text-gray-500">
+                                    <span class="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
                                         <flux:icon.users class="w-4 h-4" />
                                         <span class="hidden sm:inline">Pelajar</span>
                                     </span>
                                 @endif
                                 @if($setting->send_to_teacher)
-                                    <span class="inline-flex items-center gap-1 text-xs text-gray-500">
+                                    <span class="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
                                         <flux:icon.academic-cap class="w-4 h-4" />
                                         <span class="hidden sm:inline">Guru</span>
                                     </span>
@@ -1925,24 +1923,23 @@ new class extends Component
                 @endforeach
             </div>
         </div>
-    </flux:card>
+    </div>
 
     <!-- Notification History Section -->
-    <flux:card>
-        <div class="p-6">
-            <div class="mb-6">
-                <flux:heading size="lg">Sejarah Notifikasi</flux:heading>
-                <flux:text class="text-gray-500 mt-1">
-                    Senarai notifikasi yang telah dijadualkan dan dihantar untuk kelas ini, dikumpulkan mengikut slot sesi.
-                </flux:text>
-            </div>
-
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Sejarah Notifikasi</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                Senarai notifikasi yang telah dijadualkan dan dihantar untuk kelas ini, dikumpulkan mengikut slot sesi.
+            </p>
+        </div>
+        <div class="px-5 py-4">
             <!-- History Channel Tabs -->
-            <div class="flex border-b border-gray-200 mb-4">
+            <div class="flex border-b border-zinc-200 dark:border-zinc-700 mb-4">
                 <button
                     type="button"
                     wire:click="setActiveMainTab('email')"
-                    class="flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'email' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}"
+                    class="flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'email' ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
                 >
                     <flux:icon.envelope class="w-4 h-4" />
                     E-mel
@@ -1950,7 +1947,7 @@ new class extends Component
                 <button
                     type="button"
                     wire:click="setActiveMainTab('whatsapp')"
-                    class="flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'whatsapp' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}"
+                    class="flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors {{ $activeMainTab === 'whatsapp' ? 'border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
                 >
                     <flux:icon.device-phone-mobile class="w-4 h-4" />
                     WhatsApp
@@ -1960,48 +1957,48 @@ new class extends Component
             @php $groupedHistory = $this->filteredNotificationHistory; @endphp
 
             @if(count($groupedHistory) > 0)
-                <div class="space-y-4">
+                <div class="space-y-3">
                     @foreach($groupedHistory as $slotKey => $group)
-                        <div x-data="{ expanded: false }" class="border border-gray-200 rounded-lg overflow-hidden">
+                        <div x-data="{ expanded: false }" class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
                             <!-- Session Slot Header (Clickable) -->
                             <button
                                 type="button"
                                 @click="expanded = !expanded"
-                                class="w-full px-4 py-3 transition-colors cursor-pointer {{ $activeMainTab === 'email' ? 'bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100' : 'bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100' }}"
-                                :class="expanded ? 'border-b border-gray-200' : ''"
+                                class="w-full px-4 py-3 transition-colors cursor-pointer bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                :class="expanded ? 'border-b border-zinc-200 dark:border-zinc-700' : ''"
                             >
                                 <div class="flex items-center gap-3">
-                                    <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center {{ $activeMainTab === 'email' ? 'bg-blue-100' : 'bg-green-100' }}">
+                                    <div class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-zinc-100 dark:bg-zinc-700">
                                         @if($activeMainTab === 'email')
-                                            <flux:icon.envelope class="w-5 h-5 text-blue-600" />
+                                            <flux:icon.envelope class="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
                                         @else
-                                            <flux:icon.device-phone-mobile class="w-5 h-5 text-green-600" />
+                                            <flux:icon.device-phone-mobile class="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
                                         @endif
                                     </div>
                                     <div class="flex-1 text-left">
-                                        <p class="font-semibold text-gray-900">Sesi: {{ $group['label'] }}</p>
+                                        <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Sesi: {{ $group['label'] }}</p>
                                         @if($group['date'])
-                                            <p class="text-sm text-gray-500">
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400">
                                                 {{ $group['date']->locale('ms')->dayName }}
                                                 @if($group['date']->isFuture())
-                                                    <span class="text-blue-600">({{ $group['date']->diffForHumans() }})</span>
+                                                    <span class="text-zinc-700 dark:text-zinc-300">({{ $group['date']->diffForHumans() }})</span>
                                                 @elseif($group['date']->isToday())
-                                                    <span class="text-green-600">(Hari Ini)</span>
+                                                    <span class="text-zinc-900 dark:text-zinc-100 font-medium">(Hari Ini)</span>
                                                 @else
-                                                    <span class="text-gray-400">({{ $group['date']->diffForHumans() }})</span>
+                                                    <span class="text-zinc-400 dark:text-zinc-500">({{ $group['date']->diffForHumans() }})</span>
                                                 @endif
                                             </p>
                                         @endif
                                     </div>
                                     <div class="flex items-center gap-3">
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-gray-200 rounded-full text-sm text-gray-700">
-                                            <flux:icon.bell class="w-4 h-4 text-gray-400" />
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-full text-xs text-zinc-700 dark:text-zinc-300">
+                                            <flux:icon.bell class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
                                             {{ count($group['notifications']) }} notifikasi
                                         </span>
                                         <!-- Expand/Collapse Icon -->
-                                        <div class="w-6 h-6 flex items-center justify-center">
+                                        <div class="w-5 h-5 flex items-center justify-center">
                                             <flux:icon.chevron-down
-                                                class="w-5 h-5 text-gray-400 transition-transform duration-200"
+                                                class="w-4 h-4 text-zinc-400 dark:text-zinc-500 transition-transform duration-200"
                                                 ::class="expanded ? 'rotate-180' : ''"
                                             />
                                         </div>
@@ -2013,7 +2010,7 @@ new class extends Component
                             <div
                                 x-show="expanded"
                                 x-collapse
-                                class="divide-y divide-gray-100"
+                                class="divide-y divide-zinc-100 dark:divide-zinc-700/50"
                             >
                                 @foreach($group['notifications'] as $notification)
                                     @php
@@ -2027,34 +2024,34 @@ new class extends Component
                                         $whatsappFailed = $whatsappLogs->where('status', 'failed')->count();
                                         $hasLogs = $notification->logs->isNotEmpty();
                                     @endphp
-                                    <div x-data="{ showDetails: false }" class="px-4 py-3 hover:bg-gray-50 transition-colors">
+                                    <div x-data="{ showDetails: false }" class="px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
                                         <div class="flex items-center justify-between gap-4">
                                             <div class="flex items-center gap-3 min-w-0 flex-1">
                                                 <!-- Notification Type Icon -->
                                                 <div class="flex-shrink-0">
                                                     @if(str_contains($notification->setting?->notification_type ?? '', 'reminder'))
-                                                        <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
-                                                            <flux:icon.clock class="w-4 h-4 text-amber-600" />
+                                                        <div class="w-7 h-7 bg-zinc-100 dark:bg-zinc-700 rounded-full flex items-center justify-center">
+                                                            <flux:icon.clock class="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                                                         </div>
                                                     @elseif(str_contains($notification->setting?->notification_type ?? '', 'followup'))
-                                                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                                            <flux:icon.check-circle class="w-4 h-4 text-green-600" />
+                                                        <div class="w-7 h-7 bg-zinc-100 dark:bg-zinc-700 rounded-full flex items-center justify-center">
+                                                            <flux:icon.check-circle class="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                                                         </div>
                                                     @else
-                                                        <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                                                            <flux:icon.bell class="w-4 h-4 text-gray-600" />
+                                                        <div class="w-7 h-7 bg-zinc-100 dark:bg-zinc-700 rounded-full flex items-center justify-center">
+                                                            <flux:icon.bell class="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                                                         </div>
                                                     @endif
                                                 </div>
 
                                                 <!-- Notification Details -->
                                                 <div class="min-w-0 flex-1">
-                                                    <p class="font-medium text-gray-900 text-sm">{{ $typeLabel['name'] }}</p>
-                                                    <p class="text-xs text-gray-500">
+                                                    <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $typeLabel['name'] }}</p>
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
                                                         Dijadualkan hantar: {{ $notification->scheduled_at->format('d M Y, g:i A') }}
                                                     </p>
                                                     @if($notification->failure_reason)
-                                                        <p class="text-xs text-red-600 mt-1">
+                                                        <p class="text-xs text-red-600 dark:text-red-400 mt-1">
                                                             <flux:icon.exclamation-circle class="w-3 h-3 inline" />
                                                             {{ $notification->failure_reason }}
                                                         </p>
@@ -2069,22 +2066,22 @@ new class extends Component
                                                     <!-- Email Status -->
                                                     @if($emailLogs->isNotEmpty() || $notification->setting?->template_id || $notification->setting?->html_content)
                                                         <div class="flex items-center gap-1" title="E-mel: {{ $emailSent }} dihantar, {{ $emailFailed }} gagal">
-                                                            <flux:icon.envelope class="w-4 h-4 {{ $emailFailed > 0 ? 'text-red-500' : ($emailSent > 0 ? 'text-green-500' : 'text-gray-400') }}" />
+                                                            <flux:icon.envelope class="w-3.5 h-3.5 {{ $emailFailed > 0 ? 'text-red-500' : ($emailSent > 0 ? 'text-green-500' : 'text-zinc-400 dark:text-zinc-500') }}" />
                                                             @if($hasLogs)
-                                                                <span class="text-xs {{ $emailFailed > 0 ? 'text-red-600' : 'text-green-600' }}">{{ $emailSent }}/{{ $emailLogs->count() }}</span>
+                                                                <span class="text-xs {{ $emailFailed > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">{{ $emailSent }}/{{ $emailLogs->count() }}</span>
                                                             @endif
                                                         </div>
                                                     @endif
                                                     <!-- WhatsApp Status -->
                                                     @if($notification->setting?->whatsapp_enabled)
                                                         <div class="flex items-center gap-1" title="WhatsApp: {{ $whatsappSent }} dihantar, {{ $whatsappFailed }} gagal">
-                                                            <svg class="w-4 h-4 {{ $whatsappFailed > 0 ? 'text-red-500' : ($whatsappSent > 0 ? 'text-green-500' : 'text-gray-400') }}" viewBox="0 0 24 24" fill="currentColor">
+                                                            <svg class="w-3.5 h-3.5 {{ $whatsappFailed > 0 ? 'text-red-500' : ($whatsappSent > 0 ? 'text-green-500' : 'text-zinc-400 dark:text-zinc-500') }}" viewBox="0 0 24 24" fill="currentColor">
                                                                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                                                             </svg>
                                                             @if($whatsappLogs->isNotEmpty())
-                                                                <span class="text-xs {{ $whatsappFailed > 0 ? 'text-red-600' : 'text-green-600' }}">{{ $whatsappSent }}/{{ $whatsappLogs->count() }}</span>
+                                                                <span class="text-xs {{ $whatsappFailed > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">{{ $whatsappSent }}/{{ $whatsappLogs->count() }}</span>
                                                             @else
-                                                                <span class="text-xs text-gray-400">-</span>
+                                                                <span class="text-xs text-zinc-400 dark:text-zinc-500">-</span>
                                                             @endif
                                                         </div>
                                                     @endif
@@ -2093,14 +2090,14 @@ new class extends Component
                                                 <!-- Recipients Count -->
                                                 <div class="text-center min-w-[70px]">
                                                     <div class="text-sm">
-                                                        <span class="text-green-600 font-medium">{{ $notification->total_sent }}</span>
-                                                        <span class="text-gray-400">/</span>
-                                                        <span class="text-gray-600">{{ $notification->total_recipients }}</span>
+                                                        <span class="text-green-600 dark:text-green-400 font-medium">{{ $notification->total_sent }}</span>
+                                                        <span class="text-zinc-400 dark:text-zinc-500">/</span>
+                                                        <span class="text-zinc-600 dark:text-zinc-300">{{ $notification->total_recipients }}</span>
                                                     </div>
                                                     @if($notification->total_failed > 0)
-                                                        <span class="text-xs text-red-500">({{ $notification->total_failed }} gagal)</span>
+                                                        <span class="text-xs text-red-500 dark:text-red-400">({{ $notification->total_failed }} gagal)</span>
                                                     @else
-                                                        <span class="text-xs text-gray-400">penerima</span>
+                                                        <span class="text-xs text-zinc-400 dark:text-zinc-500">penerima</span>
                                                     @endif
                                                 </div>
 
@@ -2114,7 +2111,7 @@ new class extends Component
                                                     @if($hasLogs)
                                                         <button
                                                             @click="showDetails = !showDetails"
-                                                            class="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                                            class="p-1 text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                                                             title="Lihat butiran"
                                                         >
                                                             <flux:icon.chevron-down class="w-4 h-4 transition-transform" ::class="showDetails ? 'rotate-180' : ''" />
@@ -2136,27 +2133,27 @@ new class extends Component
                                         </div>
 
                                         <!-- Expandable Log Details -->
-                                        <div x-show="showDetails" x-collapse class="mt-3 ml-11">
-                                            <div class="bg-gray-50 rounded-lg p-3 space-y-2">
-                                                <p class="text-xs font-medium text-gray-700 mb-2">Log Penghantaran:</p>
+                                        <div x-show="showDetails" x-collapse class="mt-2 ml-10">
+                                            <div class="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-3 space-y-2">
+                                                <p class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Log Penghantaran</p>
                                                 @forelse($notification->logs as $log)
-                                                    <div class="flex items-center justify-between text-xs bg-white rounded px-3 py-2 border border-gray-100">
+                                                    <div class="flex items-center justify-between text-xs bg-white dark:bg-zinc-800 rounded px-3 py-2 border border-zinc-100 dark:border-zinc-700">
                                                         <div class="flex items-center gap-2">
                                                             <!-- Channel Icon -->
                                                             @if($log->channel === 'email')
-                                                                <flux:icon.envelope class="w-3.5 h-3.5 text-blue-500" />
+                                                                <flux:icon.envelope class="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                                                             @elseif($log->channel === 'whatsapp')
-                                                                <svg class="w-3.5 h-3.5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                                                                <svg class="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" viewBox="0 0 24 24" fill="currentColor">
                                                                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                                                                 </svg>
                                                             @else
-                                                                <flux:icon.device-phone-mobile class="w-3.5 h-3.5 text-purple-500" />
+                                                                <flux:icon.device-phone-mobile class="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                                                             @endif
                                                             <!-- Recipient Info -->
-                                                            <span class="text-gray-600">
+                                                            <span class="text-zinc-500 dark:text-zinc-400">
                                                                 {{ $log->recipient_type === 'teacher' ? 'Guru' : 'Pelajar' }}:
                                                             </span>
-                                                            <span class="font-medium text-gray-800">{{ $log->destination }}</span>
+                                                            <span class="font-medium text-zinc-800 dark:text-zinc-200">{{ $log->destination }}</span>
                                                         </div>
                                                         <div class="flex items-center gap-2">
                                                             <!-- Status -->
@@ -2165,18 +2162,18 @@ new class extends Component
                                                             </flux:badge>
                                                             <!-- Sent Time -->
                                                             @if($log->sent_at)
-                                                                <span class="text-gray-400">{{ $log->sent_at->format('H:i') }}</span>
+                                                                <span class="text-zinc-400 dark:text-zinc-500">{{ $log->sent_at->format('H:i') }}</span>
                                                             @endif
                                                         </div>
                                                     </div>
                                                     @if($log->error_message)
-                                                        <div class="text-xs text-red-600 bg-red-50 rounded px-3 py-1.5 ml-5">
+                                                        <div class="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded px-3 py-1.5 ml-5">
                                                             <flux:icon.exclamation-triangle class="w-3 h-3 inline mr-1" />
                                                             {{ $log->error_message }}
                                                         </div>
                                                     @endif
                                                 @empty
-                                                    <p class="text-xs text-gray-500 italic">Tiada log penghantaran.</p>
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 italic">Tiada log penghantaran.</p>
                                                 @endforelse
                                             </div>
                                         </div>
@@ -2187,20 +2184,20 @@ new class extends Component
                     @endforeach
                 </div>
             @else
-                <div class="text-center py-12">
+                <div class="text-center py-8">
                     @if($activeMainTab === 'email')
-                        <flux:icon.envelope class="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                        <p class="text-gray-700 font-medium">Tiada notifikasi e-mel dijadualkan lagi.</p>
-                        <p class="text-sm text-gray-500 mt-1">Aktifkan tetapan notifikasi e-mel di atas untuk mula menghantar notifikasi.</p>
+                        <flux:icon.envelope class="w-8 h-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                        <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Tiada notifikasi e-mel dijadualkan lagi.</p>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Aktifkan tetapan notifikasi e-mel di atas untuk mula menghantar notifikasi.</p>
                     @else
-                        <flux:icon.device-phone-mobile class="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                        <p class="text-gray-700 font-medium">Tiada notifikasi WhatsApp dijadualkan lagi.</p>
-                        <p class="text-sm text-gray-500 mt-1">Aktifkan tetapan notifikasi WhatsApp di atas untuk mula menghantar notifikasi.</p>
+                        <flux:icon.device-phone-mobile class="w-8 h-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                        <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Tiada notifikasi WhatsApp dijadualkan lagi.</p>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Aktifkan tetapan notifikasi WhatsApp di atas untuk mula menghantar notifikasi.</p>
                     @endif
                 </div>
             @endif
         </div>
-    </flux:card>
+    </div>
 
     <!-- Toast Notification -->
     <div
@@ -2223,23 +2220,23 @@ new class extends Component
     >
         <div
             x-show="type === 'success'"
-            class="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg shadow-lg"
+            class="flex items-center gap-2 px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg shadow-lg"
         >
-            <flux:icon.check-circle class="w-5 h-5 text-green-600" />
+            <flux:icon.check-circle class="w-5 h-5 text-green-600 dark:text-green-400" />
             <span x-text="message"></span>
         </div>
         <div
             x-show="type === 'error'"
-            class="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 text-red-800 rounded-lg shadow-lg"
+            class="flex items-center gap-2 px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg shadow-lg"
         >
-            <flux:icon.exclamation-circle class="w-5 h-5 text-red-600" />
+            <flux:icon.exclamation-circle class="w-5 h-5 text-red-600 dark:text-red-400" />
             <span x-text="message"></span>
         </div>
         <div
             x-show="type === 'info'"
-            class="flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg shadow-lg"
+            class="flex items-center gap-2 px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg shadow-lg"
         >
-            <flux:icon.information-circle class="w-5 h-5 text-blue-600" />
+            <flux:icon.information-circle class="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
             <span x-text="message"></span>
         </div>
     </div>
@@ -2254,61 +2251,61 @@ new class extends Component
             }
         }">
             <!-- Modal Header -->
-            <div class="flex items-center justify-between pb-4 border-b border-gray-200 mb-5">
+            <div class="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-700 mb-5">
                 <div>
-                    <flux:heading size="lg">Edit Tetapan Notifikasi</flux:heading>
-                    <flux:text class="text-gray-500 text-sm mt-1">Konfigurasikan tetapan untuk notifikasi ini</flux:text>
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Edit Tetapan Notifikasi</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Konfigurasikan tetapan untuk notifikasi ini</p>
                 </div>
             </div>
 
             <div class="space-y-5">
                 <!-- STEP 1: Content Source Selection -->
-                <div class="bg-gradient-to-br from-slate-50 to-gray-50 border border-gray-200 rounded-xl p-5">
+                <div class="bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-5">
                     <div class="flex items-center gap-2 mb-4">
-                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <flux:icon.document-text class="w-4 h-4 text-blue-600" />
+                        <div class="w-8 h-8 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                            <flux:icon.document-text class="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
                         </div>
                         <div>
-                            <p class="font-semibold text-gray-900 text-sm">Sumber Kandungan E-mel</p>
-                            <p class="text-xs text-gray-500">Pilih sama ada menggunakan templat sistem atau kandungan tersuai</p>
+                            <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Sumber Kandungan E-mel</p>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">Pilih sama ada menggunakan templat sistem atau kandungan tersuai</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <!-- System Template Option -->
-                        <label class="relative flex flex-col p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $contentSource === 'system' ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300' }}">
+                        <label class="relative flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all {{ $contentSource === 'system' ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800/50' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500' }}">
                             <input type="radio" name="content_source" wire:model.live="contentSource" value="system" class="sr-only">
                             <div class="flex items-center gap-3 mb-2">
-                                <div class="w-10 h-10 {{ $contentSource === 'system' ? 'bg-blue-100' : 'bg-gray-100' }} rounded-lg flex items-center justify-center">
-                                    <flux:icon.rectangle-stack class="w-5 h-5 {{ $contentSource === 'system' ? 'text-blue-600' : 'text-gray-500' }}" />
+                                <div class="w-10 h-10 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                                    <flux:icon.rectangle-stack class="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-900">Templat Sistem</p>
-                                    <p class="text-xs {{ $contentSource === 'system' ? 'text-blue-600' : 'text-gray-500' }}">Guna templat yang telah disediakan</p>
+                                    <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Templat Sistem</p>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Guna templat yang telah disediakan</p>
                                 </div>
                             </div>
                             @if($contentSource === 'system')
                                 <div class="absolute top-2 right-2">
-                                    <flux:icon.check-circle class="w-5 h-5 text-blue-600" />
+                                    <flux:icon.check-circle class="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
                                 </div>
                             @endif
                         </label>
 
                         <!-- Custom Content Option -->
-                        <label class="relative flex flex-col p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $contentSource === 'custom' ? 'border-amber-500 bg-amber-50 shadow-md' : 'border-gray-200 hover:border-amber-300' }}">
+                        <label class="relative flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all {{ $contentSource === 'custom' ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800/50' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500' }}">
                             <input type="radio" name="content_source" wire:model.live="contentSource" value="custom" class="sr-only">
                             <div class="flex items-center gap-3 mb-2">
-                                <div class="w-10 h-10 {{ $contentSource === 'custom' ? 'bg-amber-100' : 'bg-gray-100' }} rounded-lg flex items-center justify-center">
-                                    <flux:icon.pencil-square class="w-5 h-5 {{ $contentSource === 'custom' ? 'text-amber-600' : 'text-gray-500' }}" />
+                                <div class="w-10 h-10 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                                    <flux:icon.pencil-square class="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-900">Kandungan Tersuai</p>
-                                    <p class="text-xs {{ $contentSource === 'custom' ? 'text-amber-600' : 'text-gray-500' }}">Cipta templat khusus untuk kelas ini</p>
+                                    <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Kandungan Tersuai</p>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Cipta templat khusus untuk kelas ini</p>
                                 </div>
                             </div>
                             @if($contentSource === 'custom')
                                 <div class="absolute top-2 right-2">
-                                    <flux:icon.check-circle class="w-5 h-5 text-amber-600" />
+                                    <flux:icon.check-circle class="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
                                 </div>
                             @endif
                         </label>
@@ -2317,18 +2314,18 @@ new class extends Component
 
                 <!-- STEP 2A: System Template Selection (shown when system is selected) -->
                 @if($contentSource === 'system')
-                    <div class="border border-blue-200 rounded-xl overflow-hidden">
-                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b border-blue-200">
+                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                        <div class="bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2">
-                                    <flux:icon.rectangle-stack class="w-4 h-4 text-blue-600" />
-                                    <span class="font-semibold text-gray-900 text-sm">Pilih Templat Sistem</span>
+                                    <flux:icon.rectangle-stack class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                    <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Pilih Templat Sistem</span>
                                 </div>
                                 @if($this->selectedTemplate)
                                     <a
                                         href="{{ route('admin.settings.notifications.builder', $this->selectedTemplate) }}"
                                         target="_blank"
-                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-medium rounded-lg transition-colors"
                                     >
                                         <flux:icon.arrow-top-right-on-square class="w-3.5 h-3.5" />
                                         Edit Templat
@@ -2337,26 +2334,28 @@ new class extends Component
                             </div>
                         </div>
                         <div class="bg-white dark:bg-zinc-800 p-4 space-y-4">
-                            <flux:select wire:model.live="selectedTemplateId" class="w-full">
-                                <option value="">-- Pilih Templat --</option>
-                                @foreach($this->templates as $type => $templateGroup)
-                                    <optgroup label="{{ ucfirst(str_replace('_', ' ', $type)) }}">
-                                        @foreach($templateGroup as $template)
-                                            <option value="{{ $template->id }}">
-                                                {{ $template->name }} ({{ strtoupper($template->language) }})
-                                                @if($template->isVisualEditor()) - Visual @endif
-                                            </option>
-                                        @endforeach
-                                    </optgroup>
-                                @endforeach
-                            </flux:select>
+                            <div class="w-full">
+                                <flux:select wire:model.live="selectedTemplateId" class="w-full">
+                                    <option value="">-- Pilih Templat --</option>
+                                    @foreach($this->templates as $type => $templateGroup)
+                                        <optgroup label="{{ ucfirst(str_replace('_', ' ', $type)) }}">
+                                            @foreach($templateGroup as $template)
+                                                <option value="{{ $template->id }}">
+                                                    {{ $template->name }} ({{ strtoupper($template->language) }})
+                                                    @if($template->isVisualEditor()) - Visual @endif
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endforeach
+                                </flux:select>
+                            </div>
 
                             <!-- Template Preview -->
                             @if($this->selectedTemplate)
-                                <div class="border border-gray-200 rounded-lg overflow-hidden">
-                                    <div class="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                                <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                                    <div class="bg-zinc-50 dark:bg-zinc-800 px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
                                         <div class="flex items-center justify-between">
-                                            <span class="text-xs font-medium text-gray-600">Pratonton</span>
+                                            <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Pratonton</span>
                                             @if($this->selectedTemplate->isVisualEditor())
                                                 <flux:badge color="purple" size="sm">
                                                     <flux:icon.paint-brush class="w-3 h-3 mr-1" />
@@ -2373,32 +2372,32 @@ new class extends Component
                                     <div class="p-3 space-y-3">
                                         @if($this->selectedTemplate->subject)
                                             <div>
-                                                <label class="block text-xs text-gray-500 mb-1">Subjek</label>
-                                                <div class="bg-gray-50 rounded px-3 py-2 text-sm text-gray-900">
+                                                <label class="block text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Subjek</label>
+                                                <div class="bg-zinc-50 dark:bg-zinc-800 rounded px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100">
                                                     {{ $this->selectedTemplate->subject }}
                                                 </div>
                                             </div>
                                         @endif
 
                                         <div>
-                                            <label class="block text-xs text-gray-500 mb-1">Kandungan</label>
+                                            <label class="block text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Kandungan</label>
                                             @if($this->selectedTemplate->isVisualEditor())
-                                                <div class="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-lg p-3 text-center">
-                                                    <flux:icon.paint-brush class="w-6 h-6 mx-auto text-purple-400 mb-1" />
-                                                    <p class="text-xs text-purple-700">Templat visual - klik "Edit Templat" untuk melihat</p>
+                                                <div class="bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 text-center">
+                                                    <flux:icon.paint-brush class="w-6 h-6 mx-auto text-zinc-300 dark:text-zinc-600 mb-1" />
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Templat visual - klik "Edit Templat" untuk melihat</p>
                                                 </div>
                                             @else
-                                                <div class="bg-gray-50 rounded p-2 max-h-32 overflow-y-auto">
-                                                    <div class="text-xs text-gray-700 whitespace-pre-wrap">{{ Str::limit($this->selectedTemplate->content, 300) }}</div>
+                                                <div class="bg-zinc-50 dark:bg-zinc-800 rounded p-2 max-h-32 overflow-y-auto">
+                                                    <div class="text-xs text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">{{ Str::limit($this->selectedTemplate->content, 300) }}</div>
                                                 </div>
                                             @endif
                                         </div>
                                     </div>
                                 </div>
                             @else
-                                <div class="border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50/50">
-                                    <flux:icon.document class="w-8 h-8 mx-auto text-gray-300 mb-2" />
-                                    <p class="text-gray-500 text-sm">Pilih templat untuk melihat pratonton</p>
+                                <div class="border border-dashed border-zinc-300 dark:border-zinc-600 rounded-lg p-6 text-center bg-zinc-50/50 dark:bg-zinc-800/30">
+                                    <flux:icon.document class="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Pilih templat untuk melihat pratonton</p>
                                 </div>
                             @endif
                         </div>
@@ -2407,31 +2406,31 @@ new class extends Component
 
                 <!-- STEP 2B: Custom Content Editor (shown when custom is selected) -->
                 @if($contentSource === 'custom')
-                    <div class="border border-amber-200 rounded-xl overflow-hidden">
-                        <div class="bg-gradient-to-r from-amber-50 to-yellow-50 px-4 py-3 border-b border-amber-200">
+                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                        <div class="bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
                             <div class="flex items-center gap-2">
-                                <flux:icon.pencil-square class="w-4 h-4 text-amber-600" />
-                                <span class="font-semibold text-gray-900 text-sm">Kandungan Tersuai</span>
+                                <flux:icon.pencil-square class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Kandungan Tersuai</span>
                             </div>
-                            <p class="text-xs text-amber-700 mt-1">Templat ini akan digunakan khusus untuk kelas ini sahaja</p>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Templat ini akan digunakan khusus untuk kelas ini sahaja</p>
                         </div>
                         <div class="bg-white dark:bg-zinc-800 p-4 space-y-4">
                             <!-- Editor Type Selection -->
                             <div>
                                 <flux:label class="mb-2">Jenis Editor</flux:label>
                                 <div class="grid grid-cols-2 gap-3">
-                                    <label class="flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer hover:border-amber-300 transition-colors {{ $editorType === 'text' ? 'border-amber-500 bg-amber-50' : 'border-gray-200' }}">
-                                        <input type="radio" name="editor_type" wire:model.live="editorType" value="text" class="w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500">
+                                    <label class="flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors {{ $editorType === 'text' ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800/50' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500' }}">
+                                        <input type="radio" name="editor_type" wire:model.live="editorType" value="text" class="w-4 h-4 text-zinc-900 border-zinc-300 focus:ring-zinc-500">
                                         <div>
-                                            <p class="font-medium text-gray-900 text-sm">Teks Biasa</p>
-                                            <p class="text-xs text-gray-500">Editor teks dengan placeholder</p>
+                                            <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Teks Biasa</p>
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400">Editor teks dengan placeholder</p>
                                         </div>
                                     </label>
-                                    <label class="flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer hover:border-purple-300 transition-colors {{ $editorType === 'visual' ? 'border-purple-500 bg-purple-50' : 'border-gray-200' }}">
-                                        <input type="radio" name="editor_type" wire:model.live="editorType" value="visual" class="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500">
+                                    <label class="flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors {{ $editorType === 'visual' ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800/50' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500' }}">
+                                        <input type="radio" name="editor_type" wire:model.live="editorType" value="visual" class="w-4 h-4 text-zinc-900 border-zinc-300 focus:ring-zinc-500">
                                         <div>
-                                            <p class="font-medium text-gray-900 text-sm">Visual Builder</p>
-                                            <p class="text-xs text-gray-500">Reka bentuk email dengan gambar</p>
+                                            <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Visual Builder</p>
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400">Reka bentuk email dengan gambar</p>
                                         </div>
                                     </label>
                                 </div>
@@ -2447,11 +2446,11 @@ new class extends Component
                                         <flux:description>Subjek e-mel akan digunakan untuk templat visual anda.</flux:description>
                                     </flux:field>
 
-                                    <div class="p-4 border border-purple-200 rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50">
+                                    <div class="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
                                         <div class="flex items-center justify-between mb-3">
                                             <div>
-                                                <p class="font-semibold text-gray-900 text-sm">Templat Visual</p>
-                                                <p class="text-xs text-purple-600">Reka bentuk email dengan gambar dan susun atur tersuai</p>
+                                                <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Templat Visual</p>
+                                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Reka bentuk email dengan gambar dan susun atur tersuai</p>
                                             </div>
                                             <flux:button
                                                 wire:click="openVisualBuilder"
@@ -2464,16 +2463,16 @@ new class extends Component
                                         </div>
 
                                     @if($hasVisualContent)
-                                        <div class="p-3 bg-white rounded border border-purple-100">
+                                        <div class="p-3 bg-white dark:bg-zinc-800 rounded border border-zinc-200 dark:border-zinc-700">
                                             <div class="flex items-center gap-2">
                                                 <flux:badge color="green" size="sm">Templat Disimpan</flux:badge>
                                             </div>
-                                            <p class="text-xs text-gray-500 mt-1">Templat visual telah dikonfigurasi untuk notifikasi ini.</p>
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Templat visual telah dikonfigurasi untuk notifikasi ini.</p>
                                         </div>
                                     @else
-                                        <div class="p-3 bg-white rounded border border-purple-100 text-center">
-                                            <flux:icon.paint-brush class="w-6 h-6 mx-auto text-purple-300 mb-1" />
-                                            <p class="text-xs text-gray-500">Klik butang untuk mula mereka bentuk templat</p>
+                                        <div class="p-3 bg-white dark:bg-zinc-800 rounded border border-zinc-200 dark:border-zinc-700 text-center">
+                                            <flux:icon.paint-brush class="w-6 h-6 mx-auto text-zinc-300 dark:text-zinc-600 mb-1" />
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400">Klik butang untuk mula mereka bentuk templat</p>
                                         </div>
                                     @endif
                                     </div>
@@ -2496,33 +2495,33 @@ new class extends Component
                     </div>
 
                     <!-- Placeholder Reference (Collapsible) -->
-                    <div class="border border-blue-200 rounded-xl overflow-hidden">
+                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
                         <button
                             type="button"
                             @click="showPlaceholders = !showPlaceholders"
-                            class="w-full bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 flex items-center justify-between hover:from-blue-100 hover:to-indigo-100 transition-colors"
+                            class="w-full bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                         >
                             <div class="flex items-center gap-2">
-                                <flux:icon.code-bracket class="w-4 h-4 text-blue-600" />
-                                <span class="font-semibold text-gray-900 text-sm">Placeholder</span>
-                                <span class="text-xs text-blue-600">(Klik untuk menyalin)</span>
+                                <flux:icon.code-bracket class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                                <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Placeholder</span>
+                                <span class="text-xs text-zinc-500 dark:text-zinc-400">(Klik untuk menyalin)</span>
                             </div>
                             <flux:icon.chevron-down
-                                class="w-5 h-5 text-gray-400 transition-transform duration-200"
+                                class="w-5 h-5 text-zinc-400 dark:text-zinc-500 transition-transform duration-200"
                                 ::class="showPlaceholders ? 'rotate-180' : ''"
                             />
                         </button>
-                        <div x-show="showPlaceholders" x-collapse class="bg-white p-4">
+                        <div x-show="showPlaceholders" x-collapse class="bg-white dark:bg-zinc-800 p-4">
                             <div class="flex flex-wrap gap-2">
                                 @foreach($this->availablePlaceholders as $placeholder => $description)
                                     <button
                                         type="button"
                                         x-on:click="copyToClipboard('{{ $placeholder }}')"
-                                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-all duration-150 cursor-pointer group"
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:border-zinc-300 dark:hover:border-zinc-500 transition-all duration-150 cursor-pointer group"
                                         title="{{ $description }}"
                                     >
-                                        <code class="text-xs text-blue-700 font-mono">{{ $placeholder }}</code>
-                                        <flux:icon.clipboard-document class="w-3 h-3 text-blue-400 group-hover:text-blue-600 transition-colors" />
+                                        <code class="text-xs text-zinc-700 dark:text-zinc-300 font-mono">{{ $placeholder }}</code>
+                                        <flux:icon.clipboard-document class="w-3 h-3 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors" />
                                     </button>
                                 @endforeach
                             </div>
@@ -2531,25 +2530,25 @@ new class extends Component
                 @endif
 
                 <!-- Attachments Section (Always shown) -->
-                <div class="border border-gray-200 rounded-xl overflow-hidden">
-                    <div class="bg-gradient-to-r from-gray-50 to-slate-50 px-4 py-3 border-b border-gray-200">
+                <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                    <div class="bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
                         <div class="flex items-center gap-2">
-                            <flux:icon.paper-clip class="w-4 h-4 text-gray-600" />
-                            <span class="font-semibold text-gray-900 text-sm">Lampiran</span>
-                            <span class="text-xs text-gray-500">(Pilihan)</span>
+                            <flux:icon.paper-clip class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                            <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Lampiran</span>
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400">(Pilihan)</span>
                         </div>
                     </div>
                     <div class="bg-white dark:bg-zinc-800 p-4 space-y-4">
                         <!-- Upload Area -->
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                        <div class="border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-lg p-4 text-center hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors">
                             <input type="file" wire:model="newAttachments" multiple class="hidden" id="attachment-upload-{{ $editingSettingId }}">
                             <label for="attachment-upload-{{ $editingSettingId }}" class="cursor-pointer block">
-                                <flux:icon.cloud-arrow-up class="w-8 h-8 mx-auto text-gray-400" />
-                                <p class="text-sm text-gray-600 mt-2">Klik untuk muat naik fail</p>
-                                <p class="text-xs text-gray-400">JPG, PNG, PDF, DOC, XLS, PPT (Maks 10MB)</p>
+                                <flux:icon.cloud-arrow-up class="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-600" />
+                                <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-2">Klik untuk muat naik fail</p>
+                                <p class="text-xs text-zinc-400 dark:text-zinc-500">JPG, PNG, PDF, DOC, XLS, PPT (Maks 10MB)</p>
                             </label>
                             <div wire:loading wire:target="newAttachments" class="mt-2">
-                                <flux:badge color="blue" size="sm">Memuat naik...</flux:badge>
+                                <flux:badge color="zinc" size="sm">Memuat naik...</flux:badge>
                             </div>
                         </div>
 
@@ -2557,28 +2556,28 @@ new class extends Component
                         @if($attachments->count() > 0)
                             <div class="space-y-2">
                                 @foreach($attachments as $attachment)
-                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
                                         <div class="flex items-center gap-3">
                                             @if($attachment->isImage())
                                                 <img src="{{ $attachment->url }}" class="w-10 h-10 object-cover rounded" alt="{{ $attachment->file_name }}" />
                                             @else
-                                                <div class="w-10 h-10 bg-gray-200 rounded flex items-center justify-center">
-                                                    <flux:icon :name="$attachment->file_icon" class="w-5 h-5 text-gray-500" />
+                                                <div class="w-10 h-10 bg-zinc-200 dark:bg-zinc-700 rounded flex items-center justify-center">
+                                                    <flux:icon :name="$attachment->file_icon" class="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
                                                 </div>
                                             @endif
                                             <div>
-                                                <p class="text-sm font-medium text-gray-900">{{ Str::limit($attachment->file_name, 30) }}</p>
-                                                <p class="text-xs text-gray-500">{{ $attachment->formatted_size }}</p>
+                                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ Str::limit($attachment->file_name, 30) }}</p>
+                                                <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $attachment->formatted_size }}</p>
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-2">
                                             @if($attachment->isImage())
-                                                <label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                                                <label class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400 cursor-pointer">
                                                     <input
                                                         type="checkbox"
                                                         wire:click="toggleEmbedImage({{ $attachment->id }})"
                                                         {{ $attachment->embed_in_email ? 'checked' : '' }}
-                                                        class="w-3.5 h-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                                        class="w-3.5 h-3.5 text-zinc-900 border-zinc-300 rounded focus:ring-zinc-500"
                                                     >
                                                     Embed
                                                 </label>
@@ -2601,58 +2600,58 @@ new class extends Component
                 </div>
 
                 <!-- Email Channel Info Card -->
-                <div class="border border-blue-200 rounded-xl overflow-hidden bg-blue-50">
+                <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden bg-zinc-50 dark:bg-zinc-800/50">
                     <div class="px-4 py-3">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <flux:icon.envelope class="w-4 h-4 text-blue-600" />
+                            <div class="w-8 h-8 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                                <flux:icon.envelope class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                             </div>
                             <div class="flex-1">
-                                <p class="font-medium text-gray-900 text-sm">Tetapan E-mel</p>
-                                <p class="text-xs text-blue-600">Kandungan e-mel dikonfigurasikan di bahagian "Sumber Kandungan" di atas.</p>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Tetapan E-mel</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Kandungan e-mel dikonfigurasikan di bahagian "Sumber Kandungan" di atas.</p>
                             </div>
-                            <flux:icon.check-circle class="w-5 h-5 text-blue-600" />
+                            <flux:icon.check-circle class="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
                         </div>
                     </div>
                 </div>
 
                 <!-- WhatsApp Configuration Note -->
-                <div class="border border-green-200 rounded-xl overflow-hidden bg-green-50">
+                <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden bg-zinc-50 dark:bg-zinc-800/50">
                     <div class="px-4 py-3">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                                <flux:icon.device-phone-mobile class="w-4 h-4 text-green-600" />
+                            <div class="w-8 h-8 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                                <flux:icon.device-phone-mobile class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                             </div>
                             <div class="flex-1">
-                                <p class="font-medium text-gray-900 text-sm">Tetapan WhatsApp</p>
-                                <p class="text-xs text-green-600">Konfigurasi WhatsApp boleh dilakukan melalui tab WhatsApp di halaman utama notifikasi.</p>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Tetapan WhatsApp</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Konfigurasi WhatsApp boleh dilakukan melalui tab WhatsApp di halaman utama notifikasi.</p>
                             </div>
-                            <flux:icon.arrow-top-right-on-square class="w-5 h-5 text-green-600" />
+                            <flux:icon.arrow-top-right-on-square class="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
                         </div>
                     </div>
                 </div>
 
                 <!-- Recipients Card (Always shown at bottom) -->
-                <div class="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                <div class="bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-4">
                     <div class="flex items-center gap-2 mb-3">
-                        <div class="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center">
-                            <flux:icon.users class="w-4 h-4 text-green-600" />
+                        <div class="w-7 h-7 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                            <flux:icon.users class="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                         </div>
-                        <span class="font-semibold text-gray-900 text-sm">Penerima Notifikasi</span>
+                        <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Penerima Notifikasi</span>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
-                            <input type="checkbox" wire:model="sendToStudents" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                        <label class="flex items-center gap-3 p-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors">
+                            <input type="checkbox" wire:model="sendToStudents" class="w-4 h-4 text-zinc-900 border-zinc-300 rounded focus:ring-zinc-500">
                             <div>
-                                <p class="font-medium text-gray-900 text-sm">Pelajar</p>
-                                <p class="text-xs text-gray-500">Semua pelajar dalam kelas</p>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Pelajar</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Semua pelajar dalam kelas</p>
                             </div>
                         </label>
-                        <label class="flex items-center gap-3 p-3 bg-white border border-green-100 rounded-lg cursor-pointer hover:border-green-300 transition-colors">
-                            <input type="checkbox" wire:model="sendToTeacher" class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                        <label class="flex items-center gap-3 p-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors">
+                            <input type="checkbox" wire:model="sendToTeacher" class="w-4 h-4 text-zinc-900 border-zinc-300 rounded focus:ring-zinc-500">
                             <div>
-                                <p class="font-medium text-gray-900 text-sm">Guru</p>
-                                <p class="text-xs text-gray-500">Guru yang mengajar kelas</p>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Guru</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">Guru yang mengajar kelas</p>
                             </div>
                         </label>
                     </div>
@@ -2660,7 +2659,7 @@ new class extends Component
             </div>
 
             <!-- Modal Footer -->
-            <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-gray-200">
+            <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-zinc-200 dark:border-zinc-700">
                 <flux:button variant="ghost" wire:click="$set('showEditModal', false)">Batal</flux:button>
                 <flux:button variant="primary" wire:click="saveSetting" icon="check">Simpan Tetapan</flux:button>
             </div>
@@ -2670,10 +2669,10 @@ new class extends Component
     <!-- Test Notification Modal -->
     <flux:modal wire:model="showTestModal" class="max-w-lg">
         <div class="p-6">
-            <div class="flex items-center justify-between pb-4 border-b border-gray-200 mb-5">
+            <div class="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-700 mb-5">
                 <div>
-                    <flux:heading size="lg">Hantar Mesej Ujian</flux:heading>
-                    <flux:text class="text-gray-500 text-sm mt-1">Pilih saluran untuk menghantar mesej ujian</flux:text>
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Hantar Mesej Ujian</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Pilih saluran untuk menghantar mesej ujian</p>
                 </div>
             </div>
 
@@ -2685,20 +2684,20 @@ new class extends Component
                         <!-- Email Option -->
                         <div
                             wire:click="$set('testChannel', 'email')"
-                            class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $testChannel === 'email' ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300' }}"
+                            class="relative flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all {{ $testChannel === 'email' ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800/50' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500' }}"
                         >
-                            <div class="flex items-center gap-4">
-                                <div class="w-12 h-12 {{ $testChannel === 'email' ? 'bg-blue-100' : 'bg-gray-100' }} rounded-xl flex items-center justify-center">
-                                    <flux:icon.envelope class="w-6 h-6 {{ $testChannel === 'email' ? 'text-blue-600' : 'text-gray-500' }}" />
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                                    <flux:icon.envelope class="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-900 text-base">E-mel</p>
-                                    <p class="text-sm text-gray-500 truncate max-w-[140px]">{{ auth()->user()->email }}</p>
+                                    <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">E-mel</p>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate max-w-[140px]">{{ auth()->user()->email }}</p>
                                 </div>
                             </div>
                             @if($testChannel === 'email')
                                 <div class="absolute top-3 right-3">
-                                    <flux:icon.check-circle class="w-6 h-6 text-blue-600" />
+                                    <flux:icon.check-circle class="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
                                 </div>
                             @endif
                         </div>
@@ -2706,20 +2705,20 @@ new class extends Component
                         <!-- WhatsApp Option -->
                         <div
                             wire:click="$set('testChannel', 'whatsapp')"
-                            class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md {{ $testChannel === 'whatsapp' ? 'border-green-500 bg-green-50 shadow-md' : 'border-gray-200 hover:border-green-300' }}"
+                            class="relative flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all {{ $testChannel === 'whatsapp' ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800/50' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500' }}"
                         >
-                            <div class="flex items-center gap-4">
-                                <div class="w-12 h-12 {{ $testChannel === 'whatsapp' ? 'bg-green-100' : 'bg-gray-100' }} rounded-xl flex items-center justify-center">
-                                    <flux:icon.device-phone-mobile class="w-6 h-6 {{ $testChannel === 'whatsapp' ? 'text-green-600' : 'text-gray-500' }}" />
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center">
+                                    <flux:icon.device-phone-mobile class="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-900 text-base">WhatsApp</p>
-                                    <p class="text-sm text-gray-500">{{ auth()->user()->phone_number ?? auth()->user()->phone ?? 'Tidak ditetapkan' }}</p>
+                                    <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">WhatsApp</p>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ auth()->user()->phone_number ?? auth()->user()->phone ?? 'Tidak ditetapkan' }}</p>
                                 </div>
                             </div>
                             @if($testChannel === 'whatsapp')
                                 <div class="absolute top-3 right-3">
-                                    <flux:icon.check-circle class="w-6 h-6 text-green-600" />
+                                    <flux:icon.check-circle class="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
                                 </div>
                             @endif
                         </div>
@@ -2727,14 +2726,14 @@ new class extends Component
                 </div>
 
                 <!-- Info Box -->
-                <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                <div class="p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg">
                     <div class="flex items-start gap-3">
-                        <flux:icon.information-circle class="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />
-                        <div class="text-sm text-gray-600">
+                        <flux:icon.information-circle class="w-5 h-5 text-zinc-400 dark:text-zinc-500 flex-shrink-0 mt-0.5" />
+                        <div class="text-xs text-zinc-600 dark:text-zinc-400">
                             @if($testChannel === 'email')
-                                Mesej ujian akan dihantar ke alamat e-mel anda: <strong>{{ auth()->user()->email }}</strong>
+                                Mesej ujian akan dihantar ke alamat e-mel anda: <strong class="text-zinc-900 dark:text-zinc-100">{{ auth()->user()->email }}</strong>
                             @else
-                                Mesej ujian akan dihantar ke nombor WhatsApp anda: <strong>{{ auth()->user()->phone_number ?? auth()->user()->phone ?? 'Tidak ditetapkan' }}</strong>
+                                Mesej ujian akan dihantar ke nombor WhatsApp anda: <strong class="text-zinc-900 dark:text-zinc-100">{{ auth()->user()->phone_number ?? auth()->user()->phone ?? 'Tidak ditetapkan' }}</strong>
                             @endif
                         </div>
                     </div>
@@ -2742,7 +2741,7 @@ new class extends Component
             </div>
 
             <!-- Modal Footer -->
-            <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-gray-200">
+            <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-zinc-200 dark:border-zinc-700">
                 <flux:button variant="ghost" wire:click="$set('showTestModal', false)">Batal</flux:button>
                 <flux:button
                     variant="primary"
@@ -2762,15 +2761,15 @@ new class extends Component
         <div class="p-6" x-data="waTemplateEditor()"
             x-init="initPreview(@js($this->waPreviewContent))">
             <!-- Modal Header -->
-            <div class="flex items-center justify-between pb-4 border-b border-gray-200 mb-5">
+            <div class="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-700 mb-5">
                 <div>
-                    <flux:heading size="lg">Edit Templat WhatsApp</flux:heading>
-                    <flux:text class="text-gray-500 text-sm mt-1">
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Edit Templat WhatsApp</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                         {{ $this->class->title }} - {{ $this->waNotificationTypeLabel['name'] ?? '' }}
-                    </flux:text>
+                    </p>
                 </div>
-                <div class="text-sm text-gray-500">
-                    <span class="{{ strlen($waTemplateContent) > 4096 ? 'text-red-600 font-semibold' : '' }}">
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    <span class="{{ strlen($waTemplateContent) > 4096 ? 'text-red-600 dark:text-red-400 font-semibold' : '' }}">
                         {{ strlen($waTemplateContent) }} / 4,096
                     </span>
                 </div>
@@ -2785,7 +2784,7 @@ new class extends Component
                         <textarea
                             id="wa-template-content"
                             wire:model.live.debounce.300ms="waTemplateContent"
-                            class="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none font-mono text-sm"
+                            class="w-full h-64 px-3 py-2 border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500 resize-none font-mono text-sm"
                             placeholder="Tulis mesej WhatsApp anda di sini..."
                         ></textarea>
                     </div>
@@ -2798,7 +2797,7 @@ new class extends Component
                                 <button
                                     type="button"
                                     @click="insertPlaceholder(ph.key)"
-                                    class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300 transition-colors"
+                                    class="px-2 py-1 text-xs bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 transition-colors"
                                     x-text="ph.key"
                                 ></button>
                             </template>
@@ -2806,13 +2805,13 @@ new class extends Component
                     </div>
 
                     <!-- Format Guide -->
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p class="text-sm font-medium text-green-800 mb-2">Panduan Format WhatsApp</p>
-                        <div class="grid grid-cols-2 gap-2 text-xs text-green-700">
-                            <div><code class="bg-green-100 px-1 rounded">*bold*</code> = <strong>bold</strong></div>
-                            <div><code class="bg-green-100 px-1 rounded">_italic_</code> = <em>italic</em></div>
-                            <div><code class="bg-green-100 px-1 rounded">~strikethrough~</code> = <del>strikethrough</del></div>
-                            <div><code class="bg-green-100 px-1 rounded">```code```</code> = <code>code</code></div>
+                    <div class="bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
+                        <p class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Panduan Format WhatsApp</p>
+                        <div class="grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                            <div><code class="bg-zinc-100 dark:bg-zinc-700 px-1 rounded">*bold*</code> = <strong>bold</strong></div>
+                            <div><code class="bg-zinc-100 dark:bg-zinc-700 px-1 rounded">_italic_</code> = <em>italic</em></div>
+                            <div><code class="bg-zinc-100 dark:bg-zinc-700 px-1 rounded">~strikethrough~</code> = <del>strikethrough</del></div>
+                            <div><code class="bg-zinc-100 dark:bg-zinc-700 px-1 rounded">```code```</code> = <code>code</code></div>
                         </div>
                     </div>
 
@@ -2824,7 +2823,7 @@ new class extends Component
                                 <img
                                     src="{{ Storage::disk('public')->url($waExistingImagePath) }}"
                                     alt="WhatsApp Image"
-                                    class="w-32 h-32 object-cover rounded-lg border border-gray-200"
+                                    class="w-32 h-32 object-cover rounded-lg border border-zinc-200 dark:border-zinc-700"
                                 >
                                 <button
                                     type="button"
@@ -2838,13 +2837,13 @@ new class extends Component
                         @endif
 
                         <div class="flex items-center justify-center w-full">
-                            <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                            <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-zinc-300 dark:border-zinc-600 border-dashed rounded-lg cursor-pointer bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800">
                                 <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <flux:icon.arrow-up-tray class="w-6 h-6 text-gray-400 mb-2" />
-                                    <p class="text-xs text-gray-500">
+                                    <flux:icon.arrow-up-tray class="w-6 h-6 text-zinc-400 dark:text-zinc-500 mb-2" />
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
                                         <span class="font-semibold">Klik untuk muat naik</span> atau seret dan lepas
                                     </p>
-                                    <p class="text-xs text-gray-400">PNG, JPG sehingga 2MB</p>
+                                    <p class="text-xs text-zinc-400 dark:text-zinc-500">PNG, JPG sehingga 2MB</p>
                                 </div>
                                 <input
                                     type="file"
@@ -2855,7 +2854,7 @@ new class extends Component
                             </label>
                         </div>
                         @if($waTemplateImage)
-                            <div class="mt-2 flex items-center gap-2 text-sm text-green-600">
+                            <div class="mt-2 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
                                 <flux:icon.check-circle class="w-4 h-4" />
                                 <span>Gambar baharu dipilih: {{ $waTemplateImage->getClientOriginalName() }}</span>
                             </div>
@@ -2865,8 +2864,8 @@ new class extends Component
 
                 <!-- Right Column: Preview -->
                 <div>
-                    <flux:label class="mb-2">Pratonton Mesej</flux:label>
-                    <div class="bg-[#e5ddd5] rounded-lg p-4 min-h-[400px]">
+                    <p class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Pratonton Mesej</p>
+                    <div class="bg-[#e5ddd5] dark:bg-zinc-700 rounded-lg p-4 min-h-[400px]">
                         <!-- WhatsApp bubble style preview -->
                         <div class="max-w-[85%] ml-auto">
                             @if($waExistingImagePath || $waTemplateImage)
@@ -2888,10 +2887,10 @@ new class extends Component
                             @endif
 
                             <div class="bg-[#dcf8c6] rounded-lg rounded-tr-none p-3 shadow-sm">
-                                <div x-show="previewContent" class="text-sm text-gray-800 whitespace-pre-wrap break-words" x-html="formatWhatsAppPreview(previewContent)"></div>
-                                <p x-show="!previewContent" class="text-sm text-gray-400 italic">Pratonton mesej akan dipaparkan di sini...</p>
+                                <div x-show="previewContent" class="text-sm text-zinc-800 whitespace-pre-wrap break-words" x-html="formatWhatsAppPreview(previewContent)"></div>
+                                <p x-show="!previewContent" class="text-sm text-zinc-400 italic">Pratonton mesej akan dipaparkan di sini...</p>
                                 <div class="flex items-center justify-end gap-1 mt-1">
-                                    <span class="text-xs text-gray-500">{{ now()->format('g:i A') }}</span>
+                                    <span class="text-xs text-zinc-500">{{ now()->format('g:i A') }}</span>
                                     <svg class="w-4 h-4 text-blue-500" viewBox="0 0 16 15" fill="currentColor">
                                         <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-1.891-1.891a.366.366 0 0 0-.51-.063l-.478.372a.365.365 0 0 0-.063.51l2.67 3.474c.138.18.382.18.52 0l6.52-8.482a.366.366 0 0 0-.063-.51z"/>
                                         <path d="M11.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L4.666 9.879a.32.32 0 0 1-.484.033L2.291 8.021a.366.366 0 0 0-.51-.063l-.478.372a.365.365 0 0 0-.063.51l2.67 3.474c.138.18.382.18.52 0l6.52-8.482a.366.366 0 0 0-.063-.51z"/>
@@ -2900,7 +2899,7 @@ new class extends Component
                             </div>
                         </div>
 
-                        <p class="text-center text-xs text-gray-500 mt-4">
+                        <p class="text-center text-xs text-zinc-500 dark:text-zinc-400 mt-4">
                             Ini adalah pratonton dengan data contoh. Data sebenar akan digunakan semasa penghantaran.
                         </p>
                     </div>
@@ -2908,7 +2907,7 @@ new class extends Component
             </div>
 
             <!-- Modal Footer -->
-            <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-gray-200">
+            <div class="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-zinc-200 dark:border-zinc-700">
                 <flux:button variant="ghost" wire:click="$set('showWhatsappModal', false)">Batal</flux:button>
                 <flux:button
                     variant="primary"
