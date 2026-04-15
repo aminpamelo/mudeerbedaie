@@ -151,6 +151,20 @@ new class extends Component
     // Table view properties
     public array $selectedShipmentIds = [];
 
+    // Upsell tab properties
+    public bool $showUpsellModal = false;
+    public ?int $editingUpsellId = null;
+    public string $upsellDayOfWeek = '';
+    public string $upsellTimeSlot = '';
+    public ?int $upsellFunnelId = null;
+    public ?int $upsellPicUserId = null;
+    public string $upsellNotes = '';
+    public bool $upsellIsActive = true;
+    public string $upsellDateFrom = '';
+    public string $upsellDateTo = '';
+    public ?int $upsellFilterPicId = null;
+    public ?int $upsellFilterFunnelId = null;
+
     // Student item selection properties
     public array $selectedShipmentItemIds = [];
 
@@ -3540,166 +3554,373 @@ new class extends Component
     {
         $this->approvalSubscriptionToggles[$approvalId] = ! ($this->approvalSubscriptionToggles[$approvalId] ?? false);
     }
+
+    // ===== Upsell Tab Methods =====
+
+    public function getAvailableFunnelsProperty()
+    {
+        return \App\Models\Funnel::where('status', 'published')
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug']);
+    }
+
+    public function getUpsellAvailablePicsProperty()
+    {
+        return \App\Models\User::whereIn('role', ['admin', 'class_admin', 'sales', 'employee'])
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    public function getTimetableUpsellsProperty()
+    {
+        if (! $this->class->timetable) {
+            return collect();
+        }
+
+        return $this->class->timetable->upsells()
+            ->with(['funnel', 'pic'])
+            ->get();
+    }
+
+    public function getAvailableSlotsProperty()
+    {
+        if (! $this->class->timetable) {
+            return [];
+        }
+
+        $schedule = $this->class->timetable->weekly_schedule;
+        $slots = [];
+
+        if ($this->class->timetable->recurrence_pattern === 'monthly') {
+            foreach ($schedule as $weekKey => $days) {
+                if (! is_array($days)) {
+                    continue;
+                }
+                foreach ($days as $day => $times) {
+                    if (! is_array($times)) {
+                        continue;
+                    }
+                    foreach ($times as $time) {
+                        $slots[] = ['day' => $day, 'time' => $time, 'label' => ucfirst($day) . ' ' . $time . ' (' . str_replace('_', ' ', ucfirst($weekKey)) . ')'];
+                    }
+                }
+            }
+        } else {
+            foreach ($schedule as $day => $times) {
+                if (! is_array($times)) {
+                    continue;
+                }
+                foreach ($times as $time) {
+                    $slots[] = ['day' => $day, 'time' => $time, 'label' => ucfirst($day) . ' ' . $time];
+                }
+            }
+        }
+
+        return $slots;
+    }
+
+    public function openUpsellModal(?int $upsellId = null): void
+    {
+        if ($upsellId) {
+            $upsell = \App\Models\ClassTimetableUpsell::findOrFail($upsellId);
+            $this->editingUpsellId = $upsell->id;
+            $this->upsellDayOfWeek = $upsell->day_of_week;
+            $this->upsellTimeSlot = $upsell->time_slot;
+            $this->upsellFunnelId = $upsell->funnel_id;
+            $this->upsellPicUserId = $upsell->pic_user_id;
+            $this->upsellNotes = $upsell->notes ?? '';
+            $this->upsellIsActive = $upsell->is_active;
+        } else {
+            $this->resetUpsellForm();
+        }
+        $this->showUpsellModal = true;
+    }
+
+    public function resetUpsellForm(): void
+    {
+        $this->editingUpsellId = null;
+        $this->upsellDayOfWeek = '';
+        $this->upsellTimeSlot = '';
+        $this->upsellFunnelId = null;
+        $this->upsellPicUserId = null;
+        $this->upsellNotes = '';
+        $this->upsellIsActive = true;
+    }
+
+    public function saveUpsell(): void
+    {
+        $this->validate([
+            'upsellDayOfWeek' => 'required|string',
+            'upsellTimeSlot' => 'required|string',
+            'upsellFunnelId' => 'required|exists:funnels,id',
+            'upsellPicUserId' => 'required|exists:users,id',
+        ]);
+
+        \App\Models\ClassTimetableUpsell::updateOrCreate(
+            [
+                'class_timetable_id' => $this->class->timetable->id,
+                'day_of_week' => $this->upsellDayOfWeek,
+                'time_slot' => $this->upsellTimeSlot,
+            ],
+            [
+                'funnel_id' => $this->upsellFunnelId,
+                'pic_user_id' => $this->upsellPicUserId,
+                'is_active' => $this->upsellIsActive,
+                'notes' => $this->upsellNotes ?: null,
+            ]
+        );
+
+        $this->showUpsellModal = false;
+        $this->resetUpsellForm();
+
+        // Sync upsell config to future sessions
+        $this->syncUpsellToSessions();
+
+        session()->flash('success', 'Upsell configuration saved successfully.');
+    }
+
+    public function deleteUpsell(int $upsellId): void
+    {
+        \App\Models\ClassTimetableUpsell::where('id', $upsellId)
+            ->where('class_timetable_id', $this->class->timetable->id)
+            ->delete();
+
+        session()->flash('success', 'Upsell configuration removed.');
+    }
+
+    public function toggleUpsellActive(int $upsellId): void
+    {
+        $upsell = \App\Models\ClassTimetableUpsell::findOrFail($upsellId);
+        $upsell->update(['is_active' => ! $upsell->is_active]);
+    }
+
+    public function syncUpsellToSessions(): void
+    {
+        if (! $this->class->timetable) {
+            return;
+        }
+
+        $upsells = $this->class->timetable->upsells()->active()->get();
+
+        $sessions = $this->class->sessions()
+            ->where('status', 'scheduled')
+            ->where('session_date', '>=', now()->toDateString())
+            ->get();
+
+        foreach ($sessions as $session) {
+            $dayOfWeek = strtolower(\Carbon\Carbon::parse($session->session_date)->format('l'));
+            $upsell = $upsells->first(fn ($u) => $u->day_of_week === $dayOfWeek && $u->time_slot === $session->session_time);
+
+            $session->update([
+                'upsell_funnel_id' => $upsell?->funnel_id,
+                'upsell_pic_user_id' => $upsell?->pic_user_id,
+            ]);
+        }
+    }
+
+    public function getUpsellStatsProperty(): array
+    {
+        $query = \App\Models\FunnelOrder::whereNotNull('class_session_id')
+            ->whereHas('classSession', function ($q) {
+                $q->where('class_id', $this->class->id);
+            });
+
+        if ($this->upsellDateFrom) {
+            $query->whereHas('classSession', fn ($q) => $q->where('session_date', '>=', $this->upsellDateFrom));
+        }
+        if ($this->upsellDateTo) {
+            $query->whereHas('classSession', fn ($q) => $q->where('session_date', '<=', $this->upsellDateTo));
+        }
+
+        $orders = $query->get();
+
+        $totalSessions = $this->class->sessions()
+            ->whereNotNull('upsell_funnel_id')
+            ->when($this->upsellDateFrom, fn ($q) => $q->where('session_date', '>=', $this->upsellDateFrom))
+            ->when($this->upsellDateTo, fn ($q) => $q->where('session_date', '<=', $this->upsellDateTo))
+            ->count();
+
+        $totalConversions = $orders->count();
+        $totalRevenue = $orders->sum('funnel_revenue');
+        $conversionRate = $totalSessions > 0 ? round(($totalConversions / $totalSessions) * 100, 1) : 0;
+
+        return [
+            'total_sessions' => $totalSessions,
+            'total_conversions' => $totalConversions,
+            'total_revenue' => $totalRevenue,
+            'conversion_rate' => $conversionRate,
+        ];
+    }
+
+    public function getUpsellSessionReportsProperty()
+    {
+        return $this->class->sessions()
+            ->whereNotNull('upsell_funnel_id')
+            ->with(['upsellFunnel', 'upsellPic'])
+            ->withCount(['funnelOrders as upsell_orders_count' => function ($q) {
+                $q->whereNotNull('class_session_id');
+            }])
+            ->withSum(['funnelOrders as upsell_revenue' => function ($q) {
+                $q->whereNotNull('class_session_id');
+            }], 'funnel_revenue')
+            ->when($this->upsellDateFrom, fn ($q) => $q->where('session_date', '>=', $this->upsellDateFrom))
+            ->when($this->upsellDateTo, fn ($q) => $q->where('session_date', '<=', $this->upsellDateTo))
+            ->when($this->upsellFilterPicId, fn ($q) => $q->where('upsell_pic_user_id', $this->upsellFilterPicId))
+            ->when($this->upsellFilterFunnelId, fn ($q) => $q->where('upsell_funnel_id', $this->upsellFilterFunnelId))
+            ->orderByDesc('session_date')
+            ->limit(50)
+            ->get();
+    }
 };
 
 ?>
 
-<div class="space-y-6">
+<div class="space-y-5">
     <!-- Flash Messages -->
     @if (session()->has('success'))
-        <div x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 5000)" class="rounded-md bg-green-50 border border-green-200 p-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <flux:icon.check-circle class="h-5 w-5 text-green-600" />
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-green-800">
-                        {{ session('success') }}
-                    </p>
-                </div>
-                <div class="ml-auto pl-3">
-                    <button @click="show = false" class="inline-flex rounded-md bg-green-50 p-1.5 text-green-600 hover:bg-green-100 focus:outline-none">
-                        <flux:icon.x-mark class="h-4 w-4" />
-                    </button>
-                </div>
+        <div x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 5000)" class="rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-4 py-3">
+            <div class="flex items-center gap-2">
+                <flux:icon.check-circle class="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300 flex-1">{{ session('success') }}</p>
+                <button @click="show = false" class="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300">
+                    <flux:icon.x-mark class="h-3.5 w-3.5" />
+                </button>
             </div>
         </div>
     @endif
 
     @if (session()->has('error'))
-        <div x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 5000)" class="rounded-md bg-red-50 border border-red-200 p-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <flux:icon.exclamation-triangle class="h-5 w-5 text-red-600" />
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-red-800">
-                        {{ session('error') }}
-                    </p>
-                </div>
-                <div class="ml-auto pl-3">
-                    <button @click="show = false" class="inline-flex rounded-md bg-red-50 p-1.5 text-red-600 hover:bg-red-100 focus:outline-none">
-                        <flux:icon.x-mark class="h-4 w-4" />
-                    </button>
-                </div>
+        <div x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 5000)" class="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-4 py-3">
+            <div class="flex items-center gap-2">
+                <flux:icon.exclamation-triangle class="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+                <p class="text-sm font-medium text-red-800 dark:text-red-300 flex-1">{{ session('error') }}</p>
+                <button @click="show = false" class="text-red-500 hover:text-red-700 dark:hover:text-red-300">
+                    <flux:icon.x-mark class="h-3.5 w-3.5" />
+                </button>
             </div>
         </div>
     @endif
 
-    <div class="mb-6 flex items-center justify-between">
+    <!-- Header -->
+    <div class="mb-5 flex items-start justify-between">
         <div>
-            <flux:heading size="xl">{{ $class->title }}</flux:heading>
-            <flux:text class="mt-2">Class details and attendance</flux:text>
+            <div class="flex items-center gap-2 mb-1">
+                <a href="{{ route('classes.index') }}" class="text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">Classes</a>
+                <flux:icon name="chevron-right" class="w-3 h-3 text-zinc-300 dark:text-zinc-600" />
+                <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $class->course->name }}</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <flux:heading size="xl">{{ $class->title }}</flux:heading>
+                <flux:badge size="sm" :class="$class->status_badge_class">{{ ucfirst($class->status) }}</flux:badge>
+                @if($class->isIndividual())
+                    <span class="inline-flex items-center gap-1 rounded-md bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:text-blue-400">
+                        <flux:icon name="user" class="w-3 h-3" /> Individual
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-1 rounded-md bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                        <flux:icon name="users" class="w-3 h-3" /> Group
+                        @if($class->max_capacity)
+                            <span class="text-emerald-500">({{ $class->max_capacity }})</span>
+                        @endif
+                    </span>
+                @endif
+            </div>
+            <div class="mt-1 flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
+                <span class="flex items-center gap-1">
+                    <flux:icon name="academic-cap" class="w-3.5 h-3.5" />
+                    {{ $class->teacher->fullName }}
+                </span>
+                <span class="text-zinc-300 dark:text-zinc-600">|</span>
+                <span class="flex items-center gap-1">
+                    <flux:icon name="calendar" class="w-3.5 h-3.5" />
+                    {{ $class->date_time->format('M d, Y') }} · {{ $class->date_time->format('g:i A') }}
+                </span>
+                <span class="text-zinc-300 dark:text-zinc-600">|</span>
+                <span>{{ $class->formatted_duration }}</span>
+            </div>
         </div>
-        <div class="flex gap-2">
-            <flux:button variant="ghost" href="{{ route('classes.edit', $class) }}" icon="pencil">
-                Edit Class
+        <div class="flex items-center gap-2 shrink-0">
+            <flux:button variant="ghost" href="{{ route('classes.edit', $class) }}" icon="pencil" size="sm">
+                Edit
             </flux:button>
-            <flux:button variant="ghost" href="{{ route('classes.index') }}">
-                Back to Classes
+            <flux:button variant="ghost" href="{{ route('classes.index') }}" size="sm">
+                Back
             </flux:button>
         </div>
     </div>
 
     <!-- Tab Navigation -->
-    <div class="mb-6 border-b border-gray-200">
-        <nav class="flex space-x-8">
-            <button
-                wire:click="setActiveTab('overview')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'overview' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon.document-text class="h-4 w-4" />
-                    Overview
-                </div>
-            </button>
+    <div class="mb-5 border-b border-zinc-200 dark:border-zinc-700 overflow-x-auto">
+        <nav class="flex gap-0.5 -mb-px min-w-max">
+            @php
+                $tabs = [
+                    ['key' => 'overview', 'label' => 'Overview', 'icon' => 'document-text', 'count' => null],
+                    ['key' => 'students', 'label' => 'Students', 'icon' => 'users', 'count' => $class->activeStudents->count() ?: null],
+                    ['key' => 'timetable', 'label' => 'Timetable', 'icon' => 'calendar', 'count' => null],
+                    ['key' => 'certificates', 'label' => 'Certificates', 'icon' => 'document-check', 'count' => null],
+                    ['key' => 'payment-reports', 'label' => 'Payments', 'icon' => 'chart-bar', 'count' => null],
+                    ['key' => 'pic-performance', 'label' => 'PIC', 'icon' => 'user-group', 'count' => $this->pic_performance_summary['total_pics'] ?: null],
+                    ['key' => 'upsell', 'label' => 'Upsell', 'icon' => 'gift', 'count' => $class->timetable?->upsells()->active()->count() ?: null],
+                ];
+            @endphp
 
-            <button
-                wire:click="setActiveTab('students')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'students' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon.users class="h-4 w-4" />
-                    Students
-                    @if($class->activeStudents->count() > 0)
-                        <span class="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">
-                            {{ $class->activeStudents->count() }}
-                        </span>
+            @foreach($tabs as $tab)
+                <button
+                    wire:click="setActiveTab('{{ $tab['key'] }}')"
+                    class="relative whitespace-nowrap pb-2.5 px-3 text-sm font-medium transition-colors {{ $activeTab === $tab['key'] ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
+                >
+                    <div class="flex items-center gap-1.5">
+                        <flux:icon :name="$tab['icon']" class="h-3.5 w-3.5" />
+                        {{ $tab['label'] }}
+                        @if($tab['count'])
+                            <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full {{ $activeTab === $tab['key'] ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300' }}">
+                                {{ $tab['count'] }}
+                            </span>
+                        @endif
+                    </div>
+                    @if($activeTab === $tab['key'])
+                        <span class="absolute bottom-0 inset-x-0 h-0.5 bg-zinc-900 dark:bg-zinc-100 rounded-t"></span>
                     @endif
-                </div>
-            </button>
-
-            <button
-                wire:click="setActiveTab('timetable')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'timetable' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon.calendar class="h-4 w-4" />
-                    Timetable
-                </div>
-            </button>
-
-            <button
-                wire:click="setActiveTab('certificates')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'certificates' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon.document-check class="h-4 w-4" />
-                    Certificates
-                </div>
-            </button>
-
-            <button
-                wire:click="setActiveTab('payment-reports')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'payment-reports' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon.chart-bar class="h-4 w-4" />
-                    Payment Reports
-                </div>
-            </button>
-
-            <button
-                wire:click="setActiveTab('pic-performance')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'pic-performance' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon.user-group class="h-4 w-4" />
-                    PIC Performance
-                    @if($this->pic_performance_summary['total_pics'] > 0)
-                        <span class="ml-1 px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">
-                            {{ $this->pic_performance_summary['total_pics'] }}
-                        </span>
-                    @endif
-                </div>
-            </button>
+                </button>
+            @endforeach
 
             @if($class->enable_document_shipment)
-            <button
-                wire:click="setActiveTab('shipments')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'shipments' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon.truck class="h-4 w-4" />
-                    Document Shipments
-                    @if($class->documentShipments()->pending()->count() > 0)
-                        <flux:badge variant="warning" size="sm">{{ $class->documentShipments()->pending()->count() }}</flux:badge>
+                <button
+                    wire:click="setActiveTab('shipments')"
+                    class="relative whitespace-nowrap pb-2.5 px-3 text-sm font-medium transition-colors {{ $activeTab === 'shipments' ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
+                >
+                    <div class="flex items-center gap-1.5">
+                        <flux:icon name="truck" class="h-3.5 w-3.5" />
+                        Shipments
+                        @if($class->documentShipments()->pending()->count() > 0)
+                            <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400">
+                                {{ $class->documentShipments()->pending()->count() }}
+                            </span>
+                        @endif
+                    </div>
+                    @if($activeTab === 'shipments')
+                        <span class="absolute bottom-0 inset-x-0 h-0.5 bg-zinc-900 dark:bg-zinc-100 rounded-t"></span>
                     @endif
-                </div>
-            </button>
+                </button>
             @endif
 
             <button
                 wire:click="setActiveTab('notifications')"
-                class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm {{ $activeTab === 'notifications' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+                class="relative whitespace-nowrap pb-2.5 px-3 text-sm font-medium transition-colors {{ $activeTab === 'notifications' ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
             >
-                <div class="flex items-center gap-2">
-                    <flux:icon.bell class="h-4 w-4" />
+                <div class="flex items-center gap-1.5">
+                    <flux:icon name="bell" class="h-3.5 w-3.5" />
                     Notifikasi
                     @if($class->scheduledNotifications()->pending()->count() > 0)
-                        <flux:badge variant="primary" size="sm">{{ $class->scheduledNotifications()->pending()->count() }}</flux:badge>
+                        <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400">
+                            {{ $class->scheduledNotifications()->pending()->count() }}
+                        </span>
                     @endif
                 </div>
+                @if($activeTab === 'notifications')
+                    <span class="absolute bottom-0 inset-x-0 h-0.5 bg-zinc-900 dark:bg-zinc-100 rounded-t"></span>
+                @endif
             </button>
         </nav>
     </div>
@@ -3708,137 +3929,133 @@ new class extends Component
     <div>
         <!-- Overview Tab -->
         <div class="{{ $activeTab === 'overview' ? 'block' : 'hidden' }}">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <!-- Class Information -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="lg:col-span-2 space-y-5">
             <!-- Basic Info -->
-            <flux:card>
-                <div class="p-6">
-                    <flux:heading size="lg" class="mb-4">Class Information</flux:heading>
-                    
-                    <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+                <div class="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-700">
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Class Information</h3>
+                </div>
+                <div class="px-5 py-4">
+                    <dl class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Course</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $class->course->name }}</dd>
-                        </div>
-                        
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Teacher</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $class->teacher->fullName }}</dd>
+                            <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Course</dt>
+                            <dd class="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100">{{ $class->course->name }}</dd>
                         </div>
 
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Person In Charge (PIC)</dt>
-                            <dd class="mt-1">
+                            <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Teacher</dt>
+                            <dd class="mt-0.5 flex items-center gap-1.5">
+                                <flux:avatar size="xs" :name="$class->teacher->fullName" />
+                                <span class="text-sm text-zinc-900 dark:text-zinc-100">{{ $class->teacher->fullName }}</span>
+                            </dd>
+                        </div>
+
+                        <div>
+                            <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Person In Charge</dt>
+                            <dd class="mt-0.5">
                                 @if($class->pics->count() > 0)
-                                    <div class="flex flex-wrap gap-2">
+                                    <div class="flex flex-wrap gap-1.5">
                                         @foreach($class->pics as $pic)
-                                            <div class="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-lg">
+                                            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 rounded-md">
                                                 <flux:avatar size="xs" :name="$pic->name" />
-                                                <span class="text-sm text-gray-900">{{ $pic->name }}</span>
+                                                <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">{{ $pic->name }}</span>
                                             </div>
                                         @endforeach
                                     </div>
                                 @else
-                                    <span class="text-sm text-gray-500">No PIC assigned</span>
+                                    <span class="text-sm text-zinc-400 dark:text-zinc-500 italic">No PIC assigned</span>
                                 @endif
                             </dd>
                         </div>
 
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Date & Time</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $class->formatted_date_time }}</dd>
+                            <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Date & Time</dt>
+                            <dd class="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100">{{ $class->formatted_date_time }}</dd>
                         </div>
-                        
+
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Duration</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $class->formatted_duration }}</dd>
+                            <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Duration</dt>
+                            <dd class="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100">{{ $class->formatted_duration }}</dd>
                         </div>
-                        
+
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Type</dt>
-                            <dd class="mt-1">
-                                <div class="flex items-center gap-2">
+                            <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Type</dt>
+                            <dd class="mt-0.5">
+                                <div class="flex items-center gap-1.5">
                                     @if($class->isIndividual())
-                                        <flux:icon.user class="h-4 w-4 text-blue-500" />
-                                        <span class="text-sm text-gray-900">Individual</span>
+                                        <flux:icon.user class="h-3.5 w-3.5 text-blue-500" />
+                                        <span class="text-sm text-zinc-900 dark:text-zinc-100">Individual</span>
                                     @else
-                                        <flux:icon.users class="h-4 w-4 text-green-500" />
-                                        <span class="text-sm text-gray-900">Group</span>
+                                        <flux:icon.users class="h-3.5 w-3.5 text-emerald-500" />
+                                        <span class="text-sm text-zinc-900 dark:text-zinc-100">Group</span>
                                         @if($class->max_capacity)
-                                            <span class="text-xs text-gray-500">(Max: {{ $class->max_capacity }})</span>
+                                            <span class="text-xs text-zinc-500">(Max: {{ $class->max_capacity }})</span>
                                         @endif
                                     @endif
                                 </div>
                             </dd>
                         </div>
-                        
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Status</dt>
-                            <dd class="mt-1">
-                                <flux:badge size="sm" :class="$class->status_badge_class">
-                                    {{ ucfirst($class->status) }}
-                                </flux:badge>
-                            </dd>
-                        </div>
 
                         @if($class->location)
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Location</dt>
-                                <dd class="mt-1 text-sm text-gray-900">{{ $class->location }}</dd>
+                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Location</dt>
+                                <dd class="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100">{{ $class->location }}</dd>
                             </div>
                         @endif
 
                         @if($class->meeting_url)
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Meeting URL</dt>
-                                <dd class="mt-1">
-                                    <a href="{{ $class->meeting_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm">
+                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Meeting URL</dt>
+                                <dd class="mt-0.5">
+                                    <a href="{{ $class->meeting_url }}" target="_blank" class="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                                        <flux:icon name="link" class="w-3.5 h-3.5" />
                                         Join Meeting
                                     </a>
                                 </dd>
                             </div>
                         @endif
+
                         @if($class->whatsapp_group_link)
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">WhatsApp Group</dt>
-                                <dd class="mt-1">
-                                    <a href="{{ $class->whatsapp_group_link }}" target="_blank" class="text-green-600 hover:text-green-800 text-sm flex items-center gap-1">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
-                                        </svg>
-                                        Join WhatsApp Group
+                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">WhatsApp Group</dt>
+                                <dd class="mt-0.5">
+                                    <a href="{{ $class->whatsapp_group_link }}" target="_blank" class="inline-flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/></svg>
+                                        Join WhatsApp
                                     </a>
                                 </dd>
                             </div>
                         @endif
-                        
+
                         @if($class->description)
                             <div class="sm:col-span-2">
-                                <dt class="text-sm font-medium text-gray-500">Description</dt>
-                                <dd class="mt-1 text-sm text-gray-900">{{ $class->description }}</dd>
+                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Description</dt>
+                                <dd class="mt-0.5 text-sm text-zinc-700 dark:text-zinc-300">{{ $class->description }}</dd>
                             </div>
                         @endif
-                        
+
                         @if($class->notes)
                             <div class="sm:col-span-2">
-                                <dt class="text-sm font-medium text-gray-500">Notes</dt>
-                                <dd class="mt-1 text-sm text-gray-900">{{ $class->notes }}</dd>
+                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Notes</dt>
+                                <dd class="mt-0.5 text-sm text-zinc-700 dark:text-zinc-300">{{ $class->notes }}</dd>
                             </div>
                         @endif
                     </dl>
                 </div>
-            </flux:card>
+            </div>
 
             <!-- Teacher Allowance Info -->
-            <flux:card>
-                <div class="p-6">
-                    <flux:heading size="lg" class="mb-4">Teacher Allowance</flux:heading>
-                    
-                    <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+                <div class="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-700">
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Teacher Allowance</h3>
+                </div>
+                <div class="px-5 py-4">
+                    <dl class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Rate Type</dt>
-                            <dd class="mt-1 text-sm text-gray-900">
+                            <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Rate Type</dt>
+                            <dd class="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100">
                                 {{ match($class->rate_type) {
                                     'per_class' => 'Per Class (Fixed)',
                                     'per_student' => 'Per Student',
@@ -3847,25 +4064,25 @@ new class extends Component
                                 } }}
                             </dd>
                         </div>
-                        
+
                         @if($class->rate_type !== 'per_session')
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Rate Amount</dt>
-                                <dd class="mt-1 text-sm text-gray-900">RM {{ number_format($class->teacher_rate, 2) }}</dd>
+                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Rate Amount</dt>
+                                <dd class="mt-0.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">RM {{ number_format($class->teacher_rate, 2) }}</dd>
                             </div>
                         @endif
 
                         @if($class->rate_type === 'per_session')
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Commission Type</dt>
-                                <dd class="mt-1 text-sm text-gray-900">
+                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Commission Type</dt>
+                                <dd class="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100">
                                     {{ $class->commission_type === 'percentage' ? 'Percentage' : 'Fixed Amount' }}
                                 </dd>
                             </div>
-                            
+
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Commission Value</dt>
-                                <dd class="mt-1 text-sm text-gray-900">
+                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Commission Value</dt>
+                                <dd class="mt-0.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                     @if($class->commission_type === 'percentage')
                                         {{ number_format($class->commission_value, 1) }}%
                                     @else
@@ -3876,200 +4093,203 @@ new class extends Component
                         @endif
 
                         @if($class->completed_sessions > 0)
-                            <div class="sm:col-span-2">
-                                <dt class="text-sm font-medium text-gray-500">Total Teacher Allowance</dt>
-                                <dd class="mt-1">
-                                    <span class="text-lg font-semibold text-green-600">
+                            <div class="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-700">
+                                <dt class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Allowance Earned</dt>
+                                <dd class="mt-1 flex items-baseline gap-2">
+                                    <span class="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                                         RM {{ number_format($class->calculateTotalTeacherAllowance(), 2) }}
                                     </span>
-                                    <span class="text-sm text-gray-500 ml-2">
-                                        ({{ $class->completed_sessions }} session(s) completed)
+                                    <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                        from {{ $class->completed_sessions }} session(s)
                                     </span>
                                 </dd>
                             </div>
                         @endif
                     </dl>
                 </div>
-            </flux:card>
+            </div>
         </div>
 
         <!-- Sidebar -->
-        <div class="space-y-6">
+        <div class="space-y-5">
             <!-- Attendance Summary -->
-            <flux:card>
-                <div class="p-6">
-                    <flux:heading size="lg" class="mb-4">Attendance Summary</flux:heading>
-                    
-                    <!-- Session Stats -->
-                    <div class="mb-4 space-y-3">
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">Total Sessions:</span>
-                            <span class="font-medium">{{ $this->total_sessions_count }}</span>
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+                <div class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700">
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Sessions & Attendance</h3>
+                </div>
+                <div class="px-4 py-3">
+                    <!-- Session Stats as compact grid -->
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <div class="text-center p-2 rounded-md bg-zinc-50 dark:bg-zinc-700/50">
+                            <div class="text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $this->total_sessions_count }}</div>
+                            <div class="text-[10px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Total</div>
                         </div>
-                        
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-green-600">Completed:</span>
-                            <span class="font-medium text-green-600">{{ $this->completed_sessions_count }}</span>
+                        <div class="text-center p-2 rounded-md bg-emerald-50 dark:bg-emerald-500/10">
+                            <div class="text-lg font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{{ $this->completed_sessions_count }}</div>
+                            <div class="text-[10px] font-medium uppercase tracking-wider text-emerald-600 dark:text-emerald-500">Done</div>
                         </div>
-                        
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-blue-600">Upcoming:</span>
-                            <span class="font-medium text-blue-600">{{ $this->upcoming_sessions_count }}</span>
+                        <div class="text-center p-2 rounded-md bg-blue-50 dark:bg-blue-500/10">
+                            <div class="text-lg font-semibold tabular-nums text-blue-700 dark:text-blue-400">{{ $this->upcoming_sessions_count }}</div>
+                            <div class="text-[10px] font-medium uppercase tracking-wider text-blue-600 dark:text-blue-500">Upcoming</div>
                         </div>
                     </div>
 
-                    @if($this->total_sessions_count > 0)
-                        <div class="border-t pt-4">
-                            <div class="text-sm font-medium text-gray-600 mb-3">Overall Attendance</div>
-                            
-                            <div class="space-y-3">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-gray-600">Total Records:</span>
-                                    <span class="font-medium">{{ $this->total_attendance_records }}</span>
-                                </div>
-                                
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-green-600">Present:</span>
-                                    <span class="font-medium text-green-600">{{ $this->total_present_count }}</span>
-                                </div>
-                                
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-red-600">Absent:</span>
-                                    <span class="font-medium text-red-600">{{ $this->total_absent_count }}</span>
-                                </div>
-                                
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-yellow-600">Late:</span>
-                                    <span class="font-medium text-yellow-600">{{ $this->total_late_count }}</span>
-                                </div>
-                                
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-blue-600">Excused:</span>
-                                    <span class="font-medium text-blue-600">{{ $this->total_excused_count }}</span>
-                                </div>
+                    @if($this->total_sessions_count > 0 && $this->total_attendance_records > 0)
+                        <div class="border-t border-zinc-100 dark:border-zinc-700 pt-3">
+                            <div class="flex items-center justify-between mb-2.5">
+                                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Attendance</span>
+                                <span class="text-sm font-semibold tabular-nums {{ $this->overall_attendance_rate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : ($this->overall_attendance_rate >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400') }}">{{ $this->overall_attendance_rate }}%</span>
                             </div>
 
-                            @if($this->total_attendance_records > 0)
-                                <div class="mt-3 pt-3 border-t">
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-sm text-gray-600">Attendance Rate:</span>
-                                        <span class="font-medium">{{ $this->overall_attendance_rate }}%</span>
-                                    </div>
+                            <!-- Progress bar -->
+                            <div class="h-1.5 w-full bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden mb-3">
+                                <div class="h-full rounded-full transition-all {{ $this->overall_attendance_rate >= 80 ? 'bg-emerald-500' : ($this->overall_attendance_rate >= 60 ? 'bg-amber-500' : 'bg-red-500') }}" style="width: {{ $this->overall_attendance_rate }}%"></div>
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        <span class="text-zinc-600 dark:text-zinc-400">Present</span>
+                                    </span>
+                                    <span class="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{{ $this->total_present_count }}</span>
                                 </div>
-                            @endif
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                        <span class="text-zinc-600 dark:text-zinc-400">Absent</span>
+                                    </span>
+                                    <span class="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{{ $this->total_absent_count }}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                        <span class="text-zinc-600 dark:text-zinc-400">Late</span>
+                                    </span>
+                                    <span class="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{{ $this->total_late_count }}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                        <span class="text-zinc-600 dark:text-zinc-400">Excused</span>
+                                    </span>
+                                    <span class="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{{ $this->total_excused_count }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    @elseif($this->total_sessions_count > 0)
+                        <div class="border-t border-zinc-100 dark:border-zinc-700 pt-3">
+                            <p class="text-xs text-zinc-400 dark:text-zinc-500 text-center">No attendance records yet</p>
                         </div>
                     @endif
                 </div>
-            </flux:card>
+            </div>
 
             <!-- Quick Actions -->
-            <flux:card>
-                <div class="p-6">
-                    <flux:heading size="lg" class="mb-4">Quick Actions</flux:heading>
-                        
-                        <div class="space-y-3">
-                            <flux:button 
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+                <div class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700">
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Quick Actions</h3>
+                </div>
+                <div class="p-3 space-y-2">
+                    <flux:button
+                        variant="filled"
+                        size="sm"
+                        class="w-full"
+                        icon="plus"
+                        wire:click="openCreateSessionModal"
+                    >
+                        Add New Session
+                    </flux:button>
+
+                    <flux:button
+                        href="{{ route('classes.edit', $class) }}"
+                        variant="ghost"
+                        size="sm"
+                        class="w-full"
+                        icon="pencil"
+                    >
+                        Edit Class Details
+                    </flux:button>
+
+                    @if($this->upcoming_sessions_count > 0)
+                        <div class="pt-2 border-t border-zinc-100 dark:border-zinc-700">
+                            <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1.5">Next Session</div>
+                            @php
+                                $nextSession = $class->sessions->where('status', 'scheduled')->where('session_date', '>', now()->toDateString())->sortBy('session_date')->first();
+                            @endphp
+                            @if($nextSession)
+                                <div class="text-sm text-zinc-700 dark:text-zinc-300 mb-2">
+                                    {{ $nextSession->formatted_date_time }}
+                                </div>
+                                <flux:button
+                                    wire:click="markSessionAsOngoing({{ $nextSession->id }})"
+                                    variant="ghost"
+                                    size="sm"
+                                    class="w-full"
+                                    icon="play"
+                                >
+                                    Start Session
+                                </flux:button>
+                            @endif
+                        </div>
+                    @endif
+
+                    @php
+                        $ongoingSession = $class->sessions->where('status', 'ongoing')->first();
+                    @endphp
+                    @if($ongoingSession)
+                        <div class="pt-2 border-t border-zinc-100 dark:border-zinc-700">
+                            <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1.5">Current Session</div>
+                            <div class="text-sm text-zinc-700 dark:text-zinc-300 mb-2">
+                                {{ $ongoingSession->formatted_date_time }}
+                            </div>
+
+                            <div
+                                x-data="sessionTimer('{{ $ongoingSession->started_at ? $ongoingSession->started_at->toISOString() : now()->toISOString() }}')"
+                                x-init="startTimer()"
+                                class="flex items-center gap-2 mb-2 p-2 bg-amber-50 dark:bg-amber-500/10 rounded-md border border-amber-200 dark:border-amber-500/20"
+                            >
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                                    <span class="text-xs font-medium text-amber-800 dark:text-amber-400">Running:</span>
+                                    <span class="text-sm font-mono font-semibold text-amber-900 dark:text-amber-300" x-text="formattedTime"></span>
+                                </div>
+                            </div>
+
+                            @if($ongoingSession->hasBookmark())
+                                <div class="mb-2 p-2 bg-zinc-50 dark:bg-zinc-700/50 rounded-md">
+                                    <div class="flex items-center gap-1.5 mb-0.5">
+                                        <flux:icon.bookmark class="h-3 w-3 text-zinc-500" />
+                                        <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Progress</span>
+                                    </div>
+                                    <div class="text-sm text-zinc-700 dark:text-zinc-300 font-medium">
+                                        {{ $ongoingSession->bookmark }}
+                                    </div>
+                                </div>
+                            @endif
+
+                            <flux:button
+                                wire:click="openCompletionModal({{ $ongoingSession->id }})"
                                 variant="filled"
                                 size="sm"
                                 class="w-full"
-                                icon="plus"
-                                wire:click="openCreateSessionModal"
+                                icon="check"
                             >
-                                Add New Session
+                                Complete
                             </flux:button>
-                            
-                            <flux:button 
-                                href="{{ route('classes.edit', $class) }}" 
-                                variant="ghost"
-                                size="sm"
-                                class="w-full"
-                                icon="pencil"
-                            >
-                                Edit Class Details
-                            </flux:button>
-
-                            @if($this->upcoming_sessions_count > 0)
-                                <div class="pt-2 border-t">
-                                    <div class="text-xs font-medium text-gray-500 mb-2">Next Session</div>
-                                    @php
-                                        $nextSession = $class->sessions->where('status', 'scheduled')->where('session_date', '>', now()->toDateString())->sortBy('session_date')->first();
-                                    @endphp
-                                    @if($nextSession)
-                                        <div class="text-sm text-gray-700 mb-2">
-                                            {{ $nextSession->formatted_date_time }}
-                                        </div>
-                                        <flux:button 
-                                            wire:click="markSessionAsOngoing({{ $nextSession->id }})"
-                                            variant="ghost"
-                                            size="sm"
-                                            class="w-full"
-                                            icon="play"
-                                        >
-                                            Start Session
-                                        </flux:button>
-                                    @endif
-                                </div>
-                            @endif
-
-                            @php
-                                $ongoingSession = $class->sessions->where('status', 'ongoing')->first();
-                            @endphp
-                            @if($ongoingSession)
-                                <div class="pt-2 border-t">
-                                    <div class="text-xs font-medium text-gray-500 mb-2">Current Session</div>
-                                    <div class="text-sm text-gray-700 mb-2">
-                                        {{ $ongoingSession->formatted_date_time }}
-                                    </div>
-                                    
-                                    <div 
-                                        x-data="sessionTimer('{{ $ongoingSession->started_at ? $ongoingSession->started_at->toISOString() : now()->toISOString() }}')" 
-                                        x-init="startTimer()"
-                                        class="flex items-center gap-2 mb-3 p-2 bg-yellow-50 /20 rounded border border-yellow-200"
-                                    >
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                                            <span class="text-sm font-medium text-yellow-800">Running:</span>
-                                            <span class="text-sm font-mono font-semibold text-yellow-900" x-text="formattedTime"></span>
-                                        </div>
-                                    </div>
-                                    
-                                    @if($ongoingSession->hasBookmark())
-                                        <div class="mb-3 p-2 bg-amber-50 /20 rounded border border-amber-200">
-                                            <div class="flex items-center gap-2 mb-1">
-                                                <flux:icon.bookmark class="h-3 w-3 text-amber-600" />
-                                                <span class="text-xs font-medium text-amber-800">Current Progress:</span>
-                                            </div>
-                                            <div class="text-sm text-amber-900  font-medium">
-                                                {{ $ongoingSession->bookmark }}
-                                            </div>
-                                        </div>
-                                    @endif
-                                    
-                                    <div class="flex gap-2">
-                                        <flux:button 
-                                            wire:click="openCompletionModal({{ $ongoingSession->id }})"
-                                            variant="filled"
-                                            size="sm"
-                                            class="flex-1"
-                                            icon="check"
-                                        >
-                                            Complete
-                                        </flux:button>
-                                    </div>
-                                </div>
-                            @endif
                         </div>
-                    </div>
-                </flux:card>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Sessions Management - Full Width -->
     @if($this->total_sessions_count > 0)
-        <flux:card>
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
             <div class="overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200  flex items-center justify-between">
-                    <flux:heading size="lg">Sessions</flux:heading>
+                <div class="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-700 flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Sessions</h3>
                     <flux:button variant="primary" size="sm" icon="plus" wire:click="openCreateSessionModal">
                         Add Session
                     </flux:button>
@@ -4404,19 +4624,17 @@ new class extends Component
                     </table>
                 </div>
             </div>
-        </flux:card>
+        </div>
     @else
         <!-- No Sessions - Create First Session -->
-        <flux:card>
-            <div class="p-6 text-center">
-                <flux:icon.calendar class="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <flux:heading size="lg" class="mb-2">No Sessions Scheduled</flux:heading>
-                <flux:text class="mb-4">This class doesn't have any sessions yet. Create the first session to get started.</flux:text>
-                <flux:button variant="primary" icon="plus" wire:click="openCreateSessionModal">
-                    Create First Session
-                </flux:button>
-            </div>
-        </flux:card>
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-8 text-center">
+            <flux:icon.calendar class="mx-auto h-10 w-10 text-zinc-300 dark:text-zinc-600 mb-3" />
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">No Sessions Scheduled</h3>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Create the first session to get started.</p>
+            <flux:button variant="primary" size="sm" icon="plus" wire:click="openCreateSessionModal">
+                Create First Session
+            </flux:button>
+        </div>
     @endif
         </div>
         <!-- End Overview Tab -->
@@ -4424,23 +4642,23 @@ new class extends Component
         <!-- Students Tab -->
         <div class="{{ $activeTab === 'students' ? 'block' : 'hidden' }}">
             <!-- Student Sub-Tabs -->
-            <div class="flex items-center gap-1 mb-4">
+            <div class="inline-flex items-center rounded-md bg-zinc-100 dark:bg-zinc-700/50 p-0.5 mb-4">
                 <button
                     wire:click="$set('studentSubTab', 'enrolled')"
-                    class="px-4 py-2 text-sm font-medium rounded-lg transition-colors {{ $studentSubTab === 'enrolled' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-zinc-700/50' }}"
+                    class="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-all {{ $studentSubTab === 'enrolled' ? 'bg-white dark:bg-zinc-600 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200' }}"
                 >
-                    Enrolled Students
-                    <span class="ml-1 px-1.5 py-0.5 text-xs font-semibold rounded-full {{ $studentSubTab === 'enrolled' ? 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200' : 'bg-gray-200 text-gray-600 dark:bg-zinc-600 dark:text-gray-300' }}">
+                    Enrolled
+                    <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full {{ $studentSubTab === 'enrolled' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-600 text-zinc-600 dark:text-zinc-300' }}">
                         {{ $class->activeStudents->count() }}
                     </span>
                 </button>
                 <button
                     wire:click="$set('studentSubTab', 'approvals')"
-                    class="px-4 py-2 text-sm font-medium rounded-lg transition-colors {{ $studentSubTab === 'approvals' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-zinc-700/50' }}"
+                    class="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-all {{ $studentSubTab === 'approvals' ? 'bg-white dark:bg-zinc-600 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200' }}"
                 >
-                    Approval List
+                    Approvals
                     @if($this->pendingApprovals->count() > 0)
-                        <span class="ml-1 px-1.5 py-0.5 text-xs font-semibold rounded-full {{ $studentSubTab === 'approvals' ? 'bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' }}">
+                        <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400">
                             {{ $this->pendingApprovals->count() }}
                         </span>
                     @endif
@@ -4449,353 +4667,252 @@ new class extends Component
 
             <!-- Enrolled Students Sub-Tab -->
             <div class="{{ $studentSubTab === 'enrolled' ? 'block' : 'hidden' }}">
-            <!-- Enrolled Students -->
             @if($class->activeStudents->count() > 0)
-                <flux:card>
-                    <div class="overflow-hidden">
-                        <div class="px-6 py-5 border-b border-gray-200 dark:border-zinc-700">
-                            <div class="flex items-start justify-between">
-                                <div class="space-y-1">
-                                    <flux:heading size="lg">Enrolled Students</flux:heading>
-                                    <div class="flex items-center gap-3">
-                                        <flux:text size="sm" class="text-gray-500 dark:text-zinc-400">
-                                            {{ $class->activeStudents->count() }} student(s) enrolled
-                                            @if($class->max_capacity)
-                                                / {{ $class->max_capacity }} max capacity
-                                            @endif
-                                        </flux:text>
-                                        @if($class->max_capacity)
-                                            @php
-                                                $capacityPercent = round(($class->activeStudents->count() / $class->max_capacity) * 100);
-                                            @endphp
-                                            <div class="flex items-center gap-2">
-                                                <div class="w-24 bg-gray-200 dark:bg-zinc-600 rounded-full h-1.5">
-                                                    <div class="h-1.5 rounded-full transition-all {{ $capacityPercent >= 90 ? 'bg-red-500' : ($capacityPercent >= 70 ? 'bg-yellow-500' : 'bg-green-500') }}"
-                                                         style="width: {{ min($capacityPercent, 100) }}%"></div>
-                                                </div>
-                                                <span class="text-xs font-medium {{ $capacityPercent >= 90 ? 'text-red-600 dark:text-red-400' : ($capacityPercent >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400') }}">{{ $capacityPercent }}%</span>
-                                            </div>
-                                        @endif
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 overflow-hidden">
+                    <!-- Header -->
+                    <div class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Enrolled Students</h3>
+                                <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                    {{ $class->activeStudents->count() }} enrolled
+                                    @if($class->max_capacity)
+                                        / {{ $class->max_capacity }} max
+                                    @endif
+                                </span>
+                                @if($class->max_capacity)
+                                    @php $capacityPercent = round(($class->activeStudents->count() / $class->max_capacity) * 100); @endphp
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-16 bg-zinc-200 dark:bg-zinc-600 rounded-full h-1">
+                                            <div class="h-1 rounded-full transition-all {{ $capacityPercent >= 90 ? 'bg-red-500' : ($capacityPercent >= 70 ? 'bg-amber-500' : 'bg-emerald-500') }}" style="width: {{ min($capacityPercent, 100) }}%"></div>
+                                        </div>
+                                        <span class="text-[11px] font-medium tabular-nums {{ $capacityPercent >= 90 ? 'text-red-600 dark:text-red-400' : ($capacityPercent >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400') }}">{{ $capacityPercent }}%</span>
                                     </div>
-                                </div>
-
-                                <div class="flex items-center gap-2">
-                                    <flux:button variant="outline" size="sm" wire:click="openImportStudentModal" icon="arrow-up-tray">
-                                        Import
-                                    </flux:button>
-                                    <flux:button variant="outline" size="sm" wire:click="openCreateStudentModal" icon="plus">
-                                        Create Student
-                                    </flux:button>
-                                    <flux:button variant="primary" size="sm" wire:click="openEnrollStudentsModal" icon="user-plus">
-                                        Enroll Student
-                                    </flux:button>
-                                </div>
+                                @endif
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <flux:button variant="ghost" size="sm" wire:click="openImportStudentModal" icon="arrow-up-tray">Import</flux:button>
+                                <flux:button variant="ghost" size="sm" wire:click="openCreateStudentModal" icon="plus">Create</flux:button>
+                                <flux:button variant="primary" size="sm" wire:click="openEnrollStudentsModal" icon="user-plus">Enroll</flux:button>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Flash Messages -->
-                        @if(session('success'))
-                            <div class="mx-6 mt-4">
-                                <flux:callout variant="success" icon="check-circle">
-                                    {{ session('success') }}
-                                </flux:callout>
+                    <!-- Search -->
+                    <div class="px-4 py-2.5 border-b border-zinc-100 dark:border-zinc-700">
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 min-w-0">
+                                <flux:input wire:model.live.debounce.300ms="enrolledStudentSearch" placeholder="Search students..." icon="magnifying-glass" size="sm" />
                             </div>
-                        @endif
-
-                        @if(session('error'))
-                            <div class="mx-6 mt-4">
-                                <flux:callout variant="danger" icon="exclamation-triangle">
-                                    {{ session('error') }}
-                                </flux:callout>
-                            </div>
-                        @endif
-
-                        <!-- Search Bar and Per Page Filter -->
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-700">
-                            <div class="flex flex-col sm:flex-row gap-3">
-                                <div class="flex-1">
-                                    <flux:input
-                                        wire:model.live.debounce.300ms="enrolledStudentSearch"
-                                        placeholder="Search enrolled students by name, email or phone..."
-                                        icon="magnifying-glass"
-                                    />
-                                </div>
-                                <div class="w-full sm:w-36">
-                                    <flux:select wire:model.live="studentsPerPage">
-                                        <flux:select.option value="20">20 per page</flux:select.option>
-                                        <flux:select.option value="30">30 per page</flux:select.option>
-                                        <flux:select.option value="50">50 per page</flux:select.option>
-                                        <flux:select.option value="100">100 per page</flux:select.option>
-                                        <flux:select.option value="200">200 per page</flux:select.option>
-                                        <flux:select.option value="300">300 per page</flux:select.option>
-                                    </flux:select>
-                                </div>
+                            <div class="w-32 shrink-0">
+                                <flux:select wire:model.live="studentsPerPage" size="sm">
+                                    <flux:select.option value="20">20 / page</flux:select.option>
+                                    <flux:select.option value="50">50 / page</flux:select.option>
+                                    <flux:select.option value="100">100 / page</flux:select.option>
+                                    <flux:select.option value="200">200 / page</flux:select.option>
+                                </flux:select>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                                <thead class="bg-gray-50 dark:bg-zinc-800/50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Enrolled</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Order ID</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Attendance</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
-                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider"></th>
+                    <!-- Table -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-800/80">
+                                    <th class="px-4 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Enrolled</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Order ID</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Attendance</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                                    <th class="px-3 py-2 w-12"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/50">
+                                @forelse($this->filtered_enrolled_students as $classStudent)
+                                    @php
+                                        $student = $classStudent->student;
+                                        $completedSessions = $this->completed_sessions_count;
+                                        $studentAttendances = collect();
+                                        foreach($class->sessions as $session) {
+                                            $attendance = $session->attendances->where('student_id', $student->id)->first();
+                                            if($attendance) { $studentAttendances->push($attendance); }
+                                        }
+                                        $presentCount = $studentAttendances->where('status', 'present')->count();
+                                        $totalRecords = $studentAttendances->count();
+                                        $attendanceRate = $totalRecords > 0 ? round(($presentCount / $totalRecords) * 100, 1) : 0;
+                                    @endphp
+                                    <tr wire:key="enrolled-{{ $classStudent->id }}" class="group hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
+                                        <td class="px-4 py-2.5 whitespace-nowrap">
+                                            <div class="flex items-center gap-2.5">
+                                                <flux:avatar size="xs" :name="$student->fullName" />
+                                                <div>
+                                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $student->fullName }}</div>
+                                                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ $student->phone ?? '-' }}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <td class="px-3 py-2.5 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+                                            {{ $classStudent->enrolled_at->format('M d, Y') }}
+                                        </td>
+
+                                        <td class="px-3 py-2.5 whitespace-nowrap">
+                                            <input
+                                                type="text"
+                                                value="{{ $classStudent->order_id }}"
+                                                placeholder="--"
+                                                class="w-20 px-1.5 py-0.5 text-xs font-mono border border-transparent rounded bg-zinc-50 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-500 focus:border-blue-500 focus:bg-white dark:focus:bg-zinc-600 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-all"
+                                                wire:blur="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
+                                                wire:keydown.enter="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
+                                            />
+                                        </td>
+
+                                        <td class="px-3 py-2.5 whitespace-nowrap">
+                                            @if($totalRecords > 0)
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-xs font-medium tabular-nums {{ $attendanceRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : ($attendanceRate >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400') }}">{{ $attendanceRate }}%</span>
+                                                    <div class="w-14 bg-zinc-200 dark:bg-zinc-600 rounded-full h-1">
+                                                        <div class="h-1 rounded-full transition-all {{ $attendanceRate >= 80 ? 'bg-emerald-500' : ($attendanceRate >= 60 ? 'bg-amber-500' : 'bg-red-500') }}" style="width: {{ $attendanceRate }}%"></div>
+                                                    </div>
+                                                    <span class="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">{{ $presentCount }}/{{ $totalRecords }}</span>
+                                                </div>
+                                            @else
+                                                <span class="text-[11px] text-zinc-400 dark:text-zinc-500">--</span>
+                                            @endif
+                                        </td>
+
+                                        <td class="px-3 py-2.5 whitespace-nowrap">
+                                            <flux:badge size="sm" color="green">Active</flux:badge>
+                                        </td>
+
+                                        <td class="px-3 py-2.5 whitespace-nowrap text-right">
+                                            <flux:dropdown position="bottom" align="end">
+                                                <flux:button size="xs" variant="ghost" icon="ellipsis-horizontal" class="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                <flux:menu class="min-w-40">
+                                                    <flux:menu.item icon="eye" wire:click="viewStudent({{ $classStudent->id }})">View</flux:menu.item>
+                                                    <flux:menu.item icon="pencil" wire:click="editStudent({{ $classStudent->id }})">Edit</flux:menu.item>
+                                                    <flux:separator />
+                                                    <flux:menu.item icon="trash" variant="danger" wire:click="confirmUnenroll({{ $classStudent->id }})">Unenroll</flux:menu.item>
+                                                </flux:menu>
+                                            </flux:dropdown>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
-                                    @forelse($this->filtered_enrolled_students as $classStudent)
-                                        @php
-                                            $student = $classStudent->student;
-                                            $completedSessions = $this->completed_sessions_count;
-
-                                            // Calculate attendance for this student across all sessions
-                                            $studentAttendances = collect();
-                                            foreach($class->sessions as $session) {
-                                                $attendance = $session->attendances->where('student_id', $student->id)->first();
-                                                if($attendance) {
-                                                    $studentAttendances->push($attendance);
-                                                }
-                                            }
-
-                                            $presentCount = $studentAttendances->where('status', 'present')->count();
-                                            $totalRecords = $studentAttendances->count();
-                                            $attendanceRate = $totalRecords > 0 ? round(($presentCount / $totalRecords) * 100, 1) : 0;
-                                        @endphp
-                                        <tr wire:key="enrolled-{{ $classStudent->id }}" class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
-                                            <td class="px-6 py-3.5 whitespace-nowrap">
-                                                <div class="flex items-center gap-3">
-                                                    <flux:avatar size="sm" :name="$student->fullName" />
-                                                    <div>
-                                                        <div class="font-medium text-gray-900 dark:text-zinc-100">{{ $student->fullName }}</div>
-                                                        <div class="text-xs text-gray-500 dark:text-zinc-400">{{ $student->phone ?? '-' }}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-zinc-400">
-                                                {{ $classStudent->enrolled_at->format('M d, Y') }}
-                                            </td>
-
-                                            <td class="px-4 py-3.5 whitespace-nowrap text-sm">
-                                                <input
-                                                    type="text"
-                                                    value="{{ $classStudent->order_id }}"
-                                                    placeholder="--"
-                                                    class="w-24 px-2 py-1 text-xs font-mono border border-transparent rounded bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 hover:border-gray-300 dark:hover:border-zinc-500 focus:border-blue-500 focus:bg-white dark:focus:bg-zinc-600 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-all"
-                                                    wire:blur="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
-                                                    wire:keydown.enter="updateStudentOrderId({{ $classStudent->id }}, $event.target.value)"
-                                                />
-                                            </td>
-
-                                            <td class="px-4 py-3.5 whitespace-nowrap">
-                                                @if($totalRecords > 0)
-                                                    <div class="space-y-1">
-                                                        <div class="flex items-center justify-between text-xs">
-                                                            <span class="font-medium {{ $attendanceRate >= 80 ? 'text-green-600 dark:text-green-400' : ($attendanceRate >= 60 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400') }}">
-                                                                {{ $attendanceRate }}%
-                                                            </span>
-                                                            <span class="text-gray-400 dark:text-zinc-500">{{ $presentCount }}/{{ $totalRecords }}</span>
-                                                        </div>
-                                                        <div class="w-full bg-gray-200 dark:bg-zinc-600 rounded-full h-1.5">
-                                                            <div class="h-1.5 rounded-full transition-all {{ $attendanceRate >= 80 ? 'bg-green-500' : ($attendanceRate >= 60 ? 'bg-yellow-500' : 'bg-red-500') }}"
-                                                                 style="width: {{ $attendanceRate }}%"></div>
-                                                        </div>
-                                                    </div>
-                                                @else
-                                                    <span class="text-xs text-gray-400 dark:text-zinc-500">No records</span>
-                                                @endif
-                                            </td>
-
-                                            <td class="px-4 py-3.5 whitespace-nowrap">
-                                                <flux:badge size="sm" color="green">
-                                                    Active
-                                                </flux:badge>
-                                            </td>
-
-                                            <td class="px-4 py-3.5 whitespace-nowrap text-right">
-                                                <flux:dropdown position="bottom" align="end">
-                                                    <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" />
-
-                                                    <flux:menu class="min-w-40">
-                                                        <flux:menu.item icon="eye" wire:click="viewStudent({{ $classStudent->id }})">
-                                                            View Details
-                                                        </flux:menu.item>
-                                                        <flux:menu.item icon="pencil" wire:click="editStudent({{ $classStudent->id }})">
-                                                            Edit Enrollment
-                                                        </flux:menu.item>
-                                                        <flux:separator />
-                                                        <flux:menu.item icon="trash" variant="danger" wire:click="confirmUnenroll({{ $classStudent->id }})">
-                                                            Unenroll
-                                                        </flux:menu.item>
-                                                    </flux:menu>
-                                                </flux:dropdown>
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="6" class="px-6 py-12 text-center">
-                                                <div class="text-gray-500 dark:text-zinc-400">
-                                                    <flux:icon.magnifying-glass class="mx-auto h-8 w-8 text-gray-400 dark:text-zinc-500 mb-4" />
-                                                    <p>No students found matching "{{ $enrolledStudentSearch }}"</p>
-                                                    <flux:button variant="ghost" size="sm" class="mt-3" wire:click="$set('enrolledStudentSearch', '')">
-                                                        Clear Search
-                                                    </flux:button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Pagination -->
-                        @if($this->filtered_enrolled_students->hasPages())
-                            <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700">
-                                {{ $this->filtered_enrolled_students->links() }}
-                            </div>
-                        @endif
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="px-4 py-10 text-center">
+                                            <flux:icon.magnifying-glass class="mx-auto h-6 w-6 text-zinc-300 dark:text-zinc-600 mb-2" />
+                                            <p class="text-sm text-zinc-500 dark:text-zinc-400">No students found matching "{{ $enrolledStudentSearch }}"</p>
+                                            <flux:button variant="ghost" size="sm" class="mt-2" wire:click="$set('enrolledStudentSearch', '')">Clear Search</flux:button>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
-                </flux:card>
+
+                    @if($this->filtered_enrolled_students->hasPages())
+                        <div class="px-4 py-2.5 border-t border-zinc-200 dark:border-zinc-700">
+                            {{ $this->filtered_enrolled_students->links() }}
+                        </div>
+                    @endif
+                </div>
             @elseif($class->isDraft() || $class->isActive())
-                <!-- No Students Enrolled -->
-                <flux:card>
-                    <div class="p-8 text-center">
-                        <div class="mx-auto w-12 h-12 rounded-full bg-gray-100 dark:bg-zinc-700 flex items-center justify-center mb-4">
-                            <flux:icon.users class="h-6 w-6 text-gray-400 dark:text-zinc-500" />
-                        </div>
-                        <flux:heading size="lg" class="mb-2">No Students Enrolled</flux:heading>
-                        <flux:text class="mb-5 text-gray-500 dark:text-zinc-400">This class doesn't have any students enrolled yet.</flux:text>
-                        <flux:button variant="primary" icon="user-plus" wire:click="openEnrollStudentsModal">
-                            Enroll Students
-                        </flux:button>
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-8 text-center">
+                    <div class="mx-auto w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center mb-3">
+                        <flux:icon.users class="h-5 w-5 text-zinc-400 dark:text-zinc-500" />
                     </div>
-                </flux:card>
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">No Students Enrolled</h3>
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">This class doesn't have any students yet.</p>
+                    <flux:button variant="primary" size="sm" icon="user-plus" wire:click="openEnrollStudentsModal">Enroll Students</flux:button>
+                </div>
             @endif
 
-            <!-- Eligible Students (Active Enrollment but Not in Class) -->
+            <!-- Eligible Students -->
             @if($this->eligible_enrollments->count() > 0)
-                <div class="mt-6">
-                    <flux:card>
-                        <div class="overflow-hidden">
-                            <div class="px-6 py-5 border-b border-gray-200 dark:border-zinc-700">
-                                <div class="flex items-start justify-between mb-4">
-                                    <div class="space-y-1">
-                                        <div class="flex items-center gap-2">
-                                            <flux:heading size="lg">Students with Active Enrollment</flux:heading>
-                                            <flux:badge size="sm" color="yellow">
-                                                {{ $this->eligible_enrollments->count() }}
-                                            </flux:badge>
-                                        </div>
-                                        <flux:text size="sm" class="text-gray-500 dark:text-zinc-400">
-                                            These students have active course enrollment but are not enrolled in this class
-                                        </flux:text>
-                                    </div>
-
-                                    @if(count($selectedEligibleStudents) > 0)
-                                        <flux:button
-                                            variant="primary"
-                                            size="sm"
-                                            wire:click="enrollSelectedEligibleStudents"
-                                            icon="user-plus">
-                                            Enroll Selected ({{ count($selectedEligibleStudents) }})
-                                        </flux:button>
-                                    @endif
-                                </div>
-
-                                <!-- Search Bar -->
-                                <flux:input
-                                    wire:model.live.debounce.300ms="eligibleStudentSearch"
-                                    placeholder="Search students by name, email or phone..."
-                                    icon="magnifying-glass"
-                                />
+                <div class="mt-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 overflow-hidden">
+                    <div class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700">
+                        <div class="flex items-center justify-between mb-2.5">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Active Enrollments</h3>
+                                <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400">{{ $this->eligible_enrollments->count() }}</span>
                             </div>
-
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                                    <thead class="bg-gray-50 dark:bg-zinc-800/50">
-                                        <tr>
-                                            <th class="w-10 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
-                                                <flux:checkbox
-                                                    wire:click="$set('selectedEligibleStudents', {{ $this->eligible_enrollments->count() > 0 && count($selectedEligibleStudents) === $this->eligible_enrollments->count() ? '[]' : json_encode($this->eligible_enrollments->pluck('id')->toArray()) }})"
-                                                    :checked="$this->eligible_enrollments->count() > 0 && count($selectedEligibleStudents) === $this->eligible_enrollments->count()"
-                                                />
-                                            </th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Enrollment Date</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">Payment</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
-                                        @forelse($this->eligible_enrollments as $enrollment)
-                                            @php
-                                                $student = $enrollment->student;
-                                            @endphp
-                                            <tr wire:key="eligible-{{ $enrollment->id }}" class="hover:bg-gray-50 dark:hover:bg-zinc-700/50 transition-colors">
-                                                <td class="w-10 px-6 py-3.5 whitespace-nowrap">
-                                                    <flux:checkbox
-                                                        wire:click="toggleEligibleStudent({{ $enrollment->id }})"
-                                                        :checked="in_array($enrollment->id, $selectedEligibleStudents)"
-                                                    />
-                                                </td>
-                                                <td class="px-6 py-3.5 whitespace-nowrap">
-                                                    <div class="flex items-center gap-3">
-                                                        <flux:avatar size="sm" :name="$student->fullName" />
-                                                        <div>
-                                                            <div class="font-medium text-gray-900 dark:text-zinc-100">{{ $student->fullName }}</div>
-                                                            <div class="text-xs text-gray-500 dark:text-zinc-400">{{ $student->phone ?? '-' }}</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-zinc-400">
-                                                    {{ $enrollment->enrollment_date->format('M d, Y') }}
-                                                </td>
-                                                <td class="px-4 py-3.5 whitespace-nowrap">
-                                                    @if($enrollment->status === 'active')
-                                                        <flux:badge size="sm" color="green">Active</flux:badge>
-                                                    @elseif($enrollment->status === 'enrolled')
-                                                        <flux:badge size="sm" color="blue">Enrolled</flux:badge>
-                                                    @else
-                                                        <flux:badge size="sm">{{ ucfirst($enrollment->status) }}</flux:badge>
-                                                    @endif
-                                                </td>
-                                                <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-zinc-400">
-                                                    @if($enrollment->payment_method_type === 'card')
-                                                        <span class="flex items-center gap-1.5">
-                                                            <flux:icon name="credit-card" class="w-4 h-4" />
-                                                            Card
-                                                        </span>
-                                                    @elseif($enrollment->payment_method_type === 'manual')
-                                                        <span class="flex items-center gap-1.5">
-                                                            <flux:icon name="banknotes" class="w-4 h-4" />
-                                                            Manual
-                                                        </span>
-                                                    @else
-                                                        <span class="text-gray-400 dark:text-zinc-500">Not set</span>
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr>
-                                                <td colspan="5" class="px-6 py-12 text-center">
-                                                    <div class="text-gray-500 dark:text-zinc-400">
-                                                        <flux:icon.magnifying-glass class="mx-auto h-8 w-8 text-gray-400 dark:text-zinc-500 mb-4" />
-                                                        <p>No students found matching "{{ $eligibleStudentSearch }}"</p>
-                                                        <flux:button variant="ghost" size="sm" class="mt-3" wire:click="$set('eligibleStudentSearch', '')">
-                                                            Clear Search
-                                                        </flux:button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
+                            @if(count($selectedEligibleStudents) > 0)
+                                <flux:button variant="primary" size="sm" wire:click="enrollSelectedEligibleStudents" icon="user-plus">
+                                    Enroll Selected ({{ count($selectedEligibleStudents) }})
+                                </flux:button>
+                            @endif
                         </div>
-                    </flux:card>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-2.5">Students with active course enrollment not yet in this class</p>
+                        <flux:input wire:model.live.debounce.300ms="eligibleStudentSearch" placeholder="Search students..." icon="magnifying-glass" size="sm" />
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-800/80">
+                                    <th class="w-10 px-4 py-2 text-left">
+                                        <flux:checkbox
+                                            wire:click="$set('selectedEligibleStudents', {{ $this->eligible_enrollments->count() > 0 && count($selectedEligibleStudents) === $this->eligible_enrollments->count() ? '[]' : json_encode($this->eligible_enrollments->pluck('id')->toArray()) }})"
+                                            :checked="$this->eligible_enrollments->count() > 0 && count($selectedEligibleStudents) === $this->eligible_enrollments->count()"
+                                        />
+                                    </th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Enrollment Date</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Status</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Payment</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/50">
+                                @forelse($this->eligible_enrollments as $enrollment)
+                                    @php $student = $enrollment->student; @endphp
+                                    <tr wire:key="eligible-{{ $enrollment->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
+                                        <td class="w-10 px-4 py-2.5 whitespace-nowrap">
+                                            <flux:checkbox wire:click="toggleEligibleStudent({{ $enrollment->id }})" :checked="in_array($enrollment->id, $selectedEligibleStudents)" />
+                                        </td>
+                                        <td class="px-3 py-2.5 whitespace-nowrap">
+                                            <div class="flex items-center gap-2.5">
+                                                <flux:avatar size="xs" :name="$student->fullName" />
+                                                <div>
+                                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $student->fullName }}</div>
+                                                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ $student->phone ?? '-' }}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-2.5 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+                                            {{ $enrollment->enrollment_date->format('M d, Y') }}
+                                        </td>
+                                        <td class="px-3 py-2.5 whitespace-nowrap">
+                                            @if($enrollment->status === 'active')
+                                                <flux:badge size="sm" color="green">Active</flux:badge>
+                                            @elseif($enrollment->status === 'enrolled')
+                                                <flux:badge size="sm" color="blue">Enrolled</flux:badge>
+                                            @else
+                                                <flux:badge size="sm">{{ ucfirst($enrollment->status) }}</flux:badge>
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-2.5 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+                                            @if($enrollment->payment_method_type === 'card')
+                                                <span class="flex items-center gap-1"><flux:icon name="credit-card" class="w-3.5 h-3.5" /> Card</span>
+                                            @elseif($enrollment->payment_method_type === 'manual')
+                                                <span class="flex items-center gap-1"><flux:icon name="banknotes" class="w-3.5 h-3.5" /> Manual</span>
+                                            @else
+                                                <span class="text-zinc-400 dark:text-zinc-500">Not set</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-4 py-10 text-center">
+                                            <flux:icon.magnifying-glass class="mx-auto h-6 w-6 text-zinc-300 dark:text-zinc-600 mb-2" />
+                                            <p class="text-sm text-zinc-500 dark:text-zinc-400">No students found matching "{{ $eligibleStudentSearch }}"</p>
+                                            <flux:button variant="ghost" size="sm" class="mt-2" wire:click="$set('eligibleStudentSearch', '')">Clear Search</flux:button>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             @endif
             </div>
@@ -4803,123 +4920,94 @@ new class extends Component
 
             <!-- Approval List Sub-Tab -->
             <div class="{{ $studentSubTab === 'approvals' ? 'block' : 'hidden' }}">
-                <flux:card>
-                    <div class="p-6">
-                        <div class="flex items-center justify-between mb-4">
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 overflow-hidden">
+                    <div class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700">
+                        <div class="flex items-center justify-between mb-2.5">
                             <div>
-                                <flux:heading size="lg">Pending Approvals</flux:heading>
-                                <flux:text class="mt-1">
-                                    Students assigned from orders awaiting enrollment approval.
-                                </flux:text>
+                                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Pending Approvals</h3>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Students from orders awaiting enrollment approval</p>
                             </div>
                             @if($this->pendingApprovals->count() > 0 && count($selectedApprovalIds) > 0)
-                                <div class="flex gap-2">
-                                    <flux:button variant="primary" size="sm" wire:click="bulkApproveAssignments">
-                                        Approve Selected ({{ count($selectedApprovalIds) }})
-                                    </flux:button>
-                                    <flux:button variant="danger" size="sm" wire:click="bulkRejectAssignments">
-                                        Reject Selected ({{ count($selectedApprovalIds) }})
-                                    </flux:button>
+                                <div class="flex gap-1.5">
+                                    <flux:button variant="primary" size="sm" wire:click="bulkApproveAssignments">Approve ({{ count($selectedApprovalIds) }})</flux:button>
+                                    <flux:button variant="danger" size="sm" wire:click="bulkRejectAssignments">Reject ({{ count($selectedApprovalIds) }})</flux:button>
                                 </div>
                             @endif
                         </div>
-
-                        <div class="mb-4">
-                            <flux:input
-                                wire:model.live.debounce.300ms="approvalSearch"
-                                placeholder="Search by student name, phone, or order number..."
-                                icon="magnifying-glass"
-                            />
-                        </div>
-
-                        @if($this->pendingApprovals->count() > 0)
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                                    <thead>
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                                <flux:checkbox
-                                                    wire:click="$set('selectedApprovalIds', count($selectedApprovalIds) === $this->pendingApprovals->count() ? [] : $this->pendingApprovals->pluck('id')->toArray())"
-                                                    :checked="count($selectedApprovalIds) > 0 && count($selectedApprovalIds) === $this->pendingApprovals->count()"
-                                                />
-                                            </th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Order</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned By</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned Date</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subscription</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-200 dark:divide-zinc-700">
-                                        @foreach($this->pendingApprovals as $approval)
-                                            <tr wire:key="approval-{{ $approval->id }}">
-                                                <td class="px-4 py-3">
-                                                    <flux:checkbox
-                                                        wire:click="toggleApprovalSelection({{ $approval->id }})"
-                                                        :checked="in_array($approval->id, $selectedApprovalIds)"
-                                                    />
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <div class="flex items-center gap-3">
-                                                        <flux:avatar size="sm" name="{{ $approval->student->user?->name ?? $approval->student->name ?? 'Unknown' }}" />
-                                                        <div>
-                                                            <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                                                {{ $approval->student->user?->name ?? $approval->student->name ?? 'Unknown' }}
-                                                            </p>
-                                                            <p class="text-xs text-gray-500 dark:text-gray-400">
-                                                                {{ $approval->student->phone ?? $approval->student->user?->phone ?? '' }}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <a href="{{ route('admin.orders.show', $approval->productOrder) }}"
-                                                       class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
-                                                        {{ $approval->productOrder->order_number }}
-                                                    </a>
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <p class="text-sm text-gray-900 dark:text-white">{{ $approval->assignedByUser->name }}</p>
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $approval->created_at->format('M d, Y') }}</p>
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <flux:switch
-                                                        wire:click="toggleApprovalSubscription({{ $approval->id }})"
-                                                        :checked="$approvalSubscriptionToggles[$approval->id] ?? false"
-                                                    />
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <div class="flex gap-2">
-                                                        <flux:button variant="primary" size="sm" wire:click="approveAssignment({{ $approval->id }})">
-                                                            Approve
-                                                        </flux:button>
-                                                        <flux:button variant="danger" size="sm" wire:click="rejectAssignment({{ $approval->id }})">
-                                                            Reject
-                                                        </flux:button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        @else
-                            <div class="text-center py-8">
-                                <flux:icon.clipboard-document-check class="h-12 w-12 text-gray-300 dark:text-zinc-600 mx-auto mb-3" />
-                                @if(empty($approvalSearch))
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">No pending approvals.</p>
-                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Assignments from orders will appear here.</p>
-                                @else
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">No approvals found matching "{{ $approvalSearch }}"</p>
-                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Try a different search term.</p>
-                                @endif
-                            </div>
-                        @endif
+                        <flux:input wire:model.live.debounce.300ms="approvalSearch" placeholder="Search by name, phone, or order..." icon="magnifying-glass" size="sm" />
                     </div>
-                </flux:card>
+
+                    @if($this->pendingApprovals->count() > 0)
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead>
+                                    <tr class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-800/80">
+                                        <th class="w-10 px-4 py-2">
+                                            <flux:checkbox
+                                                wire:click="$set('selectedApprovalIds', count($selectedApprovalIds) === $this->pendingApprovals->count() ? [] : $this->pendingApprovals->pluck('id')->toArray())"
+                                                :checked="count($selectedApprovalIds) > 0 && count($selectedApprovalIds) === $this->pendingApprovals->count()"
+                                            />
+                                        </th>
+                                        <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Student</th>
+                                        <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Order</th>
+                                        <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Assigned By</th>
+                                        <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Date</th>
+                                        <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Sub</th>
+                                        <th class="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/50">
+                                    @foreach($this->pendingApprovals as $approval)
+                                        <tr wire:key="approval-{{ $approval->id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-700/30 transition-colors">
+                                            <td class="w-10 px-4 py-2.5">
+                                                <flux:checkbox wire:click="toggleApprovalSelection({{ $approval->id }})" :checked="in_array($approval->id, $selectedApprovalIds)" />
+                                            </td>
+                                            <td class="px-3 py-2.5">
+                                                <div class="flex items-center gap-2.5">
+                                                    <flux:avatar size="xs" name="{{ $approval->student->user?->name ?? $approval->student->name ?? 'Unknown' }}" />
+                                                    <div>
+                                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $approval->student->user?->name ?? $approval->student->name ?? 'Unknown' }}</p>
+                                                        <p class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ $approval->student->phone ?? $approval->student->user?->phone ?? '' }}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-2.5">
+                                                <a href="{{ route('admin.orders.show', $approval->productOrder) }}" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+                                                    {{ $approval->productOrder->order_number }}
+                                                </a>
+                                            </td>
+                                            <td class="px-3 py-2.5">
+                                                <p class="text-sm text-zinc-700 dark:text-zinc-300">{{ $approval->assignedByUser->name }}</p>
+                                            </td>
+                                            <td class="px-3 py-2.5">
+                                                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ $approval->created_at->format('M d, Y') }}</p>
+                                            </td>
+                                            <td class="px-3 py-2.5">
+                                                <flux:switch wire:click="toggleApprovalSubscription({{ $approval->id }})" :checked="$approvalSubscriptionToggles[$approval->id] ?? false" />
+                                            </td>
+                                            <td class="px-3 py-2.5">
+                                                <div class="flex gap-1">
+                                                    <flux:button variant="primary" size="xs" wire:click="approveAssignment({{ $approval->id }})">Approve</flux:button>
+                                                    <flux:button variant="danger" size="xs" wire:click="rejectAssignment({{ $approval->id }})">Reject</flux:button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <div class="text-center py-10 px-4">
+                            <flux:icon.clipboard-document-check class="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-2" />
+                            @if(empty($approvalSearch))
+                                <p class="text-sm text-zinc-500 dark:text-zinc-400">No pending approvals</p>
+                                <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">Assignments from orders will appear here</p>
+                            @else
+                                <p class="text-sm text-zinc-500 dark:text-zinc-400">No approvals matching "{{ $approvalSearch }}"</p>
+                            @endif
+                        </div>
+                    @endif
+                </div>
             </div>
             <!-- End Approval List Sub-Tab -->
         </div>
@@ -4928,60 +5016,59 @@ new class extends Component
         <!-- Timetable Tab -->
         <div class="{{ $activeTab === 'timetable' ? 'block' : 'hidden' }}">
             @if($class->timetable)
-                <flux:card>
-                    <div class="p-6">
-                        <div class="mb-6 flex items-center justify-between">
-                            <div>
-                                <flux:heading size="lg">Class Timetable</flux:heading>
-                                <flux:text class="mt-2">
-                                    @if($class->timetable->recurrence_pattern === 'monthly')
-                                        Monthly recurring schedule with different days per week
-                                    @elseif($class->timetable->recurrence_pattern === 'bi_weekly')
-                                        Bi-weekly recurring schedule for this class
-                                    @else
-                                        Weekly recurring schedule for this class
-                                    @endif
-                                </flux:text>
-                            </div>
-                        </div>
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Class Timetable</h3>
+                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            @if($class->timetable->recurrence_pattern === 'monthly')
+                                Monthly recurring schedule with different days per week
+                            @elseif($class->timetable->recurrence_pattern === 'bi_weekly')
+                                Bi-weekly recurring schedule for this class
+                            @else
+                                Weekly recurring schedule for this class
+                            @endif
+                        </p>
+                    </div>
 
+                    <div class="p-5">
                         <!-- Timetable Info -->
-                        <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="bg-blue-50 /20 p-4 rounded-lg">
-                                <flux:text class="text-sm font-medium text-blue-800">Recurrence Pattern</flux:text>
-                                <flux:text class="text-lg font-semibold text-blue-900">
+                        <div class="mb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
+                                <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Recurrence Pattern</span>
+                                <p class="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                     {{ ucfirst(str_replace('_', ' ', $class->timetable->recurrence_pattern)) }}
-                                </flux:text>
+                                </p>
                             </div>
 
-                            <div class="bg-green-50 /20 p-4 rounded-lg">
-                                <flux:text class="text-sm font-medium text-green-800">Total Sessions</flux:text>
-                                <flux:text class="text-lg font-semibold text-green-900">
+                            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
+                                <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Sessions</span>
+                                <p class="mt-1 text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
                                     {{ $class->timetable->total_sessions ?? 'Unlimited' }}
-                                </flux:text>
+                                </p>
                             </div>
 
-                            <div class="bg-purple-50 /20 p-4 rounded-lg">
-                                <flux:text class="text-sm font-medium text-purple-800">Duration</flux:text>
-                                <flux:text class="text-lg font-semibold text-purple-900">
+                            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
+                                <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Duration</span>
+                                <p class="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                     {{ $class->formatted_duration }}
-                                </flux:text>
+                                </p>
                             </div>
                         </div>
 
                         <!-- Date Range -->
-                        <div class="mb-6 flex items-center gap-4 p-4 bg-gray-50  rounded-lg">
+                        <div class="mb-5 flex items-center gap-4 rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-2.5">
                             <div class="flex items-center gap-2">
-                                <flux:icon.calendar-days class="h-5 w-5 text-gray-600" />
-                                <flux:text class="font-medium">Start Date:</flux:text>
-                                <flux:text>{{ $class->timetable->start_date->format('M d, Y') }}</flux:text>
+                                <flux:icon.calendar-days class="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+                                <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Start</span>
+                                <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $class->timetable->start_date->format('M d, Y') }}</span>
                             </div>
-                            
+
                             @if($class->timetable->end_date)
+                                <div class="h-4 w-px bg-zinc-200 dark:bg-zinc-700"></div>
                                 <div class="flex items-center gap-2">
-                                    <flux:icon.calendar class="h-5 w-5 text-gray-600" />
-                                    <flux:text class="font-medium">End Date:</flux:text>
-                                    <flux:text>{{ $class->timetable->end_date->format('M d, Y') }}</flux:text>
+                                    <flux:icon.calendar class="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+                                    <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">End</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $class->timetable->end_date->format('M d, Y') }}</span>
                                 </div>
                             @endif
                         </div>
@@ -4990,47 +5077,47 @@ new class extends Component
                         <div class="overflow-x-auto">
                             <div class="inline-block min-w-full">
                                 <!-- Calendar Header -->
-                                <div class="flex items-center justify-between mb-4">
-                                    <flux:heading size="md">Monthly Schedule</flux:heading>
-                                    <div class="flex items-center gap-2">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Monthly Schedule</h4>
+                                    <div class="flex items-center gap-1">
                                         <flux:button size="sm" variant="ghost" wire:click="previousMonth">
                                             <flux:icon.chevron-left class="h-4 w-4" />
                                         </flux:button>
-                                        <div class="font-medium text-gray-900  px-4">
+                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100 px-3 tabular-nums">
                                             {{ $this->current_month_name }}
-                                        </div>
+                                        </span>
                                         <flux:button size="sm" variant="ghost" wire:click="nextMonth">
                                             <flux:icon.chevron-right class="h-4 w-4" />
                                         </flux:button>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Days of Week Header -->
-                                <div class="grid grid-cols-7 gap-1 mb-2">
+                                <div class="grid grid-cols-7 gap-px mb-px">
                                     @foreach(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $day)
-                                        <div class="text-center p-2 font-semibold text-gray-700  text-sm bg-gray-100  rounded">
+                                        <div class="text-center py-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 rounded-sm">
                                             {{ $day }}
                                         </div>
                                     @endforeach
                                 </div>
 
                                 <!-- Calendar Grid -->
-                                <div class="grid grid-cols-7 gap-1">
+                                <div class="grid grid-cols-7 gap-px">
                                     @foreach(collect($this->monthly_calendar_data)->chunk(7) as $week)
                                         @foreach($week as $day)
-                                            <div class="min-h-24 border border-gray-200  rounded p-1 {{ $day['isCurrentMonth'] ? 'bg-white ' : 'bg-gray-50 ' }} {{ $day['isToday'] ? 'ring-2 ring-blue-500' : '' }}">
+                                            <div class="min-h-22 border border-zinc-100 dark:border-zinc-800 rounded-sm p-1 {{ $day['isCurrentMonth'] ? 'bg-white dark:bg-zinc-900' : 'bg-zinc-50 dark:bg-zinc-800/30' }} {{ $day['isToday'] ? 'ring-1 ring-zinc-900 dark:ring-zinc-300' : '' }}">
                                                 <!-- Date Number -->
-                                                <div class="text-xs font-medium mb-1 {{ $day['isCurrentMonth'] ? 'text-gray-900 ' : 'text-gray-400' }} {{ $day['isToday'] ? 'text-blue-600 font-bold' : '' }}">
+                                                <div class="text-xs mb-1 {{ $day['isCurrentMonth'] ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-300 dark:text-zinc-600' }} {{ $day['isToday'] ? 'font-bold text-zinc-900 dark:text-zinc-100' : 'font-medium' }}">
                                                     {{ $day['date']->day }}
                                                 </div>
-                                                
+
                                                 <!-- Sessions for this date -->
                                                 @if($day['sessions']->count() > 0)
                                                     @foreach($day['sessions'] as $session)
-                                                        <div class="mb-1 px-1 py-0.5 text-xs rounded {{ 
-                                                            $session->status === 'completed' ? 'bg-green-100 text-green-800 /30 ' : 
-                                                            ($session->status === 'cancelled' ? 'bg-red-100 text-red-800 /30 ' : 
-                                                            'bg-blue-100 text-blue-800 /30 ') 
+                                                        <div class="mb-0.5 px-1 py-0.5 text-[10px] font-medium rounded tabular-nums {{
+                                                            $session->status === 'completed' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                                            ($session->status === 'cancelled' ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                            'bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300')
                                                         }}">
                                                             {{ \Carbon\Carbon::parse($session->start_time)->format('g:iA') }}
                                                         </div>
@@ -5074,7 +5161,7 @@ new class extends Component
                                                         @endphp
                                                         @if(!empty($scheduledTimes))
                                                             @foreach($scheduledTimes as $time)
-                                                                <div class="mb-1 px-1 py-0.5 text-xs rounded bg-gray-100 text-gray-600   opacity-60">
+                                                                <div class="mb-0.5 px-1 py-0.5 text-[10px] rounded tabular-nums bg-zinc-50 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500">
                                                                     {{ date('g:iA', strtotime($time)) }}
                                                                 </div>
                                                             @endforeach
@@ -5087,22 +5174,22 @@ new class extends Component
                                 </div>
 
                                 <!-- Legend -->
-                                <div class="mt-4 flex flex-wrap gap-4 text-xs">
-                                    <div class="flex items-center gap-1">
-                                        <div class="w-3 h-3 bg-blue-100 /30 rounded"></div>
-                                        <span class="text-gray-600">Scheduled</span>
+                                <div class="mt-3 flex flex-wrap gap-4 text-[11px]">
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-500"></div>
+                                        <span class="text-zinc-500 dark:text-zinc-400">Scheduled</span>
                                     </div>
-                                    <div class="flex items-center gap-1">
-                                        <div class="w-3 h-3 bg-green-100 /30 rounded"></div>
-                                        <span class="text-gray-600">Completed</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400"></div>
+                                        <span class="text-zinc-500 dark:text-zinc-400">Completed</span>
                                     </div>
-                                    <div class="flex items-center gap-1">
-                                        <div class="w-3 h-3 bg-red-100 /30 rounded"></div>
-                                        <span class="text-gray-600">Cancelled</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400"></div>
+                                        <span class="text-zinc-500 dark:text-zinc-400">Cancelled</span>
                                     </div>
-                                    <div class="flex items-center gap-1">
-                                        <div class="w-3 h-3 bg-gray-100  rounded opacity-60"></div>
-                                        <span class="text-gray-600">Recurring Schedule</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2 h-2 rounded-full bg-zinc-200 dark:bg-zinc-700"></div>
+                                        <span class="text-zinc-500 dark:text-zinc-400">Recurring Schedule</span>
                                     </div>
                                 </div>
                             </div>
@@ -5110,19 +5197,19 @@ new class extends Component
 
                         <!-- Sessions Generated -->
                     </div>
-                </flux:card>
+                </div>
             @else
                 <!-- No Timetable -->
-                <flux:card>
-                    <div class="p-6 text-center">
-                        <flux:icon.calendar class="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                        <flux:heading size="lg" class="mb-2">No Timetable Configured</flux:heading>
-                        <flux:text class="mb-4">This class doesn't have a recurring timetable. Sessions are managed individually.</flux:text>
+                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div class="px-5 py-10 text-center">
+                        <flux:icon.calendar class="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-3" />
+                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">No Timetable Configured</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-4">This class doesn't have a recurring timetable. Sessions are managed individually.</p>
                         <flux:button variant="primary" href="{{ route('classes.edit', $class) }}" icon="plus">
                             Add Timetable
                         </flux:button>
                     </div>
-                </flux:card>
+                </div>
             @endif
         </div>
         <!-- End Timetable Tab -->
@@ -5183,171 +5270,166 @@ new class extends Component
              @save-payment-column-preferences.window="savePreferences($event.detail)">
             @if($activeTab === 'payment-reports')
             <!-- Year and Payment Filter -->
-            <flux:card class="mb-6">
-                <div class="p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="lg">Payment Reports</flux:heading>
-                            <flux:text class="mt-1">Track student payment history for this class</flux:text>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <!-- Column Visibility Manager -->
-                            <div class="relative" x-data="{ open: @entangle('showPaymentColumnManager') }">
-                                <flux:button variant="outline" @click="open = !open">
-                                    <div class="flex items-center justify-center">
-                                        <flux:icon icon="view-columns" class="w-4 h-4 mr-1" />
-                                        Columns
-                                        <span class="ml-1 text-xs text-gray-500">({{ count($visiblePaymentPeriods) }}/{{ $this->all_payment_period_columns->count() }})</span>
-                                    </div>
-                                </flux:button>
+            <div class="mb-6 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Payment Reports</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Track student payment history for this class</p>
+                    </div>
+                    <!-- Column Visibility Manager -->
+                    <div class="relative" x-data="{ open: @entangle('showPaymentColumnManager') }">
+                        <flux:button variant="outline" size="sm" @click="open = !open">
+                            <div class="flex items-center justify-center">
+                                <flux:icon icon="view-columns" class="w-4 h-4 mr-1" />
+                                Columns
+                                <span class="ml-1 text-[11px] text-zinc-400">({{ count($visiblePaymentPeriods) }}/{{ $this->all_payment_period_columns->count() }})</span>
+                            </div>
+                        </flux:button>
 
-                                <div x-show="open" @click.away="open = false" x-cloak
-                                     class="absolute right-0 mt-2 w-72 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50"
-                                     x-transition:enter="transition ease-out duration-100"
-                                     x-transition:enter-start="transform opacity-0 scale-95"
-                                     x-transition:enter-end="transform opacity-100 scale-100"
-                                     x-transition:leave="transition ease-in duration-75"
-                                     x-transition:leave-start="transform opacity-100 scale-100"
-                                     x-transition:leave-end="transform opacity-0 scale-95">
+                        <div x-show="open" @click.away="open = false" x-cloak
+                             class="absolute right-0 mt-2 w-72 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 z-50"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="transform opacity-0 scale-95"
+                             x-transition:enter-end="transform opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="transform opacity-100 scale-100"
+                             x-transition:leave-end="transform opacity-0 scale-95">
 
-                                    <div class="p-4">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <flux:heading size="sm">Column Visibility</flux:heading>
-                                            <flux:button variant="ghost" size="sm" wire:click="toggleAllPaymentPeriods">
-                                                <div class="text-xs">
-                                                    {{ count($visiblePaymentPeriods) === $this->all_payment_period_columns->count() ? 'Hide All' : 'Show All' }}
-                                                </div>
-                                            </flux:button>
+                            <div class="p-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Column Visibility</h4>
+                                    <flux:button variant="ghost" size="sm" wire:click="toggleAllPaymentPeriods">
+                                        <div class="text-xs">
+                                            {{ count($visiblePaymentPeriods) === $this->all_payment_period_columns->count() ? 'Hide All' : 'Show All' }}
                                         </div>
-
-                                        <div class="space-y-2 max-h-96 overflow-y-auto">
-                                            @foreach($this->all_payment_period_columns as $period)
-                                                <label class="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-zinc-700 rounded cursor-pointer">
-                                                    <flux:checkbox
-                                                        wire:model.live="visiblePaymentPeriods"
-                                                        value="{{ $period['label'] }}"
-                                                    />
-                                                    <div class="flex-1">
-                                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $period['label'] }}</div>
-                                                        @if($class->course->feeSettings && $class->course->feeSettings->billing_cycle !== 'yearly')
-                                                            <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                                {{ $period['period_start']->format('M j') }} - {{ $period['period_end']->format('M j') }}
-                                                            </div>
-                                                        @endif
-                                                    </div>
-                                                </label>
-                                            @endforeach
-                                        </div>
-
-                                        @if(count($visiblePaymentPeriods) === 0)
-                                            <div class="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded text-xs text-yellow-700 dark:text-yellow-400">
-                                                ⚠️ At least one column must be visible
-                                            </div>
-                                        @endif
-                                    </div>
+                                    </flux:button>
                                 </div>
-                            </div>
 
-                            <div class="w-48">
-                                <flux:select wire:model.live="paymentFilter" class="w-full">
-                                    <flux:select.option value="all">All Students</flux:select.option>
-                                    <flux:select.option value="active">Active</flux:select.option>
-                                    <flux:select.option value="canceled">Canceled</flux:select.option>
-                                    <flux:select.option value="trialing">Trialing</flux:select.option>
-                                    <flux:select.option value="past_due">Past Due</flux:select.option>
-                                </flux:select>
-                            </div>
-                            <div class="w-48">
-                                <flux:select wire:model.live="paymentPicFilter" class="w-full">
-                                    <flux:select.option value="">All PICs</flux:select.option>
-                                    @foreach($this->available_pics as $pic)
-                                        @if($pic)
-                                            <flux:select.option value="{{ $pic->id }}">{{ $pic->name ?? 'N/A' }}</flux:select.option>
-                                        @endif
+                                <div class="space-y-1 max-h-96 overflow-y-auto">
+                                    @foreach($this->all_payment_period_columns as $period)
+                                        <label class="flex items-center space-x-3 px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded cursor-pointer">
+                                            <flux:checkbox
+                                                wire:model.live="visiblePaymentPeriods"
+                                                value="{{ $period['label'] }}"
+                                            />
+                                            <div class="flex-1">
+                                                <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200">{{ $period['label'] }}</div>
+                                                @if($class->course->feeSettings && $class->course->feeSettings->billing_cycle !== 'yearly')
+                                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                        {{ $period['period_start']->format('M j') }} - {{ $period['period_end']->format('M j') }}
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </label>
                                     @endforeach
-                                </flux:select>
-                            </div>
-                            <div class="w-48">
-                                <flux:select wire:model.live="paymentMethodTypeFilter" class="w-full">
-                                    <flux:select.option value="">All Types</flux:select.option>
-                                    <flux:select.option value="automatic">Automatic</flux:select.option>
-                                    <flux:select.option value="manual">Manual</flux:select.option>
-                                </flux:select>
-                            </div>
-                            <div class="w-32">
-                                <flux:select wire:model.live="paymentYear" class="w-full">
-                                    @for($y = now()->year + 1; $y >= now()->year - 5; $y--)
-                                        <flux:select.option value="{{ $y }}">{{ $y }}</flux:select.option>
-                                    @endfor
-                                </flux:select>
-                            </div>
-                            <div class="w-40">
-                                <flux:select wire:model.live="paymentReportPerPage" class="w-full">
-                                    <flux:select.option value="20">20 per page</flux:select.option>
-                                    <flux:select.option value="30">30 per page</flux:select.option>
-                                    <flux:select.option value="50">50 per page</flux:select.option>
-                                    <flux:select.option value="100">100 per page</flux:select.option>
-                                    <flux:select.option value="200">200 per page</flux:select.option>
-                                    <flux:select.option value="300">300 per page</flux:select.option>
-                                </flux:select>
+                                </div>
+
+                                @if(count($visiblePaymentPeriods) === 0)
+                                    <div class="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded text-xs text-yellow-700 dark:text-yellow-400">
+                                        At least one column must be visible
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Search Filter -->
-                    <div class="mt-4">
-                        <flux:input
-                            wire:model.live.debounce.300ms="paymentReportSearch"
-                            placeholder="Search by student name, phone number, or student ID..."
-                            icon="magnifying-glass"
-                            class="w-full"
-                        />
+                <div class="px-5 py-3 space-y-3">
+                    <!-- Filters Row -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <div class="w-40 shrink-0">
+                            <flux:select wire:model.live="paymentFilter" class="w-full">
+                                <flux:select.option value="all">All Students</flux:select.option>
+                                <flux:select.option value="active">Active</flux:select.option>
+                                <flux:select.option value="canceled">Canceled</flux:select.option>
+                                <flux:select.option value="trialing">Trialing</flux:select.option>
+                                <flux:select.option value="past_due">Past Due</flux:select.option>
+                            </flux:select>
+                        </div>
+                        <div class="w-40 shrink-0">
+                            <flux:select wire:model.live="paymentPicFilter" class="w-full">
+                                <flux:select.option value="">All PICs</flux:select.option>
+                                @foreach($this->available_pics as $pic)
+                                    @if($pic)
+                                        <flux:select.option value="{{ $pic->id }}">{{ $pic->name ?? 'N/A' }}</flux:select.option>
+                                    @endif
+                                @endforeach
+                            </flux:select>
+                        </div>
+                        <div class="w-36 shrink-0">
+                            <flux:select wire:model.live="paymentMethodTypeFilter" class="w-full">
+                                <flux:select.option value="">All Types</flux:select.option>
+                                <flux:select.option value="automatic">Automatic</flux:select.option>
+                                <flux:select.option value="manual">Manual</flux:select.option>
+                            </flux:select>
+                        </div>
+                        <div class="w-28 shrink-0">
+                            <flux:select wire:model.live="paymentYear" class="w-full">
+                                @for($y = now()->year + 1; $y >= now()->year - 5; $y--)
+                                    <flux:select.option value="{{ $y }}">{{ $y }}</flux:select.option>
+                                @endfor
+                            </flux:select>
+                        </div>
+                        <div class="w-36 shrink-0">
+                            <flux:select wire:model.live="paymentReportPerPage" class="w-full">
+                                <flux:select.option value="20">20 per page</flux:select.option>
+                                <flux:select.option value="30">30 per page</flux:select.option>
+                                <flux:select.option value="50">50 per page</flux:select.option>
+                                <flux:select.option value="100">100 per page</flux:select.option>
+                                <flux:select.option value="200">200 per page</flux:select.option>
+                                <flux:select.option value="300">300 per page</flux:select.option>
+                            </flux:select>
+                        </div>
+                        <div class="flex-1 min-w-[200px]">
+                            <flux:input
+                                wire:model.live.debounce.300ms="paymentReportSearch"
+                                placeholder="Search student name, phone, or ID..."
+                                icon="magnifying-glass"
+                                class="w-full"
+                            />
+                        </div>
                     </div>
 
                     @if($class->course && $class->course->feeSettings)
-                        <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
-                            <div class="flex items-start space-x-2">
-                                <flux:icon.information-circle class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <flux:text class="text-blue-800 dark:text-blue-300 font-medium text-sm">
-                                        {{ $class->course->feeSettings->billing_cycle_label }} Billing Period
-                                    </flux:text>
-                                    <flux:text class="text-blue-700 dark:text-blue-400 text-xs mt-0.5">
-                                        {{ $class->course->feeSettings->formatted_fee }} per {{ strtolower($class->course->feeSettings->billing_cycle_label) }}
-                                    </flux:text>
-                                </div>
+                        <div class="p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50">
+                            <div class="flex items-center gap-2">
+                                <flux:icon.information-circle class="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                    <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ $class->course->feeSettings->billing_cycle_label }} Billing</span>
+                                    &middot; {{ $class->course->feeSettings->formatted_fee }} per {{ strtolower($class->course->feeSettings->billing_cycle_label) }}
+                                </p>
                             </div>
                         </div>
                     @endif
                 </div>
-            </flux:card>
+            </div>
 
             <!-- Payment Report Table -->
-            <flux:card>
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
                 @if($this->class_students_for_payment_report->count() > 0)
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="border-b border-gray-200 dark:border-zinc-700">
-                                    <th class="text-left py-3 px-4 sticky left-0 bg-white dark:bg-zinc-800 z-10 min-w-[250px]">
+                                <tr class="border-b border-zinc-200 dark:border-zinc-700">
+                                    <th class="text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 py-2.5 px-4 sticky left-0 bg-zinc-50 dark:bg-zinc-800 z-10 min-w-[250px]">
                                         Student Name
                                     </th>
-                                    <th class="text-left py-3 px-4 bg-white dark:bg-zinc-800 min-w-[150px] border-l border-gray-100 dark:border-zinc-700">
+                                    <th class="text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 py-2.5 px-4 bg-zinc-50 dark:bg-zinc-800 min-w-[150px] border-l border-zinc-200 dark:border-zinc-700">
                                         PIC
                                     </th>
                                     @foreach($this->visible_payment_period_columns as $period)
-                                        <th class="text-center py-3 px-3 min-w-[100px] border-l border-gray-100 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-                                            <div class="font-medium">{{ $period['label'] }}</div>
+                                        <th class="text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 py-2.5 px-3 min-w-[100px] border-l border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                                            <div>{{ $period['label'] }}</div>
                                             @if($class->course->feeSettings && $class->course->feeSettings->billing_cycle !== 'yearly')
-                                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                <div class="text-[10px] normal-case tracking-normal text-zinc-400 dark:text-zinc-500 mt-0.5">
                                                     {{ $period['period_start']->format('M j') }} - {{ $period['period_end']->format('M j') }}
                                                 </div>
                                             @endif
                                         </th>
                                     @endforeach
-                                    <th class="text-center py-3 px-4 min-w-[150px] border-l-2 border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800">
-                                        <div class="font-medium">Summary</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Paid / Expected</div>
+                                    <th class="text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 py-2.5 px-4 min-w-[150px] border-l-2 border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800">
+                                        <div>Summary</div>
+                                        <div class="text-[10px] normal-case tracking-normal text-zinc-400 dark:text-zinc-500 mt-0.5">Paid / Expected</div>
                                     </th>
                                 </tr>
                             </thead>
@@ -5919,15 +6001,15 @@ new class extends Component
                         </table>
                     </div>
                 @else
-                    <div class="text-center py-12">
-                        <flux:icon.users class="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                        <flux:heading size="md" class="text-gray-600 dark:text-gray-400 mb-2">No students enrolled</flux:heading>
-                        <flux:text class="text-gray-600 dark:text-gray-400">
+                    <div class="text-center py-8 px-4">
+                        <flux:icon.users class="w-8 h-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
+                        <h4 class="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">No students enrolled</h4>
+                        <p class="text-xs text-zinc-400 dark:text-zinc-500">
                             This class doesn't have any enrolled students yet.
-                        </flux:text>
+                        </p>
                     </div>
                 @endif
-            </flux:card>
+            </div>
 
             <!-- Pagination -->
             @if($this->class_students_for_payment_report->hasPages())
@@ -5937,86 +6019,87 @@ new class extends Component
             @endif
 
             <!-- Legend -->
-            <flux:card class="mt-6">
-                <div class="p-4">
-                    <flux:heading size="md" class="mb-4">Payment Status Legend</flux:heading>
-
+            <div class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Payment Status Legend</h3>
+                </div>
+                <div class="px-5 py-4 space-y-4">
                     <!-- Consecutive Unpaid Warning -->
-                    <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                        <div class="flex items-start gap-3">
-                            <div class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-md text-xs font-medium">
+                    <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <div class="flex items-start gap-2.5">
+                            <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-md text-[11px] font-medium shrink-0">
                                 <flux:icon.exclamation-triangle class="w-3 h-3" />
                                 <span>2+ Months Unpaid</span>
                             </div>
                             <div class="flex-1">
-                                <flux:text class="text-sm text-red-900 dark:text-red-300 font-medium">Critical Payment Alert</flux:text>
-                                <flux:text class="text-xs text-red-700 dark:text-red-400 mt-1">
+                                <p class="text-xs font-medium text-red-900 dark:text-red-300">Critical Payment Alert</p>
+                                <p class="text-[11px] text-red-700 dark:text-red-400 mt-0.5 leading-relaxed">
                                     Students with this indicator have 2 or more consecutive months of unpaid or partial payments. The entire row is highlighted in light red for easy identification. Consider immediate follow-up action.
-                                </flux:text>
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="space-y-2">
-                            <div class="flex items-center space-x-2">
-                                <div class="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full">
-                                    <flux:icon.check class="w-4 h-4" />
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="space-y-1.5">
+                            <div class="flex items-center gap-2">
+                                <div class="inline-flex items-center justify-center w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full">
+                                    <flux:icon.check class="w-3 h-3" />
                                 </div>
-                                <flux:text class="text-sm">Payment Received</flux:text>
+                                <span class="text-xs text-zinc-600 dark:text-zinc-400">Payment Received</span>
                             </div>
-                            <div class="flex items-center space-x-2">
-                                <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full">
-                                    <flux:icon.minus class="w-4 h-4" />
+                            <div class="flex items-center gap-2">
+                                <div class="inline-flex items-center justify-center w-5 h-5 bg-yellow-100 text-yellow-600 rounded-full">
+                                    <flux:icon.minus class="w-3 h-3" />
                                 </div>
-                                <flux:text class="text-sm">Partial Payment</flux:text>
+                                <span class="text-xs text-zinc-600 dark:text-zinc-400">Partial Payment</span>
                             </div>
-                            <div class="flex items-center space-x-2">
-                                <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-600 rounded-full">
-                                    <flux:icon.exclamation-triangle class="w-4 h-4" />
+                            <div class="flex items-center gap-2">
+                                <div class="inline-flex items-center justify-center w-5 h-5 bg-red-100 text-red-600 rounded-full">
+                                    <flux:icon.exclamation-triangle class="w-3 h-3" />
                                 </div>
-                                <flux:text class="text-sm">Unpaid</flux:text>
-                            </div>
-                        </div>
-
-                        <div class="space-y-2">
-                            <div class="flex items-center space-x-2">
-                                <div class="inline-flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full">
-                                    <flux:icon.clock class="w-4 h-4" />
-                                </div>
-                                <flux:text class="text-sm">Pending Payment</flux:text>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <div class="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-600 rounded-full">
-                                    <flux:icon.clock class="w-4 h-4" />
-                                </div>
-                                <flux:text class="text-sm">Not Started</flux:text>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <div class="inline-flex items-center justify-center w-6 h-6 bg-orange-100 text-orange-600 rounded-full">
-                                    <flux:icon.x-circle class="w-4 h-4" />
-                                </div>
-                                <flux:text class="text-sm">Cancelled</flux:text>
+                                <span class="text-xs text-zinc-600 dark:text-zinc-400">Unpaid</span>
                             </div>
                         </div>
 
-                        <div class="space-y-2">
-                            <div class="flex items-center space-x-2">
-                                <div class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-500 rounded-full">
-                                    <flux:icon.user-minus class="w-4 h-4" />
+                        <div class="space-y-1.5">
+                            <div class="flex items-center gap-2">
+                                <div class="inline-flex items-center justify-center w-5 h-5 bg-purple-100 text-purple-600 rounded-full">
+                                    <flux:icon.clock class="w-3 h-3" />
                                 </div>
-                                <flux:text class="text-sm">Withdrawn</flux:text>
+                                <span class="text-xs text-zinc-600 dark:text-zinc-400">Pending Payment</span>
                             </div>
-                            <div class="flex items-center space-x-2">
-                                <div class="inline-flex items-center justify-center w-6 h-6 bg-yellow-100 text-yellow-500 rounded-full">
-                                    <flux:icon.pause class="w-4 h-4" />
+                            <div class="flex items-center gap-2">
+                                <div class="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-600 rounded-full">
+                                    <flux:icon.clock class="w-3 h-3" />
                                 </div>
-                                <flux:text class="text-sm">Suspended</flux:text>
+                                <span class="text-xs text-zinc-600 dark:text-zinc-400">Not Started</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="inline-flex items-center justify-center w-5 h-5 bg-orange-100 text-orange-600 rounded-full">
+                                    <flux:icon.x-circle class="w-3 h-3" />
+                                </div>
+                                <span class="text-xs text-zinc-600 dark:text-zinc-400">Cancelled</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <div class="flex items-center gap-2">
+                                <div class="inline-flex items-center justify-center w-5 h-5 bg-red-100 text-red-500 rounded-full">
+                                    <flux:icon.user-minus class="w-3 h-3" />
+                                </div>
+                                <span class="text-xs text-zinc-600 dark:text-zinc-400">Withdrawn</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="inline-flex items-center justify-center w-5 h-5 bg-yellow-100 text-yellow-500 rounded-full">
+                                    <flux:icon.pause class="w-3 h-3" />
+                                </div>
+                                <span class="text-xs text-zinc-600 dark:text-zinc-400">Suspended</span>
                             </div>
                         </div>
                     </div>
                 </div>
-            </flux:card>
+            </div>
 
             <!-- Manual Payment Modal -->
             <flux:modal name="manual-payment" :show="$showManualPaymentModal" wire:model="showManualPaymentModal">
@@ -6547,129 +6630,86 @@ new class extends Component
         <div class="{{ $activeTab === 'pic-performance' ? 'block' : 'hidden' }}">
             @if($activeTab === 'pic-performance')
                 <!-- Summary Statistics -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <!-- Total PICs -->
-                    <flux:card class="hover:shadow-lg transition-shadow">
-                        <div class="p-6">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <flux:text class="text-sm font-medium text-gray-600">Total PICs</flux:text>
-                                    <flux:heading size="xl" class="mt-2">{{ $this->pic_performance_summary['total_pics'] }}</flux:heading>
-                                </div>
-                                <div class="p-3 bg-purple-100 rounded-full">
-                                    <flux:icon.user-group class="h-6 w-6 text-purple-600" />
-                                </div>
-                            </div>
-                        </div>
-                    </flux:card>
-
-                    <!-- Total Students -->
-                    <flux:card class="hover:shadow-lg transition-shadow">
-                        <div class="p-6">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <flux:text class="text-sm font-medium text-gray-600">Total Students</flux:text>
-                                    <flux:heading size="xl" class="mt-2">{{ $this->pic_performance_summary['total_students'] }}</flux:heading>
-                                </div>
-                                <div class="p-3 bg-blue-100 rounded-full">
-                                    <flux:icon.users class="h-6 w-6 text-blue-600" />
-                                </div>
-                            </div>
-                        </div>
-                    </flux:card>
-
-                    <!-- Collection Rate -->
-                    <flux:card class="hover:shadow-lg transition-shadow">
-                        <div class="p-6">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <flux:text class="text-sm font-medium text-gray-600">Collection Rate</flux:text>
-                                    <flux:heading size="xl" class="mt-2">
-                                        {{ $this->pic_performance_summary['overall_collection_rate'] }}%
-                                    </flux:heading>
-                                </div>
-                                <div class="p-3 {{ $this->pic_performance_summary['overall_collection_rate'] >= 80 ? 'bg-green-100' : ($this->pic_performance_summary['overall_collection_rate'] >= 60 ? 'bg-yellow-100' : 'bg-red-100') }} rounded-full">
-                                    <flux:icon.chart-bar class="h-6 w-6 {{ $this->pic_performance_summary['overall_collection_rate'] >= 80 ? 'text-green-600' : ($this->pic_performance_summary['overall_collection_rate'] >= 60 ? 'text-yellow-600' : 'text-red-600') }}" />
-                                </div>
-                            </div>
-                        </div>
-                    </flux:card>
-
-                    <!-- Total Revenue -->
-                    <flux:card class="hover:shadow-lg transition-shadow">
-                        <div class="p-6">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <flux:text class="text-sm font-medium text-gray-600">Total Collected</flux:text>
-                                    <flux:heading size="xl" class="mt-2">RM {{ number_format($this->pic_performance_summary['total_collected'], 2) }}</flux:heading>
-                                    <flux:text class="text-xs text-gray-500 mt-1">of RM {{ number_format($this->pic_performance_summary['total_expected'], 2) }}</flux:text>
-                                </div>
-                                <div class="p-3 bg-emerald-100 rounded-full">
-                                    <flux:icon.banknotes class="h-6 w-6 text-emerald-600" />
-                                </div>
-                            </div>
-                        </div>
-                    </flux:card>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total PICs</span>
+                        <p class="mt-1 text-xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $this->pic_performance_summary['total_pics'] }}</p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Students</span>
+                        <p class="mt-1 text-xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $this->pic_performance_summary['total_students'] }}</p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Collection Rate</span>
+                        <p class="mt-1 text-xl font-semibold tabular-nums {{ $this->pic_performance_summary['overall_collection_rate'] >= 80 ? 'text-green-600' : ($this->pic_performance_summary['overall_collection_rate'] >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
+                            {{ $this->pic_performance_summary['overall_collection_rate'] }}%
+                        </p>
+                    </div>
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Collected</span>
+                        <p class="mt-1 text-xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">RM {{ number_format($this->pic_performance_summary['total_collected'], 2) }}</p>
+                        <span class="text-xs text-zinc-400 dark:text-zinc-500">of RM {{ number_format($this->pic_performance_summary['total_expected'], 2) }}</span>
+                    </div>
                 </div>
 
                 <!-- PIC Performance Table -->
                 @if($this->pic_performance_data->count() > 0)
                     <div class="space-y-4">
                         @foreach($this->pic_performance_data as $index => $picData)
-                            <flux:card class="overflow-hidden">
+                            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                                 <!-- PIC Header -->
-                                <div class="bg-gradient-to-r from-purple-50 to-blue-50 px-6 py-4">
+                                <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-5 py-3">
                                     <div class="flex items-center justify-between">
-                                        <div class="flex items-center space-x-4">
-                                            <flux:avatar size="lg">
+                                        <div class="flex items-center gap-3">
+                                            <flux:avatar size="xs">
                                                 {{ $picData['pic']?->initials() ?? 'N/A' }}
                                             </flux:avatar>
                                             <div>
-                                                <flux:heading size="lg">{{ $picData['pic']?->name ?? 'N/A' }}</flux:heading>
-                                                <flux:text class="text-sm text-gray-600">{{ $picData['pic']?->email ?? 'N/A' }}</flux:text>
+                                                <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ $picData['pic']?->name ?? 'N/A' }}</h4>
+                                                <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $picData['pic']?->email ?? 'N/A' }}</span>
                                             </div>
                                         </div>
-                                        <div class="flex items-center space-x-6">
-                                            <div class="text-center">
-                                                <flux:text class="text-xs text-gray-600">Students</flux:text>
-                                                <flux:heading size="lg" class="text-blue-600">{{ $picData['student_count'] }}</flux:heading>
+                                        <div class="flex items-center gap-5">
+                                            <div class="text-right">
+                                                <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Students</span>
+                                                <p class="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $picData['student_count'] }}</p>
                                             </div>
-                                            <div class="text-center">
-                                                <flux:text class="text-xs text-gray-600">Collection</flux:text>
-                                                <flux:heading size="lg" class="{{ $picData['payment_stats']['collection_rate'] >= 80 ? 'text-green-600' : ($picData['payment_stats']['collection_rate'] >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
+                                            <div class="text-right">
+                                                <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Collection</span>
+                                                <p class="text-sm font-semibold tabular-nums {{ $picData['payment_stats']['collection_rate'] >= 80 ? 'text-green-600' : ($picData['payment_stats']['collection_rate'] >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
                                                     {{ $picData['payment_stats']['collection_rate'] }}%
-                                                </flux:heading>
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- PIC Statistics -->
-                                <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                                <div class="px-5 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <div>
-                                            <flux:text class="text-xs text-gray-600">Expected</flux:text>
-                                            <flux:text class="font-semibold text-gray-900">RM {{ number_format($picData['payment_stats']['total_expected'], 2) }}</flux:text>
+                                            <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Expected</span>
+                                            <p class="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100">RM {{ number_format($picData['payment_stats']['total_expected'], 2) }}</p>
                                         </div>
                                         <div>
-                                            <flux:text class="text-xs text-gray-600">Collected</flux:text>
-                                            <flux:text class="font-semibold text-green-600">RM {{ number_format($picData['payment_stats']['total_collected'], 2) }}</flux:text>
+                                            <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Collected</span>
+                                            <p class="text-sm font-medium tabular-nums text-green-600">RM {{ number_format($picData['payment_stats']['total_collected'], 2) }}</p>
                                         </div>
                                         <div>
-                                            <flux:text class="text-xs text-gray-600">Pending</flux:text>
-                                            <flux:text class="font-semibold text-yellow-600">RM {{ number_format($picData['payment_stats']['total_pending'], 2) }}</flux:text>
+                                            <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Pending</span>
+                                            <p class="text-sm font-medium tabular-nums text-yellow-600">RM {{ number_format($picData['payment_stats']['total_pending'], 2) }}</p>
                                         </div>
                                         <div>
-                                            <flux:text class="text-xs text-gray-600">Overdue</flux:text>
-                                            <flux:text class="font-semibold text-red-600">RM {{ number_format($picData['payment_stats']['total_overdue'], 2) }}</flux:text>
+                                            <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Overdue</span>
+                                            <p class="text-sm font-medium tabular-nums text-red-600">RM {{ number_format($picData['payment_stats']['total_overdue'], 2) }}</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Student Status Distribution -->
-                                <div class="px-6 py-4 bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
-                                    <flux:text class="text-sm font-medium text-gray-700 mb-3">Student Status Distribution</flux:text>
-                                    <div class="flex flex-wrap gap-2">
+                                <div class="px-5 py-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700">
+                                    <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status Distribution</span>
+                                    <div class="flex flex-wrap gap-1.5 mt-2">
                                         @if($picData['status_distribution']['enrolled'] > 0)
                                             <flux:badge variant="primary" size="sm">Enrolled: {{ $picData['status_distribution']['enrolled'] }}</flux:badge>
                                         @endif
@@ -6692,15 +6732,15 @@ new class extends Component
                                 </div>
 
                                 <!-- Student Pivot Table -->
-                                <div class="p-6">
-                                    <div class="flex items-center justify-between mb-4">
-                                        <flux:text class="text-sm font-medium text-gray-700">Student Payment Details</flux:text>
-                                        <flux:text class="text-xs text-gray-500">{{ $picData['student_count'] }} student{{ $picData['student_count'] !== 1 ? 's' : '' }} total</flux:text>
+                                <div class="px-5 py-4 bg-white dark:bg-zinc-900">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Student Payment Details</h4>
+                                        <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ $picData['student_count'] }} student{{ $picData['student_count'] !== 1 ? 's' : '' }} total</span>
                                     </div>
 
                                     <!-- Search and Filters -->
-                                    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
+                                    <div class="mb-3 flex flex-col md:flex-row gap-3">
+                                        <div class="flex-1">
                                             <flux:input
                                                 wire:model.live.debounce.300ms="picSearchQueries.{{ $picData['pic']->id }}"
                                                 placeholder="Search by name or email..."
@@ -6711,8 +6751,8 @@ new class extends Component
                                                 </x-slot>
                                             </flux:input>
                                         </div>
-                                        <div>
-                                            <flux:select wire:model.live="picStatusFilters.{{ $picData['pic']->id }}" class="w-full">
+                                        <div class="w-44 shrink-0">
+                                            <flux:select wire:model.live="picStatusFilters.{{ $picData['pic']->id }}">
                                                 <flux:select.option value="all">All Status</flux:select.option>
                                                 <flux:select.option value="enrolled">Enrolled</flux:select.option>
                                                 <flux:select.option value="active">Active</flux:select.option>
@@ -6722,8 +6762,8 @@ new class extends Component
                                                 <flux:select.option value="dropped">Dropped</flux:select.option>
                                             </flux:select>
                                         </div>
-                                        <div>
-                                            <flux:select wire:model.live="picPaymentFilters.{{ $picData['pic']->id }}" class="w-full">
+                                        <div class="w-40 shrink-0">
+                                            <flux:select wire:model.live="picPaymentFilters.{{ $picData['pic']->id }}">
                                                 <flux:select.option value="all">All Payments</flux:select.option>
                                                 <flux:select.option value="paid">Fully Paid</flux:select.option>
                                                 <flux:select.option value="pending">Has Pending</flux:select.option>
@@ -6741,33 +6781,29 @@ new class extends Component
                                     @endphp
 
                                     @if($students->count() > 0)
-                                        <div class="overflow-x-auto">
-                                            <table class="min-w-full divide-y divide-gray-200">
-                                                <thead class="bg-gray-50">
-                                                    <tr>
-                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled Date</th>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Expected</th>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Overdue</th>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Collection %</th>
-                                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                                                <thead>
+                                                    <tr class="bg-zinc-50 dark:bg-zinc-800">
+                                                        <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400">Student</th>
+                                                        <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400">Status</th>
+                                                        <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400">Enrolled Date</th>
+                                                        <th class="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400">Expected</th>
+                                                        <th class="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400">Paid</th>
+                                                        <th class="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400">Pending</th>
+                                                        <th class="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400">Overdue</th>
+                                                        <th class="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400">Collection %</th>
+                                                        <th class="px-3 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400">Actions</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
+                                                <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-700">
                                                     @foreach($students as $student)
-                                                        <tr class="hover:bg-gray-50 transition-colors">
-                                                            <td class="px-4 py-3 whitespace-nowrap">
-                                                                <div class="flex items-center">
-                                                                    <div>
-                                                                        <div class="text-sm font-medium text-gray-900">{{ $student['name'] }}</div>
-                                                                        <div class="text-xs text-gray-500">{{ $student['email'] }}</div>
-                                                                    </div>
-                                                                </div>
+                                                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                                                            <td class="px-3 py-2 whitespace-nowrap">
+                                                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $student['name'] }}</div>
+                                                                <div class="text-xs text-zinc-400 dark:text-zinc-500">{{ $student['email'] }}</div>
                                                             </td>
-                                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                            <td class="px-3 py-2 whitespace-nowrap">
                                                                 @php
                                                                     $statusColors = [
                                                                         'enrolled' => 'blue',
@@ -6779,26 +6815,26 @@ new class extends Component
                                                                     ];
                                                                     $color = $statusColors[$student['enrollment_status']] ?? 'gray';
                                                                 @endphp
-                                                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-{{ $color }}-100 text-{{ $color }}-800">
+                                                                <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-{{ $color }}-100 text-{{ $color }}-800 dark:bg-{{ $color }}-900/30 dark:text-{{ $color }}-400">
                                                                     {{ ucfirst($student['enrollment_status']) }}
                                                                 </span>
                                                             </td>
-                                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            <td class="px-3 py-2 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
                                                                 {{ $student['enrollment_date'] ? \Carbon\Carbon::parse($student['enrollment_date'])->format('d M Y') : 'N/A' }}
                                                             </td>
-                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-900">
+                                                            <td class="px-3 py-2 whitespace-nowrap text-right text-sm tabular-nums text-zinc-900 dark:text-zinc-100">
                                                                 RM {{ number_format($student['payment_summary']['expected'], 2) }}
                                                             </td>
-                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-green-600">
+                                                            <td class="px-3 py-2 whitespace-nowrap text-right text-sm tabular-nums font-medium text-green-600">
                                                                 RM {{ number_format($student['payment_summary']['paid'], 2) }}
                                                             </td>
-                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm text-yellow-600">
+                                                            <td class="px-3 py-2 whitespace-nowrap text-right text-sm tabular-nums text-yellow-600">
                                                                 RM {{ number_format($student['payment_summary']['pending'], 2) }}
                                                             </td>
-                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-red-600">
+                                                            <td class="px-3 py-2 whitespace-nowrap text-right text-sm tabular-nums font-medium text-red-600">
                                                                 RM {{ number_format($student['payment_summary']['overdue'], 2) }}
                                                             </td>
-                                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-semibold">
+                                                            <td class="px-3 py-2 whitespace-nowrap text-right text-sm tabular-nums font-semibold">
                                                                 @php
                                                                     $collectionRate = $student['payment_summary']['expected'] > 0
                                                                         ? round(($student['payment_summary']['paid'] / $student['payment_summary']['expected']) * 100, 1)
@@ -6808,8 +6844,8 @@ new class extends Component
                                                                     {{ $collectionRate }}%
                                                                 </span>
                                                             </td>
-                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
-                                                                <a href="{{ route('enrollments.show', $student['enrollment_id']) }}" class="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+                                                            <td class="px-3 py-2 whitespace-nowrap text-center">
+                                                                <a href="{{ route('enrollments.show', $student['enrollment_id']) }}" class="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 inline-flex items-center gap-1 transition-colors">
                                                                     <flux:icon.eye class="w-4 h-4" />
                                                                     <span class="text-xs">View</span>
                                                                 </a>
@@ -6822,12 +6858,12 @@ new class extends Component
 
                                         <!-- Pagination -->
                                         @if($totalPages > 1)
-                                            <div class="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
-                                                <div class="text-sm text-gray-700">
-                                                    Showing <span class="font-medium">{{ (($currentPage - 1) * $picPerPage) + 1 }}</span> to
-                                                    <span class="font-medium">{{ min($currentPage * $picPerPage, $totalFiltered) }}</span> of
-                                                    <span class="font-medium">{{ $totalFiltered }}</span> result{{ $totalFiltered !== 1 ? 's' : '' }}
-                                                </div>
+                                            <div class="mt-3 flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700 pt-3">
+                                                <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                    Showing <span class="font-medium tabular-nums">{{ (($currentPage - 1) * $picPerPage) + 1 }}</span> to
+                                                    <span class="font-medium tabular-nums">{{ min($currentPage * $picPerPage, $totalFiltered) }}</span> of
+                                                    <span class="font-medium tabular-nums">{{ $totalFiltered }}</span> result{{ $totalFiltered !== 1 ? 's' : '' }}
+                                                </span>
                                                 <div class="flex items-center gap-2">
                                                     @if($currentPage <= 1)
                                                         <flux:button
@@ -6847,7 +6883,7 @@ new class extends Component
                                                         </flux:button>
                                                     @endif
 
-                                                    <span class="text-sm text-gray-700">
+                                                    <span class="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                                                         Page <span class="font-medium">{{ $currentPage }}</span> of <span class="font-medium">{{ $totalPages }}</span>
                                                     </span>
 
@@ -6872,29 +6908,27 @@ new class extends Component
                                             </div>
                                         @endif
                                     @else
-                                        <div class="text-center py-12 bg-gray-50 rounded-lg">
-                                            <flux:icon.magnifying-glass class="mx-auto h-12 w-12 text-gray-400" />
-                                            <flux:heading size="lg" class="mt-2">No students found</flux:heading>
-                                            <flux:text class="text-gray-600 mt-1">Try adjusting your search or filter criteria</flux:text>
+                                        <div class="text-center py-8 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                            <flux:icon.magnifying-glass class="mx-auto w-8 h-8 text-zinc-300 dark:text-zinc-600" />
+                                            <h4 class="mt-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">No students found</h4>
+                                            <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Try adjusting your search or filter criteria</p>
                                         </div>
                                     @endif
                                 </div>
-                            </flux:card>
+                            </div>
                         @endforeach
                     </div>
                 @else
                     <!-- Empty State -->
-                    <flux:card>
-                        <div class="p-12 text-center">
-                            <div class="inline-flex items-center justify-center w-16 h-16 mb-4 bg-gray-100 rounded-full">
-                                <flux:icon.user-group class="h-8 w-8 text-gray-400" />
-                            </div>
-                            <flux:heading size="lg" class="mb-2">No PIC Performance Data</flux:heading>
-                            <flux:text class="text-gray-600">
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <div class="py-8 text-center">
+                            <flux:icon.user-group class="mx-auto w-8 h-8 text-zinc-300 dark:text-zinc-600" />
+                            <h4 class="mt-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">No PIC Performance Data</h4>
+                            <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
                                 There are no enrollments for this class yet, or no students have been enrolled by PICs.
-                            </flux:text>
+                            </p>
                         </div>
-                    </flux:card>
+                    </div>
                 @endif
             @endif
         </div>
@@ -6904,45 +6938,42 @@ new class extends Component
         <div class="{{ $activeTab === 'shipments' ? 'block' : 'hidden' }}">
             @if($activeTab === 'shipments')
                 @if($class->enable_document_shipment)
-                    <div class="space-y-6">
+                    <div class="space-y-4">
                         <!-- Shipment Overview -->
-                        <flux:card>
-                            <div class="p-6">
-                                <div class="flex items-center justify-between mb-6">
-                                    <div>
-                                        <flux:heading size="xl">Document Shipments</flux:heading>
-                                        <flux:text class="mt-2">Track and manage monthly document shipments to students</flux:text>
-                                    </div>
-                                    <flux:button wire:click="generateShipmentForCurrentMonth" variant="primary">
-                                        <flux:icon.plus class="h-4 w-4 mr-1" />
-                                        Generate Current Month
-                                    </flux:button>
+                        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                            <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3 flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Document Shipments</h3>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Track and manage monthly document shipments to students</p>
                                 </div>
+                                <flux:button wire:click="generateShipmentForCurrentMonth" variant="primary" size="sm">
+                                    <flux:icon.plus class="h-4 w-4 mr-1" />
+                                    Generate Current Month
+                                </flux:button>
+                            </div>
 
-                                <!-- Shipment Configuration Info -->
-                                <div class="bg-gray-50 p-4 rounded-lg space-y-2">
-                                    <div class="text-sm font-medium text-gray-700">Configuration</div>
-                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                        <div>
-                                            <span class="text-gray-500">Product:</span>
-                                            <span class="ml-2 font-medium">{{ $class->shipmentProduct?->name ?? 'N/A' }}</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-500">Frequency:</span>
-                                            <span class="ml-2 font-medium">{{ ucfirst($class->shipment_frequency) }}</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-500">Qty/Student:</span>
-                                            <span class="ml-2 font-medium">{{ $class->shipment_quantity_per_student }}</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-500">Warehouse:</span>
-                                            <span class="ml-2 font-medium">{{ $class->shipmentWarehouse?->name ?? 'N/A' }}</span>
-                                        </div>
+                            <!-- Shipment Configuration Info -->
+                            <div class="px-5 py-3">
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Product</span>
+                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 mt-0.5">{{ $class->shipmentProduct?->name ?? 'N/A' }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Frequency</span>
+                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 mt-0.5">{{ ucfirst($class->shipment_frequency) }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Qty/Student</span>
+                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 mt-0.5 tabular-nums">{{ $class->shipment_quantity_per_student }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Warehouse</span>
+                                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 mt-0.5">{{ $class->shipmentWarehouse?->name ?? 'N/A' }}</p>
                                     </div>
                                 </div>
                             </div>
-                        </flux:card>
+                        </div>
 
                         <!-- Shipments Table -->
                         @php
@@ -6958,189 +6989,186 @@ new class extends Component
                         @endphp
 
                         @if($class->documentShipments()->count() === 0)
-                            <flux:card>
-                                <div class="p-12 text-center">
-                                    <flux:icon.truck class="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                                    <flux:heading size="lg" class="mb-2">No Shipments Yet</flux:heading>
-                                    <flux:text class="text-gray-500 mb-4">Generate your first shipment to start tracking document deliveries</flux:text>
-                                    <flux:button wire:click="generateShipmentForCurrentMonth" variant="primary">
+                            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                <div class="py-8 text-center">
+                                    <flux:icon.truck class="w-8 h-8 mx-auto text-zinc-400 dark:text-zinc-500 mb-3" />
+                                    <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">No Shipments Yet</h4>
+                                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Generate your first shipment to start tracking document deliveries</p>
+                                    <flux:button wire:click="generateShipmentForCurrentMonth" variant="primary" size="sm">
                                         Generate Shipment for {{ now()->format('F Y') }}
                                     </flux:button>
                                 </div>
-                            </flux:card>
+                            </div>
                         @else
-                            <!-- Filters and Bulk Actions -->
-                            <flux:card>
-                                <div class="p-6">
-                                    <div class="flex flex-col lg:flex-row gap-4 mb-6">
-                                        <!-- Filters -->
-                                        <div class="flex-1 flex flex-wrap gap-4">
-                                            <!-- Year Filter -->
-                                            <div class="w-40">
-                                                <flux:select wire:model.live="filterYear" placeholder="All Years">
-                                                    <option value="">All Years</option>
-                                                    @foreach($availableYears as $year)
-                                                        <option value="{{ $year }}">{{ $year }}</option>
-                                                    @endforeach
-                                                </flux:select>
-                                            </div>
-
-                                            <!-- Month Filter -->
-                                            <div class="w-40">
-                                                <flux:select wire:model.live="filterMonth" placeholder="All Months" :disabled="!$filterYear">
-                                                    <option value="">All Months</option>
-                                                    @for($i = 1; $i <= 12; $i++)
-                                                        <option value="{{ $i }}">{{ \Carbon\Carbon::create()->month($i)->format('F') }}</option>
-                                                    @endfor
-                                                </flux:select>
-                                            </div>
-
-                                            <!-- Status Filter -->
-                                            <div class="w-44">
-                                                <flux:select wire:model.live="filterStatus" placeholder="All Statuses">
-                                                    <option value="">All Statuses</option>
-                                                    <option value="pending">Pending</option>
-                                                    <option value="processing">Processing</option>
-                                                    <option value="shipped">Shipped</option>
-                                                    <option value="delivered">Delivered</option>
-                                                    <option value="cancelled">Cancelled</option>
-                                                </flux:select>
-                                            </div>
-
-                                            <!-- Reset Filters -->
-                                            @if($filterYear || $filterMonth || $filterStatus)
-                                                <flux:button wire:click="resetTableFilters" variant="ghost" size="sm">
-                                                    <flux:icon.x-mark class="h-4 w-4 mr-1" />
-                                                    Reset
-                                                </flux:button>
-                                            @endif
+                            <!-- Filters and Shipments Table -->
+                            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <!-- Year Filter -->
+                                        <div class="w-40 shrink-0">
+                                            <flux:select wire:model.live="filterYear" placeholder="All Years">
+                                                <option value="">All Years</option>
+                                                @foreach($availableYears as $year)
+                                                    <option value="{{ $year }}">{{ $year }}</option>
+                                                @endforeach
+                                            </flux:select>
                                         </div>
 
+                                        <!-- Month Filter -->
+                                        <div class="w-40 shrink-0">
+                                            <flux:select wire:model.live="filterMonth" placeholder="All Months" :disabled="!$filterYear">
+                                                <option value="">All Months</option>
+                                                @for($i = 1; $i <= 12; $i++)
+                                                    <option value="{{ $i }}">{{ \Carbon\Carbon::create()->month($i)->format('F') }}</option>
+                                                @endfor
+                                            </flux:select>
+                                        </div>
+
+                                        <!-- Status Filter -->
+                                        <div class="w-44 shrink-0">
+                                            <flux:select wire:model.live="filterStatus" placeholder="All Statuses">
+                                                <option value="">All Statuses</option>
+                                                <option value="pending">Pending</option>
+                                                <option value="processing">Processing</option>
+                                                <option value="shipped">Shipped</option>
+                                                <option value="delivered">Delivered</option>
+                                                <option value="cancelled">Cancelled</option>
+                                            </flux:select>
+                                        </div>
+
+                                        <!-- Reset Filters -->
+                                        @if($filterYear || $filterMonth || $filterStatus)
+                                            <flux:button wire:click="resetTableFilters" variant="ghost" size="sm">
+                                                <flux:icon.x-mark class="h-4 w-4 mr-1" />
+                                                Reset
+                                            </flux:button>
+                                        @endif
                                     </div>
+                                </div>
 
-                                    <!-- Table -->
-                                    @if($shipments->isEmpty())
-                                        <div class="text-center py-12 bg-gray-50 rounded-lg">
-                                            <flux:icon.truck class="mx-auto h-12 w-12 text-gray-400" />
-                                            <flux:heading size="lg" class="mt-2">No shipments found</flux:heading>
-                                            <flux:text class="text-gray-600 mt-1">Try adjusting your filters</flux:text>
-                                        </div>
-                                    @else
-                                        <div class="overflow-x-auto">
-                                            <table class="min-w-full divide-y divide-gray-200">
-                                                <thead class="bg-gray-50">
-                                                    <tr>
-                                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Period
-                                                        </th>
-                                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Shipment #
-                                                        </th>
-                                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Status
-                                                        </th>
-                                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Recipients
-                                                        </th>
-                                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Quantity
-                                                        </th>
-                                                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Total Cost
-                                                        </th>
-                                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Delivery Rate
-                                                        </th>
-                                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Scheduled
-                                                        </th>
-                                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Actions
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
+                                <!-- Table -->
+                                @if($shipments->isEmpty())
+                                    <div class="py-8 text-center">
+                                        <flux:icon.truck class="w-8 h-8 mx-auto text-zinc-400 dark:text-zinc-500 mb-2" />
+                                        <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">No shipments found</h4>
+                                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Try adjusting your filters</p>
+                                    </div>
+                                @else
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                                            <thead>
+                                                <tr class="bg-zinc-50 dark:bg-zinc-800">
+                                                    <th scope="col" class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                                                        Period
+                                                    </th>
+                                                    <th scope="col" class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                                                        Shipment #
+                                                    </th>
+                                                    <th scope="col" class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                                                        Status
+                                                    </th>
+                                                    <th scope="col" class="px-3 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                                                        Recipients
+                                                    </th>
+                                                    <th scope="col" class="px-3 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                                                        Quantity
+                                                    </th>
+                                                    <th scope="col" class="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                                                        Total Cost
+                                                    </th>
+                                                    <th scope="col" class="px-3 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                                                        Delivery Rate
+                                                    </th>
+                                                    <th scope="col" class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                                                        Scheduled
+                                                    </th>
+                                                    <th scope="col" class="px-3 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                                                        Actions
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-700">
                             @foreach($shipments as $shipment)
-                                                        <tr class="hover:bg-gray-50">
-                                                            <!-- Period -->
-                                                            <td class="px-4 py-3 whitespace-nowrap">
-                                                                <div class="text-sm font-medium text-gray-900">{{ $shipment->period_label }}</div>
-                                                                <div class="text-xs text-gray-500">{{ $shipment->period_start_date->format('M d') }} - {{ $shipment->period_end_date->format('M d, Y') }}</div>
-                                                            </td>
+                                                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                                                        <!-- Period -->
+                                                        <td class="px-3 py-2 whitespace-nowrap">
+                                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $shipment->period_label }}</div>
+                                                            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $shipment->period_start_date->format('M d') }} - {{ $shipment->period_end_date->format('M d, Y') }}</div>
+                                                        </td>
 
-                                                            <!-- Shipment # -->
-                                                            <td class="px-4 py-3 whitespace-nowrap">
-                                                                <div class="text-sm text-gray-900">{{ $shipment->shipment_number }}</div>
-                                                            </td>
+                                                        <!-- Shipment # -->
+                                                        <td class="px-3 py-2 whitespace-nowrap">
+                                                            <div class="text-sm text-zinc-900 dark:text-zinc-100">{{ $shipment->shipment_number }}</div>
+                                                        </td>
 
-                                                            <!-- Status -->
-                                                            <td class="px-4 py-3 whitespace-nowrap">
-                                                                <flux:badge variant="{{ $shipment->status_color }}" size="sm">
-                                                                    {{ $shipment->status_label }}
-                                                                </flux:badge>
-                                                            </td>
+                                                        <!-- Status -->
+                                                        <td class="px-3 py-2 whitespace-nowrap">
+                                                            <flux:badge variant="{{ $shipment->status_color }}" size="sm">
+                                                                {{ $shipment->status_label }}
+                                                            </flux:badge>
+                                                        </td>
 
-                                                            <!-- Recipients -->
-                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
-                                                                <div class="text-sm text-gray-900">{{ $shipment->total_recipients }}</div>
-                                                                <div class="text-xs text-gray-500">students</div>
-                                                            </td>
+                                                        <!-- Recipients -->
+                                                        <td class="px-3 py-2 whitespace-nowrap text-center">
+                                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">{{ $shipment->total_recipients }}</div>
+                                                            <div class="text-xs text-zinc-500 dark:text-zinc-400">students</div>
+                                                        </td>
 
-                                                            <!-- Quantity -->
-                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
-                                                                <div class="text-sm text-gray-900">{{ $shipment->total_quantity }}</div>
-                                                                <div class="text-xs text-gray-500">items</div>
-                                                            </td>
+                                                        <!-- Quantity -->
+                                                        <td class="px-3 py-2 whitespace-nowrap text-center">
+                                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">{{ $shipment->total_quantity }}</div>
+                                                            <div class="text-xs text-zinc-500 dark:text-zinc-400">items</div>
+                                                        </td>
 
-                                                            <!-- Total Cost -->
-                                                            <td class="px-4 py-3 whitespace-nowrap text-right">
-                                                                <div class="text-sm font-medium text-gray-900">{{ $shipment->formatted_total_cost }}</div>
-                                                            </td>
+                                                        <!-- Total Cost -->
+                                                        <td class="px-3 py-2 whitespace-nowrap text-right">
+                                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">{{ $shipment->formatted_total_cost }}</div>
+                                                        </td>
 
-                                                            <!-- Delivery Rate -->
-                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
-                                                                @php
-                                                                    $deliveryRate = $shipment->getDeliveryRate();
-                                                                    $rateColor = $deliveryRate >= 80 ? 'text-green-600' : ($deliveryRate >= 50 ? 'text-yellow-600' : 'text-red-600');
-                                                                @endphp
-                                                                <div class="text-sm font-medium {{ $rateColor }}">{{ $deliveryRate }}%</div>
-                                                                <div class="text-xs text-gray-500">
-                                                                    {{ $shipment->getDeliveredItemsCount() }}/{{ $shipment->items()->count() }}
-                                                                </div>
-                                                            </td>
+                                                        <!-- Delivery Rate -->
+                                                        <td class="px-3 py-2 whitespace-nowrap text-center">
+                                                            @php
+                                                                $deliveryRate = $shipment->getDeliveryRate();
+                                                                $rateColor = $deliveryRate >= 80 ? 'text-green-600' : ($deliveryRate >= 50 ? 'text-yellow-600' : 'text-red-600');
+                                                            @endphp
+                                                            <div class="text-sm font-medium tabular-nums {{ $rateColor }}">{{ $deliveryRate }}%</div>
+                                                            <div class="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                                                                {{ $shipment->getDeliveredItemsCount() }}/{{ $shipment->items()->count() }}
+                                                            </div>
+                                                        </td>
 
-                                                            <!-- Scheduled -->
-                                                            <td class="px-4 py-3 whitespace-nowrap">
-                                                                @if($shipment->scheduled_at)
-                                                                    <div class="text-sm text-gray-900">{{ $shipment->scheduled_at->format('M d, Y') }}</div>
-                                                                    @if($shipment->shipped_at)
-                                                                        <div class="text-xs text-gray-500">Shipped: {{ $shipment->shipped_at->format('M d') }}</div>
-                                                                    @elseif($shipment->delivered_at)
-                                                                        <div class="text-xs text-green-600">Delivered: {{ $shipment->delivered_at->format('M d') }}</div>
-                                                                    @endif
-                                                                @else
-                                                                    <span class="text-sm text-gray-400">Not scheduled</span>
+                                                        <!-- Scheduled -->
+                                                        <td class="px-3 py-2 whitespace-nowrap">
+                                                            @if($shipment->scheduled_at)
+                                                                <div class="text-sm text-zinc-900 dark:text-zinc-100">{{ $shipment->scheduled_at->format('M d, Y') }}</div>
+                                                                @if($shipment->shipped_at)
+                                                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">Shipped: {{ $shipment->shipped_at->format('M d') }}</div>
+                                                                @elseif($shipment->delivered_at)
+                                                                    <div class="text-xs text-green-600">Delivered: {{ $shipment->delivered_at->format('M d') }}</div>
                                                                 @endif
-                                                            </td>
+                                                            @else
+                                                                <span class="text-sm text-zinc-400 dark:text-zinc-500">Not scheduled</span>
+                                                            @endif
+                                                        </td>
 
-                                                            <!-- Actions -->
-                                                            <td class="px-4 py-3 whitespace-nowrap text-center">
-                                                                <div class="flex items-center justify-center gap-1">
-                                                                    <flux:button wire:click="viewShipmentDetails({{ $shipment->id }})" size="sm" variant="ghost">
-                                                                        <flux:icon.eye class="h-4 w-4" />
-                                                                    </flux:button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
+                                                        <!-- Actions -->
+                                                        <td class="px-3 py-2 whitespace-nowrap text-center">
+                                                            <div class="flex items-center justify-center gap-1">
+                                                                <flux:button wire:click="viewShipmentDetails({{ $shipment->id }})" size="sm" variant="ghost">
+                                                                    <flux:icon.eye class="h-4 w-4" />
+                                                                </flux:button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
 
-                                                        <!-- Expandable Details Row -->
-                                                        @if($selectedShipmentId === $shipment->id)
-                                                            <tr>
-                                                                <td colspan="9" class="px-4 py-6 bg-gray-50">
+                                                    <!-- Expandable Details Row -->
+                                                    @if($selectedShipmentId === $shipment->id)
+                                                        <tr>
+                                                            <td colspan="9" class="px-4 py-4 bg-zinc-50 dark:bg-zinc-800/50">
                                             <!-- Student-Level Details -->
                                             <div>
-                                                <div class="mb-6 flex items-center justify-between flex-wrap gap-4">
-                                                    <flux:heading size="md">Student Shipment Details</flux:heading>
+                                                <div class="mb-4 flex items-center justify-between flex-wrap gap-3">
+                                                    <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Student Shipment Details</h4>
                                                     <div class="flex gap-2">
                                                         <flux:button wire:click="openImportModal({{ $shipment->id }})" size="sm" variant="outline">
                                                             <div class="flex items-center justify-center">
@@ -7158,28 +7186,28 @@ new class extends Component
                                                 </div>
 
                                                 <!-- Minimalist Status Cards -->
-                                                <div class="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                                                        <div class="text-xs font-medium text-yellow-600 mb-1">Pending</div>
-                                                        <div class="text-lg font-bold text-yellow-900">
+                                                <div class="mb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                                                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-2.5">
+                                                        <div class="text-[11px] font-medium uppercase tracking-wider text-yellow-600 dark:text-yellow-400 mb-0.5">Pending</div>
+                                                        <div class="text-base font-bold text-yellow-900 dark:text-yellow-100 tabular-nums">
                                                             {{ $shipment->items->where('status', 'pending')->count() }}
                                                         </div>
                                                     </div>
-                                                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                                        <div class="text-xs font-medium text-blue-600 mb-1">Processing</div>
-                                                        <div class="text-lg font-bold text-blue-900">
+                                                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2.5">
+                                                        <div class="text-[11px] font-medium uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-0.5">Processing</div>
+                                                        <div class="text-base font-bold text-blue-900 dark:text-blue-100 tabular-nums">
                                                             {{ $shipment->items->where('status', 'processing')->count() }}
                                                         </div>
                                                     </div>
-                                                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                                                        <div class="text-xs font-medium text-purple-600 mb-1">Shipped</div>
-                                                        <div class="text-lg font-bold text-purple-900">
+                                                    <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-2.5">
+                                                        <div class="text-[11px] font-medium uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-0.5">Shipped</div>
+                                                        <div class="text-base font-bold text-purple-900 dark:text-purple-100 tabular-nums">
                                                             {{ $shipment->items->where('status', 'shipped')->count() }}
                                                         </div>
                                                     </div>
-                                                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
-                                                        <div class="text-xs font-medium text-green-600 mb-1">Delivered</div>
-                                                        <div class="text-lg font-bold text-green-900">
+                                                    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-2.5">
+                                                        <div class="text-[11px] font-medium uppercase tracking-wider text-green-600 dark:text-green-400 mb-0.5">Delivered</div>
+                                                        <div class="text-base font-bold text-green-900 dark:text-green-100 tabular-nums">
                                                             {{ $shipment->items->where('status', 'delivered')->count() }}
                                                         </div>
                                                     </div>
@@ -7187,16 +7215,16 @@ new class extends Component
 
                                                 <!-- Import Progress Indicator -->
                                                 @if($importProcessing)
-                                                    <div class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                                    <div class="mb-3 border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
                                                         <div class="flex items-center space-x-3">
-                                                            <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                            <svg class="animate-spin h-4 w-4 text-zinc-600 dark:text-zinc-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                             </svg>
                                                             <div class="flex-1">
-                                                                <p class="text-sm font-medium text-blue-900">Processing import...</p>
+                                                                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Processing import...</p>
                                                                 @if(!empty($importProgress))
-                                                                    <p class="text-xs text-blue-700 mt-1">
+                                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                                                                         Imported {{ $importProgress['imported'] ?? 0 }} rows,
                                                                         updated {{ $importProgress['updated'] ?? 0 }} tracking numbers
                                                                     </p>
@@ -7208,9 +7236,9 @@ new class extends Component
 
                                                 <!-- Bulk Actions for Student Items -->
                                                 @if(count($selectedShipmentItemIds) > 0)
-                                                    <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                                        <div class="flex flex-wrap gap-3 items-center">
-                                                            <span class="text-sm font-medium text-blue-900">
+                                                    <div class="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                                        <div class="flex flex-wrap gap-2 items-center">
+                                                            <span class="text-sm font-medium text-blue-900 dark:text-blue-100">
                                                                 {{ count($selectedShipmentItemIds) }} student(s) selected
                                                             </span>
                                                             <div class="flex gap-2">
@@ -7232,8 +7260,8 @@ new class extends Component
                                                 @endif
 
                                                 <!-- Search and Filter Bar -->
-                                                <div class="mb-4 flex flex-col sm:flex-row gap-3">
-                                                    <div class="flex-1">
+                                                <div class="mb-3 flex items-center gap-2 flex-wrap">
+                                                    <div class="flex-1 min-w-[200px]">
                                                         <flux:input
                                                             wire:model.live.debounce.300ms="shipmentSearch"
                                                             placeholder="Search by student name..."
@@ -7244,7 +7272,7 @@ new class extends Component
                                                             </x-slot>
                                                         </flux:input>
                                                     </div>
-                                                    <div class="w-full sm:w-48">
+                                                    <div class="w-44 shrink-0">
                                                         <flux:select wire:model.live="shipmentStatusFilter" class="w-full">
                                                             <flux:select.option value="">All Statuses</flux:select.option>
                                                             <flux:select.option value="pending">Pending</flux:select.option>
@@ -7267,23 +7295,23 @@ new class extends Component
                                                 @endphp
 
                                                 @if($filteredItems->isEmpty())
-                                                    <div class="text-center py-12 bg-gray-50 rounded-lg">
-                                                        <flux:icon.magnifying-glass class="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                                                        <flux:heading size="lg" class="mb-2">No students found</flux:heading>
-                                                        <flux:text class="text-gray-500">
+                                                    <div class="py-8 text-center rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                                        <flux:icon.magnifying-glass class="w-8 h-8 mx-auto text-zinc-400 dark:text-zinc-500 mb-2" />
+                                                        <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">No students found</h4>
+                                                        <p class="text-xs text-zinc-500 dark:text-zinc-400">
                                                             @if($shipmentSearch || $shipmentStatusFilter)
                                                                 Try adjusting your search or filters
                                                             @else
                                                                 No students in this shipment
                                                             @endif
-                                                        </flux:text>
+                                                        </p>
                                                     </div>
                                                 @else
-                                                    <div class="overflow-x-auto">
-                                                        <table class="min-w-full divide-y divide-gray-200">
-                                                            <thead class="bg-gray-50">
-                                                                <tr>
-                                                                    <th class="px-4 py-3 text-left">
+                                                    <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                                        <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                                                            <thead>
+                                                                <tr class="bg-zinc-50 dark:bg-zinc-800">
+                                                                    <th class="px-3 py-2 text-left">
                                                                         @php
                                                                             $filteredItemIds = $filteredItems->pluck('id')->toArray();
                                                                             $allSelected = count(array_intersect($this->selectedShipmentItemIds, $filteredItemIds)) === count($filteredItemIds) && count($filteredItemIds) > 0;
@@ -7292,36 +7320,36 @@ new class extends Component
                                                                             type="checkbox"
                                                                             wire:click="toggleSelectAllItems({{ $shipment->id }})"
                                                                             @checked($allSelected)
-                                                                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                            class="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
                                                                         />
                                                                     </th>
-                                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
-                                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tracking</th>
-                                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                                                    <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Student</th>
+                                                                    <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Quantity</th>
+                                                                    <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Payment</th>
+                                                                    <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Notes</th>
+                                                                    <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</th>
+                                                                    <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Tracking</th>
+                                                                    <th class="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Actions</th>
                                                                 </tr>
                                                             </thead>
-                                                            <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
+                                                            <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-700">
                                                                 @foreach($filteredItems as $item)
-                                                                    <tr class="{{ in_array($item->id, $selectedShipmentItemIds) ? 'bg-blue-50' : '' }}">
-                                                                        <td class="px-4 py-3 whitespace-nowrap">
+                                                                    <tr class="{{ in_array($item->id, $selectedShipmentItemIds) ? 'bg-blue-50 dark:bg-blue-900/20' : '' }} hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                                                                        <td class="px-3 py-2 whitespace-nowrap">
                                                                             <input
                                                                                 type="checkbox"
                                                                                 wire:model.live="selectedShipmentItemIds"
                                                                                 value="{{ $item->id }}"
-                                                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                                class="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
                                                                             />
                                                                         </td>
-                                                                        <td class="px-4 py-3 text-sm">
+                                                                        <td class="px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100">
                                                                             {{ $item->student->name }}
                                                                         </td>
-                                                                        <td class="px-4 py-3 text-sm">
+                                                                        <td class="px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 tabular-nums">
                                                                             {{ $item->quantity }}
                                                                         </td>
-                                                                        <td class="px-4 py-3 text-sm">
+                                                                        <td class="px-3 py-2 text-sm">
                                                                             @php
                                                                                 $enrollment = $item->student->enrollments()
                                                                                     ->where('course_id', $this->class->course_id)
@@ -7339,33 +7367,33 @@ new class extends Component
                                                                                 }
                                                                             @endphp
                                                                             @if($paidAmount > 0)
-                                                                                <span class="text-green-600 font-medium">RM {{ number_format($paidAmount, 2) }}</span>
+                                                                                <span class="text-green-600 font-medium tabular-nums">RM {{ number_format($paidAmount, 2) }}</span>
                                                                             @else
                                                                                 <span class="text-red-500">Unpaid</span>
                                                                             @endif
                                                                         </td>
-                                                                        <td class="px-4 py-3 text-sm max-w-xs">
+                                                                        <td class="px-3 py-2 text-sm max-w-xs">
                                                                             @php
                                                                                 $enrollmentNotes = $enrollment?->notes;
                                                                             @endphp
                                                                             @if($enrollmentNotes)
-                                                                                <span class="text-gray-600 truncate block" title="{{ $enrollmentNotes }}">
+                                                                                <span class="text-zinc-600 dark:text-zinc-400 truncate block" title="{{ $enrollmentNotes }}">
                                                                                     {{ \Str::limit($enrollmentNotes, 30) }}
                                                                                 </span>
                                                                             @else
-                                                                                <span class="text-gray-400">-</span>
+                                                                                <span class="text-zinc-400 dark:text-zinc-500">-</span>
                                                                             @endif
                                                                         </td>
-                                                                        <td class="px-4 py-3 text-sm">
+                                                                        <td class="px-3 py-2 text-sm">
                                                                             <flux:badge variant="{{ $item->status_color }}" size="sm">
                                                                                 {{ $item->status_label }}
                                                                             </flux:badge>
                                                                         </td>
-                                                                        <td class="px-4 py-3 text-sm">
+                                                                        <td class="px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100">
                                                                             {{ $item->tracking_number ?? '-' }}
                                                                         </td>
-                                                                        <td class="px-4 py-3 text-sm">
-                                                                            <div class="flex items-center gap-2">
+                                                                        <td class="px-3 py-2 text-sm">
+                                                                            <div class="flex items-center gap-1">
                                                                                 <flux:button wire:click="viewStudentShipmentDetails({{ $item->id }})" size="xs" variant="ghost" title="View Details">
                                                                                     <flux:icon name="eye" class="w-4 h-4" />
                                                                                 </flux:button>
@@ -7391,7 +7419,7 @@ new class extends Component
 
                                                     <!-- Pagination -->
                                                     @if($filteredItems->hasPages())
-                                                        <div class="mt-4">
+                                                        <div class="mt-3">
                                                             {{ $filteredItems->links() }}
                                                         </div>
                                                     @endif
@@ -7405,21 +7433,20 @@ new class extends Component
                                             </table>
                                         </div>
                                     @endif
-                                </div>
-                            </flux:card>
+                            </div>
                         @endif
                     </div>
                 @else
-                    <flux:card>
-                        <div class="p-12 text-center">
-                            <flux:icon.x-circle class="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                            <flux:heading size="lg" class="mb-2">Document Shipments Not Enabled</flux:heading>
-                            <flux:text class="text-gray-500 mb-4">Enable document shipments in class settings to start tracking deliveries</flux:text>
-                            <flux:button href="{{ route('classes.edit', $class) }}" variant="primary">
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <div class="py-8 text-center">
+                            <flux:icon.x-circle class="w-8 h-8 mx-auto text-zinc-400 dark:text-zinc-500 mb-3" />
+                            <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Document Shipments Not Enabled</h4>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Enable document shipments in class settings to start tracking deliveries</p>
+                            <flux:button href="{{ route('classes.edit', $class) }}" variant="primary" size="sm">
                                 Go to Class Settings
                             </flux:button>
                         </div>
-                    </flux:card>
+                    </div>
                 @endif
             @endif
         </div>
@@ -7432,6 +7459,222 @@ new class extends Component
             @endif
         </div>
         <!-- End Notifications Tab -->
+
+        <!-- Upsell Tab -->
+        <div class="{{ $activeTab === 'upsell' ? 'block' : 'hidden' }}">
+            @if($class->timetable)
+                {{-- Upsell Configuration Section --}}
+                <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <flux:heading size="lg">Upsell Configuration</flux:heading>
+                            <flux:text class="mt-1">Assign funnels and PICs to timetable slots</flux:text>
+                        </div>
+                        <flux:button variant="primary" size="sm" wire:click="openUpsellModal()">
+                            + Add Upsell
+                        </flux:button>
+                    </div>
+
+                    @if($this->timetableUpsells->count() > 0)
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-zinc-200 dark:border-zinc-700">
+                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Day</th>
+                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Time</th>
+                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Funnel</th>
+                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">PIC</th>
+                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Status</th>
+                                        <th class="text-right py-3 px-4 font-medium text-zinc-500">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($this->timetableUpsells as $upsell)
+                                        <tr wire:key="upsell-{{ $upsell->id }}" class="border-b border-zinc-100 dark:border-zinc-700/50">
+                                            <td class="py-3 px-4 font-medium">{{ ucfirst($upsell->day_of_week) }}</td>
+                                            <td class="py-3 px-4">{{ \Carbon\Carbon::createFromFormat('H:i', $upsell->time_slot)->format('h:i A') }}</td>
+                                            <td class="py-3 px-4">{{ $upsell->funnel->name }}</td>
+                                            <td class="py-3 px-4">{{ $upsell->pic->name }}</td>
+                                            <td class="py-3 px-4">
+                                                <button wire:click="toggleUpsellActive({{ $upsell->id }})" class="inline-flex items-center gap-1.5">
+                                                    @if($upsell->is_active)
+                                                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                                        <span class="text-green-700 dark:text-green-400">Active</span>
+                                                    @else
+                                                        <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+                                                        <span class="text-zinc-500">Inactive</span>
+                                                    @endif
+                                                </button>
+                                            </td>
+                                            <td class="py-3 px-4 text-right">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <flux:button variant="ghost" size="xs" wire:click="openUpsellModal({{ $upsell->id }})">
+                                                        Edit
+                                                    </flux:button>
+                                                    <flux:button variant="ghost" size="xs" wire:click="deleteUpsell({{ $upsell->id }})" wire:confirm="Remove this upsell configuration?">
+                                                        Delete
+                                                    </flux:button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <div class="text-center py-8">
+                            <flux:icon name="gift" class="w-12 h-12 mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
+                            <flux:heading size="md">No Upsell Configured</flux:heading>
+                            <flux:text class="mt-1">Add upsell funnels to your timetable slots to start tracking conversions.</flux:text>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Conversion Report Section --}}
+                <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
+                    <div class="mb-4">
+                        <flux:heading size="lg">Conversion Report</flux:heading>
+                        <flux:text class="mt-1">Track upsell performance per session</flux:text>
+                    </div>
+
+                    {{-- Summary Cards --}}
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-4">
+                            <flux:text class="text-xs font-medium text-zinc-500 uppercase">Sessions with Upsell</flux:text>
+                            <p class="text-2xl font-bold mt-1">{{ $this->upsellStats['total_sessions'] }}</p>
+                        </div>
+                        <div class="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-4">
+                            <flux:text class="text-xs font-medium text-zinc-500 uppercase">Conversions</flux:text>
+                            <p class="text-2xl font-bold mt-1 text-green-600">{{ $this->upsellStats['total_conversions'] }}</p>
+                        </div>
+                        <div class="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-4">
+                            <flux:text class="text-xs font-medium text-zinc-500 uppercase">Revenue</flux:text>
+                            <p class="text-2xl font-bold mt-1">RM {{ number_format($this->upsellStats['total_revenue'], 2) }}</p>
+                        </div>
+                        <div class="bg-zinc-50 dark:bg-zinc-700/50 rounded-lg p-4">
+                            <flux:text class="text-xs font-medium text-zinc-500 uppercase">Conversion Rate</flux:text>
+                            <p class="text-2xl font-bold mt-1">{{ $this->upsellStats['conversion_rate'] }}%</p>
+                        </div>
+                    </div>
+
+                    {{-- Filters --}}
+                    <div class="flex flex-wrap gap-3 mb-4">
+                        <flux:input type="date" wire:model.live="upsellDateFrom" label="From" size="sm" />
+                        <flux:input type="date" wire:model.live="upsellDateTo" label="To" size="sm" />
+                        <flux:select wire:model.live="upsellFilterFunnelId" label="Funnel" size="sm" placeholder="All Funnels">
+                            @foreach($this->availableFunnels as $funnel)
+                                <flux:select.option value="{{ $funnel->id }}">{{ $funnel->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        <flux:select wire:model.live="upsellFilterPicId" label="PIC" size="sm" placeholder="All PICs">
+                            @foreach($this->upsellAvailablePics as $pic)
+                                <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    </div>
+
+                    {{-- Session Report Table --}}
+                    @if($this->upsellSessionReports->count() > 0)
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-zinc-200 dark:border-zinc-700">
+                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Session</th>
+                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Date</th>
+                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">PIC</th>
+                                        <th class="text-left py-3 px-4 font-medium text-zinc-500">Funnel</th>
+                                        <th class="text-right py-3 px-4 font-medium text-zinc-500">Orders</th>
+                                        <th class="text-right py-3 px-4 font-medium text-zinc-500">Revenue</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($this->upsellSessionReports as $report)
+                                        <tr wire:key="upsell-report-{{ $report->id }}" class="border-b border-zinc-100 dark:border-zinc-700/50">
+                                            <td class="py-3 px-4 font-medium">
+                                                {{ ucfirst(\Carbon\Carbon::parse($report->session_date)->format('D')) }}
+                                                {{ \Carbon\Carbon::createFromFormat('H:i', $report->session_time)->format('h:i A') }}
+                                            </td>
+                                            <td class="py-3 px-4">{{ \Carbon\Carbon::parse($report->session_date)->format('M d, Y') }}</td>
+                                            <td class="py-3 px-4">{{ $report->upsellPic?->name ?? '—' }}</td>
+                                            <td class="py-3 px-4">{{ $report->upsellFunnel?->name ?? '—' }}</td>
+                                            <td class="py-3 px-4 text-right font-medium">{{ $report->upsell_orders_count ?? 0 }}</td>
+                                            <td class="py-3 px-4 text-right font-medium">RM {{ number_format($report->upsell_revenue ?? 0, 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <div class="text-center py-8 text-zinc-400">
+                            <flux:text>No conversion data available yet.</flux:text>
+                        </div>
+                    @endif
+                </div>
+            @else
+                {{-- No Timetable Empty State --}}
+                <div class="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-12 text-center">
+                    <flux:icon name="calendar" class="w-12 h-12 mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
+                    <flux:heading size="md">No Timetable Configured</flux:heading>
+                    <flux:text class="mt-1">This class doesn't have a recurring timetable. Configure a timetable first to set up upsells.</flux:text>
+                </div>
+            @endif
+        </div>
+        <!-- End Upsell Tab -->
+
+        {{-- Upsell Modal --}}
+        <flux:modal wire:model="showUpsellModal" class="max-w-lg">
+            <div class="space-y-6">
+                <flux:heading size="lg">{{ $editingUpsellId ? 'Edit' : 'Add' }} Upsell Configuration</flux:heading>
+
+                <div class="space-y-4">
+                    {{-- Slot Selection --}}
+                    @php
+                        $uniqueDays = collect($this->availableSlots)->pluck('day')->unique()->values();
+                    @endphp
+                    <flux:select wire:model.live="upsellDayOfWeek" label="Day" placeholder="Select day...">
+                        @foreach($uniqueDays as $day)
+                            <flux:select.option value="{{ $day }}">{{ ucfirst($day) }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    @if($upsellDayOfWeek)
+                        <flux:select wire:model="upsellTimeSlot" label="Time Slot" placeholder="Select time...">
+                            @foreach($this->availableSlots as $slot)
+                                @if($slot['day'] === $upsellDayOfWeek)
+                                    <flux:select.option value="{{ $slot['time'] }}">{{ \Carbon\Carbon::createFromFormat('H:i', $slot['time'])->format('h:i A') }}</flux:select.option>
+                                @endif
+                            @endforeach
+                        </flux:select>
+                    @endif
+
+                    {{-- Funnel Selection --}}
+                    <flux:select wire:model="upsellFunnelId" label="Funnel" placeholder="Select funnel...">
+                        @foreach($this->availableFunnels as $funnel)
+                            <flux:select.option value="{{ $funnel->id }}">{{ $funnel->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    {{-- PIC Selection --}}
+                    <flux:select wire:model="upsellPicUserId" label="Person In Charge (PIC)" placeholder="Select PIC...">
+                        @foreach($this->upsellAvailablePics as $pic)
+                            <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    {{-- Notes --}}
+                    <flux:textarea wire:model="upsellNotes" label="Notes (optional)" placeholder="Instructions for the PIC..." rows="3" />
+
+                    {{-- Active Toggle --}}
+                    <flux:switch wire:model="upsellIsActive" label="Active" description="Enable upsell for this slot" />
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <flux:button variant="ghost" wire:click="$set('showUpsellModal', false)">Cancel</flux:button>
+                    <flux:button variant="primary" wire:click="saveUpsell">Save</flux:button>
+                </div>
+            </div>
+        </flux:modal>
+
     </div>
 
     <!-- Generate Shipment Modal -->
