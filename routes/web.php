@@ -408,6 +408,7 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
     // Broadcast routes
     Volt::route('crm/broadcasts', 'crm.broadcast-list')->name('crm.broadcasts.index');
     Volt::route('crm/broadcasts/create', 'crm.broadcast-create')->name('crm.broadcasts.create');
+    Volt::route('crm/broadcasts/{broadcast}/builder', 'crm.broadcast-builder')->name('crm.broadcasts.builder');
     Volt::route('crm/broadcasts/{broadcast}', 'crm.broadcast-show')->name('crm.broadcasts.show');
     Volt::route('crm/broadcasts/{broadcast}/edit', 'crm.broadcast-edit')->name('crm.broadcasts.edit');
 
