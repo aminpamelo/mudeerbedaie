@@ -48,7 +48,7 @@ class SendBroadcastEmail implements ShouldQueue
                     ]);
 
                     // Replace merge tags in content
-                    $content = $this->replaceMergeTags($this->broadcast->content, $student);
+                    $content = $this->replaceMergeTags($this->broadcast->getEffectiveContent(), $student);
                     $subject = $this->replaceMergeTags($this->broadcast->subject, $student);
 
                     // Send email
