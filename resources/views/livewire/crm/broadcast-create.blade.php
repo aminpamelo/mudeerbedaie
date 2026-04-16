@@ -2,6 +2,7 @@
 
 use App\Models\Audience;
 use App\Models\Broadcast;
+use App\Models\FunnelEmailTemplate;
 use App\Models\Setting;
 use Livewire\Volt\Component;
 
@@ -27,6 +28,11 @@ new class extends Component {
     public $subject = '';
     public $preview_text = '';
     public $content = '';
+    public string $design_json = '';
+    public string $html_content = '';
+    public string $editor_type = 'text';
+    public ?int $selectedTemplateId = null;
+    public string $templateSearch = '';
 
     // Step 4: Schedule
     public $sendOption = 'now';
@@ -38,6 +44,76 @@ new class extends Component {
         $this->from_email = Setting::where('key', 'email.from_address')->value('value') ?? '';
         $this->from_name = Setting::where('key', 'email.from_name')->value('value') ?? '';
         $this->reply_to_email = $this->from_email;
+
+        $resumeId = request()->query('resume');
+        if ($resumeId) {
+            $broadcast = Broadcast::find($resumeId);
+            if ($broadcast && $broadcast->status === 'draft') {
+                $this->name = $broadcast->name ?: '';
+                $this->type = $broadcast->type ?: 'standard';
+                $this->from_name = $broadcast->from_name ?: $this->from_name;
+                $this->from_email = $broadcast->from_email ?: $this->from_email;
+                $this->reply_to_email = $broadcast->reply_to_email ?: '';
+                $this->subject = $broadcast->subject ?: '';
+                $this->preview_text = $broadcast->preview_text ?: '';
+                $this->content = $broadcast->content ?: '';
+                $this->design_json = $broadcast->design_json ? json_encode($broadcast->design_json) : '';
+                $this->html_content = $broadcast->html_content ?: '';
+                $this->editor_type = $broadcast->editor_type ?: 'text';
+                $this->currentStep = 3;
+                $this->selectedAudiences = $broadcast->audiences()->pluck('audiences.id')->toArray();
+                $this->selectedStudents = $broadcast->selected_students ?: [];
+            }
+        }
+    }
+
+    public function selectTemplate(int $templateId): void
+    {
+        $template = FunnelEmailTemplate::find($templateId);
+        if (! $template) {
+            return;
+        }
+
+        $this->selectedTemplateId = $templateId;
+        $this->subject = $template->subject ?: $this->subject;
+        $this->html_content = $template->html_content ?: '';
+        $this->design_json = $template->design_json ? json_encode($template->design_json) : '';
+        $this->editor_type = 'visual';
+        $this->content = $template->getEffectiveContent();
+    }
+
+    public function clearTemplate(): void
+    {
+        $this->selectedTemplateId = null;
+        $this->html_content = '';
+        $this->design_json = '';
+        $this->editor_type = 'text';
+        $this->content = '';
+    }
+
+    public function openBuilder(): void
+    {
+        $broadcast = Broadcast::create([
+            'name' => $this->name ?: 'Untitled Broadcast',
+            'type' => $this->type,
+            'status' => 'draft',
+            'from_name' => $this->from_name,
+            'from_email' => $this->from_email,
+            'reply_to_email' => $this->reply_to_email,
+            'subject' => $this->subject,
+            'preview_text' => $this->preview_text,
+            'content' => $this->content,
+            'design_json' => $this->design_json ? json_decode($this->design_json, true) : null,
+            'html_content' => $this->html_content,
+            'editor_type' => $this->editor_type,
+            'selected_students' => $this->selectedStudents,
+        ]);
+
+        if (! empty($this->selectedAudiences)) {
+            $broadcast->audiences()->attach($this->selectedAudiences);
+        }
+
+        $this->redirect(route('crm.broadcasts.builder', $broadcast));
     }
 
     public function with(): array
@@ -88,6 +164,10 @@ new class extends Component {
             'audiences' => $audiences,
             'studentsFromAudiences' => $studentsFromAudiences,
             'totalRecipients' => $totalRecipients,
+            'emailTemplates' => FunnelEmailTemplate::where('is_active', true)
+                ->when($this->templateSearch, fn ($q) => $q->where('name', 'like', "%{$this->templateSearch}%"))
+                ->orderBy('name')
+                ->get(),
         ];
     }
 
@@ -113,8 +193,13 @@ new class extends Component {
                 'reply_to_email' => 'nullable|email',
                 'subject' => 'required|string|max:255',
                 'preview_text' => 'nullable|string|max:255',
-                'content' => 'required|string',
+                'content' => $this->editor_type === 'visual' ? 'nullable' : 'required|string',
             ]);
+
+            if ($this->editor_type === 'visual' && empty($this->html_content)) {
+                $this->addError('content', 'Please create email content using the builder.');
+                return;
+            }
         }
 
         $this->currentStep++;
@@ -162,6 +247,9 @@ new class extends Component {
             'subject' => $this->subject,
             'preview_text' => $this->preview_text,
             'content' => $this->content,
+            'design_json' => $this->design_json ? json_decode($this->design_json, true) : null,
+            'html_content' => $this->html_content,
+            'editor_type' => $this->editor_type,
         ]);
 
         if (!empty($this->selectedAudiences)) {
@@ -183,11 +271,16 @@ new class extends Component {
             'from_name' => 'required|string|max:255',
             'from_email' => 'required|email',
             'subject' => 'required|string|max:255',
-            'content' => 'required|string',
+            'content' => $this->editor_type === 'visual' ? 'nullable' : 'required|string',
         ], [
             'selectedStudents.required' => 'Please select at least one student to send the broadcast.',
             'selectedStudents.min' => 'Please select at least one student to send the broadcast.',
         ]);
+
+        if ($this->editor_type === 'visual' && empty($this->html_content)) {
+            $this->addError('content', 'Please create email content using the builder.');
+            return;
+        }
 
         // Use selected students count
         $totalRecipients = count($this->selectedStudents);
@@ -205,6 +298,9 @@ new class extends Component {
             'scheduled_at' => $this->sendOption === 'schedule' ? $this->scheduled_at : null,
             'total_recipients' => $totalRecipients,
             'selected_students' => $this->selectedStudents,
+            'design_json' => $this->design_json ? json_decode($this->design_json, true) : null,
+            'html_content' => $this->html_content,
+            'editor_type' => $this->editor_type,
         ]);
 
         $broadcast->audiences()->attach($this->selectedAudiences);
@@ -223,8 +319,8 @@ new class extends Component {
 
 <div>
     <div class="mb-6">
-        <flux:heading size="xl">{{ $currentStep === 4 ? 'Review & Send' : 'Create Broadcast' }}</flux:heading>
-        <flux:text class="mt-2">{{ $name ?: 'New Email Broadcast' }}</flux:text>
+        <h1 class="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ $currentStep === 4 ? 'Review & Send' : 'Create Broadcast' }}</h1>
+        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ $name ?: 'New Email Broadcast' }}</p>
     </div>
 
     <!-- Step Indicator -->
@@ -233,29 +329,33 @@ new class extends Component {
             @foreach([1 => 'Information', 2 => 'Contacts', 3 => 'Content', 4 => 'Review'] as $step => $label)
                 <div class="flex items-center">
                     <div class="flex flex-col items-center">
-                        <div class="flex items-center justify-center w-10 h-10 rounded-full border-2 {{ $currentStep >= $step ? 'bg-blue-600 border-blue-600' : 'bg-gray-200 border-gray-300' }}">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-full border-2
+                            {{ $currentStep > $step ? 'bg-zinc-900 border-zinc-900 dark:bg-zinc-100 dark:border-zinc-100' : '' }}
+                            {{ $currentStep === $step ? 'bg-zinc-900 border-zinc-900 dark:bg-zinc-100 dark:border-zinc-100' : '' }}
+                            {{ $currentStep < $step ? 'bg-zinc-100 border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700' : '' }}
+                        ">
                             @if($currentStep > $step)
-                                <flux:icon name="check" class="w-5 h-5 text-white" />
+                                <flux:icon name="check" class="w-5 h-5 text-white dark:text-zinc-900" />
                             @else
-                                <span class="text-sm font-semibold {{ $currentStep === $step ? 'text-white' : 'text-gray-600' }}">{{ $step }}</span>
+                                <span class="text-sm font-semibold {{ $currentStep === $step ? 'text-white dark:text-zinc-900' : 'text-zinc-400 dark:text-zinc-500' }}">{{ $step }}</span>
                             @endif
                         </div>
-                        <span class="mt-2 text-xs font-medium {{ $currentStep === $step ? 'text-blue-600' : 'text-gray-600' }}">{{ $label }}</span>
+                        <span class="mt-2 text-xs font-medium {{ $currentStep === $step ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500' }}">{{ $label }}</span>
                     </div>
                     @if($step < 4)
-                        <div class="w-16 h-1 mx-2 {{ $currentStep > $step ? 'bg-blue-600' : 'bg-gray-300' }}"></div>
+                        <div class="w-16 h-1 mx-2 rounded-full {{ $currentStep > $step ? 'bg-zinc-900 dark:bg-zinc-100' : 'bg-zinc-200 dark:bg-zinc-700' }}"></div>
                     @endif
                 </div>
             @endforeach
         </div>
     </div>
 
-    <flux:card class="space-y-6">
+    <div class="rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
         <div class="p-6 space-y-6">
             <!-- Step 1: Information -->
             @if($currentStep === 1)
                 <div>
-                    <flux:heading size="lg" class="mb-4">Information</flux:heading>
+                    <h2 class="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-4">Information</h2>
 
                     <div class="space-y-4">
                         <div>
@@ -270,18 +370,18 @@ new class extends Component {
                             <flux:field>
                                 <flux:label>Type</flux:label>
                                 <div class="flex gap-4 mt-2">
-                                    <label class="flex items-center p-4 border rounded-lg cursor-pointer {{ $type === 'standard' ? 'border-blue-600 bg-blue-50' : 'border-gray-300' }}">
+                                    <label class="flex items-center p-4 border rounded-lg cursor-pointer transition-colors {{ $type === 'standard' ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-300 dark:bg-zinc-800' : 'border-zinc-200 dark:border-zinc-700' }}">
                                         <input type="radio" wire:model.live="type" value="standard" class="mr-3">
                                         <div>
-                                            <div class="font-medium">Standard</div>
-                                            <div class="text-sm text-gray-600">Send the same email to all contacts</div>
+                                            <div class="font-medium text-zinc-900 dark:text-zinc-100">Standard</div>
+                                            <div class="text-sm text-zinc-500 dark:text-zinc-400">Send the same email to all contacts</div>
                                         </div>
                                     </label>
-                                    <label class="flex items-center p-4 border rounded-lg cursor-pointer opacity-50 {{ $type === 'ab_test' ? 'border-blue-600 bg-blue-50' : 'border-gray-300' }}">
+                                    <label class="flex items-center p-4 border rounded-lg cursor-pointer opacity-50 transition-colors {{ $type === 'ab_test' ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-300 dark:bg-zinc-800' : 'border-zinc-200 dark:border-zinc-700' }}">
                                         <input type="radio" wire:model.live="type" value="ab_test" class="mr-3" disabled>
                                         <div>
-                                            <div class="font-medium">A/B Test</div>
-                                            <div class="text-sm text-gray-600">Test different versions (Coming soon)</div>
+                                            <div class="font-medium text-zinc-900 dark:text-zinc-100">A/B Test</div>
+                                            <div class="text-sm text-zinc-500 dark:text-zinc-400">Test different versions (Coming soon)</div>
                                         </div>
                                     </label>
                                 </div>
@@ -296,7 +396,7 @@ new class extends Component {
             @if($currentStep === 2)
                 <div>
                     <div class="flex items-center justify-between mb-4">
-                        <flux:heading size="lg">Contacts</flux:heading>
+                        <h2 class="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Contacts</h2>
                         <flux:button variant="outline" size="sm" href="{{ route('crm.audiences.create') }}" target="_blank">
                             Create New Audience
                         </flux:button>
@@ -309,26 +409,26 @@ new class extends Component {
                             icon="magnifying-glass" />
                     </div>
 
-                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-md mb-4">
+                    <div class="rounded-md border border-zinc-200 bg-zinc-50/50 p-4 mb-4 dark:border-zinc-700 dark:bg-zinc-800/50">
                         <div class="flex items-center justify-between">
                             <div>
-                                <flux:text class="font-semibold">Subscribed Contacts</flux:text>
-                                <flux:text class="text-sm text-gray-600">
+                                <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Subscribed Contacts</p>
+                                <p class="text-sm text-zinc-500 dark:text-zinc-400">
                                     {{ count($selectedAudiences) }} audience(s) selected |
                                     {{ count($selectedStudents) }} of {{ $studentsFromAudiences->count() }} students selected
-                                </flux:text>
+                                </p>
                             </div>
                             <div class="text-right">
-                                <div class="text-2xl font-bold text-blue-600">{{ number_format($totalRecipients) }}</div>
-                                <flux:text class="text-xs text-gray-600">Total Recipients</flux:text>
+                                <div class="text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{{ number_format($totalRecipients) }}</div>
+                                <p class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Recipients</p>
                             </div>
                         </div>
                     </div>
 
-                    <flux:heading size="base" class="mb-2">Select Audiences</flux:heading>
-                    <div class="space-y-2 max-h-64 overflow-y-auto border border-gray-300 rounded-md p-4 mb-4">
+                    <h3 class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Select Audiences</h3>
+                    <div class="space-y-1 max-h-64 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md p-3 mb-4">
                         @forelse($audiences as $audience)
-                            <label class="flex items-center p-3 hover:bg-gray-50 rounded cursor-pointer">
+                            <label class="flex items-center p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded cursor-pointer transition-colors">
                                 <flux:checkbox
                                     wire:model.live="selectedAudiences"
                                     value="{{ $audience->id }}"
@@ -336,20 +436,20 @@ new class extends Component {
                                 <div class="ml-3 flex-1">
                                     <div class="flex items-center justify-between">
                                         <div>
-                                            <div class="text-sm font-medium text-gray-900">{{ $audience->name }}</div>
-                                            <div class="text-xs text-gray-500">{{ $audience->description ?: 'No description' }}</div>
+                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $audience->name }}</div>
+                                            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $audience->description ?: 'No description' }}</div>
                                         </div>
-                                        <div class="text-sm font-semibold text-blue-600">
+                                        <div class="text-sm font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
                                             {{ number_format($audience->students_count) }} contacts
                                         </div>
                                     </div>
                                 </div>
                             </label>
                         @empty
-                            <div class="text-center py-8 text-gray-500">
-                                <flux:icon.users class="mx-auto h-12 w-12 text-gray-400" />
-                                <p class="mt-2">No audiences found</p>
-                                <p class="text-sm">Create an audience first to send broadcasts</p>
+                            <div class="text-center py-8 text-zinc-500 dark:text-zinc-400">
+                                <flux:icon.users class="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-600" />
+                                <p class="mt-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">No audiences found</p>
+                                <p class="text-sm text-zinc-500 dark:text-zinc-400">Create an audience first to send broadcasts</p>
                             </div>
                         @endforelse
                     </div>
@@ -359,7 +459,7 @@ new class extends Component {
                     @if(count($selectedAudiences) > 0 && $studentsFromAudiences->count() > 0)
                         <div class="mt-6">
                             <div class="flex items-center justify-between mb-2">
-                                <flux:heading size="base">Students from Selected Audiences</flux:heading>
+                                <h3 class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Students from Selected Audiences</h3>
                                 <div class="flex gap-2">
                                     <flux:button variant="outline" size="sm" wire:click="selectAllStudents">
                                         Select All ({{ $studentsFromAudiences->count() }})
@@ -377,9 +477,9 @@ new class extends Component {
                                     icon="magnifying-glass" />
                             </div>
 
-                            <div class="space-y-2 max-h-96 overflow-y-auto border border-gray-300 rounded-md p-4">
+                            <div class="space-y-1 max-h-96 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md p-3">
                                 @foreach($studentsFromAudiences as $student)
-                                    <label class="flex items-center p-3 hover:bg-gray-50 rounded cursor-pointer">
+                                    <label class="flex items-center p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded cursor-pointer transition-colors">
                                         <flux:checkbox
                                             wire:model.live="selectedStudents"
                                             value="{{ $student->id }}"
@@ -387,24 +487,26 @@ new class extends Component {
                                         <div class="ml-3 flex-1">
                                             <div class="flex items-center justify-between">
                                                 <div>
-                                                    <div class="text-sm font-medium text-gray-900">{{ $student->user->name }}</div>
-                                                    <div class="text-xs text-gray-500">{{ $student->user->email }} • ID: {{ $student->student_id }}</div>
+                                                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $student->user->name }}</div>
+                                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $student->user->email }} · ID: {{ $student->student_id }}</div>
                                                 </div>
                                                 <div class="flex items-center gap-3">
                                                     @if($student->country)
-                                                        <span class="text-xs text-gray-500">{{ $student->country }}</span>
+                                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $student->country }}</span>
                                                     @endif
-                                                    <flux:badge size="sm" :class="match($student->status) {
-                                                        'active' => 'badge-green',
-                                                        'inactive' => 'badge-gray',
-                                                        'graduated' => 'badge-blue',
-                                                        'suspended' => 'badge-red',
-                                                        default => 'badge-gray'
-                                                    }">
+                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider
+                                                        {{ match($student->status) {
+                                                            'active' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+                                                            'inactive' => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400',
+                                                            'graduated' => 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
+                                                            'suspended' => 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+                                                            default => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400'
+                                                        } }}
+                                                    ">
                                                         {{ ucfirst($student->status) }}
-                                                    </flux:badge>
+                                                    </span>
                                                     @if($student->paidOrders->count() > 0)
-                                                        <span class="text-xs text-green-600 font-semibold">RM {{ number_format($student->paidOrders->sum('total_amount'), 2) }}</span>
+                                                        <span class="text-xs font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">RM {{ number_format($student->paidOrders->sum('total_amount'), 2) }}</span>
                                                     @endif
                                                 </div>
                                             </div>
@@ -421,7 +523,7 @@ new class extends Component {
             <!-- Step 3: Content -->
             @if($currentStep === 3)
                 <div>
-                    <flux:heading size="lg" class="mb-4">Content</flux:heading>
+                    <h2 class="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-4">Content</h2>
 
                     <div class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -449,7 +551,7 @@ new class extends Component {
                             </flux:field>
                         </div>
 
-                        <flux:separator />
+                        <div class="border-t border-zinc-200 dark:border-zinc-700"></div>
 
                         <div>
                             <flux:field>
@@ -463,18 +565,104 @@ new class extends Component {
                             <flux:field>
                                 <flux:label>Preview Text</flux:label>
                                 <flux:input wire:model="preview_text" placeholder="Enter preview text" />
-                                <flux:text class="text-xs text-gray-600">This appears in the inbox preview</flux:text>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400">This appears in the inbox preview</p>
                                 <flux:error name="preview_text" />
                             </flux:field>
                         </div>
 
-                        <div>
-                            <flux:field>
-                                <flux:label>Email Content</flux:label>
-                                <flux:textarea wire:model="content" rows="10" placeholder="Enter your email content here..." />
-                                <flux:text class="text-xs text-gray-600">You can use merge tags: @{{name}}, @{{email}}, @{{student_id}}</flux:text>
+                        <div class="border-t border-zinc-200 dark:border-zinc-700 pt-4"></div>
+
+                        <!-- Content Mode Selector -->
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Email Content</h3>
+                                @if($editor_type === 'visual')
+                                    <flux:badge color="emerald" size="sm">Visual Builder</flux:badge>
+                                @endif
+                            </div>
+
+                            <!-- Template Picker -->
+                            <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <flux:text size="sm" class="font-medium text-zinc-700 dark:text-zinc-300">Choose a Template</flux:text>
+                                    <flux:input wire:model.live.debounce.300ms="templateSearch" placeholder="Search templates..." size="sm" class="!w-48" />
+                                </div>
+
+                                @if($emailTemplates->isNotEmpty())
+                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-56 overflow-y-auto">
+                                        @foreach($emailTemplates as $tmpl)
+                                            <button
+                                                wire:click="selectTemplate({{ $tmpl->id }})"
+                                                wire:key="tmpl-{{ $tmpl->id }}"
+                                                type="button"
+                                                class="text-left p-3 rounded-lg border transition-all {{ $selectedTemplateId === $tmpl->id ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-500' : 'border-zinc-200 dark:border-zinc-600 hover:border-zinc-300 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-700/50' }}"
+                                            >
+                                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ $tmpl->name }}</div>
+                                                <div class="flex items-center gap-2 mt-1">
+                                                    <flux:badge size="sm" color="zinc">{{ ucfirst($tmpl->category) }}</flux:badge>
+                                                    @if($tmpl->editor_type === 'visual')
+                                                        <flux:badge size="sm" color="blue">Visual</flux:badge>
+                                                    @endif
+                                                </div>
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">No email templates available.</flux:text>
+                                @endif
+
+                                @if($selectedTemplateId)
+                                    <div class="mt-3 flex items-center gap-2">
+                                        <flux:text size="sm" class="text-emerald-600 dark:text-emerald-400">
+                                            Template selected — content loaded
+                                        </flux:text>
+                                        <flux:button variant="ghost" size="sm" wire:click="clearTemplate">Clear</flux:button>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <!-- Builder Actions -->
+                            <div class="flex flex-wrap items-center gap-3">
+                                <flux:button variant="primary" size="sm" wire:click="openBuilder">
+                                    <div class="flex items-center justify-center">
+                                        <flux:icon name="paint-brush" class="w-4 h-4 mr-1" />
+                                        {{ $editor_type === 'visual' ? 'Edit in Builder' : 'Open Visual Builder' }}
+                                    </div>
+                                </flux:button>
+
+                                @if($editor_type === 'visual' && $html_content)
+                                    <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">
+                                        Content created with visual builder
+                                    </flux:text>
+                                @endif
+                            </div>
+
+                            <!-- Fallback: Manual HTML content -->
+                            @if($editor_type !== 'visual')
+                                <div>
+                                    <flux:field>
+                                        <flux:label>Email Content (HTML)</flux:label>
+                                        <flux:textarea wire:model="content" rows="10" placeholder="Enter your email content here..." />
+                                        <p class="text-xs text-zinc-500 dark:text-zinc-400">You can use merge tags: @{{name}}, @{{email}}, @{{student_id}}</p>
+                                        <flux:error name="content" />
+                                    </flux:field>
+                                </div>
+                            @else
+                                <!-- Visual content preview -->
+                                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                                    <div class="bg-zinc-50 dark:bg-zinc-800 px-4 py-2 border-b border-zinc-200 dark:border-zinc-700">
+                                        <flux:text size="sm" class="font-medium text-zinc-600 dark:text-zinc-400">Email Preview</flux:text>
+                                    </div>
+                                    <div class="p-4 bg-white dark:bg-zinc-900">
+                                        <iframe
+                                            srcdoc="{{ $html_content }}"
+                                            class="w-full h-64 border-0 rounded"
+                                            sandbox="allow-same-origin"
+                                        ></iframe>
+                                    </div>
+                                </div>
                                 <flux:error name="content" />
-                            </flux:field>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -483,89 +671,89 @@ new class extends Component {
             <!-- Step 4: Review & Schedule -->
             @if($currentStep === 4)
                 <div>
-                    <flux:heading size="lg" class="mb-4">Review & Schedule</flux:heading>
+                    <h2 class="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 mb-4">Review & Schedule</h2>
 
                     <div class="space-y-6">
                         <!-- Information Summary -->
                         <div>
-                            <flux:heading size="base" class="mb-2">Information</flux:heading>
-                            <div class="bg-gray-50 p-4 rounded-md space-y-2">
+                            <h3 class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Information</h3>
+                            <div class="rounded-md border border-zinc-200 bg-zinc-50/50 p-4 space-y-2 dark:border-zinc-700 dark:bg-zinc-800/50">
                                 <div class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Title:</span>
-                                    <span class="text-sm font-medium">{{ $name }}</span>
+                                    <span class="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Title</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $name }}</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Type:</span>
-                                    <span class="text-sm font-medium">{{ ucfirst($type) }}</span>
+                                    <span class="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Type</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ ucfirst($type) }}</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Contacts Summary -->
                         <div>
-                            <flux:heading size="base" class="mb-2">Contacts</flux:heading>
-                            <div class="bg-gray-50 p-4 rounded-md">
+                            <h3 class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Contacts</h3>
+                            <div class="rounded-md border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-sm text-gray-600">Total Recipients:</span>
-                                    <span class="text-xl font-bold text-blue-600">{{ number_format($totalRecipients) }}</span>
+                                    <span class="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Recipients</span>
+                                    <span class="text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{{ number_format($totalRecipients) }}</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Content Summary -->
                         <div>
-                            <flux:heading size="base" class="mb-2">Content</flux:heading>
-                            <div class="bg-gray-50 p-4 rounded-md space-y-2">
+                            <h3 class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Content</h3>
+                            <div class="rounded-md border border-zinc-200 bg-zinc-50/50 p-4 space-y-2 dark:border-zinc-700 dark:bg-zinc-800/50">
                                 <div class="flex justify-between">
-                                    <span class="text-sm text-gray-600">From Name:</span>
-                                    <span class="text-sm font-medium">{{ $from_name }}</span>
+                                    <span class="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">From Name</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $from_name }}</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-sm text-gray-600">From Email:</span>
-                                    <span class="text-sm font-medium">{{ $from_email }}</span>
+                                    <span class="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">From Email</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $from_email }}</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Reply-To Email:</span>
-                                    <span class="text-sm font-medium">{{ $reply_to_email ?: '-' }}</span>
+                                    <span class="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Reply-To Email</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $reply_to_email ?: '-' }}</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-sm text-gray-600">Subject:</span>
-                                    <span class="text-sm font-medium">{{ $subject }}</span>
+                                    <span class="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Subject</span>
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $subject }}</span>
                                 </div>
                                 @if($preview_text)
                                     <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">Preview Text:</span>
-                                        <span class="text-sm font-medium">{{ $preview_text }}</span>
+                                        <span class="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Preview Text</span>
+                                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $preview_text }}</span>
                                     </div>
                                 @endif
                             </div>
                         </div>
 
-                        <flux:separator />
+                        <div class="border-t border-zinc-200 dark:border-zinc-700"></div>
 
                         <!-- Schedule Options -->
                         <div>
-                            <flux:heading size="base" class="mb-4">Schedule</flux:heading>
-                            <div class="space-y-4">
-                                <label class="flex items-center p-4 border rounded-lg cursor-pointer {{ $sendOption === 'now' ? 'border-blue-600 bg-blue-50' : 'border-gray-300' }}">
+                            <h3 class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-4">Schedule</h3>
+                            <div class="space-y-3">
+                                <label class="flex items-center p-4 border rounded-lg cursor-pointer transition-colors {{ $sendOption === 'now' ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-300 dark:bg-zinc-800' : 'border-zinc-200 dark:border-zinc-700' }}">
                                     <input type="radio" wire:model.live="sendOption" value="now" class="mr-3">
                                     <div class="flex items-center">
-                                        <flux:icon name="paper-airplane" class="w-5 h-5 mr-2 text-blue-600" />
+                                        <flux:icon name="paper-airplane" class="w-5 h-5 mr-2 text-zinc-600 dark:text-zinc-400" />
                                         <div>
-                                            <div class="font-medium">Broadcast Now</div>
-                                            <div class="text-sm text-gray-600">Send immediately to all recipients</div>
+                                            <div class="font-medium text-zinc-900 dark:text-zinc-100">Broadcast Now</div>
+                                            <div class="text-sm text-zinc-500 dark:text-zinc-400">Send immediately to all recipients</div>
                                         </div>
                                     </div>
                                 </label>
 
-                                <label class="flex items-center p-4 border rounded-lg cursor-pointer {{ $sendOption === 'schedule' ? 'border-blue-600 bg-blue-50' : 'border-gray-300' }}">
+                                <label class="flex items-center p-4 border rounded-lg cursor-pointer transition-colors {{ $sendOption === 'schedule' ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-300 dark:bg-zinc-800' : 'border-zinc-200 dark:border-zinc-700' }}">
                                     <input type="radio" wire:model.live="sendOption" value="schedule" class="mr-3">
                                     <div class="flex-1">
                                         <div class="flex items-center mb-2">
-                                            <flux:icon name="clock" class="w-5 h-5 mr-2 text-blue-600" />
+                                            <flux:icon name="clock" class="w-5 h-5 mr-2 text-zinc-600 dark:text-zinc-400" />
                                             <div>
-                                                <div class="font-medium">Schedule For Later</div>
-                                                <div class="text-sm text-gray-600">Choose a specific date and time</div>
+                                                <div class="font-medium text-zinc-900 dark:text-zinc-100">Schedule For Later</div>
+                                                <div class="text-sm text-zinc-500 dark:text-zinc-400">Choose a specific date and time</div>
                                             </div>
                                         </div>
                                         @if($sendOption === 'schedule')
@@ -583,7 +771,7 @@ new class extends Component {
         </div>
 
         <!-- Navigation Buttons -->
-        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between">
+        <div class="px-6 py-4 border-t border-zinc-200 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-800/30 flex justify-between rounded-b-lg">
             <div>
                 @if($currentStep > 1)
                     <flux:button variant="ghost" wire:click="previousStep">
@@ -620,5 +808,5 @@ new class extends Component {
                 @endif
             </div>
         </div>
-    </flux:card>
+    </div>
 </div>
