@@ -17,6 +17,7 @@ class Broadcast extends Model
             'scheduled_at' => 'datetime',
             'sent_at' => 'datetime',
             'selected_students' => 'array',
+            'design_json' => 'array',
         ];
     }
 
@@ -36,6 +37,9 @@ class Broadcast extends Model
         'total_sent',
         'total_failed',
         'selected_students',
+        'design_json',
+        'html_content',
+        'editor_type',
     ];
 
     public function audiences(): BelongsToMany
@@ -62,5 +66,15 @@ class Broadcast extends Model
         }
 
         return Student::whereIn('id', $studentIds->unique())->with('user')->get();
+    }
+
+    public function isVisualEditor(): bool
+    {
+        return $this->editor_type === 'visual';
+    }
+
+    public function getEffectiveContent(): string
+    {
+        return $this->isVisualEditor() ? ($this->html_content ?? '') : ($this->content ?? '');
     }
 }
