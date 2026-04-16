@@ -172,6 +172,7 @@
                     <flux:navlist.item icon="table-cells" :href="route('crm.all-database')" :current="request()->routeIs('crm.all-database')" wire:navigate>{{ __('All Database') }}</flux:navlist.item>
                     <flux:navlist.item icon="user-group" :href="route('crm.audiences.index')" :current="request()->routeIs('crm.audiences.*')" wire:navigate>{{ __('Audiences') }}</flux:navlist.item>
                     <flux:navlist.item icon="envelope" :href="route('crm.broadcasts.index')" :current="request()->routeIs('crm.broadcasts.*')" wire:navigate>{{ __('Broadcasts') }}</flux:navlist.item>
+                    <flux:navlist.item icon="paint-brush" :href="route('admin.funnel-email-templates')" :current="request()->routeIs('admin.funnel-email-templates*')" wire:navigate>{{ __('Email Templates') }}</flux:navlist.item>
                 </flux:navlist.group>
 
                 <flux:navlist.group
