@@ -68,7 +68,7 @@ new class extends Component
         $this->showEditModal = true;
     }
 
-    public function saveTemplate(): void
+    public function saveTemplate()
     {
         $this->validate([
             'name' => 'required|string|max:255',
@@ -89,19 +89,23 @@ new class extends Component
 
         if ($this->editingTemplate) {
             $this->editingTemplate->update($data);
-            $message = 'Template updated successfully';
-        } else {
-            FunnelEmailTemplate::create($data);
-            $message = 'Template created successfully';
+            $this->showEditModal = false;
+            $this->resetForm();
+
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'message' => 'Template updated successfully',
+            ]);
+
+            return null;
         }
+
+        $template = FunnelEmailTemplate::create($data);
 
         $this->showEditModal = false;
         $this->resetForm();
 
-        $this->dispatch('notify', [
-            'type' => 'success',
-            'message' => $message,
-        ]);
+        return $this->redirect(route('admin.funnel-email-templates.builder', $template), navigate: true);
     }
 
     public function toggleActive(FunnelEmailTemplate $template): void
@@ -372,17 +376,28 @@ new class extends Component
                 <flux:error name="subject" />
             </flux:field>
 
-            <flux:field>
-                <flux:label>Content (Text)</flux:label>
-                <flux:textarea wire:model="content" rows="8" placeholder="Hi @{{contact.first_name}},&#10;&#10;Thank you for your order #@{{order.number}}!&#10;&#10;Total: @{{order.total}}" />
-                <flux:error name="content" />
-                <flux:description>Use placeholders above to personalize. For visual HTML templates, save first then use the Visual Builder.</flux:description>
-            </flux:field>
+            @if($editingTemplate)
+                <flux:field>
+                    <flux:label>Content (Text)</flux:label>
+                    <flux:textarea wire:model="content" rows="8" placeholder="Hi @{{contact.first_name}},&#10;&#10;Thank you for your order #@{{order.number}}!&#10;&#10;Total: @{{order.total}}" />
+                    <flux:error name="content" />
+                    <flux:description>Plain-text fallback. Use the Visual Builder (paint-brush icon) to design the HTML email.</flux:description>
+                </flux:field>
+            @else
+                <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3">
+                    <div class="flex items-start gap-2">
+                        <flux:icon name="paint-brush" class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                        <flux:text size="sm" class="text-blue-900 dark:text-blue-200">
+                            After saving, you'll be taken straight to the <span class="font-medium">Visual Builder</span> to design your email.
+                        </flux:text>
+                    </div>
+                </div>
+            @endif
 
             <div class="flex justify-end gap-2 pt-2">
                 <flux:button variant="ghost" wire:click="$set('showEditModal', false)">Cancel</flux:button>
                 <flux:button variant="primary" wire:click="saveTemplate">
-                    {{ $editingTemplate ? 'Update Template' : 'Create Template' }}
+                    {{ $editingTemplate ? 'Update Template' : 'Create & Open Builder' }}
                 </flux:button>
             </div>
         </div>
