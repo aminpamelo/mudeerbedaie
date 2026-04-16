@@ -64,6 +64,19 @@ const PLACEHOLDER_SETS = {
             '{{company_email}}': 'Company email',
         },
     },
+    broadcast: {
+        'Recipient': {
+            '{{name}}': 'Recipient name',
+            '{{email}}': 'Recipient email',
+            '{{student_id}}': 'Student ID',
+        },
+        'General': {
+            '{{current_date}}': 'Current date',
+            '{{current_time}}': 'Current time',
+            '{{company_name}}': 'Company name',
+            '{{company_email}}': 'Company email',
+        },
+    },
 };
 
 // Helper: get Unlayer mergeTags from a grouped set
