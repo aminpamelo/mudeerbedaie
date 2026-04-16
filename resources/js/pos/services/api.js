@@ -120,6 +120,11 @@ export const saleApi = {
     },
 };
 
+export const upsellSessionApi = {
+    list: () => request('/upsell-sessions'),
+    get: (id) => request(`/upsell-sessions/${id}`),
+};
+
 export const dashboardApi = {
     stats: () => request('/dashboard'),
 };

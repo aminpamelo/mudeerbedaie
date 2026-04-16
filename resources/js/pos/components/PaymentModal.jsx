@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { saleApi, salesSourceApi } from '../services/api';
+import { saleApi, salesSourceApi, upsellSessionApi } from '../services/api';
 
 const MALAYSIAN_STATES = [
     'Johor', 'Kedah', 'Kelantan', 'Melaka', 'Negeri Sembilan',
@@ -13,7 +13,7 @@ function formatAddress({ addressLine, city, postcode, state }) {
     return parts.join(', ');
 }
 
-export default function PaymentModal({ cart, customer, subtotal, discount, postage, onClose, onComplete }) {
+export default function PaymentModal({ cart, customer, subtotal, discount, postage, onClose, onComplete, upsellClassSessionId, onUpsellSessionChange }) {
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [paymentReference, setPaymentReference] = useState('');
     const [paymentStatus, setPaymentStatus] = useState('paid');
@@ -26,6 +26,9 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
     const [salesSourceId, setSalesSourceId] = useState(null);
     const [salesSources, setSalesSources] = useState([]);
     const [loadingSources, setLoadingSources] = useState(true);
+    const [selectedUpsellSessionId, setSelectedUpsellSessionId] = useState(upsellClassSessionId || '');
+    const [upsellSessions, setUpsellSessions] = useState([]);
+    const [loadingUpsellSessions, setLoadingUpsellSessions] = useState(false);
     const [customerEdit, setCustomerEdit] = useState({
         name: customer?.name || '',
         phone: customer?.phone || '',
@@ -41,6 +44,12 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
             setSalesSources(res.data || []);
             setLoadingSources(false);
         }).catch(() => setLoadingSources(false));
+
+        setLoadingUpsellSessions(true);
+        upsellSessionApi.list().then(res => {
+            setUpsellSessions(res.data || []);
+            setLoadingUpsellSessions(false);
+        }).catch(() => setLoadingUpsellSessions(false));
     }, []);
 
     const handleReceiptChange = (e) => {
@@ -97,6 +106,10 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
                     unit_price: item.unitPrice,
                 })),
             };
+
+            if (selectedUpsellSessionId) {
+                payload.upsell_class_session_id = parseInt(selectedUpsellSessionId);
+            }
 
             if (discount.amount > 0) {
                 payload.discount_amount = discount.amount;
@@ -313,6 +326,42 @@ export default function PaymentModal({ cart, customer, subtotal, discount, posta
                                 ))}
                             </div>
                         )}
+                    </div>
+
+                    {/* Upsell Session */}
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                            Upsell Session <span className="text-gray-300 font-normal normal-case">(optional)</span>
+                        </label>
+                        {selectedUpsellSessionId && (
+                            <div className="mb-2 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="text-xs text-amber-800">This order will be tracked as an upsell sale</span>
+                            </div>
+                        )}
+                        <select
+                            value={selectedUpsellSessionId}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setSelectedUpsellSessionId(val);
+                                if (val && onUpsellSessionChange) {
+                                    const session = upsellSessions.find(s => s.id === parseInt(val));
+                                    onUpsellSessionChange(parseInt(val), session || null);
+                                } else if (onUpsellSessionChange) {
+                                    onUpsellSessionChange(null, null);
+                                }
+                            }}
+                            className="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                        >
+                            <option value="">No upsell session</option>
+                            {upsellSessions.map(s => (
+                                <option key={s.id} value={s.id}>
+                                    {s.class_name} — {s.session_date_formatted} {s.session_time} {s.is_adhoc ? '(Ad-hoc)' : ''}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Payment Method */}

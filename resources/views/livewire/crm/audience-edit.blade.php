@@ -138,8 +138,8 @@ new class extends Component {
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">Edit Audience</flux:heading>
-            <flux:text class="mt-2">Update audience segment details</flux:text>
+            <h1 class="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Edit Audience</h1>
+            <p class="mt-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">Update audience segment details</p>
         </div>
         <flux:button variant="outline" href="{{ route('crm.audiences.index') }}">
             <div class="flex items-center justify-center">
@@ -150,7 +150,7 @@ new class extends Component {
     </div>
 
     <form wire:submit="save">
-        <flux:card class="space-y-6">
+        <div class="rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
             <div class="p-6 space-y-6">
                 <div>
                     <flux:field>
@@ -184,23 +184,23 @@ new class extends Component {
                         <flux:label>Select Students ({{ count($selectedStudents) }} of {{ $filteredCount }} selected)</flux:label>
 
                         <!-- Rule Builder Section -->
-                        <div class="mt-2 p-4 bg-gray-50 border border-gray-300 rounded-md space-y-4">
+                        <div class="mt-2 p-4 bg-zinc-50/50 border border-zinc-200 rounded-md space-y-4 dark:bg-zinc-800/50 dark:border-zinc-700">
                             <div class="flex items-center justify-between">
-                                <flux:text class="font-semibold">Rule Builder</flux:text>
+                                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Rule Builder</h3>
                                 <div class="flex items-center gap-2">
-                                    <flux:text class="text-sm">Match</flux:text>
+                                    <span class="text-sm text-zinc-500 dark:text-zinc-400">Match</span>
                                     <flux:select wire:model.live="matchMode" class="w-24">
                                         <flux:select.option value="all">ALL</flux:select.option>
                                         <flux:select.option value="any">ANY</flux:select.option>
                                     </flux:select>
-                                    <flux:text class="text-sm">rules</flux:text>
+                                    <span class="text-sm text-zinc-500 dark:text-zinc-400">rules</span>
                                 </div>
                             </div>
 
                             <!-- Rule Rows -->
                             <div class="space-y-3">
                                 @foreach($rules as $index => $rule)
-                                    <div wire:key="rule-{{ $index }}" class="flex items-start gap-2 p-3 bg-white border border-gray-200 rounded-md">
+                                    <div wire:key="rule-{{ $index }}" class="flex items-start gap-2 p-3 bg-white border border-zinc-200 rounded-md dark:bg-zinc-800 dark:border-zinc-700">
                                         <!-- Field Select -->
                                         <div class="flex-1 min-w-0">
                                             <flux:select wire:model.live="rules.{{ $index }}.field" placeholder="Select field...">
@@ -237,7 +237,7 @@ new class extends Component {
                                                 @elseif($fieldType === 'date' && $rule['operator'] === 'in_last_days')
                                                     <div class="flex items-center gap-2">
                                                         <flux:input type="number" wire:model="rules.{{ $index }}.value" placeholder="Number of days" />
-                                                        <flux:text class="text-sm whitespace-nowrap">days</flux:text>
+                                                        <span class="text-sm whitespace-nowrap text-zinc-500 dark:text-zinc-400">days</span>
                                                     </div>
                                                 @elseif($fieldType === 'date')
                                                     <flux:input type="date" wire:model="rules.{{ $index }}.value" />
@@ -302,7 +302,7 @@ new class extends Component {
                                             <!-- Value2 for "between" operator -->
                                             @if($rule['operator'] === 'between')
                                                 <div class="flex items-center gap-2">
-                                                    <flux:text class="text-sm">and</flux:text>
+                                                    <span class="text-sm text-zinc-500 dark:text-zinc-400">and</span>
                                                     <flux:input type="number" wire:model="rules.{{ $index }}.value2" placeholder="Value 2" />
                                                 </div>
                                             @endif
@@ -329,7 +329,7 @@ new class extends Component {
                             </div>
 
                             <!-- Results Count + Apply/Clear -->
-                            <div class="flex items-center justify-between text-sm text-gray-600 pt-2 border-t border-gray-200">
+                            <div class="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400 pt-2 border-t border-zinc-200 dark:border-zinc-700">
                                 <span>
                                     @if($rulesApplied)
                                         Matching {{ $filteredCount }} of {{ $totalCount }} students
@@ -350,9 +350,9 @@ new class extends Component {
 
                         <!-- Selection Actions -->
                         <div class="mt-2 flex items-center justify-between">
-                            <flux:text class="text-sm text-gray-600">
+                            <span class="text-sm text-zinc-500 dark:text-zinc-400">
                                 Use rules above to filter students, then select them to add to this audience
-                            </flux:text>
+                            </span>
                             <div class="flex gap-2">
                                 <flux:button variant="outline" size="sm" wire:click="selectAll">
                                     Select All ({{ $filteredCount }})
@@ -364,9 +364,9 @@ new class extends Component {
                         </div>
 
                         <!-- Student List -->
-                        <div class="mt-2 border border-gray-300 rounded-md p-4 space-y-2">
+                        <div class="mt-2 border border-zinc-200 rounded-md p-4 space-y-2 dark:border-zinc-700">
                             @forelse($students as $student)
-                                <div wire:key="student-{{ $student->id }}" class="flex items-center p-2 hover:bg-gray-50 rounded">
+                                <div wire:key="student-{{ $student->id }}" class="flex items-center p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors rounded">
                                     <flux:checkbox
                                         wire:model="selectedStudents"
                                         value="{{ $student->id }}"
@@ -375,35 +375,38 @@ new class extends Component {
                                     <label for="student-{{ $student->id }}" class="ml-3 flex-1 cursor-pointer">
                                         <div class="flex items-center justify-between">
                                             <div>
-                                                <div class="text-sm font-medium text-gray-900">{{ $student->user->name ?? 'N/A' }}</div>
-                                                <div class="text-xs text-gray-500">{{ $student->user->email ?? '' }}</div>
+                                                <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $student->user->name ?? 'N/A' }}</div>
+                                                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $student->user->email ?? '' }}</div>
                                             </div>
                                             <div class="flex items-center gap-4">
                                                 @if($student->country)
-                                                    <span class="text-xs text-gray-500">{{ $student->country }}</span>
+                                                    <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $student->country }}</span>
                                                 @endif
-                                                <flux:badge size="sm" :class="match($student->status) {
-                                                    'active' => 'badge-green',
-                                                    'inactive' => 'badge-gray',
-                                                    'graduated' => 'badge-blue',
-                                                    'suspended' => 'badge-red',
-                                                    default => 'badge-gray'
-                                                }">
+                                                @php
+                                                    $badgeClasses = match($student->status) {
+                                                        'active' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+                                                        'inactive' => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300',
+                                                        'graduated' => 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
+                                                        'suspended' => 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+                                                        default => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300',
+                                                    };
+                                                @endphp
+                                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider {{ $badgeClasses }}">
                                                     {{ ucfirst($student->status) }}
-                                                </flux:badge>
+                                                </span>
                                             </div>
                                         </div>
                                     </label>
                                 </div>
                             @empty
-                                <div class="text-center py-8 text-gray-500">
-                                    <flux:icon.users class="mx-auto h-12 w-12 text-gray-400" />
+                                <div class="text-center py-8 text-zinc-500 dark:text-zinc-400">
+                                    <flux:icon.users class="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600" />
                                     <p class="mt-2">No students found matching your rules</p>
                                 </div>
                             @endforelse
 
                             @if($students->hasPages())
-                                <div class="pt-4 border-t border-gray-200">
+                                <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
                                     {{ $students->links() }}
                                 </div>
                             @endif
@@ -412,7 +415,7 @@ new class extends Component {
                 </div>
             </div>
 
-            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+            <div class="px-6 py-4 border-t border-zinc-200 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-800/30 rounded-b-lg flex justify-end space-x-3">
                 <flux:button variant="ghost" href="{{ route('crm.audiences.index') }}">
                     Cancel
                 </flux:button>
@@ -420,6 +423,6 @@ new class extends Component {
                     Update Audience
                 </flux:button>
             </div>
-        </flux:card>
+        </div>
     </form>
 </div>

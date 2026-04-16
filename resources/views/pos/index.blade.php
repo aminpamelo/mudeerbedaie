@@ -31,6 +31,7 @@
             appUrl: '{{ url('/') }}',
             dashboardUrl: '{{ url('/dashboard') }}',
             user: @json($posUser),
+            upsellClassSessionId: {{ request()->query('upsell_session') ? (int) request()->query('upsell_session') : 'null' }},
         };
     </script>
 </body>

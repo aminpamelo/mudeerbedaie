@@ -395,6 +395,8 @@ Route::middleware(['auth:web'])->prefix('pos')->group(function () {
     Route::get('courses', [\App\Http\Controllers\Api\PosController::class, 'courses'])->name('api.pos.courses');
     Route::get('classes/{course}', [\App\Http\Controllers\Api\PosController::class, 'courseClasses'])->name('api.pos.classes');
     Route::get('customers', [\App\Http\Controllers\Api\PosController::class, 'customers'])->name('api.pos.customers');
+    Route::get('upsell-sessions', [\App\Http\Controllers\Api\PosController::class, 'upsellSessions'])->name('api.pos.upsell-sessions');
+    Route::get('upsell-sessions/{id}', [\App\Http\Controllers\Api\PosController::class, 'upsellSessionDetail'])->name('api.pos.upsell-sessions.show');
     Route::post('sales', [\App\Http\Controllers\Api\PosController::class, 'createSale'])->name('api.pos.sales.store');
     Route::get('sales/export', [\App\Http\Controllers\Api\PosController::class, 'exportSales'])->name('api.pos.sales.export');
     Route::get('sales', [\App\Http\Controllers\Api\PosController::class, 'salesHistory'])->name('api.pos.sales.index');

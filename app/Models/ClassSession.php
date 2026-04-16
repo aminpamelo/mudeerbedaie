@@ -51,6 +51,7 @@ class ClassSession extends Model
         'upsell_pic_user_ids',
         'upsell_teacher_commission_rate',
         'upsell_teacher_ids',
+        'is_adhoc',
     ];
 
     protected function casts(): array
@@ -65,6 +66,7 @@ class ClassSession extends Model
             'upsell_pic_user_ids' => 'array',
             'upsell_teacher_commission_rate' => 'decimal:2',
             'upsell_teacher_ids' => 'array',
+            'is_adhoc' => 'boolean',
         ];
     }
 

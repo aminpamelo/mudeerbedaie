@@ -145,24 +145,44 @@
         </flux:header>
 
         @if($isAdmin)
-            <!-- Business Owner Dashboard -->
+            <!-- Admin Dashboard -->
+
+            <!-- Date & Quick Actions -->
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 tabular-nums">{{ now()->format('l, F j, Y') }}</flux:text>
+                <div class="flex gap-2">
+                    <flux:button variant="primary" size="sm" href="{{ route('courses.create') }}">
+                        <div class="flex items-center justify-center">
+                            <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                            Add Course
+                        </div>
+                    </flux:button>
+                    <flux:button variant="outline" size="sm" href="{{ route('enrollments.index') }}">Enrollments</flux:button>
+                    <flux:button variant="ghost" size="sm" href="{{ route('orders.index') }}">Orders</flux:button>
+                </div>
+            </div>
 
             <!-- Critical Alerts Banner -->
             @if($failedPayments > 0 || $pendingOrders > 0 || $subscriptionIssues > 0)
-                <flux:card class="border-orange-200 bg-orange-50  /20">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-3">
-                            <flux:icon icon="exclamation-triangle" class="w-6 h-6 text-orange-600" />
+                <div class="relative overflow-hidden rounded-xl border border-amber-200/50 dark:border-amber-500/20 bg-gradient-to-r from-amber-50 to-orange-50/50 dark:from-amber-950/40 dark:to-orange-950/20 p-4">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-orange-500"></div>
+                    <div class="flex items-center justify-between pl-3">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 ring-1 ring-amber-500/20">
+                                <flux:icon icon="exclamation-triangle" class="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                            </div>
                             <div>
-                                <flux:heading size="sm" class="text-orange-800">Attention Required</flux:heading>
-                                <flux:text size="sm" class="text-orange-700">
-                                    @if($failedPayments > 0) {{ $failedPayments }} failed payments • @endif
-                                    @if($pendingOrders > 0) {{ $pendingOrders }} pending orders • @endif
+                                <flux:heading size="sm" class="text-amber-900 dark:text-amber-200">Attention Required</flux:heading>
+                                <flux:text size="sm" class="text-amber-700 dark:text-amber-300/80">
+                                    @if($failedPayments > 0) {{ $failedPayments }} failed payments @endif
+                                    @if($failedPayments > 0 && ($pendingOrders > 0 || $subscriptionIssues > 0)) · @endif
+                                    @if($pendingOrders > 0) {{ $pendingOrders }} pending orders @endif
+                                    @if($pendingOrders > 0 && $subscriptionIssues > 0) · @endif
                                     @if($subscriptionIssues > 0) {{ $subscriptionIssues }} subscription issues @endif
                                 </flux:text>
                             </div>
                         </div>
-                        <div class="flex space-x-2">
+                        <div class="flex gap-2">
                             @if($failedPayments > 0)
                                 <flux:button variant="outline" size="sm" href="{{ route('orders.index') }}?status=failed">Fix Payments</flux:button>
                             @endif
@@ -171,200 +191,245 @@
                             @endif
                         </div>
                     </div>
-                </flux:card>
+                </div>
             @endif
 
-            <!-- Quick Actions Header -->
-            <div class="mb-6 flex items-center justify-between">
-                <div>
-                    <flux:heading size="xl">Business Overview</flux:heading>
-                    <flux:text class="mt-2">Your platform's performance and key business metrics</flux:text>
+            <!-- Revenue Metrics -->
+            <div>
+                <flux:text size="xs" class="uppercase tracking-widest font-semibold text-zinc-400 dark:text-zinc-500 mb-3">Revenue</flux:text>
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <!-- Total Revenue -->
+                    <div class="group relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/5 dark:hover:border-zinc-600">
+                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-400 to-teal-500"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="min-w-0">
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Total Revenue</flux:text>
+                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">RM {{ number_format($totalRevenue, 2) }}</div>
+                                <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">All time</flux:text>
+                            </div>
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
+                                <flux:icon icon="currency-dollar" class="w-5 h-5 text-emerald-500" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Revenue -->
+                    <div class="group relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/5 dark:hover:border-zinc-600">
+                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="min-w-0">
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Monthly Revenue</flux:text>
+                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">RM {{ number_format($monthlyRevenue, 2) }}</div>
+                                <div class="mt-1 flex items-center gap-1">
+                                    @if($revenueGrowth >= 0)
+                                        <flux:icon icon="arrow-trending-up" class="w-3.5 h-3.5 text-emerald-500" />
+                                    @else
+                                        <flux:icon icon="arrow-trending-down" class="w-3.5 h-3.5 text-red-500" />
+                                    @endif
+                                    <flux:text size="sm" class="{{ $revenueGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
+                                        {{ $revenueGrowth > 0 ? '+' : '' }}{{ $revenueGrowth }}% vs last month
+                                    </flux:text>
+                                </div>
+                            </div>
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
+                                <flux:icon icon="chart-bar" class="w-5 h-5 text-blue-500" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Recurring Revenue -->
+                    <div class="group relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg hover:shadow-violet-500/5 dark:hover:border-zinc-600">
+                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-violet-400 to-purple-500"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="min-w-0">
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Monthly Recurring</flux:text>
+                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">RM {{ number_format($mrr, 2) }}</div>
+                                <flux:text size="sm" class="mt-1 text-violet-600 dark:text-violet-400">Active subscriptions</flux:text>
+                            </div>
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10">
+                                <flux:icon icon="arrow-trending-up" class="w-5 h-5 text-violet-500" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Success -->
+                    <div class="group relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg dark:hover:border-zinc-600">
+                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r {{ $paymentSuccessRate >= 95 ? 'from-emerald-400 to-green-500' : ($paymentSuccessRate >= 90 ? 'from-amber-400 to-yellow-500' : 'from-red-400 to-rose-500') }}"></div>
+                        <div class="flex items-start justify-between">
+                            <div class="min-w-0">
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Payment Success</flux:text>
+                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ $paymentSuccessRate }}%</div>
+                                <flux:text size="sm" class="mt-1 {{ $paymentSuccessRate >= 95 ? 'text-emerald-600 dark:text-emerald-400' : ($paymentSuccessRate >= 90 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400') }}">
+                                    Last 30 days
+                                </flux:text>
+                            </div>
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $paymentSuccessRate >= 95 ? 'bg-emerald-500/10' : ($paymentSuccessRate >= 90 ? 'bg-amber-500/10' : 'bg-red-500/10') }}">
+                                <flux:icon icon="check-circle" class="w-5 h-5 {{ $paymentSuccessRate >= 95 ? 'text-emerald-500' : ($paymentSuccessRate >= 90 ? 'text-amber-500' : 'text-red-500') }}" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex gap-2">
-                    <flux:button variant="primary" href="{{ route('courses.create') }}">Add Course</flux:button>
-                    <flux:button variant="outline" href="{{ route('enrollments.index') }}">Manage Enrollments</flux:button>
-                    <flux:button variant="ghost" href="{{ route('orders.index') }}">View Orders</flux:button>
+            </div>
+
+            <!-- Operational Metrics -->
+            <div>
+                <flux:text size="xs" class="uppercase tracking-widest font-semibold text-zinc-400 dark:text-zinc-500 mb-3">Operations</flux:text>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <!-- Active Courses -->
+                    <div class="relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg dark:hover:border-zinc-600">
+                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sky-400 to-cyan-500"></div>
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active Courses</flux:text>
+                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ $activeCourses }}</div>
+                                <flux:text size="sm" class="mt-1 text-zinc-400 dark:text-zinc-500">of {{ $totalCourses }} total</flux:text>
+                            </div>
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10">
+                                <flux:icon icon="academic-cap" class="w-5 h-5 text-sky-500" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Students -->
+                    <div class="relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg dark:hover:border-zinc-600">
+                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-teal-400 to-emerald-500"></div>
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active Students</flux:text>
+                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ number_format($activeStudents) }}</div>
+                                <div class="mt-1 flex items-center gap-1">
+                                    @if($enrollmentGrowth >= 0)
+                                        <flux:icon icon="arrow-trending-up" class="w-3.5 h-3.5 text-emerald-500" />
+                                    @else
+                                        <flux:icon icon="arrow-trending-down" class="w-3.5 h-3.5 text-red-500" />
+                                    @endif
+                                    <flux:text size="sm" class="{{ $enrollmentGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
+                                        {{ $enrollmentGrowth > 0 ? '+' : '' }}{{ $enrollmentGrowth }}% this month
+                                    </flux:text>
+                                </div>
+                            </div>
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/10">
+                                <flux:icon icon="users" class="w-5 h-5 text-teal-500" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Enrollments -->
+                    <div class="relative overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 p-5 transition-all duration-200 hover:shadow-lg dark:hover:border-zinc-600">
+                        <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-400 to-blue-500"></div>
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Active Enrollments</flux:text>
+                                <div class="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{{ number_format($activeEnrollments) }}</div>
+                                <flux:text size="sm" class="mt-1 text-indigo-600 dark:text-indigo-400">{{ $thisMonthEnrollments }} new this month</flux:text>
+                            </div>
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10">
+                                <flux:icon icon="clipboard-document" class="w-5 h-5 text-indigo-500" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Financial Overview -->
-            <div class="grid gap-6 md:grid-cols-4">
-                <flux:card>
-                    <div class="flex items-center justify-between">
+            <!-- Performance Insights -->
+            <div class="grid gap-4 lg:grid-cols-2">
+                <!-- Top Revenue Courses -->
+                <div class="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80">
+                    <div class="flex items-center justify-between px-5 pt-5 pb-3">
                         <div>
-                            <flux:heading size="sm" class="text-gray-600">Total Revenue</flux:heading>
-                            <flux:heading size="xl">RM {{ number_format($totalRevenue, 2) }}</flux:heading>
-                            <flux:text size="sm" class="text-blue-600">All time</flux:text>
+                            <flux:heading size="lg">Top Revenue Courses</flux:heading>
+                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Highest earning courses</flux:text>
                         </div>
-                        <flux:icon icon="currency-dollar" class="w-8 h-8 text-green-500" />
+                        <flux:button variant="ghost" size="sm" href="{{ route('courses.index') }}">View all</flux:button>
                     </div>
-                </flux:card>
-
-                <flux:card>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Monthly Revenue</flux:heading>
-                            <flux:heading size="xl">RM {{ number_format($monthlyRevenue, 2) }}</flux:heading>
-                            <flux:text size="sm" class="{{ $revenueGrowth >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
-                                {{ $revenueGrowth > 0 ? '+' : '' }}{{ $revenueGrowth }}% vs last month
-                            </flux:text>
-                        </div>
-                        <flux:icon icon="chart-bar" class="w-8 h-8 text-blue-500" />
-                    </div>
-                </flux:card>
-
-                <flux:card>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Monthly Recurring Revenue</flux:heading>
-                            <flux:heading size="xl">RM {{ number_format($mrr, 2) }}</flux:heading>
-                            <flux:text size="sm" class="text-purple-600">Active subscriptions</flux:text>
-                        </div>
-                        <flux:icon icon="arrow-trending-up" class="w-8 h-8 text-purple-500" />
-                    </div>
-                </flux:card>
-
-                <flux:card>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Payment Success</flux:heading>
-                            <flux:heading size="xl">{{ $paymentSuccessRate }}%</flux:heading>
-                            <flux:text size="sm" class="{{ $paymentSuccessRate >= 95 ? 'text-emerald-600' : ($paymentSuccessRate >= 90 ? 'text-yellow-600' : 'text-red-600') }}">
-                                Last 30 days
-                            </flux:text>
-                        </div>
-                        <flux:icon icon="check-circle" class="w-8 h-8 text-emerald-500" />
-                    </div>
-                </flux:card>
-            </div>
-
-            <!-- Business Health Metrics -->
-            <div class="grid gap-6 md:grid-cols-3">
-                <flux:card>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Active Courses</flux:heading>
-                            <flux:heading size="xl">{{ $activeCourses }}</flux:heading>
-                            <flux:text size="sm" class="text-gray-600">of {{ $totalCourses }} total</flux:text>
-                        </div>
-                        <flux:icon icon="academic-cap" class="w-8 h-8 text-blue-500" />
-                    </div>
-                </flux:card>
-
-                <flux:card>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Active Students</flux:heading>
-                            <flux:heading size="xl">{{ $activeStudents }}</flux:heading>
-                            <flux:text size="sm" class="{{ $enrollmentGrowth >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
-                                {{ $enrollmentGrowth > 0 ? '+' : '' }}{{ $enrollmentGrowth }}% growth this month
-                            </flux:text>
-                        </div>
-                        <flux:icon icon="users" class="w-8 h-8 text-emerald-500" />
-                    </div>
-                </flux:card>
-
-                <flux:card>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="sm" class="text-gray-600">Active Enrollments</flux:heading>
-                            <flux:heading size="xl">{{ $activeEnrollments }}</flux:heading>
-                            <flux:text size="sm" class="text-blue-600">{{ $thisMonthEnrollments }} new this month</flux:text>
-                        </div>
-                        <flux:icon icon="clipboard-document" class="w-8 h-8 text-blue-500" />
-                    </div>
-                </flux:card>
-            </div>
-
-            <!-- Performance Insights Row -->
-            <div class="grid gap-6 lg:grid-cols-2">
-                <!-- Top Performing Courses -->
-                <flux:card>
-                    <flux:header>
-                        <flux:heading size="lg">Top Revenue Courses</flux:heading>
-                        <flux:text size="sm" class="text-gray-600">Highest earning courses</flux:text>
-                    </flux:header>
 
                     @if($topCourses->isNotEmpty())
-                        <div class="space-y-4">
-                            @foreach($topCourses as $course)
-                                <div class="flex items-center justify-between p-4 bg-gray-50  rounded-lg">
-                                    <div class="flex-1">
-                                        <flux:heading size="sm">{{ $course->name }}</flux:heading>
-                                        <flux:text size="sm" class="text-gray-600">
-                                            {{ $course->enrollments_count }} enrollments • {{ $course->active_enrollments_count }} active
+                        <div class="px-5 pb-5 space-y-1">
+                            @foreach($topCourses as $index => $course)
+                                <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $index === 0 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : ($index === 1 ? 'bg-zinc-200/60 dark:bg-zinc-600/40 text-zinc-600 dark:text-zinc-300' : 'bg-zinc-100 dark:bg-zinc-700/50 text-zinc-500 dark:text-zinc-400') }} text-sm font-bold tabular-nums">
+                                        {{ $index + 1 }}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <flux:text class="font-medium truncate">{{ $course->name }}</flux:text>
+                                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">
+                                            {{ $course->enrollments_count }} enrolled · {{ $course->active_enrollments_count }} active
                                         </flux:text>
                                     </div>
-                                    <div class="text-right">
-                                        <flux:heading size="sm" class="text-green-600">RM {{ number_format($course->orders_sum_amount, 2) }}</flux:heading>
-                                        <flux:text size="xs" class="text-gray-500">Revenue</flux:text>
+                                    <div class="text-right shrink-0">
+                                        <div class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">RM {{ number_format($course->orders_sum_amount, 2) }}</div>
                                     </div>
                                 </div>
                             @endforeach
                         </div>
                     @else
-                        <flux:text class="text-gray-600">No revenue data available yet.</flux:text>
+                        <div class="px-5 pb-5">
+                            <flux:text class="text-zinc-500 dark:text-zinc-400">No revenue data available yet.</flux:text>
+                        </div>
                     @endif
-                </flux:card>
+                </div>
 
                 <!-- High-Value Recent Orders -->
-                <flux:card>
-                    <flux:header>
-                        <flux:heading size="lg">Recent High-Value Orders</flux:heading>
-                        <flux:text size="sm" class="text-gray-600">Orders ≥ RM 100</flux:text>
-                    </flux:header>
+                <div class="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80">
+                    <div class="flex items-center justify-between px-5 pt-5 pb-3">
+                        <div>
+                            <flux:heading size="lg">Recent High-Value Orders</flux:heading>
+                            <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">Orders ≥ RM 100</flux:text>
+                        </div>
+                        <flux:button variant="ghost" size="sm" href="{{ route('orders.index') }}">View all</flux:button>
+                    </div>
 
                     @if($highValueOrders->isNotEmpty())
-                        <div class="space-y-4">
+                        <div class="px-5 pb-5 space-y-1">
                             @foreach($highValueOrders as $order)
-                                <div class="flex items-center justify-between p-4 bg-gray-50  rounded-lg">
-                                    <div class="flex items-center space-x-3">
-                                        <div class="w-8 h-8 bg-green-100  rounded-full flex items-center justify-center">
-                                            <span class="text-xs font-medium text-green-700">{{ $order->student?->user?->initials() ?? '?' }}</span>
-                                        </div>
-                                        <div>
-                                            <flux:text class="font-medium">{{ $order->student?->user?->name ?? 'Unknown Student' }}</flux:text>
-                                            <flux:text size="sm" class="text-gray-600">{{ $order->course?->name ?? 'Unknown Course' }}</flux:text>
-                                        </div>
+                                <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
+                                        <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400">{{ $order->student?->user?->initials() ?? '?' }}</span>
                                     </div>
-                                    <div class="text-right">
-                                        <flux:heading size="sm" class="text-green-600">RM {{ number_format($order->amount, 2) }}</flux:heading>
-                                        <flux:text size="xs" class="text-gray-500">{{ $order->paid_at->diffForHumans() }}</flux:text>
+                                    <div class="flex-1 min-w-0">
+                                        <flux:text class="font-medium truncate">{{ $order->student?->user?->name ?? 'Unknown Student' }}</flux:text>
+                                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400 truncate">{{ $order->course?->name ?? 'Unknown Course' }}</flux:text>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <div class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">RM {{ number_format($order->amount, 2) }}</div>
+                                        <flux:text size="xs" class="text-zinc-400 dark:text-zinc-500">{{ $order->paid_at->diffForHumans() }}</flux:text>
                                     </div>
                                 </div>
                             @endforeach
                         </div>
                     @else
-                        <flux:text class="text-gray-600">No high-value orders yet.</flux:text>
+                        <div class="px-5 pb-5">
+                            <flux:text class="text-zinc-500 dark:text-zinc-400">No high-value orders yet.</flux:text>
+                        </div>
                     @endif
-                </flux:card>
+                </div>
             </div>
 
-            <!-- Recent Activity -->
-            <flux:card>
-                <flux:header>
+            <!-- Recent Enrollments -->
+            <div class="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80">
+                <div class="flex items-center justify-between px-5 pt-5 pb-3">
                     <flux:heading size="lg">Recent Enrollments</flux:heading>
                     <flux:link href="{{ route('enrollments.index') }}" variant="subtle">View all</flux:link>
-                </flux:header>
+                </div>
 
                 @if($recentEnrollments->isNotEmpty())
-                    <div class="space-y-4">
+                    <div class="px-5 pb-5 space-y-1">
                         @foreach($recentEnrollments as $enrollment)
-                            <div class="flex items-center justify-between p-4 border rounded-lg">
-                                <div class="flex items-center space-x-4">
-                                    <div class="w-10 h-10 bg-gray-200  rounded-full flex items-center justify-center">
-                                        <span class="text-sm font-medium">{{ $enrollment->student?->user?->initials() ?? '?' }}</span>
+                            <div class="flex items-center justify-between p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-700 ring-1 ring-zinc-200 dark:ring-zinc-600">
+                                        <span class="text-xs font-bold text-zinc-600 dark:text-zinc-300">{{ $enrollment->student?->user?->initials() ?? '?' }}</span>
                                     </div>
-                                    <div>
+                                    <div class="min-w-0">
                                         <flux:text class="font-medium">{{ $enrollment->student?->user?->name ?? 'Unknown Student' }}</flux:text>
-                                        <flux:text size="sm" class="text-gray-600">{{ $enrollment->course?->name ?? 'Unknown Course' }}</flux:text>
+                                        <flux:text size="sm" class="text-zinc-500 dark:text-zinc-400">{{ $enrollment->course?->name ?? 'Unknown Course' }}</flux:text>
                                     </div>
                                 </div>
-                                <div class="text-right">
+                                <div class="flex items-center gap-3 shrink-0">
                                     <flux:badge :class="$enrollment->academic_status->badgeClass()">
                                         {{ $enrollment->academic_status->label() }}
                                     </flux:badge>
-                                    <flux:text size="sm" class="text-gray-600  block mt-1">
+                                    <flux:text size="sm" class="text-zinc-400 dark:text-zinc-500 tabular-nums">
                                         {{ $enrollment->enrollment_date->format('M d, Y') }}
                                     </flux:text>
                                 </div>
@@ -372,9 +437,11 @@
                         @endforeach
                     </div>
                 @else
-                    <flux:text class="text-gray-600">No enrollments yet.</flux:text>
+                    <div class="px-5 pb-5">
+                        <flux:text class="text-zinc-500 dark:text-zinc-400">No enrollments yet.</flux:text>
+                    </div>
                 @endif
-            </flux:card>
+            </div>
 
         @endif
 

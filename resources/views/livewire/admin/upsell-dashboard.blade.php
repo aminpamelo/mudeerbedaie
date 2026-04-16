@@ -11,9 +11,9 @@ use Livewire\Volt\Component;
 new class extends Component {
     public string $dateFrom = '';
     public string $dateTo = '';
-    public ?int $filterClassId = null;
-    public ?int $filterFunnelId = null;
-    public ?int $filterPicId = null;
+    public string $filterClassId = '';
+    public string $filterFunnelId = '';
+    public string $filterPicId = '';
 
     public function mount(): void
     {
@@ -48,7 +48,7 @@ new class extends Component {
 
         $totalConversions = $orders->count();
         $totalRevenue = $orders->sum('funnel_revenue');
-        $conversionRate = $totalSessions > 0 ? round(($totalConversions / $totalSessions) * 100, 1) : 0;
+        $conversionRate = $visitors > 0 ? round(($totalConversions / $visitors) * 100, 1) : 0;
 
         $totalCommission = ClassSession::query()
             ->whereNotNull('upsell_funnel_ids')
@@ -134,25 +134,25 @@ new class extends Component {
             ->when($this->filterClassId, fn ($q) => $q->where('class_id', $this->filterClassId))
             ->get();
 
-        $picData = collect();
+        $picData = [];
 
         foreach ($sessions as $session) {
             foreach ($session->upsell_pic_user_ids ?? [] as $userId) {
-                if (! $picData->has($userId)) {
+                if (! isset($picData[$userId])) {
                     $picData[$userId] = [
                         'user_id' => $userId,
                         'sessions_count' => 0,
-                        'session_ids' => collect(),
+                        'session_ids' => [],
                     ];
                 }
                 $picData[$userId]['sessions_count']++;
-                $picData[$userId]['session_ids']->push($session->id);
+                $picData[$userId]['session_ids'][] = $session->id;
             }
         }
 
-        $users = User::whereIn('id', $picData->keys())->get()->keyBy('id');
+        $users = User::whereIn('id', array_keys($picData))->get()->keyBy('id');
 
-        return $picData->map(function ($data) use ($users) {
+        return collect($picData)->map(function ($data) use ($users) {
             $orders = FunnelOrder::whereIn('class_session_id', $data['session_ids'])->get();
 
             return (object) [
@@ -192,9 +192,9 @@ new class extends Component {
     {
         $this->dateFrom = now()->startOfMonth()->toDateString();
         $this->dateTo = now()->endOfMonth()->toDateString();
-        $this->filterClassId = null;
-        $this->filterFunnelId = null;
-        $this->filterPicId = null;
+        $this->filterClassId = '';
+        $this->filterFunnelId = '';
+        $this->filterPicId = '';
     }
 }; ?>
 
@@ -216,21 +216,24 @@ new class extends Component {
                 <flux:input type="date" wire:model.live="dateTo" label="To" size="sm" />
             </div>
             <div class="w-48 shrink-0">
-                <flux:select wire:model.live="filterClassId" label="Class" size="sm" placeholder="All Classes">
+                <flux:select wire:model.live="filterClassId" label="Class" size="sm">
+                    <flux:select.option value="">All Classes</flux:select.option>
                     @foreach($this->availableClasses as $cls)
                         <flux:select.option value="{{ $cls['id'] }}">{{ $cls['name'] }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>
             <div class="w-40 shrink-0">
-                <flux:select wire:model.live="filterFunnelId" label="Funnel" size="sm" placeholder="All Funnels">
+                <flux:select wire:model.live="filterFunnelId" label="Funnel" size="sm">
+                    <flux:select.option value="">All Funnels</flux:select.option>
                     @foreach($this->availableFunnels as $funnel)
                         <flux:select.option value="{{ $funnel->id }}">{{ $funnel->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>
             <div class="w-40 shrink-0">
-                <flux:select wire:model.live="filterPicId" label="PIC" size="sm" placeholder="All PICs">
+                <flux:select wire:model.live="filterPicId" label="PIC" size="sm">
+                    <flux:select.option value="">All PICs</flux:select.option>
                     @foreach($this->availablePics as $pic)
                         <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
                     @endforeach

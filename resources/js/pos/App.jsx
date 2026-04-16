@@ -8,6 +8,7 @@ import PosReport from './components/PosReport';
 import ClassSelector from './components/ClassSelector';
 import VariantSelector from './components/VariantSelector';
 import useMediaQuery from './hooks/useMediaQuery';
+import { upsellSessionApi } from './services/api';
 
 const VIEWS = { POS: 'pos', HISTORY: 'history', REPORT: 'report' };
 
@@ -53,6 +54,17 @@ export default function App() {
     const [discount, setDiscount] = useState({ amount: 0, type: 'fixed' });
     const [postage, setPostage] = useState(0);
     const [showCartDrawer, setShowCartDrawer] = useState(false);
+    const [upsellSession, setUpsellSession] = useState(null);
+    const [upsellSessionId, setUpsellSessionId] = useState(config.upsellClassSessionId || null);
+
+    // Fetch upsell session details if linked via URL
+    useEffect(() => {
+        if (upsellSessionId) {
+            upsellSessionApi.get(upsellSessionId).then(res => {
+                setUpsellSession(res.data);
+            }).catch(() => setUpsellSession(null));
+        }
+    }, [upsellSessionId]);
 
     const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -240,6 +252,32 @@ export default function App() {
                 </nav>
             </header>
 
+            {/* Upsell Session Banner */}
+            {upsellSession && view === VIEWS.POS && (
+                <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <div>
+                            <span className="text-sm font-semibold text-amber-900">Upsell Mode</span>
+                            <span className="text-sm text-amber-700 ml-2">
+                                Orders from this POS will be tracked under:
+                                <strong className="ml-1">{upsellSession.class_name}</strong>
+                                <span className="mx-1">•</span>
+                                {upsellSession.session_date_formatted} {upsellSession.session_time}
+                            </span>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => { setUpsellSessionId(null); setUpsellSession(null); }}
+                        className="text-amber-600 hover:text-amber-800 text-xs font-medium px-2 py-1 rounded hover:bg-amber-100 transition-colors"
+                    >
+                        Clear
+                    </button>
+                </div>
+            )}
+
             {/* Tab Content */}
             {view === VIEWS.POS && (
                 <div className="flex-1 flex overflow-hidden relative">
@@ -332,6 +370,8 @@ export default function App() {
                     postage={postage}
                     onClose={() => setShowPayment(false)}
                     onComplete={handleSaleComplete}
+                    upsellClassSessionId={upsellSessionId}
+                    onUpsellSessionChange={(id, session) => { setUpsellSessionId(id); setUpsellSession(session); }}
                 />
             )}
 

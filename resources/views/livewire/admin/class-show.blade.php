@@ -152,12 +152,36 @@ new class extends Component
     public array $selectedShipmentIds = [];
 
     // Upsell tab properties
+    public string $upsellSubTab = 'sessions';
+
     public string $upsellDateFrom = '';
+
     public string $upsellDateTo = '';
+
     public ?int $upsellFilterPicId = null;
+
     public ?int $upsellFilterFunnelId = null;
+
     public ?int $upsellDetailSessionId = null;
+
     public bool $showUpsellDetailModal = false;
+
+    // Upsell session creation
+    public bool $showCreateUpsellSessionModal = false;
+
+    public string $upsellSessionDate = '';
+
+    public string $upsellSessionTime = '';
+
+    public int $upsellSessionDuration = 60;
+
+    public ?int $upsellSessionFunnelId = null;
+
+    public ?int $upsellSessionPicId = null;
+
+    public ?int $upsellSessionTeacherId = null;
+
+    public $upsellSessionCommissionRate = null;
 
     // Student item selection properties
     public array $selectedShipmentItemIds = [];
@@ -1816,9 +1840,9 @@ new class extends Component
 
         // If editing next billing date for automatic subscription
         $isEditingBillingDate = $this->editPaymentMethodType === 'automatic'
-            && !empty($this->editNextBillingDate)
+            && ! empty($this->editNextBillingDate)
             && $this->editStripeBillingInfo
-            && !$isSwitchingToAutomatic;
+            && ! $isSwitchingToAutomatic;
 
         if ($isEditingBillingDate) {
             $rules['editNextBillingDate'] = 'required|date|after:today';
@@ -1830,7 +1854,7 @@ new class extends Component
             if ($this->editingEnrollment) {
                 // Check if enrollment fee changed for Stripe update
                 $feeChanged = abs((float) $this->editEnrollmentFee - (float) $this->editOriginalEnrollmentFee) >= 0.01;
-                $hasStripeSubscription = !empty($this->editingEnrollment->stripe_subscription_id);
+                $hasStripeSubscription = ! empty($this->editingEnrollment->stripe_subscription_id);
 
                 // Update basic enrollment info
                 $this->editingEnrollment->update([
@@ -1870,7 +1894,7 @@ new class extends Component
 
                         // Parse the new billing date with time (use 7:23 AM Malaysia time for consistency)
                         $timezone = 'Asia/Kuala_Lumpur';
-                        $newBillingDateTime = \Carbon\Carbon::parse($this->editNextBillingDate . ' 07:23:00', $timezone);
+                        $newBillingDateTime = \Carbon\Carbon::parse($this->editNextBillingDate.' 07:23:00', $timezone);
 
                         // Update subscription schedule in Stripe
                         $stripeService->updateSubscriptionSchedule(
@@ -1986,9 +2010,10 @@ new class extends Component
             // Check if a valid magic link already exists
             $existingToken = $student->magicLinks()->valid()->first();
 
-            if ($existingToken && !$forceRegenerate) {
+            if ($existingToken && ! $forceRegenerate) {
                 // Don't regenerate, just refresh the page to show the existing link
                 session()->flash('message', 'A valid magic link already exists for this student. Click the copy button to copy it.');
+
                 return;
             }
 
@@ -2852,8 +2877,8 @@ new class extends Component
         $this->importStudentProcessing = true;
 
         try {
-            $fileName = 'student_import_' . time() . '_' . uniqid() . '.csv';
-            $relativePath = 'imports/students/' . $fileName;
+            $fileName = 'student_import_'.time().'_'.uniqid().'.csv';
+            $relativePath = 'imports/students/'.$fileName;
 
             // CRITICAL: Read file contents IMMEDIATELY before temp file can be cleaned up
             // On shared hosting, Livewire temp files may be deleted very quickly
@@ -2865,7 +2890,7 @@ new class extends Component
             }
 
             $fileContents = file_get_contents($tempPath);
-            \Illuminate\Support\Facades\Log::info("Student import - Read " . strlen($fileContents) . " bytes from temp file");
+            \Illuminate\Support\Facades\Log::info('Student import - Read '.strlen($fileContents).' bytes from temp file');
 
             if ($fileContents === false || empty($fileContents)) {
                 throw new \Exception('Failed to read uploaded file contents.');
@@ -2873,7 +2898,7 @@ new class extends Component
 
             // Store using Storage facade with the contents we already read
             $stored = \Illuminate\Support\Facades\Storage::disk('local')->put($relativePath, $fileContents);
-            \Illuminate\Support\Facades\Log::info("Student import - Storage put result: " . ($stored ? 'SUCCESS' : 'FAILED'));
+            \Illuminate\Support\Facades\Log::info('Student import - Storage put result: '.($stored ? 'SUCCESS' : 'FAILED'));
 
             if (! $stored) {
                 throw new \Exception('Failed to store the uploaded CSV file.');
@@ -2881,7 +2906,7 @@ new class extends Component
 
             // Verify file was actually stored
             $fileExists = \Illuminate\Support\Facades\Storage::disk('local')->exists($relativePath);
-            \Illuminate\Support\Facades\Log::info("Student import - File exists after storage: " . ($fileExists ? 'YES' : 'NO'));
+            \Illuminate\Support\Facades\Log::info('Student import - File exists after storage: '.($fileExists ? 'YES' : 'NO'));
 
             if (! $fileExists) {
                 throw new \Exception('File storage verification failed - file does not exist after upload.');
@@ -2915,7 +2940,7 @@ new class extends Component
             $this->dispatch('start-student-import-polling');
 
         } catch (\Exception $e) {
-            session()->flash('error', 'Import failed: ' . $e->getMessage());
+            session()->flash('error', 'Import failed: '.$e->getMessage());
             $this->importStudentProcessing = false;
         }
     }
@@ -2925,6 +2950,7 @@ new class extends Component
     {
         if (! $this->currentStudentImportProgressId) {
             $this->importStudentProcessing = false;
+
             return;
         }
 
@@ -2934,6 +2960,7 @@ new class extends Component
             $this->importStudentProcessing = false;
             $this->currentStudentImportProgressId = null;
             $this->dispatch('stop-student-import-polling');
+
             return;
         }
 
@@ -2970,7 +2997,7 @@ new class extends Component
             $this->currentStudentImportProgressId = null;
             $this->studentImportProgress = null;
             $this->dispatch('stop-student-import-polling');
-            session()->flash('error', 'Import failed: ' . ($progress->error_message ?? 'Unknown error'));
+            session()->flash('error', 'Import failed: '.($progress->error_message ?? 'Unknown error'));
         } elseif ($progress->isCancelled()) {
             $this->importStudentProcessing = false;
             $this->currentStudentImportProgressId = null;
@@ -2984,7 +3011,7 @@ new class extends Component
     {
         if ($this->currentStudentImportProgressId) {
             $progress = \App\Models\StudentImportProgress::find($this->currentStudentImportProgressId);
-            if ($progress && !$progress->isCompleted() && !$progress->isFailed()) {
+            if ($progress && ! $progress->isCompleted() && ! $progress->isFailed()) {
                 $progress->update(['status' => 'cancelled', 'error_message' => 'Cancelled by user']);
                 if ($progress->file_path && file_exists($progress->file_path)) {
                     unlink($progress->file_path);
@@ -3462,8 +3489,11 @@ new class extends Component
 
     // Class Assignment Approvals
     public string $studentSubTab = 'enrolled';
+
     public string $approvalSearch = '';
+
     public array $approvalSubscriptionToggles = [];
+
     public array $selectedApprovalIds = [];
 
     public function updatedApprovalSearch(): void
@@ -3477,18 +3507,18 @@ new class extends Component
             ->pending()
             ->with(['student.user', 'productOrder', 'assignedByUser'])
             ->when($this->approvalSearch, function ($query) {
-                $search = '%' . $this->approvalSearch . '%';
+                $search = '%'.$this->approvalSearch.'%';
                 $query->where(function ($q) use ($search) {
                     $q->whereHas('student.user', function ($userQuery) use ($search) {
                         $userQuery->where('name', 'like', $search)
                             ->orWhere('phone', 'like', $search);
                     })
-                    ->orWhereHas('student', function ($studentQuery) use ($search) {
-                        $studentQuery->where('phone', 'like', $search);
-                    })
-                    ->orWhereHas('productOrder', function ($orderQuery) use ($search) {
-                        $orderQuery->where('order_number', 'like', $search);
-                    });
+                        ->orWhereHas('student', function ($studentQuery) use ($search) {
+                            $studentQuery->where('phone', 'like', $search);
+                        })
+                        ->orWhereHas('productOrder', function ($orderQuery) use ($search) {
+                            $orderQuery->where('order_number', 'like', $search);
+                        });
                 });
             })
             ->latest()
@@ -3670,6 +3700,55 @@ new class extends Component
         $this->upsellDetailSessionId = null;
     }
 
+    public function openCreateUpsellSessionModal(): void
+    {
+        $this->showCreateUpsellSessionModal = true;
+        $this->upsellSessionDate = '';
+        $this->upsellSessionTime = '';
+        $this->upsellSessionDuration = $this->class->duration_minutes ?? 60;
+        $this->upsellSessionFunnelId = null;
+        $this->upsellSessionPicId = null;
+        $this->upsellSessionTeacherId = null;
+        $this->upsellSessionCommissionRate = null;
+    }
+
+    public function closeCreateUpsellSessionModal(): void
+    {
+        $this->showCreateUpsellSessionModal = false;
+        $this->resetErrorBag(['upsellSessionDate', 'upsellSessionTime', 'upsellSessionDuration']);
+    }
+
+    public function createUpsellSession(): void
+    {
+        $this->validate([
+            'upsellSessionDate' => 'required|date',
+            'upsellSessionTime' => 'required',
+            'upsellSessionDuration' => 'required|integer|min:15|max:480',
+        ], [
+            'upsellSessionDate.required' => 'Session date is required.',
+            'upsellSessionTime.required' => 'Session time is required.',
+            'upsellSessionDuration.min' => 'Duration must be at least 15 minutes.',
+        ]);
+
+        $session = \App\Models\ClassSession::create([
+            'class_id' => $this->class->id,
+            'session_date' => $this->upsellSessionDate,
+            'session_time' => $this->upsellSessionTime,
+            'duration_minutes' => $this->upsellSessionDuration,
+            'status' => 'scheduled',
+            'upsell_funnel_ids' => $this->upsellSessionFunnelId ? [$this->upsellSessionFunnelId] : null,
+            'upsell_pic_user_ids' => $this->upsellSessionPicId ? [$this->upsellSessionPicId] : null,
+            'upsell_teacher_ids' => $this->upsellSessionTeacherId ? [$this->upsellSessionTeacherId] : null,
+            'upsell_teacher_commission_rate' => $this->upsellSessionCommissionRate ?: null,
+            'is_adhoc' => true,
+        ]);
+
+        session()->flash('success', 'Upsell session created successfully.');
+        $this->closeCreateUpsellSessionModal();
+        $this->class->refresh();
+        $this->class->load(['sessions.attendances.student.user']);
+    }
+
     public function getUpsellDetailSessionProperty()
     {
         if (! $this->upsellDetailSessionId) {
@@ -3712,6 +3791,72 @@ new class extends Component
             'total_revenue' => $totalRevenue,
             'conversion_rate' => $conversionRate,
         ];
+    }
+
+    public function getUpsellMonthlyPerformanceProperty(): array
+    {
+        $sessions = $this->class->sessions()
+            ->whereNotNull('upsell_funnel_ids')
+            ->orderBy('session_date')
+            ->get(['id', 'session_date', 'upsell_teacher_commission_rate']);
+
+        if ($sessions->isEmpty()) {
+            return [];
+        }
+
+        $grouped = $sessions->groupBy(fn ($s) => \Carbon\Carbon::parse($s->session_date)->format('Y-m'));
+
+        // Determine the year to display (use current year, or the year of first session)
+        $year = now()->year;
+        if ($sessions->isNotEmpty()) {
+            $year = \Carbon\Carbon::parse($sessions->first()->session_date)->year;
+        }
+
+        $months = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $key = $year.'-'.str_pad($m, 2, '0', STR_PAD_LEFT);
+            $monthSessions = $grouped->get($key, collect());
+
+            $visitors = 0;
+            $totalOrders = 0;
+            $totalRevenue = 0;
+            $conversionRate = 0;
+            $totalCommission = 0;
+
+            if ($monthSessions->isNotEmpty()) {
+                $sessionIds = $monthSessions->pluck('id');
+
+                $visitors = \App\Models\FunnelSession::whereIn('class_session_id', $sessionIds)->count();
+
+                $orders = \App\Models\FunnelOrder::whereNotNull('class_session_id')
+                    ->whereIn('class_session_id', $sessionIds)
+                    ->get();
+
+                $totalOrders = $orders->count();
+                $totalRevenue = $orders->sum('funnel_revenue');
+                $conversionRate = $visitors > 0 ? round(($totalOrders / $visitors) * 100, 1) : 0;
+
+                foreach ($monthSessions as $s) {
+                    if ($s->upsell_teacher_commission_rate) {
+                        $sessionOrders = $orders->where('class_session_id', $s->id);
+                        $totalCommission += $sessionOrders->sum('funnel_revenue') * ($s->upsell_teacher_commission_rate / 100);
+                    }
+                }
+            }
+
+            $months[] = [
+                'key' => $key,
+                'label' => \Carbon\Carbon::createFromFormat('Y-m', $key)->format('F Y'),
+                'sessions' => $monthSessions->count(),
+                'visitors' => $visitors,
+                'orders' => $totalOrders,
+                'revenue' => $totalRevenue,
+                'conversion_rate' => $conversionRate,
+                'commission' => round($totalCommission, 2),
+            ];
+        }
+
+        return $months;
     }
 };
 
@@ -7404,55 +7549,53 @@ new class extends Component
         <!-- Upsell Tab -->
         <div class="{{ $activeTab === 'upsell' ? 'block' : 'hidden' }}">
             @if($class->sessions->count() > 0)
-                {{-- Summary Stats --}}
-                <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
-                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
-                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Sessions with Upsell</span>
-                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mt-1 tabular-nums">{{ $this->upsellStats['total_sessions'] }}</p>
-                    </div>
-                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
-                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Visitors</span>
-                        <p class="text-xl font-semibold text-blue-600 dark:text-blue-400 mt-1 tabular-nums">{{ $this->upsellStats['total_visitors'] }}</p>
-                    </div>
-                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
-                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Conversions</span>
-                        <p class="text-xl font-semibold text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">{{ $this->upsellStats['total_conversions'] }}</p>
-                    </div>
-                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
-                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</span>
-                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mt-1 tabular-nums">RM {{ number_format($this->upsellStats['total_revenue'], 2) }}</p>
-                    </div>
-                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3">
-                        <span class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Conversion Rate</span>
-                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mt-1 tabular-nums">{{ $this->upsellStats['conversion_rate'] }}%</p>
-                    </div>
+                {{-- Sub-tab Navigation --}}
+                <div class="flex items-center gap-1 border-b border-zinc-200 dark:border-zinc-700 mb-5">
+                    <button wire:click="$set('upsellSubTab', 'sessions')"
+                        class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {{ $upsellSubTab === 'sessions' ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600' }}">
+                        Sessions
+                    </button>
+                    <button wire:click="$set('upsellSubTab', 'performance')"
+                        class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors {{ $upsellSubTab === 'performance' ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600' }}">
+                        Performance
+                    </button>
                 </div>
 
-                {{-- Filters --}}
-                <div class="flex items-end gap-2 flex-wrap mb-4">
-                    <div class="w-36 shrink-0">
-                        <flux:input type="date" wire:model.live="upsellDateFrom" label="From" size="sm" />
+                {{-- Sessions Sub-tab --}}
+                <div class="{{ $upsellSubTab === 'sessions' ? 'block' : 'hidden' }}">
+                    {{-- Filters + Add Button --}}
+                    <div class="flex items-end justify-between gap-2 flex-wrap mb-4">
+                        <div class="flex items-end gap-2 flex-wrap">
+                            <div class="w-36 shrink-0">
+                                <flux:input type="date" wire:model.live="upsellDateFrom" label="From" size="sm" />
+                            </div>
+                            <div class="w-36 shrink-0">
+                                <flux:input type="date" wire:model.live="upsellDateTo" label="To" size="sm" />
+                            </div>
+                            <div class="w-40 shrink-0">
+                                <flux:select wire:model.live="upsellFilterFunnelId" label="Funnel" size="sm" placeholder="All Funnels">
+                                    @foreach($this->availableFunnels as $funnel)
+                                        <flux:select.option value="{{ $funnel->id }}">{{ $funnel->name }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+                            <div class="w-40 shrink-0">
+                                <flux:select wire:model.live="upsellFilterPicId" label="PIC" size="sm" placeholder="All PICs">
+                                    @foreach($this->upsellAvailablePics as $pic)
+                                        <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+                        </div>
+                        <flux:button variant="primary" size="sm" wire:click="openCreateUpsellSessionModal">
+                            <div class="flex items-center justify-center">
+                                <flux:icon name="plus" class="w-4 h-4 mr-1" />
+                                Add Session
+                            </div>
+                        </flux:button>
                     </div>
-                    <div class="w-36 shrink-0">
-                        <flux:input type="date" wire:model.live="upsellDateTo" label="To" size="sm" />
-                    </div>
-                    <div class="w-40 shrink-0">
-                        <flux:select wire:model.live="upsellFilterFunnelId" label="Funnel" size="sm" placeholder="All Funnels">
-                            @foreach($this->availableFunnels as $funnel)
-                                <flux:select.option value="{{ $funnel->id }}">{{ $funnel->name }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
-                    </div>
-                    <div class="w-40 shrink-0">
-                        <flux:select wire:model.live="upsellFilterPicId" label="PIC" size="sm" placeholder="All PICs">
-                            @foreach($this->upsellAvailablePics as $pic)
-                                <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
-                    </div>
-                </div>
 
-                {{-- Session List with Inline Upsell Management --}}
+                    {{-- Session List with Inline Upsell Management --}}
                 <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
                     <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
                         <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Session Upsell Management</h3>
@@ -7480,9 +7623,14 @@ new class extends Component
                             </thead>
                             <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
                                 @forelse($this->upsellSessions as $session)
-                                    <tr wire:key="upsell-session-{{ $session->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                                    <tr wire:key="upsell-session-{{ $session->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors {{ $session->is_adhoc ? 'bg-orange-50/50 dark:bg-orange-500/5' : '' }}">
                                         <td class="py-2 px-3 text-sm text-zinc-900 dark:text-zinc-100 tabular-nums whitespace-nowrap">
-                                            {{ \Carbon\Carbon::parse($session->session_date)->format('M d, Y') }}
+                                            <div class="flex items-center gap-1.5">
+                                                {{ \Carbon\Carbon::parse($session->session_date)->format('M d, Y') }}
+                                                @if($session->is_adhoc)
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400">Ad-hoc</span>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td class="py-2 px-3 text-sm text-zinc-600 dark:text-zinc-400">
                                             {{ ucfirst(\Carbon\Carbon::parse($session->session_date)->format('l')) }}
@@ -7708,9 +7856,14 @@ new class extends Component
                                             @endif
                                         </td>
                                         <td class="py-2 px-3 text-center">
-                                            <flux:button variant="ghost" size="sm" wire:click="showUpsellDetail({{ $session->id }})">
-                                                <flux:icon name="eye" class="w-4 h-4" />
-                                            </flux:button>
+                                            <div class="flex items-center justify-center gap-1">
+                                                <flux:button variant="ghost" size="sm" wire:click="showUpsellDetail({{ $session->id }})">
+                                                    <flux:icon name="eye" class="w-4 h-4" />
+                                                </flux:button>
+                                                <a href="{{ url('/pos?upsell_session=' . $session->id) }}" target="_blank" class="inline-flex items-center justify-center p-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-md transition-colors" title="Open POS for this session">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty
@@ -7725,6 +7878,154 @@ new class extends Component
                         </table>
                     </div>
                 </div>
+                </div>
+                {{-- End Sessions Sub-tab --}}
+
+                {{-- Performance Sub-tab --}}
+                <div class="{{ $upsellSubTab === 'performance' ? 'block' : 'hidden' }}">
+                    @if(count($this->upsellMonthlyPerformance) > 0)
+                        {{-- Monthly Chart --}}
+                        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 mb-5"
+                            x-data="{
+                                activeMetric: 'revenue',
+                                months: @js($this->upsellMonthlyPerformance),
+                                get maxValue() {
+                                    if (this.activeMetric === 'revenue') return Math.max(...this.months.map(m => m.revenue), 1);
+                                    if (this.activeMetric === 'orders') return Math.max(...this.months.map(m => m.orders), 1);
+                                    if (this.activeMetric === 'visitors') return Math.max(...this.months.map(m => m.visitors), 1);
+                                    return Math.max(...this.months.map(m => m.conversion_rate), 1);
+                                },
+                                getValue(month) {
+                                    if (this.activeMetric === 'revenue') return month.revenue;
+                                    if (this.activeMetric === 'orders') return month.orders;
+                                    if (this.activeMetric === 'visitors') return month.visitors;
+                                    return month.conversion_rate;
+                                },
+                                formatValue(val) {
+                                    if (this.activeMetric === 'revenue') return 'RM ' + val.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                    if (this.activeMetric === 'conversion_rate') return val + '%';
+                                    return val.toString();
+                                },
+                                barHeight(month) {
+                                    let pct = (this.getValue(month) / this.maxValue) * 100;
+                                    return Math.max(pct, 2) + '%';
+                                }
+                            }">
+                            <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3 flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Monthly Trend</h3>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Visual performance overview across months</p>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <button @click="activeMetric = 'revenue'"
+                                        :class="activeMetric === 'revenue' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'"
+                                        class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors">Revenue</button>
+                                    <button @click="activeMetric = 'orders'"
+                                        :class="activeMetric === 'orders' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'"
+                                        class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors">Orders</button>
+                                    <button @click="activeMetric = 'visitors'"
+                                        :class="activeMetric === 'visitors' ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'"
+                                        class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors">Visitors</button>
+                                    <button @click="activeMetric = 'conversion_rate'"
+                                        :class="activeMetric === 'conversion_rate' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'"
+                                        class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors">Conv. Rate</button>
+                                </div>
+                            </div>
+                            <div class="px-5 py-4">
+                                <div class="flex items-end gap-3 h-48">
+                                    <template x-for="(month, index) in months" :key="month.key">
+                                        <div class="flex-1 flex flex-col items-center gap-2 h-full">
+                                            <span class="text-[10px] font-medium tabular-nums transition-all duration-300"
+                                                :class="activeMetric === 'revenue' ? 'text-blue-600 dark:text-blue-400' : activeMetric === 'orders' ? 'text-emerald-600 dark:text-emerald-400' : activeMetric === 'visitors' ? 'text-violet-600 dark:text-violet-400' : 'text-amber-600 dark:text-amber-400'"
+                                                x-text="formatValue(getValue(month))"></span>
+                                            <div class="w-full flex-1 flex items-end">
+                                                <div class="w-full rounded-t-md transition-all duration-500 ease-out"
+                                                    :class="activeMetric === 'revenue' ? 'bg-blue-500 dark:bg-blue-400' : activeMetric === 'orders' ? 'bg-emerald-500 dark:bg-emerald-400' : activeMetric === 'visitors' ? 'bg-violet-500 dark:bg-violet-400' : 'bg-amber-500 dark:bg-amber-400'"
+                                                    :style="'height: ' + barHeight(month)"></div>
+                                            </div>
+                                            <span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium whitespace-nowrap" x-text="month.label.split(' ')[0].substring(0, 3) + ' ' + month.label.split(' ')[1]?.substring(2)"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Monthly Table --}}
+                        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700">
+                            <div class="border-b border-zinc-200 dark:border-zinc-700 px-5 py-3">
+                                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Performance by Month</h3>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Monthly breakdown of upsell performance metrics</p>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+                                            <th class="text-left py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Month</th>
+                                            <th class="text-right py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Sessions</th>
+                                            <th class="text-right py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Visitors</th>
+                                            <th class="text-right py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Orders</th>
+                                            <th class="text-right py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Conv. Rate</th>
+                                            <th class="text-right py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Revenue</th>
+                                            <th class="text-right py-2 px-4 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Commission</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
+                                        @php
+                                            $totalSessions = 0;
+                                            $totalVisitors = 0;
+                                            $totalOrders = 0;
+                                            $totalRevenue = 0;
+                                            $totalCommission = 0;
+                                        @endphp
+                                        @foreach($this->upsellMonthlyPerformance as $month)
+                                            @php
+                                                $totalSessions += $month['sessions'];
+                                                $totalVisitors += $month['visitors'];
+                                                $totalOrders += $month['orders'];
+                                                $totalRevenue += $month['revenue'];
+                                                $totalCommission += $month['commission'];
+                                            @endphp
+                                            <tr wire:key="upsell-month-{{ $month['key'] }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                                                <td class="py-2.5 px-4 text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $month['label'] }}</td>
+                                                <td class="py-2.5 px-4 text-sm text-zinc-600 dark:text-zinc-400 text-right tabular-nums">{{ $month['sessions'] }}</td>
+                                                <td class="py-2.5 px-4 text-sm text-blue-600 dark:text-blue-400 text-right tabular-nums">{{ $month['visitors'] }}</td>
+                                                <td class="py-2.5 px-4 text-sm text-emerald-600 dark:text-emerald-400 text-right tabular-nums">{{ $month['orders'] }}</td>
+                                                <td class="py-2.5 px-4 text-sm text-right tabular-nums">
+                                                    <span class="{{ $month['conversion_rate'] >= 10 ? 'text-emerald-600 dark:text-emerald-400' : ($month['conversion_rate'] >= 5 ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400') }}">
+                                                        {{ $month['conversion_rate'] }}%
+                                                    </span>
+                                                </td>
+                                                <td class="py-2.5 px-4 text-sm font-medium text-zinc-900 dark:text-zinc-100 text-right tabular-nums">RM {{ number_format($month['revenue'], 2) }}</td>
+                                                <td class="py-2.5 px-4 text-sm text-violet-600 dark:text-violet-400 text-right tabular-nums">RM {{ number_format($month['commission'], 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="border-t-2 border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800">
+                                            <td class="py-2.5 px-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Total</td>
+                                            <td class="py-2.5 px-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100 text-right tabular-nums">{{ $totalSessions }}</td>
+                                            <td class="py-2.5 px-4 text-sm font-semibold text-blue-600 dark:text-blue-400 text-right tabular-nums">{{ $totalVisitors }}</td>
+                                            <td class="py-2.5 px-4 text-sm font-semibold text-emerald-600 dark:text-emerald-400 text-right tabular-nums">{{ $totalOrders }}</td>
+                                            <td class="py-2.5 px-4 text-sm font-semibold text-right tabular-nums">
+                                                {{ $totalVisitors > 0 ? round(($totalOrders / $totalVisitors) * 100, 1) : 0 }}%
+                                            </td>
+                                            <td class="py-2.5 px-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100 text-right tabular-nums">RM {{ number_format($totalRevenue, 2) }}</td>
+                                            <td class="py-2.5 px-4 text-sm font-semibold text-violet-600 dark:text-violet-400 text-right tabular-nums">RM {{ number_format($totalCommission, 2) }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    @else
+                        <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 py-12 px-6 text-center">
+                            <flux:icon name="chart-bar" class="w-8 h-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
+                            <h4 class="text-sm font-medium text-zinc-500 dark:text-zinc-400">No Performance Data</h4>
+                            <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Assign funnels to sessions to start tracking performance.</p>
+                        </div>
+                    @endif
+                </div>
+                {{-- End Performance Sub-tab --}}
             @else
                 {{-- No Sessions Empty State --}}
                 <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 py-12 px-6 text-center">
@@ -7967,6 +8268,74 @@ new class extends Component
                 </div>
             </div>
         @endif
+    </flux:modal>
+
+    <!-- Create Upsell Session Modal -->
+    <flux:modal name="create-upsell-session" :show="$showCreateUpsellSessionModal" wire:model="showCreateUpsellSessionModal" class="md:w-3xl">
+        <div class="pb-4 border-b border-gray-200 dark:border-zinc-700 mb-4 pt-8">
+            <flux:heading size="lg">Add Upsell Session</flux:heading>
+            <flux:text class="mt-1">Create a new session slot for upsell tracking.</flux:text>
+        </div>
+
+        <div class="space-y-4 mb-6">
+            <div class="grid grid-cols-2 gap-4">
+                <flux:field>
+                    <flux:label>Session Date</flux:label>
+                    <flux:input type="date" wire:model="upsellSessionDate" />
+                    <flux:error name="upsellSessionDate" />
+                </flux:field>
+                <flux:field>
+                    <flux:label>Session Time</flux:label>
+                    <flux:input type="time" wire:model="upsellSessionTime" />
+                    <flux:error name="upsellSessionTime" />
+                </flux:field>
+            </div>
+
+            <flux:field>
+                <flux:label>Duration (minutes)</flux:label>
+                <flux:input type="number" wire:model="upsellSessionDuration" min="15" max="480" />
+                <flux:error name="upsellSessionDuration" />
+            </flux:field>
+
+            <flux:separator />
+
+            <flux:field>
+                <flux:label>Funnel</flux:label>
+                <flux:select wire:model="upsellSessionFunnelId" placeholder="Select funnel (optional)">
+                    @foreach($this->availableFunnels as $funnel)
+                        <flux:select.option value="{{ $funnel->id }}">{{ $funnel->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </flux:field>
+
+            <flux:field>
+                <flux:label>PIC</flux:label>
+                <flux:select wire:model="upsellSessionPicId" placeholder="Select PIC (optional)">
+                    @foreach($this->upsellAvailablePics as $pic)
+                        <flux:select.option value="{{ $pic->id }}">{{ $pic->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </flux:field>
+
+            <flux:field>
+                <flux:label>Teacher</flux:label>
+                <flux:select wire:model="upsellSessionTeacherId" placeholder="Select teacher (optional)">
+                    @foreach($this->upsellAvailableTeachers as $teacher)
+                        <flux:select.option value="{{ $teacher->id }}">{{ $teacher->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </flux:field>
+
+            <flux:field>
+                <flux:label>Commission Rate (%)</flux:label>
+                <flux:input type="number" wire:model="upsellSessionCommissionRate" min="0" max="100" step="0.5" placeholder="e.g. 15" />
+            </flux:field>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-zinc-700">
+            <flux:button variant="ghost" wire:click="closeCreateUpsellSessionModal">Cancel</flux:button>
+            <flux:button variant="primary" wire:click="createUpsellSession">Create Session</flux:button>
+        </div>
     </flux:modal>
 
     <!-- Generate Shipment Modal -->

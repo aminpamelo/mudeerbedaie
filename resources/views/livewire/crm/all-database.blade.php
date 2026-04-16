@@ -165,8 +165,8 @@ new class extends Component {
 <div>
     <div class="mb-6 flex items-center justify-between">
         <div>
-            <flux:heading size="xl">All Database</flux:heading>
-            <flux:text class="mt-2">Complete student contact database with revenue tracking</flux:text>
+            <h1 class="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">All Database</h1>
+            <p class="mt-0.5 text-[13px] text-zinc-500 dark:text-zinc-400">Complete student contact database with revenue tracking</p>
         </div>
         <div class="flex space-x-3">
             <flux:button variant="outline" wire:click="exportContacts">
@@ -181,36 +181,36 @@ new class extends Component {
     <div class="mt-6 space-y-6">
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <flux:card class="p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-3">
-                        <flux:icon.users class="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    <div class="text-zinc-400 dark:text-zinc-500">
+                        <flux:icon.users class="h-6 w-6" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($totalContacts) }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Contacts</p>
+                        <p class="text-xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ number_format($totalContacts) }}</p>
+                        <p class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Contacts</p>
                     </div>
                 </div>
-            </flux:card>
+            </div>
 
-            <flux:card class="p-6">
+            <div class="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
                 <div class="flex items-center">
-                    <div class="rounded-md bg-green-50 dark:bg-green-900/30 p-3">
-                        <flux:icon.currency-dollar class="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <div class="text-zinc-400 dark:text-zinc-500">
+                        <flux:icon.currency-dollar class="h-6 w-6" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">RM {{ number_format($totalRevenue, 2) }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Revenue</p>
+                        <p class="text-xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">RM {{ number_format($totalRevenue, 2) }}</p>
+                        <p class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Revenue</p>
                     </div>
                 </div>
-            </flux:card>
+            </div>
         </div>
 
         <!-- Search and Filters -->
-        <flux:card>
-            <div class="p-6 border-b border-gray-200 dark:border-zinc-700">
-                <div class="flex flex-col sm:flex-row gap-4">
-                    <div class="flex-1">
+        <div class="rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+            <div class="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="flex-1 min-w-[200px]">
                         <flux:input
                             wire:model.live.debounce.300ms="search"
                             placeholder="Search by name, email, student ID, or phone..."
@@ -229,7 +229,7 @@ new class extends Component {
                             <flux:icon name="funnel" class="w-4 h-4 mr-1" />
                             Advanced Filter
                             @if($rulesApplied)
-                                <flux:badge size="sm" color="lime" class="ml-1">On</flux:badge>
+                                <span class="ml-1 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold uppercase bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">On</span>
                             @endif
                         </div>
                     </flux:button>
@@ -242,23 +242,23 @@ new class extends Component {
 
                 {{-- Advanced Filter (Rule Builder) --}}
                 @if($showAdvancedFilter)
-                    <div class="mt-4 rounded-lg border border-gray-200 dark:border-zinc-600 bg-gray-50 dark:bg-zinc-800 p-4">
+                    <div class="mt-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50 p-4">
                         <div class="mb-4 flex items-center justify-between">
-                            <flux:heading size="lg">Segment Rules</flux:heading>
+                            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Segment Rules</h3>
                             <div class="flex items-center gap-2">
-                                <flux:text class="text-sm">Match</flux:text>
+                                <span class="text-sm text-zinc-500 dark:text-zinc-400">Match</span>
                                 <flux:select wire:model.live="matchMode" class="w-24">
                                     <flux:select.option value="all">ALL</flux:select.option>
                                     <flux:select.option value="any">ANY</flux:select.option>
                                 </flux:select>
-                                <flux:text class="text-sm">rules</flux:text>
+                                <span class="text-sm text-zinc-500 dark:text-zinc-400">rules</span>
                             </div>
                         </div>
 
                         {{-- Rule Rows --}}
                         <div class="space-y-3">
                             @foreach($rules as $index => $rule)
-                                <div wire:key="rule-{{ $index }}" class="rounded-md border border-gray-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 p-3">
+                                <div wire:key="rule-{{ $index }}" class="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-3">
                                     <div class="grid grid-cols-1 items-start gap-3 md:grid-cols-12">
                                         {{-- Field Dropdown --}}
                                         <div class="md:col-span-3">
@@ -300,7 +300,7 @@ new class extends Component {
                                                 @elseif($fieldType === 'date' && $rule['operator'] === 'in_last_days')
                                                     <div class="flex items-center gap-2">
                                                         <flux:input wire:model="rules.{{ $index }}.value" type="number" placeholder="Number of days" />
-                                                        <flux:text class="shrink-0 text-sm">days</flux:text>
+                                                        <span class="shrink-0 text-sm text-zinc-500 dark:text-zinc-400">days</span>
                                                     </div>
                                                 @elseif($fieldType === 'date')
                                                     <flux:input wire:model="rules.{{ $index }}.value" type="date" />
@@ -376,7 +376,7 @@ new class extends Component {
                                         <div class="flex items-center justify-end md:col-span-1">
                                             @if(count($rules) > 1)
                                                 <flux:button variant="ghost" size="sm" wire:click="removeRule({{ $index }})">
-                                                    <flux:icon name="x-mark" class="h-4 w-4 text-gray-400" />
+                                                    <flux:icon name="x-mark" class="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
                                                 </flux:button>
                                             @endif
                                         </div>
@@ -396,16 +396,16 @@ new class extends Component {
                         </div>
 
                         {{-- Bottom Bar --}}
-                        <div class="mt-4 flex items-center justify-between rounded-md border border-gray-200 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-4 py-3">
+                        <div class="mt-4 flex items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-3">
                             <div>
                                 @if($rulesApplied)
-                                    <flux:text class="text-sm font-medium">
+                                    <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                         {{ number_format($filteredCount) }} of {{ number_format($totalContacts) }} students match
-                                    </flux:text>
+                                    </span>
                                 @else
-                                    <flux:text class="text-sm text-gray-500">
+                                    <span class="text-sm text-zinc-500 dark:text-zinc-400">
                                         Apply rules to filter results
-                                    </flux:text>
+                                    </span>
                                 @endif
                             </div>
                             <div class="flex items-center gap-2">
@@ -423,64 +423,64 @@ new class extends Component {
 
             <!-- Contacts Table -->
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                    <thead class="bg-gray-50 dark:bg-zinc-800">
+                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <thead>
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Classes</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Country/Region</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Revenue</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Purchased Products</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                            <th class="bg-zinc-50 px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500">Name</th>
+                            <th class="bg-zinc-50 px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500">Classes</th>
+                            <th class="bg-zinc-50 px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500">Country/Region</th>
+                            <th class="bg-zinc-50 px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500">Total Revenue</th>
+                            <th class="bg-zinc-50 px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500">Phone</th>
+                            <th class="bg-zinc-50 px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500">Purchased Products</th>
+                            <th class="bg-zinc-50 px-4 py-2 text-right text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                         @forelse($students as $student)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700">
-                                <td class="px-6 py-4 whitespace-nowrap">
+                            <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                                <td class="px-4 py-2.5 whitespace-nowrap">
                                     <a href="{{ route('students.show', $student) }}" class="flex items-center group">
                                         <flux:avatar size="sm" class="mr-3">
                                             {{ $student->user->initials() }}
                                         </flux:avatar>
                                         <div>
-                                            <div class="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{{ $student->user->name }}</div>
-                                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ $student->user->email }}</div>
+                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">{{ $student->user->name }}</div>
+                                            <div class="text-[13px] text-zinc-500">{{ $student->user->email }}</div>
                                         </div>
                                     </a>
                                 </td>
-                                <td class="px-6 py-4">
+                                <td class="px-4 py-2.5">
                                     @if($student->activeClasses->count() > 0)
                                         <div class="flex flex-wrap gap-1">
                                             @foreach($student->activeClasses->take(2) as $class)
-                                                <flux:badge size="sm" color="purple">{{ Str::limit($class->title, 20) }}</flux:badge>
+                                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">{{ Str::limit($class->title, 20) }}</span>
                                             @endforeach
                                             @if($student->activeClasses->count() > 2)
-                                                <flux:badge size="sm" color="gray">+{{ $student->activeClasses->count() - 2 }}</flux:badge>
+                                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">+{{ $student->activeClasses->count() - 2 }}</span>
                                             @endif
                                         </div>
                                     @else
-                                        <span class="text-sm text-gray-400 dark:text-gray-500">No classes</span>
+                                        <span class="text-sm text-zinc-400 dark:text-zinc-500">No classes</span>
                                     @endif
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-4 py-2.5 whitespace-nowrap">
                                     <div class="flex items-center">
                                         @if($student->country === 'Malaysia')
                                             <span class="mr-2">🇲🇾</span>
                                         @endif
-                                        <div class="text-sm text-gray-900 dark:text-gray-200">{{ $student->country ?? 'N/A' }}</div>
+                                        <div class="text-sm text-zinc-900 dark:text-zinc-100">{{ $student->country ?? 'N/A' }}</div>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-semibold text-green-600">
+                                <td class="px-4 py-2.5 whitespace-nowrap">
+                                    <div class="text-sm font-semibold tabular-nums text-emerald-600">
                                         RM {{ number_format($student->orders->sum('total_amount'), 2) }}
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900 dark:text-gray-200">{{ $student->phone ?? 'N/A' }}</div>
+                                <td class="px-4 py-2.5 whitespace-nowrap">
+                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">{{ $student->phone ?? 'N/A' }}</div>
                                 </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm text-gray-900 dark:text-gray-200">
+                                <td class="px-4 py-2.5">
+                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">
                                         @php
                                             $products = $student->orders
                                                 ->flatMap(fn($order) => $order->items)
@@ -499,18 +499,18 @@ new class extends Component {
                                         @if($products->count() > 0)
                                             <div class="flex flex-wrap gap-1">
                                                 @foreach($products as $productName)
-                                                    <flux:badge size="sm" color="blue">{{ Str::limit($productName, 20) }}</flux:badge>
+                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">{{ Str::limit($productName, 20) }}</span>
                                                 @endforeach
                                                 @if($totalProducts > 3)
-                                                    <flux:badge size="sm" color="gray">+{{ $totalProducts - 3 }}</flux:badge>
+                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">+{{ $totalProducts - 3 }}</span>
                                                 @endif
                                             </div>
                                         @else
-                                            <span class="text-gray-400 dark:text-gray-500">No purchases</span>
+                                            <span class="text-zinc-400 dark:text-zinc-500">No purchases</span>
                                         @endif
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <td class="px-4 py-2.5 whitespace-nowrap text-right">
                                     <flux:dropdown position="bottom end">
                                         <flux:button variant="ghost" size="sm" icon="ellipsis-vertical" />
                                         <flux:menu>
@@ -530,10 +530,10 @@ new class extends Component {
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-12 text-center">
-                                    <flux:icon.users class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-                                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No contacts found</h3>
-                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                <td colspan="7" class="px-4 py-12 text-center">
+                                    <flux:icon.users class="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+                                    <h3 class="mt-2 text-sm font-medium text-zinc-600">No contacts found</h3>
+                                    <p class="mt-1 text-[13px] text-zinc-400">
                                         @if($search || $countryFilter)
                                             Try adjusting your search or filter criteria.
                                         @else
@@ -548,10 +548,10 @@ new class extends Component {
             </div>
 
             @if($students->hasPages())
-                <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700">
+                <div class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
                     {{ $students->links() }}
                 </div>
             @endif
-        </flux:card>
+        </div>
     </div>
 </div>

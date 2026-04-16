@@ -36,6 +36,7 @@ class StorePosSaleRequest extends FormRequest
             'shipping_cost' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'receipt_attachment' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,webp', 'max:5120'],
+            'upsell_class_session_id' => ['nullable', 'integer', 'exists:class_sessions,id'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.itemable_type' => ['required', 'in:product,package,course'],
             'items.*.itemable_id' => ['required', 'integer'],

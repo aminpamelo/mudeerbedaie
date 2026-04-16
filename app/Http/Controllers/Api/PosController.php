@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePosSaleRequest;
 use App\Models\ClassModel;
+use App\Models\ClassSession;
 use App\Models\Course;
+use App\Models\FunnelOrder;
 use App\Models\Package;
 use App\Models\Product;
 use App\Models\ProductOrder;
@@ -130,6 +132,51 @@ class PosController extends Controller
             ->get();
 
         return response()->json(['data' => $customers]);
+    }
+
+    /**
+     * List class sessions that have upsell funnels assigned.
+     */
+    public function upsellSessions(Request $request): JsonResponse
+    {
+        $sessions = ClassSession::query()
+            ->whereNotNull('upsell_funnel_ids')
+            ->with(['class.course'])
+            ->orderBy('session_date', 'desc')
+            ->orderBy('session_time', 'desc')
+            ->limit(100)
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'class_name' => $s->class?->title ?? 'Unknown Class',
+                'course_name' => $s->class?->course?->name ?? '',
+                'session_date' => $s->session_date->format('Y-m-d'),
+                'session_date_formatted' => $s->session_date->format('M d, Y'),
+                'session_time' => Carbon::parse($s->session_time)->format('h:i A'),
+                'status' => $s->status,
+                'is_adhoc' => $s->is_adhoc,
+                'funnel_ids' => $s->upsell_funnel_ids ?? [],
+            ]);
+
+        return response()->json(['data' => $sessions]);
+    }
+
+    /**
+     * Get a single upsell session detail for banner display.
+     */
+    public function upsellSessionDetail(int $id): JsonResponse
+    {
+        $session = ClassSession::with(['class.course'])->findOrFail($id);
+
+        return response()->json(['data' => [
+            'id' => $session->id,
+            'class_name' => $session->class?->title ?? 'Unknown Class',
+            'course_name' => $session->class?->course?->name ?? '',
+            'session_date_formatted' => $session->session_date->format('M d, Y'),
+            'session_time' => Carbon::parse($session->session_time)->format('h:i A'),
+            'status' => $session->status,
+            'is_adhoc' => $session->is_adhoc,
+        ]]);
     }
 
     /**
@@ -285,6 +332,23 @@ class PosController extends Controller
                     'salesperson_id' => $request->user()->id,
                 ],
             ]);
+
+            // Link to upsell session via FunnelOrder if provided
+            if (! empty($validated['upsell_class_session_id'])) {
+                $classSession = ClassSession::find($validated['upsell_class_session_id']);
+                if ($classSession) {
+                    $funnelId = ($classSession->upsell_funnel_ids ?? [])[0] ?? null;
+                    if ($funnelId) {
+                        FunnelOrder::create([
+                            'funnel_id' => $funnelId,
+                            'product_order_id' => $order->id,
+                            'class_session_id' => $classSession->id,
+                            'order_type' => 'main',
+                            'funnel_revenue' => $totalAmount,
+                        ]);
+                    }
+                }
+            }
 
             $order->load('items', 'customer');
 
