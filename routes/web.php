@@ -498,11 +498,15 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
 
 // Live Host Management routes (Admin & Admin Livehost access)
 Route::middleware(['auth', 'role:admin,employee,admin_livehost'])->prefix('admin')->name('admin.')->group(function () {
-    // Live Host CRUD
-    Volt::route('live-hosts', 'admin.live-hosts-list')->name('live-hosts');
-    Volt::route('live-hosts/create', 'admin.live-hosts-create')->name('live-hosts.create');
-    Volt::route('live-hosts/{host}', 'admin.live-hosts-show')->name('live-hosts.show');
-    Volt::route('live-hosts/{host}/edit', 'admin.live-hosts-edit')->name('live-hosts.edit');
+    // Live Host CRUD — retired; now served by the Inertia PIC dashboard at /livehost/hosts.
+    // Redirects are kept inside the authenticated admin group so the user is logged in
+    // before the redirect fires (avoids leaking URLs to unauthenticated scrapers).
+    Route::permanentRedirect('live-hosts', '/livehost/hosts')->name('live-hosts');
+    Route::permanentRedirect('live-hosts/create', '/livehost/hosts/create')->name('live-hosts.create');
+    Route::get('live-hosts/{host}', fn ($host) => redirect("/livehost/hosts/{$host}", 301))
+        ->name('live-hosts.show');
+    Route::get('live-hosts/{host}/edit', fn ($host) => redirect("/livehost/hosts/{$host}/edit", 301))
+        ->name('live-hosts.edit');
 
     // Schedule Calendar (Main schedule management - spreadsheet style)
     Volt::route('live-schedule-calendar', 'admin.live-schedule-calendar')->name('live-schedule-calendar');
