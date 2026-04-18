@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LiveHost\StoreHostRequest;
 use App\Models\LiveSession;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,6 +59,27 @@ class HostController extends Controller
                 'status' => $status,
             ],
         ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('hosts/Create', []);
+    }
+
+    public function store(StoreHostRequest $request): RedirectResponse
+    {
+        $host = User::create([
+            'name' => $request->string('name')->toString(),
+            'email' => $request->string('email')->toString(),
+            'phone' => $request->string('phone')->toString(),
+            'status' => $request->string('status')->toString(),
+            'role' => 'live_host',
+            'password' => Hash::make(Str::random(40)),
+        ]);
+
+        return redirect()
+            ->route('livehost.hosts.index')
+            ->with('success', "Live host {$host->name} created.");
     }
 
     private function initials(?string $name): string

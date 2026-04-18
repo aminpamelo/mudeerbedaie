@@ -71,3 +71,70 @@ it('excludes soft-deleted hosts from the list', function () {
         ->get('/livehost/hosts')
         ->assertInertia(fn (Assert $p) => $p->has('hosts.data', 2));
 });
+
+it('renders the create form via Inertia', function () {
+    actingAs($this->pic)
+        ->get('/livehost/hosts/create')
+        ->assertInertia(fn (Assert $p) => $p->component('hosts/Create', false));
+});
+
+it('creates a new live host', function () {
+    actingAs($this->pic)
+        ->post('/livehost/hosts', [
+            'name' => 'Test Host',
+            'email' => 'test@example.com',
+            'phone' => '60123456789',
+            'status' => 'active',
+        ])
+        ->assertRedirect('/livehost/hosts')
+        ->assertSessionHas('success');
+
+    $created = User::where('email', 'test@example.com')->first();
+    expect($created)->not->toBeNull();
+    expect($created->role)->toBe('live_host');
+    expect($created->status)->toBe('active');
+    expect($created->password)->not->toBeNull();
+});
+
+it('rejects host create with missing required fields', function () {
+    actingAs($this->pic)
+        ->post('/livehost/hosts', [])
+        ->assertSessionHasErrors(['name', 'email', 'status']);
+});
+
+it('rejects host create with duplicate email', function () {
+    User::factory()->create(['email' => 'taken@example.com']);
+
+    actingAs($this->pic)
+        ->post('/livehost/hosts', [
+            'name' => 'X',
+            'email' => 'taken@example.com',
+            'phone' => '60199999999',
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors('email');
+});
+
+it('rejects host create with duplicate phone', function () {
+    User::factory()->create(['phone' => '60111111111']);
+
+    actingAs($this->pic)
+        ->post('/livehost/hosts', [
+            'name' => 'X',
+            'email' => 'unique@example.com',
+            'phone' => '60111111111',
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors('phone');
+});
+
+it('rejects host create with invalid status', function () {
+    actingAs($this->pic)
+        ->post('/livehost/hosts', [
+            'name' => 'X',
+            'email' => 'x@example.com',
+            'phone' => '60100000000',
+            'status' => 'banana',
+        ])
+        ->assertSessionHasErrors('status');
+});
