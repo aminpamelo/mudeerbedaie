@@ -22,6 +22,13 @@ class HrAttendanceController extends Controller
         $query = AttendanceLog::query()
             ->with(['employee.department']);
 
+        if ($search = $request->get('search')) {
+            $query->whereHas('employee', function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('employee_id', 'like', "%{$search}%");
+            });
+        }
+
         if ($dateFrom = $request->get('date_from')) {
             $query->whereDate('date', '>=', $dateFrom);
         }
@@ -42,7 +49,8 @@ class HrAttendanceController extends Controller
             $query->where('status', $status);
         }
 
-        $logs = $query->orderByDesc('date')->paginate(15);
+        $perPage = (int) $request->get('per_page', 20);
+        $logs = $query->orderByDesc('date')->paginate($perPage);
 
         // Attach OT claims and exit permissions to each log
         $this->attachRelatedRecords($logs->getCollection());
@@ -275,12 +283,27 @@ class HrAttendanceController extends Controller
         $query = AttendanceLog::query()
             ->with(['employee.department']);
 
+        if ($search = $request->get('search')) {
+            $query->whereHas('employee', function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('employee_id', 'like', "%{$search}%");
+            });
+        }
+
         if ($dateFrom = $request->get('date_from')) {
             $query->whereDate('date', '>=', $dateFrom);
         }
 
         if ($dateTo = $request->get('date_to')) {
             $query->whereDate('date', '<=', $dateTo);
+        }
+
+        if ($departmentId = $request->get('department_id')) {
+            $query->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId));
+        }
+
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
         }
 
         $logs = $query->orderByDesc('date')->get();

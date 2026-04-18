@@ -25,6 +25,11 @@ class HrEmployeeController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Employee::query()
+            ->select([
+                'id', 'user_id', 'employee_id', 'full_name', 'phone', 'personal_email',
+                'profile_photo', 'department_id', 'position_id', 'employment_type',
+                'join_date', 'status', 'created_at', 'updated_at', 'deleted_at',
+            ])
             ->with(['department:id,name', 'position:id,title']);
 
         if ($search = $request->get('search')) {

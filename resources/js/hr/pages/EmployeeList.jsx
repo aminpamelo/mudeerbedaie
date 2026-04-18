@@ -161,7 +161,7 @@ export default function EmployeeList() {
         statusFilter !== 'all' ||
         typeFilter !== 'all';
 
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, isError, error } = useQuery({
         queryKey: [
             'hr',
             'employees',
@@ -403,7 +403,30 @@ export default function EmployeeList() {
             </Card>
 
             {/* Content */}
-            {isLoading ? (
+            {isError ? (
+                <Card>
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                            <X className="h-6 w-6 text-red-600" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-zinc-900">
+                            Failed to load employees
+                        </h3>
+                        <p className="mt-1 text-sm text-zinc-500">
+                            {error?.response?.status === 401
+                                ? 'Your session has expired. Please refresh the page and log in again.'
+                                : 'Something went wrong while fetching the employee list. Please try again.'}
+                        </p>
+                        <Button
+                            variant="outline"
+                            className="mt-4"
+                            onClick={() => window.location.reload()}
+                        >
+                            Refresh Page
+                        </Button>
+                    </div>
+                </Card>
+            ) : isLoading ? (
                 <Card>
                     <SkeletonTable />
                 </Card>

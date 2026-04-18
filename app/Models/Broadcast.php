@@ -40,6 +40,7 @@ class Broadcast extends Model
         'design_json',
         'html_content',
         'editor_type',
+        'email_template_id',
     ];
 
     public function audiences(): BelongsToMany

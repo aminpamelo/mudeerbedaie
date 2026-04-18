@@ -56,6 +56,7 @@ new class extends Component {
         $this->design_json = $broadcast->design_json ? json_encode($broadcast->design_json) : '';
         $this->html_content = $broadcast->html_content ?: '';
         $this->editor_type = $broadcast->editor_type ?: 'text';
+        $this->selectedTemplateId = $broadcast->email_template_id;
         $this->selectedAudiences = $broadcast->audiences()->pluck('audiences.id')->toArray();
         $this->selectedStudents = $broadcast->selected_students ?: [];
 
@@ -116,6 +117,7 @@ new class extends Component {
             'design_json' => $this->design_json ? json_decode($this->design_json, true) : null,
             'html_content' => $this->html_content,
             'editor_type' => $this->editor_type,
+            'email_template_id' => $this->selectedTemplateId,
             'selected_students' => $this->selectedStudents,
         ]);
 
@@ -258,6 +260,7 @@ new class extends Component {
             'design_json' => $this->design_json ? json_decode($this->design_json, true) : null,
             'html_content' => $this->html_content,
             'editor_type' => $this->editor_type,
+            'email_template_id' => $this->selectedTemplateId,
             'selected_students' => $this->selectedStudents,
         ]);
 
@@ -308,6 +311,7 @@ new class extends Component {
             'design_json' => $this->design_json ? json_decode($this->design_json, true) : null,
             'html_content' => $this->html_content,
             'editor_type' => $this->editor_type,
+            'email_template_id' => $this->selectedTemplateId,
         ]);
 
         $this->broadcast->audiences()->sync($this->selectedAudiences);
