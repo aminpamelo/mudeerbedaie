@@ -191,6 +191,11 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
 
         Route::resource('session-slots', \App\Http\Controllers\LiveHost\SessionSlotController::class)
             ->parameters(['session-slots' => 'sessionSlot']);
+
+        Route::get('sessions', [\App\Http\Controllers\LiveHost\SessionController::class, 'index'])
+            ->name('sessions.index');
+        Route::get('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'show'])
+            ->name('sessions.show');
     });
 
 // Public Live Schedule - accessible by everyone
