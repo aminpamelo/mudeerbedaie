@@ -184,6 +184,10 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('hosts.destroy');
 
         Route::resource('schedules', \App\Http\Controllers\LiveHost\ScheduleController::class);
+
+        Route::resource('time-slots', \App\Http\Controllers\LiveHost\TimeSlotController::class)
+            ->except(['show'])
+            ->parameters(['time-slots' => 'timeSlot']);
     });
 
 // Public Live Schedule - accessible by everyone
