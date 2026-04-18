@@ -184,6 +184,13 @@ export default function HostsIndex() {
                         </Link>
                         <button
                           type="button"
+                          onClick={() => {
+                            if (window.confirm(`Delete ${host.name}?`)) {
+                              router.delete(`/livehost/hosts/${host.id}`, {
+                                preserveScroll: true,
+                              });
+                            }
+                          }}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FFF1F2] hover:text-[#F43F5E]"
                           title="Delete"
                         >

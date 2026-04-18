@@ -180,6 +180,8 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('hosts.edit');
         Route::put('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'update'])
             ->name('hosts.update');
+        Route::delete('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroy'])
+            ->name('hosts.destroy');
     });
 
 // Public Live Schedule - accessible by everyone

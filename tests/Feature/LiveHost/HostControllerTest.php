@@ -240,3 +240,47 @@ it('returns 404 when editing a non-live-host user', function () {
         ->get("/livehost/hosts/{$admin->id}/edit")
         ->assertNotFound();
 });
+
+it('soft-deletes a live host without connected platform accounts', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    actingAs($this->pic)
+        ->delete("/livehost/hosts/{$host->id}")
+        ->assertRedirect('/livehost/hosts')
+        ->assertSessionHas('success');
+
+    expect(User::find($host->id))->toBeNull();
+    expect(User::withTrashed()->find($host->id))
+        ->not->toBeNull()
+        ->role->toBe('live_host')
+        ->deleted_at->not->toBeNull();
+});
+
+it('refuses to delete a host with connected platform accounts', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    \App\Models\PlatformAccount::factory()->create(['user_id' => $host->id]);
+
+    actingAs($this->pic)
+        ->delete("/livehost/hosts/{$host->id}")
+        ->assertRedirect()
+        ->assertSessionHas('error');
+
+    expect(User::find($host->id))->not->toBeNull();
+});
+
+it('returns 404 when deleting a non-live-host user', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($this->pic)
+        ->delete("/livehost/hosts/{$admin->id}")
+        ->assertNotFound();
+});
+
+it('forbids non-PIC from deleting hosts', function () {
+    $regular = User::factory()->create(['role' => 'live_host']);
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    $this->actingAs($regular)
+        ->delete("/livehost/hosts/{$host->id}")
+        ->assertForbidden();
+});

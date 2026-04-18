@@ -173,7 +173,7 @@ export default function HostShow() {
                 disabled={deleting}
                 className="bg-[#F43F5E] text-white hover:bg-[#E11D48]"
               >
-                {deleting ? 'Deleting…' : 'Yes, delete'}
+                {deleting ? 'Deleting' : 'Confirm delete'}
               </Button>
             </div>
           </div>

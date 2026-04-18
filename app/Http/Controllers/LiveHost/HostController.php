@@ -166,6 +166,29 @@ class HostController extends Controller
             ->with('success', "Live host {$host->name} updated.");
     }
 
+    public function destroy(Request $request, User $host): RedirectResponse
+    {
+        abort_unless($host->role === 'live_host', 404);
+
+        if (! $request->user()?->can('livehost.delete', $host)) {
+            abort(403);
+        }
+
+        if ($host->platformAccounts()->exists()) {
+            return back()->with(
+                'error',
+                "Cannot delete {$host->name}: they still have platform accounts linked. Detach the platforms first."
+            );
+        }
+
+        $name = $host->name;
+        $host->delete();
+
+        return redirect()
+            ->route('livehost.hosts.index')
+            ->with('success', "Live host {$name} deleted.");
+    }
+
     private function initials(?string $name): string
     {
         if (! $name) {
