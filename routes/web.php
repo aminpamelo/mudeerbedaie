@@ -158,6 +158,15 @@ Route::middleware(['auth', 'role:live_host'])->prefix('live-host')->name('live-h
     Volt::route('sessions/{session}', 'live-host.sessions-show')->name('sessions.show');
 });
 
+// Live Host PIC (Inertia) — accessible by admin_livehost + admin
+Route::middleware(['auth', 'role:admin_livehost,admin'])
+    ->prefix('livehost')
+    ->name('livehost.')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\LiveHost\DashboardController::class, 'index'])
+            ->name('dashboard');
+    });
+
 // Public Live Schedule - accessible by everyone
 Volt::route('live/schedule', 'live.schedule-public')->name('live.schedule');
 
