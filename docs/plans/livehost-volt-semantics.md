@@ -232,3 +232,12 @@ views just render its live-host context).
 - [ ] **?** Edit form does NOT re-assert `role = 'live_host'` on update. A live host admin-edit won't change role, but if the Inertia rewrite uses mass-assign from request, it must explicitly exclude `role` or hard-set it.
 - [ ] **?** The show page imports `WithPagination` trait but renders no paginator — harmless, but the Inertia rewrite doesn't need to port it.
 - [ ] **?** Status toggle as a first-class action (e.g., Activate/Suspend button on the show page) does NOT exist — status is only changed via the edit form. `User` model exposes `activate()/deactivate()/suspend()` helpers but no Volt view calls them. Inertia rewrite should decide whether to add explicit toggle actions or keep edit-only.
+
+## Decisions for the Inertia rewrite (parity-first)
+
+- **Delete behavior:** Soft-delete only, role stays `live_host` (exact current behavior). Email/phone-reuse footgun is a known limitation, fix later.
+- **Phone validation:** Add `unique:users,phone` rule on store + update (ignoring self on update). Backs the existing DB unique index with a clean validation message.
+- **Delete guard:** Enforce `role = 'live_host'` in the controller + policy so crafted requests can't delete non-host users. Return 404 for non-host targets.
+- **Status toggle:** Not added in v1. Model helpers exist but no view uses them; defer to future.
+- **Welcome email:** Not sent in v1 (current Volt doesn't send). Deferred.
+- **Edit form role protection:** Explicitly exclude `role` from mass-assign in UpdateHostRequest::validated() consumers.
