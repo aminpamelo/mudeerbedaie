@@ -524,7 +524,7 @@ function CommissionsSection({ commissions, meta, filter, onFilterChange, page, o
                                 {commissions.map((commission) => (
                                     <tr key={commission.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                            {commission.affiliate?.name || '-'}
+                                            {commission.affiliate_name || '-'}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-500">
                                             #{commission.funnel_order_id}

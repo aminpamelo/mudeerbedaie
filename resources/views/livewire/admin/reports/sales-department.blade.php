@@ -18,7 +18,7 @@ new class extends Component
 
     public string $selectedSalesperson = 'all';
 
-    public string $selectedPeriod = 'this_month';
+    public string $selectedPeriod = 'this_year';
 
     public string $customStartDate = '';
 
@@ -266,6 +266,7 @@ new class extends Component
                     'today' => $query->whereDate('order_date', today()),
                     'this_week' => $query->whereBetween('order_date', [now()->startOfWeek(), now()->endOfWeek()]),
                     'this_month' => $query->whereBetween('order_date', [now()->startOfMonth(), now()->endOfMonth()]),
+                    'this_year' => $query->whereYear('order_date', now()->year),
                     default => null,
                 };
             }
@@ -670,6 +671,7 @@ new class extends Component
             <div class="w-full sm:w-40">
                 <flux:select wire:model.live="selectedPeriod" label="Period">
                     <option value="all">All Time</option>
+                    <option value="this_year">This Year</option>
                     <option value="today">Today</option>
                     <option value="this_week">This Week</option>
                     <option value="this_month">This Month</option>

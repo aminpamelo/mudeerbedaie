@@ -27,7 +27,7 @@ new class extends Component {
 
         // Get analytics for the period
         $analytics = FunnelAnalytics::where('funnel_id', $this->funnel->id)
-            ->whereNull('step_id')
+            ->whereNull('funnel_step_id')
             ->where('date', '>=', $startDate->toDateString())
             ->get();
 
@@ -47,7 +47,7 @@ new class extends Component {
         $stepAnalytics = [];
         foreach ($this->funnel->steps as $step) {
             $stepData = FunnelAnalytics::where('funnel_id', $this->funnel->id)
-                ->where('step_id', $step->id)
+                ->where('funnel_step_id', $step->id)
                 ->where('date', '>=', $startDate->toDateString())
                 ->get();
 
