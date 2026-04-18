@@ -56,3 +56,21 @@ it('counts only live sessions as liveNow', function () {
         ->get('/livehost')
         ->assertInertia(fn (Assert $p) => $p->where('stats.liveNow', 3));
 });
+
+it('exposes liveNow as JSON for polling', function () {
+    LiveSession::factory()->count(2)->create(['status' => 'live']);
+
+    actingAs($this->pic)
+        ->getJson('/livehost/live-now')
+        ->assertOk()
+        ->assertJsonCount(2, 'liveNow')
+        ->assertJsonStructure([
+            'liveNow' => [['id', 'hostName', 'viewers']],
+            'stats' => ['liveNow', 'totalHosts', 'activeHosts'],
+        ]);
+});
+
+it('does not allow guests to reach the live-now polling endpoint', function () {
+    $this->getJson('/livehost/live-now')
+        ->assertUnauthorized();
+});

@@ -165,6 +165,8 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
     ->group(function () {
         Route::get('/', [\App\Http\Controllers\LiveHost\DashboardController::class, 'index'])
             ->name('dashboard');
+        Route::get('live-now', [\App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
+            ->name('live-now');
     });
 
 // Public Live Schedule - accessible by everyone
