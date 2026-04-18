@@ -182,6 +182,8 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('hosts.update');
         Route::delete('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroy'])
             ->name('hosts.destroy');
+
+        Route::resource('schedules', \App\Http\Controllers\LiveHost\ScheduleController::class);
     });
 
 // Public Live Schedule - accessible by everyone
