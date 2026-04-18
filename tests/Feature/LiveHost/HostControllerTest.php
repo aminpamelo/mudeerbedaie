@@ -138,3 +138,25 @@ it('rejects host create with invalid status', function () {
         ])
         ->assertSessionHasErrors('status');
 });
+
+it('shows a live host detail page', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    actingAs($this->pic)
+        ->get("/livehost/hosts/{$host->id}")
+        ->assertInertia(fn (Assert $p) => $p
+            ->component('hosts/Show', false)
+            ->where('host.id', $host->id)
+            ->where('host.name', $host->name)
+            ->has('platformAccounts')
+            ->has('recentSessions')
+            ->has('stats'));
+});
+
+it('returns 404 when showing a non-live-host user', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($this->pic)
+        ->get("/livehost/hosts/{$admin->id}")
+        ->assertNotFound();
+});

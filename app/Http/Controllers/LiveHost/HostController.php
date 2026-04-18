@@ -66,6 +66,63 @@ class HostController extends Controller
         return Inertia::render('hosts/Create', []);
     }
 
+    public function show(User $host): Response
+    {
+        abort_unless($host->role === 'live_host', 404);
+
+        $host->load(['platformAccounts.platform']);
+
+        $recentSessions = LiveSession::query()
+            ->with(['platformAccount.platform'])
+            ->where('live_host_id', $host->id)
+            ->latest('actual_start_at')
+            ->take(10)
+            ->get()
+            ->map(fn (LiveSession $s) => [
+                'id' => $s->id,
+                'sessionId' => 'LS-'.str_pad((string) $s->id, 5, '0', STR_PAD_LEFT),
+                'status' => $s->status,
+                'platformAccount' => $s->platformAccount?->name,
+                'platformType' => $s->platformAccount?->platform?->slug,
+                'scheduledStart' => $s->scheduled_start_at?->toIso8601String(),
+                'actualStart' => $s->actual_start_at?->toIso8601String(),
+                'actualEnd' => $s->actual_end_at?->toIso8601String(),
+            ]);
+
+        $totalSessions = LiveSession::query()
+            ->where('live_host_id', $host->id)
+            ->count();
+
+        $completedSessions = LiveSession::query()
+            ->where('live_host_id', $host->id)
+            ->where('status', 'ended')
+            ->count();
+
+        return Inertia::render('hosts/Show', [
+            'host' => [
+                'id' => $host->id,
+                'name' => $host->name,
+                'email' => $host->email,
+                'phone' => $host->phone,
+                'status' => $host->status,
+                'createdAt' => $host->created_at?->toIso8601String(),
+                'initials' => $this->initials($host->name),
+            ],
+            'platformAccounts' => $host->platformAccounts->map(fn ($pa) => [
+                'id' => $pa->id,
+                'name' => $pa->name,
+                'platform' => $pa->platform?->slug,
+                'platformName' => $pa->platform?->name ?? $pa->platform?->display_name,
+            ]),
+            'recentSessions' => $recentSessions,
+            'stats' => [
+                'totalSessions' => $totalSessions,
+                'completedSessions' => $completedSessions,
+                'platformAccounts' => $host->platformAccounts->count(),
+            ],
+        ]);
+    }
+
     public function store(StoreHostRequest $request): RedirectResponse
     {
         $host = User::create([
