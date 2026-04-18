@@ -673,7 +673,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::get('leave/balances/export', [HrLeaveBalanceController::class, 'export'])->name('api.hr.leave-balances.export');
     Route::post('leave/balances/initialize', [HrLeaveBalanceController::class, 'initialize'])->name('api.hr.leave-balances.initialize');
     Route::get('leave/balances/{employeeId}', [HrLeaveBalanceController::class, 'show'])->name('api.hr.leave-balances.show');
-    Route::post('leave/balances/{leaveBalance}/adjust', [HrLeaveBalanceController::class, 'adjust'])->name('api.hr.leave-balances.adjust');
+    Route::post('leave/balances/{employee}/adjust', [HrLeaveBalanceController::class, 'adjust'])->name('api.hr.leave-balances.adjust');
 
     // Leave Requests (Admin)
     Route::get('leave/requests', [HrLeaveRequestController::class, 'index'])->name('api.hr.leave-requests.index');

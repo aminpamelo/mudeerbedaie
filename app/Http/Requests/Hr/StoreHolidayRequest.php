@@ -24,10 +24,10 @@ class StoreHolidayRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'date' => ['required', 'date'],
-            'type' => ['required', 'in:national,state'],
-            'states' => ['required_if:type,state', 'array'],
+            'type' => ['required', 'in:public,company,state,replacement'],
+            'states' => ['nullable', 'array'],
             'states.*' => ['string'],
-            'year' => ['required', 'integer', 'min:2020', 'max:2050'],
+            'year' => ['nullable', 'integer', 'min:2020', 'max:2050'],
             'is_recurring' => ['boolean'],
         ];
     }

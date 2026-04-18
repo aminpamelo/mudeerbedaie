@@ -22,7 +22,7 @@ class HrLeaveCalendarController extends Controller
         $endOfMonth = Carbon::create($year, $month, 1)->endOfMonth();
 
         $query = LeaveRequest::query()
-            ->with(['employee.department', 'leaveType'])
+            ->with(['employee.department', 'employee.position', 'leaveType'])
             ->where('status', 'approved')
             ->where(function ($q) use ($startOfMonth, $endOfMonth) {
                 $q->whereBetween('start_date', [$startOfMonth, $endOfMonth])
@@ -39,15 +39,28 @@ class HrLeaveCalendarController extends Controller
 
         $leaves = $query->get()->map(fn ($leave) => [
             'id' => $leave->id,
-            'employee_name' => $leave->employee?->full_name,
-            'department' => $leave->employee?->department?->name,
-            'leave_type' => $leave->leaveType?->name,
-            'color' => $leave->leaveType?->color,
-            'start_date' => $leave->start_date,
-            'end_date' => $leave->end_date,
+            'employee' => [
+                'full_name' => $leave->employee?->full_name,
+                'employee_id' => $leave->employee?->employee_id,
+                'profile_photo_url' => $leave->employee?->profile_photo_url,
+                'initials' => $leave->employee?->initials,
+                'department' => [
+                    'id' => $leave->employee?->department?->id,
+                    'name' => $leave->employee?->department?->name,
+                ],
+                'position' => $leave->employee?->position?->name,
+            ],
+            'leave_type' => [
+                'name' => $leave->leaveType?->name,
+                'color' => $leave->leaveType?->color,
+                'is_paid' => $leave->leaveType?->is_paid,
+            ],
+            'start_date' => $leave->start_date->toDateString(),
+            'end_date' => $leave->end_date->toDateString(),
             'total_days' => $leave->total_days,
             'is_half_day' => $leave->is_half_day,
             'half_day_period' => $leave->half_day_period,
+            'reason' => $leave->reason,
         ]);
 
         return response()->json(['data' => $leaves]);

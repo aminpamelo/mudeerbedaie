@@ -71,6 +71,7 @@ const STATUS_OPTIONS = [
     { value: 'wfh', label: 'WFH' },
     { value: 'on_leave', label: 'On Leave' },
     { value: 'half_day', label: 'Half Day' },
+    { value: 'early_leave', label: 'Early Leave' },
 ];
 
 const STATUS_COLORS = {
@@ -80,6 +81,7 @@ const STATUS_COLORS = {
     wfh: { label: 'WFH', bg: 'bg-blue-100', text: 'text-blue-800' },
     on_leave: { label: 'On Leave', bg: 'bg-purple-100', text: 'text-purple-800' },
     half_day: { label: 'Half Day', bg: 'bg-orange-100', text: 'text-orange-800' },
+    early_leave: { label: 'Early Leave', bg: 'bg-teal-100', text: 'text-teal-800' },
 };
 
 function AttendanceStatusBadge({ status }) {
@@ -236,20 +238,39 @@ export default function AttendanceRecords() {
         });
     }
 
+    function extractTime(datetimeStr) {
+        if (!datetimeStr) {
+            return '';
+        }
+        const date = new Date(datetimeStr);
+        if (isNaN(date.getTime())) {
+            // Fallback: try to extract HH:MM from string directly
+            const match = datetimeStr.match(/(\d{2}):(\d{2})/);
+            return match ? `${match[1]}:${match[2]}` : '';
+        }
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
+
     function openEdit(record) {
         setEditForm({
-            clock_in: record.clock_in || '',
-            clock_out: record.clock_out || '',
+            clock_in: extractTime(record.clock_in),
+            clock_out: extractTime(record.clock_out),
             status: record.status || '',
-            remarks: record.admin_remarks || '',
+            remarks: record.remarks || '',
         });
         setEditRecord(record);
     }
 
     function handleSaveEdit() {
+        const dateStr = editRecord.date ? new Date(editRecord.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
         updateMutation.mutate({
             id: editRecord.id,
-            data: editForm,
+            data: {
+                clock_in: editForm.clock_in ? `${dateStr} ${editForm.clock_in}:00` : null,
+                clock_out: editForm.clock_out ? `${dateStr} ${editForm.clock_out}:00` : null,
+                status: editForm.status,
+                remarks: editForm.remarks,
+            },
         });
     }
 

@@ -179,7 +179,15 @@ class HrLeaveBalanceController extends Controller
                         $carryForward = min(max($remaining, 0), $matchingEntitlement->carry_forward_max);
                     }
 
-                    $availableDays = $entitledDays + $carryForward;
+                    $existingBalance = LeaveBalance::query()
+                        ->where('employee_id', $employee->id)
+                        ->where('leave_type_id', $leaveType->id)
+                        ->where('year', $year)
+                        ->first();
+
+                    $usedDays = $existingBalance->used_days ?? 0;
+                    $pendingDays = $existingBalance->pending_days ?? 0;
+                    $availableDays = $entitledDays + $carryForward - $usedDays - $pendingDays;
 
                     LeaveBalance::updateOrCreate(
                         [
@@ -207,15 +215,25 @@ class HrLeaveBalanceController extends Controller
     /**
      * Manual adjustment of a leave balance.
      */
-    public function adjust(Request $request, LeaveBalance $leaveBalance): JsonResponse
+    public function adjust(Request $request, Employee $employee): JsonResponse
     {
         $validated = $request->validate([
-            'adjustment_days' => ['required', 'numeric'],
-            'reason' => ['required', 'string', 'min:5'],
+            'leave_type_id' => ['required', 'exists:leave_types,id'],
+            'days' => ['required', 'numeric'],
+            'reason' => ['nullable', 'string'],
+            'year' => ['nullable', 'integer'],
         ]);
 
+        $year = $validated['year'] ?? now()->year;
+
+        $leaveBalance = LeaveBalance::where('employee_id', $employee->id)
+            ->where('leave_type_id', $validated['leave_type_id'])
+            ->where('year', $year)
+            ->firstOrFail();
+
         $leaveBalance->update([
-            'available_days' => $leaveBalance->available_days + $validated['adjustment_days'],
+            'entitled_days' => $leaveBalance->entitled_days + $validated['days'],
+            'available_days' => $leaveBalance->available_days + $validated['days'],
         ]);
 
         return response()->json([

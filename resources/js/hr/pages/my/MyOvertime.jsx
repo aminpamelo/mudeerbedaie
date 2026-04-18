@@ -402,7 +402,6 @@ export default function MyOvertime() {
                                 <Input
                                     type="date"
                                     value={form.date}
-                                    min={new Date().toISOString().split('T')[0]}
                                     onChange={(e) => setForm({ ...form, date: e.target.value })}
                                     className="mt-1"
                                     required

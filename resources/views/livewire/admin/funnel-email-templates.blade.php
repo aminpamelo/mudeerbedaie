@@ -404,35 +404,38 @@ new class extends Component
     </flux:modal>
 
     <!-- Preview Modal -->
-    <flux:modal wire:model="showPreviewModal" class="max-w-2xl">
-        <div class="space-y-4">
-            <flux:heading size="lg">Template Preview</flux:heading>
+    <flux:modal wire:model="showPreviewModal" class="max-w-4xl w-full">
+        <div class="space-y-5">
+            <div class="flex items-center justify-between">
+                <flux:heading size="lg">Template Preview</flux:heading>
+            </div>
 
             @if($previewSubject)
                 <div>
                     <flux:label>Subject</flux:label>
-                    <div class="mt-1 p-3 bg-gray-50 rounded-lg border text-sm">{{ $previewSubject }}</div>
+                    <div class="mt-1.5 px-4 py-3 bg-gray-50 dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 text-sm font-medium text-gray-800 dark:text-gray-200">{{ $previewSubject }}</div>
                 </div>
             @endif
 
             <div>
                 <flux:label>Content</flux:label>
                 @if($previewIsVisual)
-                    <div class="mt-1 border rounded-lg overflow-hidden">
+                    <div class="mt-1.5 border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden bg-white">
                         <iframe
                             srcdoc="{{ $previewContent }}"
-                            class="w-full h-96 border-0"
+                            class="w-full border-0"
+                            style="min-height: 500px; height: 65vh; max-height: 700px;"
                             sandbox=""
                         ></iframe>
                     </div>
                 @else
-                    <div class="mt-1 p-4 bg-gray-50 rounded-lg border">
-                        <pre class="text-sm whitespace-pre-wrap font-mono text-gray-700">{{ $previewContent }}</pre>
+                    <div class="mt-1.5 p-5 bg-gray-50 dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-auto" style="max-height: 65vh;">
+                        <pre class="text-sm whitespace-pre-wrap font-mono text-gray-700 dark:text-gray-300 leading-relaxed">{{ $previewContent }}</pre>
                     </div>
                 @endif
             </div>
 
-            <div class="flex justify-end">
+            <div class="flex justify-end pt-1">
                 <flux:button variant="ghost" wire:click="$set('showPreviewModal', false)">Close</flux:button>
             </div>
         </div>

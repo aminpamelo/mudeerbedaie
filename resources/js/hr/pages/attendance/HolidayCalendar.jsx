@@ -266,10 +266,14 @@ export default function HolidayCalendar() {
     }
 
     function handleSave() {
+        const payload = {
+            ...form,
+            year: form.date ? parseInt(form.date.substring(0, 4), 10) : null,
+        };
         if (editTarget) {
-            updateMutation.mutate({ id: editTarget.id, data: form });
+            updateMutation.mutate({ id: editTarget.id, data: payload });
         } else {
-            createMutation.mutate(form);
+            createMutation.mutate(payload);
         }
     }
 
@@ -497,6 +501,7 @@ export default function HolidayCalendar() {
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                                 placeholder="e.g. Hari Raya Aidilfitri"
                             />
+                            {formErrors.name && <p className="mt-1 text-xs text-red-500">{formErrors.name[0]}</p>}
                         </div>
                         <div>
                             <Label>Date</Label>
@@ -505,6 +510,7 @@ export default function HolidayCalendar() {
                                 value={form.date}
                                 onChange={(e) => setForm({ ...form, date: e.target.value })}
                             />
+                            {formErrors.date && <p className="mt-1 text-xs text-red-500">{formErrors.date[0]}</p>}
                         </div>
                         <div>
                             <Label>Type</Label>
@@ -520,6 +526,7 @@ export default function HolidayCalendar() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {formErrors.type && <p className="mt-1 text-xs text-red-500">{formErrors.type[0]}</p>}
                         </div>
                         <div>
                             <Label className="mb-2 block">Applicable States (leave empty for all)</Label>

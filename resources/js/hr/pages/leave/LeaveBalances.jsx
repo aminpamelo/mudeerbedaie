@@ -101,6 +101,8 @@ export default function LeaveBalances() {
     const [initYear, setInitYear] = useState(String(currentYear));
     const [adjustDialog, setAdjustDialog] = useState({ open: false, employee: null });
     const [adjustForm, setAdjustForm] = useState({ leave_type_id: '', days: '', type: 'add', reason: '' });
+    const [adjustError, setAdjustError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
     const [exporting, setExporting] = useState(false);
 
     const hasFilters = search !== '' || departmentFilter !== 'all';
@@ -136,10 +138,16 @@ export default function LeaveBalances() {
 
     const adjustMutation = useMutation({
         mutationFn: ({ id, data }) => adjustLeaveBalance(id, data),
-        onSuccess: () => {
+        onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['hr', 'leave', 'balances'] });
             setAdjustDialog({ open: false, employee: null });
             setAdjustForm({ leave_type_id: '', days: '', type: 'add', reason: '' });
+            setAdjustError('');
+            setSuccessMessage(result?.message || 'Leave balance adjusted successfully.');
+            setTimeout(() => setSuccessMessage(''), 4000);
+        },
+        onError: (err) => {
+            setAdjustError(err?.response?.data?.message || 'Failed to adjust leave balance.');
         },
     });
 
@@ -236,6 +244,12 @@ export default function LeaveBalances() {
                     </div>
                 }
             />
+
+            {successMessage && (
+                <div className="mb-4 rounded-md bg-emerald-50 border border-emerald-200 p-3">
+                    <p className="text-sm font-medium text-emerald-700">{successMessage}</p>
+                </div>
+            )}
 
             <Card>
                 <CardContent className="p-6">
@@ -502,8 +516,13 @@ export default function LeaveBalances() {
                             />
                         </div>
                     </div>
+                    {adjustError && (
+                        <div className="rounded-md bg-red-50 border border-red-200 p-3">
+                            <p className="text-sm text-red-700">{adjustError}</p>
+                        </div>
+                    )}
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setAdjustDialog({ open: false, employee: null })}>Cancel</Button>
+                        <Button variant="outline" onClick={() => { setAdjustDialog({ open: false, employee: null }); setAdjustError(''); }}>Cancel</Button>
                         <Button
                             onClick={handleAdjust}
                             disabled={!adjustForm.leave_type_id || !adjustForm.days || adjustMutation.isPending}

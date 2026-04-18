@@ -120,7 +120,7 @@ export const fetchLeaveEntitlements = (params) => api.get('/leave/entitlements',
 export const createLeaveEntitlement = (data) => api.post('/leave/entitlements', data).then(r => r.data);
 export const updateLeaveEntitlement = (id, data) => api.put(`/leave/entitlements/${id}`, data).then(r => r.data);
 export const deleteLeaveEntitlement = (id) => api.delete(`/leave/entitlements/${id}`).then(r => r.data);
-export const recalculateEntitlements = () => api.post('/leave/entitlements/recalculate').then(r => r.data);
+export const recalculateEntitlements = (year) => api.post('/leave/entitlements/recalculate', { year: year || new Date().getFullYear() }).then(r => r.data);
 
 
 // ========== Work Schedules ==========

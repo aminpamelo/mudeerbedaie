@@ -22,7 +22,7 @@ class StoreOvertimeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'requested_date' => ['required', 'date', 'after_or_equal:today'],
+            'requested_date' => ['required', 'date'],
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['required', 'date_format:H:i'],
             'estimated_hours' => ['required', 'numeric', 'min:0.5', 'max:12'],
@@ -36,8 +36,6 @@ class StoreOvertimeRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'requested_date.after_or_equal' => 'Overtime date must be today or in the future.',
-
             'estimated_hours.min' => 'Minimum overtime is 0.5 hours.',
             'estimated_hours.max' => 'Maximum overtime is 12 hours.',
             'reason.min' => 'Please provide a detailed reason (at least 10 characters).',

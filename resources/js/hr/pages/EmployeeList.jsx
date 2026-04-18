@@ -184,13 +184,11 @@ export default function EmployeeList() {
 
     const employees = data?.data || [];
     const pagination = data?.meta || data || {};
-    const totalEmployees = pagination.total || 0;
+    const stats = data?.stats || {};
+    const totalEmployees = stats.total || pagination.total || 0;
+    const activeCount = stats.active || 0;
     const lastPage = pagination.last_page || 1;
     const departments = departmentsData?.data || [];
-
-    const activeCount = employees.filter(
-        (e) => e.status === 'active' || e.status === 'probation'
-    ).length;
 
     const resetPage = useCallback(() => setPage(1), []);
 

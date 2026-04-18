@@ -36,13 +36,14 @@ import { cn } from '../../lib/utils';
 import { fetchAttendanceMonthly, fetchDepartments } from '../../lib/api';
 
 const STATUS_CONFIG = {
-    present:  { short: 'P',  bg: 'bg-emerald-500', text: 'text-white',      label: 'Present',   ring: 'ring-emerald-300' },
-    late:     { short: 'L',  bg: 'bg-amber-400',   text: 'text-white',      label: 'Late',      ring: 'ring-amber-300' },
-    absent:   { short: 'A',  bg: 'bg-red-500',     text: 'text-white',      label: 'Absent',    ring: 'ring-red-300' },
-    wfh:      { short: 'W',  bg: 'bg-sky-500',     text: 'text-white',      label: 'WFH',       ring: 'ring-sky-300' },
-    on_leave: { short: 'OL', bg: 'bg-violet-500',  text: 'text-white',      label: 'On Leave',  ring: 'ring-violet-300' },
-    half_day: { short: 'H',  bg: 'bg-orange-400',  text: 'text-white',      label: 'Half Day',  ring: 'ring-orange-300' },
-    holiday:  { short: 'HO', bg: 'bg-zinc-300',    text: 'text-zinc-700',   label: 'Holiday',   ring: 'ring-zinc-200' },
+    present:     { short: 'P',  bg: 'bg-emerald-500', text: 'text-white',      label: 'Present',     ring: 'ring-emerald-300' },
+    late:        { short: 'L',  bg: 'bg-amber-400',   text: 'text-white',      label: 'Late',        ring: 'ring-amber-300' },
+    absent:      { short: 'A',  bg: 'bg-red-500',     text: 'text-white',      label: 'Absent',      ring: 'ring-red-300' },
+    wfh:         { short: 'W',  bg: 'bg-sky-500',     text: 'text-white',      label: 'WFH',         ring: 'ring-sky-300' },
+    on_leave:    { short: 'OL', bg: 'bg-violet-500',  text: 'text-white',      label: 'On Leave',    ring: 'ring-violet-300' },
+    half_day:    { short: 'H',  bg: 'bg-orange-400',  text: 'text-white',      label: 'Half Day',    ring: 'ring-orange-300' },
+    early_leave: { short: 'EL', bg: 'bg-teal-500',    text: 'text-white',      label: 'Early Leave', ring: 'ring-teal-300' },
+    holiday:     { short: 'HO', bg: 'bg-zinc-300',    text: 'text-zinc-700',   label: 'Holiday',     ring: 'ring-zinc-200' },
 };
 
 const MONTH_NAMES = [
@@ -122,10 +123,11 @@ function EmptyDot({ isWeekend: weekend, isToday }) {
 
 function SummaryPill({ count, variant }) {
     const styles = {
-        present: 'bg-emerald-50 text-emerald-700',
-        absent:  'bg-red-50 text-red-700',
-        late:    'bg-amber-50 text-amber-700',
-        leave:   'bg-violet-50 text-violet-700',
+        present:     'bg-emerald-50 text-emerald-700',
+        absent:      'bg-red-50 text-red-700',
+        late:        'bg-amber-50 text-amber-700',
+        leave:       'bg-violet-50 text-violet-700',
+        early_leave: 'bg-teal-50 text-teal-700',
     };
     if (count === 0) { return null; }
     return (
@@ -724,6 +726,7 @@ export default function AttendanceMonthlyView() {
                                             <SummaryPill count={emp.summary?.absent} variant="absent" />
                                             <SummaryPill count={emp.summary?.late} variant="late" />
                                             <SummaryPill count={emp.summary?.leave} variant="leave" />
+                                            <SummaryPill count={emp.summary?.early_leave} variant="early_leave" />
                                         </div>
                                     </div>
                                 ))

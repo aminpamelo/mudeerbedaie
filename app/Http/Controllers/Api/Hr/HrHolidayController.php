@@ -36,7 +36,10 @@ class HrHolidayController extends Controller
      */
     public function store(StoreHolidayRequest $request): JsonResponse
     {
-        $holiday = Holiday::create($request->validated());
+        $data = $request->validated();
+        $data['year'] = $data['year'] ?? (int) date('Y', strtotime($data['date']));
+
+        $holiday = Holiday::create($data);
 
         return response()->json([
             'data' => $holiday,
@@ -57,7 +60,10 @@ class HrHolidayController extends Controller
      */
     public function update(StoreHolidayRequest $request, Holiday $holiday): JsonResponse
     {
-        $holiday->update($request->validated());
+        $data = $request->validated();
+        $data['year'] = $data['year'] ?? (int) date('Y', strtotime($data['date']));
+
+        $holiday->update($data);
 
         return response()->json([
             'data' => $holiday->fresh(),
@@ -83,22 +89,22 @@ class HrHolidayController extends Controller
         $year = $request->get('year', 2026);
 
         $holidays = [
-            ['name' => 'New Year\'s Day', 'date' => "{$year}-01-01", 'type' => 'national', 'states' => null, 'is_recurring' => true],
-            ['name' => 'Thaipusam', 'date' => "{$year}-01-25", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Nuzul Al-Quran', 'date' => "{$year}-02-17", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Labour Day', 'date' => "{$year}-05-01", 'type' => 'national', 'states' => null, 'is_recurring' => true],
-            ['name' => 'Vesak Day', 'date' => "{$year}-05-12", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Yang di-Pertuan Agong Birthday', 'date' => "{$year}-06-01", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Hari Raya Aidilfitri', 'date' => "{$year}-03-30", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Hari Raya Aidilfitri (2nd Day)', 'date' => "{$year}-03-31", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Hari Raya Haji', 'date' => "{$year}-06-07", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Hari Raya Haji (2nd Day)', 'date' => "{$year}-06-08", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Awal Muharram', 'date' => "{$year}-06-27", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Malaysia Day', 'date' => "{$year}-09-16", 'type' => 'national', 'states' => null, 'is_recurring' => true],
-            ['name' => 'Maulidur Rasul', 'date' => "{$year}-09-05", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Deepavali', 'date' => "{$year}-10-20", 'type' => 'national', 'states' => null, 'is_recurring' => false],
-            ['name' => 'Christmas Day', 'date' => "{$year}-12-25", 'type' => 'national', 'states' => null, 'is_recurring' => true],
-            ['name' => 'Merdeka Day', 'date' => "{$year}-08-31", 'type' => 'national', 'states' => null, 'is_recurring' => true],
+            ['name' => 'New Year\'s Day', 'date' => "{$year}-01-01", 'type' => 'public', 'states' => null, 'is_recurring' => true],
+            ['name' => 'Thaipusam', 'date' => "{$year}-01-25", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Nuzul Al-Quran', 'date' => "{$year}-02-17", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Labour Day', 'date' => "{$year}-05-01", 'type' => 'public', 'states' => null, 'is_recurring' => true],
+            ['name' => 'Vesak Day', 'date' => "{$year}-05-12", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Yang di-Pertuan Agong Birthday', 'date' => "{$year}-06-01", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Hari Raya Aidilfitri', 'date' => "{$year}-03-30", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Hari Raya Aidilfitri (2nd Day)', 'date' => "{$year}-03-31", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Hari Raya Haji', 'date' => "{$year}-06-07", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Hari Raya Haji (2nd Day)', 'date' => "{$year}-06-08", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Awal Muharram', 'date' => "{$year}-06-27", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Malaysia Day', 'date' => "{$year}-09-16", 'type' => 'public', 'states' => null, 'is_recurring' => true],
+            ['name' => 'Maulidur Rasul', 'date' => "{$year}-09-05", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Deepavali', 'date' => "{$year}-10-20", 'type' => 'public', 'states' => null, 'is_recurring' => false],
+            ['name' => 'Christmas Day', 'date' => "{$year}-12-25", 'type' => 'public', 'states' => null, 'is_recurring' => true],
+            ['name' => 'Merdeka Day', 'date' => "{$year}-08-31", 'type' => 'public', 'states' => null, 'is_recurring' => true],
         ];
 
         return DB::transaction(function () use ($holidays, $year) {

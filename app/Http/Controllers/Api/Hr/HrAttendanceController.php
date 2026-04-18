@@ -93,7 +93,7 @@ class HrAttendanceController extends Controller
         $validated = $request->validate([
             'clock_in' => ['nullable', 'date'],
             'clock_out' => ['nullable', 'date'],
-            'status' => ['nullable', 'in:present,absent,late,half_day,on_leave,holiday,wfh'],
+            'status' => ['nullable', 'in:present,absent,late,half_day,on_leave,holiday,wfh,early_leave'],
             'remarks' => ['nullable', 'string'],
         ]);
 
@@ -224,10 +224,11 @@ class HrAttendanceController extends Controller
                 $days[$day] = $dayData;
             }
 
-            $presentCount = collect($days)->filter(fn ($d) => $d && in_array($d['status'], ['present', 'late', 'wfh', 'half_day']))->count();
+            $presentCount = collect($days)->filter(fn ($d) => $d && in_array($d['status'], ['present', 'late', 'wfh', 'half_day', 'early_leave']))->count();
             $absentCount = collect($days)->filter(fn ($d) => $d && $d['status'] === 'absent')->count();
             $lateCount = collect($days)->filter(fn ($d) => $d && $d['status'] === 'late')->count();
             $leaveCount = collect($days)->filter(fn ($d) => $d && $d['status'] === 'on_leave')->count();
+            $earlyLeaveCount = collect($days)->filter(fn ($d) => $d && $d['status'] === 'early_leave')->count();
 
             $schedule = $employee->currentSchedule;
             $workSchedule = $schedule?->workSchedule;
@@ -250,6 +251,7 @@ class HrAttendanceController extends Controller
                     'absent' => $absentCount,
                     'late' => $lateCount,
                     'leave' => $leaveCount,
+                    'early_leave' => $earlyLeaveCount,
                 ],
             ];
         });

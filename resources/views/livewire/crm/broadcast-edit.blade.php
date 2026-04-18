@@ -4,10 +4,11 @@ use App\Models\Audience;
 use App\Models\Broadcast;
 use App\Models\FunnelEmailTemplate;
 use App\Models\Setting;
-use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Component;
 
 new class extends Component {
+    public Broadcast $broadcast;
+
     // Current step
     public $currentStep = 1;
 
@@ -35,39 +36,44 @@ new class extends Component {
     public ?int $selectedTemplateId = null;
     public string $templateSearch = '';
 
-    // Step 4: Review & Schedule
+    // Step 4: Schedule
     public $sendOption = 'now';
     public $scheduled_at = '';
-    public string $testEmail = '';
-    public bool $testEmailSending = false;
 
-    public function mount(): void
+    public function mount(Broadcast $broadcast): void
     {
-        // Load default email settings
-        $this->from_email = Setting::where('key', 'email.from_address')->value('value') ?? 'admin@kelasify.com';
-        $this->from_name = Setting::where('key', 'email.from_name')->value('value') ?? 'Kelasify by Bedaie';
-        $this->reply_to_email = $this->from_email;
-        $this->testEmail = auth()->user()->email ?? '';
+        $this->broadcast = $broadcast;
 
-        $resumeId = request()->query('resume');
-        if ($resumeId) {
-            $broadcast = Broadcast::find($resumeId);
-            if ($broadcast && $broadcast->status === 'draft') {
-                $this->name = $broadcast->name ?: '';
-                $this->type = $broadcast->type ?: 'standard';
-                $this->from_name = $broadcast->from_name ?: $this->from_name;
-                $this->from_email = $broadcast->from_email ?: $this->from_email;
-                $this->reply_to_email = $broadcast->reply_to_email ?: '';
-                $this->subject = $broadcast->subject ?: '';
-                $this->preview_text = $broadcast->preview_text ?: '';
-                $this->content = $broadcast->content ?: '';
-                $this->design_json = $broadcast->design_json ? json_encode($broadcast->design_json) : '';
-                $this->html_content = $broadcast->html_content ?: '';
-                $this->editor_type = $broadcast->editor_type ?: 'text';
-                $this->currentStep = 3;
-                $this->selectedAudiences = $broadcast->audiences()->pluck('audiences.id')->toArray();
-                $this->selectedStudents = $broadcast->selected_students ?: [];
-            }
+        // Load broadcast data
+        $this->name = $broadcast->name ?: '';
+        $this->type = $broadcast->type ?: 'standard';
+        $this->from_name = $broadcast->from_name ?: '';
+        $this->from_email = $broadcast->from_email ?: '';
+        $this->reply_to_email = $broadcast->reply_to_email ?: '';
+        $this->subject = $broadcast->subject ?: '';
+        $this->preview_text = $broadcast->preview_text ?: '';
+        $this->content = $broadcast->content ?: '';
+        $this->design_json = $broadcast->design_json ? json_encode($broadcast->design_json) : '';
+        $this->html_content = $broadcast->html_content ?: '';
+        $this->editor_type = $broadcast->editor_type ?: 'text';
+        $this->selectedAudiences = $broadcast->audiences()->pluck('audiences.id')->toArray();
+        $this->selectedStudents = $broadcast->selected_students ?: [];
+
+        // Load default email settings for empty fields
+        if (empty($this->from_email)) {
+            $this->from_email = Setting::where('key', 'email.from_address')->value('value') ?? '';
+        }
+        if (empty($this->from_name)) {
+            $this->from_name = Setting::where('key', 'email.from_name')->value('value') ?? '';
+        }
+        if (empty($this->reply_to_email)) {
+            $this->reply_to_email = $this->from_email;
+        }
+
+        // Set schedule option
+        if ($broadcast->scheduled_at) {
+            $this->sendOption = 'schedule';
+            $this->scheduled_at = $broadcast->scheduled_at->format('Y-m-d\TH:i');
         }
     }
 
@@ -97,10 +103,10 @@ new class extends Component {
 
     public function openBuilder(): void
     {
-        $broadcast = Broadcast::create([
+        // Save current state before redirecting to builder
+        $this->broadcast->update([
             'name' => $this->name ?: 'Untitled Broadcast',
             'type' => $this->type,
-            'status' => 'draft',
             'from_name' => $this->from_name,
             'from_email' => $this->from_email,
             'reply_to_email' => $this->reply_to_email,
@@ -113,11 +119,9 @@ new class extends Component {
             'selected_students' => $this->selectedStudents,
         ]);
 
-        if (! empty($this->selectedAudiences)) {
-            $broadcast->audiences()->attach($this->selectedAudiences);
-        }
+        $this->broadcast->audiences()->sync($this->selectedAudiences);
 
-        $this->redirect(route('crm.broadcasts.builder', $broadcast));
+        $this->redirect(route('crm.broadcasts.builder', $this->broadcast));
     }
 
     public function with(): array
@@ -241,7 +245,7 @@ new class extends Component {
 
     public function saveDraft(): void
     {
-        $broadcast = Broadcast::create([
+        $this->broadcast->update([
             'name' => $this->name ?: 'Untitled Broadcast',
             'type' => $this->type,
             'status' => 'draft',
@@ -254,11 +258,10 @@ new class extends Component {
             'design_json' => $this->design_json ? json_decode($this->design_json, true) : null,
             'html_content' => $this->html_content,
             'editor_type' => $this->editor_type,
+            'selected_students' => $this->selectedStudents,
         ]);
 
-        if (!empty($this->selectedAudiences)) {
-            $broadcast->audiences()->attach($this->selectedAudiences);
-        }
+        $this->broadcast->audiences()->sync($this->selectedAudiences);
 
         session()->flash('message', 'Broadcast saved as draft.');
         $this->redirect(route('crm.broadcasts.index'));
@@ -289,7 +292,7 @@ new class extends Component {
         // Use selected students count
         $totalRecipients = count($this->selectedStudents);
 
-        $broadcast = Broadcast::create([
+        $this->broadcast->update([
             'name' => $this->name,
             'type' => $this->type,
             'status' => $this->sendOption === 'now' ? 'sending' : 'scheduled',
@@ -307,11 +310,11 @@ new class extends Component {
             'editor_type' => $this->editor_type,
         ]);
 
-        $broadcast->audiences()->attach($this->selectedAudiences);
+        $this->broadcast->audiences()->sync($this->selectedAudiences);
 
         if ($this->sendOption === 'now') {
             // Dispatch job to send emails
-            \App\Jobs\SendBroadcastEmail::dispatch($broadcast);
+            \App\Jobs\SendBroadcastEmail::dispatch($this->broadcast);
             session()->flash('message', 'Broadcast is being sent!');
         } else {
             session()->flash('message', 'Broadcast scheduled successfully!');
@@ -319,68 +322,12 @@ new class extends Component {
 
         $this->redirect(route('crm.broadcasts.index'));
     }
-
-    public function sendTestEmail(): void
-    {
-        $this->validate([
-            'testEmail' => 'required|email',
-        ]);
-
-        $this->testEmailSending = true;
-
-        try {
-            // Get the effective content
-            $content = $this->editor_type === 'visual' && $this->html_content
-                ? $this->html_content
-                : nl2br(e($this->content));
-
-            // Replace merge tags with sample data
-            $sampleReplacements = [
-                '{{name}}' => 'Test User',
-                '{{email}}' => $this->testEmail,
-                '{{student_id}}' => 'STD-0000',
-            ];
-
-            $testContent = str_replace(
-                array_keys($sampleReplacements),
-                array_values($sampleReplacements),
-                $content
-            );
-            $testSubject = '[TEST] ' . str_replace(
-                array_keys($sampleReplacements),
-                array_values($sampleReplacements),
-                $this->subject
-            );
-
-            Mail::html($testContent, function ($message) use ($testSubject) {
-                $message->to($this->testEmail)
-                    ->subject($testSubject)
-                    ->from($this->from_email, $this->from_name);
-
-                if ($this->reply_to_email) {
-                    $message->replyTo($this->reply_to_email);
-                }
-            });
-
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => 'Test email sent to ' . $this->testEmail,
-            ]);
-        } catch (\Exception $e) {
-            $this->dispatch('notify', [
-                'type' => 'error',
-                'message' => 'Failed to send test email: ' . $e->getMessage(),
-            ]);
-        } finally {
-            $this->testEmailSending = false;
-        }
-    }
 }; ?>
 
 <div>
     <div class="mb-6">
-        <h1 class="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ $currentStep === 4 ? 'Review & Send' : 'Create Broadcast' }}</h1>
-        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ $name ?: 'New Email Broadcast' }}</p>
+        <h1 class="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ $currentStep === 4 ? 'Review & Send' : 'Edit Broadcast' }}</h1>
+        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ $name ?: 'Untitled Broadcast' }}</p>
     </div>
 
     <!-- Step Indicator -->
@@ -590,14 +537,14 @@ new class extends Component {
                             <div>
                                 <flux:field>
                                     <flux:label>From Name</flux:label>
-                                    <flux:input wire:model="from_name" placeholder="Kelasify by Bedaie" />
+                                    <flux:input wire:model="from_name" placeholder="Daruf Fateh" />
                                     <flux:error name="from_name" />
                                 </flux:field>
                             </div>
                             <div>
                                 <flux:field>
                                     <flux:label>From Email</flux:label>
-                                    <flux:input wire:model="from_email" type="email" placeholder="admin@kelasify.com" />
+                                    <flux:input wire:model="from_email" type="email" placeholder="admin@darulfateh.com" />
                                     <flux:error name="from_email" />
                                 </flux:field>
                             </div>
@@ -606,7 +553,7 @@ new class extends Component {
                         <div>
                             <flux:field>
                                 <flux:label>Reply-To Email</flux:label>
-                                <flux:input wire:model="reply_to_email" type="email" placeholder="admin@kelasify.com" />
+                                <flux:input wire:model="reply_to_email" type="email" placeholder="admin@darulfateh.com" />
                                 <flux:error name="reply_to_email" />
                             </flux:field>
                         </div>
@@ -789,32 +736,6 @@ new class extends Component {
                             </div>
                         </div>
 
-                        <!-- Send Test Email -->
-                        <div>
-                            <h3 class="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-2">Send Test Email</h3>
-                            <div class="rounded-md border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
-                                <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-3">Send a test email to preview how it will look in the inbox. Merge tags will use sample data.</p>
-                                <div class="flex items-start gap-2">
-                                    <div class="flex-1">
-                                        <flux:input wire:model="testEmail" type="email" placeholder="Enter email address" size="sm" />
-                                        <flux:error name="testEmail" />
-                                    </div>
-                                    <flux:button size="sm" variant="outline" wire:click="sendTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail">
-                                        <div class="flex items-center">
-                                            <span wire:loading.remove wire:target="sendTestEmail">
-                                                <flux:icon name="paper-airplane" class="w-4 h-4 mr-1" />
-                                            </span>
-                                            <span wire:loading wire:target="sendTestEmail">
-                                                <flux:icon name="arrow-path" class="w-4 h-4 mr-1 animate-spin" />
-                                            </span>
-                                            <span wire:loading.remove wire:target="sendTestEmail">Send Test</span>
-                                            <span wire:loading wire:target="sendTestEmail">Sending...</span>
-                                        </div>
-                                    </flux:button>
-                                </div>
-                            </div>
-                        </div>
-
                         <div class="border-t border-zinc-200 dark:border-zinc-700"></div>
 
                         <!-- Schedule Options -->
@@ -893,35 +814,6 @@ new class extends Component {
                     </flux:button>
                 @endif
             </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div
-        x-data="{ show: false, message: '', type: 'success' }"
-        x-on:notify.window="
-            show = true;
-            message = $event.detail.message || 'Operation successful';
-            type = $event.detail.type || 'success';
-            setTimeout(() => show = false, 4000)
-        "
-        x-show="show"
-        x-transition:enter="transition ease-out duration-300"
-        x-transition:enter-start="opacity-0 transform translate-y-2"
-        x-transition:enter-end="opacity-100 transform translate-y-0"
-        x-transition:leave="transition ease-in duration-200"
-        x-transition:leave-start="opacity-100 transform translate-y-0"
-        x-transition:leave-end="opacity-0 transform translate-y-2"
-        class="fixed bottom-4 right-4 z-50"
-        style="display: none;"
-    >
-        <div x-show="type === 'success'" class="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-lg shadow-lg">
-            <flux:icon.check-circle class="w-5 h-5 text-green-600" />
-            <span x-text="message"></span>
-        </div>
-        <div x-show="type === 'error'" class="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 text-red-800 rounded-lg shadow-lg">
-            <flux:icon.exclamation-circle class="w-5 h-5 text-red-600" />
-            <span x-text="message"></span>
         </div>
     </div>
 </div>

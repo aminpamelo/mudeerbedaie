@@ -501,7 +501,7 @@ function EmployeeView() {
 
                 {/* Tree */}
                 <div ref={containerRef} className={cn('mt-4 overflow-auto rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/50 p-8', isFullscreen && 'flex-1')} style={{ minHeight: isFullscreen ? 'calc(100vh - 120px)' : '500px' }}>
-                    <div style={{ transform: `scale(${scale})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
+                    <div className="w-fit min-w-full" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease' }}>
                         {tree.length === 0 ? (
                             <EmptyState icon={Building2} title="No employees found" subtitle="Add employees and set their 'Reports To' to build the org chart" />
                         ) : (
@@ -930,7 +930,7 @@ function DepartmentView() {
 
                 {/* Tree */}
                 <div ref={containerRef} className={cn('mt-4 overflow-auto rounded-xl border border-zinc-200 bg-gradient-to-b from-white to-zinc-50/50 p-8', isFullscreen && 'flex-1')} style={{ minHeight: isFullscreen ? 'calc(100vh - 120px)' : '500px' }}>
-                    <div style={{ transform: `scale(${scale})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
+                    <div className="w-fit min-w-full" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease' }}>
                         {tree.length === 0 ? (
                             <EmptyState icon={Building2} title="No departments found" subtitle="Create departments and assign parent departments to build the hierarchy" />
                         ) : (

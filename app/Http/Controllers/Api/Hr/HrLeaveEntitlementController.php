@@ -7,6 +7,7 @@ use App\Http\Requests\Hr\StoreLeaveEntitlementRequest;
 use App\Models\LeaveEntitlement;
 use App\Models\LeaveType;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class HrLeaveEntitlementController extends Controller
 {
@@ -63,12 +64,16 @@ class HrLeaveEntitlementController extends Controller
     }
 
     /**
-     * Recalculate all employees' balances based on entitlement rules for a given year.
+     * Recalculate all employees' balances based on entitlement rules for the current year.
      */
-    public function recalculate(): JsonResponse
+    public function recalculate(Request $request): JsonResponse
     {
-        return response()->json([
-            'message' => 'Use the leave balance initialize endpoint to recalculate balances.',
-        ]);
+        $year = $request->input('year', now()->year);
+
+        $controller = app(HrLeaveBalanceController::class);
+
+        $request->merge(['year' => (int) $year]);
+
+        return $controller->initialize($request);
     }
 }

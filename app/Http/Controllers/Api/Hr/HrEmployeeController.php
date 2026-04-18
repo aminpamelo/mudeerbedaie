@@ -52,7 +52,25 @@ class HrEmployeeController extends Controller
 
         $employees = $query->paginate($request->get('per_page', 15));
 
-        return response()->json($employees);
+        // Global status counts (unaffected by filters/pagination)
+        $statusCounts = Employee::query()
+            ->selectRaw('count(*) as total')
+            ->selectRaw("sum(case when status = 'active' then 1 else 0 end) as active")
+            ->selectRaw("sum(case when status = 'probation' then 1 else 0 end) as probation")
+            ->selectRaw("sum(case when status = 'resigned' then 1 else 0 end) as resigned")
+            ->selectRaw("sum(case when status = 'terminated' then 1 else 0 end) as terminated")
+            ->first();
+
+        $response = $employees->toArray();
+        $response['stats'] = [
+            'total' => (int) $statusCounts->total,
+            'active' => (int) $statusCounts->active,
+            'probation' => (int) $statusCounts->probation,
+            'resigned' => (int) $statusCounts->resigned,
+            'terminated' => (int) $statusCounts->terminated,
+        ];
+
+        return response()->json($response);
     }
 
     /**

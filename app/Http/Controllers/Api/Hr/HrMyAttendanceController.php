@@ -219,7 +219,7 @@ class HrMyAttendanceController extends Controller
                 }
             }
 
-            $log->update([
+            $updateData = [
                 'clock_out' => $clockOutTime,
                 'clock_out_photo' => $photoPath,
                 'clock_out_ip' => $request->ip(),
@@ -227,7 +227,13 @@ class HrMyAttendanceController extends Controller
                 'clock_out_longitude' => $request->input('longitude'),
                 'total_work_minutes' => $totalWorkMinutes,
                 'early_leave_minutes' => $earlyLeaveMinutes,
-            ]);
+            ];
+
+            if ($earlyLeaveMinutes > 0 && in_array($log->status, ['present', 'late', 'wfh'])) {
+                $updateData['status'] = 'early_leave';
+            }
+
+            $log->update($updateData);
 
             if ($earlyLeaveMinutes > 0) {
                 AttendancePenalty::create([
