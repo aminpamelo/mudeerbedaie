@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulse — Live Host Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas: #FAFAFA;
+    --surface: #FFFFFF;
+    --surface-2: #F5F5F5;
+    --border: #EAEAEA;
+    --border-2: #F0F0F0;
+    --ink: #0A0A0A;
+    --ink-2: #404040;
+    --muted: #737373;
+    --muted-2: #A3A3A3;
+
+    --emerald: #10B981;
+    --emerald-ink: #059669;
+    --emerald-soft: #ECFDF5;
+    --amber: #F59E0B;
+    --amber-soft: #FFFBEB;
+    --rose: #F43F5E;
+    --rose-soft: #FFF1F2;
+    --violet: #8B5CF6;
+    --sky: #0EA5E9;
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03);
+    --shadow-lg: 0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);
+
+    --r: 16px;
+    --r-sm: 10px;
+    --r-xs: 8px;
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+  html, body{
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: 'Geist', system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+    min-height: 100vh;
+  }
+  body{
+    background-image:
+      radial-gradient(ellipse 900px 500px at 0% 0%, rgba(16,185,129,0.08), transparent 70%),
+      radial-gradient(ellipse 700px 400px at 100% 0%, rgba(245,158,11,0.06), transparent 70%),
+      radial-gradient(ellipse 600px 400px at 50% 100%, rgba(139,92,246,0.04), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  a{ color: inherit; text-decoration: none; }
+
+  /* Shell */
+  .app{
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* Sidebar */
+  .side{
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    border-right: 1px solid var(--border-2);
+  }
+  .brand{
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 8px;
+  }
+  .brand__logo{
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--emerald), var(--sky));
+    display: grid; place-items: center;
+    color: white;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.04em;
+    box-shadow: 0 4px 12px rgba(16,185,129,0.25);
+  }
+  .brand__name{
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+  }
+  .brand__sub{
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .search{
+    margin: 0 4px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    font-size: 13px;
+    color: var(--muted);
+    cursor: text;
+  }
+  .search svg{ width: 14px; height: 14px; flex-shrink: 0; }
+  .search__kbd{
+    margin-left: auto;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    color: var(--muted-2);
+  }
+
+  .nav{
+    display: flex; flex-direction: column; gap: 20px;
+    flex: 1;
+    overflow-y: auto;
+  }
+  .nav__group{ display: flex; flex-direction: column; gap: 2px; }
+  .nav__label{
+    font-size: 11px;
+    color: var(--muted-2);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    padding: 0 12px 6px;
+    text-transform: uppercase;
+  }
+  .nav__item{
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px;
+    font-size: 13.5px;
+    color: var(--ink-2);
+    border-radius: var(--r-xs);
+    font-weight: 500;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .nav__item:hover{ background: var(--surface-2); color: var(--ink); }
+  .nav__item--active{
+    background: var(--ink);
+    color: white;
+    box-shadow: var(--shadow-sm);
+  }
+  .nav__item--active .nav__icon{ color: white; }
+  .nav__icon{ width: 15px; height: 15px; stroke-width: 2; color: var(--muted); transition: color 0.12s; }
+  .nav__item:hover .nav__icon{ color: var(--ink); }
+  .nav__count{
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface-2);
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-variant-numeric: tabular-nums;
+  }
+  .nav__item--active .nav__count{
+    background: rgba(255,255,255,0.15);
+    color: white;
+  }
+  .nav__item--live::before{
+    content:""; width: 6px; height: 6px;
+    border-radius: 999px; background: var(--emerald);
+    margin-right: -2px;
+    box-shadow: 0 0 0 0 rgba(16,185,129,0.6);
+    animation: pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse{
+    70%{ box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+    100%{ box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+  }
+
+  .side__foot{
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .side__foot:hover{ background: var(--surface-2); }
+  .avatar{
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #8B5CF6, #EC4899);
+    color: white;
+    display: grid; place-items: center;
+    font-weight: 600;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .side__foot__name{ font-size: 13px; font-weight: 500; line-height: 1.2; }
+  .side__foot__role{ font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .side__foot__chev{ margin-left: auto; width: 14px; height: 14px; color: var(--muted); }
+
+  /* Main */
+  .main{ padding: 0; max-width: 100%; overflow: hidden; }
+
+  /* Sticky header with blur */
+  .top{
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    padding: 16px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(250,250,250,0.75);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border-2);
+  }
+  .breadcrumbs{
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .breadcrumbs strong{ color: var(--ink); font-weight: 600; }
+  .breadcrumbs__sep{ color: var(--muted-2); }
+
+  .top__actions{ display: flex; align-items: center; gap: 8px; }
+  .iconbtn{
+    width: 34px; height: 34px;
+    display: grid; place-items: center;
+    border-radius: var(--r-xs);
+    color: var(--ink-2);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.12s ease;
+    position: relative;
+  }
+  .iconbtn:hover{ background: var(--surface-2); }
+  .iconbtn svg{ width: 15px; height: 15px; }
+  .iconbtn__dot{
+    position: absolute; top: 6px; right: 6px;
+    width: 6px; height: 6px;
+    background: var(--rose);
+    border-radius: 999px;
+    border: 2px solid var(--surface);
+  }
+
+  .btn{
+    font-family: inherit;
+    font-size: 13px; font-weight: 500;
+    padding: 8px 14px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: var(--r-xs);
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.12s ease;
+    letter-spacing: -0.005em;
+  }
+  .btn:hover{ background: #262626; transform: translateY(-1px); box-shadow: var(--shadow); }
+  .btn--ghost{
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border);
+  }
+  .btn--ghost:hover{ background: var(--surface-2); }
+
+  /* Content */
+  .content{ padding: 28px 32px 48px; }
+
+  .page-head{
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 28px;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .page-title{
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .page-sub{
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-weight: 400;
+  }
+  .page-sub .dot-live{
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--emerald-ink);
+    font-weight: 500;
+  }
+  .page-sub .dot-live::before{
+    content:""; width: 6px; height: 6px;
+    border-radius: 999px; background: var(--emerald);
+    box-shadow: 0 0 0 0 rgba(16,185,129,0.6);
+    animation: pulse 1.6s ease-out infinite;
+  }
+
+  .seg{
+    display: inline-flex;
+    padding: 3px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xs);
+  }
+  .seg__item{
+    padding: 6px 12px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--muted);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .seg__item--active{
+    background: var(--ink);
+    color: white;
+  }
+
+  /* Bento grid */
+  .bento{
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover{ box-shadow: var(--shadow); }
+
+  .card--span-5{ grid-column: span 5; }
+  .card--span-4{ grid-column: span 4; }
+  .card--span-3{ grid-column: span 3; }
+  .card--span-7{ grid-column: span 7; }
+  .card--span-6{ grid-column: span 6; }
+  .card--span-12{ grid-column: span 12; }
+
+  /* Hero KPI card */
+  .kpi-hero{
+    background:
+      radial-gradient(ellipse 400px 200px at 80% -20%, rgba(16,185,129,0.15), transparent 70%),
+      linear-gradient(180deg, var(--surface), var(--surface));
+    padding: 24px;
+    position: relative;
+    min-height: 180px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .kpi-hero::after{
+    content:""; position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 0 L24 12 L12 24 L0 12 Z' fill='none' stroke='%2310B981' stroke-opacity='0.04' stroke-width='0.5'/></svg>");
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .kpi-hero > *{ position: relative; z-index: 1; }
+  .kpi__row{
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .kpi__label{
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .kpi__icon-wrap{
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: grid; place-items: center;
+    background: var(--emerald-soft);
+    color: var(--emerald-ink);
+  }
+  .kpi__icon-wrap svg{ width: 15px; height: 15px; }
+  .kpi__icon-wrap--amber{ background: var(--amber-soft); color: var(--amber); }
+  .kpi__icon-wrap--rose{ background: var(--rose-soft); color: var(--rose); }
+  .kpi__icon-wrap--ink{ background: var(--ink); color: white; }
+
+  .kpi__value{
+    font-size: 48px;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    margin-top: 12px;
+  }
+  .kpi__value--hero{ font-size: 64px; }
+  .kpi__value__unit{
+    font-size: 16px;
+    color: var(--muted);
+    font-weight: 500;
+    margin-left: 6px;
+    letter-spacing: -0.02em;
+  }
+  .kpi__foot{
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .trend{
+    display: inline-flex; align-items: center; gap: 3px;
+    font-weight: 500;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--emerald-soft);
+    color: var(--emerald-ink);
+  }
+  .trend--down{ background: var(--rose-soft); color: var(--rose); }
+  .trend svg{ width: 10px; height: 10px; }
+
+  /* Mini chart line in card */
+  .sparkline{
+    margin-top: 14px;
+    width: 100%;
+    height: 40px;
+  }
+
+  /* Live card with strong accent */
+  .live-card{
+    background: linear-gradient(135deg, #064E3B 0%, #022C22 100%);
+    color: white;
+    border: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .live-card::before{
+    content:""; position: absolute;
+    top: -40%; right: -20%;
+    width: 320px; height: 320px;
+    background: radial-gradient(circle, rgba(16,185,129,0.4), transparent 70%);
+    pointer-events: none;
+  }
+  .live-card > *{ position: relative; z-index: 1; }
+  .live-card .kpi__label{ color: rgba(255,255,255,0.7); }
+  .live-card .kpi__icon-wrap{ background: rgba(16,185,129,0.2); color: var(--emerald); }
+  .live-card .kpi__foot{ color: rgba(255,255,255,0.6); }
+  .live-card .trend{ background: rgba(16,185,129,0.2); color: #6EE7B7; }
+
+  /* Progress ring */
+  .ring-card{
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .ring{
+    position: relative;
+    width: 96px; height: 96px;
+    flex-shrink: 0;
+  }
+  .ring svg{ transform: rotate(-90deg); }
+  .ring__bg{ stroke: var(--border); stroke-width: 8; fill: none; }
+  .ring__fill{ stroke: var(--ink); stroke-width: 8; fill: none; stroke-linecap: round; }
+  .ring__value{
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .ring-side{ flex: 1; min-width: 0; }
+
+  /* Now Live panel */
+  .panel-title{
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .panel-title__main{
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .panel-title__count{
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--emerald-ink);
+    background: var(--emerald-soft);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .panel-title__link{
+    font-size: 12.5px;
+    color: var(--muted);
+    font-weight: 500;
+    display: inline-flex; align-items: center; gap: 3px;
+  }
+  .panel-title__link:hover{ color: var(--ink); }
+
+  .live-list{ display: flex; flex-direction: column; gap: 10px; }
+  .live-row{
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border-2);
+    background: var(--surface);
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+  .live-row:hover{
+    border-color: var(--emerald);
+    box-shadow: 0 0 0 3px var(--emerald-soft);
+    transform: translateY(-1px);
+  }
+  .live-row__thumb{
+    width: 44px; height: 44px;
+    border-radius: var(--r-xs);
+    color: white;
+    display: grid; place-items: center;
+    font-size: 13px; font-weight: 600;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .live-row__thumb--1{ background: linear-gradient(135deg, #10B981, #059669); }
+  .live-row__thumb--2{ background: linear-gradient(135deg, #F43F5E, #E11D48); }
+  .live-row__thumb--3{ background: linear-gradient(135deg, #8B5CF6, #6D28D9); }
+  .live-row__thumb--4{ background: linear-gradient(135deg, #0EA5E9, #0284C7); }
+  .live-row__thumb--5{ background: linear-gradient(135deg, #F59E0B, #D97706); }
+  .live-row__thumb__live{
+    position: absolute;
+    top: -2px; right: -2px;
+    width: 10px; height: 10px;
+    background: var(--emerald);
+    border: 2px solid var(--surface);
+    border-radius: 999px;
+    box-shadow: 0 0 0 0 rgba(16,185,129,0.6);
+    animation: pulse 1.6s ease-out infinite;
+  }
+
+  .live-row__main{ min-width: 0; }
+  .live-row__host{
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .live-row__meta{
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .live-row__platform{
+    display: inline-flex; align-items: center; gap: 4px;
+    font-weight: 500;
+  }
+  .live-row__platform::before{
+    content: ""; width: 5px; height: 5px; border-radius: 999px;
+    background: var(--rose);
+  }
+  .live-row__platform.is-tiktok::before{ background: var(--ink); }
+  .live-row__viewers{
+    text-align: right;
+  }
+  .live-row__viewers__num{
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .live-row__viewers__label{
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .live-row__duration{
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    background: var(--surface-2);
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+
+  /* Activity feed */
+  .feed{ display: flex; flex-direction: column; }
+  .feed-item{
+    display: flex; gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-2);
+  }
+  .feed-item:last-child{ border-bottom: none; }
+  .feed-item:first-child{ padding-top: 4px; }
+  .feed__icon-wrap{
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--ink-2);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .feed__icon-wrap svg{ width: 13px; height: 13px; }
+  .feed__icon-wrap--emerald{ background: var(--emerald-soft); color: var(--emerald-ink); }
+  .feed__icon-wrap--amber{ background: var(--amber-soft); color: var(--amber); }
+  .feed__icon-wrap--rose{ background: var(--rose-soft); color: var(--rose); }
+  .feed__body{
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    flex: 1;
+  }
+  .feed__body strong{ color: var(--ink); font-weight: 600; }
+  .feed__time{
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Agenda list */
+  .agenda{ display: flex; flex-direction: column; }
+  .agenda-row{
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    padding: 12px 0;
+    align-items: center;
+    border-bottom: 1px solid var(--border-2);
+  }
+  .agenda-row:last-child{ border-bottom: none; }
+  .agenda-time{
+    text-align: center;
+    padding: 6px 10px;
+    background: var(--surface-2);
+    border-radius: 8px;
+    min-width: 58px;
+  }
+  .agenda-time__hr{
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .agenda-time__dur{
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    font-weight: 500;
+  }
+  .agenda-body__host{ font-size: 13.5px; font-weight: 500; letter-spacing: -0.01em; }
+  .agenda-body__meta{ font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .chip{
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: var(--surface-2);
+    color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 5px;
+    letter-spacing: -0.005em;
+  }
+  .chip--live{ background: var(--emerald); color: white; }
+  .chip--live::before{ content: ""; width: 5px; height: 5px; background: white; border-radius: 999px; }
+  .chip--prep{ background: var(--amber-soft); color: #B45309; }
+  .chip--scheduled{ background: var(--surface-2); color: var(--muted); }
+  .chip--done{ background: #EFF6FF; color: #1D4ED8; }
+
+  /* Table */
+  .table-card{ padding: 0; overflow: hidden; }
+  .table-head{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-2);
+  }
+  .t{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .t thead th{
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--muted);
+    padding: 10px 20px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border-2);
+    letter-spacing: 0;
+  }
+  .t tbody td{
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-2);
+    vertical-align: middle;
+  }
+  .t tbody tr:last-child td{ border-bottom: none; }
+  .t tbody tr{ transition: background 0.12s; }
+  .t tbody tr:hover td{ background: var(--surface-2); }
+  .t__host{ display: flex; align-items: center; gap: 12px; }
+  .t__av{
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    color: white;
+    display: grid; place-items: center;
+    font-weight: 600;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .t__av--1{ background: linear-gradient(135deg, #10B981, #059669); }
+  .t__av--2{ background: linear-gradient(135deg, #F43F5E, #E11D48); }
+  .t__av--3{ background: linear-gradient(135deg, #8B5CF6, #6D28D9); }
+  .t__av--4{ background: linear-gradient(135deg, #0EA5E9, #0284C7); }
+  .t__av--5{ background: linear-gradient(135deg, #F59E0B, #D97706); }
+  .t__name{ font-weight: 600; font-size: 13.5px; letter-spacing: -0.01em; }
+  .t__sub{ font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .t__num{
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .t__num--big{ font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+
+  /* Progress bar small */
+  .bar{
+    width: 100%;
+    height: 6px;
+    background: var(--surface-2);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .bar__fill{
+    height: 100%;
+    background: linear-gradient(90deg, var(--emerald), var(--sky));
+    border-radius: 99px;
+  }
+
+  /* Entry animations */
+  .reveal{ opacity: 0; transform: translateY(6px); animation: rev 0.5s cubic-bezier(.2,.65,.2,1) forwards; }
+  .reveal:nth-child(1){ animation-delay: 0.02s; }
+  .reveal:nth-child(2){ animation-delay: 0.08s; }
+  .reveal:nth-child(3){ animation-delay: 0.14s; }
+  .reveal:nth-child(4){ animation-delay: 0.20s; }
+  .reveal:nth-child(5){ animation-delay: 0.26s; }
+  .reveal:nth-child(6){ animation-delay: 0.32s; }
+  .reveal:nth-child(7){ animation-delay: 0.38s; }
+  @keyframes rev{ to{ opacity: 1; transform: none; } }
+
+  @media (max-width: 1200px){
+    .bento{ grid-template-columns: repeat(6, 1fr); }
+    .card--span-5, .card--span-4, .card--span-3, .card--span-6, .card--span-7{ grid-column: span 6; }
+    .card--span-12{ grid-column: span 6; }
+  }
+  @media (max-width: 768px){
+    .app{ grid-template-columns: 1fr; }
+    .side{ position: static; height: auto; }
+    .bento{ grid-template-columns: 1fr; }
+    .card--span-5, .card--span-4, .card--span-3, .card--span-6, .card--span-7, .card--span-12{ grid-column: span 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="side">
+    <div class="brand">
+      <div class="brand__logo">P</div>
+      <div>
+        <div class="brand__name">Pulse</div>
+        <div class="brand__sub">Live Host Desk</div>
+      </div>
+    </div>
+
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      Search...
+      <span class="search__kbd">⌘K</span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav__group">
+        <div class="nav__label">Operations</div>
+        <a class="nav__item nav__item--active" href="#">
+          <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+          Dashboard
+        </a>
+        <a class="nav__item" href="#">
+          <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Live Hosts
+          <span class="nav__count">15</span>
+        </a>
+        <a class="nav__item nav__item--live" href="#">
+          <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4M16 2v4"/></svg>
+          Schedules
+          <span class="nav__count">8</span>
+        </a>
+      </div>
+
+      <div class="nav__group">
+        <div class="nav__label">Allocation</div>
+        <a class="nav__item" href="#">
+          <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Time Slots
+        </a>
+        <a class="nav__item" href="#">
+          <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+          Session Slots
+        </a>
+      </div>
+
+      <div class="nav__group">
+        <div class="nav__label">Records</div>
+        <a class="nav__item" href="#">
+          <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+          Live Sessions
+          <span class="nav__count">142</span>
+        </a>
+        <a class="nav__item" href="#">
+          <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/></svg>
+          Analytics
+        </a>
+      </div>
+    </nav>
+
+    <div class="side__foot">
+      <div class="avatar">AA</div>
+      <div style="min-width: 0; flex: 1;">
+        <div class="side__foot__name">Ahmad Amin</div>
+        <div class="side__foot__role">PIC · Admin</div>
+      </div>
+      <svg class="side__foot__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Sticky top -->
+    <header class="top">
+      <div class="breadcrumbs">
+        <span>Live Host Desk</span>
+        <span class="breadcrumbs__sep">/</span>
+        <strong>Dashboard</strong>
+      </div>
+      <div class="top__actions">
+        <button class="iconbtn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="iconbtn__dot"></span>
+        </button>
+        <button class="iconbtn" aria-label="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="btn btn--ghost">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Export
+        </button>
+        <button class="btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;"><path d="M12 5v14M5 12h14"/></svg>
+          New schedule
+        </button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- Page head -->
+      <div class="page-head reveal">
+        <div>
+          <h1 class="page-title">Good afternoon, Ahmad</h1>
+          <p class="page-sub">
+            <span class="dot-live">3 sessions live</span>
+            &nbsp;·&nbsp; 742 concurrent viewers across all platforms
+          </p>
+        </div>
+        <div class="seg">
+          <div class="seg__item">Today</div>
+          <div class="seg__item seg__item--active">This week</div>
+          <div class="seg__item">Month</div>
+          <div class="seg__item">All</div>
+        </div>
+      </div>
+
+      <!-- Bento: KPI row -->
+      <section class="bento">
+        <!-- Hero KPI: Active hosts -->
+        <div class="card kpi-hero card--span-3 reveal">
+          <div class="kpi__row">
+            <span class="kpi__label">Active hosts</span>
+            <div class="kpi__icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>
+            </div>
+          </div>
+          <div class="kpi__value kpi__value--hero">15</div>
+          <div class="kpi__foot">
+            <span class="trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 15 7-7 7 7"/></svg>+2 WoW</span>
+            <span>of 17 total</span>
+          </div>
+        </div>
+
+        <!-- Live now (dark card) -->
+        <div class="card live-card card--span-3 reveal">
+          <div class="kpi__row">
+            <span class="kpi__label">Live now</span>
+            <div class="kpi__icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+            </div>
+          </div>
+          <div class="kpi__value kpi__value--hero" style="color:#6EE7B7;">3</div>
+          <div class="kpi__foot">
+            <span class="trend">742 viewers</span>
+            <span>peak 1.2k</span>
+          </div>
+        </div>
+
+        <!-- Sessions today -->
+        <div class="card card--span-3 reveal">
+          <div class="kpi__row">
+            <span class="kpi__label">Sessions today</span>
+            <div class="kpi__icon-wrap kpi__icon-wrap--amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4M16 2v4"/></svg>
+            </div>
+          </div>
+          <div class="kpi__value">11<span class="kpi__value__unit">/ 14</span></div>
+          <div style="margin-top:14px;">
+            <div class="bar"><div class="bar__fill" style="width:78%;"></div></div>
+            <div class="kpi__foot" style="margin-top:8px;">
+              <span class="trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 15 7-7 7 7"/></svg>+12%</span>
+              <span>78% complete</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Watch hours progress ring -->
+        <div class="card card--span-3 reveal">
+          <div class="kpi__row" style="margin-bottom: 18px;">
+            <span class="kpi__label">Watch hours</span>
+            <div class="kpi__icon-wrap kpi__icon-wrap--ink">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+          </div>
+          <div class="ring-card">
+            <div class="ring">
+              <svg width="96" height="96">
+                <circle class="ring__bg" cx="48" cy="48" r="40"/>
+                <circle class="ring__fill" cx="48" cy="48" r="40" stroke-dasharray="251.3" stroke-dashoffset="70"/>
+              </svg>
+              <div class="ring__value">72%</div>
+            </div>
+            <div class="ring-side">
+              <div style="font-size:24px; font-weight:600; letter-spacing:-0.03em; line-height:1;">48.2<span style="font-size:14px; color:var(--muted); font-weight:500; margin-left:4px;">h</span></div>
+              <div class="kpi__foot" style="margin-top:6px;">weekly target 67h</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bento: Now Live + Activity -->
+      <section class="bento">
+
+        <!-- Now Live panel -->
+        <div class="card card--span-7 reveal">
+          <div class="panel-title">
+            <div class="panel-title__main">
+              On Air now
+              <span class="panel-title__count">3 live</span>
+            </div>
+            <a href="#" class="panel-title__link">View all sessions →</a>
+          </div>
+          <div class="live-list">
+            <div class="live-row">
+              <div class="live-row__thumb live-row__thumb--1">WA<span class="live-row__thumb__live"></span></div>
+              <div class="live-row__main">
+                <div class="live-row__host">Wan Muhd Amir</div>
+                <div class="live-row__meta">
+                  <span class="live-row__platform">shopee-my-01</span>
+                  <span>·</span>
+                  <span>Shopee Livestream</span>
+                  <span>·</span>
+                  <span>#LS-90158</span>
+                </div>
+              </div>
+              <div class="live-row__viewers">
+                <div class="live-row__viewers__num">412</div>
+                <div class="live-row__viewers__label">viewers</div>
+              </div>
+              <div class="live-row__duration">01:42:18</div>
+            </div>
+
+            <div class="live-row">
+              <div class="live-row__thumb live-row__thumb--2">MH<span class="live-row__thumb__live"></span></div>
+              <div class="live-row__main">
+                <div class="live-row__host">Muhammad Haziq Kamarudin</div>
+                <div class="live-row__meta">
+                  <span class="live-row__platform is-tiktok">tiktok-my-03</span>
+                  <span>·</span>
+                  <span>TikTok Live</span>
+                  <span>·</span>
+                  <span>#LS-90159</span>
+                </div>
+              </div>
+              <div class="live-row__viewers">
+                <div class="live-row__viewers__num">228</div>
+                <div class="live-row__viewers__label">viewers</div>
+              </div>
+              <div class="live-row__duration">00:51:04</div>
+            </div>
+
+            <div class="live-row">
+              <div class="live-row__thumb live-row__thumb--3">HT<span class="live-row__thumb__live"></span></div>
+              <div class="live-row__main">
+                <div class="live-row__host">Haliza Binti Tan</div>
+                <div class="live-row__meta">
+                  <span class="live-row__platform">shopee-my-02</span>
+                  <span>·</span>
+                  <span>Shopee Livestream</span>
+                  <span>·</span>
+                  <span>#LS-90155</span>
+                </div>
+              </div>
+              <div class="live-row__viewers">
+                <div class="live-row__viewers__num">102</div>
+                <div class="live-row__viewers__label">viewers</div>
+              </div>
+              <div class="live-row__duration">00:12:47</div>
+            </div>
+          </div>
+
+          <!-- Upcoming within same card -->
+          <div class="panel-title" style="margin-top: 24px;">
+            <div class="panel-title__main">Next up</div>
+            <a href="#" class="panel-title__link">Full schedule →</a>
+          </div>
+          <div class="agenda">
+            <div class="agenda-row">
+              <div class="agenda-time">
+                <div class="agenda-time__hr">14:30</div>
+                <div class="agenda-time__dur">90m</div>
+              </div>
+              <div class="agenda-body">
+                <div class="agenda-body__host">Masni Nasution</div>
+                <div class="agenda-body__meta">shopee-my-04 · product demo</div>
+              </div>
+              <span class="chip chip--prep">● Prep</span>
+            </div>
+            <div class="agenda-row">
+              <div class="agenda-time">
+                <div class="agenda-time__hr">15:00</div>
+                <div class="agenda-time__dur">60m</div>
+              </div>
+              <div class="agenda-body">
+                <div class="agenda-body__host">Inaolaji Saheed</div>
+                <div class="agenda-body__meta">tiktok-my-01 · flash sale</div>
+              </div>
+              <span class="chip chip--scheduled">Scheduled</span>
+            </div>
+            <div class="agenda-row">
+              <div class="agenda-time">
+                <div class="agenda-time__hr">16:15</div>
+                <div class="agenda-time__dur">120m</div>
+              </div>
+              <div class="agenda-body">
+                <div class="agenda-body__host">Muhammad Naimuddin</div>
+                <div class="agenda-body__meta">shopee-my-03 · main show</div>
+              </div>
+              <span class="chip chip--scheduled">Scheduled</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity feed -->
+        <div class="card card--span-5 reveal">
+          <div class="panel-title">
+            <div class="panel-title__main">Recent activity</div>
+            <a href="#" class="panel-title__link">See all →</a>
+          </div>
+          <div class="feed">
+            <div class="feed-item">
+              <div class="feed__icon-wrap feed__icon-wrap--emerald">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+              </div>
+              <div class="feed__body">
+                <strong>Haliza Binti Tan</strong> started a session on <strong>shopee-my-02</strong>.
+                <div class="feed__time">2 min ago · 14:02</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed__icon-wrap feed__icon-wrap--emerald">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              </div>
+              <div class="feed__body">
+                <strong>Muhammad Shafiq</strong> ended session — 2h 14m, <strong>3,204 views</strong>.
+                <div class="feed__time">23 min ago · 13:41</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed__icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>
+              </div>
+              <div class="feed__body">
+                Slot <strong>16:15–18:15</strong> assigned to <strong>Muhammad Naimuddin</strong>.
+                <div class="feed__time">47 min ago · 13:17</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed__icon-wrap feed__icon-wrap--amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+              </div>
+              <div class="feed__body">
+                Created new host profile — <strong>muhammad amirul shafiq</strong> (#90160).
+                <div class="feed__time">1h ago · 12:58</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed__icon-wrap feed__icon-wrap--emerald">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              </div>
+              <div class="feed__body">
+                <strong>Wan Muhd Amir</strong> completed morning session — avg <strong>387 viewers</strong>.
+                <div class="feed__time">2h ago · 11:20</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed__icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              </div>
+              <div class="feed__body">
+                Linked account <strong>shopee-my-04</strong> to <strong>Masni Nasution</strong>.
+                <div class="feed__time">3h ago · 10:04</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bento: Top hosts table -->
+      <section class="bento">
+        <div class="card table-card card--span-12 reveal">
+          <div class="table-head">
+            <div class="panel-title__main">
+              Top performing hosts
+              <span class="panel-title__count" style="background:var(--surface-2); color:var(--muted);">This week</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <div class="seg" style="padding: 2px;">
+                <div class="seg__item seg__item--active" style="padding: 4px 10px; font-size:11.5px;">Sessions</div>
+                <div class="seg__item" style="padding: 4px 10px; font-size:11.5px;">Watch time</div>
+                <div class="seg__item" style="padding: 4px 10px; font-size:11.5px;">Viewers</div>
+              </div>
+              <a href="#" class="panel-title__link">View all 15 →</a>
+            </div>
+          </div>
+          <table class="t">
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th style="text-align:center;">Accounts</th>
+                <th style="text-align:right;">Sessions</th>
+                <th style="text-align:right;">Watch time</th>
+                <th style="text-align:right;">Avg viewers</th>
+                <th>Trend</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="t__host">
+                    <div class="t__av t__av--1">WA</div>
+                    <div>
+                      <div class="t__name">Wan Muhd Amir</div>
+                      <div class="t__sub">ID · 90158</div>
+                    </div>
+                  </div>
+                </td>
+                <td style="text-align:center;" class="t__num">3</td>
+                <td style="text-align:right;" class="t__num t__num--big">12</td>
+                <td style="text-align:right;" class="t__num">24h 08m</td>
+                <td style="text-align:right;" class="t__num t__num--big">387</td>
+                <td>
+                  <svg width="80" height="24" viewBox="0 0 80 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round">
+                    <path d="M2 18 L12 14 L22 16 L32 10 L42 12 L52 6 L62 8 L72 4 L78 5"/>
+                  </svg>
+                </td>
+                <td><span class="chip chip--live">Live</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="t__host">
+                    <div class="t__av t__av--2">MH</div>
+                    <div>
+                      <div class="t__name">Muhammad Haziq Kamarudin</div>
+                      <div class="t__sub">ID · 90159</div>
+                    </div>
+                  </div>
+                </td>
+                <td style="text-align:center;" class="t__num">2</td>
+                <td style="text-align:right;" class="t__num t__num--big">9</td>
+                <td style="text-align:right;" class="t__num">18h 41m</td>
+                <td style="text-align:right;" class="t__num t__num--big">228</td>
+                <td>
+                  <svg width="80" height="24" viewBox="0 0 80 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round">
+                    <path d="M2 14 L12 12 L22 16 L32 10 L42 8 L52 10 L62 6 L72 8 L78 6"/>
+                  </svg>
+                </td>
+                <td><span class="chip chip--live">Live</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="t__host">
+                    <div class="t__av t__av--3">HT</div>
+                    <div>
+                      <div class="t__name">Haliza Binti Tan</div>
+                      <div class="t__sub">ID · 90155</div>
+                    </div>
+                  </div>
+                </td>
+                <td style="text-align:center;" class="t__num">2</td>
+                <td style="text-align:right;" class="t__num t__num--big">11</td>
+                <td style="text-align:right;" class="t__num">17h 02m</td>
+                <td style="text-align:right;" class="t__num t__num--big">184</td>
+                <td>
+                  <svg width="80" height="24" viewBox="0 0 80 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round">
+                    <path d="M2 10 L12 12 L22 8 L32 14 L42 10 L52 12 L62 14 L72 12 L78 14"/>
+                  </svg>
+                </td>
+                <td><span class="chip chip--live">Live</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="t__host">
+                    <div class="t__av t__av--4">MN</div>
+                    <div>
+                      <div class="t__name">Muhammad Naimuddin</div>
+                      <div class="t__sub">ID · 90156</div>
+                    </div>
+                  </div>
+                </td>
+                <td style="text-align:center;" class="t__num">2</td>
+                <td style="text-align:right;" class="t__num t__num--big">8</td>
+                <td style="text-align:right;" class="t__num">14h 17m</td>
+                <td style="text-align:right;" class="t__num t__num--big">156</td>
+                <td>
+                  <svg width="80" height="24" viewBox="0 0 80 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round">
+                    <path d="M2 16 L12 14 L22 12 L32 14 L42 10 L52 8 L62 10 L72 6 L78 8"/>
+                  </svg>
+                </td>
+                <td><span class="chip chip--scheduled">Scheduled</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="t__host">
+                    <div class="t__av t__av--5">IS</div>
+                    <div>
+                      <div class="t__name">Inaolaji Saheed Olalekan</div>
+                      <div class="t__sub">ID · 90154</div>
+                    </div>
+                  </div>
+                </td>
+                <td style="text-align:center;" class="t__num">1</td>
+                <td style="text-align:right;" class="t__num t__num--big">7</td>
+                <td style="text-align:right;" class="t__num">12h 44m</td>
+                <td style="text-align:right;" class="t__num t__num--big">143</td>
+                <td>
+                  <svg width="80" height="24" viewBox="0 0 80 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round">
+                    <path d="M2 18 L12 16 L22 14 L32 12 L42 10 L52 8 L62 6 L72 4 L78 3"/>
+                  </svg>
+                </td>
+                <td><span class="chip chip--prep">● Prep</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
