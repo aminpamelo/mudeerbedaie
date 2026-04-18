@@ -24,58 +24,67 @@ class HrEmployeeController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Employee::query()
-            ->select([
-                'id', 'user_id', 'employee_id', 'full_name', 'phone', 'personal_email',
-                'profile_photo', 'department_id', 'position_id', 'employment_type',
-                'join_date', 'status', 'created_at', 'updated_at', 'deleted_at',
-            ])
-            ->with(['department:id,name', 'position:id,title']);
+        try {
+            $query = Employee::query()
+                ->select([
+                    'id', 'user_id', 'employee_id', 'full_name', 'phone', 'personal_email',
+                    'profile_photo', 'department_id', 'position_id', 'employment_type',
+                    'join_date', 'status', 'created_at', 'updated_at', 'deleted_at',
+                ])
+                ->with(['department:id,name', 'position:id,title']);
 
-        if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('full_name', 'like', "%{$search}%")
-                    ->orWhere('employee_id', 'like', "%{$search}%");
-            });
+            if ($search = $request->get('search')) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('employee_id', 'like', "%{$search}%");
+                });
+            }
+
+            if ($departmentId = $request->get('department_id')) {
+                $query->where('department_id', $departmentId);
+            }
+
+            if ($status = $request->get('status')) {
+                $query->where('status', $status);
+            }
+
+            if ($employmentType = $request->get('employment_type')) {
+                $query->where('employment_type', 'like', "%\"{$employmentType}\"%");
+            }
+
+            $sortBy = $request->get('sort_by', 'full_name');
+            $sortDir = $request->get('sort_dir', 'asc');
+            $query->orderBy($sortBy, $sortDir);
+
+            $employees = $query->paginate($request->get('per_page', 15));
+
+            // Global status counts (unaffected by filters/pagination)
+            $statusCounts = Employee::query()
+                ->selectRaw('count(*) as total')
+                ->selectRaw("sum(case when status = 'active' then 1 else 0 end) as active")
+                ->selectRaw("sum(case when status = 'probation' then 1 else 0 end) as probation")
+                ->selectRaw("sum(case when status = 'resigned' then 1 else 0 end) as resigned")
+                ->selectRaw("sum(case when status = 'terminated' then 1 else 0 end) as terminated")
+                ->first();
+
+            $response = $employees->toArray();
+            $response['stats'] = [
+                'total' => (int) $statusCounts->total,
+                'active' => (int) $statusCounts->active,
+                'probation' => (int) $statusCounts->probation,
+                'resigned' => (int) $statusCounts->resigned,
+                'terminated' => (int) $statusCounts->terminated,
+            ];
+
+            return response()->json($response);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Failed to load employees.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
-
-        if ($departmentId = $request->get('department_id')) {
-            $query->where('department_id', $departmentId);
-        }
-
-        if ($status = $request->get('status')) {
-            $query->where('status', $status);
-        }
-
-        if ($employmentType = $request->get('employment_type')) {
-            $query->where('employment_type', 'like', "%\"{$employmentType}\"%");
-        }
-
-        $sortBy = $request->get('sort_by', 'full_name');
-        $sortDir = $request->get('sort_dir', 'asc');
-        $query->orderBy($sortBy, $sortDir);
-
-        $employees = $query->paginate($request->get('per_page', 15));
-
-        // Global status counts (unaffected by filters/pagination)
-        $statusCounts = Employee::query()
-            ->selectRaw('count(*) as total')
-            ->selectRaw("sum(case when status = 'active' then 1 else 0 end) as active")
-            ->selectRaw("sum(case when status = 'probation' then 1 else 0 end) as probation")
-            ->selectRaw("sum(case when status = 'resigned' then 1 else 0 end) as resigned")
-            ->selectRaw("sum(case when status = 'terminated' then 1 else 0 end) as terminated")
-            ->first();
-
-        $response = $employees->toArray();
-        $response['stats'] = [
-            'total' => (int) $statusCounts->total,
-            'active' => (int) $statusCounts->active,
-            'probation' => (int) $statusCounts->probation,
-            'resigned' => (int) $statusCounts->resigned,
-            'terminated' => (int) $statusCounts->terminated,
-        ];
-
-        return response()->json($response);
     }
 
     /**

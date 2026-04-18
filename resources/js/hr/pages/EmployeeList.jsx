@@ -415,7 +415,9 @@ export default function EmployeeList() {
                         <p className="mt-1 text-sm text-zinc-500">
                             {error?.response?.status === 401
                                 ? 'Your session has expired. Please refresh the page and log in again.'
-                                : 'Something went wrong while fetching the employee list. Please try again.'}
+                                : error?.response?.data?.error
+                                    ? error.response.data.error
+                                    : `Something went wrong while fetching the employee list. (${error?.response?.status || 'Network error'})`}
                         </p>
                         <Button
                             variant="outline"
