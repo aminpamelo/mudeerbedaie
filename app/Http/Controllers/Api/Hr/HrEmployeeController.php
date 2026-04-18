@@ -60,11 +60,11 @@ class HrEmployeeController extends Controller
 
             // Global status counts (unaffected by filters/pagination)
             $statusCounts = Employee::query()
-                ->selectRaw('count(*) as total')
-                ->selectRaw("sum(case when status = 'active' then 1 else 0 end) as active")
-                ->selectRaw("sum(case when status = 'probation' then 1 else 0 end) as probation")
-                ->selectRaw("sum(case when status = 'resigned' then 1 else 0 end) as resigned")
-                ->selectRaw("sum(case when status = 'terminated' then 1 else 0 end) as terminated")
+                ->selectRaw('count(*) as `total`')
+                ->selectRaw("sum(case when status = 'active' then 1 else 0 end) as `active`")
+                ->selectRaw("sum(case when status = 'probation' then 1 else 0 end) as `probation`")
+                ->selectRaw("sum(case when status = 'resigned' then 1 else 0 end) as `resigned`")
+                ->selectRaw("sum(case when status = 'terminated' then 1 else 0 end) as `terminated`")
                 ->first();
 
             $response = $employees->toArray();
