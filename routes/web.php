@@ -188,6 +188,9 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
         Route::resource('time-slots', \App\Http\Controllers\LiveHost\TimeSlotController::class)
             ->except(['show'])
             ->parameters(['time-slots' => 'timeSlot']);
+
+        Route::resource('session-slots', \App\Http\Controllers\LiveHost\SessionSlotController::class)
+            ->parameters(['session-slots' => 'sessionSlot']);
     });
 
 // Public Live Schedule - accessible by everyone
