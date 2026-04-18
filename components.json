@@ -1,0 +1,20 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": false,
+  "tsx": false,
+  "tailwind": {
+    "config": "",
+    "css": "resources/js/livehost/styles/livehost.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/livehost/components",
+    "utils": "@/livehost/lib/utils",
+    "ui": "@/livehost/components/ui",
+    "lib": "@/livehost/lib",
+    "hooks": "@/livehost/hooks"
+  }
+}
