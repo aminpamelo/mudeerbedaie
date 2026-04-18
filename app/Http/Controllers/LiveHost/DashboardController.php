@@ -11,8 +11,6 @@ class DashboardController extends Controller
 {
     public function index(Request $request): Response
     {
-        Inertia::setRootView('livehost.app');
-
         return Inertia::render('Dashboard', [
             'navCounts' => [
                 'hosts' => 0,
