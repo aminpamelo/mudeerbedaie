@@ -176,6 +176,10 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('hosts.store');
         Route::get('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'show'])
             ->name('hosts.show');
+        Route::get('hosts/{host}/edit', [\App\Http\Controllers\LiveHost\HostController::class, 'edit'])
+            ->name('hosts.edit');
+        Route::put('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'update'])
+            ->name('hosts.update');
     });
 
 // Public Live Schedule - accessible by everyone

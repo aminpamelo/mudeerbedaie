@@ -4,6 +4,7 @@ namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreHostRequest;
+use App\Http\Requests\LiveHost\UpdateHostRequest;
 use App\Models\LiveSession;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -137,6 +138,32 @@ class HostController extends Controller
         return redirect()
             ->route('livehost.hosts.index')
             ->with('success', "Live host {$host->name} created.");
+    }
+
+    public function edit(User $host): Response
+    {
+        abort_unless($host->role === 'live_host', 404);
+
+        return Inertia::render('hosts/Edit', [
+            'host' => [
+                'id' => $host->id,
+                'name' => $host->name,
+                'email' => $host->email,
+                'phone' => $host->phone,
+                'status' => $host->status,
+            ],
+        ]);
+    }
+
+    public function update(UpdateHostRequest $request, User $host): RedirectResponse
+    {
+        abort_unless($host->role === 'live_host', 404);
+
+        $host->update($request->validated());
+
+        return redirect()
+            ->route('livehost.hosts.show', $host)
+            ->with('success', "Live host {$host->name} updated.");
     }
 
     private function initials(?string $name): string

@@ -160,3 +160,83 @@ it('returns 404 when showing a non-live-host user', function () {
         ->get("/livehost/hosts/{$admin->id}")
         ->assertNotFound();
 });
+
+it('renders the edit form with pre-filled host data', function () {
+    $host = User::factory()->create(['role' => 'live_host', 'name' => 'Original Name']);
+
+    actingAs($this->pic)
+        ->get("/livehost/hosts/{$host->id}/edit")
+        ->assertInertia(fn (Assert $p) => $p
+            ->component('hosts/Edit', false)
+            ->where('host.id', $host->id)
+            ->where('host.name', 'Original Name'));
+});
+
+it('updates a live host', function () {
+    $host = User::factory()->create(['role' => 'live_host', 'name' => 'Old']);
+
+    actingAs($this->pic)
+        ->put("/livehost/hosts/{$host->id}", [
+            'name' => 'New Name',
+            'email' => $host->email,
+            'phone' => $host->phone,
+            'status' => 'inactive',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect($host->fresh())
+        ->name->toBe('New Name')
+        ->status->toBe('inactive')
+        ->role->toBe('live_host');
+});
+
+it('allows updating a host to keep its own email and phone', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    actingAs($this->pic)
+        ->put("/livehost/hosts/{$host->id}", [
+            'name' => $host->name,
+            'email' => $host->email,
+            'phone' => $host->phone,
+            'status' => $host->status,
+        ])
+        ->assertSessionHasNoErrors();
+});
+
+it('prevents updating a host to another users email', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    User::factory()->create(['email' => 'taken@example.com']);
+
+    actingAs($this->pic)
+        ->put("/livehost/hosts/{$host->id}", [
+            'name' => $host->name,
+            'email' => 'taken@example.com',
+            'phone' => $host->phone,
+            'status' => $host->status,
+        ])
+        ->assertSessionHasErrors('email');
+});
+
+it('ignores role field in update mass-assign', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+
+    actingAs($this->pic)
+        ->put("/livehost/hosts/{$host->id}", [
+            'name' => $host->name,
+            'email' => $host->email,
+            'phone' => $host->phone,
+            'status' => $host->status,
+            'role' => 'admin',
+        ]);
+
+    expect($host->fresh()->role)->toBe('live_host');
+});
+
+it('returns 404 when editing a non-live-host user', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    actingAs($this->pic)
+        ->get("/livehost/hosts/{$admin->id}/edit")
+        ->assertNotFound();
+});
