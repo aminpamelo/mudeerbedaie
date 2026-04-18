@@ -23,6 +23,7 @@
         "livewire/volt": "^1.7",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "stripe/stripe-php": "^17.5",
+        "tightenco/ziggy": "^2.6",
         "webimpian/bayarcash-php-sdk": "^2.0"
     },
     "require-dev": {
