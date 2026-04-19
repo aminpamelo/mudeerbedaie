@@ -97,13 +97,23 @@ class SessionController extends Controller
     {
         $data = $request->validated();
         $nextStatus = $data['verification_status'];
+        $override = $data['gmv_amount_override'] ?? null;
 
-        $session->update([
+        $attributes = [
             'verification_status' => $nextStatus,
             'verification_notes' => $data['verification_notes'] ?? null,
             'verified_by' => $nextStatus === 'pending' ? null : $request->user()?->id,
             'verified_at' => $nextStatus === 'pending' ? null : now(),
-        ]);
+        ];
+
+        // Apply PIC override before status flips to 'verified' so the
+        // LiveSessionVerifiedObserver snapshots commission against the
+        // overridden GMV. Explicit 0 is valid (missed/adjusted sessions).
+        if ($override !== null) {
+            $attributes['gmv_amount'] = $override;
+        }
+
+        $session->update($attributes);
 
         $flash = match ($nextStatus) {
             'verified' => 'Session verified.',
