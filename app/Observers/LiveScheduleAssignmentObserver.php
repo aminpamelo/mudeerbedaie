@@ -37,6 +37,7 @@ class LiveScheduleAssignmentObserver
             ['live_schedule_assignment_id' => $assignment->id],
             [
                 'platform_account_id' => $assignment->platform_account_id,
+                'live_host_platform_account_id' => $assignment->live_host_platform_account_id,
                 'live_host_id' => $assignment->live_host_id,
                 'title' => $this->sessionTitle($assignment),
                 'status' => $this->mapStatus($assignment->status),

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
@@ -132,12 +133,18 @@ it('creates a new session slot', function () {
     $host = User::factory()->create(['role' => 'live_host']);
     $account = PlatformAccount::factory()->create();
     $slot = LiveTimeSlot::factory()->create();
+    $pivot = LiveHostPlatformAccount::create([
+        'user_id' => $host->id,
+        'platform_account_id' => $account->id,
+        'is_primary' => true,
+    ]);
 
     actingAs($this->pic)
         ->post('/livehost/session-slots', [
             'platform_account_id' => $account->id,
             'time_slot_id' => $slot->id,
             'live_host_id' => $host->id,
+            'live_host_platform_account_id' => $pivot->id,
             'day_of_week' => 2,
             'is_template' => true,
             'status' => 'confirmed',
@@ -151,6 +158,7 @@ it('creates a new session slot', function () {
     expect($created->platform_account_id)->toBe($account->id);
     expect($created->time_slot_id)->toBe($slot->id);
     expect($created->live_host_id)->toBe($host->id);
+    expect($created->live_host_platform_account_id)->toBe($pivot->id);
     expect($created->day_of_week)->toBe(2);
     expect($created->is_template)->toBeTrue();
     expect($created->status)->toBe('confirmed');
@@ -159,14 +167,21 @@ it('creates a new session slot', function () {
 });
 
 it('creates a session slot with no host assigned', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
     $account = PlatformAccount::factory()->create();
     $slot = LiveTimeSlot::factory()->create();
+    $pivot = LiveHostPlatformAccount::create([
+        'user_id' => $host->id,
+        'platform_account_id' => $account->id,
+        'is_primary' => true,
+    ]);
 
     actingAs($this->pic)
         ->post('/livehost/session-slots', [
             'platform_account_id' => $account->id,
             'time_slot_id' => $slot->id,
             'live_host_id' => null,
+            'live_host_platform_account_id' => $pivot->id,
             'day_of_week' => 0,
             'is_template' => true,
         ])
@@ -181,7 +196,12 @@ it('creates a session slot with no host assigned', function () {
 it('rejects session slot create with missing required fields', function () {
     actingAs($this->pic)
         ->post('/livehost/session-slots', [])
-        ->assertSessionHasErrors(['platform_account_id', 'time_slot_id', 'day_of_week']);
+        ->assertSessionHasErrors([
+            'platform_account_id',
+            'time_slot_id',
+            'day_of_week',
+            'live_host_platform_account_id',
+        ]);
 });
 
 it('rejects session slot create with out-of-range day_of_week', function () {

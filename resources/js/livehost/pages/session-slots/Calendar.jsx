@@ -132,6 +132,7 @@ export default function SessionSlotsCalendar() {
     hosts,
     platformAccounts,
     timeSlots,
+    hostPlatformPivots,
     flash,
   } = usePage().props;
 
@@ -711,6 +712,7 @@ export default function SessionSlotsCalendar() {
         hosts={hosts}
         platformAccounts={platformAccounts}
         timeSlots={timeSlots}
+        hostPlatformPivots={hostPlatformPivots ?? []}
         returnTo="calendar"
         weekOf={weekStart}
       />
@@ -727,6 +729,7 @@ export default function SessionSlotsCalendar() {
         hosts={hosts}
         platformAccounts={platformAccounts}
         timeSlots={timeSlots}
+        hostPlatformPivots={hostPlatformPivots ?? []}
         returnTo="calendar"
         weekOf={weekStart}
         onSuccess={() => setEditTarget(null)}

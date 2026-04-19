@@ -245,6 +245,14 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
         Route::put('hosts/{host}/platform-rates/{rate}', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'update'])
             ->name('hosts.platform-rates.update');
 
+        // Task 24: pivot CRUD for (host, platform_account) with creator identity.
+        Route::post('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'attach'])
+            ->name('hosts.platform-accounts.attach');
+        Route::patch('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'update'])
+            ->name('hosts.platform-accounts.update');
+        Route::delete('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'detach'])
+            ->name('hosts.platform-accounts.detach');
+
         Route::resource('schedules', \App\Http\Controllers\LiveHost\ScheduleController::class);
 
         Route::resource('time-slots', \App\Http\Controllers\LiveHost\TimeSlotController::class)

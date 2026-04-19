@@ -78,12 +78,14 @@ export default function SessionSlotFormModal({
   hosts = [],
   platformAccounts = [],
   timeSlots = [],
+  hostPlatformPivots = [],
   returnTo = null,
   weekOf = null,
   onSuccess = null,
 }) {
   const form = useForm({
     platform_account_id: '',
+    live_host_platform_account_id: '',
     time_slot_id: '',
     live_host_id: '',
     day_of_week: '1',
@@ -105,6 +107,9 @@ export default function SessionSlotFormModal({
         platform_account_id: sessionSlot.platformAccountId
           ? String(sessionSlot.platformAccountId)
           : '',
+        live_host_platform_account_id: sessionSlot.liveHostPlatformAccountId
+          ? String(sessionSlot.liveHostPlatformAccountId)
+          : '',
         time_slot_id: sessionSlot.timeSlotId ? String(sessionSlot.timeSlotId) : '',
         live_host_id: sessionSlot.hostId ? String(sessionSlot.hostId) : '',
         day_of_week: String(sessionSlot.dayOfWeek ?? 1),
@@ -118,6 +123,7 @@ export default function SessionSlotFormModal({
 
     form.setData({
       platform_account_id: prefill?.platformAccountId ? String(prefill.platformAccountId) : '',
+      live_host_platform_account_id: '',
       time_slot_id: prefill?.timeSlotId ? String(prefill.timeSlotId) : '',
       live_host_id: '',
       day_of_week: String(Number.isFinite(prefill?.dayOfWeek) ? prefill.dayOfWeek : 1),
@@ -136,6 +142,49 @@ export default function SessionSlotFormModal({
     prefill?.platformAccountId,
     prefill?.scheduleDate,
   ]);
+
+  // Task 23: narrow the creator-identity dropdown to pivots matching the
+  // selected platform account (and, when provided, the selected host). Once
+  // the candidate list is known, auto-pick the primary pivot so the
+  // common-case flow ("assign session to host on their default shop") is
+  // zero-click. User can override before submitting.
+  const pivotCandidates = useMemo(() => {
+    if (!form.data.platform_account_id) {
+      return [];
+    }
+    const platformId = Number(form.data.platform_account_id);
+    const hostId = form.data.live_host_id ? Number(form.data.live_host_id) : null;
+
+    return hostPlatformPivots.filter((p) => {
+      if (p.platformAccountId !== platformId) return false;
+      if (hostId !== null && p.userId !== hostId) return false;
+      return true;
+    });
+  }, [form.data.platform_account_id, form.data.live_host_id, hostPlatformPivots]);
+
+  useEffect(() => {
+    if (mode === 'edit') {
+      return;
+    }
+    if (pivotCandidates.length === 0) {
+      if (form.data.live_host_platform_account_id !== '') {
+        form.setData('live_host_platform_account_id', '');
+      }
+      return;
+    }
+    const currentId = form.data.live_host_platform_account_id
+      ? Number(form.data.live_host_platform_account_id)
+      : null;
+    const stillValid = currentId
+      ? pivotCandidates.some((p) => p.id === currentId)
+      : false;
+    if (!stillValid) {
+      const primary = pivotCandidates.find((p) => p.isPrimary);
+      const next = primary ?? pivotCandidates[0];
+      form.setData('live_host_platform_account_id', String(next.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pivotCandidates, mode]);
 
   const contextLabel = useMemo(() => {
     if (mode === 'edit') {
@@ -163,6 +212,10 @@ export default function SessionSlotFormModal({
       ...data,
       platform_account_id:
         data.platform_account_id === '' ? null : Number(data.platform_account_id),
+      live_host_platform_account_id:
+        data.live_host_platform_account_id === ''
+          ? null
+          : Number(data.live_host_platform_account_id),
       time_slot_id: data.time_slot_id === '' ? null : Number(data.time_slot_id),
       live_host_id: data.live_host_id === '' ? null : Number(data.live_host_id),
       day_of_week: data.day_of_week === '' ? null : Number(data.day_of_week),
@@ -222,6 +275,35 @@ export default function SessionSlotFormModal({
                 avatar: platformAvatar(pa.platform, pa.name),
               }))}
             />
+          </ModalField>
+
+          <ModalField
+            label="Creator identity"
+            error={form.errors.live_host_platform_account_id}
+            hint={
+              pivotCandidates.length === 0
+                ? 'Pick a platform account (and optionally a host) to see creator identities. Attach an identity on the host page first if none are listed.'
+                : 'Defaults to the host’s primary identity for this platform account.'
+            }
+            required
+          >
+            <ModalSelect
+              value={form.data.live_host_platform_account_id}
+              onChange={(e) => form.setData('live_host_platform_account_id', e.target.value)}
+              required
+            >
+              <option value="">
+                {pivotCandidates.length === 0
+                  ? 'No creator identities available'
+                  : 'Select creator identity'}
+              </option>
+              {pivotCandidates.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                  {p.isPrimary ? ' · primary' : ''}
+                </option>
+              ))}
+            </ModalSelect>
           </ModalField>
 
           <ModalField label="Time slot" error={form.errors.time_slot_id} required>

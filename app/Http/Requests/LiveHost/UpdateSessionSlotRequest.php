@@ -24,6 +24,7 @@ class UpdateSessionSlotRequest extends FormRequest
     {
         $this->merge([
             'live_host_id' => $this->nullableId($this->input('live_host_id')),
+            'live_host_platform_account_id' => $this->nullableId($this->input('live_host_platform_account_id')),
             'schedule_date' => $this->nullableString($this->input('schedule_date')),
             'is_template' => $this->toBool($this->input('is_template'), true),
         ]);
@@ -31,6 +32,11 @@ class UpdateSessionSlotRequest extends FormRequest
 
     /**
      * Get the validation rules that apply to the request.
+     *
+     * Note: `live_host_platform_account_id` is nullable on update so legacy
+     * slots created before Task 23 (which did not require this field) can
+     * still be edited without forcing a backfill. New slots must provide it —
+     * see StoreSessionSlotRequest.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
@@ -40,6 +46,11 @@ class UpdateSessionSlotRequest extends FormRequest
             'platform_account_id' => ['required', 'exists:platform_accounts,id'],
             'time_slot_id' => ['required', 'exists:live_time_slots,id'],
             'live_host_id' => ['nullable', 'exists:users,id'],
+            'live_host_platform_account_id' => [
+                'nullable',
+                'integer',
+                'exists:live_host_platform_account,id',
+            ],
             'day_of_week' => ['required', 'integer', 'between:0,6'],
             'schedule_date' => ['nullable', 'required_if:is_template,false', 'date_format:Y-m-d'],
             'is_template' => ['boolean'],

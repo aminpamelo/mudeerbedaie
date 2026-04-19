@@ -24,6 +24,7 @@ class StoreSessionSlotRequest extends FormRequest
     {
         $this->merge([
             'live_host_id' => $this->nullableId($this->input('live_host_id')),
+            'live_host_platform_account_id' => $this->nullableId($this->input('live_host_platform_account_id')),
             'schedule_date' => $this->nullableString($this->input('schedule_date')),
             'is_template' => $this->toBool($this->input('is_template'), true),
         ]);
@@ -40,6 +41,11 @@ class StoreSessionSlotRequest extends FormRequest
             'platform_account_id' => ['required', 'exists:platform_accounts,id'],
             'time_slot_id' => ['required', 'exists:live_time_slots,id'],
             'live_host_id' => ['nullable', 'exists:users,id'],
+            'live_host_platform_account_id' => [
+                'required',
+                'integer',
+                'exists:live_host_platform_account,id',
+            ],
             'day_of_week' => ['required', 'integer', 'between:0,6'],
             'schedule_date' => ['nullable', 'required_if:is_template,false', 'date_format:Y-m-d'],
             'is_template' => ['boolean'],

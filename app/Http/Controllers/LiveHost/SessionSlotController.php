@@ -5,6 +5,7 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreSessionSlotRequest;
 use App\Http\Requests\LiveHost\UpdateSessionSlotRequest;
+use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
@@ -75,6 +76,7 @@ class SessionSlotController extends Controller
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
+            'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
     }
 
@@ -143,6 +145,7 @@ class SessionSlotController extends Controller
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
+            'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
     }
 
@@ -152,6 +155,7 @@ class SessionSlotController extends Controller
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
+            'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
     }
 
@@ -187,6 +191,7 @@ class SessionSlotController extends Controller
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
+            'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
     }
 
@@ -196,6 +201,7 @@ class SessionSlotController extends Controller
             'sessionSlot' => [
                 'id' => $sessionSlot->id,
                 'platform_account_id' => $sessionSlot->platform_account_id,
+                'live_host_platform_account_id' => $sessionSlot->live_host_platform_account_id,
                 'time_slot_id' => $sessionSlot->time_slot_id,
                 'live_host_id' => $sessionSlot->live_host_id,
                 'day_of_week' => (int) $sessionSlot->day_of_week,
@@ -207,6 +213,7 @@ class SessionSlotController extends Controller
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
             'timeSlots' => $this->timeSlotOptions(),
+            'hostPlatformPivots' => $this->hostPlatformPivotOptions(),
         ]);
     }
 
@@ -272,6 +279,7 @@ class SessionSlotController extends Controller
             'platformAccountId' => $a->platform_account_id,
             'platformAccount' => $a->platformAccount?->name,
             'platformType' => $a->platformAccount?->platform?->slug,
+            'liveHostPlatformAccountId' => $a->live_host_platform_account_id,
             'timeSlotId' => $a->time_slot_id,
             'timeSlotLabel' => $timeSlotLabel,
             'startTime' => $start,
@@ -290,6 +298,47 @@ class SessionSlotController extends Controller
             'createdAt' => $a->created_at?->toIso8601String(),
             'updatedAt' => $a->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Pivot options for the creator-identity picker in the session-slot
+     * modal. One entry per (host, platform_account) pairing, with the handle
+     * and a precomputed label "(shop - @creator)" so the React UI can render
+     * the option text without additional lookups. `isPrimary` lets the UI
+     * auto-select the host's default identity for a given platform account.
+     *
+     * @return \Illuminate\Support\Collection<int, array{
+     *     id: int,
+     *     userId: int,
+     *     platformAccountId: int,
+     *     creatorHandle: ?string,
+     *     creatorPlatformUserId: ?string,
+     *     isPrimary: bool,
+     *     label: string
+     * }>
+     */
+    private function hostPlatformPivotOptions(): \Illuminate\Support\Collection
+    {
+        return LiveHostPlatformAccount::query()
+            ->with('platformAccount:id,name')
+            ->orderByDesc('is_primary')
+            ->get()
+            ->map(function (LiveHostPlatformAccount $pivot) {
+                $shopName = $pivot->platformAccount?->name ?? 'Unknown shop';
+                $handle = $pivot->creator_handle !== null && $pivot->creator_handle !== ''
+                    ? $pivot->creator_handle
+                    : '—';
+
+                return [
+                    'id' => $pivot->id,
+                    'userId' => $pivot->user_id,
+                    'platformAccountId' => $pivot->platform_account_id,
+                    'creatorHandle' => $pivot->creator_handle,
+                    'creatorPlatformUserId' => $pivot->creator_platform_user_id,
+                    'isPrimary' => (bool) $pivot->is_primary,
+                    'label' => "{$shopName} - {$handle}",
+                ];
+            });
     }
 
     /**
