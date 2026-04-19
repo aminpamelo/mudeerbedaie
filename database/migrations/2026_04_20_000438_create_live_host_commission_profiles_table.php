@@ -8,6 +8,12 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     *
+     * Note: the "at-most-one active profile per user" invariant is enforced at
+     * the application layer (see the commission profile controller / service)
+     * because partial unique indexes are not portable between MySQL and SQLite.
+     * The composite unique (user_id, effective_from) only prevents exact-timestamp
+     * duplicates — it does not prevent two is_active=true rows coexisting.
      */
     public function up(): void
     {
