@@ -35,7 +35,11 @@ export default function SessionDetail() {
   const { session, analytics, attachments } = usePage().props;
 
   const recap = useForm({
-    went_live: session?.status === 'missed' ? false : (session?.status === 'ended' ? true : null),
+    went_live: session?.status === 'missed'
+      ? false
+      : (session?.status === 'ended' || session?.status === 'live')
+        ? true
+        : null,
     cover_image: null,
     actual_start_at: toLocalDatetime(session?.actualStartAt),
     actual_end_at: toLocalDatetime(session?.actualEndAt),
@@ -54,6 +58,9 @@ export default function SessionDetail() {
   const coverInputRef = useRef(null);
   const attachmentInputRef = useRef(null);
 
+  // Seed `went_live` from the list-card CTA's query param (`?recap=yes|no`)
+  // only on initial mount. Re-running on recap changes would overwrite
+  // the user's in-progress edits.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const hint = params.get('recap');
@@ -79,8 +86,7 @@ export default function SessionDetail() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = (event) => {
-    event.preventDefault();
+  const handleSave = () => {
     recap.post(`/live-host/sessions/${session.id}/recap`, {
       preserveScroll: true,
       forceFormData: true,
@@ -90,6 +96,7 @@ export default function SessionDetail() {
   const handleMarkMissed = () => {
     recap.post(`/live-host/sessions/${session.id}/recap`, {
       preserveScroll: true,
+      forceFormData: true,
     });
   };
 
@@ -547,11 +554,11 @@ function PathSwitch({ value, onChange }) {
   return (
     <div className="mb-4">
       <div className="mb-2 px-1">
-        <h4 className="font-display text-[12.5px] font-medium tracking-[-0.01em] text-[var(--fg)]">
+        <h4 id="path-switch-label" className="font-display text-[12.5px] font-medium tracking-[-0.01em] text-[var(--fg)]">
           Did you go live?
         </h4>
       </div>
-      <div className="grid grid-cols-2 gap-[8px]">
+      <div role="group" aria-labelledby="path-switch-label" className="grid grid-cols-2 gap-[8px]">
         <PathButton
           active={value === true}
           onClick={() => onChange(true)}
@@ -575,6 +582,7 @@ function PathButton({ active, onClick, accent = false, children }) {
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         'rounded-[12px] border px-[12px] py-[12px] text-left font-display text-[13px] font-medium leading-tight tracking-[-0.01em] transition',
         active && accent
@@ -616,7 +624,11 @@ function MissedReasonForm({
   return (
     <>
       <Section title="Why didn't you go live?" hint="missed_reason_code">
-        <div className="space-y-[6px]">
+        <div
+          role="radiogroup"
+          aria-label="Why didn't you go live?"
+          className="space-y-[6px]"
+        >
           {MISSED_REASONS.map((r) => (
             <label
               key={r.code}
