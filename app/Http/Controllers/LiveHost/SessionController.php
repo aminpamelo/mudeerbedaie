@@ -7,8 +7,10 @@ use App\Http\Requests\LiveHost\StoreLiveSessionAttachmentRequest;
 use App\Http\Requests\LiveHost\UpdateLiveSessionRequest;
 use App\Http\Requests\LiveHost\VerifyLiveSessionRequest;
 use App\Models\LiveAnalytics;
+use App\Models\LiveHostPayrollRun;
 use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
+use App\Models\LiveSessionGmvAdjustment;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -160,9 +162,11 @@ class SessionController extends Controller
             'platformAccount:id,name,platform_id',
             'platformAccount.platform:id,name,display_name,slug',
             'liveHost:id,name,email',
+            'liveHostPlatformAccount.platformAccount.platform:id,name,display_name,slug',
             'verifiedBy:id,name',
             'analytics',
             'attachments.uploader:id,name',
+            'gmvAdjustments.adjustedBy:id,name',
         ]);
 
         return Inertia::render('sessions/Show', [
@@ -243,9 +247,57 @@ class SessionController extends Controller
         if ($detailed) {
             $base['createdAt'] = $s->created_at?->toIso8601String();
             $base['updatedAt'] = $s->updated_at?->toIso8601String();
+
+            // Commission panel props (PIC-only surface). The /livehost/* route
+            // group is already gated to admin_livehost+admin, so live hosts
+            // never reach this path — no extra guard needed here.
+            $adjustments = $s->relationLoaded('gmvAdjustments')
+                ? $s->gmvAdjustments
+                : $s->gmvAdjustments()->with('adjustedBy:id,name')->get();
+
+            $base['gmv_amount'] = $s->gmv_amount !== null ? (float) $s->gmv_amount : 0.0;
+            $base['gmv_adjustment'] = $s->gmv_adjustment !== null ? (float) $s->gmv_adjustment : 0.0;
+            $base['net_gmv'] = round(
+                ((float) ($s->gmv_amount ?? 0)) + ((float) ($s->gmv_adjustment ?? 0)),
+                2
+            );
+            $base['gmv_locked_at'] = $s->gmv_locked_at?->toIso8601String();
+            $base['commission_snapshot_json'] = $s->commission_snapshot_json;
+            $base['gmv_adjustments'] = $adjustments
+                ->map(fn (LiveSessionGmvAdjustment $a) => [
+                    'id' => $a->id,
+                    'amount_myr' => (float) $a->amount_myr,
+                    'reason' => $a->reason,
+                    'adjusted_at' => $a->adjusted_at?->toIso8601String(),
+                    'adjusted_by' => $a->adjusted_by,
+                    'adjusted_by_name' => $a->adjustedBy?->name,
+                ])
+                ->values()
+                ->all();
+            $base['creator_handle'] = $s->liveHostPlatformAccount?->creator_handle;
+            $base['creator_platform_user_id'] = $s->liveHostPlatformAccount?->creator_platform_user_id;
+            $base['payroll_locked'] = $this->isSessionPayrollLocked($s);
         }
 
         return $base;
+    }
+
+    /**
+     * Mirror of LiveSessionGmvAdjustmentController::assertNotPayrollLocked()
+     * expressed as a boolean for the UI. True means the PIC Commission panel
+     * must gray out Add/Delete adjustment actions.
+     */
+    private function isSessionPayrollLocked(LiveSession $session): bool
+    {
+        if ($session->actual_end_at === null) {
+            return false;
+        }
+
+        return LiveHostPayrollRun::query()
+            ->where('status', 'locked')
+            ->where('period_start', '<=', $session->actual_end_at)
+            ->where('period_end', '>=', $session->actual_end_at)
+            ->exists();
     }
 
     /**
