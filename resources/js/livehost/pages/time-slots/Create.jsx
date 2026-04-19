@@ -35,7 +35,8 @@ export default function TimeSlotsCreate() {
       platform_account_id: data.platform_account_id === '' ? null : data.platform_account_id,
       day_of_week: data.day_of_week === '' ? null : Number(data.day_of_week),
       sort_order: data.sort_order === '' ? null : Number(data.sort_order),
-    })).post('/livehost/time-slots');
+    }));
+    form.post('/livehost/time-slots');
   };
 
   return (

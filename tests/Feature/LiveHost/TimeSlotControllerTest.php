@@ -257,3 +257,17 @@ it('forbids live_host from creating a time slot', function () {
         ])
         ->assertForbidden();
 });
+
+it('creates a time slot with the exact values the UI sends', function () {
+    actingAs($this->pic)
+        ->post('/livehost/time-slots', [
+            'platform_account_id' => null,
+            'day_of_week' => null,
+            'start_time' => '08:30',
+            'end_time' => '11:00',
+            'is_active' => true,
+            'sort_order' => 1,
+        ])
+        ->assertRedirect('/livehost/time-slots')
+        ->assertSessionHas('success');
+});
