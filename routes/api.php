@@ -461,6 +461,11 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('hr')->group(
     Route::get('dashboard/stats', [HrDashboardController::class, 'stats'])->name('api.hr.dashboard.stats');
     Route::get('dashboard/recent-activity', [HrDashboardController::class, 'recentActivity'])->name('api.hr.dashboard.recent-activity');
     Route::get('dashboard/headcount-by-department', [HrDashboardController::class, 'headcountByDepartment'])->name('api.hr.dashboard.headcount');
+    Route::get('dashboard/today-attendance', [HrDashboardController::class, 'todayAttendance'])->name('api.hr.dashboard.today-attendance');
+    Route::get('dashboard/pending-approvals', [HrDashboardController::class, 'pendingApprovals'])->name('api.hr.dashboard.pending-approvals');
+    Route::get('dashboard/on-leave-today', [HrDashboardController::class, 'onLeaveToday'])->name('api.hr.dashboard.on-leave-today');
+    Route::get('dashboard/upcoming-events', [HrDashboardController::class, 'upcomingEvents'])->name('api.hr.dashboard.upcoming-events');
+    Route::get('dashboard/today-meetings', [HrDashboardController::class, 'todayMeetings'])->name('api.hr.dashboard.today-meetings');
 
     // Employee Self-Service (My Profile)
     Route::get('me', [HrMyProfileController::class, 'show'])->name('api.hr.me');

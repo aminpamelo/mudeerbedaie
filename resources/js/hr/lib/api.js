@@ -31,6 +31,11 @@ api.interceptors.response.use(
 export const fetchDashboardStats = () => api.get('/dashboard/stats').then(r => r.data);
 export const fetchRecentActivity = () => api.get('/dashboard/recent-activity').then(r => r.data);
 export const fetchHeadcountByDepartment = () => api.get('/dashboard/headcount-by-department').then(r => r.data);
+export const fetchDashboardTodayAttendance = () => api.get('/dashboard/today-attendance').then(r => r.data);
+export const fetchPendingApprovals = () => api.get('/dashboard/pending-approvals').then(r => r.data);
+export const fetchOnLeaveToday = () => api.get('/dashboard/on-leave-today').then(r => r.data);
+export const fetchUpcomingEvents = () => api.get('/dashboard/upcoming-events').then(r => r.data);
+export const fetchTodayMeetings = () => api.get('/dashboard/today-meetings').then(r => r.data);
 
 // ========== Employees ==========
 export const fetchEmployees = (params) => api.get('/employees', { params }).then(r => r.data);
