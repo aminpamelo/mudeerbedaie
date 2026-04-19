@@ -94,9 +94,12 @@ export default function SessionDetail() {
   };
 
   const handleMarkMissed = () => {
+    // The missed path has no file upload, so we send JSON (no forceFormData).
+    // That keeps the payload small and avoids multipart parsing quirks in
+    // the Pest v4 in-process browser server, where the missed flow is
+    // exercised end-to-end in a Playwright run.
     recap.post(`/live-host/sessions/${session.id}/recap`, {
       preserveScroll: true,
-      forceFormData: true,
     });
   };
 
