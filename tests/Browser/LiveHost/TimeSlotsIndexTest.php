@@ -21,6 +21,6 @@ it('renders time slots index page with data', function () {
     visit('/livehost/time-slots')
         ->assertSee('Time Slots')
         ->assertSee('TikTok Main')
-        ->assertSee('09:00')
+        ->assertSee('9:00 AM')
         ->assertNoJavascriptErrors();
 });
