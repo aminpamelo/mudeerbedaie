@@ -7,6 +7,7 @@ use App\Models\LiveHostPlatformCommissionRate;
 use App\Models\Platform;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class LiveHostCommissionSeeder extends Seeder
 {
@@ -24,17 +25,15 @@ class LiveHostCommissionSeeder extends Seeder
      */
     public function run(): void
     {
-        $tiktok = Platform::where('slug', 'tiktok')->first()
-            ?? Platform::where('name', 'like', '%TikTok%')->first();
+        // Use the canonical slug from PlatformSeeder (`tiktok-shop`) so
+        // we reconcile with the production platform record. If it's missing
+        // (fresh DB where PlatformSeeder hasn't run), call that seeder
+        // first rather than creating a divergent row with a different slug.
+        $tiktok = Platform::where('slug', 'tiktok-shop')->first();
 
         if (! $tiktok) {
-            $tiktok = Platform::create([
-                'name' => 'TikTok',
-                'slug' => 'tiktok',
-                'display_name' => 'TikTok',
-                'type' => 'marketplace',
-                'is_active' => true,
-            ]);
+            $this->call(PlatformSeeder::class);
+            $tiktok = Platform::where('slug', 'tiktok-shop')->firstOrFail();
         }
 
         $ahmad = User::firstOrCreate(
@@ -43,7 +42,7 @@ class LiveHostCommissionSeeder extends Seeder
                 'name' => 'Ahmad Rahman',
                 'role' => 'live_host',
                 'status' => 'active',
-                'password' => bcrypt('password'),
+                'password' => Hash::make('password'),
             ]
         );
 
@@ -53,7 +52,7 @@ class LiveHostCommissionSeeder extends Seeder
                 'name' => 'Sarah Chen',
                 'role' => 'live_host',
                 'status' => 'active',
-                'password' => bcrypt('password'),
+                'password' => Hash::make('password'),
             ]
         );
 
@@ -63,7 +62,7 @@ class LiveHostCommissionSeeder extends Seeder
                 'name' => 'Amin',
                 'role' => 'live_host',
                 'status' => 'active',
-                'password' => bcrypt('password'),
+                'password' => Hash::make('password'),
             ]
         );
 

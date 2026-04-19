@@ -57,18 +57,23 @@ it('LiveHostCommissionSeeder creates Ahmad/Sarah/Amin with correct upline chain 
     expect((float) $amin->commissionProfile->per_live_rate_myr)->toEqual(50.00);
     expect($amin->commissionProfile->upline_user_id)->toBe($sarah->id);
 
-    // TikTok platform rates
-    $tiktok = Platform::where('slug', 'tiktok')->first()
-        ?? Platform::where('name', 'like', '%TikTok%')->first();
+    // TikTok platform rates — must use the canonical tiktok-shop slug
+    $tiktok = Platform::where('slug', 'tiktok-shop')->first();
     expect($tiktok)->not->toBeNull();
+    // No duplicate TikTok platforms were created by the commission seeder
+    expect(Platform::where('slug', 'tiktok-shop')->count())->toBe(1);
 
     expect((float) $ahmad->platformCommissionRates()->where('platform_id', $tiktok->id)->value('commission_rate_percent'))->toEqual(4.00);
     expect((float) $sarah->platformCommissionRates()->where('platform_id', $tiktok->id)->value('commission_rate_percent'))->toEqual(5.00);
     expect((float) $amin->platformCommissionRates()->where('platform_id', $tiktok->id)->value('commission_rate_percent'))->toEqual(6.00);
 });
 
-it('LiveHostCommissionSeeder is idempotent (running twice does not duplicate users)', function () {
+it('LiveHostCommissionSeeder is idempotent (users, profiles, rates, platforms all stable)', function () {
     $this->seed(\Database\Seeders\LiveHostCommissionSeeder::class);
     $this->seed(\Database\Seeders\LiveHostCommissionSeeder::class);
+
     expect(User::where('email', 'ahmad@livehost.com')->count())->toBe(1);
+    expect(LiveHostCommissionProfile::where('is_active', true)->count())->toBe(3);
+    expect(LiveHostPlatformCommissionRate::where('is_active', true)->count())->toBe(3);
+    expect(Platform::where('slug', 'tiktok-shop')->count())->toBe(1);
 });
