@@ -11,9 +11,7 @@ it('adds commission-related columns to live host tables', function () {
     expect(Schema::hasColumn('live_host_platform_account', 'creator_platform_user_id'))->toBeTrue();
     expect(Schema::hasColumn('live_host_platform_account', 'is_primary'))->toBeTrue();
 
-    if (Schema::hasTable('live_session_slots')) {
-        expect(Schema::hasColumn('live_session_slots', 'live_host_platform_account_id'))->toBeTrue();
-    }
+    expect(Schema::hasColumn('live_time_slots', 'live_host_platform_account_id'))->toBeTrue();
 
     expect(Schema::hasColumn('live_sessions', 'live_host_platform_account_id'))->toBeTrue();
     expect(Schema::hasColumn('live_sessions', 'gmv_amount'))->toBeTrue();

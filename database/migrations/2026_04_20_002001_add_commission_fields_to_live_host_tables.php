@@ -13,7 +13,7 @@ return new class extends Migration
      * The pivot `live_host_platform_account` was originally created with a
      * composite primary key (user_id, platform_account_id) and no id column.
      * Later FK relationships (live_sessions.live_host_platform_account_id,
-     * live_session_slots.live_host_platform_account_id) require a single
+     * live_time_slots.live_host_platform_account_id) require a single
      * surrogate id to reference, so we promote the pivot here.
      *
      * SQLite cannot ALTER TABLE to add a PRIMARY KEY autoincrement column,
@@ -64,14 +64,12 @@ return new class extends Migration
             $table->index('creator_platform_user_id');
         });
 
-        if (Schema::hasTable('live_session_slots')) {
-            Schema::table('live_session_slots', function (Blueprint $table) {
-                $table->foreignId('live_host_platform_account_id')->nullable()
-                    ->after('platform_account_id')
-                    ->constrained('live_host_platform_account', 'id')
-                    ->nullOnDelete();
-            });
-        }
+        Schema::table('live_time_slots', function (Blueprint $table) {
+            $table->foreignId('live_host_platform_account_id')->nullable()
+                ->after('platform_account_id')
+                ->constrained('live_host_platform_account', 'id')
+                ->nullOnDelete();
+        });
 
         Schema::table('live_sessions', function (Blueprint $table) {
             $table->foreignId('live_host_platform_account_id')->nullable()
@@ -102,11 +100,9 @@ return new class extends Migration
             ]);
         });
 
-        if (Schema::hasTable('live_session_slots')) {
-            Schema::table('live_session_slots', function (Blueprint $table) {
-                $table->dropConstrainedForeignId('live_host_platform_account_id');
-            });
-        }
+        Schema::table('live_time_slots', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('live_host_platform_account_id');
+        });
 
         Schema::table('live_host_platform_account', function (Blueprint $table) {
             $table->dropIndex(['creator_platform_user_id']);
