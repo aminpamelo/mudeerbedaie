@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\LiveHostPocket;
 
+use App\Models\LiveSessionAttachment;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Request payload for POST /live-host/sessions/{session}/attachments.
@@ -12,6 +14,9 @@ use Illuminate\Foundation\Http\FormRequest;
  * stores `file_type` from Symfony's server-side `getMimeType()` detection so
  * the recap screen can render the correct icon/thumbnail and
  * `hasVisualProof()` can trust the stored mime.
+ *
+ * An optional `attachment_type` flags the upload as a specific proof
+ * document — e.g. `tiktok_shop_screenshot` for GMV verification.
  */
 class AddAttachmentRequest extends FormRequest
 {
@@ -21,13 +26,14 @@ class AddAttachmentRequest extends FormRequest
     }
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
         return [
             'file' => ['required', 'file', 'max:20480', 'mimetypes:image/*,video/*,application/pdf'],
             'description' => ['nullable', 'string', 'max:255'],
+            'attachment_type' => ['nullable', Rule::in(LiveSessionAttachment::TYPES)],
         ];
     }
 }

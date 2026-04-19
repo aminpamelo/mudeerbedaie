@@ -42,13 +42,13 @@ it('rejects went_live=true without any image or video attachment', function () {
 it('accepts went_live=true with an image attachment and flips status to ended', function () {
     actingAs($this->host);
 
-    LiveSessionAttachment::factory()->create([
+    LiveSessionAttachment::factory()->tiktokShopScreenshot()->create([
         'live_session_id' => $this->session->id,
-        'file_type' => 'image/png',
     ]);
 
     $response = postJson("/live-host/sessions/{$this->session->id}/recap", [
         'went_live' => true,
+        'gmv_amount' => 750.00,
         'actual_start_at' => now()->subHours(2)->toIso8601String(),
         'actual_end_at' => now()->subHour()->toIso8601String(),
         'viewers_peak' => 42,
@@ -111,11 +111,15 @@ it('preserves analytics when flipping from missed back to went_live', function (
         'live_session_id' => $this->session->id,
         'file_type' => 'video/mp4',
     ]);
+    LiveSessionAttachment::factory()->tiktokShopScreenshot()->create([
+        'live_session_id' => $this->session->id,
+    ]);
     LiveAnalytics::factory()->for($this->session, 'liveSession')->create(['viewers_peak' => 100]);
 
     // Now flip to went_live=true.
     postJson("/live-host/sessions/{$this->session->id}/recap", [
         'went_live' => true,
+        'gmv_amount' => 320.00,
         'actual_start_at' => now()->subHours(2)->toIso8601String(),
         'actual_end_at' => now()->subHour()->toIso8601String(),
         'viewers_peak' => 150,

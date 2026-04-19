@@ -64,15 +64,15 @@ it('includes analytics + attachments in DTO when present', function () {
 });
 
 it('saves recap + upserts analytics for the owning host', function () {
-    LiveSessionAttachment::factory()->create([
+    LiveSessionAttachment::factory()->tiktokShopScreenshot()->create([
         'live_session_id' => $this->session->id,
         'uploaded_by' => $this->host->id,
-        'file_type' => 'image/png',
     ]);
 
     actingAs($this->host)
         ->post("/live-host/sessions/{$this->session->id}/recap", [
             'went_live' => true,
+            'gmv_amount' => 250.00,
             'remarks' => 'Strong engagement on the Hydro range.',
             'viewers_peak' => 412,
             'viewers_avg' => 210,
@@ -99,15 +99,15 @@ it('upserts existing analytics rather than duplicating', function () {
         'live_session_id' => $this->session->id,
         'viewers_peak' => 100,
     ]);
-    LiveSessionAttachment::factory()->create([
+    LiveSessionAttachment::factory()->tiktokShopScreenshot()->create([
         'live_session_id' => $this->session->id,
         'uploaded_by' => $this->host->id,
-        'file_type' => 'image/png',
     ]);
 
     actingAs($this->host)
         ->post("/live-host/sessions/{$this->session->id}/recap", [
             'went_live' => true,
+            'gmv_amount' => 125.00,
             'viewers_peak' => 500,
         ]);
 

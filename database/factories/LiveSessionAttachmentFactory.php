@@ -27,7 +27,19 @@ class LiveSessionAttachmentFactory extends Factory
             'file_path' => "live-sessions/attachments/{$name}",
             'file_type' => 'image/jpeg',
             'file_size' => fake()->numberBetween(10_000, 2_000_000),
+            'attachment_type' => null,
             'description' => fake()->optional()->sentence(),
         ];
+    }
+
+    /**
+     * Attachment flagged as a TikTok Shop backend screenshot (GMV proof).
+     */
+    public function tiktokShopScreenshot(): self
+    {
+        return $this->state(fn (): array => [
+            'attachment_type' => \App\Models\LiveSessionAttachment::TYPE_TIKTOK_SHOP_SCREENSHOT,
+            'file_type' => 'image/png',
+        ]);
     }
 }

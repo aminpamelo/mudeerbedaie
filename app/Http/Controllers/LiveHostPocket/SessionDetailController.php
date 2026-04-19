@@ -73,10 +73,12 @@ class SessionDetailController extends Controller
     }
 
     /**
-     * Persist a "went live" recap: timings, analytics, remarks, and flip
-     * status to `ended`. Proof-of-live is carried by LiveSessionAttachment
-     * rows (enforced in SaveRecapRequest::withValidator). Previously-captured
-     * missed-reason fields are cleared so the row stays clean.
+     * Persist a "went live" recap: timings, analytics, remarks, GMV, and
+     * flip status to `ended`. Proof-of-live is carried by
+     * LiveSessionAttachment rows (enforced in SaveRecapRequest::withValidator).
+     * Previously-captured missed-reason fields are cleared so the row stays
+     * clean. `gmv_source` is always `'manual'` and `gmv_locked_at` is reset
+     * to null — the PIC's verification step will lock it in a later phase.
      */
     private function persistWentLive(SaveRecapRequest $request, LiveSession $session, array $data): void
     {
@@ -93,6 +95,9 @@ class SessionDetailController extends Controller
             'actual_start_at' => $actualStart ?? $session->actual_start_at,
             'actual_end_at' => $actualEnd ?? $session->actual_end_at,
             'duration_minutes' => $duration,
+            'gmv_amount' => $data['gmv_amount'],
+            'gmv_source' => 'manual',
+            'gmv_locked_at' => null,
             'uploaded_at' => now(),
             'uploaded_by' => $request->user()->id,
             'status' => 'ended',
@@ -118,7 +123,8 @@ class SessionDetailController extends Controller
      * Persist a "did not go live" recap: set status to `missed` with the
      * supplied reason code + note. Analytics and attachments are intentionally
      * left untouched so a host who flips back to "went live" doesn't lose the
-     * data they already entered.
+     * data they already entered. Any host-supplied `gmv_amount` is ignored
+     * and forced to 0 — a missed session cannot have earned GMV.
      */
     private function persistMissed(SaveRecapRequest $request, LiveSession $session, array $data): void
     {
@@ -126,6 +132,9 @@ class SessionDetailController extends Controller
             'status' => 'missed',
             'missed_reason_code' => $data['missed_reason_code'],
             'missed_reason_note' => $data['missed_reason_note'] ?? null,
+            'gmv_amount' => 0,
+            'gmv_source' => 'manual',
+            'gmv_locked_at' => null,
             'uploaded_at' => now(),
             'uploaded_by' => $request->user()->id,
         ]);
@@ -144,6 +153,7 @@ class SessionDetailController extends Controller
             'file_path' => $path,
             'file_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
+            'attachment_type' => $request->string('attachment_type')->toString() ?: null,
             'description' => $request->string('description')->toString() ?: null,
             'uploaded_by' => $request->user()->id,
         ]);

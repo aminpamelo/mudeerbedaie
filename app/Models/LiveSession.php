@@ -270,6 +270,19 @@ class LiveSession extends Model
             ->exists();
     }
 
+    /**
+     * GMV proof: at least one attachment tagged
+     * `tiktok_shop_screenshot` exists. Used by SaveRecapRequest when
+     * `went_live=true` so the self-reported GMV is always accompanied by a
+     * backend screenshot the PIC can cross-check during verification.
+     */
+    public function hasTikTokShopScreenshot(): bool
+    {
+        return $this->attachments()
+            ->where('attachment_type', LiveSessionAttachment::TYPE_TIKTOK_SHOP_SCREENSHOT)
+            ->exists();
+    }
+
     public function getDurationAttribute(): ?int
     {
         if ($this->actual_start_at && $this->actual_end_at) {

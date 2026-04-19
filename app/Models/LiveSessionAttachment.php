@@ -12,6 +12,22 @@ class LiveSessionAttachment extends Model
     /** @use HasFactory<\Database\Factories\LiveSessionAttachmentFactory> */
     use HasFactory;
 
+    /**
+     * Marks the attachment as the TikTok Shop backend screenshot a host
+     * uploads to substantiate their self-reported GMV for a session.
+     */
+    public const TYPE_TIKTOK_SHOP_SCREENSHOT = 'tiktok_shop_screenshot';
+
+    /**
+     * Known attachment types. A NULL `attachment_type` is a generic
+     * attachment (e.g. proof-of-live footage) and remains the default.
+     *
+     * @var array<int, string>
+     */
+    public const TYPES = [
+        self::TYPE_TIKTOK_SHOP_SCREENSHOT,
+    ];
+
     protected $fillable = [
         'live_session_id',
         'uploaded_by',
@@ -19,6 +35,7 @@ class LiveSessionAttachment extends Model
         'file_path',
         'file_type',
         'file_size',
+        'attachment_type',
         'description',
     ];
 
@@ -62,5 +79,10 @@ class LiveSessionAttachment extends Model
     public function isPdf(): bool
     {
         return $this->file_type === 'application/pdf';
+    }
+
+    public function isTikTokShopScreenshot(): bool
+    {
+        return $this->attachment_type === self::TYPE_TIKTOK_SHOP_SCREENSHOT;
     }
 }
