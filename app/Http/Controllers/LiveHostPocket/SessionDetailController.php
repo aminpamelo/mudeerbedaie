@@ -192,6 +192,9 @@ class SessionDetailController extends Controller
             'imagePath' => $session->image_path,
             'imageUrl' => $session->image_path ? Storage::url($session->image_path) : null,
             'uploadedAt' => $session->uploaded_at?->toIso8601String(),
+            'canRecap' => $session->canRecap(),
+            'missedReasonCode' => $session->missed_reason_code,
+            'missedReasonNote' => $session->missed_reason_note,
         ];
     }
 

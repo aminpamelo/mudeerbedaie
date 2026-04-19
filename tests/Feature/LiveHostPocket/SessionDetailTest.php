@@ -64,8 +64,15 @@ it('includes analytics + attachments in DTO when present', function () {
 });
 
 it('saves recap + upserts analytics for the owning host', function () {
+    LiveSessionAttachment::factory()->create([
+        'live_session_id' => $this->session->id,
+        'uploaded_by' => $this->host->id,
+        'file_type' => 'image/png',
+    ]);
+
     actingAs($this->host)
         ->post("/live-host/sessions/{$this->session->id}/recap", [
+            'went_live' => true,
             'remarks' => 'Strong engagement on the Hydro range.',
             'viewers_peak' => 412,
             'viewers_avg' => 210,
@@ -92,9 +99,15 @@ it('upserts existing analytics rather than duplicating', function () {
         'live_session_id' => $this->session->id,
         'viewers_peak' => 100,
     ]);
+    LiveSessionAttachment::factory()->create([
+        'live_session_id' => $this->session->id,
+        'uploaded_by' => $this->host->id,
+        'file_type' => 'image/png',
+    ]);
 
     actingAs($this->host)
         ->post("/live-host/sessions/{$this->session->id}/recap", [
+            'went_live' => true,
             'viewers_peak' => 500,
         ]);
 
@@ -106,19 +119,26 @@ it('forbids another host from saving a recap', function () {
     $other = User::factory()->create(['role' => 'live_host']);
 
     actingAs($other)
-        ->post("/live-host/sessions/{$this->session->id}/recap", ['viewers_peak' => 1])
+        ->post("/live-host/sessions/{$this->session->id}/recap", [
+            'went_live' => false,
+            'missed_reason_code' => 'other',
+        ])
         ->assertForbidden();
 });
 
 it('validates recap: rejects negative viewers_peak', function () {
     actingAs($this->host)
-        ->post("/live-host/sessions/{$this->session->id}/recap", ['viewers_peak' => -1])
+        ->post("/live-host/sessions/{$this->session->id}/recap", [
+            'went_live' => true,
+            'viewers_peak' => -1,
+        ])
         ->assertSessionHasErrors('viewers_peak');
 });
 
 it('validates recap: rejects actual_end_at before actual_start_at', function () {
     actingAs($this->host)
         ->post("/live-host/sessions/{$this->session->id}/recap", [
+            'went_live' => true,
             'actual_start_at' => '2026-04-18 12:00:00',
             'actual_end_at' => '2026-04-18 11:00:00',
         ])
@@ -128,8 +148,15 @@ it('validates recap: rejects actual_end_at before actual_start_at', function () 
 it('stores uploaded cover image on public disk', function () {
     Storage::fake('public');
 
+    LiveSessionAttachment::factory()->create([
+        'live_session_id' => $this->session->id,
+        'uploaded_by' => $this->host->id,
+        'file_type' => 'image/png',
+    ]);
+
     actingAs($this->host)
         ->post("/live-host/sessions/{$this->session->id}/recap", [
+            'went_live' => true,
             'cover_image' => UploadedFile::fake()->image('cover.jpg'),
         ])
         ->assertRedirect();

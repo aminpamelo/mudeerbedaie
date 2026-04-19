@@ -4,7 +4,6 @@ use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
 use App\Models\PlatformAccount;
 use App\Models\User;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 use function Pest\Laravel\actingAs;
@@ -126,4 +125,35 @@ it('preserves analytics when flipping from missed back to went_live', function (
     expect($fresh->missed_reason_code)->toBeNull();
     expect($fresh->missed_reason_note)->toBeNull();
     expect($fresh->analytics->viewers_peak)->toBe(150);
+});
+
+it('exposes canRecap=true on scheduled sessions past their start time', function () {
+    actingAs($this->host);
+
+    $response = $this->get('/live-host/sessions?filter=upcoming');
+    $response->assertOk();
+
+    $props = $response->viewData('page')['props'];
+    $row = collect($props['sessions']['data'])->firstWhere('id', $this->session->id);
+
+    expect($row)->not->toBeNull();
+    expect($row['canRecap'])->toBeTrue();
+});
+
+it('exposes canRecap=false on scheduled sessions still in the future', function () {
+    actingAs($this->host);
+
+    $future = LiveSession::factory()
+        ->for(PlatformAccount::factory())
+        ->create([
+            'live_host_id' => $this->host->id,
+            'status' => 'scheduled',
+            'scheduled_start_at' => now()->addHours(5),
+        ]);
+
+    $response = $this->get('/live-host/sessions?filter=upcoming');
+    $props = $response->viewData('page')['props'];
+    $row = collect($props['sessions']['data'])->firstWhere('id', $future->id);
+
+    expect($row['canRecap'])->toBeFalse();
 });

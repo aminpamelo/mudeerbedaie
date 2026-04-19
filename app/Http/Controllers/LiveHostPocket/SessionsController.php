@@ -34,9 +34,12 @@ class SessionsController extends Controller
         match ($filter) {
             'upcoming' => $query
                 ->whereIn('status', ['scheduled', 'live'])
+                ->orderByRaw("CASE WHEN status = 'live' THEN 0
+                                    WHEN status = 'scheduled' AND scheduled_start_at <= ? THEN 1
+                                    ELSE 2 END", [now()])
                 ->orderBy('scheduled_start_at'),
             'ended' => $query
-                ->whereIn('status', ['ended', 'cancelled'])
+                ->whereIn('status', ['ended', 'cancelled', 'missed'])
                 ->orderByDesc('scheduled_start_at'),
             default => $query->orderByDesc('scheduled_start_at'),
         };
@@ -69,6 +72,9 @@ class SessionsController extends Controller
             'actualStartAt' => $session->actual_start_at?->toIso8601String(),
             'actualEndAt' => $session->actual_end_at?->toIso8601String(),
             'durationMinutes' => $session->duration_minutes,
+            'canRecap' => $session->canRecap(),
+            'missedReasonCode' => $session->missed_reason_code,
+            'missedReasonNote' => $session->missed_reason_note,
             'analytics' => $analytics ? [
                 'viewersPeak' => (int) $analytics->viewers_peak,
                 'totalLikes' => (int) $analytics->total_likes,
