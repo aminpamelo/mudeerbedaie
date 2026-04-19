@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
 class LiveSessionAttachment extends Model
 {
+    /** @use HasFactory<\Database\Factories\LiveSessionAttachmentFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'live_session_id',
         'uploaded_by',

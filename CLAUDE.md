@@ -102,6 +102,16 @@ stripe trigger invoice.payment_succeeded  # Test payment webhooks
 - `tests/Feature/`: Feature tests for application workflows
 - `tests/Unit/`: Unit tests for individual classes
 
+### UI Paradigms
+
+This project now has THREE coexisting UI paradigms. New features should use the paradigm for the area they live in:
+
+- **Livewire Volt** — the default. Admin, teacher, student, and host-side live-host pages all use Volt single-file components. New pages under `/admin/*`, `/teacher/*`, `/student/*`, or `/live-host/*` should use Volt.
+- **React SPA (HR)** — `/hr/*` is a standalone React SPA with API controllers under `Api/Hr/*`. New HR pages extend this SPA.
+- **Inertia.js + React (Live Host Desk)** — `/livehost/*` is an Inertia-driven React app for the PIC (admin_livehost role). Controllers in `app/Http/Controllers/LiveHost/*` return Inertia responses; React pages live in `resources/js/livehost/pages/*`. New Live Host PIC features extend this.
+
+The Inertia paradigm was introduced for the Live Host PIC Dashboard and is deliberately scoped to that surface in v1. Do not introduce it elsewhere without a design discussion.
+
 ### Livewire Volt Pattern
 This project uses Livewire Volt, which allows single-file components with PHP logic at the top:
 

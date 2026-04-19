@@ -13,6 +13,7 @@
         "barryvdh/laravel-dompdf": "^3.1",
         "dompdf/dompdf": "^3.1",
         "ecomphp/tiktokshop-php": "^2.8",
+        "inertiajs/inertia-laravel": "^2.0",
         "laravel-notification-channels/webpush": "^10.5",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.2",
@@ -22,6 +23,7 @@
         "livewire/volt": "^1.7",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "stripe/stripe-php": "^17.5",
+        "tightenco/ziggy": "^2.6",
         "webimpian/bayarcash-php-sdk": "^2.0"
     },
     "require-dev": {
@@ -34,6 +36,7 @@
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-browser": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.0",
         "phpunit/phpunit": "^12.3"
     },

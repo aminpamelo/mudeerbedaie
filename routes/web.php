@@ -158,6 +158,46 @@ Route::middleware(['auth', 'role:live_host'])->prefix('live-host')->name('live-h
     Volt::route('sessions/{session}', 'live-host.sessions-show')->name('sessions.show');
 });
 
+// Live Host PIC (Inertia) — accessible by admin_livehost + admin
+Route::middleware(['auth', 'role:admin_livehost,admin'])
+    ->prefix('livehost')
+    ->name('livehost.')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\LiveHost\DashboardController::class, 'index'])
+            ->name('dashboard');
+        Route::get('live-now', [\App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
+            ->name('live-now');
+
+        Route::get('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'index'])
+            ->name('hosts.index');
+        Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
+            ->name('hosts.create');
+        Route::post('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'store'])
+            ->name('hosts.store');
+        Route::get('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'show'])
+            ->name('hosts.show');
+        Route::get('hosts/{host}/edit', [\App\Http\Controllers\LiveHost\HostController::class, 'edit'])
+            ->name('hosts.edit');
+        Route::put('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'update'])
+            ->name('hosts.update');
+        Route::delete('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroy'])
+            ->name('hosts.destroy');
+
+        Route::resource('schedules', \App\Http\Controllers\LiveHost\ScheduleController::class);
+
+        Route::resource('time-slots', \App\Http\Controllers\LiveHost\TimeSlotController::class)
+            ->except(['show'])
+            ->parameters(['time-slots' => 'timeSlot']);
+
+        Route::resource('session-slots', \App\Http\Controllers\LiveHost\SessionSlotController::class)
+            ->parameters(['session-slots' => 'sessionSlot']);
+
+        Route::get('sessions', [\App\Http\Controllers\LiveHost\SessionController::class, 'index'])
+            ->name('sessions.index');
+        Route::get('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'show'])
+            ->name('sessions.show');
+    });
+
 // Public Live Schedule - accessible by everyone
 Volt::route('live/schedule', 'live.schedule-public')->name('live.schedule');
 
@@ -458,11 +498,15 @@ Route::middleware(['auth', 'role:admin,employee'])->prefix('admin')->group(funct
 
 // Live Host Management routes (Admin & Admin Livehost access)
 Route::middleware(['auth', 'role:admin,employee,admin_livehost'])->prefix('admin')->name('admin.')->group(function () {
-    // Live Host CRUD
-    Volt::route('live-hosts', 'admin.live-hosts-list')->name('live-hosts');
-    Volt::route('live-hosts/create', 'admin.live-hosts-create')->name('live-hosts.create');
-    Volt::route('live-hosts/{host}', 'admin.live-hosts-show')->name('live-hosts.show');
-    Volt::route('live-hosts/{host}/edit', 'admin.live-hosts-edit')->name('live-hosts.edit');
+    // Live Host CRUD — retired; now served by the Inertia PIC dashboard at /livehost/hosts.
+    // Redirects are kept inside the authenticated admin group so the user is logged in
+    // before the redirect fires (avoids leaking URLs to unauthenticated scrapers).
+    Route::permanentRedirect('live-hosts', '/livehost/hosts')->name('live-hosts');
+    Route::permanentRedirect('live-hosts/create', '/livehost/hosts/create')->name('live-hosts.create');
+    Route::get('live-hosts/{host}', fn ($host) => redirect("/livehost/hosts/{$host}", 301))
+        ->name('live-hosts.show');
+    Route::get('live-hosts/{host}/edit', fn ($host) => redirect("/livehost/hosts/{$host}/edit", 301))
+        ->name('live-hosts.edit');
 
     // Schedule Calendar (Main schedule management - spreadsheet style)
     Volt::route('live-schedule-calendar', 'admin.live-schedule-calendar')->name('live-schedule-calendar');

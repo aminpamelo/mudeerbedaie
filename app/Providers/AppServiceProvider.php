@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Listeners\BlockExampleEmails;
 use App\Models\ClassModel;
 use App\Models\User;
+use App\Policies\LiveHostPolicy;
 use App\Services\Shipping\JntShippingService;
 use App\Services\Shipping\ShippingManager;
 use Illuminate\Mail\Events\MessageSending;
@@ -56,5 +57,8 @@ class AppServiceProvider extends ServiceProvider
             // PIC can manage assigned classes
             return $user->isPicOf($class);
         });
+
+        Gate::define('livehost.update', fn (User $actor, User $target) => (new LiveHostPolicy)->update($actor, $target));
+        Gate::define('livehost.delete', fn (User $actor, User $target) => (new LiveHostPolicy)->delete($actor, $target));
     }
 }
