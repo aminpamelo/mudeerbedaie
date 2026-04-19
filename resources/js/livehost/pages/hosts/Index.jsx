@@ -97,7 +97,7 @@ export default function HostsIndex() {
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>

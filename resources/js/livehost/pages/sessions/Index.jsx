@@ -50,20 +50,43 @@ function formatDateTime(iso) {
   });
 }
 
-function formatDuration(minutes) {
-  if (minutes == null || !Number.isFinite(Number(minutes))) {
-    return '—';
-  }
-  const mins = Math.abs(Math.round(Number(minutes)));
-  if (mins === 0) {
-    return '—';
-  }
-  if (mins < 60) {
-    return `${mins}m`;
-  }
+function formatDurationFromMinutes(minutes) {
+  const mins = Math.abs(Math.round(Number(minutes) || 0));
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * Duration rules:
+ *  - Completed (actualStart + actualEnd)  → HH:MM
+ *  - Live     (actualStart, no end)       → elapsed HH:MM + live tag
+ *  - Otherwise                            → —
+ */
+function renderDuration(session) {
+  const { actualStart, actualEnd, duration, status } = session;
+
+  if (actualStart && actualEnd) {
+    if (duration != null && Number.isFinite(Number(duration))) {
+      return formatDurationFromMinutes(duration);
+    }
+    const start = new Date(actualStart).getTime();
+    const end = new Date(actualEnd).getTime();
+    if (!Number.isNaN(start) && !Number.isNaN(end) && end > start) {
+      return formatDurationFromMinutes((end - start) / 60000);
+    }
+  }
+
+  if (status === 'live' && actualStart) {
+    const start = new Date(actualStart).getTime();
+    if (!Number.isNaN(start)) {
+      const elapsed = Math.max(0, (Date.now() - start) / 60000);
+      return `${formatDurationFromMinutes(elapsed)} · live`;
+    }
+    return 'in progress';
+  }
+
+  return '—';
 }
 
 export default function SessionsIndex() {
@@ -73,6 +96,17 @@ export default function SessionsIndex() {
   const [host, setHost] = useState(filters?.host ?? '');
   const [from, setFrom] = useState(filters?.from ?? '');
   const [to, setTo] = useState(filters?.to ?? '');
+
+  // Tick once per minute so that "live" session durations advance.
+  const [, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const hasLive = sessions.data.some((s) => s.status === 'live' && s.actualStart);
+    if (!hasLive) {
+      return undefined;
+    }
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, [sessions.data]);
 
   useEffect(() => {
     const initial = filters ?? {};
@@ -151,7 +185,7 @@ export default function SessionsIndex() {
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -162,7 +196,7 @@ export default function SessionsIndex() {
           <select
             value={platformAccount}
             onChange={(event) => setPlatformAccount(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All platform accounts</option>
             {platformAccounts.map((pa) => (
@@ -174,7 +208,7 @@ export default function SessionsIndex() {
           <select
             value={host}
             onChange={(event) => setHost(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All hosts</option>
             {hosts.map((h) => (
@@ -183,20 +217,26 @@ export default function SessionsIndex() {
               </option>
             ))}
           </select>
-          <div className="inline-flex items-center gap-2 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-xs text-[#737373]">
-            <span>From</span>
+          <div className="inline-flex items-center gap-1.5">
+            <label className="text-xs font-medium text-[#737373]" htmlFor="session-date-from">
+              From
+            </label>
             <input
+              id="session-date-from"
               type="date"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
-              className="h-9 bg-transparent text-sm text-[#0A0A0A] focus:outline-none"
+              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             />
-            <span>To</span>
+            <label className="ml-1 text-xs font-medium text-[#737373]" htmlFor="session-date-to">
+              To
+            </label>
             <input
+              id="session-date-to"
               type="date"
               value={to}
               onChange={(event) => setTo(event.target.value)}
-              className="h-9 bg-transparent text-sm text-[#0A0A0A] focus:outline-none"
+              className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             />
           </div>
           {hasFilters && (
@@ -293,7 +333,7 @@ export default function SessionsIndex() {
                       {formatDateTime(session.actualStart)}
                     </td>
                     <td className="px-5 py-3.5 text-right tabular-nums text-[13px] font-medium text-[#0A0A0A]">
-                      {formatDuration(session.duration)}
+                      {renderDuration(session)}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <Link
