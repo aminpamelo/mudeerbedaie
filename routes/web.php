@@ -149,14 +149,39 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
     Volt::route('enrollments/{enrollment}', 'teacher.enrollments-show')->name('teacher.enrollments.show');
 });
 
-// Live Host routes - accessible by live hosts only
-Route::middleware(['auth', 'role:live_host'])->prefix('live-host')->name('live-host.')->group(function () {
-    Volt::route('dashboard', 'live-host.dashboard')->name('dashboard');
-    Volt::route('schedule', 'live-host.schedule')->name('schedule');
-    Volt::route('session-slots', 'live-host.session-upload')->name('session-slots');
-    Volt::route('sessions', 'live-host.sessions-index')->name('sessions.index');
-    Volt::route('sessions/{session}', 'live-host.sessions-show')->name('sessions.show');
-});
+// Live Host Pocket (Inertia) — host-side mobile shell.
+// The old Volt group at /live-host/{dashboard,schedule,session-slots,sessions}
+// is replaced by a single Inertia mount at `/live-host`. Batches 2-4 will add
+// the Today/Schedule/Sessions/Upload screens under this same prefix.
+//
+// Legacy route NAMES (`live-host.schedule`, `live-host.sessions.index`,
+// `live-host.sessions.show`, `live-host.session-slots`) are preserved below as
+// redirect stubs so sidebar links and notifications keep working until the
+// Inertia pages land. The old Volt views in resources/views/livewire/live-host/
+// are left in place — Batch 4 removes them after cutover is verified.
+Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketInertiaRequests::class])
+    ->prefix('live-host')
+    ->name('live-host.')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'index'])
+            ->name('dashboard');
+    });
+
+// Temporary legacy-path redirects so hosts and notifications hitting the old
+// Volt URLs land on the Pocket today screen instead of a 404. Names are kept
+// 1:1 with the old Volt routes so `route('live-host.schedule')` etc. still
+// resolves across the app.
+Route::middleware(['auth', 'role:live_host'])
+    ->prefix('live-host')
+    ->name('live-host.')
+    ->group(function () {
+        Route::get('schedule', fn () => redirect('/live-host'))->name('schedule');
+        Route::get('session-slots', fn () => redirect('/live-host'))->name('session-slots');
+        Route::get('sessions', fn () => redirect('/live-host'))->name('sessions.index');
+        Route::get('sessions/{session}', fn ($session) => redirect('/live-host'))
+            ->where('session', '.*')
+            ->name('sessions.show');
+    });
 
 // Live Host PIC (Inertia) — accessible by admin_livehost + admin
 Route::middleware(['auth', 'role:admin_livehost,admin'])
@@ -189,7 +214,15 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->except(['show'])
             ->parameters(['time-slots' => 'timeSlot']);
 
+        Route::get('session-slots/calendar', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
+            ->name('session-slots.calendar');
+        Route::get('session-slots/table', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'index'])
+            ->name('session-slots.table');
+        Route::get('session-slots', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
+            ->name('session-slots.index');
+
         Route::resource('session-slots', \App\Http\Controllers\LiveHost\SessionSlotController::class)
+            ->except(['index'])
             ->parameters(['session-slots' => 'sessionSlot']);
 
         Route::resource('platform-accounts', \App\Http\Controllers\LiveHost\PlatformAccountController::class)
