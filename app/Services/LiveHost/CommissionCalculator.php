@@ -4,6 +4,7 @@ namespace App\Services\LiveHost;
 
 use App\Models\LiveHostPlatformCommissionRate;
 use App\Models\LiveSession;
+use App\Models\User;
 use Illuminate\Support\Carbon;
 
 class CommissionCalculator
@@ -78,6 +79,50 @@ class CommissionCalculator
             'session_total' => round($gmvCommission + $perLiveRate, 2),
             'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * Audit-capturing wrapper around forSession(). Returns the pure commission
+     * figures plus three metadata keys the observer (Task 13) persists to
+     * `live_sessions.commission_snapshot_json` at the moment of PIC verify:
+     *
+     *   - snapshotted_at          : ISO 8601 "now" — when the snapshot was taken
+     *   - snapshotted_by_user_id  : id of the actor who triggered verify (null if none)
+     *   - rate_source             : id of the LiveHostPlatformCommissionRate row
+     *                               actually applied (null when no rate matched)
+     *
+     * Persistence is intentionally NOT done here — the observer writes the
+     * result into the session. This keeps the service pure and trivially
+     * testable, and lets payroll recompute (Task 25) reuse the same shape.
+     *
+     * @return array{
+     *     net_gmv: float,
+     *     platform_rate_percent: float,
+     *     gmv_commission: float,
+     *     per_live_rate: float,
+     *     session_total: float,
+     *     warnings: array<int, string>,
+     *     snapshotted_at: string,
+     *     snapshotted_by_user_id: int|null,
+     *     rate_source: int|null
+     * }
+     */
+    public function snapshot(LiveSession $session, ?User $actor = null): array
+    {
+        $base = $this->forSession($session);
+
+        $host = $session->liveHost;
+        $platformId = $session->platformAccount?->platform_id;
+
+        $rate = $host && $platformId
+            ? $this->resolveRateAt($host->id, $platformId, $this->asOf($session))
+            : null;
+
+        return array_merge($base, [
+            'snapshotted_at' => Carbon::now()->toIso8601String(),
+            'snapshotted_by_user_id' => $actor?->id,
+            'rate_source' => $rate?->id,
+        ]);
     }
 
     /**
