@@ -150,15 +150,15 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
 });
 
 // Live Host Pocket (Inertia) — host-side mobile shell.
-// The old Volt group at /live-host/{dashboard,schedule,session-slots,sessions}
-// is replaced by a single Inertia mount at `/live-host`. Batches 2-4 will add
-// the Today/Schedule/Sessions/Upload screens under this same prefix.
+// All five Pocket screens (Today, Schedule, Sessions, Session Detail/Recap,
+// You) are now real Inertia pages mounted under this prefix. The legacy
+// Volt views in resources/views/livewire/live-host/ have been retired.
 //
-// Legacy route NAMES (`live-host.schedule`, `live-host.sessions.index`,
-// `live-host.sessions.show`, `live-host.session-slots`) are preserved below as
-// redirect stubs so sidebar links and notifications keep working until the
-// Inertia pages land. The old Volt views in resources/views/livewire/live-host/
-// are left in place — Batch 4 removes them after cutover is verified.
+// `live-host.session-slots` has no direct Pocket equivalent — it used to
+// serve a "pending uploads" queue. That role is now fulfilled by the ended
+// tab on the Sessions list (`/live-host/sessions?filter=ended`); the route
+// name is kept as a redirect so any external link or sidebar reference still
+// resolves.
 Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketInertiaRequests::class])
     ->prefix('live-host')
     ->name('live-host.')
@@ -166,31 +166,42 @@ Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketIn
         Route::get('/', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'index'])
             ->name('dashboard');
 
-        Route::get('sessions', [\App\Http\Controllers\LiveHostPocket\SessionsController::class, 'index'])
-            ->name('sessions.index');
-
         Route::get('schedule', [\App\Http\Controllers\LiveHostPocket\ScheduleController::class, 'index'])
             ->name('schedule');
 
+        Route::get('sessions', [\App\Http\Controllers\LiveHostPocket\SessionsController::class, 'index'])
+            ->name('sessions.index');
+
+        Route::get('sessions/{session}', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'show'])
+            ->name('sessions.show');
+
+        Route::post('sessions/{session}/recap', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'saveRecap'])
+            ->name('sessions.recap');
+
+        Route::post('sessions/{session}/attachments', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'addAttachment'])
+            ->name('sessions.attachments.store');
+
+        Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'deleteAttachment'])
+            ->name('sessions.attachments.destroy');
+
         Route::post('sessions/{session}/end', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'endSession'])
             ->name('sessions.end');
+
+        Route::get('me', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'show'])
+            ->name('me');
     });
 
-// Temporary legacy-path redirects so hosts and notifications hitting the old
-// Volt URLs that haven't shipped as Inertia yet still land somewhere useful.
-// `sessions.show` redirects to the real sessions list (Batch 3) so the
-// "View detail" link on the Today live-card doesn't 404 until Batch 4 wires
-// the detail route. `session-slots` stays pointed at home until the upload
-// flow lands. Names are preserved so `route('live-host.sessions.show', …)`
-// and `route('live-host.session-slots')` keep resolving across the app.
+// Redirect the legacy `live-host.session-slots` route name to the ended
+// sessions tab. The URL /live-host/session-slots is kept so any hardcoded
+// external link (older notifications, bookmarks) still lands somewhere
+// useful. This stub can be retired once all sidebars/bookmarks have been
+// migrated to the real Pocket routes.
 Route::middleware(['auth', 'role:live_host'])
     ->prefix('live-host')
     ->name('live-host.')
     ->group(function () {
-        Route::get('session-slots', fn () => redirect('/live-host'))->name('session-slots');
-        Route::get('sessions/{session}', fn () => redirect('/live-host/sessions'))
-            ->where('session', '.*')
-            ->name('sessions.show');
+        Route::get('session-slots', fn () => redirect('/live-host/sessions?filter=ended'))
+            ->name('session-slots');
     });
 
 // Live Host PIC (Inertia) — accessible by admin_livehost + admin

@@ -1,0 +1,196 @@
+<?php
+
+namespace App\Http\Controllers\LiveHostPocket;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\LiveHostPocket\AddAttachmentRequest;
+use App\Http\Requests\LiveHostPocket\SaveRecapRequest;
+use App\Models\LiveAnalytics;
+use App\Models\LiveSession;
+use App\Models\LiveSessionAttachment;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/**
+ * Live Host Pocket — Session detail / recap / upload.
+ *
+ * Single Inertia page that serves screen 03 (UPLOAD/RECAP) of the mockup. A
+ * GET renders the session + any existing analytics + attachments, and three
+ * POST/DELETE endpoints let the host save the recap (cover image, remarks,
+ * timing, analytics), add attachments, and remove attachments.
+ *
+ * All actions guard with `live_sessions.live_host_id === auth()->user()->id`.
+ * This is the correct ownership check for host-side reads: the legacy Volt
+ * `sessions-show` guarded on `platformAccount->user_id` which was broken for
+ * accounts shared across hosts via the `live_host_platform_account` pivot.
+ */
+class SessionDetailController extends Controller
+{
+    public function show(Request $request, LiveSession $session): Response
+    {
+        abort_unless($session->live_host_id === $request->user()->id, 403);
+
+        $session->load(['platformAccount.platform', 'analytics', 'attachments']);
+
+        return Inertia::render('SessionDetail', [
+            'session' => $this->sessionDto($session),
+            'analytics' => $session->analytics ? $this->analyticsDto($session->analytics) : null,
+            'attachments' => $session->attachments
+                ->map(fn (LiveSessionAttachment $a): array => $this->attachmentDto($a))
+                ->values(),
+        ]);
+    }
+
+    /**
+     * Save (create or update) the session recap.
+     *
+     * Handles three independent concerns in one request so the mobile form
+     * can post a single payload: cover image replacement, LiveSession
+     * timing/remarks update, and LiveAnalytics upsert. Nothing here calls
+     * `LiveSession::uploadDetails()` — that helper requires both start + end,
+     * and we want to allow partial saves (e.g. jotting down viewers_peak
+     * before knowing the exact end time).
+     */
+    public function saveRecap(SaveRecapRequest $request, LiveSession $session): RedirectResponse
+    {
+        abort_unless($session->live_host_id === $request->user()->id, 403);
+
+        $data = $request->validated();
+
+        // Cover image (replaces LiveSession.image_path)
+        if ($request->hasFile('cover_image')) {
+            if ($session->image_path) {
+                Storage::disk('public')->delete($session->image_path);
+            }
+            $session->image_path = $request->file('cover_image')->store('live-sessions', 'public');
+        }
+
+        $actualStart = $data['actual_start_at'] ?? null;
+        $actualEnd = $data['actual_end_at'] ?? null;
+
+        $duration = $session->duration_minutes;
+        if ($actualStart && $actualEnd) {
+            $duration = (int) Carbon::parse($actualStart)->diffInMinutes(Carbon::parse($actualEnd));
+        }
+
+        $session->update([
+            'image_path' => $session->image_path,
+            'remarks' => array_key_exists('remarks', $data) ? $data['remarks'] : $session->remarks,
+            'actual_start_at' => $actualStart ?? $session->actual_start_at,
+            'actual_end_at' => $actualEnd ?? $session->actual_end_at,
+            'duration_minutes' => $duration,
+            'uploaded_at' => now(),
+            'uploaded_by' => $request->user()->id,
+        ]);
+
+        LiveAnalytics::updateOrCreate(
+            ['live_session_id' => $session->id],
+            [
+                'viewers_peak' => $data['viewers_peak'] ?? 0,
+                'viewers_avg' => $data['viewers_avg'] ?? 0,
+                'total_likes' => $data['total_likes'] ?? 0,
+                'total_comments' => $data['total_comments'] ?? 0,
+                'total_shares' => $data['total_shares'] ?? 0,
+                'gifts_value' => $data['gifts_value'] ?? 0,
+                'duration_minutes' => $duration ?? 0,
+            ]
+        );
+
+        return redirect()
+            ->route('live-host.sessions.show', $session)
+            ->with('success', 'Recap saved.');
+    }
+
+    public function addAttachment(AddAttachmentRequest $request, LiveSession $session): RedirectResponse
+    {
+        abort_unless($session->live_host_id === $request->user()->id, 403);
+
+        $file = $request->file('file');
+        $path = $file->store("live-sessions/{$session->id}/attachments", 'public');
+
+        LiveSessionAttachment::create([
+            'live_session_id' => $session->id,
+            'file_name' => $file->getClientOriginalName(),
+            'file_path' => $path,
+            'file_type' => $file->getClientMimeType(),
+            'file_size' => $file->getSize(),
+            'description' => $request->string('description')->toString() ?: null,
+            'uploaded_by' => $request->user()->id,
+        ]);
+
+        return redirect()
+            ->route('live-host.sessions.show', $session)
+            ->with('success', 'Attachment added.');
+    }
+
+    public function deleteAttachment(Request $request, LiveSession $session, LiveSessionAttachment $attachment): RedirectResponse
+    {
+        abort_unless($session->live_host_id === $request->user()->id, 403);
+        abort_unless($attachment->live_session_id === $session->id, 404);
+
+        Storage::disk('public')->delete($attachment->file_path);
+        $attachment->delete();
+
+        return back()->with('success', 'Attachment removed.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sessionDto(LiveSession $session): array
+    {
+        return [
+            'id' => $session->id,
+            'title' => $session->title,
+            'description' => $session->description,
+            'status' => $session->status,
+            'remarks' => $session->remarks,
+            'platformAccount' => $session->platformAccount?->name,
+            'platformType' => $session->platformAccount?->platform?->slug,
+            'platformName' => $session->platformAccount?->platform?->name,
+            'scheduledStartAt' => $session->scheduled_start_at?->toIso8601String(),
+            'actualStartAt' => $session->actual_start_at?->toIso8601String(),
+            'actualEndAt' => $session->actual_end_at?->toIso8601String(),
+            'durationMinutes' => $session->duration_minutes,
+            'imagePath' => $session->image_path,
+            'imageUrl' => $session->image_path ? Storage::url($session->image_path) : null,
+            'uploadedAt' => $session->uploaded_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function analyticsDto(LiveAnalytics $analytics): array
+    {
+        return [
+            'viewersPeak' => (int) $analytics->viewers_peak,
+            'viewersAvg' => (int) $analytics->viewers_avg,
+            'totalLikes' => (int) $analytics->total_likes,
+            'totalComments' => (int) $analytics->total_comments,
+            'totalShares' => (int) $analytics->total_shares,
+            'giftsValue' => (float) $analytics->gifts_value,
+            'durationMinutes' => (int) $analytics->duration_minutes,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function attachmentDto(LiveSessionAttachment $attachment): array
+    {
+        return [
+            'id' => $attachment->id,
+            'fileName' => $attachment->file_name,
+            'filePath' => $attachment->file_path,
+            'fileType' => $attachment->file_type,
+            'fileSize' => (int) $attachment->file_size,
+            'fileUrl' => Storage::url($attachment->file_path),
+            'description' => $attachment->description,
+        ];
+    }
+}
