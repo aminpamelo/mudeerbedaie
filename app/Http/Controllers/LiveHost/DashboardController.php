@@ -16,19 +16,12 @@ class DashboardController extends Controller
 {
     public function index(Request $request): Response
     {
-        $stats = $this->stats();
-
         return Inertia::render('Dashboard', [
-            'stats' => $stats,
+            'stats' => $this->stats(),
             'liveNow' => $this->liveNow(),
             'upcoming' => $this->upcoming(),
             'recentActivity' => $this->recentActivity(),
             'topHosts' => $this->topHosts(),
-            'navCounts' => [
-                'hosts' => $stats['totalHosts'],
-                'schedules' => LiveSchedule::where('is_active', true)->count(),
-                'sessions' => LiveSession::count(),
-            ],
         ]);
     }
 

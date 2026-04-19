@@ -7,13 +7,8 @@ import {
   LayoutGrid,
   Play,
   Search,
-  Bell,
-  Settings,
   ChevronsUpDown,
-  Download,
-  Plus,
 } from 'lucide-react';
-import { Button } from '@/livehost/components/ui/button';
 import { cn } from '@/livehost/lib/utils';
 
 const NAV_GROUPS = [
@@ -186,42 +181,7 @@ function Sidebar({ auth, navCounts, currentUrl }) {
   );
 }
 
-export function TopBar({ breadcrumb = [], actions }) {
-  const defaultActions = (
-    <>
-      <button
-        type="button"
-        className="relative grid h-[34px] w-[34px] place-items-center rounded-lg border border-border bg-surface text-ink-2 transition-colors hover:bg-surface-2"
-        aria-label="Notifications"
-      >
-        <Bell className="h-[15px] w-[15px]" strokeWidth={2} />
-        <span className="absolute right-[6px] top-[6px] h-[6px] w-[6px] rounded-full border-2 border-surface bg-rose" />
-      </button>
-      <button
-        type="button"
-        className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-border bg-surface text-ink-2 transition-colors hover:bg-surface-2"
-        aria-label="Settings"
-      >
-        <Settings className="h-[15px] w-[15px]" strokeWidth={2} />
-      </button>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-9 gap-1.5 rounded-lg border-border bg-surface text-ink hover:bg-surface-2"
-      >
-        <Download className="h-[13px] w-[13px]" strokeWidth={2} />
-        Export
-      </Button>
-      <Button
-        size="sm"
-        className="h-9 gap-1.5 rounded-lg bg-ink text-white hover:bg-[#262626]"
-      >
-        <Plus className="h-[13px] w-[13px]" strokeWidth={2.5} />
-        New schedule
-      </Button>
-    </>
-  );
-
+export function TopBar({ breadcrumb = [], actions = null }) {
   return (
     <header
       className="sticky top-0 z-50 flex items-center justify-between border-b border-border-2 px-8 py-4"
@@ -247,9 +207,7 @@ export function TopBar({ breadcrumb = [], actions }) {
           );
         })}
       </nav>
-      <div className="flex items-center gap-2">
-        {actions ?? defaultActions}
-      </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
     </header>
   );
 }

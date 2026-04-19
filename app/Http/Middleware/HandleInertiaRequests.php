@@ -2,7 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\LiveSchedule;
+use App\Models\LiveSession;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -51,6 +55,29 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'navCounts' => fn () => $this->navCounts($request),
         ];
+    }
+
+    /**
+     * Counts powering the sidebar badges on the Live Host Desk. Shared so every
+     * PIC/admin page shows real numbers without each controller passing them
+     * through manually. Cached briefly to keep the cost negligible.
+     *
+     * @return array{hosts: int, schedules: int, sessions: int}|null
+     */
+    private function navCounts(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if (! $user || ! in_array($user->role, ['admin', 'admin_livehost'], true)) {
+            return null;
+        }
+
+        return Cache::remember('livehost.navCounts', 60, fn () => [
+            'hosts' => User::query()->where('role', 'live_host')->count(),
+            'schedules' => LiveSchedule::query()->where('is_active', true)->count(),
+            'sessions' => LiveSession::query()->count(),
+        ]);
     }
 }

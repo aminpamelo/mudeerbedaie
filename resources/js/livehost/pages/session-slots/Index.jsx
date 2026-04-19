@@ -146,7 +146,7 @@ export default function SessionSlotsIndex() {
           <select
             value={host}
             onChange={(event) => setHost(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All hosts</option>
             <option value="unassigned">Unassigned only</option>
@@ -159,7 +159,7 @@ export default function SessionSlotsIndex() {
           <select
             value={platformAccount}
             onChange={(event) => setPlatformAccount(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All platform accounts</option>
             {platformAccounts.map((pa) => (
@@ -171,7 +171,7 @@ export default function SessionSlotsIndex() {
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -182,7 +182,7 @@ export default function SessionSlotsIndex() {
           <select
             value={dayOfWeek}
             onChange={(event) => setDayOfWeek(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">All days</option>
             {DAY_NAMES.map((d, idx) => (
@@ -194,7 +194,7 @@ export default function SessionSlotsIndex() {
           <select
             value={mode}
             onChange={(event) => setMode(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           >
             <option value="">Template & dated</option>
             <option value="template">Weekly template</option>
@@ -204,7 +204,7 @@ export default function SessionSlotsIndex() {
             type="date"
             value={scheduleDate}
             onChange={(event) => setScheduleDate(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
           />
           {hasFilters && (
             <button
