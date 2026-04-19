@@ -75,7 +75,7 @@ class LiveHostCommissionSeeder extends Seeder
                 'upline_user_id' => null,
                 'override_rate_l1_percent' => 10.00,
                 'override_rate_l2_percent' => 5.00,
-                'effective_from' => now(),
+                'effective_from' => now()->subMonths(3),
             ]
         );
 
@@ -88,7 +88,7 @@ class LiveHostCommissionSeeder extends Seeder
                 'upline_user_id' => $ahmad->id,
                 'override_rate_l1_percent' => 10.00,
                 'override_rate_l2_percent' => 5.00,
-                'effective_from' => now(),
+                'effective_from' => now()->subMonths(3),
             ]
         );
 
@@ -101,7 +101,7 @@ class LiveHostCommissionSeeder extends Seeder
                 'upline_user_id' => $sarah->id,
                 'override_rate_l1_percent' => 0.00,
                 'override_rate_l2_percent' => 0.00,
-                'effective_from' => now(),
+                'effective_from' => now()->subMonths(3),
             ]
         );
 
@@ -115,7 +115,7 @@ class LiveHostCommissionSeeder extends Seeder
                 ['user_id' => $user->id, 'platform_id' => $tiktok->id, 'is_active' => true],
                 [
                     'commission_rate_percent' => $ratePercent,
-                    'effective_from' => now(),
+                    'effective_from' => now()->subMonths(3),
                 ]
             );
         }

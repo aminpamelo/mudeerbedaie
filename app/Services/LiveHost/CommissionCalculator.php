@@ -2,7 +2,9 @@
 
 namespace App\Services\LiveHost;
 
+use App\Models\LiveHostPlatformCommissionRate;
 use App\Models\LiveSession;
+use Illuminate\Support\Carbon;
 
 class CommissionCalculator
 {
@@ -14,6 +16,17 @@ class CommissionCalculator
      *   gmv_commission = net_gmv × host_platform_rate_percent
      *   per_live_rate  = missed ? 0 : host.per_live_rate_myr
      *   session_total  = gmv_commission + per_live_rate
+     *
+     * Historical fidelity: the commission rate is resolved against the
+     * session's actual_start_at (falling back to scheduled_start_at, then
+     * now) so sessions run last month still use last month's rate if it
+     * changed since. This matters for snapshot (Task 12) and payroll
+     * recompute (Task 25) where past sessions must not be re-rated.
+     *
+     * Callers SHOULD eager-load `liveHost.commissionProfile`,
+     * `liveHost.platformCommissionRates`, and `platformAccount` to avoid
+     * N+1 — especially the observer (Task 13) and payroll service (Task 25)
+     * which call this per session in bulk.
      *
      * Stateless pure calculation — returns an array. Persistence of the
      * snapshot (Task 12) is handled by a separate method that wraps this.
@@ -37,8 +50,9 @@ class CommissionCalculator
         $host = $session->liveHost;
         $platformId = $session->platformAccount?->platform_id;
 
-        $rate = $host?->platformCommissionRates
-            ->firstWhere('platform_id', $platformId);
+        $rate = $host && $platformId
+            ? $this->resolveRateAt($host->id, $platformId, $this->asOf($session))
+            : null;
 
         // Only flag a missing platform rate when there is actual GMV to
         // compute against. A zero-GMV session with no rate produces zero
@@ -64,5 +78,30 @@ class CommissionCalculator
             'session_total' => round($gmvCommission + $perLiveRate, 2),
             'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * Resolve the platform commission rate that was active for this host
+     * at the given point in time. Returns the most-recent row whose
+     * effective_from <= $asOf and (effective_to IS NULL OR effective_to > $asOf).
+     */
+    private function resolveRateAt(int $userId, int $platformId, Carbon $asOf): ?LiveHostPlatformCommissionRate
+    {
+        return LiveHostPlatformCommissionRate::query()
+            ->where('user_id', $userId)
+            ->where('platform_id', $platformId)
+            ->where('effective_from', '<=', $asOf)
+            ->where(function ($q) use ($asOf) {
+                $q->whereNull('effective_to')->orWhere('effective_to', '>', $asOf);
+            })
+            ->orderByDesc('effective_from')
+            ->first();
+    }
+
+    private function asOf(LiveSession $session): Carbon
+    {
+        return $session->actual_start_at
+            ?? $session->scheduled_start_at
+            ?? Carbon::now();
     }
 }
