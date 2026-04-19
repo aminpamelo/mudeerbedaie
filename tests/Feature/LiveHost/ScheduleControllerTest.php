@@ -294,6 +294,39 @@ it('deletes a schedule', function () {
     expect(LiveSchedule::find($schedule->id))->toBeNull();
 });
 
+it('returns non-paginated schedules in calendar view', function () {
+    LiveSchedule::factory()->count(25)->create();
+
+    actingAs($this->pic)
+        ->get('/livehost/schedules?view=calendar')
+        ->assertInertia(fn (Assert $p) => $p
+            ->component('schedules/Index', false)
+            ->where('viewMode', 'calendar')
+            ->has('schedules', 25));
+});
+
+it('keeps list view as the default', function () {
+    LiveSchedule::factory()->count(3)->create();
+
+    actingAs($this->pic)
+        ->get('/livehost/schedules')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('viewMode', 'list')
+            ->has('schedules.data'));
+});
+
+it('applies filters in calendar view', function () {
+    $targetHost = User::factory()->create(['role' => 'live_host']);
+    LiveSchedule::factory()->count(3)->create(['live_host_id' => $targetHost->id]);
+    LiveSchedule::factory()->count(5)->create();
+
+    actingAs($this->pic)
+        ->get("/livehost/schedules?view=calendar&host={$targetHost->id}")
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('viewMode', 'calendar')
+            ->has('schedules', 3));
+});
+
 it('forbids live_host from accessing the schedules index', function () {
     $host = User::factory()->create(['role' => 'live_host']);
 
