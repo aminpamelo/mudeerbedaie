@@ -196,6 +196,7 @@ class SessionDetailController extends Controller
             'imageUrl' => $session->image_path ? Storage::url($session->image_path) : null,
             'uploadedAt' => $session->uploaded_at?->toIso8601String(),
             'canRecap' => $session->canRecap(),
+            'gmvAmount' => $session->gmv_amount !== null ? (float) $session->gmv_amount : null,
             'missedReasonCode' => $session->missed_reason_code,
             'missedReasonNote' => $session->missed_reason_note,
         ];
@@ -229,6 +230,7 @@ class SessionDetailController extends Controller
             'fileType' => $attachment->file_type,
             'fileSize' => (int) $attachment->file_size,
             'fileUrl' => Storage::url($attachment->file_path),
+            'attachmentType' => $attachment->attachment_type,
             'description' => $attachment->description,
         ];
     }
