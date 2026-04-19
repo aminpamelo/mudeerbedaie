@@ -4,7 +4,7 @@
 
 **Goal:** Ship a 3-layer commission system (base salary + GMV % + per-live rate) with 2-level MLM overrides and TikTok Seller Center xlsx reconciliation for the Live Host Desk.
 
-**Architecture:** New tables for commission profiles, per-platform rates, payroll runs, and TikTok import reports. Extend `live_sessions`, `live_session_slots`, and the `live_host_platform_account` pivot. A `CommissionCalculator` service is the single source of truth for math. A `LiveSessionVerifiedObserver` snapshots commission on PIC verify. Monthly `LiveHostPayrollService` runs the payroll batch. TikTok xlsx parsed with `phpoffice/phpspreadsheet`, matched to sessions by `(tiktok_creator_id, launched_time ±30min)`.
+**Architecture:** New tables for commission profiles, per-platform rates, payroll runs, and TikTok import reports. Extend `live_sessions`, `live_time_slots`, and the `live_host_platform_account` pivot. A `CommissionCalculator` service is the single source of truth for math. A `LiveSessionVerifiedObserver` snapshots commission on PIC verify. Monthly `LiveHostPayrollService` runs the payroll batch. TikTok xlsx parsed with `phpoffice/phpspreadsheet`, matched to sessions by `(tiktok_creator_id, launched_time ±30min)`.
 
 **Tech Stack:** Laravel 12, Inertia.js + React 19, Flux UI, Pest 4, PhpSpreadsheet (new dependency), SQLite (dev) + MySQL (prod).
 
@@ -164,7 +164,7 @@ Schema::create('live_host_platform_commission_rates', function (Blueprint $table
 
 **Step 5: Commit** — `feat(livehost): add per-platform commission rates table`.
 
-### Task 3: Migration — extend `live_host_platform_account` pivot + `live_session_slots` + `live_sessions`
+### Task 3: Migration — extend `live_host_platform_account` pivot + `live_time_slots` + `live_sessions`
 
 **Files:**
 - Create: `database/migrations/<ts>_add_commission_fields_to_live_host_tables.php`
@@ -172,7 +172,7 @@ Schema::create('live_host_platform_commission_rates', function (Blueprint $table
 
 **Step 1: Test**
 - Assert `live_host_platform_account` has `creator_handle`, `creator_platform_user_id`, `is_primary`.
-- Assert `live_session_slots` has `live_host_platform_account_id` (nullable).
+- Assert `live_time_slots` has `live_host_platform_account_id` (nullable).
 - Assert `live_sessions` has `live_host_platform_account_id`, `gmv_amount`, `gmv_adjustment`, `gmv_source`, `gmv_locked_at`, `commission_snapshot_json`.
 
 Use `Schema::hasColumn('table', 'col')` assertions.
@@ -191,7 +191,7 @@ public function up(): void
         $table->index('creator_platform_user_id');
     });
 
-    Schema::table('live_session_slots', function (Blueprint $table) {
+    Schema::table('live_time_slots', function (Blueprint $table) {
         $table->foreignId('live_host_platform_account_id')->nullable()
             ->after('platform_account_id')
             ->constrained('live_host_platform_account', 'id')
@@ -217,7 +217,7 @@ public function down(): void
         $table->dropConstrainedForeignId('live_host_platform_account_id');
         $table->dropColumn(['gmv_amount', 'gmv_adjustment', 'gmv_source', 'gmv_locked_at', 'commission_snapshot_json']);
     });
-    Schema::table('live_session_slots', function (Blueprint $table) {
+    Schema::table('live_time_slots', function (Blueprint $table) {
         $table->dropConstrainedForeignId('live_host_platform_account_id');
     });
     Schema::table('live_host_platform_account', function (Blueprint $table) {

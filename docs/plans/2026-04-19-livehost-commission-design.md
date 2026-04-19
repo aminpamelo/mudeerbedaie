@@ -160,7 +160,7 @@ One row per live session row in the TikTok export. Columns mirror the xlsx schem
 | `gmv_locked_at` | datetime, nullable | set on PIC verify |
 | `commission_snapshot_json` | json, nullable | frozen calc at verification |
 
-**`live_session_slots`** — add column:
+**`live_time_slots`** — add column:
 | column | type | notes |
 |---|---|---|
 | `live_host_platform_account_id` | FK pivot, not null for new slots | required for creator-identity reliability |
