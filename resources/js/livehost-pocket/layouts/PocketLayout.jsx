@@ -13,17 +13,16 @@ import { cn } from '@/livehost-pocket/lib/utils';
  * Pocket shell — iOS-style phone layout with a fake status bar, scrollable
  * body, and a bottom tab bar with an elevated "Go Live" FAB at the center.
  *
- * Today / Schedule / Sessions now point at real Inertia routes
- * (Batches 2-3). "You" remains a placeholder until a profile screen lands.
- * The FAB simply routes back to Today — a live-card there carries the real
- * "Manage session" CTAs; a later batch can swap in a dedicated go-live
- * action once the backend contract is ready.
+ * Today / Schedule / Sessions / You all point at real Inertia routes
+ * (Batches 2-4). The FAB simply routes back to Today — a live-card there
+ * carries the real "Manage session" CTAs; a later batch can swap in a
+ * dedicated go-live action once the backend contract is ready.
  */
 const TABS = [
   { key: 'today', label: 'Today', href: '/live-host', icon: Home },
   { key: 'schedule', label: 'Schedule', href: '/live-host/schedule', icon: CalendarDays },
   { key: 'sessions', label: 'Sessions', href: '/live-host/sessions', icon: ListChecks },
-  { key: 'you', label: 'You', href: '#', icon: UserIcon },
+  { key: 'you', label: 'You', href: '/live-host/me', icon: UserIcon },
 ];
 
 function StatusBar() {
@@ -93,10 +92,9 @@ function TabBar({ currentPath }) {
 function TabItem({ tab, currentPath }) {
   const Icon = tab.icon;
   const isActive =
-    tab.href !== '#' &&
-    (tab.href === '/live-host'
+    tab.href === '/live-host'
       ? currentPath === '/live-host' || currentPath === '/live-host/'
-      : currentPath.startsWith(tab.href));
+      : currentPath.startsWith(tab.href);
 
   return (
     <Link
