@@ -39,16 +39,15 @@ export default function SessionSlotsCreate() {
 
   const submit = (e) => {
     e.preventDefault();
-    form
-      .transform((data) => ({
-        ...data,
-        platform_account_id: data.platform_account_id === '' ? null : Number(data.platform_account_id),
-        time_slot_id: data.time_slot_id === '' ? null : Number(data.time_slot_id),
-        live_host_id: data.live_host_id === '' ? null : Number(data.live_host_id),
-        day_of_week: data.day_of_week === '' ? null : Number(data.day_of_week),
-        schedule_date: data.schedule_date === '' ? null : data.schedule_date,
-      }))
-      .post('/livehost/session-slots');
+    form.transform((data) => ({
+      ...data,
+      platform_account_id: data.platform_account_id === '' ? null : Number(data.platform_account_id),
+      time_slot_id: data.time_slot_id === '' ? null : Number(data.time_slot_id),
+      live_host_id: data.live_host_id === '' ? null : Number(data.live_host_id),
+      day_of_week: data.day_of_week === '' ? null : Number(data.day_of_week),
+      schedule_date: data.schedule_date === '' ? null : data.schedule_date,
+    }));
+    form.post('/livehost/session-slots');
   };
 
   return (

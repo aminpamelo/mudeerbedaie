@@ -35,7 +35,8 @@ export default function SchedulesCreate() {
       ...data,
       live_host_id: data.live_host_id === '' ? null : data.live_host_id,
       day_of_week: Number(data.day_of_week),
-    })).post('/livehost/schedules');
+    }));
+    form.post('/livehost/schedules');
   };
 
   return (
