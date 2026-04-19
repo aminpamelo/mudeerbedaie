@@ -487,4 +487,55 @@ class User extends Authenticatable
     {
         return $this->role === 'admin';
     }
+
+    /**
+     * Get the active commission profile for this user (live host commission system)
+     */
+    public function commissionProfile(): HasOne
+    {
+        return $this->hasOne(LiveHostCommissionProfile::class)->where('is_active', true);
+    }
+
+    /**
+     * Get all active per-platform commission rates for this user
+     */
+    public function platformCommissionRates(): HasMany
+    {
+        return $this->hasMany(LiveHostPlatformCommissionRate::class)->where('is_active', true);
+    }
+
+    /**
+     * Accessor returning the upline User via the active commission profile,
+     * or null when there is no active profile or no upline is set.
+     */
+    public function getUplineAttribute(): ?User
+    {
+        return optional($this->commissionProfile)->upline;
+    }
+
+    /**
+     * Get the direct (L1) downline hosts — users whose active commission
+     * profile points to this user as upline.
+     */
+    public function directDownlines()
+    {
+        return User::query()
+            ->whereHas('commissionProfile', fn ($q) => $q->where('upline_user_id', $this->id));
+    }
+
+    /**
+     * Get the L2 downline hosts — users whose upline is one of this user's
+     * direct downlines.
+     */
+    public function l2Downlines()
+    {
+        $directIds = $this->directDownlines()->pluck('users.id');
+
+        if ($directIds->isEmpty()) {
+            return User::query()->whereRaw('1 = 0');
+        }
+
+        return User::query()
+            ->whereHas('commissionProfile', fn ($q) => $q->whereIn('upline_user_id', $directIds));
+    }
 }

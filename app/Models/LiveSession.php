@@ -16,6 +16,7 @@ class LiveSession extends Model
 
     protected $fillable = [
         'platform_account_id',
+        'live_host_platform_account_id',
         'live_schedule_id',
         'live_schedule_assignment_id',
         'live_host_id',
@@ -26,6 +27,11 @@ class LiveSession extends Model
         'actual_start_at',
         'actual_end_at',
         'duration_minutes',
+        'gmv_amount',
+        'gmv_adjustment',
+        'gmv_source',
+        'gmv_locked_at',
+        'commission_snapshot_json',
         'image_path',
         'remarks',
         'uploaded_at',
@@ -46,12 +52,26 @@ class LiveSession extends Model
             'actual_end_at' => 'datetime',
             'uploaded_at' => 'datetime',
             'verified_at' => 'datetime',
+            'gmv_amount' => 'decimal:2',
+            'gmv_adjustment' => 'decimal:2',
+            'gmv_locked_at' => 'datetime',
+            'commission_snapshot_json' => 'array',
         ];
     }
 
     public function platformAccount(): BelongsTo
     {
         return $this->belongsTo(PlatformAccount::class);
+    }
+
+    public function liveHostPlatformAccount(): BelongsTo
+    {
+        return $this->belongsTo(LiveHostPlatformAccount::class, 'live_host_platform_account_id');
+    }
+
+    public function gmvAdjustments(): HasMany
+    {
+        return $this->hasMany(LiveSessionGmvAdjustment::class);
     }
 
     public function liveSchedule(): BelongsTo
