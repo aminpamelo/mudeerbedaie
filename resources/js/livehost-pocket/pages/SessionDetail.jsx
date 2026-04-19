@@ -33,7 +33,8 @@ const MISSED_REASONS = [
  * Posts to `live-host.sessions.recap` / `.attachments.store` / `.attachments.destroy`.
  */
 export default function SessionDetail() {
-  const { session, analytics, attachments, commission } = usePage().props;
+  const { session, analytics, attachments, auth } = usePage().props;
+  const commission = auth?.user?.commission ?? null;
 
   const recap = useForm({
     went_live: session?.status === 'missed'

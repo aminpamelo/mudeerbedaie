@@ -1,7 +1,10 @@
 <?php
 
+use App\Models\LiveHostCommissionProfile;
+use App\Models\LiveHostPlatformCommissionRate;
 use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
+use App\Models\Platform;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
@@ -102,13 +105,23 @@ it('shows the TikTok Shop Screenshot badge on attachments tagged as tiktok_shop_
         ->assertSee('TikTok Shop Screenshot');
 });
 
-it('shows a graceful fallback for earnings estimate when commission props are missing', function () {
-    // Task 11 will ship commission rate + per-live rate in Inertia shared
-    // props. Until then, the preview should soft-fail with the "ask PIC"
-    // copy rather than throwing.
+it('shows a real earnings estimate when commission props are present and GMV is entered', function () {
+    // Task 11 shipped the commission block via Inertia shared props. With a
+    // configured host and a GMV value, the preview should render the real
+    // computed number (GMV * rate% + per-live) rather than the fallback.
     Storage::fake('public');
 
     $host = User::factory()->create(['role' => 'live_host']);
+    LiveHostCommissionProfile::factory()->for($host)->create([
+        'per_live_rate_myr' => 30.00,
+    ]);
+    $platform = Platform::where('slug', 'tiktok-shop')->first()
+        ?? Platform::factory()->create(['slug' => 'tiktok-shop', 'name' => 'TikTok Shop']);
+    LiveHostPlatformCommissionRate::factory()->for($host)->create([
+        'platform_id' => $platform->id,
+        'commission_rate_percent' => 4.00,
+    ]);
+
     $session = LiveSession::factory()
         ->for(PlatformAccount::factory())
         ->create([
@@ -121,7 +134,21 @@ it('shows a graceful fallback for earnings estimate when commission props are mi
 
     $page = visit("/live-host/sessions/{$session->id}?recap=yes");
 
+    // Without a GMV value yet, we should see the "enter your GMV" nudge
+    // (hasCommission=true path, but gmv <= 0).
     $page
         ->assertNoJavascriptErrors()
-        ->assertSee('Earnings estimate unavailable');
+        ->assertSee('Enter your GMV above to see an earnings estimate.')
+        ->assertDontSee('Earnings estimate unavailable');
+
+    // Type a GMV value — with rate=4% and per-live=30, a GMV of 1000 should
+    // produce 1000 * 0.04 + 30 = 70.00 total (RM 40.00 commission, RM 30.00
+    // per-live).
+    $page
+        ->fill('gmv_amount', '1000')
+        ->assertNoJavascriptErrors()
+        ->assertSee('Estimated earnings')
+        ->assertSee('RM 70.00')
+        ->assertSee('RM 40.00 commission')
+        ->assertSee('RM 30.00 per-live');
 });

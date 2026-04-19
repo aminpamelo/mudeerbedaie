@@ -50,6 +50,7 @@ class HandleInertiaRequests extends Middleware
                         'email' => $request->user()->email,
                         'role' => $request->user()->role,
                         'avatarUrl' => $request->user()->avatar_url,
+                        'commission' => $this->hostCommission($request->user()),
                     ]
                     : null,
             ],
@@ -58,6 +59,38 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
             ],
             'navCounts' => fn () => $this->navCounts($request),
+        ];
+    }
+
+    /**
+     * Shape the host's commission snapshot used by the Pocket recap UI
+     * (EarningsEstimate component) to preview expected earnings.
+     *
+     * Only live hosts get this block — non-live-host roles (admin,
+     * admin_livehost, teacher, etc.) receive `null` so the key is always
+     * present but cheap for non-hosts (no DB reads).
+     *
+     * Trade-off: this adds two extra queries per Inertia request for a live
+     * host (one for `commissionProfile`, one for `platformCommissionRates`).
+     * Acceptable for v1 — Pocket pages are not hot paths and the host set is
+     * small. Revisit if we start seeing N+1 reports on Pocket.
+     *
+     * For `primaryPlatformRatePercent` we take the first active rate
+     * ordered by whatever default the relationship uses. If a host has
+     * rates on multiple platforms the heuristic picks one deterministically;
+     * multi-platform per-session commission is out of scope for v1.
+     *
+     * @return array{perLiveRateMyr: float, primaryPlatformRatePercent: float}|null
+     */
+    private function hostCommission(?User $user): ?array
+    {
+        if (! $user || $user->role !== 'live_host') {
+            return null;
+        }
+
+        return [
+            'perLiveRateMyr' => (float) optional($user->commissionProfile)->per_live_rate_myr,
+            'primaryPlatformRatePercent' => (float) optional($user->platformCommissionRates->first())->commission_rate_percent,
         ];
     }
 
