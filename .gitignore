@@ -24,3 +24,8 @@ yarn-error.log
 /.playwright-mcp
 /.worktrees
 .cloudflared-tunnel.yaml
+
+# Root-level spreadsheet/data exports (keep fixtures in tests/Fixtures/)
+/*.xlsx
+/*.xls
+/*.csv

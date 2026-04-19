@@ -43,6 +43,7 @@ class ClassModel extends Model
         'auto_schedule_notifications',
         'email_channel_enabled',
         'whatsapp_channel_enabled',
+        'certificate_pdf_batch_id',
     ];
 
     protected function casts(): array

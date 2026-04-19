@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Live Host Pocket — Grounded · Violet · Today/Sessions/Upload</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Unbounded:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --stage-bg-1: #0A0A0F;
+    --stage-bg-2: #F0F0F5;
+  }
+  *{ box-sizing: border-box; margin:0; padding:0; -webkit-tap-highlight-color: transparent; }
+  html, body{
+    font-family: 'Manrope', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  body{
+    background: linear-gradient(180deg, var(--stage-bg-1) 0%, var(--stage-bg-1) 50%, var(--stage-bg-2) 50%, var(--stage-bg-2) 100%);
+    padding: 40px 24px 80px;
+    color: #fff;
+  }
+
+  .stage-head{ max-width: 1320px; margin: 0 auto 28px; text-align: center; }
+  .stage-head h1{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 34px;
+    letter-spacing: -0.04em;
+    line-height: 1.02;
+    color: #fff;
+  }
+  .stage-head h1 em{ font-style: normal; color: #C084FC; }
+  .stage-head p{
+    font-size: 14px;
+    color: rgba(255,255,255,0.64);
+    margin-top: 10px;
+    max-width: 700px;
+    margin-inline: auto;
+    line-height: 1.5;
+  }
+  .stage-head p code{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #C084FC;
+    padding: 1px 4px;
+    background: rgba(192,132,252,0.12);
+    border-radius: 4px;
+  }
+  .stage-labels{
+    display: flex; justify-content: center; gap: 30px;
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: rgba(255,255,255,0.48);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .theme-labels{
+    display: grid; grid-template-columns: 1fr 1fr;
+    max-width: 1320px; margin: 0 auto;
+    padding: 0 20px;
+  }
+  .theme-label{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 12px 0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .theme-label--dark{ color: #C084FC; }
+  .theme-label--light{ color: #7C3AED; }
+  .theme-label::before{
+    content: ""; width: 7px; height: 7px; border-radius: 999px;
+    background: currentColor; box-shadow: 0 0 10px currentColor;
+  }
+
+  .row-phones{
+    display: grid; grid-template-columns: 1fr 1fr;
+    max-width: 1320px; margin: 0 auto;
+  }
+  .row-phones__col{
+    display: flex; justify-content: center; gap: 20px;
+    padding: 20px 10px 50px;
+    flex-wrap: wrap;
+  }
+
+  /* ══════════════ PHONE ══════════════ */
+  .phone{
+    width: 320px; height: 690px;
+    border-radius: 40px;
+    border: 5px solid #2A2A32;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.5), 0 0 0 2px #1A1A20 inset;
+
+    --app-bg:   #0E0E12;
+    --app-bg-2: #17171D;
+    --app-bg-3: #20202A;
+    --fg:   #FAFAFA;
+    --fg-1: rgba(255,255,255,0.82);
+    --fg-2: rgba(255,255,255,0.58);
+    --fg-3: rgba(255,255,255,0.38);
+    --fg-4: rgba(255,255,255,0.16);
+    --hair:   rgba(255,255,255,0.08);
+    --hair-2: rgba(255,255,255,0.14);
+
+    --accent:      #C084FC;
+    --accent-soft: rgba(192,132,252,0.14);
+    --accent-ink:  #15052E;
+
+    --cool: #5DA9FF;
+    --warm: #FFB547;
+    --hot:  #FF5A8A;
+    --tab-bg:   rgba(14,14,18,0.92);
+
+    background: var(--app-bg);
+    color: var(--fg);
+  }
+  .phone--light{
+    border-color: #D1D1D6;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.15), 0 0 0 2px #ECECEF inset;
+
+    --app-bg:   #F8F7FA;
+    --app-bg-2: #FFFFFF;
+    --app-bg-3: #F1EEF7;
+    --fg:   #14101F;
+    --fg-1: rgba(20,16,31,0.86);
+    --fg-2: rgba(20,16,31,0.60);
+    --fg-3: rgba(20,16,31,0.40);
+    --fg-4: rgba(20,16,31,0.14);
+    --hair:   rgba(20,16,31,0.08);
+    --hair-2: rgba(20,16,31,0.14);
+
+    --accent:      #7C3AED;
+    --accent-soft: rgba(124,58,237,0.1);
+    --accent-ink:  #FFFFFF;
+
+    --cool: #2563EB;
+    --warm: #F59E0B;
+    --hot:  #E11D48;
+    --tab-bg: rgba(248,247,250,0.92);
+  }
+
+  .phone__label{
+    position: absolute; bottom: -28px; left: 0; right: 0;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    font-weight: 700;
+  }
+  .phone--light + .phone__label{ color: rgba(20,16,31,0.5); }
+
+  /* Status bar */
+  .statusbar{
+    height: 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700; font-size: 13px;
+    letter-spacing: -0.01em;
+    position: relative;
+    color: var(--fg);
+  }
+  .statusbar__time{ min-width: 50px; }
+  .statusbar__center{
+    position: absolute; left: 50%; top: 6px;
+    transform: translateX(-50%);
+    width: 90px; height: 24px;
+    background: #000; border-radius: 12px;
+  }
+  .statusbar__icons{
+    display: flex; gap: 5px; align-items: center;
+    min-width: 50px; justify-content: flex-end;
+  }
+  .statusbar__icons svg{ width: 14px; height: 14px; }
+
+  /* Screen */
+  .screen{
+    padding: 4px 18px 0;
+    height: calc(100% - 40px);
+    overflow: hidden;
+    position: relative;
+    display: flex; flex-direction: column;
+    background: var(--app-bg);
+  }
+  .scroll{
+    padding: 0 18px 90px;
+    overflow-y: auto;
+    height: calc(100% - 40px);
+    background: var(--app-bg);
+  }
+
+  /* ══════════════ COMMON ══════════════ */
+  .greet{ padding: 12px 4px 16px; position: relative; }
+  .greet__pretitle{
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--fg-3);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .greet__pretitle .diode{
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    animation: diode 1.4s ease-out infinite;
+  }
+  @keyframes diode{
+    50%{ box-shadow: 0 0 0 3px var(--accent-soft), 0 0 8px var(--accent); }
+    100%{ box-shadow: 0 0 0 0 transparent, 0 0 8px var(--accent); }
+  }
+  .greet__title{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.03em;
+    line-height: 1.08;
+    color: var(--fg);
+  }
+  .greet__title em{ font-style: normal; color: var(--accent); }
+  .greet__avatar{
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 38px; height: 38px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--hot));
+    display: grid; place-items: center;
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700;
+    color: #fff;
+    font-size: 12px;
+    letter-spacing: -0.04em;
+  }
+
+  .sect{
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 4px;
+    margin-top: 6px; margin-bottom: 8px;
+  }
+  .sect h3{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500; font-size: 13px;
+    letter-spacing: -0.015em;
+    color: var(--fg);
+  }
+  .sect__link{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    color: var(--fg-3);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  /* ══════════════ SCREEN 01 · TODAY ══════════════ */
+  /* Live NOW card (when there's an active LiveSession) */
+  .live-card{
+    background: linear-gradient(160deg, var(--accent-soft), transparent 60%), var(--app-bg-2);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    padding: 16px;
+    position: relative; overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .live-card::after{
+    content: ""; position: absolute;
+    top: -50%; right: -30%;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, var(--accent-soft), transparent 60%);
+    pointer-events: none;
+  }
+  .live-card__row{
+    display: flex; align-items: center; justify-content: space-between;
+    position: relative; z-index: 1;
+  }
+  .live-card__badge{
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px; font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 3px 9px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+  }
+  .live-card__badge .blink{
+    width: 5px; height: 5px; border-radius: 999px;
+    background: var(--accent);
+    animation: diode 1s ease-out infinite;
+  }
+  .live-card__since{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--fg);
+  }
+  .live-card__since__l{
+    font-size: 9px;
+    color: var(--fg-3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-right: 5px;
+  }
+  .live-card__platform{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--fg-2);
+    text-transform: uppercase;
+    margin-top: 16px;
+    display: flex; align-items: center; gap: 6px;
+    font-weight: 700;
+  }
+  .live-card__platform::before{
+    content: ""; width: 4px; height: 4px; background: var(--hot);
+  }
+  .live-card__title{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+    color: var(--fg);
+    margin-top: 4px;
+  }
+  .live-card__sched{
+    display: flex; gap: 18px;
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid var(--hair);
+  }
+  .live-card__sched__item__l{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--fg-3);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .live-card__sched__item__v{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg);
+    letter-spacing: 0;
+  }
+  .live-card__actions{ display: flex; gap: 8px; margin-top: 14px; }
+  .btn-primary{
+    flex: 1;
+    padding: 11px 0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none; border-radius: 11px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700; font-size: 13px;
+    letter-spacing: -0.005em;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    cursor: pointer;
+  }
+  .btn-ghost{
+    flex: 1;
+    padding: 11px 0;
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--hair-2);
+    border-radius: 11px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700; font-size: 13px;
+  }
+
+  /* Today tiles — REAL data: sessions done today, allowance today */
+  .tiles{
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-bottom: 12px;
+  }
+  .tile{
+    background: var(--app-bg-2);
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    padding: 12px 14px;
+    min-height: 84px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .tile--accent{
+    background: linear-gradient(165deg, var(--accent-soft), transparent 60%);
+    border-color: var(--accent);
+  }
+  .tile__l{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--fg-3);
+    font-weight: 700;
+  }
+  .tile__v{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 24px;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin-top: 6px;
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+  }
+  .tile__v__u{
+    font-size: 11px;
+    color: var(--fg-3);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    margin-left: 3px;
+  }
+  .tile__v__c{
+    font-size: 11px;
+    color: var(--fg-3);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    margin-right: 3px;
+  }
+  .tile__sub{
+    font-size: 10.5px;
+    color: var(--fg-2);
+    margin-top: 6px;
+  }
+  .tile--accent .tile__v{ color: var(--accent); }
+
+  /* Upcoming / next list */
+  .upcoming-row{
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    background: var(--app-bg-2);
+    border: 1px solid var(--hair);
+    border-radius: 14px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+  }
+  .upcoming-row__t__h{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; font-weight: 700;
+    color: var(--fg);
+    text-align: center;
+    letter-spacing: -0.01em;
+  }
+  .upcoming-row__t__d{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    margin-top: 2px;
+    text-align: center;
+    font-weight: 700;
+  }
+  .upcoming-row__title{
+    font-size: 12.5px; font-weight: 700;
+    color: var(--fg);
+    letter-spacing: -0.005em;
+  }
+  .upcoming-row__meta{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: var(--fg-3);
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .chip{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-weight: 800;
+  }
+  .chip-scheduled{ color: var(--cool); background: rgba(93,169,255,0.14); }
+  .phone--light .chip-scheduled{ background: rgba(37,99,235,0.1); }
+  .chip-live{ color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent); padding: 2px 7px; }
+  .chip-ended{ color: var(--fg-2); background: var(--hair); }
+  .chip-cancelled{ color: var(--hot); background: rgba(255,90,138,0.14); }
+  .phone--light .chip-cancelled{ background: rgba(225,29,72,0.1); }
+
+  /* Tab bar */
+  .tabbar{
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 78px;
+    background: var(--tab-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--hair);
+    display: grid;
+    grid-template-columns: 1fr 1fr auto 1fr 1fr;
+    align-items: center;
+    padding: 0 14px 14px;
+  }
+  .tabbar__item{
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 0;
+    color: var(--fg-3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .tabbar__item svg{ width: 19px; height: 19px; stroke-width: 1.8; }
+  .tabbar__item--active{ color: var(--fg); }
+  .tabbar__item--active svg{ color: var(--accent); }
+  .tabbar__fab{
+    display: grid; place-items: center;
+    width: 54px; height: 54px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    margin-top: -20px;
+    box-shadow:
+      0 12px 24px rgba(192,132,252,0.3),
+      0 0 0 5px rgba(192,132,252,0.08);
+  }
+  .phone--light .tabbar__fab{
+    box-shadow:
+      0 12px 24px rgba(124,58,237,0.32),
+      0 0 0 5px rgba(124,58,237,0.1);
+  }
+  .tabbar__fab svg{ width: 22px; height: 22px; }
+
+  /* ══════════════ SCREEN 02 · SESSIONS ══════════════ */
+  .s-head{ padding: 10px 4px 14px; }
+  .s-head__pre{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .s-head h1{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.03em;
+    color: var(--fg);
+  }
+
+  .s-segmented{
+    display: flex;
+    background: var(--app-bg-2);
+    border: 1px solid var(--hair);
+    border-radius: 11px;
+    padding: 3px;
+    margin-bottom: 12px;
+  }
+  .s-segmented__item{
+    flex: 1;
+    padding: 7px 0;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    border-radius: 8px;
+  }
+  .s-segmented__item--active{
+    background: var(--fg);
+    color: var(--app-bg);
+  }
+
+  /* Session row (list) */
+  .session-card{
+    background: var(--app-bg-2);
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .session-card__top{
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .session-card__platform{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--fg-2);
+    font-weight: 700;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .session-card__platform::before{
+    content: ""; width: 4px; height: 4px; background: var(--hot);
+  }
+  .session-card__platform.tiktok::before{ background: var(--fg-1); }
+  .session-card__platform.facebook::before{ background: var(--cool); }
+
+  .session-card__title{
+    font-size: 14.5px; font-weight: 700;
+    color: var(--fg);
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .session-card__sched{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--fg-2);
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+  }
+  .session-card__sched strong{ color: var(--fg); font-weight: 700; }
+  .session-card__metrics{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--hair);
+    padding-top: 10px;
+  }
+  .session-card__metric{
+    text-align: left;
+    padding-right: 10px;
+  }
+  .session-card__metric + .session-card__metric{
+    border-left: 1px solid var(--hair);
+    padding-left: 12px;
+  }
+  .session-card__metric__v{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: -0.03em;
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .session-card__metric__v__c{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--fg-3);
+    margin-right: 2px;
+    font-weight: 500;
+  }
+  .session-card__metric__l{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--fg-3);
+    font-weight: 700;
+    margin-top: 4px;
+  }
+  .session-card__cta{
+    display: block;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--hair);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* Session card — upcoming variant */
+  .session-card--upcoming{
+    background: var(--app-bg-2);
+    border-color: var(--hair-2);
+  }
+  .session-card--upcoming .session-card__metrics{ display: none; }
+
+  /* Session card — live variant */
+  .session-card--live{
+    background: linear-gradient(160deg, var(--accent-soft), transparent 65%), var(--app-bg-2);
+    border-color: var(--accent);
+  }
+
+  /* ══════════════ SCREEN 03 · SESSION UPLOAD ══════════════ */
+  .up-head{
+    padding: 10px 0 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .up-head__back{
+    width: 36px; height: 36px;
+    display: grid; place-items: center;
+    background: var(--app-bg-2);
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    color: var(--fg);
+  }
+  .up-head__back svg{ width: 14px; height: 14px; }
+  .up-head__id{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    font-weight: 700;
+  }
+
+  .up-session-head{
+    background: var(--app-bg-2);
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .up-session-head__platform{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-2);
+    font-weight: 700;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .up-session-head__platform::before{
+    content: ""; width: 4px; height: 4px; background: var(--hot);
+  }
+  .up-session-head__title{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+    color: var(--fg);
+    margin-top: 6px;
+    line-height: 1.15;
+  }
+  .up-session-head__sched{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--fg-2);
+    margin-top: 6px;
+    letter-spacing: 0.02em;
+  }
+  .up-session-head__chip{ margin-top: 8px; display: inline-block; }
+
+  .up-section{
+    margin-bottom: 14px;
+  }
+  .up-section__head{
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 2px 4px 8px;
+  }
+  .up-section__head h4{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: -0.015em;
+    color: var(--fg);
+  }
+  .up-section__head__hint{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    font-weight: 700;
+  }
+
+  /* Cover upload */
+  .cover-upload{
+    background: var(--app-bg-2);
+    border: 1px dashed var(--hair-2);
+    border-radius: 14px;
+    padding: 0;
+    aspect-ratio: 16 / 9;
+    position: relative;
+    overflow: hidden;
+    display: grid; place-items: center;
+  }
+  .cover-upload--filled{
+    background:
+      radial-gradient(ellipse 200px 120px at 30% 40%, rgba(192,132,252,0.35), transparent 60%),
+      radial-gradient(ellipse 150px 100px at 70% 60%, rgba(255,90,138,0.25), transparent 60%),
+      linear-gradient(135deg, #2B0A4E, #0A1A3A);
+    border: 1px solid var(--hair-2);
+    border-style: solid;
+  }
+  .phone--light .cover-upload--filled{
+    background:
+      radial-gradient(ellipse 200px 120px at 30% 40%, rgba(124,58,237,0.4), transparent 60%),
+      radial-gradient(ellipse 150px 100px at 70% 60%, rgba(225,29,72,0.3), transparent 60%),
+      linear-gradient(135deg, #4C1D95, #BE185D);
+  }
+  .cover-upload__label{
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    color: var(--fg-2);
+  }
+  .cover-upload__label svg{ width: 22px; height: 22px; }
+  .cover-upload__label span{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .cover-upload__change{
+    position: absolute;
+    bottom: 10px; right: 10px;
+    padding: 5px 10px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  /* Analytics entry — LiveAnalytics fields */
+  .analytics-grid{
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .field{
+    background: var(--app-bg-2);
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .field--full{ grid-column: 1 / -1; }
+  .field__l{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex; justify-content: space-between;
+  }
+  .field__v{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 20px;
+    letter-spacing: -0.03em;
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+  }
+  .field__v__c{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--fg-3);
+    margin-right: 3px;
+    font-weight: 500;
+  }
+  .field__v--accent{ color: var(--accent); }
+
+  /* Remarks */
+  .remarks{
+    background: var(--app-bg-2);
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    padding: 12px 14px;
+    min-height: 84px;
+    color: var(--fg-2);
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .remarks__placeholder{ color: var(--fg-3); font-style: italic; }
+
+  /* Attachments */
+  .attach-list{ display: flex; flex-direction: column; gap: 8px; }
+  .attach-row{
+    background: var(--app-bg-2);
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 34px 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .attach-row__thumb{
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: var(--app-bg-3);
+    display: grid; place-items: center;
+    color: var(--accent);
+  }
+  .attach-row__thumb svg{ width: 16px; height: 16px; }
+  .attach-row__main__name{
+    font-size: 12px; font-weight: 700;
+    color: var(--fg);
+    letter-spacing: -0.005em;
+  }
+  .attach-row__main__meta{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: var(--fg-3);
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+  .attach-row__del{
+    padding: 4px;
+    color: var(--fg-3);
+  }
+  .attach-add{
+    background: transparent;
+    border: 1px dashed var(--hair-2);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+    color: var(--fg-2);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .attach-add svg{ width: 14px; height: 14px; }
+
+  /* Save submit */
+  .up-save{
+    width: 100%;
+    padding: 14px 0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 12px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: -0.005em;
+    margin-top: 4px;
+  }
+
+  @media (max-width: 1200px){
+    .row-phones{ grid-template-columns: 1fr; }
+    .theme-labels{ grid-template-columns: 1fr; }
+    body{ background: linear-gradient(180deg, var(--stage-bg-1) 0%, var(--stage-bg-1) 33%, var(--stage-bg-2) 33%, var(--stage-bg-2) 100%); }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage-head">
+  <h1>Live Host Pocket — <em>Grounded</em></h1>
+  <p>Rebuilt against your actual schema. Every metric shown maps to a real field: <code>LiveSession.status</code>, <code>actual_start_at</code>, <code>LiveAnalytics.viewers_peak</code>, <code>gifts_value</code>, <code>LiveSessionAttachment</code>. Three screens: <strong>Today</strong>, <strong>Sessions</strong>, <strong>Session Upload</strong>.</p>
+  <div class="stage-labels">
+    <span>01 · TODAY</span>
+    <span>02 · SESSIONS</span>
+    <span>03 · UPLOAD</span>
+  </div>
+</div>
+
+<div class="theme-labels">
+  <div class="theme-label theme-label--dark">DARK MODE</div>
+  <div class="theme-label theme-label--light">LIGHT MODE</div>
+</div>
+
+<div class="row-phones">
+
+  <!-- ══════════ DARK ══════════ -->
+  <div class="row-phones__col">
+
+    <!-- DARK · TODAY -->
+    <div class="phone">
+      <div class="statusbar">
+        <div class="statusbar__time">14:08</div>
+        <div class="statusbar__center"></div>
+        <div class="statusbar__icons">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 17h2v-6h-2v6zm-2 0h-6v-6h6v6zm-6 0H2v-6h10v6z"/></svg>
+          <svg viewBox="0 0 26 14" fill="none"><rect x="1" y="1" width="20" height="12" rx="3" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="3" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="22" y="5" width="2" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="screen">
+        <div class="greet">
+          <div class="greet__pretitle"><span class="diode"></span>ON AIR · 14:08 MYT</div>
+          <div class="greet__title">Morning, <em>Wan</em>.<br/>One session live.</div>
+          <div class="greet__avatar">WA</div>
+        </div>
+
+        <!-- LIVE NOW card -->
+        <div class="live-card">
+          <div class="live-card__row">
+            <span class="live-card__badge"><span class="blink"></span>LIVE NOW</span>
+            <span class="live-card__since"><span class="live-card__since__l">SINCE</span>12:26</span>
+          </div>
+          <div class="live-card__platform">SHOPEE-MY-01</div>
+          <div class="live-card__title">Fashion Friday<br/>Flash Sale</div>
+          <div class="live-card__sched">
+            <div>
+              <div class="live-card__sched__item__l">Scheduled</div>
+              <div class="live-card__sched__item__v">12:00 – 15:00</div>
+            </div>
+            <div>
+              <div class="live-card__sched__item__l">Elapsed</div>
+              <div class="live-card__sched__item__v">01:42</div>
+            </div>
+          </div>
+          <div class="live-card__actions">
+            <button class="btn-primary">End session</button>
+            <button class="btn-ghost">View detail</button>
+          </div>
+        </div>
+
+        <div class="sect"><h3>Today</h3></div>
+        <div class="tiles">
+          <div class="tile tile--accent">
+            <div>
+              <div class="tile__l">Sessions done</div>
+              <div class="tile__v">2<span class="tile__v__u">/ 3</span></div>
+            </div>
+            <div class="tile__sub">1 more to go today</div>
+          </div>
+          <div class="tile">
+            <div>
+              <div class="tile__l">Allowance today</div>
+              <div class="tile__v"><span class="tile__v__c">RM</span>168<span class="tile__v__u">.50</span></div>
+            </div>
+            <div class="tile__sub">From 2 ended sessions</div>
+          </div>
+        </div>
+
+        <div class="sect"><h3>Up next</h3><span class="sect__link">Schedule →</span></div>
+        <div>
+          <div class="upcoming-row">
+            <div><div class="upcoming-row__t__h">16:15</div><div class="upcoming-row__t__d">2h</div></div>
+            <div><div class="upcoming-row__title">Main Show — Saturday</div><div class="upcoming-row__meta">shopee-my-03 · scheduled</div></div>
+            <span class="chip chip-scheduled">SCHED</span>
+          </div>
+          <div class="upcoming-row">
+            <div><div class="upcoming-row__t__h">19:30</div><div class="upcoming-row__t__d">90m</div></div>
+            <div><div class="upcoming-row__title">Evening Prime</div><div class="upcoming-row__meta">tiktok-my-04 · scheduled</div></div>
+            <span class="chip chip-scheduled">SCHED</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tabbar__item tabbar__item--active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h4v-6h6v6h4V10"/></svg>
+          Today
+        </div>
+        <div class="tabbar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4M16 2v4"/></svg>
+          Schedule
+        </div>
+        <div class="tabbar__fab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+        </div>
+        <div class="tabbar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Sessions
+        </div>
+        <div class="tabbar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M3 22a9 9 0 0118 0"/></svg>
+          You
+        </div>
+      </div>
+    </div>
+    <span class="phone__label">01 · TODAY</span>
+
+    <!-- DARK · SESSIONS -->
+    <div class="phone">
+      <div class="statusbar">
+        <div class="statusbar__time">14:08</div><div class="statusbar__center"></div>
+        <div class="statusbar__icons">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 17h2v-6h-2v6zm-2 0h-6v-6h6v6zm-6 0H2v-6h10v6z"/></svg>
+          <svg viewBox="0 0 26 14" fill="none"><rect x="1" y="1" width="20" height="12" rx="3" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="3" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="22" y="5" width="2" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="s-head">
+          <div class="s-head__pre">Sessions</div>
+          <h1>Your sessions</h1>
+        </div>
+        <div class="s-segmented">
+          <div class="s-segmented__item">Upcoming</div>
+          <div class="s-segmented__item s-segmented__item--active">Ended</div>
+          <div class="s-segmented__item">All</div>
+        </div>
+
+        <!-- LIVE -->
+        <div class="session-card session-card--live">
+          <div class="session-card__top">
+            <span class="session-card__platform">SHOPEE-MY-01</span>
+            <span class="chip chip-live">● LIVE</span>
+          </div>
+          <div class="session-card__title">Fashion Friday Flash Sale</div>
+          <div class="session-card__sched">Started <strong>12:26</strong> · elapsed <strong>01:42</strong></div>
+          <a class="session-card__cta">Manage session →</a>
+        </div>
+
+        <!-- ENDED with analytics -->
+        <div class="session-card">
+          <div class="session-card__top">
+            <span class="session-card__platform">SHOPEE-MY-01</span>
+            <span class="chip chip-ended">ENDED</span>
+          </div>
+          <div class="session-card__title">Morning Live — Skincare Bundle</div>
+          <div class="session-card__sched">Yesterday 09:00 – 11:14 · <strong>2h 14m</strong></div>
+          <div class="session-card__metrics">
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">387</div>
+              <div class="session-card__metric__l">Peak viewers</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">1,284</div>
+              <div class="session-card__metric__l">Likes</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v"><span class="session-card__metric__v__c">RM</span>86</div>
+              <div class="session-card__metric__l">Gifts</div>
+            </div>
+          </div>
+          <a class="session-card__cta">Open recap & upload →</a>
+        </div>
+
+        <div class="session-card">
+          <div class="session-card__top">
+            <span class="session-card__platform tiktok">TIKTOK-MY-03</span>
+            <span class="chip chip-ended">ENDED</span>
+          </div>
+          <div class="session-card__title">Thursday Evening Prime</div>
+          <div class="session-card__sched">Thu 19:30 – 21:00 · <strong>1h 30m</strong></div>
+          <div class="session-card__metrics">
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">228</div>
+              <div class="session-card__metric__l">Peak</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">841</div>
+              <div class="session-card__metric__l">Likes</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v"><span class="session-card__metric__v__c">RM</span>42</div>
+              <div class="session-card__metric__l">Gifts</div>
+            </div>
+          </div>
+          <a class="session-card__cta">Open recap & upload →</a>
+        </div>
+
+        <div class="session-card">
+          <div class="session-card__top">
+            <span class="session-card__platform">SHOPEE-MY-02</span>
+            <span class="chip chip-ended">ENDED</span>
+          </div>
+          <div class="session-card__title">Wed Launch — New Collection</div>
+          <div class="session-card__sched">Wed 14:00 – 17:30 · <strong>3h 30m</strong></div>
+          <div class="session-card__metrics">
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">512</div>
+              <div class="session-card__metric__l">Peak</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">2,104</div>
+              <div class="session-card__metric__l">Likes</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v"><span class="session-card__metric__v__c">RM</span>124</div>
+              <div class="session-card__metric__l">Gifts</div>
+            </div>
+          </div>
+          <a class="session-card__cta">Open recap & upload →</a>
+        </div>
+      </div>
+    </div>
+    <span class="phone__label">02 · SESSIONS</span>
+
+    <!-- DARK · UPLOAD -->
+    <div class="phone">
+      <div class="statusbar">
+        <div class="statusbar__time">14:08</div><div class="statusbar__center"></div>
+        <div class="statusbar__icons">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 17h2v-6h-2v6zm-2 0h-6v-6h6v6zm-6 0H2v-6h10v6z"/></svg>
+          <svg viewBox="0 0 26 14" fill="none"><rect x="1" y="1" width="20" height="12" rx="3" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="3" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="22" y="5" width="2" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="up-head">
+          <div class="up-head__back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+          </div>
+          <span class="up-head__id">SESSION · LS-90151</span>
+          <div class="up-head__back">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </div>
+        </div>
+
+        <div class="up-session-head">
+          <span class="up-session-head__platform">SHOPEE-MY-01</span>
+          <div class="up-session-head__title">Morning Live<br/>Skincare Bundle</div>
+          <div class="up-session-head__sched">Yesterday · 09:00 – 11:14 · 2h 14m</div>
+          <span class="chip chip-ended up-session-head__chip">ENDED</span>
+        </div>
+
+        <div class="up-section">
+          <div class="up-section__head">
+            <h4>Cover image</h4>
+            <span class="up-section__head__hint">image_path</span>
+          </div>
+          <div class="cover-upload cover-upload--filled">
+            <span class="cover-upload__change">Change</span>
+          </div>
+        </div>
+
+        <div class="up-section">
+          <div class="up-section__head">
+            <h4>Analytics</h4>
+            <span class="up-section__head__hint">LiveAnalytics</span>
+          </div>
+          <div class="analytics-grid">
+            <div class="field">
+              <div class="field__l"><span>Peak viewers</span><span>viewers_peak</span></div>
+              <div class="field__v field__v--accent">387</div>
+            </div>
+            <div class="field">
+              <div class="field__l"><span>Avg viewers</span><span>viewers_avg</span></div>
+              <div class="field__v">214</div>
+            </div>
+            <div class="field">
+              <div class="field__l"><span>Likes</span><span>total_likes</span></div>
+              <div class="field__v">1,284</div>
+            </div>
+            <div class="field">
+              <div class="field__l"><span>Comments</span><span>total_comments</span></div>
+              <div class="field__v">96</div>
+            </div>
+            <div class="field field--full">
+              <div class="field__l"><span>Gifts value</span><span>gifts_value</span></div>
+              <div class="field__v field__v--accent"><span class="field__v__c">RM</span>86<span class="tile__v__u" style="font-size:12px;">.50</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="up-section">
+          <div class="up-section__head">
+            <h4>Your remarks</h4>
+            <span class="up-section__head__hint">remarks</span>
+          </div>
+          <div class="remarks">
+            Strong engagement on the Hydro range. Platform glitch around 10:47 — dropped about 15m of airtime before I could recover.
+          </div>
+        </div>
+
+        <div class="up-section">
+          <div class="up-section__head">
+            <h4>Attachments</h4>
+            <span class="up-section__head__hint">LiveSessionAttachment</span>
+          </div>
+          <div class="attach-list">
+            <div class="attach-row">
+              <div class="attach-row__thumb">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5-11 11"/></svg>
+              </div>
+              <div>
+                <div class="attach-row__main__name">screen-recap-0917.png</div>
+                <div class="attach-row__main__meta">IMAGE · 2.4 MB</div>
+              </div>
+              <button class="attach-row__del">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div class="attach-row">
+              <div class="attach-row__thumb">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <div>
+                <div class="attach-row__main__name">shopee-stats-export.pdf</div>
+                <div class="attach-row__main__meta">PDF · 412 KB</div>
+              </div>
+              <button class="attach-row__del">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <button class="attach-add">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Add file
+            </button>
+          </div>
+        </div>
+
+        <button class="up-save">Save recap</button>
+      </div>
+    </div>
+    <span class="phone__label">03 · UPLOAD</span>
+
+  </div>
+
+  <!-- ══════════ LIGHT ══════════ -->
+  <div class="row-phones__col">
+
+    <!-- LIGHT · TODAY -->
+    <div class="phone phone--light">
+      <div class="statusbar">
+        <div class="statusbar__time">14:08</div>
+        <div class="statusbar__center"></div>
+        <div class="statusbar__icons">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 17h2v-6h-2v6zm-2 0h-6v-6h6v6zm-6 0H2v-6h10v6z"/></svg>
+          <svg viewBox="0 0 26 14" fill="none"><rect x="1" y="1" width="20" height="12" rx="3" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="3" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="22" y="5" width="2" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="screen">
+        <div class="greet">
+          <div class="greet__pretitle"><span class="diode"></span>ON AIR · 14:08 MYT</div>
+          <div class="greet__title">Morning, <em>Wan</em>.<br/>One session live.</div>
+          <div class="greet__avatar">WA</div>
+        </div>
+
+        <div class="live-card">
+          <div class="live-card__row">
+            <span class="live-card__badge"><span class="blink"></span>LIVE NOW</span>
+            <span class="live-card__since"><span class="live-card__since__l">SINCE</span>12:26</span>
+          </div>
+          <div class="live-card__platform">SHOPEE-MY-01</div>
+          <div class="live-card__title">Fashion Friday<br/>Flash Sale</div>
+          <div class="live-card__sched">
+            <div>
+              <div class="live-card__sched__item__l">Scheduled</div>
+              <div class="live-card__sched__item__v">12:00 – 15:00</div>
+            </div>
+            <div>
+              <div class="live-card__sched__item__l">Elapsed</div>
+              <div class="live-card__sched__item__v">01:42</div>
+            </div>
+          </div>
+          <div class="live-card__actions">
+            <button class="btn-primary">End session</button>
+            <button class="btn-ghost">View detail</button>
+          </div>
+        </div>
+
+        <div class="sect"><h3>Today</h3></div>
+        <div class="tiles">
+          <div class="tile tile--accent">
+            <div>
+              <div class="tile__l">Sessions done</div>
+              <div class="tile__v">2<span class="tile__v__u">/ 3</span></div>
+            </div>
+            <div class="tile__sub">1 more to go today</div>
+          </div>
+          <div class="tile">
+            <div>
+              <div class="tile__l">Allowance today</div>
+              <div class="tile__v"><span class="tile__v__c">RM</span>168<span class="tile__v__u">.50</span></div>
+            </div>
+            <div class="tile__sub">From 2 ended sessions</div>
+          </div>
+        </div>
+
+        <div class="sect"><h3>Up next</h3><span class="sect__link">Schedule →</span></div>
+        <div>
+          <div class="upcoming-row">
+            <div><div class="upcoming-row__t__h">16:15</div><div class="upcoming-row__t__d">2h</div></div>
+            <div><div class="upcoming-row__title">Main Show — Saturday</div><div class="upcoming-row__meta">shopee-my-03 · scheduled</div></div>
+            <span class="chip chip-scheduled">SCHED</span>
+          </div>
+          <div class="upcoming-row">
+            <div><div class="upcoming-row__t__h">19:30</div><div class="upcoming-row__t__d">90m</div></div>
+            <div><div class="upcoming-row__title">Evening Prime</div><div class="upcoming-row__meta">tiktok-my-04 · scheduled</div></div>
+            <span class="chip chip-scheduled">SCHED</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tabbar__item tabbar__item--active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h4v-6h6v6h4V10"/></svg>
+          Today
+        </div>
+        <div class="tabbar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4M16 2v4"/></svg>
+          Schedule
+        </div>
+        <div class="tabbar__fab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+        </div>
+        <div class="tabbar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Sessions
+        </div>
+        <div class="tabbar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M3 22a9 9 0 0118 0"/></svg>
+          You
+        </div>
+      </div>
+    </div>
+    <span class="phone__label">01 · TODAY</span>
+
+    <!-- LIGHT · SESSIONS -->
+    <div class="phone phone--light">
+      <div class="statusbar">
+        <div class="statusbar__time">14:08</div><div class="statusbar__center"></div>
+        <div class="statusbar__icons">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 17h2v-6h-2v6zm-2 0h-6v-6h6v6zm-6 0H2v-6h10v6z"/></svg>
+          <svg viewBox="0 0 26 14" fill="none"><rect x="1" y="1" width="20" height="12" rx="3" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="3" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="22" y="5" width="2" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="s-head">
+          <div class="s-head__pre">Sessions</div>
+          <h1>Your sessions</h1>
+        </div>
+        <div class="s-segmented">
+          <div class="s-segmented__item">Upcoming</div>
+          <div class="s-segmented__item s-segmented__item--active">Ended</div>
+          <div class="s-segmented__item">All</div>
+        </div>
+
+        <div class="session-card session-card--live">
+          <div class="session-card__top">
+            <span class="session-card__platform">SHOPEE-MY-01</span>
+            <span class="chip chip-live">● LIVE</span>
+          </div>
+          <div class="session-card__title">Fashion Friday Flash Sale</div>
+          <div class="session-card__sched">Started <strong>12:26</strong> · elapsed <strong>01:42</strong></div>
+          <a class="session-card__cta">Manage session →</a>
+        </div>
+
+        <div class="session-card">
+          <div class="session-card__top">
+            <span class="session-card__platform">SHOPEE-MY-01</span>
+            <span class="chip chip-ended">ENDED</span>
+          </div>
+          <div class="session-card__title">Morning Live — Skincare Bundle</div>
+          <div class="session-card__sched">Yesterday 09:00 – 11:14 · <strong>2h 14m</strong></div>
+          <div class="session-card__metrics">
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">387</div>
+              <div class="session-card__metric__l">Peak viewers</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">1,284</div>
+              <div class="session-card__metric__l">Likes</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v"><span class="session-card__metric__v__c">RM</span>86</div>
+              <div class="session-card__metric__l">Gifts</div>
+            </div>
+          </div>
+          <a class="session-card__cta">Open recap & upload →</a>
+        </div>
+
+        <div class="session-card">
+          <div class="session-card__top">
+            <span class="session-card__platform tiktok">TIKTOK-MY-03</span>
+            <span class="chip chip-ended">ENDED</span>
+          </div>
+          <div class="session-card__title">Thursday Evening Prime</div>
+          <div class="session-card__sched">Thu 19:30 – 21:00 · <strong>1h 30m</strong></div>
+          <div class="session-card__metrics">
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">228</div>
+              <div class="session-card__metric__l">Peak</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">841</div>
+              <div class="session-card__metric__l">Likes</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v"><span class="session-card__metric__v__c">RM</span>42</div>
+              <div class="session-card__metric__l">Gifts</div>
+            </div>
+          </div>
+          <a class="session-card__cta">Open recap & upload →</a>
+        </div>
+
+        <div class="session-card">
+          <div class="session-card__top">
+            <span class="session-card__platform">SHOPEE-MY-02</span>
+            <span class="chip chip-ended">ENDED</span>
+          </div>
+          <div class="session-card__title">Wed Launch — New Collection</div>
+          <div class="session-card__sched">Wed 14:00 – 17:30 · <strong>3h 30m</strong></div>
+          <div class="session-card__metrics">
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">512</div>
+              <div class="session-card__metric__l">Peak</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v">2,104</div>
+              <div class="session-card__metric__l">Likes</div>
+            </div>
+            <div class="session-card__metric">
+              <div class="session-card__metric__v"><span class="session-card__metric__v__c">RM</span>124</div>
+              <div class="session-card__metric__l">Gifts</div>
+            </div>
+          </div>
+          <a class="session-card__cta">Open recap & upload →</a>
+        </div>
+      </div>
+    </div>
+    <span class="phone__label">02 · SESSIONS</span>
+
+    <!-- LIGHT · UPLOAD -->
+    <div class="phone phone--light">
+      <div class="statusbar">
+        <div class="statusbar__time">14:08</div><div class="statusbar__center"></div>
+        <div class="statusbar__icons">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 17h2v-6h-2v6zm-2 0h-6v-6h6v6zm-6 0H2v-6h10v6z"/></svg>
+          <svg viewBox="0 0 26 14" fill="none"><rect x="1" y="1" width="20" height="12" rx="3" stroke="currentColor" stroke-width="1.2"/><rect x="3" y="3" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="22" y="5" width="2" height="4" rx="0.5" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="up-head">
+          <div class="up-head__back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+          </div>
+          <span class="up-head__id">SESSION · LS-90151</span>
+          <div class="up-head__back">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </div>
+        </div>
+
+        <div class="up-session-head">
+          <span class="up-session-head__platform">SHOPEE-MY-01</span>
+          <div class="up-session-head__title">Morning Live<br/>Skincare Bundle</div>
+          <div class="up-session-head__sched">Yesterday · 09:00 – 11:14 · 2h 14m</div>
+          <span class="chip chip-ended up-session-head__chip">ENDED</span>
+        </div>
+
+        <div class="up-section">
+          <div class="up-section__head">
+            <h4>Cover image</h4>
+            <span class="up-section__head__hint">image_path</span>
+          </div>
+          <div class="cover-upload cover-upload--filled">
+            <span class="cover-upload__change">Change</span>
+          </div>
+        </div>
+
+        <div class="up-section">
+          <div class="up-section__head">
+            <h4>Analytics</h4>
+            <span class="up-section__head__hint">LiveAnalytics</span>
+          </div>
+          <div class="analytics-grid">
+            <div class="field">
+              <div class="field__l"><span>Peak viewers</span><span>viewers_peak</span></div>
+              <div class="field__v field__v--accent">387</div>
+            </div>
+            <div class="field">
+              <div class="field__l"><span>Avg viewers</span><span>viewers_avg</span></div>
+              <div class="field__v">214</div>
+            </div>
+            <div class="field">
+              <div class="field__l"><span>Likes</span><span>total_likes</span></div>
+              <div class="field__v">1,284</div>
+            </div>
+            <div class="field">
+              <div class="field__l"><span>Comments</span><span>total_comments</span></div>
+              <div class="field__v">96</div>
+            </div>
+            <div class="field field--full">
+              <div class="field__l"><span>Gifts value</span><span>gifts_value</span></div>
+              <div class="field__v field__v--accent"><span class="field__v__c">RM</span>86<span class="tile__v__u" style="font-size:12px;">.50</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="up-section">
+          <div class="up-section__head">
+            <h4>Your remarks</h4>
+            <span class="up-section__head__hint">remarks</span>
+          </div>
+          <div class="remarks">
+            Strong engagement on the Hydro range. Platform glitch around 10:47 — dropped about 15m of airtime before I could recover.
+          </div>
+        </div>
+
+        <div class="up-section">
+          <div class="up-section__head">
+            <h4>Attachments</h4>
+            <span class="up-section__head__hint">LiveSessionAttachment</span>
+          </div>
+          <div class="attach-list">
+            <div class="attach-row">
+              <div class="attach-row__thumb">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5-11 11"/></svg>
+              </div>
+              <div>
+                <div class="attach-row__main__name">screen-recap-0917.png</div>
+                <div class="attach-row__main__meta">IMAGE · 2.4 MB</div>
+              </div>
+              <button class="attach-row__del">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div class="attach-row">
+              <div class="attach-row__thumb">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <div>
+                <div class="attach-row__main__name">shopee-stats-export.pdf</div>
+                <div class="attach-row__main__meta">PDF · 412 KB</div>
+              </div>
+              <button class="attach-row__del">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <button class="attach-add">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Add file
+            </button>
+          </div>
+        </div>
+
+        <button class="up-save">Save recap</button>
+      </div>
+    </div>
+    <span class="phone__label">03 · UPLOAD</span>
+
+  </div>
+
+</div>
+
+</body>
+</html>

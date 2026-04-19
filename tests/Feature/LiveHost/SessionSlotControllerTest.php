@@ -16,7 +16,7 @@ it('lists session slots with pagination (15 per page)', function () {
     LiveScheduleAssignment::factory()->count(20)->create();
 
     actingAs($this->pic)
-        ->get('/livehost/session-slots')
+        ->get('/livehost/session-slots/table')
         ->assertInertia(fn (Assert $p) => $p
             ->component('session-slots/Index', false)
             ->has('sessionSlots.data', 15)
@@ -45,7 +45,7 @@ it('maps session slot DTO fields', function () {
     ]);
 
     actingAs($this->pic)
-        ->get('/livehost/session-slots')
+        ->get('/livehost/session-slots/table')
         ->assertInertia(fn (Assert $p) => $p
             ->has('sessionSlots.data', 1)
             ->where('sessionSlots.data.0.dayOfWeek', 3)
@@ -68,7 +68,7 @@ it('filters session slots by host', function () {
     LiveScheduleAssignment::factory()->count(3)->create(['live_host_id' => $hostB->id]);
 
     actingAs($this->pic)
-        ->get("/livehost/session-slots?host={$hostA->id}")
+        ->get("/livehost/session-slots/table?host={$hostA->id}")
         ->assertInertia(fn (Assert $p) => $p
             ->has('sessionSlots.data', 2)
             ->where('filters.host', (string) $hostA->id));
@@ -80,7 +80,7 @@ it('filters session slots by unassigned host', function () {
     LiveScheduleAssignment::factory()->count(3)->create(['live_host_id' => null]);
 
     actingAs($this->pic)
-        ->get('/livehost/session-slots?host=unassigned')
+        ->get('/livehost/session-slots/table?host=unassigned')
         ->assertInertia(fn (Assert $p) => $p->has('sessionSlots.data', 3));
 });
 
@@ -91,7 +91,7 @@ it('filters session slots by platform_account', function () {
     LiveScheduleAssignment::factory()->count(4)->create(['platform_account_id' => $accountB->id]);
 
     actingAs($this->pic)
-        ->get("/livehost/session-slots?platform_account={$accountA->id}")
+        ->get("/livehost/session-slots/table?platform_account={$accountA->id}")
         ->assertInertia(fn (Assert $p) => $p->has('sessionSlots.data', 2));
 });
 
@@ -100,7 +100,7 @@ it('filters session slots by status', function () {
     LiveScheduleAssignment::factory()->count(3)->create(['status' => 'cancelled']);
 
     actingAs($this->pic)
-        ->get('/livehost/session-slots?status=cancelled')
+        ->get('/livehost/session-slots/table?status=cancelled')
         ->assertInertia(fn (Assert $p) => $p->has('sessionSlots.data', 3));
 });
 
@@ -109,7 +109,7 @@ it('filters session slots by template mode', function () {
     LiveScheduleAssignment::factory()->count(2)->forDate('2026-05-01')->create();
 
     actingAs($this->pic)
-        ->get('/livehost/session-slots?mode=dated')
+        ->get('/livehost/session-slots/table?mode=dated')
         ->assertInertia(fn (Assert $p) => $p->has('sessionSlots.data', 2));
 });
 

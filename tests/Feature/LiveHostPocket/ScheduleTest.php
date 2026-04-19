@@ -1,6 +1,7 @@
 <?php
 
-use App\Models\LiveSchedule;
+use App\Models\LiveScheduleAssignment;
+use App\Models\LiveTimeSlot;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -11,15 +12,13 @@ beforeEach(function () {
 });
 
 it('shows weekly schedule grouped by day', function () {
-    LiveSchedule::factory()->count(2)->create([
+    LiveScheduleAssignment::factory()->count(2)->create([
         'live_host_id' => $this->host->id,
         'day_of_week' => 1,
-        'is_active' => true,
     ]);
-    LiveSchedule::factory()->create([
+    LiveScheduleAssignment::factory()->create([
         'live_host_id' => $this->host->id,
         'day_of_week' => 5,
-        'is_active' => true,
     ]);
 
     actingAs($this->host)
@@ -30,10 +29,10 @@ it('shows weekly schedule grouped by day', function () {
             ->has('days', 7));
 });
 
-it('excludes inactive schedules', function () {
-    LiveSchedule::factory()->create([
+it('excludes cancelled schedules', function () {
+    LiveScheduleAssignment::factory()->create([
         'live_host_id' => $this->host->id,
-        'is_active' => false,
+        'status' => 'cancelled',
     ]);
 
     actingAs($this->host)
@@ -43,9 +42,8 @@ it('excludes inactive schedules', function () {
 
 it('excludes other hosts schedules', function () {
     $otherHost = User::factory()->create(['role' => 'live_host']);
-    LiveSchedule::factory()->count(3)->create([
+    LiveScheduleAssignment::factory()->count(3)->create([
         'live_host_id' => $otherHost->id,
-        'is_active' => true,
     ]);
 
     actingAs($this->host)
@@ -53,13 +51,15 @@ it('excludes other hosts schedules', function () {
         ->assertInertia(fn (Assert $p) => $p->where('totalSlots', 0));
 });
 
-it('normalises start and end times to HH:MM', function () {
-    LiveSchedule::factory()->create([
-        'live_host_id' => $this->host->id,
-        'day_of_week' => 2,
+it('normalises start and end times to HH:MM from related time slot', function () {
+    $slot = LiveTimeSlot::factory()->create([
         'start_time' => '09:30:00',
         'end_time' => '11:45:00',
-        'is_active' => true,
+    ]);
+    LiveScheduleAssignment::factory()->create([
+        'live_host_id' => $this->host->id,
+        'day_of_week' => 2,
+        'time_slot_id' => $slot->id,
     ]);
 
     actingAs($this->host)

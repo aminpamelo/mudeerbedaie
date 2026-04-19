@@ -189,6 +189,12 @@ Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketIn
 
         Route::get('me', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'show'])
             ->name('me');
+
+        Route::post('me/avatar', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'uploadAvatar'])
+            ->name('me.avatar.upload');
+
+        Route::delete('me/avatar', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'destroyAvatar'])
+            ->name('me.avatar.destroy');
     });
 
 // Redirect the legacy `live-host.session-slots` route name to the ended
@@ -253,6 +259,14 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('sessions.index');
         Route::get('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'show'])
             ->name('sessions.show');
+        Route::put('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'update'])
+            ->name('sessions.update');
+        Route::post('sessions/{session}/verify', [\App\Http\Controllers\LiveHost\SessionController::class, 'verify'])
+            ->name('sessions.verify');
+        Route::post('sessions/{session}/attachments', [\App\Http\Controllers\LiveHost\SessionController::class, 'storeAttachment'])
+            ->name('sessions.attachments.store');
+        Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHost\SessionController::class, 'destroyAttachment'])
+            ->name('sessions.attachments.destroy');
     });
 
 // Public Live Schedule - accessible by everyone

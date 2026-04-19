@@ -17,6 +17,7 @@ class LiveSession extends Model
     protected $fillable = [
         'platform_account_id',
         'live_schedule_id',
+        'live_schedule_assignment_id',
         'live_host_id',
         'title',
         'description',
@@ -31,6 +32,10 @@ class LiveSession extends Model
         'uploaded_by',
         'missed_reason_code',
         'missed_reason_note',
+        'verification_status',
+        'verified_by',
+        'verified_at',
+        'verification_notes',
     ];
 
     protected function casts(): array
@@ -40,6 +45,7 @@ class LiveSession extends Model
             'actual_start_at' => 'datetime',
             'actual_end_at' => 'datetime',
             'uploaded_at' => 'datetime',
+            'verified_at' => 'datetime',
         ];
     }
 
@@ -53,6 +59,11 @@ class LiveSession extends Model
         return $this->belongsTo(LiveSchedule::class);
     }
 
+    public function liveScheduleAssignment(): BelongsTo
+    {
+        return $this->belongsTo(LiveScheduleAssignment::class);
+    }
+
     public function liveHost(): BelongsTo
     {
         return $this->belongsTo(User::class, 'live_host_id');
@@ -61,6 +72,11 @@ class LiveSession extends Model
     public function uploadedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function verifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
     }
 
     public function analytics(): HasOne

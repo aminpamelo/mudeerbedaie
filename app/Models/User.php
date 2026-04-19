@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use NotificationChannels\WebPush\HasPushSubscriptions;
 
@@ -32,6 +33,7 @@ class User extends Authenticatable
         'status',
         'locale',
         'host_color',
+        'avatar_path',
     ];
 
     /**
@@ -255,6 +257,18 @@ class User extends Authenticatable
     public function getRoleNameAttribute(): string
     {
         return ucwords(str_replace('_', ' ', $this->role));
+    }
+
+    /**
+     * Get the public URL for the user's avatar, or null when unset.
+     */
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if (! $this->avatar_path) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->avatar_path);
     }
 
     /**

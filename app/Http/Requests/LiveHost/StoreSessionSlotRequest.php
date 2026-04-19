@@ -41,7 +41,7 @@ class StoreSessionSlotRequest extends FormRequest
             'time_slot_id' => ['required', 'exists:live_time_slots,id'],
             'live_host_id' => ['nullable', 'exists:users,id'],
             'day_of_week' => ['required', 'integer', 'between:0,6'],
-            'schedule_date' => ['nullable', 'date_format:Y-m-d'],
+            'schedule_date' => ['nullable', 'required_if:is_template,false', 'date_format:Y-m-d'],
             'is_template' => ['boolean'],
             'status' => ['nullable', Rule::in([
                 'scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled',
@@ -60,6 +60,7 @@ class StoreSessionSlotRequest extends FormRequest
         return [
             'day_of_week.between' => 'Day of week must be between 0 (Sunday) and 6 (Saturday).',
             'schedule_date.date_format' => 'Schedule date must be a valid YYYY-MM-DD date.',
+            'schedule_date.required_if' => 'Pick a specific date when the slot is not a weekly template.',
         ];
     }
 

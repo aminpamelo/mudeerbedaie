@@ -98,7 +98,7 @@ export default function Dashboard() {
   const watchPct = progressPercent(watchHours, WATCH_HOURS_TARGET);
 
   const dashboardActions = (
-    <Link href="/livehost/schedules/create">
+    <Link href="/livehost/session-slots">
       <Button size="sm" className="h-9 gap-1.5 rounded-lg bg-ink text-white hover:bg-[#262626]">
         <Plus className="h-[13px] w-[13px]" strokeWidth={2.5} />
         New schedule

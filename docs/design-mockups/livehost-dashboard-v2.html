@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Signal — Live Host Ops Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@200,300,400,500,600,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Canvas */
+    --bg: #0A0A0B;
+    --bg-1: #111113;
+    --bg-2: #18181B;
+    --bg-3: #1F1F23;
+
+    /* Rules / borders */
+    --hair:   rgba(255,255,255,0.06);
+    --hair-2: rgba(255,255,255,0.10);
+    --hair-3: rgba(255,255,255,0.16);
+
+    /* Text */
+    --fg:     #FAFAFA;
+    --fg-1:   rgba(255,255,255,0.78);
+    --fg-2:   rgba(255,255,255,0.56);
+    --fg-3:   rgba(255,255,255,0.36);
+    --fg-4:   rgba(255,255,255,0.22);
+
+    /* Chromatic category system */
+    --live:   #B4FF4E;    /* waveform monitor green — LIVE only */
+    --live-dim: rgba(180,255,78,0.14);
+    --live-ink: #2B4B00;
+
+    --cool:   #4A9EFF;    /* scheduled / upcoming */
+    --cool-dim: rgba(74,158,255,0.14);
+
+    --warm:   #FFB547;    /* prep / warning */
+    --warm-dim: rgba(255,181,71,0.14);
+
+    --hot:    #FF4E8A;    /* alert / ended-bad */
+    --hot-dim: rgba(255,78,138,0.14);
+
+    --ice:    #7CE8E0;    /* completed / done */
+    --ice-dim: rgba(124,232,224,0.14);
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+  html, body{
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'General Sans', system-ui, sans-serif;
+    font-weight: 400;
+    font-feature-settings: "ss01", "ss02";
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  body{
+    /* Ultra-subtle scan-line overlay + cold corner wash */
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 2px),
+      radial-gradient(ellipse 1000px 600px at 0% 0%, rgba(180,255,78,0.04), transparent 70%),
+      radial-gradient(ellipse 800px 500px at 100% 100%, rgba(74,158,255,0.035), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  a{ color: inherit; text-decoration: none; }
+
+  /* ---- TYPE SYSTEM ---- */
+  .display {
+    font-family: 'Unbounded', 'General Sans', sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.04em;
+  }
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .label {
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--fg-3);
+  }
+
+  /* ---- TOP RAIL ---- */
+  .rail-top{
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 44px;
+    padding: 0 20px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--hair);
+    font-size: 12px;
+  }
+  .rail-top__brand{
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--fg-2);
+  }
+  .rail-top__brand strong{
+    color: var(--fg);
+    font-weight: 500;
+  }
+  .rail-top__brand__mark{
+    width: 14px; height: 14px;
+    display: grid; place-items: center;
+    position: relative;
+  }
+  .rail-top__brand__mark::before,
+  .rail-top__brand__mark::after{
+    content: ""; position: absolute; inset: 0;
+    border: 1px solid var(--live);
+  }
+  .rail-top__brand__mark::after{
+    border-color: transparent;
+    background:
+      radial-gradient(circle at 50% 50%, var(--live) 1.5px, transparent 2px);
+  }
+  .rail-top__live{
+    color: var(--live);
+    display: inline-flex; align-items: center; gap: 6px;
+    font-weight: 600;
+  }
+  .rail-top__live .diode{
+    width: 7px; height: 7px;
+    border-radius: 999px;
+    background: var(--live);
+    box-shadow: 0 0 0 0 rgba(180,255,78,0.7), 0 0 8px rgba(180,255,78,0.8);
+    animation: diode 1.4s ease-out infinite;
+  }
+  @keyframes diode{
+    50% { box-shadow: 0 0 0 3px rgba(180,255,78,0.15), 0 0 8px rgba(180,255,78,0.8); }
+    100% { box-shadow: 0 0 0 0 rgba(180,255,78,0), 0 0 8px rgba(180,255,78,0.8); }
+  }
+
+  .cmd{
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 10px;
+    border: 1px solid var(--hair-2);
+    background: var(--bg-1);
+    color: var(--fg-2);
+    font-size: 12px;
+    min-width: 380px;
+    cursor: text;
+  }
+  .cmd svg{ width: 13px; height: 13px; flex-shrink: 0; color: var(--fg-3); }
+  .cmd__kbd{
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--fg-3);
+    letter-spacing: 0.1em;
+  }
+
+  .rail-top__user{
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px;
+    color: var(--fg-2);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+  .rail-top__user__chip{
+    padding: 3px 8px;
+    background: var(--bg-2);
+    border: 1px solid var(--hair-2);
+    color: var(--fg-1);
+    text-transform: uppercase;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+  }
+
+  /* ---- TICKER RAIL ---- */
+  .rail-tick{
+    display: flex; align-items: stretch;
+    height: 32px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--bg);
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-2);
+  }
+  .rail-tick__label{
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 16px;
+    background: var(--bg-1);
+    border-right: 1px solid var(--hair);
+    color: var(--live);
+    font-weight: 600;
+  }
+  .rail-tick__track{
+    display: flex; gap: 32px;
+    align-items: center;
+    white-space: nowrap;
+    padding-left: 20px;
+    animation: tickermove 80s linear infinite;
+  }
+  @keyframes tickermove{
+    to { transform: translateX(-100%); }
+  }
+  .rail-tick__track span .sep{ color: var(--fg-4); margin: 0 4px; }
+  .rail-tick__track .live{ color: var(--live); }
+  .rail-tick__track .cool{ color: var(--cool); }
+  .rail-tick__track .warm{ color: var(--warm); }
+
+  /* ---- APP SHELL ---- */
+  .app{
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: calc(100vh - 44px - 32px);
+  }
+
+  /* ---- SIDEBAR ---- */
+  .side{
+    position: sticky;
+    top: 76px;
+    height: calc(100vh - 76px);
+    border-right: 1px solid var(--hair);
+    padding: 20px 0;
+    display: flex; flex-direction: column;
+    gap: 28px;
+  }
+  .side__group{ display: flex; flex-direction: column; }
+  .side__group__label{
+    padding: 0 20px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg-4);
+    font-weight: 500;
+  }
+  .side__item{
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px;
+    font-size: 13px;
+    color: var(--fg-1);
+    font-weight: 500;
+    position: relative;
+    transition: color 0.12s ease, background 0.12s ease;
+  }
+  .side__item:hover{ color: var(--fg); background: rgba(255,255,255,0.02); }
+  .side__item--active{
+    color: var(--fg);
+    background: rgba(255,255,255,0.03);
+  }
+  .side__item--active::before{
+    content:""; position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--live);
+    box-shadow: 0 0 8px rgba(180,255,78,0.6);
+  }
+  .side__item svg{ width: 15px; height: 15px; stroke-width: 1.5; opacity: 0.65; flex-shrink: 0; }
+  .side__item--active svg{ opacity: 1; color: var(--live); }
+  .side__item__count{
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--bg-2);
+    color: var(--fg-2);
+    border: 1px solid var(--hair);
+    font-weight: 500;
+  }
+  .side__item--active .side__item__count{ color: var(--live); border-color: rgba(180,255,78,0.3); background: var(--live-dim); }
+  .side__item__diode{
+    margin-left: auto;
+    margin-right: -2px;
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--live);
+    box-shadow: 0 0 6px rgba(180,255,78,0.8);
+    animation: diode 1.4s ease-out infinite;
+  }
+
+  .side__foot{
+    margin-top: auto;
+    border-top: 1px solid var(--hair);
+    padding: 16px 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .side__foot__avatar{
+    width: 30px; height: 30px;
+    background: linear-gradient(135deg, #FF4E8A, #FFB547);
+    color: var(--bg);
+    display: grid; place-items: center;
+    font-weight: 700;
+    font-size: 11px;
+    font-family: 'Unbounded', sans-serif;
+    letter-spacing: -0.04em;
+  }
+  .side__foot__name{
+    font-size: 12.5px; font-weight: 500;
+    line-height: 1.2;
+  }
+  .side__foot__role{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: var(--fg-3);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ---- MAIN ---- */
+  .main{
+    padding: 24px 28px 60px;
+    overflow: hidden;
+    max-width: 1600px;
+  }
+
+  /* Page head */
+  .pagehead{
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 40px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--hair);
+    margin-bottom: 24px;
+  }
+  .pagehead__label{
+    color: var(--live);
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .pagehead__label::before{
+    content: ""; width: 6px; height: 6px; background: var(--live);
+    box-shadow: 0 0 6px rgba(180,255,78,0.8);
+  }
+  .pagehead__title{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 42px;
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+    margin-top: 10px;
+  }
+  .pagehead__title em{
+    font-style: normal;
+    color: var(--live);
+  }
+  .pagehead__sub{
+    font-size: 13px;
+    color: var(--fg-2);
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+  .pagehead__sub strong{ color: var(--fg); font-weight: 500; }
+
+  .head-actions{ display: flex; align-items: flex-end; gap: 8px; }
+
+  .btn{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 9px 14px;
+    background: var(--live);
+    color: var(--live-ink);
+    border: none;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    position: relative;
+  }
+  .btn::before, .btn::after{
+    content: ""; position: absolute;
+    top: -1px; width: 6px; height: 6px;
+    border-top: 1px solid var(--live);
+    pointer-events: none;
+  }
+  .btn::before{ left: -3px; border-left: 1px solid var(--live); }
+  .btn::after{ right: -3px; border-right: 1px solid var(--live); }
+  .btn:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(180,255,78,0.25);
+  }
+  .btn--ghost{
+    background: transparent;
+    color: var(--fg-1);
+    border: 1px solid var(--hair-2);
+  }
+  .btn--ghost::before, .btn--ghost::after{ border-color: var(--fg-3); }
+  .btn--ghost:hover{ border-color: var(--fg-1); color: var(--fg); }
+
+  .kbd{
+    font-size: 9px;
+    padding: 1px 4px;
+    border: 1px solid currentColor;
+    opacity: 0.5;
+    margin-left: 4px;
+  }
+
+  /* ---- CARD / CORNER-BRACKET FRAME ---- */
+  .card{
+    position: relative;
+    background: var(--bg-1);
+    border: 1px solid var(--hair);
+    padding: 20px;
+    transition: border-color 0.15s ease;
+  }
+  .card:hover{ border-color: var(--hair-2); }
+
+  /* Corner brackets — decorative, sit OUTSIDE the card edge */
+  .card::before, .card::after,
+  .card > .bk-bl, .card > .bk-br {
+    content: ""; position: absolute;
+    width: 10px; height: 10px;
+    pointer-events: none;
+  }
+  .card::before{ top: -1px; left: -1px; border-top: 1px solid var(--fg-4); border-left: 1px solid var(--fg-4); }
+  .card::after{ top: -1px; right: -1px; border-top: 1px solid var(--fg-4); border-right: 1px solid var(--fg-4); }
+  .card > .bk-bl{ bottom: -1px; left: -1px; border-bottom: 1px solid var(--fg-4); border-left: 1px solid var(--fg-4); }
+  .card > .bk-br{ bottom: -1px; right: -1px; border-bottom: 1px solid var(--fg-4); border-right: 1px solid var(--fg-4); }
+
+  .card--live{ background: linear-gradient(180deg, var(--bg-1), rgba(180,255,78,0.02)); }
+  .card--live::before, .card--live::after,
+  .card--live > .bk-bl, .card--live > .bk-br{
+    border-color: var(--live);
+  }
+
+  /* ---- KPI GRID ---- */
+  .kpi-row{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .kpi{
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 128px;
+    padding: 16px 18px 18px;
+  }
+  .kpi__header{
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .kpi__cat{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .kpi__cat::before{
+    content: ""; width: 5px; height: 5px;
+    background: var(--fg-3);
+  }
+  .kpi__cat--live::before{ background: var(--live); box-shadow: 0 0 6px rgba(180,255,78,0.8); }
+  .kpi__cat--cool::before{ background: var(--cool); }
+  .kpi__cat--warm::before{ background: var(--warm); }
+  .kpi__cat--ice::before{ background: var(--ice); }
+
+  .kpi__trend{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--live);
+    display: inline-flex; align-items: center; gap: 3px;
+  }
+  .kpi__trend--down{ color: var(--hot); }
+
+  .kpi__value{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 56px;
+    line-height: 0.92;
+    letter-spacing: -0.05em;
+    color: var(--fg);
+    font-variant-numeric: tabular-nums lining-nums;
+    margin-top: auto;
+  }
+  .kpi__value--live{ color: var(--live); }
+  .kpi__value__unit{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--fg-3);
+    font-weight: 500;
+    margin-left: 6px;
+    letter-spacing: 0.02em;
+  }
+  .kpi__foot{
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--fg-3);
+    letter-spacing: 0.02em;
+  }
+  .kpi__foot strong{ color: var(--fg-1); font-weight: 500; }
+
+  /* Mini waveform bars */
+  .wave{
+    display: inline-flex; align-items: flex-end; gap: 2px;
+    height: 14px;
+    margin-left: auto;
+  }
+  .wave span{
+    width: 2px; background: var(--live);
+    opacity: 0.8;
+  }
+
+  /* ---- 2-COL MAIN ---- */
+  .grid-main{
+    display: grid;
+    grid-template-columns: 1.55fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  /* ---- ON AIR ---- */
+  .onair__head{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 0 16px;
+    border-bottom: 1px solid var(--hair);
+    margin-bottom: 16px;
+  }
+  .onair__head h2{
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+  .onair__head__count{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    padding: 3px 9px;
+    background: var(--live);
+    color: var(--live-ink);
+    letter-spacing: 0.1em;
+  }
+  .panel__link{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--fg-2);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 500;
+    border-bottom: 1px solid var(--hair-2);
+    padding-bottom: 1px;
+  }
+  .panel__link:hover{ color: var(--live); border-color: var(--live); }
+
+  .onair-rows{ display: flex; flex-direction: column; gap: 10px; }
+  .onair-row{
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 18px;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--hair);
+    position: relative;
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+  .onair-row:hover{
+    border-color: rgba(180,255,78,0.4);
+    background: linear-gradient(90deg, var(--bg-1), rgba(180,255,78,0.02));
+  }
+  .onair-row__source{
+    display: grid; place-items: center;
+    width: 56px; height: 56px;
+    background: var(--bg-2);
+    border: 1px solid var(--hair-2);
+    position: relative;
+  }
+  .onair-row__source__letters{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.04em;
+  }
+  .onair-row__source__diode{
+    position: absolute;
+    top: -3px; right: -3px;
+    width: 10px; height: 10px;
+    background: var(--live);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 6px rgba(180,255,78,0.9);
+    animation: diode 1.4s ease-out infinite;
+  }
+  .onair-row__main{ min-width: 0; }
+  .onair-row__host{
+    font-size: 15px; font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+  }
+  .onair-row__meta{
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--fg-3);
+    margin-top: 3px;
+    letter-spacing: 0.02em;
+  }
+  .onair-row__meta .sep{ color: var(--fg-4); }
+  .platform-tag{
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 6px;
+    border: 1px solid var(--hair-2);
+    font-weight: 500;
+    color: var(--fg-2);
+  }
+  .platform-tag::before{
+    content: ""; width: 4px; height: 4px;
+  }
+  .platform-tag.shopee::before{ background: var(--hot); }
+  .platform-tag.tiktok::before{ background: var(--fg-1); }
+  .platform-tag.facebook::before{ background: var(--cool); }
+
+  .onair-row__viewers{
+    text-align: right;
+  }
+  .onair-row__viewers__num{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 26px;
+    letter-spacing: -0.03em;
+    color: var(--live);
+    line-height: 1;
+  }
+  .onair-row__viewers__label{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--fg-3);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+
+  .onair-row__dur{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg);
+    padding: 5px 8px;
+    border: 1px solid var(--hair-2);
+    background: var(--bg);
+  }
+  .onair-row__dur .blink{
+    color: var(--live);
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink{ 50% { opacity: 0.3; } }
+
+  /* ---- AGENDA ---- */
+  .agenda__head{
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 22px;
+    padding: 4px 0 14px;
+    border-bottom: 1px solid var(--hair);
+    margin-bottom: 12px;
+  }
+  .agenda__head h3{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg-2);
+    font-weight: 600;
+  }
+  .agenda-row{
+    display: grid;
+    grid-template-columns: 60px 52px 1fr auto;
+    gap: 16px;
+    padding: 12px 12px;
+    align-items: center;
+    border-bottom: 1px solid var(--hair);
+  }
+  .agenda-row:last-child{ border-bottom: none; }
+  .agenda-row:hover{ background: rgba(255,255,255,0.02); }
+  .agenda-row__t{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+  }
+  .agenda-row__d{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; color: var(--fg-3);
+    font-weight: 500;
+  }
+  .agenda-row__body__host{ font-size: 13.5px; font-weight: 500; color: var(--fg-1); }
+  .agenda-row__body__meta{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; color: var(--fg-3);
+    margin-top: 3px; letter-spacing: 0.02em;
+  }
+
+  .chip{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid var(--hair-2);
+    color: var(--fg-2);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .chip::before{
+    content: ""; width: 4px; height: 4px;
+    background: currentColor;
+  }
+  .chip--live{ color: var(--live); border-color: rgba(180,255,78,0.35); background: var(--live-dim); }
+  .chip--live::before{ box-shadow: 0 0 6px rgba(180,255,78,0.6); }
+  .chip--cool{ color: var(--cool); border-color: rgba(74,158,255,0.3); background: var(--cool-dim); }
+  .chip--warm{ color: var(--warm); border-color: rgba(255,181,71,0.3); background: var(--warm-dim); }
+  .chip--ice{  color: var(--ice);  border-color: rgba(124,232,224,0.3); background: var(--ice-dim); }
+
+  /* ---- ACTIVITY FEED ---- */
+  .feed__head{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 0 16px;
+    border-bottom: 1px solid var(--hair);
+    margin-bottom: 4px;
+  }
+  .feed__head h2{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+  .feed-item{
+    display: grid;
+    grid-template-columns: 66px auto 1fr;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px dashed var(--hair);
+  }
+  .feed-item:last-child{ border-bottom: none; }
+  .feed-item__ts{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--fg-3);
+    letter-spacing: 0.04em;
+    font-weight: 500;
+    padding-top: 2px;
+  }
+  .feed-item__marker{
+    width: 10px; height: 10px;
+    margin-top: 5px;
+    border: 1px solid currentColor;
+    position: relative;
+  }
+  .feed-item__marker::after{
+    content: ""; position: absolute;
+    inset: 2px;
+    background: currentColor;
+  }
+  .feed-item__marker--live{ color: var(--live); }
+  .feed-item__marker--ice{ color: var(--ice); }
+  .feed-item__marker--warm{ color: var(--warm); }
+  .feed-item__marker--cool{ color: var(--cool); }
+
+  .feed-item__body{
+    font-size: 12.5px; line-height: 1.55;
+    color: var(--fg-2);
+  }
+  .feed-item__body strong{ color: var(--fg); font-weight: 500; }
+  .feed-item__tag{
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border: 1px solid var(--hair-2);
+    color: var(--fg-2);
+    font-weight: 600;
+    margin-right: 4px;
+    vertical-align: 1px;
+  }
+
+  /* ---- TABLE / ROSTER ---- */
+  .roster__head{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 0 14px;
+    border-bottom: 1px solid var(--hair-2);
+    margin-bottom: 0;
+  }
+  .roster__head h2{
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 500;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+
+  .roster__seg{
+    display: inline-flex;
+    border: 1px solid var(--hair-2);
+  }
+  .roster__seg__item{
+    padding: 5px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    cursor: pointer;
+    border-right: 1px solid var(--hair-2);
+  }
+  .roster__seg__item:last-child{ border-right: none; }
+  .roster__seg__item--active{
+    background: var(--fg);
+    color: var(--bg);
+  }
+
+  .tbl{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .tbl thead th{
+    font-family: 'JetBrains Mono', monospace;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .tbl tbody td{
+    padding: 16px 14px;
+    border-bottom: 1px solid var(--hair);
+    vertical-align: middle;
+  }
+  .tbl tbody tr:last-child td{ border-bottom: none; }
+  .tbl tbody tr:hover td{ background: rgba(255,255,255,0.02); }
+  .tbl__host{
+    display: flex; align-items: center; gap: 12px;
+  }
+  .tbl__hash{
+    width: 34px; height: 34px;
+    background: var(--bg);
+    border: 1px solid var(--hair-2);
+    display: grid; place-items: center;
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: -0.03em;
+  }
+  .tbl__name{
+    font-size: 13px; font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .tbl__id{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: var(--fg-3);
+    margin-top: 2px;
+    letter-spacing: 0.08em;
+  }
+  .tbl__num{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .tbl__num--big{
+    font-family: 'Unbounded', sans-serif;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+    font-weight: 500;
+  }
+
+  /* Sparkline (thin stroke) */
+  .spark{ width: 96px; height: 24px; }
+
+  /* Signal bar for viewers */
+  .bars{
+    display: inline-flex; gap: 2px; align-items: flex-end;
+    height: 14px;
+  }
+  .bars span{ width: 2px; background: var(--fg-2); }
+
+  /* ---- REVEAL ---- */
+  .reveal{ opacity: 0; transform: translateY(6px); animation: rev 0.6s cubic-bezier(0.2,0.65,0.2,1) forwards; }
+  .reveal:nth-child(1){ animation-delay: 0.02s; }
+  .reveal:nth-child(2){ animation-delay: 0.08s; }
+  .reveal:nth-child(3){ animation-delay: 0.14s; }
+  .reveal:nth-child(4){ animation-delay: 0.2s;  }
+  .reveal:nth-child(5){ animation-delay: 0.26s; }
+  @keyframes rev{ to { opacity: 1; transform: none; } }
+
+  /* Responsive */
+  @media (max-width: 1100px){
+    .app{ grid-template-columns: 1fr; }
+    .side{ position: static; height: auto; }
+    .kpi-row{ grid-template-columns: repeat(2, 1fr); }
+    .grid-main{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ───────── TOP RAIL ───────── -->
+<div class="rail-top">
+  <div class="rail-top__brand">
+    <span class="rail-top__brand__mark"></span>
+    <span><strong>SIGNAL</strong> <span style="color: var(--fg-3);">/ LIVE HOST DESK</span></span>
+    <span style="color: var(--fg-4);">·</span>
+    <span class="rail-top__live"><span class="diode"></span>ON-AIR</span>
+    <span style="color: var(--fg-4);">·</span>
+    <span>VOLUME 04 / ISSUE 12</span>
+  </div>
+  <div class="cmd">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <span>Jump to host, slot, session, platform…</span>
+    <span class="cmd__kbd">⌘K</span>
+  </div>
+  <div class="rail-top__user">
+    <span class="rail-top__user__chip">PIC · ADMIN</span>
+    <span>AHMAD AMIN</span>
+  </div>
+</div>
+
+<!-- ───────── TICKER ───────── -->
+<div class="rail-tick">
+  <div class="rail-tick__label"><span style="color: var(--live);">●</span>FEED</div>
+  <div class="rail-tick__track">
+    <span><span class="live">3 SESSIONS LIVE</span> <span class="sep">│</span> 742 CONCURRENT VIEWERS <span class="sep">│</span> PEAK TODAY 1,204</span>
+    <span><span class="cool">NEXT START 14:30</span> <span class="sep">│</span> MASNI NASUTION / SHOPEE-MY-04 / PRODUCT DEMO · 90M</span>
+    <span><span class="warm">PREP QUEUE 4</span> <span class="sep">│</span> 15 HOSTS ACTIVE <span class="sep">│</span> 17 PLATFORM ACCOUNTS</span>
+    <span>TOTAL WATCH TIME TODAY <span class="live">48.2H</span> <span class="sep">│</span> WEEKLY TARGET 67H · 72% MET</span>
+    <span><span class="live">3 SESSIONS LIVE</span> <span class="sep">│</span> 742 CONCURRENT VIEWERS <span class="sep">│</span> PEAK TODAY 1,204</span>
+    <span><span class="cool">NEXT START 14:30</span> <span class="sep">│</span> MASNI NASUTION / SHOPEE-MY-04 / PRODUCT DEMO · 90M</span>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- ───────── SIDEBAR ───────── -->
+  <aside class="side">
+    <div class="side__group">
+      <div class="side__group__label">Operations / 01</div>
+      <a class="side__item side__item--active" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="0"/><rect x="14" y="3" width="7" height="5" rx="0"/><rect x="14" y="12" width="7" height="9" rx="0"/><rect x="3" y="14" width="7" height="7" rx="0"/></svg>
+        Dashboard
+      </a>
+      <a class="side__item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="8" r="4"/><path d="M3 21v-2a5 5 0 0 1 5-5h2"/><circle cx="17" cy="10" r="3"/><path d="M21 21v-1a4 4 0 0 0-4-4"/></svg>
+        Live Hosts
+        <span class="side__item__count">15</span>
+      </a>
+    </div>
+
+    <div class="side__group">
+      <div class="side__group__label">Allocation / 02</div>
+      <a class="side__item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 7v5l3 2"/></svg>
+        Time Slots
+      </a>
+      <a class="side__item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="0"/><path d="M3 9h18M9 3v18"/></svg>
+        Session Slots
+      </a>
+      <a class="side__item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18l-1 13H4L3 7z"/><path d="M8 7V4a4 4 0 0 1 8 0v3"/></svg>
+        Platform Accounts
+        <span class="side__item__count">17</span>
+      </a>
+    </div>
+
+    <div class="side__group">
+      <div class="side__group__label">Records / 03</div>
+      <a class="side__item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        Live Sessions
+        <span class="side__item__count">142</span>
+        <span class="side__item__diode" style="margin-left: 8px;"></span>
+      </a>
+      <a class="side__item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/></svg>
+        Analytics
+      </a>
+    </div>
+
+    <div class="side__foot">
+      <div class="side__foot__avatar">AA</div>
+      <div style="min-width: 0; flex: 1;">
+        <div class="side__foot__name">Ahmad Amin</div>
+        <div class="side__foot__role">PIC · Admin</div>
+      </div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--fg-3)" stroke-width="2" style="width:13px; height:13px;"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+    </div>
+  </aside>
+
+  <!-- ───────── MAIN ───────── -->
+  <main class="main">
+
+    <!-- Page head -->
+    <div class="pagehead reveal">
+      <div>
+        <span class="pagehead__label">SAT · APR 19, 2026 / 14:08 MYT</span>
+        <h1 class="pagehead__title">Afternoon, Ahmad. <em>Three</em> on air.</h1>
+        <div class="pagehead__sub"><strong>742</strong> concurrent viewers · <strong>48.2h</strong> watch time logged today · <strong>11</strong> of <strong>14</strong> scheduled sessions completed</div>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn--ghost">Filter week <span class="kbd">F</span></button>
+        <button class="btn">+ New schedule <span class="kbd">⌘N</span></button>
+      </div>
+    </div>
+
+    <!-- KPI row -->
+    <section class="kpi-row reveal">
+      <div class="card kpi">
+        <span class="bk-bl"></span><span class="bk-br"></span>
+        <div class="kpi__header">
+          <span class="kpi__cat kpi__cat--live">Active Hosts</span>
+          <span class="kpi__trend">▲ +2 WoW</span>
+        </div>
+        <div class="kpi__value">15</div>
+        <div class="kpi__foot">
+          <strong>17</strong> accounts · <strong>13</strong> on rotation
+          <div class="wave">
+            <span style="height:3px"></span><span style="height:6px"></span><span style="height:4px"></span><span style="height:8px"></span><span style="height:5px"></span><span style="height:10px"></span><span style="height:7px"></span><span style="height:12px"></span><span style="height:9px"></span><span style="height:14px"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card--live kpi">
+        <span class="bk-bl"></span><span class="bk-br"></span>
+        <div class="kpi__header">
+          <span class="kpi__cat kpi__cat--live">Live Now</span>
+          <span class="kpi__trend">▲ 742 viewers</span>
+        </div>
+        <div class="kpi__value kpi__value--live">3</div>
+        <div class="kpi__foot">
+          Peak <strong>1,204</strong> · 25m ago
+        </div>
+      </div>
+
+      <div class="card kpi">
+        <span class="bk-bl"></span><span class="bk-br"></span>
+        <div class="kpi__header">
+          <span class="kpi__cat kpi__cat--cool">Sessions Today</span>
+          <span class="kpi__trend">▲ +12%</span>
+        </div>
+        <div class="kpi__value">11<span class="kpi__value__unit">/14</span></div>
+        <div class="kpi__foot">
+          <strong>78%</strong> complete · 3 remaining
+        </div>
+      </div>
+
+      <div class="card kpi">
+        <span class="bk-bl"></span><span class="bk-br"></span>
+        <div class="kpi__header">
+          <span class="kpi__cat kpi__cat--warm">Watch Hours</span>
+          <span class="kpi__trend">▲ on target</span>
+        </div>
+        <div class="kpi__value">48.2<span class="kpi__value__unit">h</span></div>
+        <div class="kpi__foot">
+          Weekly target <strong>67h</strong> · <strong>72%</strong> met
+        </div>
+      </div>
+    </section>
+
+    <!-- Main grid: on-air + feed -->
+    <section class="grid-main reveal">
+
+      <!-- ON AIR + AGENDA -->
+      <div class="card" style="padding: 20px 24px 24px;">
+        <span class="bk-bl"></span><span class="bk-br"></span>
+        <div class="onair__head">
+          <h2>
+            On Air
+            <span class="onair__head__count">3 LIVE</span>
+          </h2>
+          <a href="#" class="panel__link">All sessions →</a>
+        </div>
+
+        <div class="onair-rows">
+          <div class="onair-row">
+            <div class="onair-row__source">
+              <span class="onair-row__source__letters" style="color: var(--live);">WA</span>
+              <span class="onair-row__source__diode"></span>
+            </div>
+            <div class="onair-row__main">
+              <div class="onair-row__host">Wan Muhd Amir</div>
+              <div class="onair-row__meta">
+                <span class="platform-tag shopee">SHOPEE-MY-01</span>
+                <span class="sep">│</span>
+                <span>#LS-90158</span>
+                <span class="sep">│</span>
+                <span>PRIME SLOT</span>
+              </div>
+            </div>
+            <div class="onair-row__viewers">
+              <div class="onair-row__viewers__num">412</div>
+              <div class="onair-row__viewers__label">viewers</div>
+            </div>
+            <div class="onair-row__dur">01:42:18<span class="blink" style="margin-left:4px;">●</span></div>
+          </div>
+
+          <div class="onair-row">
+            <div class="onair-row__source">
+              <span class="onair-row__source__letters" style="color: var(--hot);">MH</span>
+              <span class="onair-row__source__diode"></span>
+            </div>
+            <div class="onair-row__main">
+              <div class="onair-row__host">Muhammad Haziq Kamarudin</div>
+              <div class="onair-row__meta">
+                <span class="platform-tag tiktok">TIKTOK-MY-03</span>
+                <span class="sep">│</span>
+                <span>#LS-90159</span>
+                <span class="sep">│</span>
+                <span>FLASH SALE</span>
+              </div>
+            </div>
+            <div class="onair-row__viewers">
+              <div class="onair-row__viewers__num">228</div>
+              <div class="onair-row__viewers__label">viewers</div>
+            </div>
+            <div class="onair-row__dur">00:51:04<span class="blink" style="margin-left:4px;">●</span></div>
+          </div>
+
+          <div class="onair-row">
+            <div class="onair-row__source">
+              <span class="onair-row__source__letters" style="color: var(--cool);">HT</span>
+              <span class="onair-row__source__diode"></span>
+            </div>
+            <div class="onair-row__main">
+              <div class="onair-row__host">Haliza Binti Tan</div>
+              <div class="onair-row__meta">
+                <span class="platform-tag shopee">SHOPEE-MY-02</span>
+                <span class="sep">│</span>
+                <span>#LS-90155</span>
+                <span class="sep">│</span>
+                <span>LAUNCH</span>
+              </div>
+            </div>
+            <div class="onair-row__viewers">
+              <div class="onair-row__viewers__num">102</div>
+              <div class="onair-row__viewers__label">viewers</div>
+            </div>
+            <div class="onair-row__dur">00:12:47<span class="blink" style="margin-left:4px;">●</span></div>
+          </div>
+        </div>
+
+        <div class="agenda__head">
+          <h3>▸ QUEUED / NEXT 6 HOURS</h3>
+          <a href="#" class="panel__link">Full schedule →</a>
+        </div>
+
+        <div>
+          <div class="agenda-row">
+            <div class="agenda-row__t">14:30</div>
+            <div class="agenda-row__d">90M</div>
+            <div class="agenda-row__body">
+              <div class="agenda-row__body__host">Masni Nasution</div>
+              <div class="agenda-row__body__meta">shopee-my-04 · product demo · allocated 12:17</div>
+            </div>
+            <span class="chip chip--warm">PREP</span>
+          </div>
+          <div class="agenda-row">
+            <div class="agenda-row__t">15:00</div>
+            <div class="agenda-row__d">60M</div>
+            <div class="agenda-row__body">
+              <div class="agenda-row__body__host">Inaolaji Saheed</div>
+              <div class="agenda-row__body__meta">tiktok-my-01 · flash sale · allocated 09:04</div>
+            </div>
+            <span class="chip chip--cool">SCHEDULED</span>
+          </div>
+          <div class="agenda-row">
+            <div class="agenda-row__t">16:15</div>
+            <div class="agenda-row__d">120M</div>
+            <div class="agenda-row__body">
+              <div class="agenda-row__body__host">Muhammad Naimuddin</div>
+              <div class="agenda-row__body__meta">shopee-my-03 · main show · allocated 13:17</div>
+            </div>
+            <span class="chip chip--cool">SCHEDULED</span>
+          </div>
+          <div class="agenda-row">
+            <div class="agenda-row__t">18:00</div>
+            <div class="agenda-row__d">90M</div>
+            <div class="agenda-row__body">
+              <div class="agenda-row__body__host">Muhammad Shafiq Affan</div>
+              <div class="agenda-row__body__meta">tiktok-my-04 · evening prime · allocated 11:42</div>
+            </div>
+            <span class="chip chip--cool">SCHEDULED</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY -->
+      <div class="card" style="padding: 20px 22px 22px;">
+        <span class="bk-bl"></span><span class="bk-br"></span>
+        <div class="feed__head">
+          <h2>Activity</h2>
+          <a href="#" class="panel__link">See all →</a>
+        </div>
+
+        <div>
+          <div class="feed-item">
+            <span class="feed-item__ts">14:02</span>
+            <span class="feed-item__marker feed-item__marker--live"></span>
+            <div class="feed-item__body">
+              <span class="feed-item__tag" style="color: var(--live); border-color: rgba(180,255,78,0.3);">LIVE</span>
+              <strong>Haliza Binti Tan</strong> started on <strong>shopee-my-02</strong>.
+            </div>
+          </div>
+          <div class="feed-item">
+            <span class="feed-item__ts">13:41</span>
+            <span class="feed-item__marker feed-item__marker--ice"></span>
+            <div class="feed-item__body">
+              <span class="feed-item__tag" style="color: var(--ice); border-color: rgba(124,232,224,0.3);">DONE</span>
+              <strong>Muhammad Shafiq</strong> ended session #LS-90151 · <strong>2h 14m</strong> · <strong>3,204 views</strong>.
+            </div>
+          </div>
+          <div class="feed-item">
+            <span class="feed-item__ts">13:17</span>
+            <span class="feed-item__marker feed-item__marker--cool"></span>
+            <div class="feed-item__body">
+              <span class="feed-item__tag">SLOT</span>
+              Time slot <strong>16:15 – 18:15</strong> assigned to <strong>Muhammad Naimuddin</strong>.
+            </div>
+          </div>
+          <div class="feed-item">
+            <span class="feed-item__ts">12:58</span>
+            <span class="feed-item__marker feed-item__marker--warm"></span>
+            <div class="feed-item__body">
+              <span class="feed-item__tag">HOST</span>
+              New host profile created — <strong>muhammad amirul shafiq</strong> (#90160).
+            </div>
+          </div>
+          <div class="feed-item">
+            <span class="feed-item__ts">11:20</span>
+            <span class="feed-item__marker feed-item__marker--ice"></span>
+            <div class="feed-item__body">
+              <span class="feed-item__tag" style="color: var(--ice); border-color: rgba(124,232,224,0.3);">DONE</span>
+              <strong>Wan Muhd Amir</strong> completed morning session · avg <strong>387 viewers</strong>.
+            </div>
+          </div>
+          <div class="feed-item">
+            <span class="feed-item__ts">10:04</span>
+            <span class="feed-item__marker feed-item__marker--cool"></span>
+            <div class="feed-item__body">
+              <span class="feed-item__tag">PLATFORM</span>
+              Account <strong>shopee-my-04</strong> linked to <strong>Masni Nasution</strong>.
+            </div>
+          </div>
+          <div class="feed-item">
+            <span class="feed-item__ts">09:44</span>
+            <span class="feed-item__marker feed-item__marker--live"></span>
+            <div class="feed-item__body">
+              <span class="feed-item__tag" style="color: var(--live); border-color: rgba(180,255,78,0.3);">LIVE</span>
+              <strong>Wan Muhd Amir</strong> started morning slot on <strong>shopee-my-01</strong>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Roster table -->
+    <section class="card reveal" style="padding: 20px 4px 8px;">
+      <span class="bk-bl"></span><span class="bk-br"></span>
+      <div class="roster__head" style="padding: 4px 20px 14px;">
+        <h2>Top Performing Hosts <span style="color: var(--fg-3); font-weight: 400; font-size: 14px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em; margin-left: 8px;">/ this week</span></h2>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="roster__seg">
+            <div class="roster__seg__item roster__seg__item--active">Sessions</div>
+            <div class="roster__seg__item">Watch Time</div>
+            <div class="roster__seg__item">Viewers</div>
+          </div>
+          <a href="#" class="panel__link">All 15 →</a>
+        </div>
+      </div>
+
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th style="padding-left: 20px;">Host</th>
+            <th style="text-align: right;">Accts</th>
+            <th style="text-align: right;">Sessions</th>
+            <th style="text-align: right;">Watch time</th>
+            <th style="text-align: right;">Avg viewers</th>
+            <th>Trend · 7d</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding-left: 20px;">
+              <div class="tbl__host">
+                <div class="tbl__hash" style="color: var(--live); border-color: rgba(180,255,78,0.3);">WA</div>
+                <div>
+                  <div class="tbl__name">Wan Muhd Amir</div>
+                  <div class="tbl__id">ID · 90158</div>
+                </div>
+              </div>
+            </td>
+            <td class="tbl__num" style="text-align: right;">3</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">12</td>
+            <td class="tbl__num" style="text-align: right; color: var(--fg-2);">24h 08m</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">387</td>
+            <td>
+              <svg class="spark" viewBox="0 0 96 24" fill="none" stroke="var(--live)" stroke-width="1.5" stroke-linecap="round">
+                <path d="M2 18 L14 14 L26 16 L38 10 L50 12 L62 6 L74 8 L86 4 L94 5"/>
+              </svg>
+            </td>
+            <td><span class="chip chip--live">LIVE</span></td>
+          </tr>
+
+          <tr>
+            <td style="padding-left: 20px;">
+              <div class="tbl__host">
+                <div class="tbl__hash" style="color: var(--hot); border-color: rgba(255,78,138,0.25);">MH</div>
+                <div>
+                  <div class="tbl__name">Muhammad Haziq Kamarudin</div>
+                  <div class="tbl__id">ID · 90159</div>
+                </div>
+              </div>
+            </td>
+            <td class="tbl__num" style="text-align: right;">2</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">9</td>
+            <td class="tbl__num" style="text-align: right; color: var(--fg-2);">18h 41m</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">228</td>
+            <td>
+              <svg class="spark" viewBox="0 0 96 24" fill="none" stroke="var(--live)" stroke-width="1.5" stroke-linecap="round">
+                <path d="M2 14 L14 12 L26 16 L38 10 L50 8 L62 10 L74 6 L86 8 L94 6"/>
+              </svg>
+            </td>
+            <td><span class="chip chip--live">LIVE</span></td>
+          </tr>
+
+          <tr>
+            <td style="padding-left: 20px;">
+              <div class="tbl__host">
+                <div class="tbl__hash" style="color: var(--cool); border-color: rgba(74,158,255,0.25);">HT</div>
+                <div>
+                  <div class="tbl__name">Haliza Binti Tan</div>
+                  <div class="tbl__id">ID · 90155</div>
+                </div>
+              </div>
+            </td>
+            <td class="tbl__num" style="text-align: right;">2</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">11</td>
+            <td class="tbl__num" style="text-align: right; color: var(--fg-2);">17h 02m</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">184</td>
+            <td>
+              <svg class="spark" viewBox="0 0 96 24" fill="none" stroke="var(--warm)" stroke-width="1.5" stroke-linecap="round">
+                <path d="M2 10 L14 12 L26 8 L38 14 L50 10 L62 12 L74 14 L86 12 L94 14"/>
+              </svg>
+            </td>
+            <td><span class="chip chip--live">LIVE</span></td>
+          </tr>
+
+          <tr>
+            <td style="padding-left: 20px;">
+              <div class="tbl__host">
+                <div class="tbl__hash" style="color: var(--warm); border-color: rgba(255,181,71,0.25);">MN</div>
+                <div>
+                  <div class="tbl__name">Muhammad Naimuddin</div>
+                  <div class="tbl__id">ID · 90156</div>
+                </div>
+              </div>
+            </td>
+            <td class="tbl__num" style="text-align: right;">2</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">8</td>
+            <td class="tbl__num" style="text-align: right; color: var(--fg-2);">14h 17m</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">156</td>
+            <td>
+              <svg class="spark" viewBox="0 0 96 24" fill="none" stroke="var(--live)" stroke-width="1.5" stroke-linecap="round">
+                <path d="M2 16 L14 14 L26 12 L38 14 L50 10 L62 8 L74 10 L86 6 L94 8"/>
+              </svg>
+            </td>
+            <td><span class="chip chip--cool">SCHEDULED</span></td>
+          </tr>
+
+          <tr>
+            <td style="padding-left: 20px;">
+              <div class="tbl__host">
+                <div class="tbl__hash" style="color: var(--ice); border-color: rgba(124,232,224,0.25);">IS</div>
+                <div>
+                  <div class="tbl__name">Inaolaji Saheed Olalekan</div>
+                  <div class="tbl__id">ID · 90154</div>
+                </div>
+              </div>
+            </td>
+            <td class="tbl__num" style="text-align: right;">1</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">7</td>
+            <td class="tbl__num" style="text-align: right; color: var(--fg-2);">12h 44m</td>
+            <td class="tbl__num tbl__num--big" style="text-align: right;">143</td>
+            <td>
+              <svg class="spark" viewBox="0 0 96 24" fill="none" stroke="var(--live)" stroke-width="1.5" stroke-linecap="round">
+                <path d="M2 18 L14 16 L26 14 L38 12 L50 10 L62 8 L74 6 L86 4 L94 3"/>
+              </svg>
+            </td>
+            <td><span class="chip chip--warm">PREP</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+</div>
+
+</body>
+</html>

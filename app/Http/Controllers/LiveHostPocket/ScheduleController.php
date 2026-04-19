@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\LiveHostPocket;
 
 use App\Http\Controllers\Controller;
-use App\Models\LiveSchedule;
+use App\Models\LiveScheduleAssignment;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,16 +12,15 @@ use Inertia\Response;
 /**
  * Live Host Pocket — Schedule (weekly read-only).
  *
- * Shows the host's active `LiveSchedule` slots grouped by day-of-week.
- * Self-assign / unassign (claim slots) is NOT wired in Batch 3 — that flow
- * lives in the legacy Volt `schedule.blade.php` and is scoped for a later
- * batch. The UI nudges the host to contact their PIC if they need to
- * change slots.
+ * Shows the host's `LiveScheduleAssignment` rows (created by the PIC from
+ * the Session Slots calendar/table) grouped by day-of-week. Cancelled rows
+ * are hidden. Self-assign / unassign is intentionally not exposed here —
+ * hosts are nudged to contact their PIC for schedule changes.
  *
- * `live_schedules.start_time` and `end_time` are stored as SQL `time`
- * columns without any cast on the model, so they arrive as strings
- * ("HH:MM:SS") on MariaDB/MySQL but Carbon-ish on SQLite. We normalise
- * both branches to `HH:MM`.
+ * Time windows come from the related `LiveTimeSlot` (start_time / end_time).
+ * Those columns are stored as SQL `time` and reach PHP as either strings
+ * ("HH:MM:SS") on MariaDB/MySQL or Carbon-ish on SQLite — both are
+ * normalised to "HH:MM".
  */
 class ScheduleController extends Controller
 {
@@ -33,25 +32,29 @@ class ScheduleController extends Controller
     {
         $host = $request->user();
 
-        $schedules = LiveSchedule::query()
-            ->with(['platformAccount.platform'])
+        $schedules = LiveScheduleAssignment::query()
+            ->with(['timeSlot', 'platformAccount.platform'])
             ->where('live_host_id', $host->id)
-            ->where('is_active', true)
+            ->where('status', '!=', 'cancelled')
             ->orderBy('day_of_week')
-            ->orderBy('start_time')
             ->get()
-            ->map(fn (LiveSchedule $schedule): array => [
-                'id' => $schedule->id,
-                'dayOfWeek' => (int) $schedule->day_of_week,
-                'dayName' => self::DAY_NAMES[$schedule->day_of_week] ?? 'Unknown',
-                'dayShort' => self::DAY_SHORT[$schedule->day_of_week] ?? '—',
-                'startTime' => $this->formatTime($schedule->start_time),
-                'endTime' => $this->formatTime($schedule->end_time),
-                'platformAccount' => $schedule->platformAccount?->name,
-                'platformType' => $schedule->platformAccount?->platform?->slug,
-                'isRecurring' => (bool) $schedule->is_recurring,
-                'remarks' => $schedule->remarks,
-            ]);
+            ->map(fn (LiveScheduleAssignment $assignment): array => [
+                'id' => $assignment->id,
+                'dayOfWeek' => (int) $assignment->day_of_week,
+                'dayName' => self::DAY_NAMES[$assignment->day_of_week] ?? 'Unknown',
+                'dayShort' => self::DAY_SHORT[$assignment->day_of_week] ?? '—',
+                'startTime' => $this->formatTime($assignment->timeSlot?->start_time),
+                'endTime' => $this->formatTime($assignment->timeSlot?->end_time),
+                'platformAccount' => $assignment->platformAccount?->name,
+                'platformType' => $assignment->platformAccount?->platform?->slug,
+                'isRecurring' => (bool) $assignment->is_template,
+                'remarks' => $assignment->remarks,
+            ])
+            ->sortBy([
+                ['dayOfWeek', 'asc'],
+                ['startTime', 'asc'],
+            ])
+            ->values();
 
         $grouped = collect(range(0, 6))->map(fn (int $day): array => [
             'dayOfWeek' => $day,
@@ -68,6 +71,10 @@ class ScheduleController extends Controller
 
     private function formatTime(mixed $value): string
     {
+        if ($value === null) {
+            return '';
+        }
+
         if ($value instanceof Carbon) {
             return $value->format('H:i');
         }

@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Jobs\GenerateCertificatePdfJob;
 use App\Models\Certificate;
 use App\Models\CertificateIssue;
 use App\Models\ClassModel;
 use App\Models\Enrollment;
 use App\Models\Student;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -78,7 +80,8 @@ class CertificateService
     }
 
     /**
-     * Issue a certificate to a single student
+     * Issue a certificate to a single student (synchronous PDF generation).
+     * Used for single-student flows; bulk flows should use issueToClass().
      */
     public function issueToStudent(
         Certificate $certificate,
@@ -98,30 +101,9 @@ class CertificateService
 
         try {
             $certificateIssue = DB::transaction(function () use ($certificate, $student, $class, $enrollmentId) {
-                // Prepare data snapshot
-                $dataSnapshot = [
-                    'student_name' => $student->full_name,
-                    'student_id' => $student->student_id,
-                    'course_name' => $class->course->name,
-                    'class_name' => $class->title,
-                    'certificate_name' => $certificate->name,
-                    'teacher_name' => $class->teacher->user->name ?? 'N/A',
-                    'completion_date' => $class->isCompleted() ? $class->updated_at->format('F j, Y') : now()->format('F j, Y'),
-                ];
+                $certificateIssue = $this->createIssueRecord($certificate, $student, $class, $enrollmentId);
 
-                // Create certificate issue (certificate_number is auto-generated in model boot)
-                $certificateIssue = CertificateIssue::create([
-                    'certificate_id' => $certificate->id,
-                    'student_id' => $student->id,
-                    'enrollment_id' => $enrollmentId,
-                    'class_id' => $class->id,
-                    'issue_date' => now(),
-                    'issued_by' => auth()->id(),
-                    'data_snapshot' => $dataSnapshot,
-                    'status' => 'issued',
-                ]);
-
-                // Add certificate number and verification URL to data for PDF generation
+                $dataSnapshot = $certificateIssue->data_snapshot;
                 $dataSnapshot['certificate_number'] = $certificateIssue->certificate_number;
 
                 try {
@@ -130,7 +112,6 @@ class CertificateService
                     $dataSnapshot['verification_url'] = '';
                 }
 
-                // Resolve enrollment model from ID for the PDF generator
                 $enrollment = $enrollmentId ? Enrollment::find($enrollmentId) : null;
 
                 // Generate PDF — if this fails, the transaction rolls back
@@ -162,7 +143,10 @@ class CertificateService
     }
 
     /**
-     * Bulk issue certificates to multiple students in a class
+     * Bulk issue certificates to students in a class.
+     * Creates CertificateIssue records synchronously, then queues PDF generation as a batch.
+     *
+     * @return array{success:bool,message:string,issued_count:int,skipped_count:int,failed_count:int,batch_id:?string,results:array}
      */
     public function issueToClass(
         Certificate $certificate,
@@ -177,6 +161,7 @@ class CertificateService
                 'issued_count' => 0,
                 'skipped_count' => 0,
                 'failed_count' => 0,
+                'batch_id' => null,
                 'results' => [],
             ];
         }
@@ -185,7 +170,7 @@ class CertificateService
             ? $this->getEligibleStudentsForClass($class)
             : Student::whereIn('id', $studentIds)->get();
 
-        $issuedCount = 0;
+        $issuedIds = [];
         $skippedCount = 0;
         $failedCount = 0;
         $results = [];
@@ -204,48 +189,80 @@ class CertificateService
                     ];
 
                     continue;
-                } else {
-                    $failedCount++;
-                    $results[] = [
-                        'student_id' => $student->id,
-                        'student_name' => $student->full_name,
-                        'status' => 'failed',
-                        'reason' => $canIssue['reason'],
-                    ];
-
-                    continue;
                 }
-            }
 
-            $result = $this->issueToStudent($certificate, $student, $class);
-
-            if ($result['success']) {
-                $issuedCount++;
-                $results[] = [
-                    'student_id' => $student->id,
-                    'student_name' => $student->full_name,
-                    'status' => 'issued',
-                    'certificate_issue_id' => $result['certificate_issue']->id,
-                ];
-            } else {
                 $failedCount++;
                 $results[] = [
                     'student_id' => $student->id,
                     'student_name' => $student->full_name,
                     'status' => 'failed',
-                    'reason' => $result['message'],
+                    'reason' => $canIssue['reason'],
+                ];
+
+                continue;
+            }
+
+            try {
+                $issue = $this->createIssueRecord($certificate, $student, $class);
+                $issuedIds[] = $issue->id;
+                $results[] = [
+                    'student_id' => $student->id,
+                    'student_name' => $student->full_name,
+                    'status' => 'issued',
+                    'certificate_issue_id' => $issue->id,
+                ];
+            } catch (\Exception $e) {
+                Log::error('Failed to create certificate issue record', [
+                    'certificate_id' => $certificate->id,
+                    'student_id' => $student->id,
+                    'class_id' => $class->id,
+                    'error' => $e->getMessage(),
+                ]);
+                $failedCount++;
+                $results[] = [
+                    'student_id' => $student->id,
+                    'student_name' => $student->full_name,
+                    'status' => 'failed',
+                    'reason' => $e->getMessage(),
                 ];
             }
         }
 
+        $batchId = null;
+        if (! empty($issuedIds)) {
+            $batchId = $this->dispatchPdfBatch(
+                $issuedIds,
+                $class,
+                "Issue certificates for class #{$class->id}",
+                'issued'
+            );
+        }
+
+        $issuedCount = count($issuedIds);
+
         return [
             'success' => $issuedCount > 0,
-            'message' => "Issued: {$issuedCount}, Skipped: {$skippedCount}, Failed: {$failedCount}",
+            'message' => "Queued: {$issuedCount}, Skipped: {$skippedCount}, Failed: {$failedCount}",
             'issued_count' => $issuedCount,
             'skipped_count' => $skippedCount,
             'failed_count' => $failedCount,
+            'batch_id' => $batchId,
             'results' => $results,
         ];
+    }
+
+    /**
+     * Queue PDF regeneration for a set of existing CertificateIssue records.
+     *
+     * @param  array<int>  $issueIds
+     */
+    public function dispatchRegenerationBatch(array $issueIds, ClassModel $class, string $name = 'Regenerate certificates'): ?string
+    {
+        if (empty($issueIds)) {
+            return null;
+        }
+
+        return $this->dispatchPdfBatch($issueIds, $class, $name, 'regenerated');
     }
 
     /**
@@ -314,5 +331,67 @@ class CertificateService
         }
 
         return $this->issueToClass($certificate, $class, skipExisting: true);
+    }
+
+    /**
+     * Create a CertificateIssue DB record (without PDF).
+     */
+    protected function createIssueRecord(
+        Certificate $certificate,
+        Student $student,
+        ClassModel $class,
+        ?int $enrollmentId = null
+    ): CertificateIssue {
+        $dataSnapshot = [
+            'student_name' => $student->full_name,
+            'student_id' => $student->student_id,
+            'course_name' => $class->course->name ?? '',
+            'class_name' => $class->title,
+            'certificate_name' => $certificate->name,
+            'teacher_name' => $class->teacher->user->name ?? 'N/A',
+            'completion_date' => $class->isCompleted() ? $class->updated_at->format('F j, Y') : now()->format('F j, Y'),
+        ];
+
+        return CertificateIssue::create([
+            'certificate_id' => $certificate->id,
+            'student_id' => $student->id,
+            'enrollment_id' => $enrollmentId,
+            'class_id' => $class->id,
+            'issue_date' => now(),
+            'issued_by' => auth()->id(),
+            'data_snapshot' => $dataSnapshot,
+            'status' => 'issued',
+        ]);
+    }
+
+    /**
+     * Dispatch a Bus batch that generates PDFs for the given issue IDs and
+     * records the batch ID on the class for progress tracking.
+     *
+     * @param  array<int>  $issueIds
+     */
+    protected function dispatchPdfBatch(array $issueIds, ClassModel $class, string $name, string $logAction): string
+    {
+        $actorId = auth()->id();
+        $classId = $class->id;
+
+        $jobs = array_map(
+            fn (int $id) => new GenerateCertificatePdfJob($id, $actorId, $logAction),
+            $issueIds,
+        );
+
+        $batch = Bus::batch($jobs)
+            ->name($name)
+            ->allowFailures()
+            ->finally(function () use ($classId) {
+                ClassModel::whereKey($classId)
+                    ->whereNotNull('certificate_pdf_batch_id')
+                    ->update(['certificate_pdf_batch_id' => null]);
+            })
+            ->dispatch();
+
+        $class->update(['certificate_pdf_batch_id' => $batch->id]);
+
+        return $batch->id;
     }
 }

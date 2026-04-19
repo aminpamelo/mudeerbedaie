@@ -8,6 +8,7 @@ import {
   File,
   X,
   Plus,
+  UploadCloud,
 } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { cn } from '@/livehost-pocket/lib/utils';
@@ -146,119 +147,52 @@ export default function SessionDetail() {
 
         {recap.data.went_live === true ? (
           <>
-            <Section title="Timing" hint="actual_start_at / actual_end_at">
-              <div className="grid grid-cols-1 gap-[10px]">
-                <DateTimeField
-                  label="Actual start"
-                  name="actual_start_at"
-                  value={recap.data.actual_start_at}
-                  onChange={(v) => recap.setData('actual_start_at', v)}
-                  error={recap.errors.actual_start_at}
-                />
-                <DateTimeField
-                  label="Actual end"
-                  name="actual_end_at"
-                  value={recap.data.actual_end_at}
-                  onChange={(v) => recap.setData('actual_end_at', v)}
-                  error={recap.errors.actual_end_at}
-                />
-              </div>
-            </Section>
-
-            <Section title="Analytics" hint="LiveAnalytics">
-              <div className="grid grid-cols-2 gap-[10px]">
-                <NumberField
-                  label="Peak viewers"
-                  hint="viewers_peak"
-                  value={recap.data.viewers_peak}
-                  onChange={(v) => recap.setData('viewers_peak', v)}
-                  error={recap.errors.viewers_peak}
-                  accent
-                />
-                <NumberField
-                  label="Avg viewers"
-                  hint="viewers_avg"
-                  value={recap.data.viewers_avg}
-                  onChange={(v) => recap.setData('viewers_avg', v)}
-                  error={recap.errors.viewers_avg}
-                />
-                <NumberField
-                  label="Likes"
-                  hint="total_likes"
-                  value={recap.data.total_likes}
-                  onChange={(v) => recap.setData('total_likes', v)}
-                  error={recap.errors.total_likes}
-                />
-                <NumberField
-                  label="Comments"
-                  hint="total_comments"
-                  value={recap.data.total_comments}
-                  onChange={(v) => recap.setData('total_comments', v)}
-                  error={recap.errors.total_comments}
-                />
-                <NumberField
-                  label="Shares"
-                  hint="total_shares"
-                  value={recap.data.total_shares}
-                  onChange={(v) => recap.setData('total_shares', v)}
-                  error={recap.errors.total_shares}
-                />
-                <NumberField
-                  label="Gifts value (RM)"
-                  hint="gifts_value"
-                  value={recap.data.gifts_value}
-                  onChange={(v) => recap.setData('gifts_value', v)}
-                  error={recap.errors.gifts_value}
-                  accent
-                  step="0.01"
-                />
-              </div>
-            </Section>
-
-            <Section title="Your remarks" hint="remarks">
-              <textarea
-                value={recap.data.remarks}
-                onChange={(e) => recap.setData('remarks', e.target.value)}
-                placeholder="How did the session go?"
-                rows={4}
-                className="w-full resize-none rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[12px] py-[10px] text-[13px] leading-snug text-[var(--fg)] placeholder:text-[var(--fg-3)] focus:border-[var(--accent)] focus:outline-none"
-              />
-              {recap.errors.remarks ? (
-                <FieldError>{recap.errors.remarks}</FieldError>
-              ) : null}
-            </Section>
-
             <Section title="Proof of live" hint="required">
-              <p className="mb-[10px] px-1 text-[12px] leading-relaxed text-[var(--fg-2)]">
-                Upload a <strong className="text-[var(--fg)]">screenshot of your live dashboard</strong> or a{' '}
-                <strong className="text-[var(--fg)]">short screen recording</strong> as proof you went live.
-                You can add receipts or notes as extra files too &mdash; but at least one
-                image or video is required.
-              </p>
-
-              <div className="space-y-[8px]">
-                {attachmentList.length > 0 ? (
-                  attachmentList.map((attachment) => (
-                    <AttachmentRow
-                      key={attachment.id}
-                      attachment={attachment}
-                      onDelete={() => handleAttachmentDelete(attachment.id)}
-                    />
-                  ))
+              <div className="space-y-[10px]">
+                {!hasVisualProof ? (
+                  <button
+                    type="button"
+                    onClick={() => attachmentInputRef.current?.click()}
+                    className="group relative flex aspect-square w-full flex-col items-center justify-center gap-[14px] overflow-hidden rounded-[18px] border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] px-[20px] text-center transition hover:scale-[1.01]"
+                  >
+                    <span className="grid h-[56px] w-[56px] place-items-center rounded-full bg-[var(--accent)] text-[var(--accent-ink)] shadow-sm transition group-hover:scale-110">
+                      <UploadCloud className="h-[26px] w-[26px]" strokeWidth={2} />
+                    </span>
+                    <div className="space-y-[6px]">
+                      <div className="font-display text-[15px] font-semibold tracking-[-0.01em] text-[var(--accent)]">
+                        Upload your live summary
+                      </div>
+                      <p className="text-[12px] leading-relaxed text-[var(--fg-2)]">
+                        Add a <strong className="text-[var(--fg)]">screenshot of your live summary</strong> from the platform (viewers, likes, gifts) so admin can verify your recap.
+                      </p>
+                    </div>
+                    <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
+                      Tap to upload &middot; image or video
+                    </span>
+                  </button>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => attachmentInputRef.current?.click()}
-                  className={cn(
-                    'flex w-full items-center justify-center gap-[8px] rounded-[12px] border border-dashed px-[12px] py-[14px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] transition',
-                    hasVisualProof
-                      ? 'border-[var(--hair-2)] bg-[var(--app-bg-2)] text-[var(--fg-3)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
-                      : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
-                  )}
-                >
-                  <Plus className="h-[14px] w-[14px]" strokeWidth={2} />
-                  {hasVisualProof ? 'Add another file' : 'Add image or video'}
-                </button>
+
+                {attachmentList.length > 0
+                  ? attachmentList.map((attachment) => (
+                      <AttachmentRow
+                        key={attachment.id}
+                        attachment={attachment}
+                        onDelete={() => handleAttachmentDelete(attachment.id)}
+                      />
+                    ))
+                  : null}
+
+                {hasVisualProof ? (
+                  <button
+                    type="button"
+                    onClick={() => attachmentInputRef.current?.click()}
+                    className="flex w-full items-center justify-center gap-[8px] rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-[12px] py-[12px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  >
+                    <Plus className="h-[14px] w-[14px]" strokeWidth={2} />
+                    Add another file
+                  </button>
+                ) : null}
+
                 <input
                   ref={attachmentInputRef}
                   type="file"
@@ -274,6 +208,80 @@ export default function SessionDetail() {
               hasNonVisualOnly={hasNonVisualOnly}
               error={recap.errors.proof}
             />
+
+            <Section title="Timing">
+              <div className="grid grid-cols-1 gap-[10px]">
+                <DateTimeField
+                  label="Actual start"
+                  value={recap.data.actual_start_at}
+                  onChange={(v) => recap.setData('actual_start_at', v)}
+                  error={recap.errors.actual_start_at}
+                />
+                <DateTimeField
+                  label="Actual end"
+                  value={recap.data.actual_end_at}
+                  onChange={(v) => recap.setData('actual_end_at', v)}
+                  error={recap.errors.actual_end_at}
+                />
+              </div>
+            </Section>
+
+            <Section title="Analytics">
+              <div className="grid grid-cols-2 gap-[10px]">
+                <NumberField
+                  label="Peak viewers"
+                  value={recap.data.viewers_peak}
+                  onChange={(v) => recap.setData('viewers_peak', v)}
+                  error={recap.errors.viewers_peak}
+                  accent
+                />
+                <NumberField
+                  label="Avg viewers"
+                  value={recap.data.viewers_avg}
+                  onChange={(v) => recap.setData('viewers_avg', v)}
+                  error={recap.errors.viewers_avg}
+                />
+                <NumberField
+                  label="Likes"
+                  value={recap.data.total_likes}
+                  onChange={(v) => recap.setData('total_likes', v)}
+                  error={recap.errors.total_likes}
+                />
+                <NumberField
+                  label="Comments"
+                  value={recap.data.total_comments}
+                  onChange={(v) => recap.setData('total_comments', v)}
+                  error={recap.errors.total_comments}
+                />
+                <NumberField
+                  label="Shares"
+                  value={recap.data.total_shares}
+                  onChange={(v) => recap.setData('total_shares', v)}
+                  error={recap.errors.total_shares}
+                />
+                <NumberField
+                  label="Gifts value (RM)"
+                  value={recap.data.gifts_value}
+                  onChange={(v) => recap.setData('gifts_value', v)}
+                  error={recap.errors.gifts_value}
+                  accent
+                  step="0.01"
+                />
+              </div>
+            </Section>
+
+            <Section title="Your remarks">
+              <textarea
+                value={recap.data.remarks}
+                onChange={(e) => recap.setData('remarks', e.target.value)}
+                placeholder="How did the session go?"
+                rows={4}
+                className="w-full resize-none rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[12px] py-[10px] text-[13px] leading-snug text-[var(--fg)] placeholder:text-[var(--fg-3)] focus:border-[var(--accent)] focus:outline-none"
+              />
+              {recap.errors.remarks ? (
+                <FieldError>{recap.errors.remarks}</FieldError>
+              ) : null}
+            </Section>
 
             <div className="pt-3">
               <button
@@ -420,12 +428,11 @@ function Section({ title, hint, children }) {
   );
 }
 
-function DateTimeField({ label, name, value, onChange, error }) {
+function DateTimeField({ label, value, onChange, error }) {
   return (
     <div className="rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[12px] py-[10px]">
-      <div className="mb-[4px] flex items-baseline justify-between font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-        <span>{label}</span>
-        <span>{name}</span>
+      <div className="mb-[4px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+        {label}
       </div>
       <input
         type="datetime-local"
@@ -438,7 +445,7 @@ function DateTimeField({ label, name, value, onChange, error }) {
   );
 }
 
-function NumberField({ label, hint, value, onChange, error, accent = false, step }) {
+function NumberField({ label, value, onChange, error, accent = false, step }) {
   return (
     <div
       className={cn(
@@ -446,9 +453,8 @@ function NumberField({ label, hint, value, onChange, error, accent = false, step
         accent ? 'border-[var(--accent)]' : 'border-[var(--hair)]'
       )}
     >
-      <div className="mb-[4px] flex items-baseline justify-between font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-        <span>{label}</span>
-        <span>{hint}</span>
+      <div className="mb-[4px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+        {label}
       </div>
       <input
         type="number"
@@ -471,33 +477,66 @@ function AttachmentRow({ attachment, onDelete }) {
   const Icon = pickIcon(attachment.fileType);
   const typeLabel = shortType(attachment.fileType);
   const sizeLabel = formatBytes(attachment.fileSize);
+  const isImage = attachment.fileType?.startsWith('image/');
+  const isVideo = attachment.fileType?.startsWith('video/');
+  const hasPreview = isImage || isVideo;
 
   return (
-    <div className="flex items-center gap-[10px] rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[12px] py-[10px]">
-      <div className="grid h-[36px] w-[36px] place-items-center rounded-[8px] bg-[var(--app-bg)] text-[var(--fg-2)]">
-        <Icon className="h-[16px] w-[16px]" strokeWidth={1.8} />
-      </div>
-      <div className="min-w-0 flex-1">
+    <div className="overflow-hidden rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)]">
+      {hasPreview ? (
         <a
           href={attachment.fileUrl}
           target="_blank"
           rel="noreferrer"
-          className="block truncate text-[13px] font-bold text-[var(--fg)] hover:text-[var(--accent)]"
+          className="relative block aspect-square w-full bg-[var(--app-bg)]"
+          aria-label={`Open ${attachment.fileName}`}
         >
-          {attachment.fileName}
+          {isImage ? (
+            <img
+              src={attachment.fileUrl}
+              alt={attachment.fileName}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <video
+              src={attachment.fileUrl}
+              className="h-full w-full object-cover"
+              controls
+              preload="metadata"
+            />
+          )}
         </a>
-        <div className="mt-[2px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-          {typeLabel} &middot; {sizeLabel}
+      ) : null}
+
+      <div className="flex items-center gap-[10px] px-[12px] py-[10px]">
+        {!hasPreview ? (
+          <div className="grid h-[36px] w-[36px] place-items-center rounded-[8px] bg-[var(--app-bg)] text-[var(--fg-2)]">
+            <Icon className="h-[16px] w-[16px]" strokeWidth={1.8} />
+          </div>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <a
+            href={attachment.fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="block truncate text-[13px] font-bold text-[var(--fg)] hover:text-[var(--accent)]"
+          >
+            {attachment.fileName}
+          </a>
+          <div className="mt-[2px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+            {typeLabel} &middot; {sizeLabel}
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="grid h-[28px] w-[28px] place-items-center rounded-full border border-[var(--hair)] text-[var(--fg-3)] transition hover:border-[var(--hot)] hover:text-[var(--hot)]"
+          aria-label={`Remove ${attachment.fileName}`}
+        >
+          <X className="h-[12px] w-[12px]" strokeWidth={2} />
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={onDelete}
-        className="grid h-[28px] w-[28px] place-items-center rounded-full border border-[var(--hair)] text-[var(--fg-3)] transition hover:border-[var(--hot)] hover:text-[var(--hot)]"
-        aria-label={`Remove ${attachment.fileName}`}
-      >
-        <X className="h-[12px] w-[12px]" strokeWidth={2} />
-      </button>
     </div>
   );
 }
@@ -569,8 +608,8 @@ function ProofHint({ hasVisualProof, hasNonVisualOnly, error }) {
   if (hasVisualProof) {
     return (
       <div className="mb-3 flex items-center gap-[8px] rounded-[10px] border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-[10px] text-[12px] font-medium text-[var(--accent)]">
-        <span className="font-mono text-[11px] font-bold">&check;</span>
-        Proof attached &mdash; you&rsquo;re good to save.
+        <span className="font-mono text-[11px] font-bold">✓</span>
+        Proof attached — you&rsquo;re good to save.
       </div>
     );
   }
@@ -609,7 +648,7 @@ function MissedReasonForm({
 }) {
   return (
     <>
-      <Section title="Why didn't you go live?" hint="missed_reason_code">
+      <Section title="Why didn't you go live?">
         <div
           role="radiogroup"
           aria-label="Why didn't you go live?"
@@ -638,7 +677,7 @@ function MissedReasonForm({
         {errors.missed_reason_code ? <FieldError>{errors.missed_reason_code}</FieldError> : null}
       </Section>
 
-      <Section title="Note (optional)" hint="missed_reason_note">
+      <Section title="Note (optional)">
         <textarea
           value={note}
           onChange={(e) => onNoteChange(e.target.value)}

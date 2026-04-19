@@ -99,15 +99,14 @@ new class extends Component
             ->orderBy('start_time')
             ->get();
 
-        // Group schedules by day
         return collect([
-            0 => ['name' => 'Sunday', 'schedules' => $schedules->where('day_of_week', 0)],
-            1 => ['name' => 'Monday', 'schedules' => $schedules->where('day_of_week', 1)],
-            2 => ['name' => 'Tuesday', 'schedules' => $schedules->where('day_of_week', 2)],
-            3 => ['name' => 'Wednesday', 'schedules' => $schedules->where('day_of_week', 3)],
-            4 => ['name' => 'Thursday', 'schedules' => $schedules->where('day_of_week', 4)],
-            5 => ['name' => 'Friday', 'schedules' => $schedules->where('day_of_week', 5)],
-            6 => ['name' => 'Saturday', 'schedules' => $schedules->where('day_of_week', 6)],
+            0 => ['name' => 'Sunday', 'short' => 'Sun', 'schedules' => $schedules->where('day_of_week', 0)->values()],
+            1 => ['name' => 'Monday', 'short' => 'Mon', 'schedules' => $schedules->where('day_of_week', 1)->values()],
+            2 => ['name' => 'Tuesday', 'short' => 'Tue', 'schedules' => $schedules->where('day_of_week', 2)->values()],
+            3 => ['name' => 'Wednesday', 'short' => 'Wed', 'schedules' => $schedules->where('day_of_week', 3)->values()],
+            4 => ['name' => 'Thursday', 'short' => 'Thu', 'schedules' => $schedules->where('day_of_week', 4)->values()],
+            5 => ['name' => 'Friday', 'short' => 'Fri', 'schedules' => $schedules->where('day_of_week', 5)->values()],
+            6 => ['name' => 'Saturday', 'short' => 'Sat', 'schedules' => $schedules->where('day_of_week', 6)->values()],
         ]);
     }
 
@@ -162,361 +161,630 @@ new class extends Component
             ->orderBy('name')
             ->get();
     }
+
+    public function getStatsProperty()
+    {
+        return [
+            'total' => LiveSchedule::count(),
+            'active' => LiveSchedule::active()->count(),
+            'recurring' => LiveSchedule::recurring()->count(),
+            'this_week' => \App\Models\LiveSession::whereBetween('scheduled_start_at', [now()->startOfWeek(), now()->endOfWeek()])->count(),
+        ];
+    }
+
+    public function getTimeRangeProperty()
+    {
+        // Fixed broadcast window: 8 AM to midnight
+        return ['start' => 8, 'end' => 24];
+    }
 }
 ?>
 
-<div>
+<div x-data="{ now: new Date() }" x-init="setInterval(() => { now = new Date() }, 60000)">
     <x-slot:title>Live Schedules</x-slot:title>
 
-    <div class="mb-6 flex items-center justify-between">
-        <div>
-            <flux:heading size="xl">Live Schedules</flux:heading>
-            <flux:text class="mt-2">Weekly timetable for live streaming sessions</flux:text>
-        </div>
-        <div class="flex gap-3">
-            <!-- View Mode Toggle -->
-            <div class="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                <button
-                    wire:click="setViewMode('calendar')"
-                    class="px-3 py-1.5 rounded transition-colors {{ $viewMode === 'calendar' ? 'bg-white dark:bg-gray-700 shadow-sm' : 'hover:bg-gray-200 dark:hover:bg-gray-700' }}"
-                >
-                    <flux:icon name="calendar" class="w-4 h-4" />
-                </button>
-                <button
-                    wire:click="setViewMode('table')"
-                    class="px-3 py-1.5 rounded transition-colors {{ $viewMode === 'table' ? 'bg-white dark:bg-gray-700 shadow-sm' : 'hover:bg-gray-200 dark:hover:bg-gray-700' }}"
-                >
-                    <flux:icon name="table-cells" class="w-4 h-4" />
-                </button>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter+Tight:wght@300;400;500;600;700&display=swap');
+
+        .bb-display { font-family: 'Fraunces', 'Times New Roman', serif; font-variation-settings: 'opsz' 144, 'SOFT' 50; letter-spacing: -0.025em; }
+        .bb-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+        .bb-body { font-family: 'Inter Tight', ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.01em; }
+
+        .bb-grain::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image: radial-gradient(rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 3px 3px;
+            pointer-events: none; z-index: 0;
+        }
+
+        @keyframes bb-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .bb-enter { animation: bb-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+        @keyframes bb-pulse-ring { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(2.5); opacity: 0; } }
+        .bb-live-ring::after {
+            content: ''; position: absolute; inset: 0; border-radius: 9999px;
+            background: currentColor; animation: bb-pulse-ring 2s ease-out infinite;
+        }
+
+        /* Timeline grid */
+        :root {
+            --bb-hour-px: 72px;
+            --bb-col-width: minmax(0, 1fr);
+        }
+
+        .bb-grid-lines {
+            background-image:
+                linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 100% var(--bb-hour-px);
+        }
+        :is(.dark) .bb-grid-lines {
+            background-image: linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+        }
+        .bb-grid-lines-light {
+            background-image: linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
+            background-size: 100% var(--bb-hour-px);
+        }
+
+        .bb-schedule-block { transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s; }
+        .bb-schedule-block:hover { transform: translateY(-1px); z-index: 20; }
+        .bb-schedule-block:hover .bb-actions { opacity: 1; transform: translateY(0); }
+        .bb-actions { opacity: 0; transform: translateY(2px); transition: all 0.18s ease; }
+
+        .bb-action-btn { backdrop-filter: blur(8px); }
+
+        /* Scrollbar */
+        .bb-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .bb-scroll::-webkit-scrollbar-track { background: transparent; }
+        .bb-scroll::-webkit-scrollbar-thumb { background: rgba(120,120,120,0.3); border-radius: 3px; }
+        .bb-scroll::-webkit-scrollbar-thumb:hover { background: rgba(120,120,120,0.5); }
+
+        .bb-amber-line {
+            position: relative;
+        }
+        .bb-amber-line::before {
+            content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+            background: linear-gradient(to bottom, transparent 0%, rgb(245 158 11) 50%, transparent 100%);
+        }
+
+        .bb-today-wash {
+            background: linear-gradient(to bottom, rgba(245,158,11,0.05) 0%, transparent 40%);
+        }
+        :is(.dark) .bb-today-wash {
+            background: linear-gradient(to bottom, rgba(245,158,11,0.06) 0%, transparent 40%);
+        }
+
+        /* Filter pills refine */
+        .bb-pill { transition: all 0.15s ease; }
+        .bb-pill:hover { border-color: rgba(245,158,11,0.4); }
+    </style>
+
+    {{-- ============================================================
+         HEADER — Editorial masthead with inline statistics
+         ============================================================ --}}
+    <div class="bb-enter relative mb-10" style="animation-delay: 0s;">
+        <div class="flex items-end justify-between gap-6 flex-wrap">
+            <div class="min-w-0">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="flex items-center gap-2">
+                        <div class="relative w-2 h-2 rounded-full bg-red-500 text-red-500">
+                            <span class="absolute inset-0 rounded-full bg-red-500 bb-live-ring"></span>
+                        </div>
+                        <span class="bb-mono text-[10px] uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                            On-Air · Weekly Board
+                        </span>
+                    </div>
+                    <span class="h-px w-8 bg-zinc-300 dark:bg-zinc-700"></span>
+                    <span class="bb-mono text-[10px] uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-500">
+                        {{ now()->format('D · d M Y') }}
+                    </span>
+                </div>
+
+                <h1 class="bb-display text-5xl md:text-6xl font-light text-zinc-900 dark:text-zinc-50 leading-[0.95]">
+                    Live Schedules<span class="text-amber-500">.</span>
+                </h1>
+                <p class="bb-body mt-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-lg">
+                    Weekly broadcast timetable — orchestrate every stream across platforms, hosts &amp; time slots.
+                </p>
             </div>
 
-            <flux:button variant="primary" href="{{ route('admin.live-schedules.create') }}">
-                <flux:icon name="plus" class="w-4 h-4 mr-2" />
-                Add Schedule
-            </flux:button>
+            <div class="flex items-center gap-2">
+                {{-- View toggle — refined --}}
+                <div class="flex items-center rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-1">
+                    <button
+                        wire:click="setViewMode('calendar')"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all {{ $viewMode === 'calendar' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50' }}"
+                    >
+                        <flux:icon name="calendar-days" class="w-3.5 h-3.5" />
+                        <span class="bb-mono tracking-tight">Grid</span>
+                    </button>
+                    <button
+                        wire:click="setViewMode('table')"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all {{ $viewMode === 'table' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50' }}"
+                    >
+                        <flux:icon name="list-bullet" class="w-3.5 h-3.5" />
+                        <span class="bb-mono tracking-tight">List</span>
+                    </button>
+                </div>
+
+                <a
+                    href="{{ route('admin.live-schedules.create') }}"
+                    class="group inline-flex items-center gap-2 px-5 py-2.5 bg-zinc-900 dark:bg-amber-500 text-white dark:text-zinc-950 rounded-full text-sm font-medium hover:bg-amber-500 dark:hover:bg-amber-400 transition-all shadow-sm hover:shadow-md"
+                >
+                    <flux:icon name="plus" class="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+                    <span class="bb-body">New Schedule</span>
+                </a>
+            </div>
+        </div>
+
+        {{-- STAT RIBBON — inline, editorial --}}
+        <div class="mt-8 pt-6 border-t border-zinc-200 dark:border-zinc-800">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-6">
+                @foreach([
+                    ['label' => 'Total schedules', 'value' => $this->stats['total'], 'accent' => 'zinc', 'icon' => 'calendar'],
+                    ['label' => 'Active right now', 'value' => $this->stats['active'], 'accent' => 'emerald', 'icon' => 'signal'],
+                    ['label' => 'Recurring', 'value' => $this->stats['recurring'], 'accent' => 'amber', 'icon' => 'arrow-path'],
+                    ['label' => 'Sessions this week', 'value' => $this->stats['this_week'], 'accent' => 'violet', 'icon' => 'sparkles'],
+                ] as $i => $stat)
+                    @php
+                        $accentMap = [
+                            'zinc'    => 'text-zinc-900 dark:text-zinc-50',
+                            'emerald' => 'text-emerald-600 dark:text-emerald-400',
+                            'amber'   => 'text-amber-600 dark:text-amber-400',
+                            'violet'  => 'text-violet-600 dark:text-violet-400',
+                        ];
+                        $dotMap = [
+                            'zinc'    => 'bg-zinc-400',
+                            'emerald' => 'bg-emerald-500',
+                            'amber'   => 'bg-amber-500',
+                            'violet'  => 'bg-violet-500',
+                        ];
+                    @endphp
+                    <div class="bb-enter group" style="animation-delay: {{ 0.1 + $i * 0.06 }}s;">
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <span class="w-1 h-1 rounded-full {{ $dotMap[$stat['accent']] }}"></span>
+                            <span class="bb-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+                                {{ $stat['label'] }}
+                            </span>
+                        </div>
+                        <div class="flex items-baseline gap-2">
+                            <span class="bb-display text-4xl font-light {{ $accentMap[$stat['accent']] }}">
+                                {{ str_pad((string) $stat['value'], 2, '0', STR_PAD_LEFT) }}
+                            </span>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
         </div>
     </div>
 
-    <!-- Filters -->
-    <div class="mb-6 flex gap-4 items-center">
-        <div class="flex-1">
-            <flux:input
-                wire:model.live.debounce.300ms="search"
-                placeholder="Search by host or account..."
-                icon="magnifying-glass"
-            />
-        </div>
-
-        <flux:select wire:model.live="platformFilter" placeholder="All Platforms">
-            <option value="">All Platforms</option>
-            @foreach($this->platforms as $platform)
-                <option value="{{ $platform->id }}">{{ $platform->display_name }}</option>
-            @endforeach
-        </flux:select>
-
-        <flux:select wire:model.live="accountFilter" placeholder="All Accounts">
-            <option value="">All Accounts</option>
-            @foreach($this->accounts as $account)
-                <option value="{{ $account->id }}">
-                    {{ $account->name }} ({{ $account->platform->display_name }})
-                </option>
-            @endforeach
-        </flux:select>
-
-        <flux:select wire:model.live="dayFilter" placeholder="All Days">
-            <option value="">All Days</option>
-            <option value="0">Sunday</option>
-            <option value="1">Monday</option>
-            <option value="2">Tuesday</option>
-            <option value="3">Wednesday</option>
-            <option value="4">Thursday</option>
-            <option value="5">Friday</option>
-            <option value="6">Saturday</option>
-        </flux:select>
-
-        <flux:select wire:model.live="statusFilter" placeholder="All Status">
-            <option value="">All Status</option>
-            <option value="1">Active</option>
-            <option value="0">Inactive</option>
-        </flux:select>
-
-        @if($search || $platformFilter || $accountFilter || $dayFilter !== '' || $statusFilter !== '')
-            <flux:button variant="ghost" wire:click="clearFilters">
-                Clear Filters
-            </flux:button>
-        @endif
-    </div>
-
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Schedules</div>
-            <div class="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                {{ LiveSchedule::count() }}
+    {{-- ============================================================
+         FILTER BAR — Command-bar style
+         ============================================================ --}}
+    <div class="bb-enter mb-6" style="animation-delay: 0.35s;">
+        <div class="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800">
+            <div class="relative flex-1 min-w-[220px]">
+                <flux:icon name="magnifying-glass" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                    wire:model.live.debounce.300ms="search"
+                    type="text"
+                    placeholder="Search hosts, accounts..."
+                    class="bb-body w-full h-10 pl-10 pr-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                />
             </div>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Active Schedules</div>
-            <div class="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
-                {{ LiveSchedule::active()->count() }}
-            </div>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Recurring Schedules</div>
-            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                {{ LiveSchedule::recurring()->count() }}
-            </div>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Sessions This Week</div>
-            <div class="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">
-                {{ \App\Models\LiveSession::whereBetween('scheduled_start_at', [now()->startOfWeek(), now()->endOfWeek()])->count() }}
-            </div>
+
+            @php
+                $selectBase = 'bb-pill bb-body h-10 px-3 pr-9 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-700 dark:text-zinc-200 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 cursor-pointer appearance-none bg-no-repeat bg-[right_0.75rem_center]';
+                $selectArrow = 'bg-[url(\'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%23a1a1aa%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E\')]';
+            @endphp
+
+            <select wire:model.live="platformFilter" class="{{ $selectBase }} {{ $selectArrow }}">
+                <option value="">All platforms</option>
+                @foreach($this->platforms as $platform)
+                    <option value="{{ $platform->id }}">{{ $platform->display_name }}</option>
+                @endforeach
+            </select>
+
+            <select wire:model.live="accountFilter" class="{{ $selectBase }} {{ $selectArrow }}">
+                <option value="">All accounts</option>
+                @foreach($this->accounts as $account)
+                    <option value="{{ $account->id }}">
+                        {{ $account->name }} · {{ $account->platform->display_name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <select wire:model.live="dayFilter" class="{{ $selectBase }} {{ $selectArrow }}">
+                <option value="">All days</option>
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+            </select>
+
+            <select wire:model.live="statusFilter" class="{{ $selectBase }} {{ $selectArrow }}">
+                <option value="">All status</option>
+                <option value="1">Active</option>
+                <option value="0">Inactive</option>
+            </select>
+
+            @if($search || $platformFilter || $accountFilter || $dayFilter !== '' || $statusFilter !== '')
+                <button
+                    wire:click="clearFilters"
+                    class="bb-body h-10 px-3 text-xs text-zinc-500 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-1"
+                >
+                    <flux:icon name="x-mark" class="w-3.5 h-3.5" />
+                    Reset
+                </button>
+            @endif
         </div>
     </div>
 
     @if($viewMode === 'calendar')
-    <!-- Calendar View -->
-    <div class="grid grid-cols-1 lg:grid-cols-7 gap-3">
-        @foreach($this->schedulesByDay as $dayIndex => $dayData)
-            @php
-                $isToday = now()->dayOfWeek === $dayIndex;
-                $dayColors = [
-                    0 => ['bg' => 'from-orange-50 to-red-50', 'border' => 'border-orange-200', 'text' => 'text-orange-700', 'hover' => 'hover:from-orange-100 hover:to-red-100'],
-                    1 => ['bg' => 'from-gray-50 to-slate-50', 'border' => 'border-gray-200', 'text' => 'text-gray-700', 'hover' => 'hover:from-gray-100 hover:to-slate-100'],
-                    2 => ['bg' => 'from-pink-50 to-rose-50', 'border' => 'border-pink-200', 'text' => 'text-pink-700', 'hover' => 'hover:from-pink-100 hover:to-rose-100'],
-                    3 => ['bg' => 'from-emerald-50 to-green-50', 'border' => 'border-emerald-200', 'text' => 'text-emerald-700', 'hover' => 'hover:from-emerald-100 hover:to-green-100'],
-                    4 => ['bg' => 'from-amber-50 to-yellow-50', 'border' => 'border-amber-200', 'text' => 'text-amber-700', 'hover' => 'hover:from-amber-100 hover:to-yellow-100'],
-                    5 => ['bg' => 'from-blue-50 to-indigo-50', 'border' => 'border-blue-200', 'text' => 'text-blue-700', 'hover' => 'hover:from-blue-100 hover:to-indigo-100'],
-                    6 => ['bg' => 'from-purple-50 to-violet-50', 'border' => 'border-purple-200', 'text' => 'text-purple-700', 'hover' => 'hover:from-purple-100 hover:to-violet-100'],
-                ];
-                $dayColor = $dayColors[$dayIndex];
-            @endphp
-            <div class="bg-white dark:bg-gray-800 rounded-lg border {{ $isToday ? 'border-blue-400 shadow-md ring-2 ring-blue-400/20' : 'border-gray-200 dark:border-gray-700' }} hover:shadow-lg transition-all duration-200">
-                <!-- Day Header - Interactive with Subtle Gradients -->
-                <div class="relative px-4 py-3 bg-gradient-to-br {{ $isToday ? 'from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20' : $dayColor['bg'] . ' dark:from-gray-800 dark:to-gray-850' }} {{ $dayColor['hover'] }} transition-all duration-200 cursor-pointer group">
-                    <!-- Top accent line -->
-                    <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r {{ $isToday ? 'from-blue-400 to-indigo-400' : $dayColor['border'] }} opacity-0 group-hover:opacity-100 transition-opacity"></div>
+    {{-- ============================================================
+         GRID VIEW — Real time-based broadcast timeline
+         ============================================================ --}}
+    @php
+        $timeRange = $this->timeRange;
+        $hourStart = $timeRange['start'];
+        $hourEnd = $timeRange['end'];
+        $totalHours = $hourEnd - $hourStart;
+        $hourPx = 72;
+        $totalGridHeight = $totalHours * $hourPx;
+        $todayIndex = now()->dayOfWeek;
+        $nowMinutesFromStart = max(0, (now()->hour - $hourStart) * 60 + now()->minute);
+        $nowPosition = ($nowMinutesFromStart / 60) * $hourPx;
+        $showNowLine = now()->hour >= $hourStart && now()->hour < $hourEnd;
 
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <h3 class="font-semibold text-sm {{ $isToday ? 'text-blue-700 dark:text-blue-400' : $dayColor['text'] . ' dark:text-gray-300' }} group-hover:scale-105 transition-transform">
-                                {{ $dayData['name'] }}
-                            </h3>
-                            @if($isToday)
-                                <span class="flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-blue-500 text-white rounded shadow-sm animate-pulse">
-                                    <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
-                                    Today
+        // Platform color system — intentional, signal-based
+        $platformColors = [
+            'TikTok Shop'   => ['bar' => 'bg-pink-500', 'tint' => 'from-pink-500/10', 'text' => 'text-pink-600 dark:text-pink-400', 'label' => 'TTS'],
+            'Facebook Shop' => ['bar' => 'bg-blue-500', 'tint' => 'from-blue-500/10', 'text' => 'text-blue-600 dark:text-blue-400', 'label' => 'FB'],
+            'Shopee'        => ['bar' => 'bg-orange-500', 'tint' => 'from-orange-500/10', 'text' => 'text-orange-600 dark:text-orange-400', 'label' => 'SPE'],
+        ];
+    @endphp
+
+    <div class="bb-enter" style="animation-delay: 0.45s;">
+        {{-- Platform legend --}}
+        <div class="mb-3 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-4 text-xs">
+                @foreach($platformColors as $platformName => $config)
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-sm {{ $config['bar'] }}"></span>
+                        <span class="bb-mono text-[10px] uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400">{{ $platformName }}</span>
+                    </div>
+                @endforeach
+            </div>
+            <div class="bb-mono text-[10px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 flex items-center gap-2">
+                <span>{{ sprintf('%02d:00', $hourStart) }}</span>
+                <span class="h-px w-8 bg-zinc-300 dark:bg-zinc-700"></span>
+                <span>{{ $hourEnd === 24 ? '00:00' : sprintf('%02d:00', $hourEnd) }}</span>
+            </div>
+        </div>
+
+        <div class="relative rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden shadow-sm">
+            {{-- Column headers --}}
+            <div class="grid sticky top-0 z-30 backdrop-blur-md bg-white/85 dark:bg-zinc-950/85 border-b border-zinc-200 dark:border-zinc-800" style="grid-template-columns: 64px repeat(7, 1fr);">
+                <div class="py-3 px-2 border-r border-zinc-200 dark:border-zinc-800 flex items-center justify-center">
+                    <flux:icon name="clock" class="w-3.5 h-3.5 text-zinc-400" />
+                </div>
+                @foreach($this->schedulesByDay as $dayIndex => $dayData)
+                    @php $isToday = $dayIndex === $todayIndex; @endphp
+                    <div class="relative py-3 px-3 border-r last:border-r-0 border-zinc-200 dark:border-zinc-800 {{ $isToday ? 'bg-amber-500/[0.04] dark:bg-amber-500/[0.06]' : '' }}">
+                        @if($isToday)
+                            <div class="absolute top-0 left-0 right-0 h-[2px] bg-amber-500"></div>
+                        @endif
+                        <div class="flex items-center justify-between">
+                            <div class="flex flex-col">
+                                <span class="bb-mono text-[10px] uppercase tracking-[0.2em] {{ $isToday ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500' }}">
+                                    {{ $dayData['short'] }}
                                 </span>
-                            @endif
-                        </div>
-
-                        <!-- Session count badge -->
-                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm border {{ $isToday ? 'border-blue-200' : 'border-gray-200 dark:border-gray-700' }} shadow-sm group-hover:shadow transition-shadow">
-                            <flux:icon name="calendar" class="w-3 h-3 {{ $isToday ? 'text-blue-600' : 'text-gray-500' }}" />
-                            <span class="text-xs font-semibold {{ $isToday ? 'text-blue-700 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300' }}">
-                                {{ $dayData['schedules']->count() }}
-                            </span>
+                                <span class="bb-display text-lg font-normal {{ $isToday ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-900 dark:text-zinc-100' }} leading-tight">
+                                    {{ $dayData['name'] }}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                @if($isToday)
+                                    <span class="bb-mono text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded-sm bg-amber-500 text-white font-semibold">Live</span>
+                                @endif
+                                <span class="bb-mono text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 tabular-nums">
+                                    {{ str_pad((string) $dayData['schedules']->count(), 2, '0', STR_PAD_LEFT) }}
+                                </span>
+                            </div>
                         </div>
                     </div>
+                @endforeach
+            </div>
+
+            {{-- Time grid body --}}
+            <div class="relative grid bb-scroll overflow-y-auto max-h-[calc(100vh-480px)] min-h-[540px]" style="grid-template-columns: 64px repeat(7, 1fr);">
+                {{-- Hour axis --}}
+                <div class="border-r border-zinc-200 dark:border-zinc-800 relative" style="height: {{ $totalGridHeight }}px;">
+                    @for($h = $hourStart; $h < $hourEnd; $h++)
+                        @php
+                            $display = $h === 0 ? '12 AM' : ($h === 12 ? '12 PM' : ($h > 12 ? ($h - 12) . ' PM' : $h . ' AM'));
+                            $top = ($h - $hourStart) * $hourPx;
+                        @endphp
+                        <div class="absolute left-0 right-0 text-right pr-2.5 pt-0.5" style="top: {{ $top }}px;">
+                            <span class="bb-mono text-[10px] font-medium text-zinc-400 dark:text-zinc-500 tracking-tight">
+                                {{ $display }}
+                            </span>
+                        </div>
+                    @endfor
                 </div>
 
-                <!-- Schedules for this day -->
-                <div class="p-2 space-y-2 min-h-[200px] max-h-[600px] overflow-y-auto">
-                    @forelse($dayData['schedules'] as $schedule)
-                        @php
-                            $platformColors = [
-                                'TikTok Shop' => ['dot' => 'bg-gray-800', 'border' => 'border-gray-300', 'text' => 'text-gray-700'],
-                                'Facebook Shop' => ['dot' => 'bg-blue-600', 'border' => 'border-blue-300', 'text' => 'text-blue-700'],
-                                'Shopee' => ['dot' => 'bg-orange-500', 'border' => 'border-orange-300', 'text' => 'text-orange-700'],
-                            ];
-                            $platformColor = $platformColors[$schedule->platformAccount->platform->display_name] ?? ['dot' => 'bg-gray-600', 'border' => 'border-gray-300', 'text' => 'text-gray-700'];
-                        @endphp
-                        <div class="group">
-                            <div class="relative bg-white dark:bg-gray-900 rounded-lg border {{ $schedule->is_active ? $platformColor['border'] : 'border-gray-200 dark:border-gray-700' }} hover:shadow-md transition-all p-3">
-                                <!-- Time - Primary Focus -->
-                                <div class="flex items-start justify-between mb-2">
-                                    <div class="flex items-baseline gap-2">
-                                        <span class="text-base font-semibold text-gray-900 dark:text-white">
-                                            {{ \Carbon\Carbon::parse($schedule->start_time)->format('g:i A') }}
-                                        </span>
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">
-                                            {{ \Carbon\Carbon::parse($schedule->start_time)->diffInMinutes(\Carbon\Carbon::parse($schedule->end_time)) }}m
-                                        </span>
+                {{-- Day columns --}}
+                @foreach($this->schedulesByDay as $dayIndex => $dayData)
+                    @php $isToday = $dayIndex === $todayIndex; @endphp
+                    <div class="relative border-r last:border-r-0 border-zinc-200 dark:border-zinc-800 bb-grid-lines dark:bb-grid-lines {{ !session('dark') ? 'bb-grid-lines-light dark:bb-grid-lines' : '' }} {{ $isToday ? 'bb-today-wash' : '' }}" style="height: {{ $totalGridHeight }}px;">
+
+                        {{-- Current time line (today only) --}}
+                        @if($isToday && $showNowLine)
+                            <div class="absolute left-0 right-0 z-20 flex items-center pointer-events-none" style="top: {{ $nowPosition }}px;">
+                                <div class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.2)] -ml-[3px]"></div>
+                                <div class="flex-1 h-[1.5px] bg-gradient-to-r from-amber-500 via-amber-500/70 to-transparent"></div>
+                                <div class="bb-mono text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-white dark:bg-zinc-950 px-1.5 py-0.5 rounded-sm absolute right-1 -top-2 tracking-tight">
+                                    {{ now()->format('g:i A') }}
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Schedule blocks --}}
+                        @foreach($dayData['schedules'] as $idx => $schedule)
+                            @php
+                                $start = \Carbon\Carbon::parse($schedule->start_time);
+                                $end = \Carbon\Carbon::parse($schedule->end_time);
+                                $startMinutes = $start->hour * 60 + $start->minute;
+                                $endMinutes = $end->hour * 60 + $end->minute;
+                                $duration = max(30, $endMinutes - $startMinutes);
+
+                                // Offset from grid start
+                                $topMinutes = $startMinutes - ($hourStart * 60);
+                                $topPx = ($topMinutes / 60) * $hourPx;
+                                $heightPx = ($duration / 60) * $hourPx;
+
+                                // Skip if outside visible range
+                                if ($startMinutes < $hourStart * 60 || $startMinutes >= $hourEnd * 60) continue;
+
+                                $platformName = $schedule->platformAccount->platform->display_name;
+                                $pc = $platformColors[$platformName] ?? ['bar' => 'bg-zinc-400', 'tint' => 'from-zinc-500/10', 'text' => 'text-zinc-600 dark:text-zinc-400', 'label' => 'OTH'];
+
+                                $hostName = $schedule->liveHost?->name;
+                                $hostColor = $schedule->liveHost?->host_color;
+                                $hostTextColor = $schedule->liveHost?->host_text_color;
+                            @endphp
+
+                            <div
+                                wire:key="sched-{{ $schedule->id }}"
+                                class="bb-schedule-block absolute left-1 right-1 rounded-lg overflow-hidden group/block {{ $schedule->is_active ? 'opacity-100' : 'opacity-50' }}"
+                                style="top: {{ $topPx }}px; height: {{ $heightPx }}px; animation: bb-fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) {{ 0.5 + $idx * 0.03 }}s both;"
+                            >
+                                <div class="relative h-full bg-gradient-to-br {{ $pc['tint'] }} to-transparent border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-900 rounded-lg hover:border-zinc-300 dark:hover:border-zinc-600 hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/40 transition-all">
+                                    {{-- Platform signal bar (left edge) --}}
+                                    <div class="absolute top-0 bottom-0 left-0 w-[3px] {{ $pc['bar'] }} rounded-l-lg"></div>
+
+                                    {{-- Inactive diagonal hatching --}}
+                                    @if(!$schedule->is_active)
+                                        <div class="absolute inset-0 pointer-events-none opacity-40" style="background-image: repeating-linear-gradient(-45deg, transparent 0 6px, rgba(120,120,120,0.15) 6px 7px);"></div>
+                                    @endif
+
+                                    <div class="relative h-full p-2.5 pl-3.5 flex flex-col">
+                                        {{-- Time header --}}
+                                        <div class="flex items-start justify-between gap-1 mb-1">
+                                            <div class="min-w-0">
+                                                <div class="bb-mono text-xs font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums leading-none">
+                                                    {{ $start->format('g:i') }}<span class="text-zinc-400 dark:text-zinc-500 font-normal ml-0.5 text-[10px]">{{ $start->format('A') }}</span>
+                                                </div>
+                                                <div class="bb-mono text-[10px] text-zinc-400 dark:text-zinc-500 tabular-nums mt-0.5 leading-none">
+                                                    {{ $duration }}min · {{ $end->format('g:i A') }}
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-1 shrink-0">
+                                                @if($schedule->is_recurring)
+                                                    <flux:icon name="arrow-path" class="w-3 h-3 text-zinc-400 dark:text-zinc-500" title="Recurring" />
+                                                @endif
+                                                <span class="bb-mono text-[9px] font-bold uppercase tracking-wide {{ $pc['text'] }}">{{ $pc['label'] }}</span>
+                                            </div>
+                                        </div>
+
+                                        {{-- Host --}}
+                                        @if($heightPx >= 60)
+                                            <div class="mt-auto">
+                                                @if($hostName)
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: {{ $hostColor }};"></span>
+                                                        <span class="bb-body text-[11px] font-medium truncate" style="color: {{ $hostTextColor }};">
+                                                            {{ $hostName }}
+                                                        </span>
+                                                    </div>
+                                                @else
+                                                    <div class="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-500">
+                                                        <span class="w-1.5 h-1.5 rounded-full border border-current"></span>
+                                                        <span class="bb-body text-[11px] italic">Unassigned</span>
+                                                    </div>
+                                                @endif
+                                                <div class="bb-body text-[10px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
+                                                    {{ $schedule->platformAccount->name }}
+                                                </div>
+                                            </div>
+                                        @endif
                                     </div>
 
-                                    <!-- Status Indicator -->
-                                    <div class="flex items-center gap-1.5">
-                                        @if($schedule->is_recurring)
-                                            <flux:icon name="arrow-path" class="w-3 h-3 text-gray-400" title="Recurring" />
-                                        @endif
-                                        <div class="w-2 h-2 rounded-full {{ $schedule->is_active ? $platformColor['dot'] : 'bg-gray-300 dark:bg-gray-600' }}" title="{{ $schedule->is_active ? 'Active' : 'Inactive' }}"></div>
+                                    {{-- Hover actions --}}
+                                    <div class="bb-actions absolute bottom-1.5 right-1.5 flex items-center gap-0.5">
+                                        <button
+                                            wire:click="toggleActive({{ $schedule->id }})"
+                                            class="bb-action-btn w-6 h-6 rounded-md bg-white/90 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-500/50 flex items-center justify-center transition-colors"
+                                            title="{{ $schedule->is_active ? 'Pause' : 'Activate' }}"
+                                        >
+                                            <flux:icon name="{{ $schedule->is_active ? 'pause' : 'play' }}" class="w-3 h-3" />
+                                        </button>
+                                        <a
+                                            href="{{ route('admin.live-schedules.edit', $schedule) }}"
+                                            class="bb-action-btn w-6 h-6 rounded-md bg-white/90 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500/50 flex items-center justify-center transition-colors"
+                                            title="Edit"
+                                        >
+                                            <flux:icon name="pencil-square" class="w-3 h-3" />
+                                        </a>
+                                        <button
+                                            wire:click="deleteSchedule({{ $schedule->id }})"
+                                            wire:confirm="Delete this schedule? This cannot be undone."
+                                            class="bb-action-btn w-6 h-6 rounded-md bg-white/90 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-500/50 flex items-center justify-center transition-colors"
+                                            title="Delete"
+                                        >
+                                            <flux:icon name="trash" class="w-3 h-3" />
+                                        </button>
                                     </div>
                                 </div>
+                            </div>
+                        @endforeach
 
-                                <!-- Host Name -->
+                        {{-- Empty day state --}}
+                        @if($dayData['schedules']->isEmpty())
+                            <div class="absolute inset-x-0 top-24 flex flex-col items-center justify-center pointer-events-none">
+                                <div class="w-8 h-[1px] bg-zinc-200 dark:bg-zinc-800 mb-2"></div>
+                                <span class="bb-mono text-[9px] uppercase tracking-[0.2em] text-zinc-300 dark:text-zinc-700">Empty</span>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
+    @else
+    {{-- ============================================================
+         LIST VIEW — Clean editorial table
+         ============================================================ --}}
+    <div class="bb-enter rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden shadow-sm" style="animation-delay: 0.45s;">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-200 dark:border-zinc-800">
+                    <tr>
+                        @foreach(['Day', 'Time · Duration', 'Platform', 'Account', 'Host', 'Type', 'Status', ''] as $heading)
+                            <th class="bb-mono text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 py-3.5 px-5 first:pl-6 last:pr-6">
+                                {{ $heading }}
+                            </th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100 dark:divide-zinc-900">
+                    @forelse($this->schedules as $idx => $schedule)
+                        @php
+                            $start = \Carbon\Carbon::parse($schedule->start_time);
+                            $end = \Carbon\Carbon::parse($schedule->end_time);
+                            $duration = $start->diffInMinutes($end);
+                            $platformName = $schedule->platformAccount->platform->display_name;
+                            $pc = $platformColors[$platformName] ?? ['bar' => 'bg-zinc-400', 'text' => 'text-zinc-600 dark:text-zinc-400'];
+                        @endphp
+                        <tr class="group hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors" style="animation: bb-fade-up 0.35s {{ 0.5 + $idx * 0.02 }}s both;">
+                            <td class="py-4 pl-6 pr-5">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-1 h-8 rounded-full {{ now()->dayOfWeek === $schedule->day_of_week ? 'bg-amber-500' : 'bg-zinc-200 dark:bg-zinc-700' }}"></span>
+                                    <div>
+                                        <div class="bb-display text-sm text-zinc-900 dark:text-zinc-100">{{ $schedule->day_name }}</div>
+                                        @if(now()->dayOfWeek === $schedule->day_of_week)
+                                            <div class="bb-mono text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400">Today</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-4 px-5">
+                                <div class="bb-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                                    {{ $start->format('g:i A') }} → {{ $end->format('g:i A') }}
+                                </div>
+                                <div class="bb-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{{ $duration }} minutes</div>
+                            </td>
+                            <td class="py-4 px-5">
+                                <div class="inline-flex items-center gap-2 px-2 py-1 rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                                    <span class="w-1.5 h-1.5 rounded-sm {{ $pc['bar'] }}"></span>
+                                    <span class="bb-body text-xs font-medium text-zinc-700 dark:text-zinc-300">{{ $platformName }}</span>
+                                </div>
+                            </td>
+                            <td class="py-4 px-5">
+                                <span class="bb-body text-sm text-zinc-700 dark:text-zinc-200">{{ $schedule->platformAccount->name }}</span>
+                            </td>
+                            <td class="py-4 px-5">
                                 @if($schedule->liveHost)
-                                    <span
-                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mb-1"
-                                        style="background-color: {{ $schedule->liveHost->host_color }}; color: {{ $schedule->liveHost->host_text_color }};"
-                                    >
-                                        {{ $schedule->liveHost->name }}
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full" style="background-color: {{ $schedule->liveHost->host_color }};"></span>
+                                        <span class="bb-body text-sm font-medium" style="color: {{ $schedule->liveHost->host_text_color }};">
+                                            {{ $schedule->liveHost->name }}
+                                        </span>
+                                    </div>
+                                @else
+                                    <span class="bb-body text-sm italic text-zinc-400 dark:text-zinc-500">Unassigned</span>
+                                @endif
+                            </td>
+                            <td class="py-4 px-5">
+                                @if($schedule->is_recurring)
+                                    <span class="inline-flex items-center gap-1 bb-mono text-[10px] uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                        <flux:icon name="arrow-path" class="w-3 h-3" />
+                                        Recurring
                                     </span>
                                 @else
-                                    <p class="text-sm text-gray-400 dark:text-gray-500 mb-1 italic truncate">
-                                        Not assigned
-                                    </p>
+                                    <span class="bb-mono text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">One-off</span>
                                 @endif
-
-                                <!-- Platform - Minimal -->
-                                <p class="text-xs {{ $platformColor['text'] }} dark:text-gray-400">
-                                    {{ $schedule->platformAccount->platform->display_name }}
-                                </p>
-
-                                <!-- Actions - Always visible but subtle -->
-                                <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 flex gap-1">
+                            </td>
+                            <td class="py-4 px-5">
+                                <span class="inline-flex items-center gap-1.5 bb-mono text-[10px] uppercase tracking-wider {{ $schedule->is_active ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500' }}">
+                                    <span class="relative flex w-1.5 h-1.5">
+                                        @if($schedule->is_active)
+                                            <span class="absolute inline-flex w-full h-full rounded-full bg-emerald-500 opacity-75 animate-ping"></span>
+                                        @endif
+                                        <span class="relative inline-flex w-1.5 h-1.5 rounded-full {{ $schedule->is_active ? 'bg-emerald-500' : 'bg-zinc-400' }}"></span>
+                                    </span>
+                                    {{ $schedule->is_active ? 'Active' : 'Inactive' }}
+                                </span>
+                            </td>
+                            <td class="py-4 pr-6 pl-5">
+                                <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         wire:click="toggleActive({{ $schedule->id }})"
-                                        class="flex-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors"
-                                        title="{{ $schedule->is_active ? 'Deactivate' : 'Activate' }}"
+                                        class="w-7 h-7 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 flex items-center justify-center transition-colors"
+                                        title="{{ $schedule->is_active ? 'Pause' : 'Activate' }}"
                                     >
-                                        <flux:icon name="{{ $schedule->is_active ? 'pause' : 'play' }}" class="w-3 h-3 mx-auto" />
+                                        <flux:icon name="{{ $schedule->is_active ? 'pause' : 'play' }}" class="w-3.5 h-3.5" />
                                     </button>
                                     <a
                                         href="{{ route('admin.live-schedules.edit', $schedule) }}"
-                                        class="flex-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors"
+                                        class="w-7 h-7 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center transition-colors"
                                         title="Edit"
                                     >
-                                        <flux:icon name="pencil" class="w-3 h-3 mx-auto" />
+                                        <flux:icon name="pencil-square" class="w-3.5 h-3.5" />
                                     </a>
                                     <button
                                         wire:click="deleteSchedule({{ $schedule->id }})"
-                                        wire:confirm="Are you sure you want to delete this schedule?"
-                                        class="flex-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                        wire:confirm="Delete this schedule? This cannot be undone."
+                                        class="w-7 h-7 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-red-600 dark:hover:text-red-400 flex items-center justify-center transition-colors"
                                         title="Delete"
                                     >
-                                        <flux:icon name="trash" class="w-3 h-3 mx-auto" />
+                                        <flux:icon name="trash" class="w-3.5 h-3.5" />
                                     </button>
-                                </div>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="flex flex-col items-center justify-center h-32 text-center">
-                            <flux:icon name="calendar-days" class="w-6 h-6 text-gray-300 dark:text-gray-600 mb-2" />
-                            <p class="text-xs text-gray-400 dark:text-gray-500">No sessions</p>
-                        </div>
-                    @endforelse
-                </div>
-            </div>
-        @endforeach
-    </div>
-    @else
-    <!-- Table View -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-900">
-                    <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Day
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Time
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Platform
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Account
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Host
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Recurring
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Status
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Actions
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    @forelse($this->schedules as $schedule)
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="font-medium text-gray-900 dark:text-white">
-                                    {{ $schedule->day_name }}
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-700 dark:text-gray-300">
-                                    {{ $schedule->time_range }}
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <flux:badge variant="outline" color="blue">
-                                    {{ $schedule->platformAccount->platform->display_name }}
-                                </flux:badge>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900 dark:text-white">
-                                    {{ $schedule->platformAccount->name }}
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                @if($schedule->liveHost)
-                                    <span
-                                        class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium"
-                                        style="background-color: {{ $schedule->liveHost->host_color }}; color: {{ $schedule->liveHost->host_text_color }};"
-                                    >
-                                        {{ $schedule->liveHost->name }}
-                                    </span>
-                                @else
-                                    <span class="text-gray-400 dark:text-gray-500 text-sm">Not assigned</span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                @if($schedule->is_recurring)
-                                    <flux:badge color="green">Yes</flux:badge>
-                                @else
-                                    <flux:badge color="gray">No</flux:badge>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <flux:badge :color="$schedule->is_active ? 'green' : 'gray'">
-                                    {{ $schedule->is_active ? 'Active' : 'Inactive' }}
-                                </flux:badge>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="flex gap-2">
-                                    <flux:button variant="ghost" size="sm" wire:click="toggleActive({{ $schedule->id }})">
-                                        {{ $schedule->is_active ? 'Deactivate' : 'Activate' }}
-                                    </flux:button>
-                                    <flux:button variant="ghost" size="sm" href="{{ route('admin.live-schedules.edit', $schedule) }}">
-                                        Edit
-                                    </flux:button>
-                                    <flux:button
-                                        variant="ghost"
-                                        size="sm"
-                                        wire:click="deleteSchedule({{ $schedule->id }})"
-                                        wire:confirm="Are you sure you want to delete this schedule?"
-                                    >
-                                        Delete
-                                    </flux:button>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                                @if($search || $platformFilter || $dayFilter !== '' || $statusFilter !== '')
-                                    No schedules found matching your filters.
-                                @else
-                                    No schedules yet. Create your first streaming schedule to get started.
-                                @endif
+                            <td colspan="8" class="py-20 text-center">
+                                <div class="flex flex-col items-center gap-3">
+                                    <div class="w-12 h-12 rounded-full border border-dashed border-zinc-300 dark:border-zinc-700 flex items-center justify-center">
+                                        <flux:icon name="calendar-days" class="w-5 h-5 text-zinc-400" />
+                                    </div>
+                                    <div>
+                                        <div class="bb-display text-lg text-zinc-700 dark:text-zinc-300">Nothing on the board</div>
+                                        <div class="bb-body text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                                            @if($search || $platformFilter || $dayFilter !== '' || $statusFilter !== '')
+                                                Try loosening your filters.
+                                            @else
+                                                Create your first streaming schedule to get started.
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                     @endforelse
@@ -525,9 +793,8 @@ new class extends Component
         </div>
     </div>
 
-    <!-- Pagination -->
     @if($this->schedules->hasPages())
-        <div class="mt-4">
+        <div class="mt-6">
             {{ $this->schedules->links() }}
         </div>
     @endif

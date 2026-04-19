@@ -3,12 +3,17 @@
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LiveHost\StoreLiveSessionAttachmentRequest;
+use App\Http\Requests\LiveHost\UpdateLiveSessionRequest;
+use App\Http\Requests\LiveHost\VerifyLiveSessionRequest;
 use App\Models\LiveAnalytics;
 use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,6 +24,7 @@ class SessionController extends Controller
         $status = $request->string('status')->toString();
         $platformAccount = $request->string('platform_account')->toString();
         $host = $request->string('host')->toString();
+        $verification = $request->string('verification')->toString();
         $from = $request->string('from')->toString();
         $to = $request->string('to')->toString();
 
@@ -27,6 +33,9 @@ class SessionController extends Controller
                 'platformAccount:id,name,platform_id',
                 'platformAccount.platform:id,name,display_name,slug',
                 'liveHost:id,name,email',
+                'verifiedBy:id,name',
+                'analytics',
+                'attachments.uploader:id,name',
             ])
             ->when($status !== '', fn ($q) => $q->where('status', $status))
             ->when(
@@ -34,6 +43,7 @@ class SessionController extends Controller
                 fn ($q) => $q->where('platform_account_id', $platformAccount)
             )
             ->when($host !== '', fn ($q) => $q->where('live_host_id', $host))
+            ->when($verification !== '', fn ($q) => $q->where('verification_status', $verification))
             ->when($from !== '', fn ($q) => $q->whereDate('scheduled_start_at', '>=', $from))
             ->when($to !== '', fn ($q) => $q->whereDate('scheduled_start_at', '<=', $to))
             ->orderByDesc('scheduled_start_at')
@@ -48,6 +58,7 @@ class SessionController extends Controller
                 'status' => $status,
                 'platform_account' => $platformAccount,
                 'host' => $host,
+                'verification' => $verification,
                 'from' => $from,
                 'to' => $to,
             ],
@@ -56,12 +67,90 @@ class SessionController extends Controller
         ]);
     }
 
+    public function update(UpdateLiveSessionRequest $request, LiveSession $session): RedirectResponse
+    {
+        $data = $request->validated();
+        $analytics = $data['analytics'] ?? null;
+        unset($data['analytics']);
+
+        $session->update($data);
+
+        if (is_array($analytics) && $analytics !== []) {
+            LiveAnalytics::updateOrCreate(
+                ['live_session_id' => $session->id],
+                [
+                    'viewers_peak' => $analytics['viewers_peak'] ?? 0,
+                    'viewers_avg' => $analytics['viewers_avg'] ?? 0,
+                    'total_likes' => $analytics['total_likes'] ?? 0,
+                    'total_comments' => $analytics['total_comments'] ?? 0,
+                    'total_shares' => $analytics['total_shares'] ?? 0,
+                    'gifts_value' => $analytics['gifts_value'] ?? 0,
+                    'duration_minutes' => $session->duration_minutes ?? 0,
+                ]
+            );
+        }
+
+        return back()->with('success', 'Session updated.');
+    }
+
+    public function verify(VerifyLiveSessionRequest $request, LiveSession $session): RedirectResponse
+    {
+        $data = $request->validated();
+        $nextStatus = $data['verification_status'];
+
+        $session->update([
+            'verification_status' => $nextStatus,
+            'verification_notes' => $data['verification_notes'] ?? null,
+            'verified_by' => $nextStatus === 'pending' ? null : $request->user()?->id,
+            'verified_at' => $nextStatus === 'pending' ? null : now(),
+        ]);
+
+        $flash = match ($nextStatus) {
+            'verified' => 'Session verified.',
+            'rejected' => 'Session rejected.',
+            default => 'Session verification reset.',
+        };
+
+        return back()->with('success', $flash);
+    }
+
+    public function storeAttachment(StoreLiveSessionAttachmentRequest $request, LiveSession $session): RedirectResponse
+    {
+        $file = $request->file('file');
+        $path = $file->store("live-sessions/{$session->id}/attachments", 'public');
+
+        LiveSessionAttachment::create([
+            'live_session_id' => $session->id,
+            'file_name' => $file->getClientOriginalName(),
+            'file_path' => $path,
+            'file_type' => $file->getClientMimeType(),
+            'file_size' => $file->getSize(),
+            'description' => $request->string('description')->toString() ?: null,
+            'uploaded_by' => $request->user()?->id,
+        ]);
+
+        return back()->with('success', 'Attachment uploaded.');
+    }
+
+    public function destroyAttachment(Request $request, LiveSession $session, LiveSessionAttachment $attachment): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user && in_array($user->role, ['admin_livehost', 'admin'], true), 403);
+        abort_unless($attachment->live_session_id === $session->id, 404);
+
+        Storage::disk('public')->delete($attachment->file_path);
+        $attachment->delete();
+
+        return back()->with('success', 'Attachment removed.');
+    }
+
     public function show(LiveSession $session): Response
     {
         $session->load([
             'platformAccount:id,name,platform_id',
             'platformAccount.platform:id,name,display_name,slug',
             'liveHost:id,name,email',
+            'verifiedBy:id,name',
             'analytics',
             'attachments.uploader:id,name',
         ]);
@@ -101,11 +190,18 @@ class SessionController extends Controller
      */
     private function mapSession(LiveSession $s, bool $detailed = false): array
     {
+        $attachments = $s->relationLoaded('attachments')
+            ? $s->attachments->map(fn (LiveSessionAttachment $a) => $this->mapAttachment($a))->values()->all()
+            : [];
+
+        $analytics = $s->relationLoaded('analytics') ? $s->analytics : null;
+
         $base = [
             'id' => $s->id,
             'sessionId' => 'LS-'.str_pad((string) $s->id, 5, '0', STR_PAD_LEFT),
             'title' => $s->title,
             'description' => $s->description,
+            'remarks' => $s->remarks,
             'status' => $s->status,
             'statusColor' => $s->status_color,
             'hostId' => $s->live_host_id,
@@ -120,7 +216,18 @@ class SessionController extends Controller
             'actualStart' => $s->actual_start_at?->toIso8601String(),
             'actualEnd' => $s->actual_end_at?->toIso8601String(),
             'duration' => $s->duration,
+            'durationMinutes' => $s->duration_minutes,
+            'missedReasonCode' => $s->missed_reason_code,
+            'missedReasonNote' => $s->missed_reason_note,
+            'analytics' => $this->mapAnalytics($analytics),
             'viewers' => 0,
+            'attachments' => $attachments,
+            'attachmentCount' => count($attachments),
+            'verificationStatus' => $s->verification_status ?? 'pending',
+            'verificationNotes' => $s->verification_notes,
+            'verifiedById' => $s->verified_by,
+            'verifiedByName' => $s->verifiedBy?->name,
+            'verifiedAt' => $s->verified_at?->toIso8601String(),
         ];
 
         if ($detailed) {

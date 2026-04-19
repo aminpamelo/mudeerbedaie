@@ -1,8 +1,9 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { Eye } from 'lucide-react';
+import { Eye, Paperclip } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
+import LiveSessionModal from '@/livehost/components/LiveSessionModal';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
@@ -91,9 +92,22 @@ function renderDuration(session) {
 
 export default function SessionsIndex() {
   const { sessions, filters, hosts, platformAccounts, flash } = usePage().props;
+  const [modalSession, setModalSession] = useState(null);
+
+  useEffect(() => {
+    if (!modalSession) {
+      return;
+    }
+    const fresh = sessions.data.find((s) => s.id === modalSession.id);
+    if (fresh && fresh !== modalSession) {
+      setModalSession(fresh);
+    }
+  }, [sessions.data, modalSession]);
+
   const [status, setStatus] = useState(filters?.status ?? '');
   const [platformAccount, setPlatformAccount] = useState(filters?.platform_account ?? '');
   const [host, setHost] = useState(filters?.host ?? '');
+  const [verification, setVerification] = useState(filters?.verification ?? '');
   const [from, setFrom] = useState(filters?.from ?? '');
   const [to, setTo] = useState(filters?.to ?? '');
 
@@ -114,6 +128,7 @@ export default function SessionsIndex() {
       (initial.status ?? '') === status &&
       (initial.platform_account ?? '') === platformAccount &&
       (initial.host ?? '') === host &&
+      (initial.verification ?? '') === verification &&
       (initial.from ?? '') === from &&
       (initial.to ?? '') === to
     ) {
@@ -127,6 +142,7 @@ export default function SessionsIndex() {
           status: status || undefined,
           platform_account: platformAccount || undefined,
           host: host || undefined,
+          verification: verification || undefined,
           from: from || undefined,
           to: to || undefined,
         },
@@ -139,17 +155,18 @@ export default function SessionsIndex() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [status, platformAccount, host, from, to, filters]);
+  }, [status, platformAccount, host, verification, from, to, filters]);
 
   const clearFilters = () => {
     setStatus('');
     setPlatformAccount('');
     setHost('');
+    setVerification('');
     setFrom('');
     setTo('');
   };
 
-  const hasFilters = Boolean(status || platformAccount || host || from || to);
+  const hasFilters = Boolean(status || platformAccount || host || verification || from || to);
 
   return (
     <>
@@ -217,6 +234,16 @@ export default function SessionsIndex() {
               </option>
             ))}
           </select>
+          <select
+            value={verification}
+            onChange={(event) => setVerification(event.target.value)}
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+          >
+            <option value="">Any verification</option>
+            <option value="pending">Pending review</option>
+            <option value="verified">Verified</option>
+            <option value="rejected">Rejected</option>
+          </select>
           <div className="inline-flex items-center gap-1.5">
             <label className="text-xs font-medium text-[#737373]" htmlFor="session-date-from">
               From
@@ -277,9 +304,11 @@ export default function SessionsIndex() {
                   <th className="px-5 py-3 text-left">Host</th>
                   <th className="px-5 py-3 text-left">Platform</th>
                   <th className="px-5 py-3 text-left">Status</th>
+                  <th className="px-5 py-3 text-left">Verification</th>
                   <th className="px-5 py-3 text-left">Scheduled start</th>
                   <th className="px-5 py-3 text-left">Actual start</th>
                   <th className="px-5 py-3 text-right">Duration</th>
+                  <th className="px-5 py-3 text-center">Attachments</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -326,6 +355,9 @@ export default function SessionsIndex() {
                         {STATUS_LABELS[session.status] ?? session.status}
                       </StatusChip>
                     </td>
+                    <td className="px-5 py-3.5">
+                      <VerificationBadge status={session.verificationStatus ?? 'pending'} />
+                    </td>
                     <td className="px-5 py-3.5 text-[12.5px] tabular-nums text-[#404040]">
                       {formatDateTime(session.scheduledStart)}
                     </td>
@@ -335,14 +367,34 @@ export default function SessionsIndex() {
                     <td className="px-5 py-3.5 text-right tabular-nums text-[13px] font-medium text-[#0A0A0A]">
                       {renderDuration(session)}
                     </td>
+                    <td className="px-5 py-3.5 text-center">
+                      {session.attachmentCount > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setModalSession(session)}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12.5px] font-medium text-[#404040] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                          title={
+                            session.attachments
+                              ?.map((a) => a.fileName)
+                              .join('\n') ?? `${session.attachmentCount} attachment(s)`
+                          }
+                        >
+                          <Paperclip className="h-3.5 w-3.5" strokeWidth={2} />
+                          <span className="tabular-nums">{session.attachmentCount}</span>
+                        </button>
+                      ) : (
+                        <span className="text-[12.5px] text-[#A3A3A3]">—</span>
+                      )}
+                    </td>
                     <td className="px-5 py-3.5 text-right">
-                      <Link
-                        href={`/livehost/sessions/${session.id}`}
+                      <button
+                        type="button"
+                        onClick={() => setModalSession(session)}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
                         title="View"
                       >
                         <Eye className="h-[14px] w-[14px]" strokeWidth={2} />
-                      </Link>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -385,8 +437,42 @@ export default function SessionsIndex() {
           </div>
         )}
       </div>
+
+      <LiveSessionModal
+        open={modalSession !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setModalSession(null);
+          }
+        }}
+        session={modalSession}
+        hosts={hosts ?? []}
+        platformAccounts={platformAccounts ?? []}
+      />
     </>
   );
 }
 
 SessionsIndex.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
+
+function VerificationBadge({ status }) {
+  const styles = {
+    pending: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]',
+    verified: 'bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]',
+    rejected: 'bg-[#FEE2E2] text-[#991B1B] border-[#FECACA]',
+  };
+  const label = {
+    pending: 'Pending',
+    verified: 'Verified',
+    rejected: 'Rejected',
+  };
+  const cls = styles[status] ?? styles.pending;
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${cls}`}
+    >
+      {label[status] ?? status}
+    </span>
+  );
+}

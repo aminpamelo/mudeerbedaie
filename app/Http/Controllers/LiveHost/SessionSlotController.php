@@ -9,6 +9,7 @@ use App\Models\LiveScheduleAssignment;
 use App\Models\LiveTimeSlot;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -73,6 +74,75 @@ class SessionSlotController extends Controller
             ],
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
+            'timeSlots' => $this->timeSlotOptions(),
+        ]);
+    }
+
+    public function calendar(Request $request): Response
+    {
+        $host = $request->string('host')->toString();
+        $platformAccount = $request->string('platform_account')->toString();
+        $status = $request->string('status')->toString();
+        $mode = $request->string('mode')->toString();
+        $weekOf = $request->string('week_of')->toString();
+
+        $weekStart = $weekOf !== ''
+            ? CarbonImmutable::parse($weekOf)->startOfWeek(CarbonImmutable::SUNDAY)
+            : CarbonImmutable::now()->startOfWeek(CarbonImmutable::SUNDAY);
+        $weekEnd = $weekStart->endOfWeek(CarbonImmutable::SATURDAY);
+
+        $assignments = LiveScheduleAssignment::query()
+            ->with([
+                'liveHost:id,name,email',
+                'platformAccount:id,name,platform_id',
+                'platformAccount.platform:id,name,display_name,slug',
+                'timeSlot:id,start_time,end_time,day_of_week,platform_account_id',
+                'createdBy:id,name',
+            ])
+            ->when(
+                $host === 'unassigned',
+                fn ($q) => $q->whereNull('live_host_id'),
+                fn ($q) => $q->when($host !== '', fn ($q) => $q->where('live_host_id', $host))
+            )
+            ->when(
+                $platformAccount !== '',
+                fn ($q) => $q->where('platform_account_id', $platformAccount)
+            )
+            ->when($status !== '', fn ($q) => $q->where('status', $status))
+            ->when(
+                $mode === 'template',
+                fn ($q) => $q->where('is_template', true),
+                fn ($q) => $q->when(
+                    $mode === 'dated',
+                    fn ($q) => $q->where('is_template', false),
+                    fn ($q) => $q->where(function ($q) use ($weekStart, $weekEnd) {
+                        $q->where('is_template', true)
+                            ->orWhereNull('schedule_date')
+                            ->orWhereBetween('schedule_date', [
+                                $weekStart->toDateString(),
+                                $weekEnd->toDateString(),
+                            ]);
+                    })
+                )
+            )
+            ->orderBy('day_of_week')
+            ->get()
+            ->map(fn (LiveScheduleAssignment $a) => $this->mapAssignment($a));
+
+        return Inertia::render('session-slots/Calendar', [
+            'sessionSlots' => $assignments,
+            'weekStart' => $weekStart->toDateString(),
+            'weekEnd' => $weekEnd->toDateString(),
+            'filters' => [
+                'host' => $host,
+                'platform_account' => $platformAccount,
+                'status' => $status,
+                'mode' => $mode,
+                'week_of' => $weekStart->toDateString(),
+            ],
+            'hosts' => $this->hostOptions(),
+            'platformAccounts' => $this->platformAccountOptions(),
+            'timeSlots' => $this->timeSlotOptions(),
         ]);
     }
 
@@ -93,9 +163,13 @@ class SessionSlotController extends Controller
 
         LiveScheduleAssignment::create($data);
 
-        return redirect()
-            ->route('livehost.session-slots.index')
-            ->with('success', 'Session slot created.');
+        $redirect = match ($request->string('return_to')->toString()) {
+            'calendar' => redirect()->route('livehost.session-slots.calendar', $request->only(['week_of'])),
+            'table' => redirect()->route('livehost.session-slots.table'),
+            default => redirect()->route('livehost.session-slots.index'),
+        };
+
+        return $redirect->with('success', 'Session slot created.');
     }
 
     public function show(LiveScheduleAssignment $sessionSlot): Response
@@ -110,6 +184,9 @@ class SessionSlotController extends Controller
 
         return Inertia::render('session-slots/Show', [
             'sessionSlot' => $this->mapAssignment($sessionSlot),
+            'hosts' => $this->hostOptions(),
+            'platformAccounts' => $this->platformAccountOptions(),
+            'timeSlots' => $this->timeSlotOptions(),
         ]);
     }
 
@@ -140,9 +217,14 @@ class SessionSlotController extends Controller
 
         $sessionSlot->update($data);
 
-        return redirect()
-            ->route('livehost.session-slots.show', $sessionSlot)
-            ->with('success', 'Session slot updated.');
+        $redirect = match ($request->string('return_to')->toString()) {
+            'calendar' => redirect()->route('livehost.session-slots.calendar', $request->only(['week_of'])),
+            'table' => redirect()->route('livehost.session-slots.table'),
+            'show' => redirect()->route('livehost.session-slots.show', $sessionSlot),
+            default => redirect()->route('livehost.session-slots.show', $sessionSlot),
+        };
+
+        return $redirect->with('success', 'Session slot updated.');
     }
 
     public function destroy(LiveScheduleAssignment $sessionSlot): RedirectResponse

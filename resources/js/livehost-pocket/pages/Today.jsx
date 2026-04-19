@@ -24,6 +24,7 @@ export default function Today() {
   const user = auth?.user ?? null;
   const firstName = firstNameFrom(user?.name);
   const initials = initialsFrom(user?.name);
+  const avatarUrl = user?.avatarUrl ?? null;
   const hasLive = Array.isArray(liveNow) && liveNow.length > 0;
   const allowanceEnabled = Boolean(features?.allowance_enabled);
 
@@ -43,6 +44,8 @@ export default function Today() {
         <Greeting
           firstName={firstName}
           initials={initials}
+          avatarUrl={avatarUrl}
+          name={user?.name}
           greeting={greeting}
           clock={clock}
           hasLive={hasLive}
@@ -73,7 +76,7 @@ export default function Today() {
 
 Today.layout = (page) => <PocketLayout>{page}</PocketLayout>;
 
-function Greeting({ firstName, initials, greeting, clock, hasLive, liveCount }) {
+function Greeting({ firstName, initials, avatarUrl, name, greeting, clock, hasLive, liveCount }) {
   const pretitleLabel = hasLive ? 'ON AIR' : 'TODAY';
   const subtitle = hasLive
     ? liveCount > 1
@@ -95,10 +98,16 @@ function Greeting({ firstName, initials, greeting, clock, hasLive, liveCount }) 
         {subtitle}
       </h1>
       <div
-        className="absolute right-2 top-2 grid h-[38px] w-[38px] place-items-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--hot)] font-display text-[12px] font-bold tracking-[-0.04em] text-white"
+        className="absolute right-2 top-2 h-[38px] w-[38px] overflow-hidden rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--hot)]"
         aria-hidden="true"
       >
-        {initials}
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={name ?? ''} className="h-full w-full object-cover" />
+        ) : (
+          <span className="grid h-full w-full place-items-center font-display text-[12px] font-bold tracking-[-0.04em] text-white">
+            {initials}
+          </span>
+        )}
       </div>
     </div>
   );

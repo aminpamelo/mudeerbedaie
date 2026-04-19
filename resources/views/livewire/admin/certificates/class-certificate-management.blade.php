@@ -5,6 +5,7 @@ use App\Models\Certificate;
 use App\Models\CertificateIssue;
 use App\Services\CertificateService;
 use App\Services\WhatsAppService;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -131,6 +132,44 @@ new class extends Component {
             'previewCertificate' => $previewCertificate,
             'previewData' => $previewData,
             'availableCertificates' => $availableCertificates,
+            'pdfBatchProgress' => $this->getPdfBatchProgress(),
+        ];
+    }
+
+    /**
+     * Resolve live progress for the in-flight PDF generation batch, if any.
+     * Clears a stale batch id when the batch is gone or finished.
+     */
+    protected function getPdfBatchProgress(): ?array
+    {
+        $this->class->refresh();
+
+        if (! $this->class->certificate_pdf_batch_id) {
+            return null;
+        }
+
+        $batch = Bus::findBatch($this->class->certificate_pdf_batch_id);
+
+        if (! $batch) {
+            $this->class->update(['certificate_pdf_batch_id' => null]);
+
+            return null;
+        }
+
+        if ($batch->finished()) {
+            $this->class->update(['certificate_pdf_batch_id' => null]);
+        }
+
+        return [
+            'id' => $batch->id,
+            'name' => $batch->name,
+            'total' => $batch->totalJobs,
+            'pending' => $batch->pendingJobs,
+            'processed' => $batch->processedJobs(),
+            'failed' => $batch->failedJobs,
+            'progress' => $batch->progress(),
+            'finished' => $batch->finished(),
+            'cancelled' => $batch->cancelled(),
         ];
     }
 
@@ -232,30 +271,23 @@ new class extends Component {
 
     public function bulkIssueCertificates(): void
     {
-        \Log::info('bulkIssueCertificates called', [
-            'selectedCertificateId' => $this->selectedCertificateId,
-            'selectedStudentIds' => $this->selectedStudentIds,
-            'skipExisting' => $this->skipExisting,
-        ]);
-
         $this->validate([
             'selectedCertificateId' => 'required|exists:certificates,id',
             'selectedStudentIds' => 'required|array|min:1',
         ]);
 
-        \Log::info('Validation passed, getting certificate');
+        if ($this->hasActivePdfBatch()) {
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => 'A certificate generation batch is already running for this class. Please wait for it to finish.',
+            ]);
+
+            return;
+        }
 
         $certificate = Certificate::findOrFail($this->selectedCertificateId);
         $certificateService = app(CertificateService::class);
-
-        // Cast student IDs to integers (HTML checkboxes return strings)
         $studentIds = array_map('intval', $this->selectedStudentIds);
-
-        \Log::info('Calling issueToClass', [
-            'certificate_id' => $certificate->id,
-            'class_id' => $this->class->id,
-            'student_ids' => $studentIds,
-        ]);
 
         $result = $certificateService->issueToClass(
             $certificate,
@@ -264,19 +296,14 @@ new class extends Component {
             $this->skipExisting
         );
 
-        \Log::info('issueToClass result', $result);
+        $message = $result['success']
+            ? "Queued {$result['issued_count']} " . Str::plural('certificate', $result['issued_count']) . ' for PDF generation. Skipped: ' . $result['skipped_count'] . '.'
+            : $result['message'];
 
-        if ($result['success']) {
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => $result['message'],
-            ]);
-        } else {
-            $this->dispatch('notify', [
-                'type' => 'error',
-                'message' => $result['message'],
-            ]);
-        }
+        $this->dispatch('notify', [
+            'type' => $result['success'] ? 'success' : 'error',
+            'message' => $message,
+        ]);
 
         $this->closeBulkIssueModal();
         $this->class->refresh();
@@ -536,72 +563,62 @@ new class extends Component {
             return;
         }
 
-        $issues = CertificateIssue::with(['certificate', 'student.user', 'enrollment'])
-            ->whereIn('id', $this->selectedIssueIds)
-            ->where('class_id', $this->class->id)
-            ->get();
+        if ($this->hasActivePdfBatch()) {
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => 'A certificate generation batch is already running for this class. Please wait for it to finish.',
+            ]);
 
-        $pdfGenerator = app(\App\Services\CertificatePdfGenerator::class);
-        $successCount = 0;
-        $failCount = 0;
-
-        foreach ($issues as $issue) {
-            if (! $issue->certificate) {
-                $failCount++;
-
-                continue;
-            }
-
-            try {
-                $issue->deleteFile();
-
-                $data = $issue->data_snapshot ?? [];
-                $data['certificate_number'] = $issue->certificate_number;
-
-                try {
-                    $data['verification_url'] = $issue->getVerificationUrl();
-                } catch (\Exception $e) {
-                    $data['verification_url'] = '';
-                }
-
-                $filePath = $pdfGenerator->generate(
-                    certificate: $issue->certificate,
-                    student: $issue->student,
-                    enrollment: $issue->enrollment,
-                    additionalData: $data
-                );
-
-                $issue->update(['file_path' => $filePath]);
-                $issue->logAction('regenerated', auth()->user());
-                $successCount++;
-            } catch (\Exception $e) {
-                \Log::error("Failed to regenerate certificate {$issue->certificate_number}: {$e->getMessage()}");
-                $failCount++;
-            }
+            return;
         }
+
+        $issueIds = CertificateIssue::whereIn('id', $this->selectedIssueIds)
+            ->where('class_id', $this->class->id)
+            ->whereHas('certificate')
+            ->pluck('id')
+            ->all();
+
+        $count = count($issueIds);
+
+        if ($count === 0) {
+            return;
+        }
+
+        app(CertificateService::class)->dispatchRegenerationBatch(
+            $issueIds,
+            $this->class,
+            "Regenerate certificates for class #{$this->class->id}"
+        );
 
         $this->selectedIssueIds = [];
         $this->selectAllIssued = false;
 
-        $message = "Regenerated {$successCount} " . Str::plural('certificate', $successCount) . '.';
-        if ($failCount > 0) {
-            $message .= " {$failCount} failed.";
-        }
-
         $this->dispatch('notify', [
-            'type' => $failCount > 0 ? 'warning' : 'success',
-            'message' => $message,
+            'type' => 'success',
+            'message' => "Queued {$count} " . Str::plural('certificate', $count) . ' for PDF regeneration.',
         ]);
+
+        $this->class->refresh();
     }
 
     public function regenerateAllPdfs(): void
     {
-        $issues = CertificateIssue::with(['certificate', 'student.user', 'enrollment'])
-            ->where('class_id', $this->class->id)
-            ->where('status', 'issued')
-            ->get();
+        if ($this->hasActivePdfBatch()) {
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => 'A certificate generation batch is already running for this class. Please wait for it to finish.',
+            ]);
 
-        if ($issues->isEmpty()) {
+            return;
+        }
+
+        $issueIds = CertificateIssue::where('class_id', $this->class->id)
+            ->where('status', 'issued')
+            ->whereHas('certificate')
+            ->pluck('id')
+            ->all();
+
+        if (empty($issueIds)) {
             $this->dispatch('notify', [
                 'type' => 'info',
                 'message' => 'No issued certificates to regenerate.',
@@ -610,54 +627,43 @@ new class extends Component {
             return;
         }
 
-        $pdfGenerator = app(\App\Services\CertificatePdfGenerator::class);
-        $successCount = 0;
-        $failCount = 0;
+        $count = count($issueIds);
 
-        foreach ($issues as $issue) {
-            if (! $issue->certificate) {
-                $failCount++;
-
-                continue;
-            }
-
-            try {
-                $issue->deleteFile();
-
-                $data = $issue->data_snapshot ?? [];
-                $data['certificate_number'] = $issue->certificate_number;
-
-                try {
-                    $data['verification_url'] = $issue->getVerificationUrl();
-                } catch (\Exception $e) {
-                    $data['verification_url'] = '';
-                }
-
-                $filePath = $pdfGenerator->generate(
-                    certificate: $issue->certificate,
-                    student: $issue->student,
-                    enrollment: $issue->enrollment,
-                    additionalData: $data
-                );
-
-                $issue->update(['file_path' => $filePath]);
-                $issue->logAction('regenerated', auth()->user());
-                $successCount++;
-            } catch (\Exception $e) {
-                \Log::error("Failed to regenerate certificate {$issue->certificate_number}: {$e->getMessage()}");
-                $failCount++;
-            }
-        }
-
-        $message = "Regenerated {$successCount} " . Str::plural('certificate', $successCount) . '.';
-        if ($failCount > 0) {
-            $message .= " {$failCount} failed.";
-        }
+        app(CertificateService::class)->dispatchRegenerationBatch(
+            $issueIds,
+            $this->class,
+            "Regenerate all certificates for class #{$this->class->id}"
+        );
 
         $this->dispatch('notify', [
-            'type' => $failCount > 0 ? 'warning' : 'success',
-            'message' => $message,
+            'type' => 'success',
+            'message' => "Queued {$count} " . Str::plural('certificate', $count) . ' for PDF regeneration.',
         ]);
+
+        $this->class->refresh();
+    }
+
+    /**
+     * Whether an in-flight PDF generation batch exists for this class.
+     * Clears stale batch IDs for batches that no longer exist.
+     */
+    protected function hasActivePdfBatch(): bool
+    {
+        $this->class->refresh();
+
+        if (! $this->class->certificate_pdf_batch_id) {
+            return false;
+        }
+
+        $batch = Bus::findBatch($this->class->certificate_pdf_batch_id);
+
+        if (! $batch || $batch->finished()) {
+            $this->class->update(['certificate_pdf_batch_id' => null]);
+
+            return false;
+        }
+
+        return true;
     }
 
     public function bulkDownloadCertificates(): mixed
@@ -1009,7 +1015,41 @@ new class extends Component {
     }
 }; ?>
 
-<div class="space-y-6">
+<div class="space-y-6" @if($pdfBatchProgress && !$pdfBatchProgress['finished']) wire:poll.3s @endif>
+    @if($pdfBatchProgress)
+        <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
+            <div class="flex items-start gap-3">
+                <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-800">
+                    <flux:icon name="document-arrow-down" class="size-5 text-blue-600 dark:text-blue-300 @if(!$pdfBatchProgress['finished']) animate-pulse @endif" />
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                            @if($pdfBatchProgress['finished'])
+                                PDF generation complete
+                            @else
+                                Generating certificate PDFs…
+                            @endif
+                        </h4>
+                        <span class="text-xs font-medium text-blue-700 dark:text-blue-200 tabular-nums">
+                            {{ $pdfBatchProgress['processed'] }}/{{ $pdfBatchProgress['total'] }} ({{ $pdfBatchProgress['progress'] }}%)
+                        </span>
+                    </div>
+                    <p class="text-xs text-blue-700 dark:text-blue-300 mb-2">
+                        @if($pdfBatchProgress['failed'] > 0)
+                            {{ $pdfBatchProgress['failed'] }} failed. You can regenerate failed ones after the batch completes.
+                        @else
+                            Certificates are being generated in the background — you can leave this page.
+                        @endif
+                    </p>
+                    <div class="h-2 w-full overflow-hidden rounded-full bg-blue-200 dark:bg-blue-800">
+                        <div class="h-full bg-blue-600 dark:bg-blue-400 transition-all duration-500" style="width: {{ $pdfBatchProgress['progress'] }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Statistics Strip -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="relative overflow-hidden rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4">
