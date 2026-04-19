@@ -56,3 +56,47 @@ export function secondsSince(iso) {
   }
   return Math.max(0, Math.floor((Date.now() - ts) / 1000));
 }
+
+/**
+ * Format a 24-hour "HH:MM" string as 12-hour with AM/PM.
+ * Examples: "08:30" → "8:30 AM", "14:00" → "2:00 PM", "00:15" → "12:15 AM".
+ * Returns the input unchanged if it can't be parsed.
+ *
+ * @param {string|null|undefined} hhmm
+ * @returns {string}
+ */
+export function format12Hour(hhmm) {
+  if (!hhmm || typeof hhmm !== 'string') {
+    return '';
+  }
+  const match = hhmm.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) {
+    return hhmm;
+  }
+  let h = Number(match[1]);
+  const m = match[2];
+  if (!Number.isFinite(h) || h < 0 || h > 23) {
+    return hhmm;
+  }
+  const period = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) {
+    h = 12;
+  }
+  return `${h}:${m} ${period}`;
+}
+
+/**
+ * Format a 24-hour "HH:MM"–"HH:MM" pair as a 12-hour range with AM/PM.
+ * Returns "—" when either endpoint is missing.
+ *
+ * @param {string|null|undefined} start
+ * @param {string|null|undefined} end
+ * @returns {string}
+ */
+export function formatTimeRange12(start, end) {
+  if (!start || !end) {
+    return '—';
+  }
+  return `${format12Hour(start)} – ${format12Hour(end)}`;
+}

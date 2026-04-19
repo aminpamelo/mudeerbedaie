@@ -6,6 +6,7 @@ import StatusChip from '@/livehost/components/StatusChip';
 import WeeklyCalendar from '@/livehost/components/WeeklyCalendar';
 import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
+import { formatTimeRange12 } from '@/livehost/lib/format';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_COLORS = [
@@ -17,13 +18,6 @@ const DAY_COLORS = [
   'bg-[#EFF6FF] text-[#1D4ED8]',
   'bg-[#F5F3FF] text-[#5B21B6]',
 ];
-
-function formatTimeRange(startTime, endTime) {
-  if (!startTime || !endTime) {
-    return '—';
-  }
-  return `${startTime} – ${endTime}`;
-}
 
 export default function SchedulesIndex() {
   const { schedules, filters, hosts, platformAccounts, viewMode } = usePage().props;
@@ -304,7 +298,7 @@ export default function SchedulesIndex() {
                           </span>
                         </td>
                         <td className="px-5 py-3.5 tabular-nums text-[13px] font-medium text-[#0A0A0A]">
-                          {formatTimeRange(schedule.startTime, schedule.endTime)}
+                          {formatTimeRange12(schedule.startTime, schedule.endTime)}
                           {schedule.isRecurring ? (
                             <span className="ml-2 text-[11px] text-[#737373]">· weekly</span>
                           ) : null}

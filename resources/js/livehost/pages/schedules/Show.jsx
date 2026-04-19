@@ -4,6 +4,7 @@ import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
 import { Button } from '@/livehost/components/ui/button';
+import { format12Hour } from '@/livehost/lib/format';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_BADGE_COLORS = [
@@ -101,7 +102,7 @@ export default function SchedulesShow() {
             <div className="text-2xl font-semibold tracking-[-0.02em] mb-1">
               {DAY_NAMES[schedule.dayOfWeek] ?? 'Unknown day'} ·{' '}
               <span className="tabular-nums">
-                {schedule.startTime}–{schedule.endTime}
+                {format12Hour(schedule.startTime)} – {format12Hour(schedule.endTime)}
               </span>
             </div>
             <div className="text-sm text-[#737373]">

@@ -4,6 +4,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
 import { Button } from '@/livehost/components/ui/button';
+import { formatTimeRange12 } from '@/livehost/lib/format';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -17,12 +18,6 @@ const DAY_COLORS = [
   'bg-[#F5F3FF] text-[#5B21B6]',
 ];
 
-function formatTimeRange(startTime, endTime) {
-  if (!startTime || !endTime) {
-    return '—';
-  }
-  return `${startTime} – ${endTime}`;
-}
 
 export default function TimeSlotsIndex() {
   const { timeSlots, filters, platformAccounts, flash } = usePage().props;
@@ -203,7 +198,7 @@ export default function TimeSlotsIndex() {
                       )}
                     </td>
                     <td className="px-5 py-3.5 tabular-nums text-[13px] font-medium text-[#0A0A0A]">
-                      {formatTimeRange(slot.startTime, slot.endTime)}
+                      {formatTimeRange12(slot.startTime, slot.endTime)}
                     </td>
                     <td className="px-5 py-3.5 text-[13px] text-[#737373]">
                       {slot.durationMinutes ? `${slot.durationMinutes} min` : '—'}
