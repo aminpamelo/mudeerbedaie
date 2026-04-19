@@ -21,10 +21,15 @@ export default function HostsIndex() {
   const { hosts, filters } = usePage().props;
   const [search, setSearch] = useState(filters?.search ?? '');
   const [status, setStatus] = useState(filters?.status ?? '');
+  const [hasUpline, setHasUpline] = useState(filters?.has_upline ?? '');
 
   useEffect(() => {
     const initial = filters ?? {};
-    if ((initial.search ?? '') === search && (initial.status ?? '') === status) {
+    if (
+      (initial.search ?? '') === search &&
+      (initial.status ?? '') === status &&
+      (initial.has_upline ?? '') === hasUpline
+    ) {
       return undefined;
     }
 
@@ -34,6 +39,7 @@ export default function HostsIndex() {
         {
           search: search || undefined,
           status: status || undefined,
+          has_upline: hasUpline || undefined,
         },
         {
           preserveState: true,
@@ -44,11 +50,12 @@ export default function HostsIndex() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [search, status, filters]);
+  }, [search, status, hasUpline, filters]);
 
   const clearFilters = () => {
     setSearch('');
     setStatus('');
+    setHasUpline('');
   };
 
   const newHostAction = (
@@ -104,6 +111,16 @@ export default function HostsIndex() {
             <option value="inactive">Inactive</option>
             <option value="suspended">Suspended</option>
           </select>
+          <select
+            value={hasUpline}
+            onChange={(event) => setHasUpline(event.target.value)}
+            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+          >
+            <option value="">Any commission plan</option>
+            <option value="has_upline">Has upline</option>
+            <option value="is_upline_only">Is an upline</option>
+            <option value="no_plan">No plan</option>
+          </select>
         </div>
 
         {/* Table */}
@@ -126,7 +143,7 @@ export default function HostsIndex() {
               <thead>
                 <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
                   <th className="px-5 py-3 text-left">Host</th>
-                  <th className="px-5 py-3 text-left">Phone</th>
+                  <th className="px-5 py-3 text-left">Commission plan</th>
                   <th className="px-5 py-3 text-right">Accounts</th>
                   <th className="px-5 py-3 text-right">Sessions</th>
                   <th className="px-5 py-3 text-left">Status</th>
@@ -154,8 +171,8 @@ export default function HostsIndex() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 tabular-nums text-[#0A0A0A]">
-                      {host.phone ?? '—'}
+                    <td className="px-5 py-3.5 whitespace-nowrap text-[12.5px] tabular-nums text-[#0A0A0A]">
+                      {host.commission_plan ?? '—'}
                     </td>
                     <td className="px-5 py-3.5 text-right tabular-nums">
                       {host.accounts}

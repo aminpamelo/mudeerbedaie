@@ -5,7 +5,10 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreHostRequest;
 use App\Http\Requests\LiveHost\UpdateHostRequest;
+use App\Models\LiveHostCommissionProfile;
+use App\Models\LiveHostPlatformCommissionRate;
 use App\Models\LiveSession;
+use App\Models\Platform;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,9 +23,14 @@ class HostController extends Controller
     {
         $search = $request->string('search')->toString();
         $status = $request->string('status')->toString();
+        $hasUpline = $request->string('has_upline')->toString();
 
         $hosts = User::query()
             ->where('role', 'live_host')
+            ->with([
+                'commissionProfile.upline:id,name',
+                'platformCommissionRates.platform:id,slug,name',
+            ])
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -31,6 +39,19 @@ class HostController extends Controller
                 });
             })
             ->when($status !== '', fn ($q) => $q->where('status', $status))
+            ->when($hasUpline === 'has_upline', function ($q) {
+                $q->whereHas('commissionProfile', fn ($cp) => $cp->whereNotNull('upline_user_id'));
+            })
+            ->when($hasUpline === 'no_plan', function ($q) {
+                $q->whereDoesntHave('commissionProfile');
+            })
+            ->when($hasUpline === 'is_upline_only', function ($q) {
+                $q->whereIn('id', LiveHostCommissionProfile::query()
+                    ->where('is_active', true)
+                    ->whereNotNull('upline_user_id')
+                    ->pluck('upline_user_id')
+                );
+            })
             ->withCount(['platformAccounts'])
             ->selectSub(
                 LiveSession::query()
@@ -51,6 +72,8 @@ class HostController extends Controller
                 'sessions' => (int) ($u->hosted_sessions_count ?? 0),
                 'createdAt' => $u->created_at?->toIso8601String(),
                 'initials' => $this->initials($u->name),
+                'commission_plan' => $this->formatCommissionPlan($u),
+                'has_upline' => (bool) optional($u->commissionProfile)->upline_user_id,
             ]);
 
         return Inertia::render('hosts/Index', [
@@ -58,6 +81,7 @@ class HostController extends Controller
             'filters' => [
                 'search' => $search,
                 'status' => $status,
+                'has_upline' => $hasUpline,
             ],
         ]);
     }
@@ -71,7 +95,11 @@ class HostController extends Controller
     {
         abort_unless($host->role === 'live_host', 404);
 
-        $host->load(['platformAccounts.platform']);
+        $host->load([
+            'platformAccounts.platform',
+            'commissionProfile.upline:id,name',
+            'platformCommissionRates.platform:id,slug,name',
+        ]);
 
         $recentSessions = LiveSession::query()
             ->with(['platformAccount.platform'])
@@ -99,6 +127,55 @@ class HostController extends Controller
             ->where('status', 'ended')
             ->count();
 
+        $commissionProfile = $host->commissionProfile
+            ? $this->mapCommissionProfile($host->commissionProfile)
+            : null;
+
+        $commissionProfiles = LiveHostCommissionProfile::query()
+            ->with('upline:id,name')
+            ->where('user_id', $host->id)
+            ->orderByDesc('effective_from')
+            ->get()
+            ->map(fn (LiveHostCommissionProfile $p) => $this->mapCommissionProfile($p))
+            ->values();
+
+        $platformCommissionRates = $host->platformCommissionRates
+            ->map(fn (LiveHostPlatformCommissionRate $r) => [
+                'id' => $r->id,
+                'platform_id' => $r->platform_id,
+                'platform_slug' => $r->platform?->slug,
+                'platform_name' => $r->platform?->name ?? $r->platform?->display_name,
+                'commission_rate_percent' => (float) $r->commission_rate_percent,
+                'effective_from' => $r->effective_from?->toIso8601String(),
+                'effective_to' => $r->effective_to?->toIso8601String(),
+                'is_active' => (bool) $r->is_active,
+            ])
+            ->values();
+
+        $platforms = Platform::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'slug', 'name'])
+            ->map(fn (Platform $p) => [
+                'id' => $p->id,
+                'slug' => $p->slug,
+                'name' => $p->name,
+            ])
+            ->values();
+
+        $uplineCandidates = User::query()
+            ->where('role', 'live_host')
+            ->where('id', '!=', $host->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email'])
+            ->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+            ])
+            ->values();
+
         return Inertia::render('hosts/Show', [
             'host' => [
                 'id' => $host->id,
@@ -121,7 +198,52 @@ class HostController extends Controller
                 'completedSessions' => $completedSessions,
                 'platformAccounts' => $host->platformAccounts->count(),
             ],
+            'commissionProfile' => $commissionProfile,
+            'commissionProfiles' => $commissionProfiles,
+            'platformCommissionRates' => $platformCommissionRates,
+            'platforms' => $platforms,
+            'uplineCandidates' => $uplineCandidates,
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapCommissionProfile(LiveHostCommissionProfile $profile): array
+    {
+        return [
+            'id' => $profile->id,
+            'base_salary_myr' => (float) $profile->base_salary_myr,
+            'per_live_rate_myr' => (float) $profile->per_live_rate_myr,
+            'upline_user_id' => $profile->upline_user_id,
+            'upline_name' => $profile->upline?->name,
+            'override_rate_l1_percent' => (float) $profile->override_rate_l1_percent,
+            'override_rate_l2_percent' => (float) $profile->override_rate_l2_percent,
+            'notes' => $profile->notes,
+            'effective_from' => $profile->effective_from?->toIso8601String(),
+            'effective_to' => $profile->effective_to?->toIso8601String(),
+            'is_active' => (bool) $profile->is_active,
+        ];
+    }
+
+    private function formatCommissionPlan(User $u): string
+    {
+        $profile = $u->commissionProfile;
+        if (! $profile) {
+            return '—';
+        }
+
+        $rates = $u->platformCommissionRates;
+        $primary = $rates->first(fn ($r) => $r->platform?->slug === 'tiktok-shop')
+            ?? $rates->first();
+
+        $base = number_format((float) $profile->base_salary_myr, 0);
+        $perLive = number_format((float) $profile->per_live_rate_myr, 0);
+        $ratePct = $primary
+            ? rtrim(rtrim(number_format((float) $primary->commission_rate_percent, 2), '0'), '.').'%'
+            : '—';
+
+        return "RM {$base} + {$ratePct} + RM {$perLive}";
     }
 
     public function store(StoreHostRequest $request): RedirectResponse
