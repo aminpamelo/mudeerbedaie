@@ -22,6 +22,18 @@ const FILTER_OPTIONS = [
   { key: 'all', label: 'All' },
 ];
 
+const MISSED_REASON_LABELS = {
+  tech_issue: 'Tech issue',
+  sick: 'Sick',
+  account_issue: 'Account issue',
+  schedule_conflict: 'Schedule conflict',
+  other: 'Other',
+};
+
+function labelForMissedReason(code) {
+  return MISSED_REASON_LABELS[code] ?? 'Missed';
+}
+
 export default function Sessions() {
   const { sessions, filter } = usePage().props;
   const items = sessions?.data ?? [];
@@ -116,6 +128,9 @@ function SessionCard({ session }) {
   const isEnded = status === 'ended';
   const isCancelled = status === 'cancelled';
   const isScheduled = status === 'scheduled';
+  const isMissed = status === 'missed';
+  const canRecap = Boolean(session.canRecap);
+  const isAwaitingRecap = isScheduled && canRecap;
 
   return (
     <div
@@ -140,7 +155,7 @@ function SessionCard({ session }) {
           name={session.platformAccount}
           platformType={session.platformType}
         />
-        <StatusChip status={status} />
+        <StatusChip status={status} awaitingRecap={isAwaitingRecap} />
       </div>
 
       <div className="mb-1 text-[14.5px] font-bold leading-tight tracking-[-0.01em] text-[var(--fg)]">
@@ -151,13 +166,45 @@ function SessionCard({ session }) {
 
       {isEnded && session.analytics ? <MetricsStrip analytics={session.analytics} /> : null}
 
-      {(isEnded || isLive) ? (
+      {isLive ? (
         <Link
           href={`/live-host/sessions/${session.id}`}
           className="mt-[10px] block border-t border-[var(--hair)] pt-[10px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]"
         >
-          {isLive ? 'Manage session \u2192' : 'Open recap & upload \u2192'}
+          Manage session &rarr;
         </Link>
+      ) : null}
+
+      {isEnded ? (
+        <Link
+          href={`/live-host/sessions/${session.id}`}
+          className="mt-[10px] block border-t border-[var(--hair)] pt-[10px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]"
+        >
+          Open recap &amp; upload &rarr;
+        </Link>
+      ) : null}
+
+      {isAwaitingRecap ? (
+        <div className="mt-[10px] flex gap-[6px] border-t border-[var(--hair)] pt-[10px]">
+          <Link
+            href={`/live-host/sessions/${session.id}?recap=yes`}
+            className="flex-[2] rounded-[10px] bg-[var(--accent)] px-[10px] py-[8px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent-ink)]"
+          >
+            Submit recap &rarr;
+          </Link>
+          <Link
+            href={`/live-host/sessions/${session.id}?recap=no`}
+            className="flex-1 rounded-[10px] border border-[var(--hair)] px-[10px] py-[8px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]"
+          >
+            Didn&apos;t go live
+          </Link>
+        </div>
+      ) : null}
+
+      {isMissed ? (
+        <div className="mt-[10px] border-t border-[var(--hair)] pt-[10px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--hot)]">
+          Missed &middot; {labelForMissedReason(session.missedReasonCode)}
+        </div>
       ) : null}
 
       {isCancelled ? (
@@ -166,7 +213,7 @@ function SessionCard({ session }) {
         </div>
       ) : null}
 
-      {isScheduled ? <ScheduledFooter session={session} /> : null}
+      {isScheduled && !isAwaitingRecap ? <ScheduledFooter session={session} /> : null}
     </div>
   );
 }
@@ -248,8 +295,20 @@ function PlatformLabel({ name, platformType }) {
   );
 }
 
-function StatusChip({ status }) {
+function StatusChip({ status, awaitingRecap = false }) {
   const base = 'inline-flex items-center rounded-full px-[7px] py-[3px] font-mono text-[8.5px] font-extrabold uppercase tracking-[0.14em]';
+
+  if (awaitingRecap) {
+    return (
+      <span
+        className={cn(base, 'text-[var(--hot)]')}
+        style={{ backgroundColor: 'rgba(245,158,11,0.12)' }}
+      >
+        RECAP PENDING
+      </span>
+    );
+  }
+
   if (status === 'live') {
     return (
       <span
@@ -282,6 +341,16 @@ function StatusChip({ status }) {
         style={{ backgroundColor: 'rgba(225,29,72,0.1)' }}
       >
         CANCELLED
+      </span>
+    );
+  }
+  if (status === 'missed') {
+    return (
+      <span
+        className={cn(base, 'text-[var(--hot)]')}
+        style={{ backgroundColor: 'rgba(225,29,72,0.1)' }}
+      >
+        MISSED
       </span>
     );
   }

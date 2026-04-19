@@ -61,7 +61,24 @@ class SessionDetailController extends Controller
 
         $data = $request->validated();
 
-        // Cover image (replaces LiveSession.image_path)
+        if ($request->boolean('went_live')) {
+            $this->persistWentLive($request, $session, $data);
+        } else {
+            $this->persistMissed($request, $session, $data);
+        }
+
+        return redirect()
+            ->route('live-host.sessions.show', $session)
+            ->with('success', $request->boolean('went_live') ? 'Recap saved.' : 'Session marked as missed.');
+    }
+
+    /**
+     * Persist a "went live" recap: cover image, timings, analytics, remarks,
+     * and flip status to `ended`. Previously-captured missed-reason fields
+     * are cleared so the row stays clean.
+     */
+    private function persistWentLive(SaveRecapRequest $request, LiveSession $session, array $data): void
+    {
         if ($request->hasFile('cover_image')) {
             if ($session->image_path) {
                 Storage::disk('public')->delete($session->image_path);
@@ -78,13 +95,15 @@ class SessionDetailController extends Controller
         }
 
         $session->update([
-            'image_path' => $session->image_path,
             'remarks' => array_key_exists('remarks', $data) ? $data['remarks'] : $session->remarks,
             'actual_start_at' => $actualStart ?? $session->actual_start_at,
             'actual_end_at' => $actualEnd ?? $session->actual_end_at,
             'duration_minutes' => $duration,
             'uploaded_at' => now(),
             'uploaded_by' => $request->user()->id,
+            'status' => 'ended',
+            'missed_reason_code' => null,
+            'missed_reason_note' => null,
         ]);
 
         LiveAnalytics::updateOrCreate(
@@ -96,13 +115,26 @@ class SessionDetailController extends Controller
                 'total_comments' => $data['total_comments'] ?? 0,
                 'total_shares' => $data['total_shares'] ?? 0,
                 'gifts_value' => $data['gifts_value'] ?? 0,
-                'duration_minutes' => $duration ?? 0,
+                'duration_minutes' => $duration ?? $session->duration_minutes ?? 0,
             ]
         );
+    }
 
-        return redirect()
-            ->route('live-host.sessions.show', $session)
-            ->with('success', 'Recap saved.');
+    /**
+     * Persist a "did not go live" recap: set status to `missed` with the
+     * supplied reason code + note. Analytics and attachments are intentionally
+     * left untouched so a host who flips back to "went live" doesn't lose the
+     * data they already entered.
+     */
+    private function persistMissed(SaveRecapRequest $request, LiveSession $session, array $data): void
+    {
+        $session->update([
+            'status' => 'missed',
+            'missed_reason_code' => $data['missed_reason_code'],
+            'missed_reason_note' => $data['missed_reason_note'] ?? null,
+            'uploaded_at' => now(),
+            'uploaded_by' => $request->user()->id,
+        ]);
     }
 
     public function addAttachment(AddAttachmentRequest $request, LiveSession $session): RedirectResponse
@@ -116,7 +148,7 @@ class SessionDetailController extends Controller
             'live_session_id' => $session->id,
             'file_name' => $file->getClientOriginalName(),
             'file_path' => $path,
-            'file_type' => $file->getClientMimeType(),
+            'file_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
             'description' => $request->string('description')->toString() ?: null,
             'uploaded_by' => $request->user()->id,
@@ -159,6 +191,9 @@ class SessionDetailController extends Controller
             'imagePath' => $session->image_path,
             'imageUrl' => $session->image_path ? Storage::url($session->image_path) : null,
             'uploadedAt' => $session->uploaded_at?->toIso8601String(),
+            'canRecap' => $session->canRecap(),
+            'missedReasonCode' => $session->missed_reason_code,
+            'missedReasonNote' => $session->missed_reason_note,
         ];
     }
 

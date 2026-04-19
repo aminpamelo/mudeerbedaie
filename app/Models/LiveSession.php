@@ -29,6 +29,8 @@ class LiveSession extends Model
         'remarks',
         'uploaded_at',
         'uploaded_by',
+        'missed_reason_code',
+        'missed_reason_note',
     ];
 
     protected function casts(): array
@@ -100,7 +102,7 @@ class LiveSession extends Model
 
     public function scopePast(Builder $query): Builder
     {
-        return $query->whereIn('status', ['ended', 'cancelled'])
+        return $query->whereIn('status', ['ended', 'cancelled', 'missed'])
             ->orderByDesc('scheduled_start_at');
     }
 
@@ -171,7 +173,7 @@ class LiveSession extends Model
 
     public function canUpload(): bool
     {
-        return $this->status === 'ended' && !$this->isUploaded();
+        return $this->status === 'ended' && ! $this->isUploaded();
     }
 
     public function isScheduled(): bool
@@ -194,6 +196,44 @@ class LiveSession extends Model
         return $this->status === 'cancelled';
     }
 
+    public function isMissed(): bool
+    {
+        return $this->status === 'missed';
+    }
+
+    /**
+     * True when the host may submit a recap for this session. Returns true for
+     * already-ended or already-missed sessions (hosts may correct a mistake or
+     * add more proof — re-submission is explicitly allowed by design) and for
+     * scheduled sessions whose start time has passed. Future scheduled sessions
+     * return false.
+     */
+    public function canRecap(): bool
+    {
+        if (in_array($this->status, ['ended', 'missed'], true)) {
+            return true;
+        }
+
+        return $this->status === 'scheduled'
+            && $this->scheduled_start_at !== null
+            && $this->scheduled_start_at->lte(now());
+    }
+
+    /**
+     * Proof of live: at least one image or video attachment exists for this
+     * session. Used by SaveRecapRequest when went_live=true to block the
+     * status transition until the host has uploaded visible evidence.
+     */
+    public function hasVisualProof(): bool
+    {
+        return $this->attachments()
+            ->where(function ($q) {
+                $q->where('file_type', 'like', 'image/%')
+                    ->orWhere('file_type', 'like', 'video/%');
+            })
+            ->exists();
+    }
+
     public function getDurationAttribute(): ?int
     {
         if ($this->actual_start_at && $this->actual_end_at) {
@@ -210,6 +250,7 @@ class LiveSession extends Model
             'live' => 'green',
             'ended' => 'gray',
             'cancelled' => 'red',
+            'missed' => 'amber',
             default => 'gray',
         };
     }

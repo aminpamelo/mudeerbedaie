@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ChevronLeft,
   Image as ImageIcon,
@@ -12,6 +12,14 @@ import {
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { cn } from '@/livehost-pocket/lib/utils';
 import { formatSessionScheduleLine } from '@/livehost-pocket/lib/format';
+
+const MISSED_REASONS = [
+  { code: 'tech_issue', label: 'Tech / connection issue' },
+  { code: 'sick', label: 'Sick' },
+  { code: 'account_issue', label: 'Platform account issue' },
+  { code: 'schedule_conflict', label: 'Schedule conflict' },
+  { code: 'other', label: 'Other' },
+];
 
 /**
  * Session detail + recap — screen 03 (UPLOAD/RECAP) of the mockup.
@@ -27,6 +35,11 @@ export default function SessionDetail() {
   const { session, analytics, attachments } = usePage().props;
 
   const recap = useForm({
+    went_live: session?.status === 'missed'
+      ? false
+      : (session?.status === 'ended' || session?.status === 'live')
+        ? true
+        : null,
     cover_image: null,
     actual_start_at: toLocalDatetime(session?.actualStartAt),
     actual_end_at: toLocalDatetime(session?.actualEndAt),
@@ -37,11 +50,30 @@ export default function SessionDetail() {
     total_comments: analytics?.totalComments ?? 0,
     total_shares: analytics?.totalShares ?? 0,
     gifts_value: analytics?.giftsValue ?? 0,
+    missed_reason_code: session?.missedReasonCode ?? '',
+    missed_reason_note: session?.missedReasonNote ?? '',
   });
 
   const [coverPreview, setCoverPreview] = useState(session?.imageUrl ?? null);
   const coverInputRef = useRef(null);
   const attachmentInputRef = useRef(null);
+
+  // Seed `went_live` from the list-card CTA's query param (`?recap=yes|no`)
+  // only on initial mount. Re-running on recap changes would overwrite
+  // the user's in-progress edits.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hint = params.get('recap');
+    if (recap.data.went_live === null) {
+      if (hint === 'yes') recap.setData('went_live', true);
+      if (hint === 'no') recap.setData('went_live', false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const hasVisualProof = (attachments ?? []).some((a) =>
+    a.fileType?.startsWith('image/') || a.fileType?.startsWith('video/')
+  );
 
   const handleCoverChange = (event) => {
     const file = event.target.files?.[0];
@@ -54,12 +86,34 @@ export default function SessionDetail() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = (event) => {
-    event.preventDefault();
+  const handleSave = () => {
     recap.post(`/live-host/sessions/${session.id}/recap`, {
       preserveScroll: true,
       forceFormData: true,
     });
+  };
+
+  const handleMarkMissed = () => {
+    // The missed path has no file upload, so we send JSON (no forceFormData).
+    // That keeps the payload small and avoids multipart parsing quirks in
+    // the Pest v4 in-process browser server, where the missed flow is
+    // exercised end-to-end in a Playwright run.
+    recap.post(`/live-host/sessions/${session.id}/recap`, {
+      preserveScroll: true,
+    });
+  };
+
+  const handleSwitchPath = (nextWentLive) => {
+    if (recap.data.went_live === nextWentLive) {
+      return;
+    }
+    // Warn if flipping away from a saved "missed" decision
+    if (recap.data.went_live === false && nextWentLive === true && session?.status === 'missed') {
+      const ok = window.confirm('Switch from "Did not go live" to "Went live"? Your reason will be cleared.');
+      if (!ok) return;
+    }
+    recap.setData('went_live', nextWentLive);
+    recap.clearErrors();
   };
 
   const handleAttachmentUpload = (event) => {
@@ -98,143 +152,172 @@ export default function SessionDetail() {
 
         <SessionHead session={session} />
 
-        <Section title="Cover image" hint="image_path">
-          <CoverUpload
-            preview={coverPreview}
-            onPick={() => coverInputRef.current?.click()}
-          />
-          <input
-            ref={coverInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleCoverChange}
-          />
-          {recap.errors.cover_image ? (
-            <FieldError>{recap.errors.cover_image}</FieldError>
-          ) : null}
-        </Section>
+        <PathSwitch
+          value={recap.data.went_live}
+          onChange={handleSwitchPath}
+        />
 
-        <Section title="Timing" hint="actual_start_at / actual_end_at">
-          <div className="grid grid-cols-1 gap-[10px]">
-            <DateTimeField
-              label="Actual start"
-              name="actual_start_at"
-              value={recap.data.actual_start_at}
-              onChange={(v) => recap.setData('actual_start_at', v)}
-              error={recap.errors.actual_start_at}
-            />
-            <DateTimeField
-              label="Actual end"
-              name="actual_end_at"
-              value={recap.data.actual_end_at}
-              onChange={(v) => recap.setData('actual_end_at', v)}
-              error={recap.errors.actual_end_at}
-            />
-          </div>
-        </Section>
+        {recap.data.went_live === true ? (
+          <>
+            <Section title="Cover image" hint="image_path">
+              <CoverUpload
+                preview={coverPreview}
+                onPick={() => coverInputRef.current?.click()}
+              />
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCoverChange}
+              />
+              {recap.errors.cover_image ? (
+                <FieldError>{recap.errors.cover_image}</FieldError>
+              ) : null}
+            </Section>
 
-        <Section title="Analytics" hint="LiveAnalytics">
-          <div className="grid grid-cols-2 gap-[10px]">
-            <NumberField
-              label="Peak viewers"
-              hint="viewers_peak"
-              value={recap.data.viewers_peak}
-              onChange={(v) => recap.setData('viewers_peak', v)}
-              error={recap.errors.viewers_peak}
-              accent
-            />
-            <NumberField
-              label="Avg viewers"
-              hint="viewers_avg"
-              value={recap.data.viewers_avg}
-              onChange={(v) => recap.setData('viewers_avg', v)}
-              error={recap.errors.viewers_avg}
-            />
-            <NumberField
-              label="Likes"
-              hint="total_likes"
-              value={recap.data.total_likes}
-              onChange={(v) => recap.setData('total_likes', v)}
-              error={recap.errors.total_likes}
-            />
-            <NumberField
-              label="Comments"
-              hint="total_comments"
-              value={recap.data.total_comments}
-              onChange={(v) => recap.setData('total_comments', v)}
-              error={recap.errors.total_comments}
-            />
-            <NumberField
-              label="Shares"
-              hint="total_shares"
-              value={recap.data.total_shares}
-              onChange={(v) => recap.setData('total_shares', v)}
-              error={recap.errors.total_shares}
-            />
-            <NumberField
-              label="Gifts value (RM)"
-              hint="gifts_value"
-              value={recap.data.gifts_value}
-              onChange={(v) => recap.setData('gifts_value', v)}
-              error={recap.errors.gifts_value}
-              accent
-              step="0.01"
-            />
-          </div>
-        </Section>
-
-        <Section title="Your remarks" hint="remarks">
-          <textarea
-            value={recap.data.remarks}
-            onChange={(e) => recap.setData('remarks', e.target.value)}
-            placeholder="How did the session go?"
-            rows={4}
-            className="w-full resize-none rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[12px] py-[10px] text-[13px] leading-snug text-[var(--fg)] placeholder:text-[var(--fg-3)] focus:border-[var(--accent)] focus:outline-none"
-          />
-          {recap.errors.remarks ? (
-            <FieldError>{recap.errors.remarks}</FieldError>
-          ) : null}
-        </Section>
-
-        <Section title="Attachments" hint="LiveSessionAttachment">
-          <div className="space-y-[8px]">
-            {Array.isArray(attachments) && attachments.length > 0 ? (
-              attachments.map((attachment) => (
-                <AttachmentRow
-                  key={attachment.id}
-                  attachment={attachment}
-                  onDelete={() => handleAttachmentDelete(attachment.id)}
+            <Section title="Timing" hint="actual_start_at / actual_end_at">
+              <div className="grid grid-cols-1 gap-[10px]">
+                <DateTimeField
+                  label="Actual start"
+                  name="actual_start_at"
+                  value={recap.data.actual_start_at}
+                  onChange={(v) => recap.setData('actual_start_at', v)}
+                  error={recap.errors.actual_start_at}
                 />
-              ))
-            ) : null}
-            <button
-              type="button"
-              onClick={() => attachmentInputRef.current?.click()}
-              className="flex w-full items-center justify-center gap-[8px] rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-[12px] py-[14px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-            >
-              <Plus className="h-[14px] w-[14px]" strokeWidth={2} />
-              Add file
-            </button>
-            <input
-              ref={attachmentInputRef}
-              type="file"
-              className="hidden"
-              onChange={handleAttachmentUpload}
-            />
-          </div>
-        </Section>
+                <DateTimeField
+                  label="Actual end"
+                  name="actual_end_at"
+                  value={recap.data.actual_end_at}
+                  onChange={(v) => recap.setData('actual_end_at', v)}
+                  error={recap.errors.actual_end_at}
+                />
+              </div>
+            </Section>
 
-        <div className="pt-3">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={recap.processing}
-            className="w-full rounded-[12px] bg-[var(--accent)] px-4 py-[13px] font-sans text-[14px] font-bold tracking-[-0.005em] text-[var(--accent-ink)] transition active:scale-[0.98] disabled:opacity-60"
-          >
-            {recap.processing ? 'Saving...' : 'Save recap'}
-          </button>
-        </div>
+            <Section title="Analytics" hint="LiveAnalytics">
+              <div className="grid grid-cols-2 gap-[10px]">
+                <NumberField
+                  label="Peak viewers"
+                  hint="viewers_peak"
+                  value={recap.data.viewers_peak}
+                  onChange={(v) => recap.setData('viewers_peak', v)}
+                  error={recap.errors.viewers_peak}
+                  accent
+                />
+                <NumberField
+                  label="Avg viewers"
+                  hint="viewers_avg"
+                  value={recap.data.viewers_avg}
+                  onChange={(v) => recap.setData('viewers_avg', v)}
+                  error={recap.errors.viewers_avg}
+                />
+                <NumberField
+                  label="Likes"
+                  hint="total_likes"
+                  value={recap.data.total_likes}
+                  onChange={(v) => recap.setData('total_likes', v)}
+                  error={recap.errors.total_likes}
+                />
+                <NumberField
+                  label="Comments"
+                  hint="total_comments"
+                  value={recap.data.total_comments}
+                  onChange={(v) => recap.setData('total_comments', v)}
+                  error={recap.errors.total_comments}
+                />
+                <NumberField
+                  label="Shares"
+                  hint="total_shares"
+                  value={recap.data.total_shares}
+                  onChange={(v) => recap.setData('total_shares', v)}
+                  error={recap.errors.total_shares}
+                />
+                <NumberField
+                  label="Gifts value (RM)"
+                  hint="gifts_value"
+                  value={recap.data.gifts_value}
+                  onChange={(v) => recap.setData('gifts_value', v)}
+                  error={recap.errors.gifts_value}
+                  accent
+                  step="0.01"
+                />
+              </div>
+            </Section>
+
+            <Section title="Your remarks" hint="remarks">
+              <textarea
+                value={recap.data.remarks}
+                onChange={(e) => recap.setData('remarks', e.target.value)}
+                placeholder="How did the session go?"
+                rows={4}
+                className="w-full resize-none rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[12px] py-[10px] text-[13px] leading-snug text-[var(--fg)] placeholder:text-[var(--fg-3)] focus:border-[var(--accent)] focus:outline-none"
+              />
+              {recap.errors.remarks ? (
+                <FieldError>{recap.errors.remarks}</FieldError>
+              ) : null}
+            </Section>
+
+            <Section title="Attachments" hint="LiveSessionAttachment">
+              <div className="space-y-[8px]">
+                {Array.isArray(attachments) && attachments.length > 0 ? (
+                  attachments.map((attachment) => (
+                    <AttachmentRow
+                      key={attachment.id}
+                      attachment={attachment}
+                      onDelete={() => handleAttachmentDelete(attachment.id)}
+                    />
+                  ))
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => attachmentInputRef.current?.click()}
+                  className="flex w-full items-center justify-center gap-[8px] rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-[12px] py-[14px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                >
+                  <Plus className="h-[14px] w-[14px]" strokeWidth={2} />
+                  Add file
+                </button>
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleAttachmentUpload}
+                />
+              </div>
+            </Section>
+
+            <ProofHint hasVisualProof={hasVisualProof} error={recap.errors.proof} />
+
+            <div className="pt-3">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={recap.processing || !hasVisualProof}
+                className="w-full rounded-[12px] bg-[var(--accent)] px-4 py-[13px] font-sans text-[14px] font-bold tracking-[-0.005em] text-[var(--accent-ink)] transition active:scale-[0.98] disabled:opacity-60"
+              >
+                {recap.processing ? 'Saving...' : 'Save recap'}
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {recap.data.went_live === false ? (
+          <MissedReasonForm
+            reasonCode={recap.data.missed_reason_code}
+            onReasonCodeChange={(v) => recap.setData('missed_reason_code', v)}
+            note={recap.data.missed_reason_note}
+            onNoteChange={(v) => recap.setData('missed_reason_note', v)}
+            errors={recap.errors}
+            processing={recap.processing}
+            onSubmit={handleMarkMissed}
+          />
+        ) : null}
+
+        {recap.data.went_live === null ? (
+          <div className="mb-[10px] rounded-[14px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 py-6 text-center text-[12px] text-[var(--fg-3)]">
+            Choose above whether you went live so we can show the right form.
+          </div>
+        ) : null}
       </div>
     </>
   );
@@ -467,6 +550,134 @@ function FieldError({ children }) {
     <div className="mt-[4px] font-mono text-[10px] font-medium text-[var(--hot)]">
       {children}
     </div>
+  );
+}
+
+function PathSwitch({ value, onChange }) {
+  return (
+    <div className="mb-4">
+      <div className="mb-2 px-1">
+        <h4 id="path-switch-label" className="font-display text-[12.5px] font-medium tracking-[-0.01em] text-[var(--fg)]">
+          Did you go live?
+        </h4>
+      </div>
+      <div role="group" aria-labelledby="path-switch-label" className="grid grid-cols-2 gap-[8px]">
+        <PathButton
+          active={value === true}
+          onClick={() => onChange(true)}
+          accent
+        >
+          Yes, I went live
+        </PathButton>
+        <PathButton
+          active={value === false}
+          onClick={() => onChange(false)}
+        >
+          No, I missed it
+        </PathButton>
+      </div>
+    </div>
+  );
+}
+
+function PathButton({ active, onClick, accent = false, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'rounded-[12px] border px-[12px] py-[12px] text-left font-display text-[13px] font-medium leading-tight tracking-[-0.01em] transition',
+        active && accent
+          ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+          : active
+            ? 'border-[var(--hot)] bg-[rgba(225,29,72,0.08)] text-[var(--hot)]'
+            : 'border-[var(--hair)] bg-[var(--app-bg-2)] text-[var(--fg-2)]'
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ProofHint({ hasVisualProof, error }) {
+  if (hasVisualProof && !error) {
+    return (
+      <div className="mb-3 rounded-[10px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+        Proof attached &check;
+      </div>
+    );
+  }
+  return (
+    <div className="mb-3 rounded-[10px] border border-[var(--hot)] bg-[rgba(225,29,72,0.08)] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--hot)]">
+      {error ?? 'Proof \u00b7 image or video attachment required'}
+    </div>
+  );
+}
+
+function MissedReasonForm({
+  reasonCode,
+  onReasonCodeChange,
+  note,
+  onNoteChange,
+  errors,
+  processing,
+  onSubmit,
+}) {
+  return (
+    <>
+      <Section title="Why didn't you go live?" hint="missed_reason_code">
+        <div
+          role="radiogroup"
+          aria-label="Why didn't you go live?"
+          className="space-y-[6px]"
+        >
+          {MISSED_REASONS.map((r) => (
+            <label
+              key={r.code}
+              className={cn(
+                'flex cursor-pointer items-center gap-[10px] rounded-[10px] border bg-[var(--app-bg-2)] px-[12px] py-[10px] text-[13px]',
+                reasonCode === r.code ? 'border-[var(--hot)]' : 'border-[var(--hair)]'
+              )}
+            >
+              <input
+                type="radio"
+                name="missed_reason_code"
+                value={r.code}
+                checked={reasonCode === r.code}
+                onChange={() => onReasonCodeChange(r.code)}
+                className="h-[14px] w-[14px] accent-[var(--hot)]"
+              />
+              <span className="text-[var(--fg)]">{r.label}</span>
+            </label>
+          ))}
+        </div>
+        {errors.missed_reason_code ? <FieldError>{errors.missed_reason_code}</FieldError> : null}
+      </Section>
+
+      <Section title="Note (optional)" hint="missed_reason_note">
+        <textarea
+          value={note}
+          onChange={(e) => onNoteChange(e.target.value)}
+          placeholder="Add any context admin should see"
+          rows={3}
+          maxLength={500}
+          className="w-full resize-none rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[12px] py-[10px] text-[13px] leading-snug text-[var(--fg)] placeholder:text-[var(--fg-3)] focus:border-[var(--hot)] focus:outline-none"
+        />
+        {errors.missed_reason_note ? <FieldError>{errors.missed_reason_note}</FieldError> : null}
+      </Section>
+
+      <div className="pt-3">
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={processing || !reasonCode}
+          className="w-full rounded-[12px] bg-[var(--hot)] px-4 py-[13px] font-sans text-[14px] font-bold tracking-[-0.005em] text-white transition active:scale-[0.98] disabled:opacity-60"
+        >
+          {processing ? 'Saving...' : 'Mark as missed'}
+        </button>
+      </div>
+    </>
   );
 }
 
