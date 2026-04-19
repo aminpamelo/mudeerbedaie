@@ -453,10 +453,9 @@
                     data-section='liveStreaming' x-init="if (!isExpanded('liveStreaming')) { $nextTick(() => { const btn = $el.querySelector('button'); if (btn && $el.hasAttribute('open')) btn.click(); }); }"
                     @click="saveState('liveStreaming', $event)"
                 >
-                    <flux:navlist.item icon="video-camera" :href="route('live-host.dashboard')" :current="request()->routeIs('live-host.dashboard')" wire:navigate>{{ __('Live Dashboard') }}</flux:navlist.item>
-                    <flux:navlist.item icon="calendar" :href="route('live-host.schedule')" :current="request()->routeIs('live-host.schedule')" wire:navigate>{{ __('My Schedule') }}</flux:navlist.item>
-                    <flux:navlist.item icon="arrow-up-tray" :href="route('live-host.session-slots')" :current="request()->routeIs('live-host.session-slots')" wire:navigate>{{ __('Session Slots') }}</flux:navlist.item>
-                    <flux:navlist.item icon="play-circle" :href="route('live-host.sessions.index')" :current="request()->routeIs('live-host.sessions.*')" wire:navigate>{{ __('My Sessions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="video-camera" :href="route('live-host.dashboard')" :current="request()->routeIs('live-host.dashboard')">{{ __('Live Dashboard') }}</flux:navlist.item>
+                    <flux:navlist.item icon="calendar" :href="route('live-host.schedule')" :current="request()->routeIs('live-host.schedule')">{{ __('My Schedule') }}</flux:navlist.item>
+                    <flux:navlist.item icon="play-circle" :href="route('live-host.sessions.index')" :current="request()->routeIs('live-host.sessions.*')">{{ __('My Sessions') }}</flux:navlist.item>
                     @if(Route::has('it-request.create'))
                     <flux:navlist.item icon="clipboard-document-list" :href="route('it-request.create')" :current="request()->routeIs('it-request.*')" wire:navigate>{{ __('IT Request') }}</flux:navlist.item>
                     @endif
