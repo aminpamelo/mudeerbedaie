@@ -493,7 +493,9 @@ class User extends Authenticatable
      */
     public function commissionProfile(): HasOne
     {
-        return $this->hasOne(LiveHostCommissionProfile::class)->where('is_active', true);
+        return $this->hasOne(LiveHostCommissionProfile::class)
+            ->where('is_active', true)
+            ->latestOfMany('effective_from');
     }
 
     /**
@@ -517,7 +519,7 @@ class User extends Authenticatable
      * Get the direct (L1) downline hosts — users whose active commission
      * profile points to this user as upline.
      */
-    public function directDownlines()
+    public function directDownlines(): \Illuminate\Database\Eloquent\Builder
     {
         return User::query()
             ->whereHas('commissionProfile', fn ($q) => $q->where('upline_user_id', $this->id));
@@ -527,7 +529,7 @@ class User extends Authenticatable
      * Get the L2 downline hosts — users whose upline is one of this user's
      * direct downlines.
      */
-    public function l2Downlines()
+    public function l2Downlines(): \Illuminate\Database\Eloquent\Builder
     {
         $directIds = $this->directDownlines()->pluck('users.id');
 
