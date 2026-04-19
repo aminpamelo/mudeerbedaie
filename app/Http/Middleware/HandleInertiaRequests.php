@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\LiveSchedule;
 use App\Models\LiveSession;
+use App\Models\PlatformAccount;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -64,7 +65,7 @@ class HandleInertiaRequests extends Middleware
      * PIC/admin page shows real numbers without each controller passing them
      * through manually. Cached briefly to keep the cost negligible.
      *
-     * @return array{hosts: int, schedules: int, sessions: int}|null
+     * @return array{hosts: int, schedules: int, sessions: int, platformAccounts: int}|null
      */
     private function navCounts(Request $request): ?array
     {
@@ -78,6 +79,7 @@ class HandleInertiaRequests extends Middleware
             'hosts' => User::query()->where('role', 'live_host')->count(),
             'schedules' => LiveSchedule::query()->where('is_active', true)->count(),
             'sessions' => LiveSession::query()->count(),
+            'platformAccounts' => PlatformAccount::query()->count(),
         ]);
     }
 }

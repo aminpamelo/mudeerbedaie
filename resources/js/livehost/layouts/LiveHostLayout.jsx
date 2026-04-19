@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   Play,
   Search,
+  Store,
   ChevronsUpDown,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
@@ -23,6 +24,7 @@ const NAV_GROUPS = [
     items: [
       { label: 'Time Slots', href: '/livehost/time-slots', icon: Clock },
       { label: 'Session Slots', href: '/livehost/session-slots', icon: LayoutGrid },
+      { label: 'Platform Accounts', href: '/livehost/platform-accounts', icon: Store, countKey: 'platformAccounts' },
     ],
   },
   {
