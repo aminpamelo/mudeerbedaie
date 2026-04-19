@@ -149,14 +149,60 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->group(function (
     Volt::route('enrollments/{enrollment}', 'teacher.enrollments-show')->name('teacher.enrollments.show');
 });
 
-// Live Host routes - accessible by live hosts only
-Route::middleware(['auth', 'role:live_host'])->prefix('live-host')->name('live-host.')->group(function () {
-    Volt::route('dashboard', 'live-host.dashboard')->name('dashboard');
-    Volt::route('schedule', 'live-host.schedule')->name('schedule');
-    Volt::route('session-slots', 'live-host.session-upload')->name('session-slots');
-    Volt::route('sessions', 'live-host.sessions-index')->name('sessions.index');
-    Volt::route('sessions/{session}', 'live-host.sessions-show')->name('sessions.show');
-});
+// Live Host Pocket (Inertia) — host-side mobile shell.
+// All five Pocket screens (Today, Schedule, Sessions, Session Detail/Recap,
+// You) are now real Inertia pages mounted under this prefix. The legacy
+// Volt views in resources/views/livewire/live-host/ have been retired.
+//
+// `live-host.session-slots` has no direct Pocket equivalent — it used to
+// serve a "pending uploads" queue. That role is now fulfilled by the ended
+// tab on the Sessions list (`/live-host/sessions?filter=ended`); the route
+// name is kept as a redirect so any external link or sidebar reference still
+// resolves.
+Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketInertiaRequests::class])
+    ->prefix('live-host')
+    ->name('live-host.')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'index'])
+            ->name('dashboard');
+
+        Route::get('schedule', [\App\Http\Controllers\LiveHostPocket\ScheduleController::class, 'index'])
+            ->name('schedule');
+
+        Route::get('sessions', [\App\Http\Controllers\LiveHostPocket\SessionsController::class, 'index'])
+            ->name('sessions.index');
+
+        Route::get('sessions/{session}', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'show'])
+            ->name('sessions.show');
+
+        Route::post('sessions/{session}/recap', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'saveRecap'])
+            ->name('sessions.recap');
+
+        Route::post('sessions/{session}/attachments', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'addAttachment'])
+            ->name('sessions.attachments.store');
+
+        Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHostPocket\SessionDetailController::class, 'deleteAttachment'])
+            ->name('sessions.attachments.destroy');
+
+        Route::post('sessions/{session}/end', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'endSession'])
+            ->name('sessions.end');
+
+        Route::get('me', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'show'])
+            ->name('me');
+    });
+
+// Redirect the legacy `live-host.session-slots` route name to the ended
+// sessions tab. The URL /live-host/session-slots is kept so any hardcoded
+// external link (older notifications, bookmarks) still lands somewhere
+// useful. This stub can be retired once all sidebars/bookmarks have been
+// migrated to the real Pocket routes.
+Route::middleware(['auth', 'role:live_host'])
+    ->prefix('live-host')
+    ->name('live-host.')
+    ->group(function () {
+        Route::get('session-slots', fn () => redirect('/live-host/sessions?filter=ended'))
+            ->name('session-slots');
+    });
 
 // Live Host PIC (Inertia) — accessible by admin_livehost + admin
 Route::middleware(['auth', 'role:admin_livehost,admin'])
@@ -189,7 +235,15 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->except(['show'])
             ->parameters(['time-slots' => 'timeSlot']);
 
+        Route::get('session-slots/calendar', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
+            ->name('session-slots.calendar');
+        Route::get('session-slots/table', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'index'])
+            ->name('session-slots.table');
+        Route::get('session-slots', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
+            ->name('session-slots.index');
+
         Route::resource('session-slots', \App\Http\Controllers\LiveHost\SessionSlotController::class)
+            ->except(['index'])
             ->parameters(['session-slots' => 'sessionSlot']);
 
         Route::resource('platform-accounts', \App\Http\Controllers\LiveHost\PlatformAccountController::class)

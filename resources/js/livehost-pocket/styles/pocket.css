@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+/*
+ * Live Host Pocket — mobile-first design tokens.
+ *
+ * Palette derived from docs/design-mockups/livehost-mobile-v3-grounded.html
+ * (grounded violet theme). These tokens are scoped to the Pocket bundle so
+ * they do not leak into the Live Host Desk (PIC) palette.
+ */
+@theme {
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-display: "Unbounded", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Canvas */
+  --color-pocket-bg: #F0F0F5;
+  --color-pocket-surface: #FFFFFF;
+  --color-pocket-surface-2: #F8F7FA;
+  --color-pocket-border: #E6E4EC;
+  --color-pocket-border-2: #EFEDF3;
+
+  /* Ink */
+  --color-pocket-ink: #0A0A0F;
+  --color-pocket-ink-2: #2A2730;
+  --color-pocket-muted: #6B6775;
+  --color-pocket-muted-2: #A09CAA;
+
+  /* Accent (violet) */
+  --color-pocket-accent: #7C3AED;
+  --color-pocket-accent-soft: #F3EEFF;
+  --color-pocket-accent-ink: #5B21B6;
+
+  /* State */
+  --color-pocket-live: #EF4444;
+  --color-pocket-live-soft: #FEF2F2;
+  --color-pocket-success: #10B981;
+  --color-pocket-success-soft: #ECFDF5;
+  --color-pocket-warning: #F59E0B;
+  --color-pocket-warning-soft: #FFFBEB;
+
+  /* Elevation */
+  --radius-pocket-card: 20px;
+  --radius-pocket-pill: 999px;
+  --shadow-pocket-card: 0 1px 2px rgba(10, 10, 15, 0.04), 0 8px 24px -8px rgba(10, 10, 15, 0.06);
+  --shadow-pocket-fab: 0 10px 28px -6px rgba(124, 58, 237, 0.50), 0 4px 10px -2px rgba(124, 58, 237, 0.35);
+}
+
+/*
+ * Screen-level CSS variables used by Today (and upcoming Pocket screens).
+ *
+ * Mirrors the `.phone--light` palette from
+ * docs/design-mockups/livehost-mobile-v3-grounded.html so components can
+ * reference the tokens by their mockup name (--app-bg-2, --fg-3, --hair,
+ * --accent-soft, etc.) without translating every rule. Dark mode is out of
+ * scope for Batch 2 — the Pocket ships light-only until a theme toggle
+ * lands.
+ */
+.pocket-shell {
+  --app-bg: #F8F7FA;
+  --app-bg-2: #FFFFFF;
+  --app-bg-3: #F1EEF7;
+  --fg: #14101F;
+  --fg-1: rgba(20, 16, 31, 0.86);
+  --fg-2: rgba(20, 16, 31, 0.60);
+  --fg-3: rgba(20, 16, 31, 0.40);
+  --fg-4: rgba(20, 16, 31, 0.14);
+  --hair: rgba(20, 16, 31, 0.08);
+  --hair-2: rgba(20, 16, 31, 0.14);
+  --accent: #7C3AED;
+  --accent-soft: rgba(124, 58, 237, 0.10);
+  --accent-ink: #FFFFFF;
+  --cool: #2563EB;
+  --warm: #F59E0B;
+  --hot: #E11D48;
+}
+
+/* Pulsing accent diode — used on the greeting pretitle and the LIVE NOW
+ * badge. The keyframes match the mockup exactly so the rhythm carries over. */
+.pocket-diode {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: pocket-diode-pulse 1.4s ease-out infinite;
+}
+
+@keyframes pocket-diode-pulse {
+  50% {
+    box-shadow: 0 0 0 3px var(--accent-soft), 0 0 8px var(--accent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent, 0 0 8px var(--accent);
+  }
+}
+
+html,
+body {
+  background: var(--color-pocket-bg);
+  color: var(--color-pocket-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-sans);
+}
+
+/* Prevent accidental horizontal scroll on narrow viewports. */
+body {
+  overflow-x: hidden;
+}
+
+/* Pocket pages opt into a constrained mobile column on desktop so they still
+ * feel like a phone shell when viewed in a browser. */
+.pocket-shell {
+  min-height: 100vh;
+  max-width: 480px;
+  margin-inline: auto;
+  background: var(--color-pocket-bg);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Safe-area helpers for iOS. */
+.pocket-safe-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.pocket-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
