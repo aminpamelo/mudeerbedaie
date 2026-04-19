@@ -267,6 +267,10 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('sessions.attachments.store');
         Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHost\SessionController::class, 'destroyAttachment'])
             ->name('sessions.attachments.destroy');
+        Route::post('sessions/{session}/adjustments', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'store'])
+            ->name('sessions.adjustments.store');
+        Route::delete('sessions/{session}/adjustments/{adjustment}', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'destroy'])
+            ->name('sessions.adjustments.destroy');
     });
 
 // Public Live Schedule - accessible by everyone
