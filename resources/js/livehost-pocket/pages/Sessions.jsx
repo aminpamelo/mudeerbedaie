@@ -153,7 +153,7 @@ function SessionCard({ session }) {
 
       {(isEnded || isLive) ? (
         <Link
-          href={isLive ? '/live-host' : `/live-host/sessions/${session.id}`}
+          href={`/live-host/sessions/${session.id}`}
           className="mt-[10px] block border-t border-[var(--hair)] pt-[10px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]"
         >
           {isLive ? 'Manage session \u2192' : 'Open recap & upload \u2192'}
