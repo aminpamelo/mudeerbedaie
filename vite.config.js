@@ -31,6 +31,8 @@ export default defineConfig({
                 'resources/js/cms/styles/cms.css',
                 'resources/js/livehost/app.jsx',
                 'resources/js/livehost/styles/livehost.css',
+                'resources/js/livehost-pocket/app.jsx',
+                'resources/js/livehost-pocket/styles/pocket.css',
             ],
             refresh: true,
         }),

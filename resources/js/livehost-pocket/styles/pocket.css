@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/*
+ * Live Host Pocket — mobile-first design tokens.
+ *
+ * Palette derived from docs/design-mockups/livehost-mobile-v3-grounded.html
+ * (grounded violet theme). These tokens are scoped to the Pocket bundle so
+ * they do not leak into the Live Host Desk (PIC) palette.
+ */
+@theme {
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-display: "Unbounded", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Canvas */
+  --color-pocket-bg: #F0F0F5;
+  --color-pocket-surface: #FFFFFF;
+  --color-pocket-surface-2: #F8F7FA;
+  --color-pocket-border: #E6E4EC;
+  --color-pocket-border-2: #EFEDF3;
+
+  /* Ink */
+  --color-pocket-ink: #0A0A0F;
+  --color-pocket-ink-2: #2A2730;
+  --color-pocket-muted: #6B6775;
+  --color-pocket-muted-2: #A09CAA;
+
+  /* Accent (violet) */
+  --color-pocket-accent: #7C3AED;
+  --color-pocket-accent-soft: #F3EEFF;
+  --color-pocket-accent-ink: #5B21B6;
+
+  /* State */
+  --color-pocket-live: #EF4444;
+  --color-pocket-live-soft: #FEF2F2;
+  --color-pocket-success: #10B981;
+  --color-pocket-success-soft: #ECFDF5;
+  --color-pocket-warning: #F59E0B;
+  --color-pocket-warning-soft: #FFFBEB;
+
+  /* Elevation */
+  --radius-pocket-card: 20px;
+  --radius-pocket-pill: 999px;
+  --shadow-pocket-card: 0 1px 2px rgba(10, 10, 15, 0.04), 0 8px 24px -8px rgba(10, 10, 15, 0.06);
+  --shadow-pocket-fab: 0 10px 28px -6px rgba(124, 58, 237, 0.50), 0 4px 10px -2px rgba(124, 58, 237, 0.35);
+}
+
+html,
+body {
+  background: var(--color-pocket-bg);
+  color: var(--color-pocket-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-sans);
+}
+
+/* Prevent accidental horizontal scroll on narrow viewports. */
+body {
+  overflow-x: hidden;
+}
+
+/* Pocket pages opt into a constrained mobile column on desktop so they still
+ * feel like a phone shell when viewed in a browser. */
+.pocket-shell {
+  min-height: 100vh;
+  max-width: 480px;
+  margin-inline: auto;
+  background: var(--color-pocket-bg);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Safe-area helpers for iOS. */
+.pocket-safe-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.pocket-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
