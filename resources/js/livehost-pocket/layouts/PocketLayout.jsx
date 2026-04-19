@@ -13,14 +13,16 @@ import { cn } from '@/livehost-pocket/lib/utils';
  * Pocket shell — iOS-style phone layout with a fake status bar, scrollable
  * body, and a bottom tab bar with an elevated "Go Live" FAB at the center.
  *
- * For Batch 1 the only wired tab is "Today" (`/live-host`). The other tabs
- * render as `#` links so the shell is visible end-to-end; Batches 2-4 point
- * them at the real routes as those screens land.
+ * Today / Schedule / Sessions now point at real Inertia routes
+ * (Batches 2-3). "You" remains a placeholder until a profile screen lands.
+ * The FAB simply routes back to Today — a live-card there carries the real
+ * "Manage session" CTAs; a later batch can swap in a dedicated go-live
+ * action once the backend contract is ready.
  */
 const TABS = [
   { key: 'today', label: 'Today', href: '/live-host', icon: Home },
-  { key: 'schedule', label: 'Schedule', href: '#', icon: CalendarDays },
-  { key: 'sessions', label: 'Sessions', href: '#', icon: ListChecks },
+  { key: 'schedule', label: 'Schedule', href: '/live-host/schedule', icon: CalendarDays },
+  { key: 'sessions', label: 'Sessions', href: '/live-host/sessions', icon: ListChecks },
   { key: 'you', label: 'You', href: '#', icon: UserIcon },
 ];
 
@@ -70,7 +72,7 @@ function TabBar({ currentPath }) {
 
             <div className="relative flex justify-center">
               <Link
-                href="#"
+                href="/live-host"
                 className="pointer-events-auto -mt-8 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-pocket-accent)] text-white shadow-[var(--shadow-pocket-fab)] transition active:scale-95"
                 aria-label="Go live"
               >

@@ -166,22 +166,29 @@ Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketIn
         Route::get('/', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'index'])
             ->name('dashboard');
 
+        Route::get('sessions', [\App\Http\Controllers\LiveHostPocket\SessionsController::class, 'index'])
+            ->name('sessions.index');
+
+        Route::get('schedule', [\App\Http\Controllers\LiveHostPocket\ScheduleController::class, 'index'])
+            ->name('schedule');
+
         Route::post('sessions/{session}/end', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'endSession'])
             ->name('sessions.end');
     });
 
 // Temporary legacy-path redirects so hosts and notifications hitting the old
-// Volt URLs land on the Pocket today screen instead of a 404. Names are kept
-// 1:1 with the old Volt routes so `route('live-host.schedule')` etc. still
-// resolves across the app.
+// Volt URLs that haven't shipped as Inertia yet still land somewhere useful.
+// `sessions.show` redirects to the real sessions list (Batch 3) so the
+// "View detail" link on the Today live-card doesn't 404 until Batch 4 wires
+// the detail route. `session-slots` stays pointed at home until the upload
+// flow lands. Names are preserved so `route('live-host.sessions.show', …)`
+// and `route('live-host.session-slots')` keep resolving across the app.
 Route::middleware(['auth', 'role:live_host'])
     ->prefix('live-host')
     ->name('live-host.')
     ->group(function () {
-        Route::get('schedule', fn () => redirect('/live-host'))->name('schedule');
         Route::get('session-slots', fn () => redirect('/live-host'))->name('session-slots');
-        Route::get('sessions', fn () => redirect('/live-host'))->name('sessions.index');
-        Route::get('sessions/{session}', fn ($session) => redirect('/live-host'))
+        Route::get('sessions/{session}', fn () => redirect('/live-host/sessions'))
             ->where('session', '.*')
             ->name('sessions.show');
     });
