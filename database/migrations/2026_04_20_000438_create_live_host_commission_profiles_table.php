@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('live_host_commission_profiles', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->decimal('base_salary_myr', 10, 2)->default(0);
             $table->decimal('per_live_rate_myr', 10, 2)->default(0);
             $table->foreignId('upline_user_id')->nullable()->constrained('users')->nullOnDelete();
@@ -27,6 +27,7 @@ return new class extends Migration
 
             $table->index(['user_id', 'is_active']);
             $table->index('upline_user_id');
+            $table->unique(['user_id', 'effective_from'], 'uniq_host_commission_profile_effective');
         });
     }
 
