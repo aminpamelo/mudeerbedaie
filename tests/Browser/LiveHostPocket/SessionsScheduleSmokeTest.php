@@ -34,3 +34,34 @@ it('renders schedule for host', function () {
         ->assertSee('Your schedule')
         ->assertNoJavascriptErrors();
 });
+
+it('renders session detail recap page for host', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    $session = LiveSession::factory()->create([
+        'live_host_id' => $host->id,
+        'status' => 'ended',
+        'title' => 'Morning Live Skincare',
+    ]);
+
+    $this->actingAs($host);
+
+    visit("/live-host/sessions/{$session->id}")
+        ->assertSee('Morning Live Skincare')
+        ->assertSee('Save recap')
+        ->assertNoJavascriptErrors();
+});
+
+it('renders profile page for host', function () {
+    $host = User::factory()->create([
+        'role' => 'live_host',
+        'name' => 'Wan Azman',
+        'email' => 'wan@example.com',
+    ]);
+
+    $this->actingAs($host);
+
+    visit('/live-host/me')
+        ->assertSee('Wan Azman')
+        ->assertSee('Sign out')
+        ->assertNoJavascriptErrors();
+});
