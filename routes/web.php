@@ -165,6 +165,9 @@ Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketIn
     ->group(function () {
         Route::get('/', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'index'])
             ->name('dashboard');
+
+        Route::post('sessions/{session}/end', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'endSession'])
+            ->name('sessions.end');
     });
 
 // Temporary legacy-path redirects so hosts and notifications hitting the old
