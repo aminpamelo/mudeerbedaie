@@ -1,8 +1,9 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { CalendarDays, Eye, List, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
+import WeeklyCalendar from '@/livehost/components/WeeklyCalendar';
 import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
 
@@ -25,7 +26,11 @@ function formatTimeRange(startTime, endTime) {
 }
 
 export default function SchedulesIndex() {
-  const { schedules, filters, hosts, platformAccounts } = usePage().props;
+  const { schedules, filters, hosts, platformAccounts, viewMode } = usePage().props;
+  const currentView = viewMode === 'calendar' ? 'calendar' : 'list';
+  const scheduleArray = Array.isArray(schedules) ? schedules : schedules.data;
+  const scheduleTotal = Array.isArray(schedules) ? schedules.length : schedules.total;
+
   const [search, setSearch] = useState(filters?.search ?? '');
   const [host, setHost] = useState(filters?.host ?? '');
   const [platformAccount, setPlatformAccount] = useState(filters?.platform_account ?? '');
@@ -53,6 +58,7 @@ export default function SchedulesIndex() {
           platform_account: platformAccount || undefined,
           day_of_week: dayOfWeek !== '' ? dayOfWeek : undefined,
           active: active || undefined,
+          view: currentView === 'calendar' ? 'calendar' : undefined,
         },
         {
           preserveState: true,
@@ -63,7 +69,7 @@ export default function SchedulesIndex() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [search, host, platformAccount, dayOfWeek, active, filters]);
+  }, [search, host, platformAccount, dayOfWeek, active, filters, currentView]);
 
   const clearFilters = () => {
     setSearch('');
@@ -71,6 +77,27 @@ export default function SchedulesIndex() {
     setPlatformAccount('');
     setDayOfWeek('');
     setActive('');
+  };
+
+  const switchView = (nextView) => {
+    if (nextView === currentView) {
+      return;
+    }
+    router.get(
+      '/livehost/schedules',
+      {
+        search: search || undefined,
+        host: host || undefined,
+        platform_account: platformAccount || undefined,
+        day_of_week: dayOfWeek !== '' ? dayOfWeek : undefined,
+        active: active || undefined,
+        view: nextView === 'calendar' ? 'calendar' : undefined,
+      },
+      {
+        preserveState: false,
+        preserveScroll: true,
+      }
+    );
   };
 
   const newScheduleAction = (
@@ -96,8 +123,46 @@ export default function SchedulesIndex() {
               Schedules
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
-              {schedules.total} weekly recurring slot{schedules.total === 1 ? '' : 's'}
+              {scheduleTotal} weekly recurring slot{scheduleTotal === 1 ? '' : 's'}
             </p>
+          </div>
+
+          {/* View toggle */}
+          <div
+            role="tablist"
+            aria-label="View mode"
+            className="inline-flex items-center rounded-lg border border-[#EAEAEA] bg-white p-0.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={currentView === 'list'}
+              onClick={() => switchView('list')}
+              className={[
+                'inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[12.5px] font-medium transition-colors',
+                currentView === 'list'
+                  ? 'bg-[#0A0A0A] text-white'
+                  : 'text-[#525252] hover:bg-[#F5F5F5]',
+              ].join(' ')}
+            >
+              <List className="h-3.5 w-3.5" strokeWidth={2} />
+              List
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={currentView === 'calendar'}
+              onClick={() => switchView('calendar')}
+              className={[
+                'inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[12.5px] font-medium transition-colors',
+                currentView === 'calendar'
+                  ? 'bg-[#0A0A0A] text-white'
+                  : 'text-[#525252] hover:bg-[#F5F5F5]',
+              ].join(' ')}
+            >
+              <CalendarDays className="h-3.5 w-3.5" strokeWidth={2} />
+              Calendar
+            </button>
           </div>
         </div>
 
@@ -171,10 +236,9 @@ export default function SchedulesIndex() {
           )}
         </div>
 
-        {/* Table */}
-        <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          {schedules.data.length === 0 ? (
-            <div className="py-16 text-center">
+        {currentView === 'calendar' ? (
+          scheduleArray.length === 0 ? (
+            <div className="rounded-[16px] border border-[#EAEAEA] bg-white py-16 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="text-sm text-[#737373]">
                 {hasFilters ? 'No schedules found.' : 'No schedules yet — add your first weekly slot.'}
               </div>
@@ -189,133 +253,159 @@ export default function SchedulesIndex() {
               )}
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
-                  <th className="px-5 py-3 text-left">Day</th>
-                  <th className="px-5 py-3 text-left">Time</th>
-                  <th className="px-5 py-3 text-left">Host</th>
-                  <th className="px-5 py-3 text-left">Platform</th>
-                  <th className="px-5 py-3 text-left">Status</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {schedules.data.map((schedule) => (
-                  <tr
-                    key={schedule.id}
-                    className="border-t border-[#F0F0F0] transition-colors hover:bg-[#F5F5F5]"
-                  >
-                    <td className="px-5 py-3.5">
-                      <span
-                        className={`inline-flex min-w-[40px] justify-center rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
-                          DAY_COLORS[schedule.dayOfWeek] ?? 'bg-[#F5F5F5] text-[#737373]'
-                        }`}
+            <WeeklyCalendar schedules={scheduleArray} />
+          )
+        ) : (
+          <>
+            {/* Table */}
+            <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              {scheduleArray.length === 0 ? (
+                <div className="py-16 text-center">
+                  <div className="text-sm text-[#737373]">
+                    {hasFilters
+                      ? 'No schedules found.'
+                      : 'No schedules yet — add your first weekly slot.'}
+                  </div>
+                  {hasFilters && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="mt-2 text-sm font-medium text-[#059669] hover:text-[#047857]"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
+                      <th className="px-5 py-3 text-left">Day</th>
+                      <th className="px-5 py-3 text-left">Time</th>
+                      <th className="px-5 py-3 text-left">Host</th>
+                      <th className="px-5 py-3 text-left">Platform</th>
+                      <th className="px-5 py-3 text-left">Status</th>
+                      <th className="px-5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleArray.map((schedule) => (
+                      <tr
+                        key={schedule.id}
+                        className="border-t border-[#F0F0F0] transition-colors hover:bg-[#F5F5F5]"
                       >
-                        {DAY_NAMES[schedule.dayOfWeek] ?? '—'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 tabular-nums text-[13px] font-medium text-[#0A0A0A]">
-                      {formatTimeRange(schedule.startTime, schedule.endTime)}
-                      {schedule.isRecurring ? (
-                        <span className="ml-2 text-[11px] text-[#737373]">· weekly</span>
-                      ) : null}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {schedule.hostName ? (
-                        <span className="text-[13px] text-[#0A0A0A]">{schedule.hostName}</span>
-                      ) : (
-                        <span className="text-[13px] italic text-[#A3A3A3]">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="text-[13px] text-[#0A0A0A]">
-                        {schedule.platformAccount ?? '—'}
-                      </div>
-                      {schedule.platformType && (
-                        <div className="text-[11px] uppercase tracking-wide text-[#737373]">
-                          {schedule.platformType}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <StatusChip variant={schedule.isActive ? 'active' : 'inactive'} />
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="inline-flex gap-1">
-                        <Link
-                          href={`/livehost/schedules/${schedule.id}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
-                          title="View"
-                        >
-                          <Eye className="h-[14px] w-[14px]" strokeWidth={2} />
-                        </Link>
-                        <Link
-                          href={`/livehost/schedules/${schedule.id}/edit`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
-                          title="Edit"
-                        >
-                          <Pencil className="h-[14px] w-[14px]" strokeWidth={2} />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `Delete the ${DAY_NAMES[schedule.dayOfWeek]} ${schedule.startTime}–${schedule.endTime} slot?`
-                              )
-                            ) {
-                              router.delete(`/livehost/schedules/${schedule.id}`, {
-                                preserveScroll: true,
-                              });
-                            }
-                          }}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FFF1F2] hover:text-[#F43F5E]"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-[14px] w-[14px]" strokeWidth={2} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                        <td className="px-5 py-3.5">
+                          <span
+                            className={`inline-flex min-w-[40px] justify-center rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                              DAY_COLORS[schedule.dayOfWeek] ?? 'bg-[#F5F5F5] text-[#737373]'
+                            }`}
+                          >
+                            {DAY_NAMES[schedule.dayOfWeek] ?? '—'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 tabular-nums text-[13px] font-medium text-[#0A0A0A]">
+                          {formatTimeRange(schedule.startTime, schedule.endTime)}
+                          {schedule.isRecurring ? (
+                            <span className="ml-2 text-[11px] text-[#737373]">· weekly</span>
+                          ) : null}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {schedule.hostName ? (
+                            <span className="text-[13px] text-[#0A0A0A]">{schedule.hostName}</span>
+                          ) : (
+                            <span className="text-[13px] italic text-[#A3A3A3]">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="text-[13px] text-[#0A0A0A]">
+                            {schedule.platformAccount ?? '—'}
+                          </div>
+                          {schedule.platformType && (
+                            <div className="text-[11px] uppercase tracking-wide text-[#737373]">
+                              {schedule.platformType}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <StatusChip variant={schedule.isActive ? 'active' : 'inactive'} />
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="inline-flex gap-1">
+                            <Link
+                              href={`/livehost/schedules/${schedule.id}`}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                              title="View"
+                            >
+                              <Eye className="h-[14px] w-[14px]" strokeWidth={2} />
+                            </Link>
+                            <Link
+                              href={`/livehost/schedules/${schedule.id}/edit`}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                              title="Edit"
+                            >
+                              <Pencil className="h-[14px] w-[14px]" strokeWidth={2} />
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Delete the ${DAY_NAMES[schedule.dayOfWeek]} ${schedule.startTime}–${schedule.endTime} slot?`
+                                  )
+                                ) {
+                                  router.delete(`/livehost/schedules/${schedule.id}`, {
+                                    preserveScroll: true,
+                                  });
+                                }
+                              }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FFF1F2] hover:text-[#F43F5E]"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-[14px] w-[14px]" strokeWidth={2} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
 
-        {/* Pagination */}
-        {schedules.last_page > 1 && (
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-[#737373]">
-              Showing {schedules.from}–{schedules.to} of {schedules.total}
-            </div>
-            <div className="flex gap-1">
-              {schedules.links.map((link, index) => (
-                <button
-                  key={`${link.label}-${index}`}
-                  type="button"
-                  disabled={!link.url}
-                  onClick={() => {
-                    if (link.url) {
-                      router.visit(link.url, {
-                        preserveScroll: true,
-                        preserveState: true,
-                      });
-                    }
-                  }}
-                  dangerouslySetInnerHTML={{ __html: link.label }}
-                  className={[
-                    'min-w-8 h-8 rounded-md px-2 text-xs font-medium',
-                    link.active
-                      ? 'bg-[#0A0A0A] text-white'
-                      : 'text-[#737373] hover:bg-[#F5F5F5]',
-                    !link.url ? 'cursor-default opacity-40' : '',
-                  ].join(' ')}
-                />
-              ))}
-            </div>
-          </div>
+            {/* Pagination */}
+            {!Array.isArray(schedules) && schedules.last_page > 1 && (
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-[#737373]">
+                  Showing {schedules.from}–{schedules.to} of {schedules.total}
+                </div>
+                <div className="flex gap-1">
+                  {schedules.links.map((link, index) => (
+                    <button
+                      key={`${link.label}-${index}`}
+                      type="button"
+                      disabled={!link.url}
+                      onClick={() => {
+                        if (link.url) {
+                          router.visit(link.url, {
+                            preserveScroll: true,
+                            preserveState: true,
+                          });
+                        }
+                      }}
+                      dangerouslySetInnerHTML={{ __html: link.label }}
+                      className={[
+                        'min-w-8 h-8 rounded-md px-2 text-xs font-medium',
+                        link.active
+                          ? 'bg-[#0A0A0A] text-white'
+                          : 'text-[#737373] hover:bg-[#F5F5F5]',
+                        !link.url ? 'cursor-default opacity-40' : '',
+                      ].join(' ')}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>
