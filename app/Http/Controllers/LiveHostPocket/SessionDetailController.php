@@ -61,7 +61,24 @@ class SessionDetailController extends Controller
 
         $data = $request->validated();
 
-        // Cover image (replaces LiveSession.image_path)
+        if ($request->boolean('went_live')) {
+            $this->persistWentLive($request, $session, $data);
+        } else {
+            $this->persistMissed($request, $session, $data);
+        }
+
+        return redirect()
+            ->route('live-host.sessions.show', $session)
+            ->with('success', $request->boolean('went_live') ? 'Recap saved.' : 'Session marked as missed.');
+    }
+
+    /**
+     * Persist a "went live" recap: cover image, timings, analytics, remarks,
+     * and flip status to `ended`. Previously-captured missed-reason fields
+     * are cleared so the row stays clean.
+     */
+    private function persistWentLive(SaveRecapRequest $request, LiveSession $session, array $data): void
+    {
         if ($request->hasFile('cover_image')) {
             if ($session->image_path) {
                 Storage::disk('public')->delete($session->image_path);
@@ -85,6 +102,9 @@ class SessionDetailController extends Controller
             'duration_minutes' => $duration,
             'uploaded_at' => now(),
             'uploaded_by' => $request->user()->id,
+            'status' => 'ended',
+            'missed_reason_code' => null,
+            'missed_reason_note' => null,
         ]);
 
         LiveAnalytics::updateOrCreate(
@@ -99,10 +119,23 @@ class SessionDetailController extends Controller
                 'duration_minutes' => $duration ?? 0,
             ]
         );
+    }
 
-        return redirect()
-            ->route('live-host.sessions.show', $session)
-            ->with('success', 'Recap saved.');
+    /**
+     * Persist a "did not go live" recap: set status to `missed` with the
+     * supplied reason code + note. Analytics and attachments are intentionally
+     * left untouched so a host who flips back to "went live" doesn't lose the
+     * data they already entered.
+     */
+    private function persistMissed(SaveRecapRequest $request, LiveSession $session, array $data): void
+    {
+        $session->update([
+            'status' => 'missed',
+            'missed_reason_code' => $data['missed_reason_code'],
+            'missed_reason_note' => $data['missed_reason_note'] ?? null,
+            'uploaded_at' => now(),
+            'uploaded_by' => $request->user()->id,
+        ]);
     }
 
     public function addAttachment(AddAttachmentRequest $request, LiveSession $session): RedirectResponse
