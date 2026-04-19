@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\LiveAnalytics;
 use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
 use App\Models\PlatformAccount;
@@ -110,7 +111,7 @@ it('preserves analytics when flipping from missed back to went_live', function (
         'live_session_id' => $this->session->id,
         'file_type' => 'video/mp4',
     ]);
-    $this->session->analytics()->create(['viewers_peak' => 100]);
+    LiveAnalytics::factory()->for($this->session, 'liveSession')->create(['viewers_peak' => 100]);
 
     // Now flip to went_live=true.
     postJson("/live-host/sessions/{$this->session->id}/recap", [

@@ -95,7 +95,6 @@ class SessionDetailController extends Controller
         }
 
         $session->update([
-            'image_path' => $session->image_path,
             'remarks' => array_key_exists('remarks', $data) ? $data['remarks'] : $session->remarks,
             'actual_start_at' => $actualStart ?? $session->actual_start_at,
             'actual_end_at' => $actualEnd ?? $session->actual_end_at,
@@ -116,7 +115,7 @@ class SessionDetailController extends Controller
                 'total_comments' => $data['total_comments'] ?? 0,
                 'total_shares' => $data['total_shares'] ?? 0,
                 'gifts_value' => $data['gifts_value'] ?? 0,
-                'duration_minutes' => $duration ?? 0,
+                'duration_minutes' => $duration ?? $session->duration_minutes ?? 0,
             ]
         );
     }
@@ -149,7 +148,7 @@ class SessionDetailController extends Controller
             'live_session_id' => $session->id,
             'file_name' => $file->getClientOriginalName(),
             'file_path' => $path,
-            'file_type' => $file->getClientMimeType(),
+            'file_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
             'description' => $request->string('description')->toString() ?: null,
             'uploaded_by' => $request->user()->id,

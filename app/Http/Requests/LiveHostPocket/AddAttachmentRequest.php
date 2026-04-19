@@ -7,10 +7,11 @@ use Illuminate\Foundation\Http\FormRequest;
 /**
  * Request payload for POST /live-host/sessions/{session}/attachments.
  *
- * A single file (any mime, 10 MB max) with an optional short description
- * — the attachment row is keyed off `LiveSessionAttachment` which stores
- * `file_type` from `getClientMimeType()` so the recap screen can render the
- * correct icon/thumbnail.
+ * A single file (image, video, or PDF — 20 MB max) with an optional short
+ * description. The attachment row is keyed off `LiveSessionAttachment` which
+ * stores `file_type` from Symfony's server-side `getMimeType()` detection so
+ * the recap screen can render the correct icon/thumbnail and
+ * `hasVisualProof()` can trust the stored mime.
  */
 class AddAttachmentRequest extends FormRequest
 {
@@ -25,7 +26,7 @@ class AddAttachmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => ['required', 'file', 'max:10240'],
+            'file' => ['required', 'file', 'max:20480', 'mimetypes:image/*,video/*,application/pdf'],
             'description' => ['nullable', 'string', 'max:255'],
         ];
     }

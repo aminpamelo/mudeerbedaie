@@ -102,7 +102,7 @@ class LiveSession extends Model
 
     public function scopePast(Builder $query): Builder
     {
-        return $query->whereIn('status', ['ended', 'cancelled'])
+        return $query->whereIn('status', ['ended', 'cancelled', 'missed'])
             ->orderByDesc('scheduled_start_at');
     }
 
@@ -173,7 +173,7 @@ class LiveSession extends Model
 
     public function canUpload(): bool
     {
-        return $this->status === 'ended' && !$this->isUploaded();
+        return $this->status === 'ended' && ! $this->isUploaded();
     }
 
     public function isScheduled(): bool
@@ -202,10 +202,11 @@ class LiveSession extends Model
     }
 
     /**
-     * A session can receive a recap submission from the host when it has
-     * already ended, already been marked missed, or was scheduled but the
-     * clock has passed its scheduled start. Future scheduled sessions are
-     * excluded — hosts shouldn't be recapping sessions that haven't happened.
+     * True when the host may submit a recap for this session. Returns true for
+     * already-ended or already-missed sessions (hosts may correct a mistake or
+     * add more proof — re-submission is explicitly allowed by design) and for
+     * scheduled sessions whose start time has passed. Future scheduled sessions
+     * return false.
      */
     public function canRecap(): bool
     {
