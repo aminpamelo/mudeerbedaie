@@ -22,7 +22,7 @@ return new class extends Migration
         Schema::create('live_host_platform_commission_rates', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('platform_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('platform_id')->constrained()->restrictOnDelete();
             $table->decimal('commission_rate_percent', 5, 2)->default(0);
             $table->timestamp('effective_from')->useCurrent();
             $table->timestamp('effective_to')->nullable();

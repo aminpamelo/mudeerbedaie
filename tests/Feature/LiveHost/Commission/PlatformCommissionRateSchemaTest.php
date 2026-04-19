@@ -4,6 +4,7 @@ use App\Models\Platform;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 use function Pest\Laravel\assertDatabaseCount;
 use function Pest\Laravel\assertDatabaseHas;
@@ -14,7 +15,7 @@ it('can insert a platform commission rate row with all expected columns', functi
     $host = User::factory()->create(['role' => 'live_host']);
     $platform = Platform::factory()->create();
 
-    \DB::table('live_host_platform_commission_rates')->insert([
+    DB::table('live_host_platform_commission_rates')->insert([
         'user_id' => $host->id,
         'platform_id' => $platform->id,
         'commission_rate_percent' => 4.00,
@@ -37,7 +38,7 @@ it('rejects duplicate rows for same user, platform, and effective_from', functio
     $platform = Platform::factory()->create();
     $timestamp = now();
 
-    \DB::table('live_host_platform_commission_rates')->insert([
+    DB::table('live_host_platform_commission_rates')->insert([
         'user_id' => $host->id,
         'platform_id' => $platform->id,
         'commission_rate_percent' => 4.00,
@@ -48,7 +49,7 @@ it('rejects duplicate rows for same user, platform, and effective_from', functio
         'updated_at' => now(),
     ]);
 
-    expect(fn () => \DB::table('live_host_platform_commission_rates')->insert([
+    expect(fn () => DB::table('live_host_platform_commission_rates')->insert([
         'user_id' => $host->id,
         'platform_id' => $platform->id,
         'commission_rate_percent' => 5.00,
@@ -64,7 +65,7 @@ it('allows multiple rows for the same user and platform with different effective
     $host = User::factory()->create(['role' => 'live_host']);
     $platform = Platform::factory()->create();
 
-    \DB::table('live_host_platform_commission_rates')->insert([
+    DB::table('live_host_platform_commission_rates')->insert([
         'user_id' => $host->id,
         'platform_id' => $platform->id,
         'commission_rate_percent' => 3.00,
@@ -75,7 +76,7 @@ it('allows multiple rows for the same user and platform with different effective
         'updated_at' => now()->subDay(),
     ]);
 
-    \DB::table('live_host_platform_commission_rates')->insert([
+    DB::table('live_host_platform_commission_rates')->insert([
         'user_id' => $host->id,
         'platform_id' => $platform->id,
         'commission_rate_percent' => 4.00,
