@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
   Users,
@@ -7,6 +7,7 @@ import {
   Clock,
   Check,
   Bell,
+  Plus,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatCard from '@/livehost/components/StatCard';
@@ -14,6 +15,7 @@ import LiveSessionRow from '@/livehost/components/LiveSessionRow';
 import AgendaRow from '@/livehost/components/AgendaRow';
 import ActivityFeedItem from '@/livehost/components/ActivityFeedItem';
 import StatusChip from '@/livehost/components/StatusChip';
+import { Button } from '@/livehost/components/ui/button';
 import { deriveInitials, secondsSince } from '@/livehost/lib/format';
 
 const SESSIONS_TARGET = 14;
@@ -95,10 +97,19 @@ export default function Dashboard() {
   const watchHours = Number(stats?.watchHoursToday ?? 0);
   const watchPct = progressPercent(watchHours, WATCH_HOURS_TARGET);
 
+  const dashboardActions = (
+    <Link href="/livehost/schedules/create">
+      <Button size="sm" className="h-9 gap-1.5 rounded-lg bg-ink text-white hover:bg-[#262626]">
+        <Plus className="h-[13px] w-[13px]" strokeWidth={2.5} />
+        New schedule
+      </Button>
+    </Link>
+  );
+
   return (
     <>
       <Head title="Dashboard" />
-      <TopBar breadcrumb={['Live Host Desk', 'Dashboard']} />
+      <TopBar breadcrumb={['Live Host Desk', 'Dashboard']} actions={dashboardActions} />
 
       <div className="space-y-6 p-8">
         <PageHeader
@@ -203,23 +214,19 @@ function PageHeader({ firstName, liveNowCount, viewers }) {
 }
 
 function SegControl({ items, activeIndex }) {
+  // Display-only indicator: signals which window is being summarised.
+  // Will become interactive once the backend supports range filtering.
+  const activeLabel = items[activeIndex] ?? items[0];
   return (
-    <div className="inline-flex rounded-lg border border-[#EAEAEA] bg-white p-[3px]">
-      {items.map((item, index) => {
-        const isActive = index === activeIndex;
-        return (
-          <div
-            key={item}
-            className={
-              isActive
-                ? 'rounded-md bg-[#0A0A0A] px-3 py-1.5 text-xs font-medium text-white'
-                : 'cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium text-[#737373] hover:text-[#0A0A0A]'
-            }
-          >
-            {item}
-          </div>
-        );
-      })}
+    <div
+      className="inline-flex items-center gap-2 rounded-lg border border-[#EAEAEA] bg-white px-3 py-1.5"
+      aria-label="Current range"
+      title="Showing stats for this range"
+    >
+      <span className="text-[11px] font-medium uppercase tracking-wide text-[#737373]">
+        Range
+      </span>
+      <span className="text-xs font-semibold text-[#0A0A0A]">{activeLabel}</span>
     </div>
   );
 }
