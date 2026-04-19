@@ -29,6 +29,8 @@ class LiveSession extends Model
         'remarks',
         'uploaded_at',
         'uploaded_by',
+        'missed_reason_code',
+        'missed_reason_note',
     ];
 
     protected function casts(): array
@@ -194,6 +196,43 @@ class LiveSession extends Model
         return $this->status === 'cancelled';
     }
 
+    public function isMissed(): bool
+    {
+        return $this->status === 'missed';
+    }
+
+    /**
+     * A session can receive a recap submission from the host when it has
+     * already ended, already been marked missed, or was scheduled but the
+     * clock has passed its scheduled start. Future scheduled sessions are
+     * excluded — hosts shouldn't be recapping sessions that haven't happened.
+     */
+    public function canRecap(): bool
+    {
+        if (in_array($this->status, ['ended', 'missed'], true)) {
+            return true;
+        }
+
+        return $this->status === 'scheduled'
+            && $this->scheduled_start_at !== null
+            && $this->scheduled_start_at->lte(now());
+    }
+
+    /**
+     * Proof of live: at least one image or video attachment exists for this
+     * session. Used by SaveRecapRequest when went_live=true to block the
+     * status transition until the host has uploaded visible evidence.
+     */
+    public function hasVisualProof(): bool
+    {
+        return $this->attachments()
+            ->where(function ($q) {
+                $q->where('file_type', 'like', 'image/%')
+                    ->orWhere('file_type', 'like', 'video/%');
+            })
+            ->exists();
+    }
+
     public function getDurationAttribute(): ?int
     {
         if ($this->actual_start_at && $this->actual_end_at) {
@@ -210,6 +249,7 @@ class LiveSession extends Model
             'live' => 'green',
             'ended' => 'gray',
             'cancelled' => 'red',
+            'missed' => 'amber',
             default => 'gray',
         };
     }
