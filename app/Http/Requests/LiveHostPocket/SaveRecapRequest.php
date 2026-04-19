@@ -39,7 +39,6 @@ class SaveRecapRequest extends FormRequest
             'went_live' => ['required', 'boolean'],
 
             // went_live === true branch
-            'cover_image' => ['nullable', 'image', 'max:5120'],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'actual_start_at' => ['nullable', 'date'],
             'actual_end_at' => ['nullable', 'date', 'after:actual_start_at'],

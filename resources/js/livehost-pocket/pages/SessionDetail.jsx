@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   ChevronLeft,
   Image as ImageIcon,
@@ -40,7 +40,6 @@ export default function SessionDetail() {
       : (session?.status === 'ended' || session?.status === 'live')
         ? true
         : null,
-    cover_image: null,
     actual_start_at: toLocalDatetime(session?.actualStartAt),
     actual_end_at: toLocalDatetime(session?.actualEndAt),
     remarks: session?.remarks ?? '',
@@ -54,8 +53,6 @@ export default function SessionDetail() {
     missed_reason_note: session?.missedReasonNote ?? '',
   });
 
-  const [coverPreview, setCoverPreview] = useState(session?.imageUrl ?? null);
-  const coverInputRef = useRef(null);
   const attachmentInputRef = useRef(null);
 
   // Seed `went_live` from the list-card CTA's query param (`?recap=yes|no`)
@@ -71,25 +68,15 @@ export default function SessionDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hasVisualProof = (attachments ?? []).some((a) =>
+  const attachmentList = attachments ?? [];
+  const hasVisualProof = attachmentList.some((a) =>
     a.fileType?.startsWith('image/') || a.fileType?.startsWith('video/')
   );
-
-  const handleCoverChange = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    recap.setData('cover_image', file);
-    const reader = new FileReader();
-    reader.onload = () => setCoverPreview(reader.result);
-    reader.readAsDataURL(file);
-  };
+  const hasNonVisualOnly = !hasVisualProof && attachmentList.length > 0;
 
   const handleSave = () => {
     recap.post(`/live-host/sessions/${session.id}/recap`, {
       preserveScroll: true,
-      forceFormData: true,
     });
   };
 
@@ -159,23 +146,6 @@ export default function SessionDetail() {
 
         {recap.data.went_live === true ? (
           <>
-            <Section title="Cover image" hint="image_path">
-              <CoverUpload
-                preview={coverPreview}
-                onPick={() => coverInputRef.current?.click()}
-              />
-              <input
-                ref={coverInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleCoverChange}
-              />
-              {recap.errors.cover_image ? (
-                <FieldError>{recap.errors.cover_image}</FieldError>
-              ) : null}
-            </Section>
-
             <Section title="Timing" hint="actual_start_at / actual_end_at">
               <div className="grid grid-cols-1 gap-[10px]">
                 <DateTimeField
@@ -258,10 +228,17 @@ export default function SessionDetail() {
               ) : null}
             </Section>
 
-            <Section title="Attachments" hint="LiveSessionAttachment">
+            <Section title="Proof of live" hint="required">
+              <p className="mb-[10px] px-1 text-[12px] leading-relaxed text-[var(--fg-2)]">
+                Upload a <strong className="text-[var(--fg)]">screenshot of your live dashboard</strong> or a{' '}
+                <strong className="text-[var(--fg)]">short screen recording</strong> as proof you went live.
+                You can add receipts or notes as extra files too &mdash; but at least one
+                image or video is required.
+              </p>
+
               <div className="space-y-[8px]">
-                {Array.isArray(attachments) && attachments.length > 0 ? (
-                  attachments.map((attachment) => (
+                {attachmentList.length > 0 ? (
+                  attachmentList.map((attachment) => (
                     <AttachmentRow
                       key={attachment.id}
                       attachment={attachment}
@@ -272,21 +249,31 @@ export default function SessionDetail() {
                 <button
                   type="button"
                   onClick={() => attachmentInputRef.current?.click()}
-                  className="flex w-full items-center justify-center gap-[8px] rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-[12px] py-[14px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  className={cn(
+                    'flex w-full items-center justify-center gap-[8px] rounded-[12px] border border-dashed px-[12px] py-[14px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] transition',
+                    hasVisualProof
+                      ? 'border-[var(--hair-2)] bg-[var(--app-bg-2)] text-[var(--fg-3)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
+                      : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                  )}
                 >
                   <Plus className="h-[14px] w-[14px]" strokeWidth={2} />
-                  Add file
+                  {hasVisualProof ? 'Add another file' : 'Add image or video'}
                 </button>
                 <input
                   ref={attachmentInputRef}
                   type="file"
+                  accept="image/*,video/*,application/pdf"
                   className="hidden"
                   onChange={handleAttachmentUpload}
                 />
               </div>
             </Section>
 
-            <ProofHint hasVisualProof={hasVisualProof} error={recap.errors.proof} />
+            <ProofHint
+              hasVisualProof={hasVisualProof}
+              hasNonVisualOnly={hasNonVisualOnly}
+              error={recap.errors.proof}
+            />
 
             <div className="pt-3">
               <button
@@ -433,36 +420,6 @@ function Section({ title, hint, children }) {
   );
 }
 
-function CoverUpload({ preview, onPick }) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      className="relative flex aspect-[16/9] w-full items-center justify-center overflow-hidden rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)] transition hover:border-[var(--accent)]"
-    >
-      {preview ? (
-        <>
-          <img
-            src={preview}
-            alt="Cover"
-            className="h-full w-full object-cover"
-          />
-          <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-[9px] py-[4px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-white">
-            Change
-          </span>
-        </>
-      ) : (
-        <div className="flex flex-col items-center gap-[6px] text-[var(--fg-3)]">
-          <ImageIcon className="h-[24px] w-[24px]" strokeWidth={1.8} />
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
-            Tap to upload
-          </span>
-        </div>
-      )}
-    </button>
-  );
-}
-
 function DateTimeField({ label, name, value, onChange, error }) {
   return (
     <div className="rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[12px] py-[10px]">
@@ -600,17 +557,43 @@ function PathButton({ active, onClick, accent = false, children }) {
   );
 }
 
-function ProofHint({ hasVisualProof, error }) {
-  if (hasVisualProof && !error) {
+function ProofHint({ hasVisualProof, hasNonVisualOnly, error }) {
+  if (error) {
     return (
-      <div className="mb-3 rounded-[10px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-        Proof attached &check;
+      <div className="mb-3 rounded-[10px] border border-[var(--hot)] bg-[rgba(225,29,72,0.08)] px-3 py-[10px] text-[12px] leading-snug text-[var(--hot)]">
+        {error}
       </div>
     );
   }
+
+  if (hasVisualProof) {
+    return (
+      <div className="mb-3 flex items-center gap-[8px] rounded-[10px] border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-[10px] text-[12px] font-medium text-[var(--accent)]">
+        <span className="font-mono text-[11px] font-bold">&check;</span>
+        Proof attached &mdash; you&rsquo;re good to save.
+      </div>
+    );
+  }
+
+  if (hasNonVisualOnly) {
+    return (
+      <div className="mb-3 rounded-[10px] border border-[var(--hot)] bg-[rgba(225,29,72,0.08)] px-3 py-[10px] text-[12px] leading-snug text-[var(--hot)]">
+        <div className="mb-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+          Not enough &mdash; add visual proof
+        </div>
+        Your file doesn&rsquo;t count as proof you went live. Add at least one{' '}
+        <strong>image or video</strong> (a screenshot or short recording works fine).
+      </div>
+    );
+  }
+
   return (
-    <div className="mb-3 rounded-[10px] border border-[var(--hot)] bg-[rgba(225,29,72,0.08)] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--hot)]">
-      {error ?? 'Proof \u00b7 image or video attachment required'}
+    <div className="mb-3 rounded-[10px] border border-[var(--hot)] bg-[rgba(225,29,72,0.08)] px-3 py-[10px] text-[12px] leading-snug text-[var(--hot)]">
+      <div className="mb-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+        Proof required
+      </div>
+      Add a screenshot of your live dashboard, or a short screen recording, to
+      prove you went live before saving.
     </div>
   );
 }

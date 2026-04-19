@@ -73,19 +73,13 @@ class SessionDetailController extends Controller
     }
 
     /**
-     * Persist a "went live" recap: cover image, timings, analytics, remarks,
-     * and flip status to `ended`. Previously-captured missed-reason fields
-     * are cleared so the row stays clean.
+     * Persist a "went live" recap: timings, analytics, remarks, and flip
+     * status to `ended`. Proof-of-live is carried by LiveSessionAttachment
+     * rows (enforced in SaveRecapRequest::withValidator). Previously-captured
+     * missed-reason fields are cleared so the row stays clean.
      */
     private function persistWentLive(SaveRecapRequest $request, LiveSession $session, array $data): void
     {
-        if ($request->hasFile('cover_image')) {
-            if ($session->image_path) {
-                Storage::disk('public')->delete($session->image_path);
-            }
-            $session->image_path = $request->file('cover_image')->store('live-sessions', 'public');
-        }
-
         $actualStart = $data['actual_start_at'] ?? null;
         $actualEnd = $data['actual_end_at'] ?? null;
 

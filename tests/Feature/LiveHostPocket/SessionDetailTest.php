@@ -145,27 +145,6 @@ it('validates recap: rejects actual_end_at before actual_start_at', function () 
         ->assertSessionHasErrors('actual_end_at');
 });
 
-it('stores uploaded cover image on public disk', function () {
-    Storage::fake('public');
-
-    LiveSessionAttachment::factory()->create([
-        'live_session_id' => $this->session->id,
-        'uploaded_by' => $this->host->id,
-        'file_type' => 'image/png',
-    ]);
-
-    actingAs($this->host)
-        ->post("/live-host/sessions/{$this->session->id}/recap", [
-            'went_live' => true,
-            'cover_image' => UploadedFile::fake()->image('cover.jpg'),
-        ])
-        ->assertRedirect();
-
-    $this->session->refresh();
-    expect($this->session->image_path)->not->toBeNull();
-    Storage::disk('public')->assertExists($this->session->image_path);
-});
-
 it('adds an attachment and stores the file on public disk', function () {
     Storage::fake('public');
 
