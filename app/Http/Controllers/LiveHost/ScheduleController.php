@@ -23,8 +23,9 @@ class ScheduleController extends Controller
         $platformAccount = $request->string('platform_account')->toString();
         $dayOfWeek = $request->string('day_of_week')->toString();
         $active = $request->string('active')->toString();
+        $viewMode = $request->string('view')->toString() === 'calendar' ? 'calendar' : 'list';
 
-        $schedules = LiveSchedule::query()
+        $baseQuery = LiveSchedule::query()
             ->with(['liveHost', 'platformAccount.platform'])
             ->when($search !== '', fn ($q) => $q->where('remarks', 'like', "%{$search}%"))
             ->when($host !== '', fn ($q) => $q->where('live_host_id', $host))
@@ -38,19 +39,29 @@ class ScheduleController extends Controller
                 fn ($q) => $q->where('is_active', filter_var($active, FILTER_VALIDATE_BOOLEAN))
             )
             ->orderBy('day_of_week')
-            ->orderBy('start_time')
-            ->paginate(15)
-            ->withQueryString()
-            ->through(fn (LiveSchedule $s) => $this->mapSchedule($s));
+            ->orderBy('start_time');
+
+        if ($viewMode === 'calendar') {
+            $schedules = $baseQuery->get()
+                ->map(fn (LiveSchedule $s) => $this->mapSchedule($s))
+                ->values();
+        } else {
+            $schedules = $baseQuery
+                ->paginate(15)
+                ->withQueryString()
+                ->through(fn (LiveSchedule $s) => $this->mapSchedule($s));
+        }
 
         return Inertia::render('schedules/Index', [
             'schedules' => $schedules,
+            'viewMode' => $viewMode,
             'filters' => [
                 'search' => $search,
                 'host' => $host,
                 'platform_account' => $platformAccount,
                 'day_of_week' => $dayOfWeek,
                 'active' => $active,
+                'view' => $viewMode,
             ],
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
