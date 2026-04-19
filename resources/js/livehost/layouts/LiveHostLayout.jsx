@@ -2,7 +2,6 @@ import { Link, usePage } from '@inertiajs/react';
 import {
   LayoutDashboard,
   Users,
-  Calendar,
   Clock,
   LayoutGrid,
   Play,
@@ -17,7 +16,6 @@ const NAV_GROUPS = [
     items: [
       { label: 'Dashboard', href: '/livehost', icon: LayoutDashboard },
       { label: 'Live Hosts', href: '/livehost/hosts', icon: Users, countKey: 'hosts' },
-      { label: 'Schedules', href: '/livehost/schedules', icon: Calendar, countKey: 'schedules', live: true },
     ],
   },
   {
