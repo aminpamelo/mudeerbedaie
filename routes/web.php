@@ -235,6 +235,16 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
         Route::delete('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroy'])
             ->name('hosts.destroy');
 
+        Route::post('hosts/{host}/commission-profile', [\App\Http\Controllers\LiveHost\LiveHostCommissionProfileController::class, 'store'])
+            ->name('hosts.commission-profile.store');
+        Route::put('hosts/{host}/commission-profile', [\App\Http\Controllers\LiveHost\LiveHostCommissionProfileController::class, 'update'])
+            ->name('hosts.commission-profile.update');
+
+        Route::post('hosts/{host}/platform-rates', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'store'])
+            ->name('hosts.platform-rates.store');
+        Route::put('hosts/{host}/platform-rates/{rate}', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'update'])
+            ->name('hosts.platform-rates.update');
+
         Route::resource('schedules', \App\Http\Controllers\LiveHost\ScheduleController::class);
 
         Route::resource('time-slots', \App\Http\Controllers\LiveHost\TimeSlotController::class)
