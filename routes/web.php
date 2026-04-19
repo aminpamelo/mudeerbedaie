@@ -281,6 +281,13 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('sessions.adjustments.store');
         Route::delete('sessions/{session}/adjustments/{adjustment}', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'destroy'])
             ->name('sessions.adjustments.destroy');
+
+        // Commission Overview matrix (Task 22) — one-page inline-editable view
+        // of every active host's commission plan.
+        Route::get('commission/export', [\App\Http\Controllers\LiveHost\CommissionOverviewController::class, 'export'])
+            ->name('commission.export');
+        Route::get('commission', [\App\Http\Controllers\LiveHost\CommissionOverviewController::class, 'index'])
+            ->name('commission.index');
     });
 
 // Public Live Schedule - accessible by everyone

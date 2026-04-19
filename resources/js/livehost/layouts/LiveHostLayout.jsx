@@ -8,6 +8,7 @@ import {
   Search,
   Store,
   ChevronsUpDown,
+  DollarSign,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
 
@@ -31,6 +32,7 @@ const NAV_GROUPS = [
     label: 'Records',
     items: [
       { label: 'Live Sessions', href: '/livehost/sessions', icon: Play, countKey: 'sessions' },
+      { label: 'Commission', href: '/livehost/commission', icon: DollarSign },
     ],
   },
 ];
