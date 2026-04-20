@@ -70,6 +70,27 @@ const DEFAULT_STYLE = {
   label: 'OTH',
 };
 
+// Per-account color palette for swim lanes. Each active account is assigned a
+// stable slot by sort order so colors don't shift across re-renders.
+const ACCOUNT_PALETTE = [
+  { dot: '#EC4899', soft: '#FDF2F8', tint: '#FCE7F3', border: '#F9A8D4', text: '#9D174D' }, // rose
+  { dot: '#8B5CF6', soft: '#F5F3FF', tint: '#EDE9FE', border: '#C4B5FD', text: '#5B21B6' }, // violet
+  { dot: '#F59E0B', soft: '#FFFBEB', tint: '#FEF3C7', border: '#FCD34D', text: '#92400E' }, // amber
+  { dot: '#10B981', soft: '#ECFDF5', tint: '#D1FAE5', border: '#6EE7B7', text: '#065F46' }, // emerald
+  { dot: '#0EA5E9', soft: '#F0F9FF', tint: '#E0F2FE', border: '#7DD3FC', text: '#075985' }, // sky
+  { dot: '#64748B', soft: '#F8FAFC', tint: '#F1F5F9', border: '#CBD5E1', text: '#334155' }, // slate
+];
+
+const FALLBACK_ACCOUNT_COLOR = {
+  dot: '#A3A3A3',
+  soft: '#FAFAFA',
+  tint: '#F5F5F5',
+  border: '#E5E5E5',
+  text: '#525252',
+};
+
+const LANE_MIN_WIDTH = 96;
+
 function platformStyle(slug) {
   return PLATFORM_STYLES[slug] ?? DEFAULT_STYLE;
 }
@@ -177,6 +198,50 @@ export default function SessionSlotsCalendar() {
     return { hourStart: start, hourEnd: end, totalHeight: (end - start) * HOUR_PX };
   }, [timeSlots, sessionSlots]);
 
+  // Resolve the set of accounts that should render as swim lanes. When the
+  // platform filter is set, lanes collapse to just that account (matches
+  // single-column behaviour). Otherwise, collect every account referenced by
+  // a session or a time slot for the current week so empty lanes aren't shown.
+  const activeAccounts = useMemo(() => {
+    if (platformAccount) {
+      const id = Number(platformAccount);
+      const meta = platformAccounts.find((pa) => Number(pa.id) === id);
+      return meta ? [meta] : [];
+    }
+
+    const ids = new Set();
+    for (const s of sessionSlots) {
+      if (s.platformAccountId) {
+        ids.add(Number(s.platformAccountId));
+      }
+    }
+    for (const ts of timeSlots) {
+      if (ts.platformAccountId) {
+        ids.add(Number(ts.platformAccountId));
+      }
+    }
+
+    return Array.from(ids)
+      .map((id) => platformAccounts.find((pa) => Number(pa.id) === id))
+      .filter(Boolean)
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }, [platformAccount, sessionSlots, timeSlots, platformAccounts]);
+
+  const accountColorMap = useMemo(() => {
+    const map = new Map();
+    activeAccounts.forEach((account, i) => {
+      map.set(Number(account.id), ACCOUNT_PALETTE[i % ACCOUNT_PALETTE.length]);
+    });
+    return map;
+  }, [activeAccounts]);
+
+  const laneCount = Math.max(1, activeAccounts.length);
+  const showLanes = activeAccounts.length > 1;
+  const minGridWidth = 64 + 7 * laneCount * LANE_MIN_WIDTH;
+
+  const colorForAccount = (accountId) =>
+    accountColorMap.get(Number(accountId)) ?? FALLBACK_ACCOUNT_COLOR;
+
   useEffect(() => {
     const initial = filters ?? {};
     if (
@@ -237,11 +302,11 @@ export default function SessionSlotsCalendar() {
 
   const dateForDow = (dow) => addDays(weekStart, dow);
 
-  const handleScaffoldClick = (dow, timeSlot) => {
+  const handleScaffoldClick = (dow, timeSlot, laneAccount = null) => {
     setCreatePrefill({
       dayOfWeek: dow,
       timeSlotId: timeSlot?.id ?? null,
-      platformAccountId: timeSlot?.platformAccountId ?? null,
+      platformAccountId: timeSlot?.platformAccountId ?? laneAccount?.id ?? null,
       scheduleDate: addDays(weekStart, dow),
     });
     setCreateOpen(true);
@@ -415,12 +480,32 @@ export default function SessionSlotsCalendar() {
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-5 text-[11px] text-[#737373]">
-          <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm bg-[#EC4899]"></span>
-            <span className="font-mono uppercase tracking-wide">TikTok Shop</span>
-          </div>
+        {/* Legend — one chip per active account */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px]">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-[#A3A3A3]">
+            Accounts
+          </span>
+          {activeAccounts.length === 0 ? (
+            <span className="italic text-[#A3A3A3]">No active accounts this week</span>
+          ) : (
+            activeAccounts.map((account) => {
+              const color = colorForAccount(account.id);
+              return (
+                <div key={account.id} className="flex items-center gap-1.5">
+                  <span
+                    className="h-2 w-2 rounded-sm"
+                    style={{ backgroundColor: color.dot }}
+                  ></span>
+                  <span className="font-medium text-[#0A0A0A]">{account.name}</span>
+                  {account.platform && (
+                    <span className="font-mono text-[10px] uppercase tracking-wide text-[#A3A3A3]">
+                      · {account.platform}
+                    </span>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
 
         {timeSlots.length === 0 && (
@@ -440,11 +525,14 @@ export default function SessionSlotsCalendar() {
         )}
 
         {/* Grid */}
-        <div className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="overflow-x-auto rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {/* Header row */}
           <div
             className="sticky top-0 z-30 grid border-b border-[#EAEAEA] bg-white/90 backdrop-blur"
-            style={{ gridTemplateColumns: '64px repeat(7, 1fr)' }}
+            style={{
+              gridTemplateColumns: '64px repeat(7, 1fr)',
+              minWidth: `${minGridWidth}px`,
+            }}
           >
             <div className="border-r border-[#EAEAEA] px-2 py-3"></div>
             {DAY_NAMES.map((dayShort, dow) => {
@@ -453,14 +541,14 @@ export default function SessionSlotsCalendar() {
               return (
                 <div
                   key={dayShort}
-                  className={`relative border-r px-3 py-3 last:border-r-0 ${
+                  className={`relative border-r last:border-r-0 ${
                     isToday ? 'bg-[#FFFBEB]' : ''
                   } border-[#EAEAEA]`}
                 >
                   {isToday && (
-                    <div className="absolute left-0 right-0 top-0 h-[2px] bg-[#F59E0B]"></div>
+                    <div className="absolute left-0 right-0 top-0 z-10 h-[2px] bg-[#F59E0B]"></div>
                   )}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between px-3 py-3">
                     <div className="flex flex-col">
                       <span
                         className={`font-mono text-[10px] uppercase tracking-wider ${
@@ -484,6 +572,36 @@ export default function SessionSlotsCalendar() {
                       {String(slotsByDay[dow].length).padStart(2, '0')}
                     </span>
                   </div>
+
+                  {/* Swim lane sub-header — only when >1 account is active */}
+                  {showLanes && (
+                    <div
+                      className="grid border-t border-[#F5F5F5]"
+                      style={{ gridTemplateColumns: `repeat(${laneCount}, minmax(0, 1fr))` }}
+                    >
+                      {activeAccounts.map((account) => {
+                        const color = colorForAccount(account.id);
+                        return (
+                          <div
+                            key={account.id}
+                            className="flex items-center gap-1 border-r border-[#F5F5F5] px-1.5 py-1 last:border-r-0"
+                            title={account.name}
+                          >
+                            <span
+                              className="h-1.5 w-1.5 shrink-0 rounded-[2px]"
+                              style={{ backgroundColor: color.dot }}
+                            ></span>
+                            <span
+                              className="truncate font-mono text-[9px] font-semibold uppercase tracking-wide"
+                              style={{ color: color.text }}
+                            >
+                              {account.name}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -496,6 +614,7 @@ export default function SessionSlotsCalendar() {
               gridTemplateColumns: '64px repeat(7, 1fr)',
               maxHeight: 'calc(100vh - 360px)',
               minHeight: '540px',
+              minWidth: `${minGridWidth}px`,
             }}
           >
             {/* Hour axis */}
@@ -519,65 +638,25 @@ export default function SessionSlotsCalendar() {
               })}
             </div>
 
-            {/* Day columns */}
+            {/* Day columns — each day is split into one swim lane per active account */}
             {DAY_NAMES.map((_, dow) => {
               const isToday = isCurrentWeek && dow === todayDow;
               const slots = slotsByDay[dow];
 
+              const lanes = activeAccounts.length > 0 ? activeAccounts : [null];
+
               return (
                 <div
                   key={dow}
-                  className={`relative border-r border-[#EAEAEA] last:border-r-0 ${
+                  className={`relative grid border-r border-[#EAEAEA] last:border-r-0 ${
                     isToday ? 'bg-[#FFFBEB]/40' : ''
                   }`}
                   style={{
                     height: `${totalHeight}px`,
-                    backgroundImage:
-                      'linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px)',
-                    backgroundSize: `100% ${HOUR_PX}px`,
+                    gridTemplateColumns: `repeat(${laneCount}, minmax(0, 1fr))`,
                   }}
                 >
-                  {/* Empty scaffolds for predefined time slots */}
-                  {timeSlots
-                    .filter(
-                      (ts) =>
-                        ts.dayOfWeek === null || ts.dayOfWeek === undefined || ts.dayOfWeek === dow
-                    )
-                    .map((ts) => {
-                      const hasAssignment = slots.some((s) => s.timeSlotId === ts.id);
-                      if (hasAssignment) {
-                        return null;
-                      }
-                      const { h: sh, m: sm } = parseHM(ts.startTime);
-                      const { h: eh, m: em } = parseHM(ts.endTime);
-                      const startMin = sh * 60 + sm;
-                      const endMin = eh * 60 + em;
-                      const duration = Math.max(30, endMin - startMin);
-                      if (startMin < hourStart * 60 || startMin >= hourEnd * 60) {
-                        return null;
-                      }
-                      const topPx = ((startMin - hourStart * 60) / 60) * HOUR_PX;
-                      const heightPx = (duration / 60) * HOUR_PX;
-
-                      return (
-                        <button
-                          key={`scaffold-${ts.id}`}
-                          type="button"
-                          onClick={() => handleScaffoldClick(dow, ts)}
-                          className="group/scaffold absolute left-1 right-1 flex flex-col items-center justify-center overflow-hidden rounded-lg border border-dashed border-[#D4D4D4] bg-white/50 text-[#A3A3A3] transition-all hover:border-[#10B981] hover:bg-[#10B981]/[0.04] hover:text-[#10B981]"
-                          style={{ top: `${topPx}px`, height: `${heightPx}px` }}
-                        >
-                          <span className="font-mono text-[10px] font-medium tabular-nums">
-                            {formatTimeLabel(ts.startTime)} – {formatTimeLabel(ts.endTime)}
-                          </span>
-                          <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide opacity-0 group-hover/scaffold:opacity-100">
-                            + Assign
-                          </span>
-                        </button>
-                      );
-                    })}
-
-                  {/* Today line */}
+                  {/* Today line (spans all lanes in this day) */}
                   {isToday && nowPosition !== null && (
                     <div
                       className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
@@ -588,112 +667,197 @@ export default function SessionSlotsCalendar() {
                     </div>
                   )}
 
-                  {/* Slot blocks */}
-                  {slots.map((slot) => {
-                    const { h: sh, m: sm } = parseHM(slot.startTime);
-                    const { h: eh, m: em } = parseHM(slot.endTime);
-                    const startMin = sh * 60 + sm;
-                    const endMin = eh * 60 + em;
-                    const duration = Math.max(30, endMin - startMin);
+                  {lanes.map((account, laneIndex) => {
+                    const accountId = account ? Number(account.id) : null;
+                    const color = account ? colorForAccount(accountId) : FALLBACK_ACCOUNT_COLOR;
 
-                    if (startMin < hourStart * 60 || startMin >= hourEnd * 60) {
-                      return null;
-                    }
+                    const laneScaffolds = timeSlots.filter((ts) => {
+                      const matchesDay =
+                        ts.dayOfWeek === null || ts.dayOfWeek === undefined || ts.dayOfWeek === dow;
+                      if (!matchesDay) {
+                        return false;
+                      }
+                      if (accountId === null) {
+                        return true;
+                      }
+                      // Global time slots (no account attached) show in every lane
+                      if (!ts.platformAccountId) {
+                        return true;
+                      }
+                      return Number(ts.platformAccountId) === accountId;
+                    });
 
-                    const topPx = ((startMin - hourStart * 60) / 60) * HOUR_PX;
-                    const heightPx = (duration / 60) * HOUR_PX;
-                    const pc = platformStyle(slot.platformType);
+                    const laneSlots = slots.filter((slot) => {
+                      if (accountId === null) {
+                        return true;
+                      }
+                      return Number(slot.platformAccountId) === accountId;
+                    });
 
                     return (
                       <div
-                        key={slot.id}
-                        className="group/block absolute left-1 right-1 z-10 overflow-hidden rounded-lg"
-                        style={{ top: `${topPx}px`, height: `${heightPx}px` }}
+                        key={account?.id ?? `lane-${laneIndex}`}
+                        className="relative border-r border-[#F5F5F5] last:border-r-0"
+                        style={{
+                          backgroundImage:
+                            'linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px)',
+                          backgroundSize: `100% ${HOUR_PX}px`,
+                        }}
                       >
-                        <button
-                          type="button"
-                          onClick={() => setDetailTarget(slot)}
-                          className={`relative flex h-full w-full flex-col rounded-lg border border-[#EAEAEA] bg-gradient-to-br ${pc.tint} to-transparent bg-white text-left transition-all hover:border-[#D4D4D4] hover:shadow-md`}
-                        >
-                          {/* Platform bar */}
-                          <div
-                            className={`absolute bottom-0 left-0 top-0 w-[3px] rounded-l-lg ${pc.bar}`}
-                          ></div>
+                        {/* Scaffolds for this lane's account */}
+                        {laneScaffolds.map((ts) => {
+                          const hasAssignment = laneSlots.some((s) => s.timeSlotId === ts.id);
+                          if (hasAssignment) {
+                            return null;
+                          }
+                          const { h: sh, m: sm } = parseHM(ts.startTime);
+                          const { h: eh, m: em } = parseHM(ts.endTime);
+                          const startMin = sh * 60 + sm;
+                          const endMin = eh * 60 + em;
+                          const duration = Math.max(30, endMin - startMin);
+                          if (startMin < hourStart * 60 || startMin >= hourEnd * 60) {
+                            return null;
+                          }
+                          const topPx = ((startMin - hourStart * 60) / 60) * HOUR_PX;
+                          const heightPx = (duration / 60) * HOUR_PX;
 
-                          <div className="relative flex h-full flex-col p-2.5 pl-3.5">
-                            <div className="flex items-start justify-between gap-1">
-                              <div className="min-w-0">
-                                <div className="font-mono text-[12px] font-semibold leading-none text-[#0A0A0A] tabular-nums">
-                                  {formatTimeLabel(slot.startTime)}
+                          return (
+                            <button
+                              key={`scaffold-${ts.id}-${account?.id ?? 'any'}`}
+                              type="button"
+                              onClick={() => handleScaffoldClick(dow, ts, account)}
+                              className="group/scaffold absolute left-0.5 right-0.5 flex flex-col items-center justify-center overflow-hidden rounded-md border border-dashed border-[#D4D4D4] bg-white/50 px-0.5 text-[#A3A3A3] transition-all hover:border-[#10B981] hover:bg-[#10B981]/[0.04] hover:text-[#10B981]"
+                              style={{ top: `${topPx}px`, height: `${heightPx}px` }}
+                              title={`${formatTimeLabel(ts.startTime)} – ${formatTimeLabel(ts.endTime)}`}
+                            >
+                              <span className="truncate font-mono text-[9px] font-medium tabular-nums">
+                                {formatTimeLabel(ts.startTime)}
+                              </span>
+                              <span className="mt-0.5 truncate text-[9px] font-medium uppercase tracking-wide opacity-0 group-hover/scaffold:opacity-100">
+                                + Assign
+                              </span>
+                            </button>
+                          );
+                        })}
+
+                        {/* Slot blocks for this lane's account */}
+                        {laneSlots.map((slot) => {
+                          const { h: sh, m: sm } = parseHM(slot.startTime);
+                          const { h: eh, m: em } = parseHM(slot.endTime);
+                          const startMin = sh * 60 + sm;
+                          const endMin = eh * 60 + em;
+                          const duration = Math.max(30, endMin - startMin);
+
+                          if (startMin < hourStart * 60 || startMin >= hourEnd * 60) {
+                            return null;
+                          }
+
+                          const topPx = ((startMin - hourStart * 60) / 60) * HOUR_PX;
+                          const heightPx = (duration / 60) * HOUR_PX;
+                          const pc = platformStyle(slot.platformType);
+                          const slotColor = colorForAccount(slot.platformAccountId);
+                          const isCompact = heightPx < 60;
+
+                          return (
+                            <div
+                              key={slot.id}
+                              className="group/block absolute left-0.5 right-0.5 z-10 overflow-hidden rounded-md"
+                              style={{ top: `${topPx}px`, height: `${heightPx}px` }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => setDetailTarget(slot)}
+                                className="relative flex h-full w-full flex-col rounded-md border text-left transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+                                style={{
+                                  background: `linear-gradient(135deg, ${slotColor.tint} 0%, ${slotColor.soft} 50%, #FFFFFF 100%)`,
+                                  borderColor: slotColor.border,
+                                }}
+                              >
+                                {/* Account color bar */}
+                                <div
+                                  className="absolute bottom-0 left-0 top-0 w-[3px] rounded-l-md"
+                                  style={{ backgroundColor: slotColor.dot }}
+                                ></div>
+
+                                <div className="relative flex h-full min-w-0 flex-col p-1.5 pl-2.5">
+                                  <div className="flex items-start justify-between gap-1">
+                                    <div className="min-w-0">
+                                      <div className="font-mono text-[11px] font-semibold leading-none tabular-nums text-[#0A0A0A]">
+                                        {formatTimeLabel(slot.startTime)}
+                                      </div>
+                                      {!isCompact && (
+                                        <div className="mt-0.5 truncate font-mono text-[9px] leading-none tabular-nums text-[#A3A3A3]">
+                                          {duration}min
+                                        </div>
+                                      )}
+                                    </div>
+                                    {slot.isTemplate && (
+                                      <span className="shrink-0 rounded bg-white/70 px-1 py-px font-mono text-[8px] font-semibold uppercase tracking-wide text-[#5B21B6] backdrop-blur">
+                                        W
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {heightPx >= 56 && (
+                                    <div className="mt-auto min-w-0">
+                                      {slot.hostName ? (
+                                        <div className="flex items-center gap-1">
+                                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#10B981]"></span>
+                                          <span className="truncate text-[10px] font-medium text-[#0A0A0A]">
+                                            {slot.hostName}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-1 text-[#A3A3A3]">
+                                          <span className="h-1.5 w-1.5 shrink-0 rounded-full border border-current"></span>
+                                          <span className="truncate text-[10px] italic">
+                                            Unassigned
+                                          </span>
+                                        </div>
+                                      )}
+                                      {heightPx >= 88 && (
+                                        <div
+                                          className="mt-0.5 truncate font-mono text-[9px] uppercase tracking-wide"
+                                          style={{ color: slotColor.text }}
+                                        >
+                                          {pc.label}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="mt-0.5 font-mono text-[10px] leading-none text-[#A3A3A3] tabular-nums">
-                                  {duration}min · {formatTimeLabel(slot.endTime)}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {slot.isTemplate && (
-                                  <span className="rounded bg-[#F5F3FF] px-1 py-px font-mono text-[9px] font-semibold uppercase tracking-wide text-[#5B21B6]">
-                                    W
-                                  </span>
-                                )}
-                                <span
-                                  className={`font-mono text-[9px] font-bold uppercase tracking-wide ${pc.text}`}
+                              </button>
+
+                              {/* Hover actions */}
+                              <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleEdit(slot);
+                                  }}
+                                  className="inline-flex h-5 w-5 items-center justify-center rounded border border-[#EAEAEA] bg-white/95 text-[#525252] backdrop-blur hover:border-[#3B82F6]/50 hover:text-[#1D4ED8]"
+                                  title="Edit"
                                 >
-                                  {pc.label}
-                                </span>
+                                  <Pencil className="h-2.5 w-2.5" strokeWidth={2} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDelete(slot);
+                                  }}
+                                  className="inline-flex h-5 w-5 items-center justify-center rounded border border-[#EAEAEA] bg-white/95 text-[#525252] backdrop-blur hover:border-[#F43F5E]/50 hover:text-[#F43F5E]"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-2.5 w-2.5" strokeWidth={2} />
+                                </button>
                               </div>
                             </div>
-
-                            {heightPx >= 60 && (
-                              <div className="mt-auto min-w-0">
-                                {slot.hostName ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#10B981]"></span>
-                                    <span className="truncate text-[11px] font-medium text-[#0A0A0A]">
-                                      {slot.hostName}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1.5 text-[#A3A3A3]">
-                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full border border-current"></span>
-                                    <span className="text-[11px] italic">Unassigned</span>
-                                  </div>
-                                )}
-                                <div className="mt-0.5 truncate text-[10px] text-[#A3A3A3]">
-                                  {slot.platformAccount}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </button>
-
-                        {/* Hover actions */}
-                        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleEdit(slot);
-                            }}
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#EAEAEA] bg-white/95 text-[#525252] backdrop-blur hover:border-[#3B82F6]/50 hover:text-[#1D4ED8]"
-                            title="Edit"
-                          >
-                            <Pencil className="h-3 w-3" strokeWidth={2} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleDelete(slot);
-                            }}
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#EAEAEA] bg-white/95 text-[#525252] backdrop-blur hover:border-[#F43F5E]/50 hover:text-[#F43F5E]"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3 w-3" strokeWidth={2} />
-                          </button>
-                        </div>
+                          );
+                        })}
                       </div>
                     );
                   })}

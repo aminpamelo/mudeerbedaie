@@ -11,6 +11,7 @@ import {
   DollarSign,
   Banknote,
   FileSpreadsheet,
+  UserCircle2,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
 
@@ -28,6 +29,7 @@ const NAV_GROUPS = [
       { label: 'Time Slots', href: '/livehost/time-slots', icon: Clock },
       { label: 'Session Slots', href: '/livehost/session-slots', icon: LayoutGrid },
       { label: 'Platform Accounts', href: '/livehost/platform-accounts', icon: Store, countKey: 'platformAccounts' },
+      { label: 'Creators', href: '/livehost/creators', icon: UserCircle2, countKey: 'creators' },
     ],
   },
   {
@@ -62,13 +64,17 @@ function formatCount(value) {
   return new Intl.NumberFormat('en-US').format(value);
 }
 
-function Sidebar({ auth, navCounts, currentUrl }) {
+function Sidebar({ auth, brand, navCounts, currentUrl }) {
   const user = auth?.user;
   const roleLabel = user?.role === 'admin'
     ? 'Admin'
     : user?.role === 'admin_livehost'
       ? 'PIC · Admin'
       : user?.role ?? '';
+
+  const brandName = brand?.name || 'Live Host Desk';
+  const brandLogoUrl = brand?.logoUrl || null;
+  const brandInitial = initialsFrom(brandName).charAt(0) || '?';
 
   const isActive = (href) => {
     if (href === '/livehost') {
@@ -82,15 +88,25 @@ function Sidebar({ auth, navCounts, currentUrl }) {
     <aside className="sticky top-0 flex h-screen flex-col gap-7 border-r border-border-2 px-4 py-6">
       {/* Brand */}
       <div className="flex items-center gap-[10px] px-2 py-1">
-        <div
-          className="grid h-8 w-8 place-items-center rounded-[10px] bg-gradient-to-br from-emerald to-sky text-[16px] font-bold text-white shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
-          style={{ letterSpacing: '-0.04em' }}
-        >
-          P
-        </div>
+        {brandLogoUrl ? (
+          <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-[10px] bg-white shadow-[0_4px_12px_rgba(16,185,129,0.15)]">
+            <img
+              src={brandLogoUrl}
+              alt={brandName}
+              className="h-8 w-8 object-contain"
+            />
+          </div>
+        ) : (
+          <div
+            className="grid h-8 w-8 place-items-center rounded-[10px] bg-gradient-to-br from-emerald to-sky text-[16px] font-bold text-white shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+            style={{ letterSpacing: '-0.04em' }}
+          >
+            {brandInitial}
+          </div>
+        )}
         <div>
           <div className="text-[15px] font-semibold leading-tight tracking-[-0.02em] text-ink">
-            Pulse
+            {brandName}
           </div>
           <div className="text-[11px] font-medium text-muted">Live Host Desk</div>
         </div>
@@ -222,10 +238,11 @@ export default function LiveHostLayout({ children }) {
   const { props, url } = usePage();
   const auth = props.auth ?? {};
   const navCounts = props.navCounts ?? {};
+  const brand = props.brand ?? {};
 
   return (
     <div className="grid min-h-screen grid-cols-[240px_1fr]">
-      <Sidebar auth={auth} navCounts={navCounts} currentUrl={url} />
+      <Sidebar auth={auth} brand={brand} navCounts={navCounts} currentUrl={url} />
       <main className="flex min-w-0 flex-col">{children}</main>
     </div>
   );

@@ -1,6 +1,16 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Loader2,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
 import { Button } from '@/livehost/components/ui/button';
@@ -270,6 +280,126 @@ function StatTile({ label, value }) {
   );
 }
 
+/**
+ * LiveField — inline click-to-edit cell used across the pay ledger.
+ * type: 'money' | 'percent' | 'number' — controls format + step.
+ */
+function LiveField({
+  value,
+  onSave,
+  type = 'money',
+  prefix = '',
+  suffix = '',
+  align = 'left',
+  placeholder = '—',
+  disabled = false,
+  'aria-label': ariaLabel,
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(() => String(value ?? ''));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(String(value ?? ''));
+    }
+  }, [value, editing]);
+
+  const displayValue = useMemo(() => {
+    if (value === null || value === undefined || value === '') {
+      return placeholder;
+    }
+    const num = Number(value);
+    if (type === 'money') {
+      return `${prefix}${num.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}${suffix}`;
+    }
+    if (type === 'percent') {
+      const rounded = Math.round(num * 100) / 100;
+      return `${rounded}${suffix || '%'}`;
+    }
+    return `${prefix}${num}${suffix}`;
+  }, [value, type, prefix, suffix, placeholder]);
+
+  const begin = () => {
+    if (disabled) {
+      return;
+    }
+    setDraft(value === null || value === undefined ? '' : String(value));
+    setError(null);
+    setEditing(true);
+  };
+
+  const commit = () => {
+    const asNumber = Number(draft);
+    if (Number.isNaN(asNumber)) {
+      setError('Invalid number');
+      return;
+    }
+    if (String(asNumber) === String(value ?? 0)) {
+      setEditing(false);
+      return;
+    }
+
+    setSaving(true);
+    Promise.resolve(onSave(asNumber))
+      .then(() => setEditing(false))
+      .catch((err) => setError(typeof err === 'string' ? err : 'Save failed'))
+      .finally(() => setSaving(false));
+  };
+
+  const handleKey = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setEditing(false);
+      setError(null);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className={`flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`}>
+        {prefix && <span className="text-[#737373] text-[13px]">{prefix}</span>}
+        <input
+          autoFocus
+          type="number"
+          step="0.01"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKey}
+          aria-label={ariaLabel}
+          className={`h-8 w-[96px] rounded-md border border-[#10B981] bg-white px-2 text-[14px] tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 ${align === 'right' ? 'text-right' : 'text-left'}`}
+        />
+        {suffix && <span className="text-[#737373] text-[13px]">{suffix}</span>}
+        {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-[#737373]" />}
+        {error && <span className="text-[11px] text-[#DC2626]">{error}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={begin}
+      disabled={disabled || saving}
+      aria-label={ariaLabel}
+      className={`group inline-flex h-8 items-center gap-1.5 rounded-md px-1.5 text-[14px] tabular-nums text-[#0A0A0A] transition-colors hover:bg-[#F5F5F5] disabled:opacity-60 ${align === 'right' ? 'justify-end' : ''}`}
+    >
+      <span className="font-semibold tracking-[-0.01em]">{displayValue}</span>
+      {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-[#737373]" />}
+    </button>
+  );
+}
+
+/**
+ * Reads on-page host state + derived rates and renders the Pay Ledger.
+ * Editable fields save directly via the existing API (no batch submit).
+ * A fallback "Save all" button still exists for setting upline + notes.
+ */
 function CommissionPanel({
   host,
   commissionProfile,
@@ -283,18 +413,45 @@ function CommissionPanel({
 }) {
   const hasActive = Boolean(commissionProfile);
 
-  const [formValues, setFormValues] = useState(() => ({
-    base_salary_myr: commissionProfile?.base_salary_myr ?? 0,
-    per_live_rate_myr: commissionProfile?.per_live_rate_myr ?? 0,
-    upline_user_id: commissionProfile?.upline_user_id ?? '',
-    override_rate_l1_percent: commissionProfile?.override_rate_l1_percent ?? 10,
-    override_rate_l2_percent: commissionProfile?.override_rate_l2_percent ?? 5,
-    notes: commissionProfile?.notes ?? '',
-  }));
+  const baseSalary = Number(commissionProfile?.base_salary_myr ?? 0);
+  const perLiveRate = Number(commissionProfile?.per_live_rate_myr ?? 0);
+  const l1Percent = Number(commissionProfile?.override_rate_l1_percent ?? 0);
+  const l2Percent = Number(commissionProfile?.override_rate_l2_percent ?? 0);
+
+  const primaryRate = useMemo(() => {
+    const rates = platformCommissionRates ?? [];
+    return (
+      rates.find((r) => r.platform_slug === 'tiktok-shop') ??
+      rates.find((r) => r.is_active !== false) ??
+      rates[0] ??
+      null
+    );
+  }, [platformCommissionRates]);
+
+  const primaryPercent = primaryRate ? Number(primaryRate.commission_rate_percent) : 0;
+
+  const [upline, setUpline] = useState(commissionProfile?.upline_user_id ?? '');
+  const [notes, setNotes] = useState(commissionProfile?.notes ?? '');
+  const [savingMeta, setSavingMeta] = useState(false);
+  const [metaSuccess, setMetaSuccess] = useState(false);
   const [uplineSearch, setUplineSearch] = useState('');
-  const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
+  const [uplineOpen, setUplineOpen] = useState(false);
+  const uplineRef = useRef(null);
+
+  useEffect(() => {
+    setUpline(commissionProfile?.upline_user_id ?? '');
+    setNotes(commissionProfile?.notes ?? '');
+  }, [commissionProfile?.upline_user_id, commissionProfile?.notes]);
+
+  useEffect(() => {
+    const onClick = (event) => {
+      if (uplineRef.current && !uplineRef.current.contains(event.target)) {
+        setUplineOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
 
   const filteredUpline = useMemo(() => {
     const q = uplineSearch.trim().toLowerCase();
@@ -302,371 +459,808 @@ function CommissionPanel({
       return uplineCandidates;
     }
     return uplineCandidates.filter(
-      (u) =>
-        u.name?.toLowerCase().includes(q) ||
-        u.email?.toLowerCase().includes(q),
+      (u) => u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q),
     );
   }, [uplineCandidates, uplineSearch]);
 
-  const history = (commissionProfiles || []).filter((p) => !p.is_active);
+  const currentUpline = useMemo(
+    () => uplineCandidates.find((u) => String(u.id) === String(upline)),
+    [uplineCandidates, upline],
+  );
 
-  const handleProfileSubmit = (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setErrors({});
-    setSuccessMsg('');
-
+  const saveProfileField = (patch) => {
     const method = hasActive ? 'put' : 'post';
     const payload = {
-      base_salary_myr: Number(formValues.base_salary_myr || 0),
-      per_live_rate_myr: Number(formValues.per_live_rate_myr || 0),
-      upline_user_id: formValues.upline_user_id === '' ? null : Number(formValues.upline_user_id),
-      override_rate_l1_percent: Number(formValues.override_rate_l1_percent || 0),
-      override_rate_l2_percent: Number(formValues.override_rate_l2_percent || 0),
-      notes: formValues.notes || null,
+      base_salary_myr: Number(commissionProfile?.base_salary_myr ?? 0),
+      per_live_rate_myr: Number(commissionProfile?.per_live_rate_myr ?? 0),
+      upline_user_id: commissionProfile?.upline_user_id ?? null,
+      override_rate_l1_percent: Number(commissionProfile?.override_rate_l1_percent ?? 0),
+      override_rate_l2_percent: Number(commissionProfile?.override_rate_l2_percent ?? 0),
+      notes: commissionProfile?.notes ?? null,
+      ...patch,
     };
 
-    router[method](`/livehost/hosts/${host.id}/commission-profile`, payload, {
-      preserveScroll: true,
-      onError: (errs) => setErrors(errs),
-      onSuccess: () => setSuccessMsg('Commission profile saved.'),
-      onFinish: () => setSaving(false),
+    return new Promise((resolve, reject) => {
+      router[method](`/livehost/hosts/${host.id}/commission-profile`, payload, {
+        preserveScroll: true,
+        onSuccess: () => resolve(),
+        onError: (errs) => {
+          const firstErr = Object.values(errs || {})[0];
+          reject(Array.isArray(firstErr) ? firstErr[0] : firstErr || 'Save failed');
+        },
+      });
     });
   };
 
+  const savePlatformRate = (rateId, platformId, nextValue) => {
+    const payload = {
+      platform_id: platformId,
+      commission_rate_percent: Number(nextValue),
+    };
+    return new Promise((resolve, reject) => {
+      const onError = (errs) => {
+        const firstErr = Object.values(errs || {})[0];
+        reject(Array.isArray(firstErr) ? firstErr[0] : firstErr || 'Save failed');
+      };
+      if (rateId) {
+        router.put(`/livehost/hosts/${host.id}/platform-rates/${rateId}`, payload, {
+          preserveScroll: true,
+          onSuccess: () => resolve(),
+          onError,
+        });
+      } else {
+        router.post(`/livehost/hosts/${host.id}/platform-rates`, payload, {
+          preserveScroll: true,
+          onSuccess: () => resolve(),
+          onError,
+        });
+      }
+    });
+  };
+
+  const handleSaveMeta = () => {
+    setSavingMeta(true);
+    setMetaSuccess(false);
+    saveProfileField({
+      upline_user_id: upline === '' ? null : Number(upline),
+      notes: notes || null,
+    })
+      .then(() => setMetaSuccess(true))
+      .finally(() => setSavingMeta(false));
+  };
+
+  const history = (commissionProfiles || []).filter((p) => !p.is_active);
+
   return (
     <div className="space-y-6">
-      {successMsg && (
-        <div className="rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-2.5 text-sm text-[#166534]">
-          {successMsg}
-        </div>
-      )}
+      <HeroFormula
+        baseSalary={baseSalary}
+        perLiveRate={perLiveRate}
+        primaryPercent={primaryPercent}
+        primaryPlatform={primaryRate?.platform_name ?? primaryRate?.platform_slug ?? 'TikTok Shop'}
+        l1Percent={l1Percent}
+        l2Percent={l2Percent}
+        effectiveFrom={commissionProfile?.effective_from}
+        formatDateOnly={formatDateOnly}
+        hasActive={hasActive}
+      />
 
-      {/* Commission profile form */}
-      <form
-        onSubmit={handleProfileSubmit}
-        className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5"
+      <LedgerSection
+        index="01"
+        title="Fixed pay"
+        subtitle="Guaranteed every payroll regardless of performance."
+        accent="#10B981"
       >
-        <div className="flex items-center justify-between mb-4">
+        <LedgerRow
+          label="Base salary"
+          description="Flat monthly amount. Unaffected by session count or GMV."
+          field={
+            <LiveField
+              value={baseSalary}
+              type="money"
+              prefix="RM "
+              align="right"
+              aria-label="Base salary"
+              onSave={(v) => saveProfileField({ base_salary_myr: v })}
+            />
+          }
+        />
+        <LedgerRow
+          label="Per-live rate"
+          description="Paid once for each completed live session within the period."
+          field={
+            <LiveField
+              value={perLiveRate}
+              type="money"
+              prefix="RM "
+              suffix=" / live"
+              align="right"
+              aria-label="Per live rate"
+              onSave={(v) => saveProfileField({ per_live_rate_myr: v })}
+            />
+          }
+        />
+      </LedgerSection>
+
+      <LedgerSection
+        index="02"
+        title="Performance pay"
+        subtitle="A percentage of the host's attributed GMV, by marketplace."
+        accent="#EC4899"
+        action={
+          <AddPlatformButton
+            host={host}
+            platforms={platforms}
+            existingRates={platformCommissionRates}
+          />
+        }
+      >
+        {(platformCommissionRates || []).length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[#EAEAEA] bg-[#FAFAFA] px-4 py-6 text-center text-[13px] text-[#737373]">
+            No platform rates set. Click <strong>Add platform</strong> above to configure one.
+          </div>
+        ) : (
+          <div className="divide-y divide-[#F0F0F0]">
+            {platformCommissionRates.map((rate) => (
+              <LedgerRow
+                key={rate.id}
+                label={rate.platform_name ?? rate.platform_slug ?? `Platform #${rate.platform_id}`}
+                description={`Effective from ${formatDateOnly(rate.effective_from)}`}
+                field={
+                  <LiveField
+                    value={Number(rate.commission_rate_percent)}
+                    type="percent"
+                    align="right"
+                    aria-label={`${rate.platform_name ?? 'Platform'} commission rate`}
+                    onSave={(v) => savePlatformRate(rate.id, rate.platform_id, v)}
+                  />
+                }
+              />
+            ))}
+          </div>
+        )}
+      </LedgerSection>
+
+      <LedgerSection
+        index="03"
+        title="Override earnings"
+        subtitle="Earn a % of every direct and indirect downline host's GMV. Only pays out if this host has downlines."
+        accent="#F59E0B"
+      >
+        <LedgerRow
+          label="L1 override"
+          description="Paid on direct downline GMV."
+          field={
+            <LiveField
+              value={l1Percent}
+              type="percent"
+              align="right"
+              aria-label="L1 override percent"
+              onSave={(v) => saveProfileField({ override_rate_l1_percent: v })}
+            />
+          }
+        />
+        <LedgerRow
+          label="L2 override"
+          description="Paid on downline-of-downline GMV."
+          field={
+            <LiveField
+              value={l2Percent}
+              type="percent"
+              align="right"
+              aria-label="L2 override percent"
+              onSave={(v) => saveProfileField({ override_rate_l2_percent: v })}
+            />
+          }
+        />
+      </LedgerSection>
+
+      <MonthlyProjection
+        baseSalary={baseSalary}
+        perLiveRate={perLiveRate}
+        primaryPercent={primaryPercent}
+        primaryPlatform={primaryRate?.platform_name ?? 'TikTok Shop'}
+        formatMoney={formatMoney}
+      />
+
+      {/* Upline + notes (less frequently edited — batched save) */}
+      <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="mb-4 flex items-center justify-between">
           <div>
-            <div className="font-semibold text-[15px] tracking-[-0.015em]">Commission profile</div>
-            <div className="text-xs text-[#737373] mt-0.5">
-              {hasActive
-                ? `Active since ${formatDateOnly(commissionProfile.effective_from)}`
-                : 'No active commission profile yet.'}
+            <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#737373]">
+              Hierarchy & Notes
+            </div>
+            <div className="mt-1 text-[13px] text-[#737373]">
+              Set this host's upline so L1/L2 overrides flow up the chain.
             </div>
           </div>
-          {hasActive && commissionProfile.upline_name && (
-            <div className="text-xs text-[#737373]">
-              Upline: <span className="text-[#0A0A0A] font-medium">{commissionProfile.upline_name}</span>
+          {metaSuccess && (
+            <div className="flex items-center gap-1.5 rounded-full bg-[#ECFDF5] px-2.5 py-1 text-[11.5px] font-medium text-[#065F46]">
+              <Check className="h-3 w-3" strokeWidth={3} />
+              Saved
             </div>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Base salary (RM)" error={errors.base_salary_myr}>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={formValues.base_salary_myr}
-              onChange={(e) => setFormValues((v) => ({ ...v, base_salary_myr: e.target.value }))}
-            />
-          </Field>
-          <Field label="Per-live rate (RM)" error={errors.per_live_rate_myr}>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={formValues.per_live_rate_myr}
-              onChange={(e) => setFormValues((v) => ({ ...v, per_live_rate_myr: e.target.value }))}
-            />
-          </Field>
-          <Field label="L1 override %" error={errors.override_rate_l1_percent}>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              value={formValues.override_rate_l1_percent}
-              onChange={(e) =>
-                setFormValues((v) => ({ ...v, override_rate_l1_percent: e.target.value }))
-              }
-            />
-          </Field>
-          <Field label="L2 override %" error={errors.override_rate_l2_percent}>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              value={formValues.override_rate_l2_percent}
-              onChange={(e) =>
-                setFormValues((v) => ({ ...v, override_rate_l2_percent: e.target.value }))
-              }
-            />
-          </Field>
-          <div className="col-span-2">
-            <Field label="Upline (optional)" error={errors.upline_user_id}>
-              <div className="space-y-2">
-                <Input
-                  type="text"
-                  placeholder="Search other live hosts…"
-                  value={uplineSearch}
-                  onChange={(e) => setUplineSearch(e.target.value)}
-                />
-                <select
-                  value={formValues.upline_user_id ?? ''}
-                  onChange={(e) => setFormValues((v) => ({ ...v, upline_user_id: e.target.value }))}
-                  className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-                >
-                  <option value="">— No upline —</option>
+          <div className="relative" ref={uplineRef}>
+            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
+              Upline (optional)
+            </div>
+            <button
+              type="button"
+              onClick={() => setUplineOpen((v) => !v)}
+              className="flex h-10 w-full items-center justify-between rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] hover:bg-[#FAFAFA] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            >
+              <span className="flex items-center gap-2 truncate">
+                {currentUpline ? (
+                  <>
+                    <span className="inline-grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-[#8B5CF6] to-[#EC4899] text-[10px] font-semibold text-white">
+                      {(currentUpline.name || '?').slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="truncate font-medium">{currentUpline.name}</span>
+                    <span className="truncate text-[#737373]">· {currentUpline.email}</span>
+                  </>
+                ) : (
+                  <span className="text-[#737373]">— No upline —</span>
+                )}
+              </span>
+              <ChevronDown className="h-4 w-4 text-[#737373]" />
+            </button>
+            {uplineOpen && (
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-[#EAEAEA] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+                <div className="border-b border-[#F0F0F0] p-2">
+                  <Input
+                    autoFocus
+                    value={uplineSearch}
+                    onChange={(e) => setUplineSearch(e.target.value)}
+                    placeholder="Search other live hosts…"
+                    className="h-8 border-0 bg-[#FAFAFA] text-[13px] shadow-none focus-visible:ring-0"
+                  />
+                </div>
+                <div className="max-h-[240px] overflow-y-auto p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUpline('');
+                      setUplineOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-[13px] text-[#737373] hover:bg-[#F5F5F5]"
+                  >
+                    <span>— No upline —</span>
+                    {!upline && <Check className="h-3.5 w-3.5 text-[#10B981]" />}
+                  </button>
+                  {filteredUpline.length === 0 && (
+                    <div className="px-2.5 py-3 text-center text-[12px] text-[#737373]">
+                      No matches.
+                    </div>
+                  )}
                   {filteredUpline.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.email})
-                    </option>
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => {
+                        setUpline(String(u.id));
+                        setUplineOpen(false);
+                        setUplineSearch('');
+                      }}
+                      className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-[13px] hover:bg-[#F5F5F5]"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="inline-grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-[#8B5CF6] to-[#EC4899] text-[10px] font-semibold text-white">
+                          {(u.name || '?').slice(0, 1).toUpperCase()}
+                        </span>
+                        <span className="font-medium text-[#0A0A0A]">{u.name}</span>
+                        <span className="text-[#737373]">· {u.email}</span>
+                      </span>
+                      {String(u.id) === String(upline) && (
+                        <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                      )}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
-            </Field>
+            )}
           </div>
-          <div className="col-span-2">
-            <Field label="Notes" error={errors.notes}>
-              <textarea
-                rows={3}
-                value={formValues.notes ?? ''}
-                onChange={(e) => setFormValues((v) => ({ ...v, notes: e.target.value }))}
-                className="w-full rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-              />
-            </Field>
+
+          <div>
+            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
+              Notes
+            </div>
+            <textarea
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Context for this commission structure…"
+              className="w-full resize-none rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            />
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end">
-          <Button
-            type="submit"
-            disabled={saving}
-            className="bg-[#0A0A0A] text-white hover:bg-[#262626]"
-          >
-            {saving ? 'Saving…' : hasActive ? 'Update profile' : 'Create profile'}
-          </Button>
-        </div>
-      </form>
-
-      {/* Per-platform rate table */}
-      <PlatformRatesPanel
-        host={host}
-        rates={platformCommissionRates}
-        platforms={platforms}
-        formatDateOnly={formatDateOnly}
-        formatPercent={formatPercent}
-      />
-
-      {/* Commission history */}
-      <div className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
-        <div className="font-semibold text-[15px] tracking-[-0.015em] mb-3">Commission history</div>
-        {history.length === 0 ? (
-          <div className="text-sm text-[#737373] py-6 text-center">No prior profile revisions.</div>
-        ) : (
-          <ul className="space-y-0">
-            {history.map((p) => (
-              <li
-                key={p.id}
-                className="py-3 border-b border-[#F0F0F0] last:border-0 flex items-center justify-between"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-[#0A0A0A]">
-                    RM {formatMoney(p.base_salary_myr)} + RM {formatMoney(p.per_live_rate_myr)}/live
-                  </div>
-                  <div className="text-xs text-[#737373] mt-0.5">
-                    Effective {formatDateOnly(p.effective_from)} → {formatDateOnly(p.effective_to)}
-                    {p.upline_name ? ` · Upline: ${p.upline_name}` : ''}
-                  </div>
-                </div>
-                <div className="text-xs text-[#737373]">
-                  L1 {formatPercent(p.override_rate_l1_percent)} · L2{' '}
-                  {formatPercent(p.override_rate_l2_percent)}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PlatformRatesPanel({ host, rates, platforms, formatDateOnly, formatPercent }) {
-  const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ platform_id: '', commission_rate_percent: '' });
-  const [errors, setErrors] = useState({});
-  const [busy, setBusy] = useState(false);
-
-  const startAdd = () => {
-    const firstPlatform = platforms?.[0]?.id ?? '';
-    setAdding(true);
-    setEditingId(null);
-    setErrors({});
-    setForm({ platform_id: firstPlatform, commission_rate_percent: '' });
-  };
-
-  const startEdit = (rate) => {
-    setAdding(false);
-    setEditingId(rate.id);
-    setErrors({});
-    setForm({
-      platform_id: rate.platform_id,
-      commission_rate_percent: rate.commission_rate_percent,
-    });
-  };
-
-  const cancel = () => {
-    setAdding(false);
-    setEditingId(null);
-    setErrors({});
-  };
-
-  const submit = (e) => {
-    e.preventDefault();
-    setBusy(true);
-    setErrors({});
-    const payload = {
-      platform_id: Number(form.platform_id),
-      commission_rate_percent: Number(form.commission_rate_percent),
-    };
-
-    const opts = {
-      preserveScroll: true,
-      onError: (errs) => setErrors(errs),
-      onSuccess: () => {
-        setAdding(false);
-        setEditingId(null);
-      },
-      onFinish: () => setBusy(false),
-    };
-
-    if (editingId) {
-      router.put(`/livehost/hosts/${host.id}/platform-rates/${editingId}`, payload, opts);
-    } else {
-      router.post(`/livehost/hosts/${host.id}/platform-rates`, payload, opts);
-    }
-  };
-
-  return (
-    <div className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-semibold text-[15px] tracking-[-0.015em]">Per-platform rates</div>
-        {!adding && !editingId && (
+        <div className="mt-4 flex items-center justify-end gap-2">
           <Button
             type="button"
-            size="sm"
-            onClick={startAdd}
-            className="h-8 gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626]"
+            onClick={handleSaveMeta}
+            disabled={savingMeta}
+            className="bg-[#0A0A0A] text-white hover:bg-[#262626]"
           >
-            <Plus className="h-3.5 w-3.5" />
-            Add platform rate
+            {savingMeta ? 'Saving…' : hasActive ? 'Save hierarchy & notes' : 'Create profile'}
           </Button>
-        )}
+        </div>
       </div>
 
-      {(adding || editingId) && (
-        <form
-          onSubmit={submit}
-          className="mb-4 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] p-4 grid grid-cols-3 gap-3"
-        >
-          <Field label="Platform" error={errors.platform_id}>
-            <select
-              value={form.platform_id}
-              onChange={(e) => setForm((v) => ({ ...v, platform_id: e.target.value }))}
-              className="h-9 w-full rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-              disabled={Boolean(editingId)}
-            >
-              {platforms.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Commission rate %" error={errors.commission_rate_percent}>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              value={form.commission_rate_percent}
-              onChange={(e) =>
-                setForm((v) => ({ ...v, commission_rate_percent: e.target.value }))
-              }
-            />
-          </Field>
-          <div className="flex items-end gap-2">
-            <Button
-              type="submit"
-              disabled={busy}
-              className="bg-[#0A0A0A] text-white hover:bg-[#262626]"
-            >
-              {busy ? 'Saving…' : 'Save'}
-            </Button>
-            <Button type="button" variant="ghost" onClick={cancel}>
-              Cancel
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {rates.length === 0 ? (
-        <div className="text-sm text-[#737373] py-6 text-center">No platform rates set.</div>
-      ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-[11.5px] font-medium text-[#737373]">
-              <th className="py-2 text-left">Platform</th>
-              <th className="py-2 text-right">Rate</th>
-              <th className="py-2 text-left">Effective from</th>
-              <th className="py-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rates.map((r) => (
-              <tr key={r.id} className="border-t border-[#F0F0F0]">
-                <td className="py-2.5 text-[#0A0A0A] font-medium">
-                  {r.platform_name ?? r.platform_slug ?? `Platform #${r.platform_id}`}
-                </td>
-                <td className="py-2.5 text-right tabular-nums">
-                  {formatPercent(r.commission_rate_percent)}
-                </td>
-                <td className="py-2.5 text-[#737373]">{formatDateOnly(r.effective_from)}</td>
-                <td className="py-2.5 text-right">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => startEdit(r)}
-                    className="h-7 gap-1 text-[#737373] hover:text-[#0A0A0A]"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Edit
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <HistoryTimeline
+        history={history}
+        activeFrom={commissionProfile?.effective_from}
+        formatDateOnly={formatDateOnly}
+        formatMoney={formatMoney}
+        formatPercent={formatPercent}
+      />
     </div>
   );
 }
 
-function Field({ label, error, children }) {
+function HeroFormula({
+  baseSalary,
+  perLiveRate,
+  primaryPercent,
+  primaryPlatform,
+  l1Percent,
+  l2Percent,
+  effectiveFrom,
+  formatDateOnly,
+  hasActive,
+}) {
   return (
-    <label className="block">
-      <div className="text-[11px] uppercase tracking-wide text-[#737373] font-medium mb-1.5">
-        {label}
+    <div className="relative overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-gradient-to-br from-white via-white to-[#FAFAFA] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div
+        className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full opacity-[0.35] blur-3xl"
+        style={{
+          background:
+            'radial-gradient(circle, rgba(16,185,129,0.35), rgba(236,72,153,0.18) 60%, transparent)',
+        }}
+      />
+      <div className="relative flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-[11.5px] font-medium uppercase tracking-[0.12em] text-[#737373]">
+            <Sparkles className="h-3 w-3" strokeWidth={2.5} />
+            Pay structure
+          </div>
+          <div className="mt-2 text-[13px] text-[#525252]">
+            {hasActive ? (
+              <>
+                Active since{' '}
+                <span className="font-medium text-[#0A0A0A]">
+                  {formatDateOnly(effectiveFrom)}
+                </span>
+              </>
+            ) : (
+              'No active profile yet — values below are defaults.'
+            )}
+          </div>
+        </div>
       </div>
-      {children}
-      {error && <div className="text-xs text-[#F43F5E] mt-1">{error}</div>}
-    </label>
+
+      <div className="relative mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-3 font-mono text-[15px] tabular-nums text-[#0A0A0A]">
+        <FormulaPill tone="emerald">
+          <FormulaValue value={`RM ${baseSalary.toLocaleString('en-MY')}`} label="base" />
+        </FormulaPill>
+        <span className="text-[#A3A3A3]">+</span>
+        <FormulaPill tone="emerald">
+          <FormulaValue value={`RM ${perLiveRate}`} label="per live" />
+        </FormulaPill>
+        <span className="text-[#A3A3A3]">+</span>
+        <FormulaPill tone="rose">
+          <FormulaValue value={`${primaryPercent}%`} label={`× ${primaryPlatform} GMV`} />
+        </FormulaPill>
+        {(l1Percent > 0 || l2Percent > 0) && (
+          <>
+            <span className="text-[#A3A3A3]">+</span>
+            <FormulaPill tone="amber">
+              <FormulaValue
+                value={`${l1Percent}% / ${l2Percent}%`}
+                label="L1 / L2 override"
+              />
+            </FormulaPill>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
+
+function FormulaPill({ tone = 'emerald', children }) {
+  const tones = {
+    emerald: 'bg-[#ECFDF5] text-[#065F46] ring-[#A7F3D0]',
+    rose: 'bg-[#FDF2F8] text-[#9D174D] ring-[#FBCFE8]',
+    amber: 'bg-[#FFFBEB] text-[#92400E] ring-[#FDE68A]',
+  };
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 ring-1 ring-inset ${tones[tone] ?? tones.emerald}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function FormulaValue({ value, label }) {
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className="font-semibold">{value}</span>
+      <span className="font-sans text-[10.5px] uppercase tracking-[0.08em] opacity-70">
+        {label}
+      </span>
+    </span>
+  );
+}
+
+function LedgerSection({ index, title, subtitle, accent, action, children }) {
+  return (
+    <section className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <header className="flex items-start justify-between gap-4 border-b border-[#F0F0F0] px-5 py-4">
+        <div className="flex items-start gap-3">
+          <div
+            className="mt-[2px] font-mono text-[10.5px] font-medium tracking-[0.12em] tabular-nums"
+            style={{ color: accent }}
+          >
+            {index}
+          </div>
+          <div>
+            <h3 className="text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">
+              {title}
+            </h3>
+            {subtitle && <p className="mt-0.5 text-[12.5px] text-[#737373]">{subtitle}</p>}
+          </div>
+        </div>
+        {action}
+      </header>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function LedgerRow({ label, description, field }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-[#FAFAFA]">
+      <div className="min-w-0">
+        <div className="text-[14px] font-medium tracking-[-0.01em] text-[#0A0A0A]">{label}</div>
+        {description && (
+          <div className="mt-0.5 text-[12px] leading-relaxed text-[#737373]">{description}</div>
+        )}
+      </div>
+      <div className="shrink-0">{field}</div>
+    </div>
+  );
+}
+
+function AddPlatformButton({ host, platforms, existingRates }) {
+  const [open, setOpen] = useState(false);
+  const [platformId, setPlatformId] = useState('');
+  const [rate, setRate] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const usedPlatformIds = new Set((existingRates || []).map((r) => r.platform_id));
+  const availablePlatforms = (platforms || []).filter((p) => !usedPlatformIds.has(p.id));
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (!platformId || rate === '') {
+      setError('Pick a platform and rate.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    router.post(
+      `/livehost/hosts/${host.id}/platform-rates`,
+      { platform_id: Number(platformId), commission_rate_percent: Number(rate) },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setOpen(false);
+          setPlatformId('');
+          setRate('');
+        },
+        onError: (errs) => setError(Object.values(errs || {})[0] ?? 'Save failed'),
+        onFinish: () => setBusy(false),
+      },
+    );
+  };
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => {
+          setOpen(true);
+          setPlatformId(String(availablePlatforms[0]?.id ?? ''));
+        }}
+        className="h-8 gap-1.5 bg-[#0A0A0A] text-white hover:bg-[#262626]"
+        disabled={availablePlatforms.length === 0}
+      >
+        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+        Add platform
+      </Button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="flex items-center gap-2 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-2 py-1.5"
+    >
+      <select
+        value={platformId}
+        onChange={(event) => setPlatformId(event.target.value)}
+        className="h-8 rounded-md border border-[#EAEAEA] bg-white px-2 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+      >
+        {availablePlatforms.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <Input
+        type="number"
+        step="0.01"
+        min="0"
+        max="100"
+        value={rate}
+        onChange={(event) => setRate(event.target.value)}
+        placeholder="%"
+        className="h-8 w-[72px] text-right text-[12.5px] tabular-nums"
+      />
+      <button
+        type="submit"
+        disabled={busy}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#10B981] text-white hover:bg-[#059669] disabled:opacity-50"
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(false);
+          setError(null);
+        }}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-white hover:text-[#0A0A0A]"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+      {error && <span className="text-[11px] text-[#DC2626]">{error}</span>}
+    </form>
+  );
+}
+
+function MonthlyProjection({ baseSalary, perLiveRate, primaryPercent, primaryPlatform, formatMoney }) {
+  const [sessions, setSessions] = useState(20);
+  const [gmv, setGmv] = useState(50000);
+
+  const perLivePay = perLiveRate * sessions;
+  const performancePay = (gmv * primaryPercent) / 100;
+  const total = baseSalary + perLivePay + performancePay;
+
+  return (
+    <section className="overflow-hidden rounded-[16px] border border-[#0A0A0A] bg-[#0A0A0A] text-white shadow-[0_8px_24px_rgba(0,0,0,0.15)]">
+      <header className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="font-mono text-[10.5px] font-medium tracking-[0.12em] text-[#10B981]">
+            PROJ
+          </div>
+          <div>
+            <h3 className="text-[15px] font-semibold tracking-[-0.015em]">Monthly projection</h3>
+            <p className="mt-0.5 text-[12.5px] text-white/60">
+              Tune the inputs to see estimated take-home.
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10.5px] font-medium uppercase tracking-[0.1em] text-white/50">
+            Total
+          </div>
+          <div className="font-mono text-[28px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-white">
+            RM {formatMoney(Math.round(total))}
+          </div>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-[1fr_1px_1fr] gap-5 px-5 py-5">
+        <ProjectionInput
+          label="Live sessions"
+          hint="completed this period"
+          value={sessions}
+          min={0}
+          max={60}
+          onChange={setSessions}
+          footer={`≈ RM ${formatMoney(Math.round(perLivePay))} per-live pay`}
+        />
+        <div className="bg-white/10" />
+        <ProjectionInput
+          label={`${primaryPlatform} GMV`}
+          hint="attributed to this host"
+          value={gmv}
+          min={0}
+          max={500000}
+          step={1000}
+          prefix="RM "
+          onChange={setGmv}
+          footer={`≈ RM ${formatMoney(Math.round(performancePay))} performance pay`}
+        />
+      </div>
+
+      <footer className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 text-[12px]">
+        <ProjectionLeg label="Base" value={`RM ${formatMoney(baseSalary)}`} />
+        <ProjectionLeg label="Per-live" value={`RM ${formatMoney(Math.round(perLivePay))}`} />
+        <ProjectionLeg label="Performance" value={`RM ${formatMoney(Math.round(performancePay))}`} />
+      </footer>
+    </section>
+  );
+}
+
+function ProjectionInput({ label, hint, value, min = 0, max = 100, step = 1, prefix = '', onChange, footer }) {
+  const percent = max === min ? 0 : Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <div>
+          <div className="text-[11.5px] font-medium uppercase tracking-[0.08em] text-white/60">
+            {label}
+          </div>
+          <div className="mt-0.5 text-[11px] text-white/40">{hint}</div>
+        </div>
+        <div className="flex items-baseline gap-1 font-mono text-[20px] font-semibold tabular-nums">
+          {prefix && <span className="text-white/60 text-[14px]">{prefix}</span>}
+          <input
+            type="number"
+            value={value}
+            min={min}
+            max={max}
+            step={step}
+            onChange={(e) => onChange(Number(e.target.value) || 0)}
+            className="w-[112px] bg-transparent text-right outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+        </div>
+      </div>
+      <div className="relative mt-3 h-1 rounded-full bg-white/10">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#10B981] to-[#34D399]"
+          style={{ width: `${percent}%` }}
+        />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 h-1 w-full cursor-pointer opacity-0"
+          aria-label={label}
+        />
+        <div
+          className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white shadow"
+          style={{ left: `calc(${percent}% - 6px)` }}
+        />
+      </div>
+      <div className="mt-2 text-[11px] text-white/50">{footer}</div>
+    </div>
+  );
+}
+
+function ProjectionLeg({ label, value }) {
+  return (
+    <div className="px-5 py-3">
+      <div className="text-[10.5px] font-medium uppercase tracking-[0.1em] text-white/40">
+        {label}
+      </div>
+      <div className="mt-1 font-mono text-[14px] tabular-nums text-white">{value}</div>
+    </div>
+  );
+}
+
+function HistoryTimeline({ history, activeFrom, formatDateOnly, formatMoney, formatPercent }) {
+  if (!history || history.length === 0) {
+    return (
+      <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#737373]">
+          Revision history
+        </div>
+        <div className="mt-4 text-[13px] text-[#737373]">No prior revisions yet.</div>
+      </div>
+    );
+  }
+
+  // Oldest → newest, so diff from previous makes chronological sense.
+  const chronological = [...history].sort((a, b) =>
+    String(a.effective_from).localeCompare(String(b.effective_from)),
+  );
+
+  return (
+    <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="mb-4 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-[#737373]">
+        Revision history
+      </div>
+      <ol className="relative space-y-5 pl-6 before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-px before:bg-[#EAEAEA]">
+        {[...chronological].reverse().map((entry, index, arr) => {
+          const prev = arr[index + 1];
+          const diff = prev ? summarizeDiff(prev, entry) : [];
+          const isLatest = index === 0;
+          return (
+            <li key={entry.id} className="relative">
+              <span
+                className={`absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 ${
+                  isLatest ? 'border-[#10B981] bg-white' : 'border-[#EAEAEA] bg-white'
+                }`}
+              />
+              <div className="flex items-baseline justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-[13.5px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">
+                    RM {formatMoney(entry.base_salary_myr)} + RM {formatMoney(entry.per_live_rate_myr)}
+                    /live
+                  </div>
+                  <div className="mt-0.5 text-[11.5px] text-[#737373]">
+                    {formatDateOnly(entry.effective_from)} → {formatDateOnly(entry.effective_to)}
+                    {entry.upline_name ? ` · upline ${entry.upline_name}` : ''}
+                  </div>
+                </div>
+                <div className="shrink-0 font-mono text-[11.5px] tabular-nums text-[#737373]">
+                  L1 {formatPercent(entry.override_rate_l1_percent)} · L2{' '}
+                  {formatPercent(entry.override_rate_l2_percent)}
+                </div>
+              </div>
+              {diff.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {diff.map((d, i) => (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                        d.kind === 'up'
+                          ? 'bg-[#ECFDF5] text-[#065F46]'
+                          : d.kind === 'down'
+                            ? 'bg-[#FEF2F2] text-[#991B1B]'
+                            : 'bg-[#F5F5F5] text-[#525252]'
+                      }`}
+                    >
+                      {d.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </li>
+          );
+        })}
+        {activeFrom && (
+          <li className="relative text-[11.5px] text-[#737373]">
+            <span className="absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 border-[#D4D4D4] bg-white" />
+            Started {formatDateOnly(activeFrom)}
+          </li>
+        )}
+      </ol>
+    </div>
+  );
+}
+
+function summarizeDiff(prev, curr) {
+  const out = [];
+  const diffNum = (key, label, suffix = '') => {
+    const p = Number(prev[key] ?? 0);
+    const c = Number(curr[key] ?? 0);
+    if (p === c) {
+      return;
+    }
+    const delta = c - p;
+    const kind = delta > 0 ? 'up' : 'down';
+    const arrow = delta > 0 ? '↑' : '↓';
+    out.push({ kind, label: `${label} ${arrow} ${Math.abs(delta)}${suffix}` });
+  };
+  diffNum('base_salary_myr', 'base', '');
+  diffNum('per_live_rate_myr', 'per-live', '');
+  diffNum('override_rate_l1_percent', 'L1', '%');
+  diffNum('override_rate_l2_percent', 'L2', '%');
+  if ((prev.upline_user_id ?? null) !== (curr.upline_user_id ?? null)) {
+    out.push({ kind: 'neutral', label: 'upline changed' });
+  }
+  return out;
+}
+

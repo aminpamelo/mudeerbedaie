@@ -6,6 +6,7 @@ use App\Models\LiveSchedule;
 use App\Models\LiveSession;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use App\Services\SettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
@@ -58,7 +59,25 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'brand' => fn () => $this->brand(),
             'navCounts' => fn () => $this->navCounts($request),
+        ];
+    }
+
+    /**
+     * App branding (name + logo) pulled from the admin settings so the
+     * Live Host Desk sidebar reflects whatever the operator has configured
+     * under /admin/settings rather than a hardcoded label.
+     *
+     * @return array{name: string, logoUrl: string|null}
+     */
+    private function brand(): array
+    {
+        $settings = app(SettingsService::class);
+
+        return [
+            'name' => (string) $settings->get('site_name', config('app.name', 'Mudeer Bedaie')),
+            'logoUrl' => $settings->getLogo(),
         ];
     }
 
@@ -114,6 +133,7 @@ class HandleInertiaRequests extends Middleware
             'schedules' => LiveSchedule::query()->where('is_active', true)->count(),
             'sessions' => LiveSession::query()->count(),
             'platformAccounts' => PlatformAccount::query()->count(),
+            'creators' => \App\Models\LiveHostPlatformAccount::query()->count(),
         ]);
     }
 }

@@ -83,12 +83,14 @@ function EditableCell({
 
     setSaving(true);
     Promise.resolve(onSave(nextValue))
+      .then(() => {
+        setEditing(false);
+      })
       .catch((err) => {
         setError(typeof err === 'string' ? err : 'Save failed');
       })
       .finally(() => {
         setSaving(false);
-        setEditing(false);
       });
   };
 
@@ -143,9 +145,14 @@ function EditableCell({
 }
 
 export default function CommissionIndex() {
-  const { hosts } = usePage().props;
+  const { hosts, platforms } = usePage().props;
 
   const [flash, setFlash] = useState(null);
+
+  const defaultPlatformId = useMemo(() => {
+    const tiktok = (platforms ?? []).find((p) => p.slug === 'tiktok-shop');
+    return tiktok?.id ?? platforms?.[0]?.id ?? null;
+  }, [platforms]);
 
   const saveProfileField = (host, field, nextValue) => {
     // Profile uses PUT if one exists, POST otherwise. Send the full required
@@ -178,16 +185,13 @@ export default function CommissionIndex() {
   };
 
   const savePlatformRate = (host, nextValue) => {
-    // Primary platform rate — if a host has no rate row yet we can't infer the
-    // platform_id safely from this page. In practice the seeder + host-create
-    // flow always sets TikTok as primary. For hosts with no rate we surface
-    // a gentle error instead of picking a wrong platform blindly.
-    if (!host.primary_platform_id) {
-      return Promise.reject('No primary platform configured for this host yet.');
+    const platformId = host.primary_platform_id ?? defaultPlatformId;
+    if (!platformId) {
+      return Promise.reject('No platform configured yet.');
     }
 
     const payload = {
-      platform_id: host.primary_platform_id,
+      platform_id: platformId,
       commission_rate_percent: Number(nextValue),
     };
 
@@ -302,7 +306,7 @@ export default function CommissionIndex() {
                         type="percent"
                         align="right"
                         onSave={(v) => savePlatformRate(host, v)}
-                        disabled={!host.primary_platform_id}
+                        disabled={!host.primary_platform_id && !defaultPlatformId}
                       />
                     </td>
                     <td className="px-3 py-3.5 align-middle text-right">

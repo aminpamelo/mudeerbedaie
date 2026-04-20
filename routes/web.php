@@ -263,6 +263,8 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('session-slots.calendar');
         Route::get('session-slots/table', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'index'])
             ->name('session-slots.table');
+        Route::get('session-slots/preview', fn () => \Inertia\Inertia::render('session-slots/CalendarPreview'))
+            ->name('session-slots.preview');
         Route::get('session-slots', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
             ->name('session-slots.index');
 

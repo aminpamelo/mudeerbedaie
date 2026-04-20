@@ -161,6 +161,6 @@ class DashboardController extends Controller
 
         $parts = preg_split('/\s+/', trim($name)) ?: [];
 
-        return strtoupper(substr(($parts[0] ?? '').($parts[1] ?? ''), 0, 2));
+        return mb_strtoupper(mb_substr(($parts[0] ?? '').($parts[1] ?? ''), 0, 2, 'UTF-8'), 'UTF-8');
     }
 }
