@@ -77,6 +77,43 @@ test('issueToClass skips students already issued when skipExisting is true', fun
     Bus::assertNothingBatched();
 });
 
+test('issueToClass reissues by deleting old and creating new when skipExisting is false', function () {
+    Bus::fake();
+
+    $admin = User::factory()->create(['role' => 'admin']);
+    $this->actingAs($admin);
+
+    $class = ClassModel::factory()->create();
+    $certificate = Certificate::factory()->active()->create();
+    $student = enrolledStudent($class);
+
+    $oldIssue = CertificateIssue::factory()->create([
+        'certificate_id' => $certificate->id,
+        'student_id' => $student->id,
+        'class_id' => $class->id,
+        'status' => 'issued',
+    ]);
+
+    $result = app(CertificateService::class)
+        ->issueToClass($certificate, $class, [$student->id], skipExisting: false);
+
+    expect($result['success'])->toBeTrue();
+    expect($result['issued_count'])->toBe(1);
+    expect($result['reissued_count'])->toBe(1);
+    expect($result['failed_count'])->toBe(0);
+
+    // Old issue must be hard-deleted
+    expect(CertificateIssue::find($oldIssue->id))->toBeNull();
+
+    // Exactly one fresh issue must exist for the same student+class+cert
+    expect(CertificateIssue::where('student_id', $student->id)
+        ->where('certificate_id', $certificate->id)
+        ->where('class_id', $class->id)
+        ->count())->toBe(1);
+
+    Bus::assertBatched(fn ($batch) => $batch->jobs->count() === 1);
+});
+
 test('bulkIssueCertificates Livewire action queues a batch', function () {
     Bus::fake();
 

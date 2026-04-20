@@ -296,9 +296,30 @@ new class extends Component {
             $this->skipExisting
         );
 
-        $message = $result['success']
-            ? "Queued {$result['issued_count']} " . Str::plural('certificate', $result['issued_count']) . ' for PDF generation. Skipped: ' . $result['skipped_count'] . '.'
-            : $result['message'];
+        if ($result['success']) {
+            $reissued = $result['reissued_count'] ?? 0;
+            $fresh = $result['issued_count'] - $reissued;
+            $parts = [];
+
+            if ($fresh > 0) {
+                $parts[] = "queued {$fresh} new " . Str::plural('certificate', $fresh);
+            }
+            if ($reissued > 0) {
+                $parts[] = "reissued {$reissued} (old " . Str::plural('certificate', $reissued) . ' deleted)';
+            }
+            if ($result['skipped_count'] > 0) {
+                $parts[] = "skipped {$result['skipped_count']}";
+            }
+            if ($result['failed_count'] > 0) {
+                $parts[] = "{$result['failed_count']} failed";
+            }
+
+            $message = 'Certificates: ' . implode(', ', $parts) . '.';
+        } else {
+            $message = $result['failed_count'] > 0
+                ? "No certificates issued. {$result['failed_count']} " . Str::plural('student', $result['failed_count']) . ' could not be issued. Uncheck "Skip students who already have certificates" to reissue them.'
+                : $result['message'];
+        }
 
         $this->dispatch('notify', [
             'type' => $result['success'] ? 'success' : 'error',
@@ -2012,7 +2033,12 @@ new class extends Component {
                     <flux:error name="selectedStudentIds" />
                 </flux:field>
 
-                <flux:checkbox wire:model="skipExisting" label="Skip students who already have certificates" />
+                <div>
+                    <flux:checkbox wire:model="skipExisting" label="Skip students who already have certificates" />
+                    <flux:text size="xs" class="mt-1 text-zinc-500">
+                        When unchecked, existing certificates for selected students are deleted and replaced with a fresh issue.
+                    </flux:text>
+                </div>
             </div>
 
             <div class="flex justify-end gap-3 pt-2">

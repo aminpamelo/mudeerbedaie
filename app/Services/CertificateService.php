@@ -173,24 +173,28 @@ class CertificateService
         $issuedIds = [];
         $skippedCount = 0;
         $failedCount = 0;
+        $reissuedCount = 0;
         $results = [];
 
         foreach ($students as $student) {
             $canIssue = $this->canIssueToStudent($certificate, $student, $class);
+            $alreadyIssued = ! $canIssue['can_issue'] && str_contains($canIssue['reason'], 'already issued');
 
-            if (! $canIssue['can_issue']) {
-                if ($skipExisting && str_contains($canIssue['reason'], 'already issued')) {
-                    $skippedCount++;
-                    $results[] = [
-                        'student_id' => $student->id,
-                        'student_name' => $student->full_name,
-                        'status' => 'skipped',
-                        'reason' => $canIssue['reason'],
-                    ];
+            // Skip path: student already has a cert and the admin chose to skip them.
+            if ($alreadyIssued && $skipExisting) {
+                $skippedCount++;
+                $results[] = [
+                    'student_id' => $student->id,
+                    'student_name' => $student->full_name,
+                    'status' => 'skipped',
+                    'reason' => $canIssue['reason'],
+                ];
 
-                    continue;
-                }
+                continue;
+            }
 
+            // Fail path: any other blocker (not enrolled, template inactive, etc).
+            if (! $canIssue['can_issue'] && ! $alreadyIssued) {
                 $failedCount++;
                 $results[] = [
                     'student_id' => $student->id,
@@ -202,13 +206,26 @@ class CertificateService
                 continue;
             }
 
+            // Reissue path: student already has a cert and admin unchecked "skip". Delete the
+            // existing issue(s) outright (incl. PDF files) and fall through to create a fresh record.
+            $isReissue = false;
+            if ($alreadyIssued) {
+                $this->deleteExistingIssues($certificate, $student, $class);
+                $isReissue = true;
+            }
+
             try {
                 $issue = $this->createIssueRecord($certificate, $student, $class);
                 $issuedIds[] = $issue->id;
+
+                if ($isReissue) {
+                    $reissuedCount++;
+                }
+
                 $results[] = [
                     'student_id' => $student->id,
                     'student_name' => $student->full_name,
-                    'status' => 'issued',
+                    'status' => $isReissue ? 'reissued' : 'issued',
                     'certificate_issue_id' => $issue->id,
                 ];
             } catch (\Exception $e) {
@@ -242,13 +259,30 @@ class CertificateService
 
         return [
             'success' => $issuedCount > 0,
-            'message' => "Queued: {$issuedCount}, Skipped: {$skippedCount}, Failed: {$failedCount}",
+            'message' => "Queued: {$issuedCount}, Reissued: {$reissuedCount}, Skipped: {$skippedCount}, Failed: {$failedCount}",
             'issued_count' => $issuedCount,
+            'reissued_count' => $reissuedCount,
             'skipped_count' => $skippedCount,
             'failed_count' => $failedCount,
             'batch_id' => $batchId,
             'results' => $results,
         ];
+    }
+
+    /**
+     * Hard-delete all existing CertificateIssue rows for a given student+certificate+class,
+     * including their PDF files on disk. Used when reissuing without keeping audit history.
+     */
+    protected function deleteExistingIssues(Certificate $certificate, Student $student, ClassModel $class): void
+    {
+        CertificateIssue::where('certificate_id', $certificate->id)
+            ->where('student_id', $student->id)
+            ->where('class_id', $class->id)
+            ->get()
+            ->each(function (CertificateIssue $issue) {
+                $issue->deleteFile();
+                $issue->delete();
+            });
     }
 
     /**
