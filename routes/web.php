@@ -312,6 +312,17 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('payroll.mark-paid');
         Route::get('payroll/{run}/export', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'export'])
             ->name('payroll.export');
+
+        // TikTok Report Imports (Task 36) — PIC uploads Live Analysis / All Order
+        // xlsx exports; a queued job parses and matches them to live sessions.
+        Route::get('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'index'])
+            ->name('tiktok-imports.index');
+        Route::post('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'store'])
+            ->name('tiktok-imports.store');
+        Route::get('tiktok-imports/{import}', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'show'])
+            ->name('tiktok-imports.show');
+        Route::post('tiktok-imports/{import}/apply', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'apply'])
+            ->name('tiktok-imports.apply');
     });
 
 // Public Live Schedule - accessible by everyone

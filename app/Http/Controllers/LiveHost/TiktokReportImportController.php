@@ -1,0 +1,272 @@
+<?php
+
+namespace App\Http\Controllers\LiveHost;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\LiveHost\UploadTiktokReportRequest;
+use App\Jobs\ProcessTiktokImportJob;
+use App\Models\LiveHostPayrollRun;
+use App\Models\LiveSession;
+use App\Models\TiktokLiveReport;
+use App\Models\TiktokOrder;
+use App\Models\TiktokReportImport;
+use App\Services\LiveHost\CommissionCalculator;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/**
+ * PIC-facing controller for TikTok xlsx report imports.
+ *
+ *   index   — paginated list of past imports
+ *   store   — accept Live Analysis / All Order xlsx upload, dispatch job
+ *   show    — display parsed rows + match status
+ *   apply   — (live_analysis only) push selected matched reports' GMV into
+ *             the target LiveSession.gmv_amount and re-snapshot commission
+ *
+ * The /livehost/* route group is already gated to admin_livehost+admin, but
+ * FormRequest + inline role checks are kept as a defence-in-depth so tests
+ * can call the endpoints directly and still see a 403 for non-PIC roles.
+ */
+class TiktokReportImportController extends Controller
+{
+    public function __construct(private CommissionCalculator $calculator) {}
+
+    public function index(): Response
+    {
+        $imports = TiktokReportImport::query()
+            ->with('uploadedBy:id,name,email')
+            ->withCount([
+                'liveReports as matched_count' => fn ($q) => $q->whereNotNull('matched_live_session_id'),
+                'liveReports as unmatched_count' => fn ($q) => $q->whereNull('matched_live_session_id'),
+            ])
+            ->orderByDesc('uploaded_at')
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->through(fn (TiktokReportImport $import) => $this->shapeImport($import));
+
+        return Inertia::render('tiktok-imports/Index', [
+            'imports' => $imports,
+        ]);
+    }
+
+    public function store(UploadTiktokReportRequest $request): RedirectResponse
+    {
+        $data = $request->validated();
+        $file = $request->file('file');
+
+        $originalName = $file->getClientOriginalName();
+        $extension = $file->getClientOriginalExtension() ?: 'xlsx';
+        $filename = sprintf(
+            '%s-%s.%s',
+            now()->format('Ymd-His'),
+            Str::random(8),
+            $extension,
+        );
+
+        $path = $file->storeAs('tiktok-imports', $filename, 'local');
+
+        $import = TiktokReportImport::create([
+            'report_type' => $data['report_type'],
+            'file_path' => $path,
+            'uploaded_by' => $request->user()->id,
+            'uploaded_at' => now(),
+            'period_start' => $data['period_start'],
+            'period_end' => $data['period_end'],
+            'status' => 'pending',
+            'total_rows' => 0,
+            'matched_rows' => 0,
+            'unmatched_rows' => 0,
+        ]);
+
+        ProcessTiktokImportJob::dispatch($import->id);
+
+        return redirect()
+            ->route('livehost.tiktok-imports.show', $import)
+            ->with('success', "Uploaded {$originalName}. Processing started.");
+    }
+
+    public function show(TiktokReportImport $import): Response
+    {
+        $import->load('uploadedBy:id,name,email');
+
+        $rows = [];
+        if ($import->report_type === 'live_analysis') {
+            $import->load([
+                'liveReports.matchedLiveSession.liveHost:id,name,email',
+            ]);
+
+            $rows = $import->liveReports
+                ->map(fn (TiktokLiveReport $r) => $this->shapeLiveReport($r))
+                ->values();
+        } else {
+            $import->load([
+                'orders.matchedLiveSession.liveHost:id,name,email',
+            ]);
+
+            $rows = $import->orders
+                ->map(fn (TiktokOrder $o) => $this->shapeOrder($o))
+                ->values();
+        }
+
+        return Inertia::render('tiktok-imports/Show', [
+            'import' => $this->shapeImport($import),
+            'rows' => $rows,
+        ]);
+    }
+
+    public function apply(Request $request, TiktokReportImport $import): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user && in_array($user->role, ['admin_livehost', 'admin'], true), 403);
+        abort_unless($import->report_type === 'live_analysis', 422, 'Only Live Analysis imports can be applied.');
+
+        $validated = $request->validate([
+            'report_ids' => ['required', 'array'],
+            'report_ids.*' => ['integer', 'exists:tiktok_live_reports,id'],
+        ]);
+
+        $reports = TiktokLiveReport::query()
+            ->whereIn('id', $validated['report_ids'])
+            ->where('import_id', $import->id)
+            ->whereNotNull('matched_live_session_id')
+            ->get();
+
+        $applied = 0;
+        $skipped = 0;
+
+        foreach ($reports as $report) {
+            /** @var LiveSession|null $session */
+            $session = LiveSession::query()
+                ->with(['liveHost.commissionProfile', 'liveHost.platformCommissionRates', 'platformAccount'])
+                ->find($report->matched_live_session_id);
+
+            if ($session === null) {
+                continue;
+            }
+
+            if ($this->isSessionPayrollLocked($session)) {
+                $skipped++;
+
+                continue;
+            }
+
+            DB::transaction(function () use ($session, $report, $user) {
+                $session->gmv_amount = $report->gmv_myr;
+                $session->gmv_source = 'tiktok_import';
+
+                if ($session->gmv_locked_at !== null) {
+                    $session->commission_snapshot_json = $this->calculator->snapshot($session, $user);
+                }
+
+                $session->save();
+            });
+
+            $applied++;
+        }
+
+        $message = "Applied TikTok values to {$applied} session(s), skipped {$skipped} (payroll locked).";
+
+        return back()->with('success', $message);
+    }
+
+    /**
+     * Mirrors LiveSessionGmvAdjustmentController::assertNotPayrollLocked()
+     * but returns a boolean instead of aborting — apply must skip, not 403,
+     * when a single session in the bulk set happens to be locked.
+     */
+    private function isSessionPayrollLocked(LiveSession $session): bool
+    {
+        if ($session->actual_end_at === null) {
+            return false;
+        }
+
+        return LiveHostPayrollRun::query()
+            ->where('status', 'locked')
+            ->where('period_start', '<=', $session->actual_end_at)
+            ->where('period_end', '>=', $session->actual_end_at)
+            ->exists();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function shapeImport(TiktokReportImport $import): array
+    {
+        return [
+            'id' => $import->id,
+            'report_type' => $import->report_type,
+            'file_path' => $import->file_path,
+            'file_name' => basename($import->file_path),
+            'uploaded_by' => $import->uploadedBy?->only(['id', 'name', 'email']),
+            'uploaded_at' => $import->uploaded_at?->toIso8601String(),
+            'period_start' => $import->period_start?->toDateString(),
+            'period_end' => $import->period_end?->toDateString(),
+            'status' => $import->status,
+            'total_rows' => (int) $import->total_rows,
+            'matched_rows' => (int) $import->matched_rows,
+            'unmatched_rows' => (int) $import->unmatched_rows,
+            'matched_count' => isset($import->matched_count) ? (int) $import->matched_count : null,
+            'unmatched_count' => isset($import->unmatched_count) ? (int) $import->unmatched_count : null,
+            'error_log_json' => $import->error_log_json,
+            'created_at' => $import->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function shapeLiveReport(TiktokLiveReport $report): array
+    {
+        $session = $report->matchedLiveSession;
+
+        return [
+            'id' => $report->id,
+            'tiktok_creator_id' => $report->tiktok_creator_id,
+            'creator_display_name' => $report->creator_display_name,
+            'creator_nickname' => $report->creator_nickname,
+            'launched_time' => $report->launched_time?->toIso8601String(),
+            'duration_seconds' => $report->duration_seconds,
+            'gmv_myr' => (float) $report->gmv_myr,
+            'live_attributed_gmv_myr' => (float) $report->live_attributed_gmv_myr,
+            'viewers' => (int) $report->viewers,
+            'items_sold' => (int) $report->items_sold,
+            'matched_live_session_id' => $report->matched_live_session_id,
+            'matched_session' => $session ? [
+                'id' => $session->id,
+                'title' => $session->title,
+                'actual_start_at' => $session->actual_start_at?->toIso8601String(),
+                'gmv_amount' => $session->gmv_amount !== null ? (float) $session->gmv_amount : null,
+                'host_name' => $session->liveHost?->name,
+            ] : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function shapeOrder(TiktokOrder $order): array
+    {
+        $session = $order->matchedLiveSession;
+
+        return [
+            'id' => $order->id,
+            'tiktok_order_id' => $order->tiktok_order_id,
+            'order_status' => $order->order_status,
+            'order_substatus' => $order->order_substatus,
+            'created_time' => $order->created_time?->toIso8601String(),
+            'order_amount_myr' => (float) $order->order_amount_myr,
+            'order_refund_amount_myr' => (float) $order->order_refund_amount_myr,
+            'payment_method' => $order->payment_method,
+            'matched_live_session_id' => $order->matched_live_session_id,
+            'matched_session' => $session ? [
+                'id' => $session->id,
+                'title' => $session->title,
+                'host_name' => $session->liveHost?->name,
+            ] : null,
+        ];
+    }
+}
