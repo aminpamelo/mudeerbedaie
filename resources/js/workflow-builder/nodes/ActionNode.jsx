@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
+import NodeUnlinkButton from '../components/NodeUnlinkButton';
 
 const actionIcons = {
     send_email: '📧',
@@ -43,7 +44,7 @@ const actionColors = {
     default: { bg: 'bg-gray-100', border: 'border-gray-300', text: 'text-gray-600' },
 };
 
-function ActionNode({ data, selected }) {
+function ActionNode({ id, data, selected }) {
     const actionType = data?.actionType || '';
     const label = data?.label || actionLabels[actionType] || 'Select Action';
     const icon = actionIcons[actionType] || '⚙️';
@@ -51,10 +52,11 @@ function ActionNode({ data, selected }) {
 
     return (
         <div
-            className={`px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[200px] ${
+            className={`group relative px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[200px] ${
                 selected ? `${colors.border} ring-2 ring-blue-200` : colors.border
             }`}
         >
+            <NodeUnlinkButton nodeId={id} />
             <Handle
                 type="target"
                 position={Position.Top}

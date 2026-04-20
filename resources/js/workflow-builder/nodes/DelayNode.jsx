@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
+import NodeUnlinkButton from '../components/NodeUnlinkButton';
 
 const unitLabels = {
     minutes: 'minute(s)',
@@ -8,7 +9,7 @@ const unitLabels = {
     weeks: 'week(s)',
 };
 
-function DelayNode({ data, selected }) {
+function DelayNode({ id, data, selected }) {
     const getDelayText = () => {
         if (!data?.delay || !data?.unit) return 'Set delay';
         return `Wait ${data.delay} ${unitLabels[data.unit] || data.unit}`;
@@ -18,10 +19,11 @@ function DelayNode({ data, selected }) {
 
     return (
         <div
-            className={`px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[180px] ${
+            className={`group relative px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[180px] ${
                 selected ? 'border-orange-500 ring-2 ring-orange-200' : 'border-orange-300'
             }`}
         >
+            <NodeUnlinkButton nodeId={id} />
             <Handle
                 type="target"
                 position={Position.Top}

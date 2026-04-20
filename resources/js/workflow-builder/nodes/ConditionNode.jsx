@@ -1,15 +1,17 @@
 import React, { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
+import NodeUnlinkButton from '../components/NodeUnlinkButton';
 
-function ConditionNode({ data, selected }) {
+function ConditionNode({ id, data, selected }) {
     const label = data?.label || 'If/Else';
 
     return (
         <div
-            className={`px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[200px] ${
+            className={`group relative px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[200px] ${
                 selected ? 'border-amber-500 ring-2 ring-amber-200' : 'border-amber-300'
             }`}
         >
+            <NodeUnlinkButton nodeId={id} />
             <Handle
                 type="target"
                 position={Position.Top}

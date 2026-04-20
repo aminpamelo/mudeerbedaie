@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
+import NodeUnlinkButton from '../components/NodeUnlinkButton';
 
 const triggerIcons = {
     contact_created: '👤',
@@ -39,17 +40,18 @@ const triggerLabels = {
     manual: 'Manual Trigger',
 };
 
-function TriggerNode({ data, selected }) {
+function TriggerNode({ id, data, selected }) {
     const triggerType = data?.triggerType || 'manual';
     const label = data?.label || triggerLabels[triggerType] || 'Select Trigger';
     const icon = triggerIcons[triggerType] || '⚡';
 
     return (
         <div
-            className={`px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[200px] ${
+            className={`group relative px-4 py-3 rounded-lg border-2 bg-white shadow-md min-w-[200px] ${
                 selected ? 'border-green-500 ring-2 ring-green-200' : 'border-green-300'
             }`}
         >
+            <NodeUnlinkButton nodeId={id} />
             <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-lg">
                     {icon}

@@ -652,16 +652,32 @@ export default function NodeConfigPanel() {
     };
 
     return (
-        <div className="w-80 bg-white border-l border-gray-200 p-4 overflow-y-auto">
+        <div className="w-80 bg-white border-l border-gray-200 p-4 overflow-y-auto flex flex-col">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 capitalize">
                     {selectedNode.type} Settings
                 </h3>
                 <button
+                    type="button"
                     onClick={handleDelete}
-                    className="text-red-500 hover:text-red-700 text-sm"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-red-200 bg-red-50 text-red-600 text-xs font-medium hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors"
+                    aria-label="Unlink node"
+                    title="Unlink node"
                 >
-                    Delete
+                    <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    Unlink
                 </button>
             </div>
 
@@ -680,7 +696,35 @@ export default function NodeConfigPanel() {
 
             <hr className="my-4" />
 
-            {renderConfig()}
+            <div className="flex-1">
+                {renderConfig()}
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-gray-100">
+                <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-red-200 bg-white text-red-600 text-sm font-medium hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors"
+                >
+                    <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.25"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <line x1="10" y1="11" x2="10" y2="17" />
+                        <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                    Remove this node
+                </button>
+            </div>
         </div>
     );
 }
