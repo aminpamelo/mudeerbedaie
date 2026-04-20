@@ -21,6 +21,7 @@
         "livewire/flux": "^2.2",
         "livewire/livewire": "^3.6",
         "livewire/volt": "^1.7",
+        "phpoffice/phpspreadsheet": "^5.6",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "stripe/stripe-php": "^17.5",
         "tightenco/ziggy": "^2.6",
