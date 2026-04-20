@@ -15,6 +15,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('live_session_attachments', 'attachment_type')) {
+            return;
+        }
+
         Schema::table('live_session_attachments', function (Blueprint $table) {
             $table->string('attachment_type', 50)->nullable()->after('file_size');
             $table->index('attachment_type');

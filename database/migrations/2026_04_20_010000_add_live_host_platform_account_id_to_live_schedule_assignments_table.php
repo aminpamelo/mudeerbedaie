@@ -15,6 +15,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (! Schema::hasTable('live_schedule_assignments')) {
+            return;
+        }
+        if (Schema::hasColumn('live_schedule_assignments', 'live_host_platform_account_id')) {
+            return;
+        }
+
         Schema::table('live_schedule_assignments', function (Blueprint $table) {
             $table->foreignId('live_host_platform_account_id')->nullable()
                 ->after('platform_account_id')

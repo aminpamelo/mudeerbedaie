@@ -58,29 +58,58 @@ return new class extends Migration
         }
 
         Schema::table('live_host_platform_account', function (Blueprint $table) {
-            $table->string('creator_handle')->nullable()->after('platform_account_id');
-            $table->string('creator_platform_user_id')->nullable()->after('creator_handle');
-            $table->boolean('is_primary')->default(false)->after('creator_platform_user_id');
-            $table->index('creator_platform_user_id');
+            if (! Schema::hasColumn('live_host_platform_account', 'creator_handle')) {
+                $table->string('creator_handle')->nullable()->after('platform_account_id');
+            }
+            if (! Schema::hasColumn('live_host_platform_account', 'creator_platform_user_id')) {
+                $table->string('creator_platform_user_id')->nullable()->after('creator_handle');
+            }
+            if (! Schema::hasColumn('live_host_platform_account', 'is_primary')) {
+                $table->boolean('is_primary')->default(false)->after('creator_platform_user_id');
+            }
         });
 
-        Schema::table('live_time_slots', function (Blueprint $table) {
-            $table->foreignId('live_host_platform_account_id')->nullable()
-                ->after('platform_account_id')
-                ->constrained('live_host_platform_account', 'id')
-                ->nullOnDelete();
-        });
+        // Index add is itself idempotent-ish — wrap in try/catch for MySQL
+        // where adding a duplicate index throws.
+        try {
+            Schema::table('live_host_platform_account', function (Blueprint $table) {
+                $table->index('creator_platform_user_id');
+            });
+        } catch (\Throwable $e) {
+            // Index already exists; proceed.
+        }
+
+        if (Schema::hasTable('live_time_slots') && ! Schema::hasColumn('live_time_slots', 'live_host_platform_account_id')) {
+            Schema::table('live_time_slots', function (Blueprint $table) {
+                $table->foreignId('live_host_platform_account_id')->nullable()
+                    ->after('platform_account_id')
+                    ->constrained('live_host_platform_account', 'id')
+                    ->nullOnDelete();
+            });
+        }
 
         Schema::table('live_sessions', function (Blueprint $table) {
-            $table->foreignId('live_host_platform_account_id')->nullable()
-                ->after('platform_account_id')
-                ->constrained('live_host_platform_account', 'id')
-                ->nullOnDelete();
-            $table->decimal('gmv_amount', 12, 2)->nullable()->after('duration_minutes');
-            $table->decimal('gmv_adjustment', 12, 2)->default(0)->after('gmv_amount');
-            $table->string('gmv_source')->default('manual')->after('gmv_adjustment');
-            $table->timestamp('gmv_locked_at')->nullable()->after('gmv_source');
-            $table->json('commission_snapshot_json')->nullable()->after('gmv_locked_at');
+            if (! Schema::hasColumn('live_sessions', 'live_host_platform_account_id')) {
+                $table->foreignId('live_host_platform_account_id')->nullable()
+                    ->after('platform_account_id')
+                    ->constrained('live_host_platform_account', 'id')
+                    ->nullOnDelete();
+            }
+            if (! Schema::hasColumn('live_sessions', 'gmv_amount')) {
+                $table->decimal('gmv_amount', 12, 2)->nullable()->after('duration_minutes');
+            }
+            if (! Schema::hasColumn('live_sessions', 'gmv_adjustment')) {
+                $table->decimal('gmv_adjustment', 12, 2)->default(0)->after('gmv_amount');
+            }
+            if (! Schema::hasColumn('live_sessions', 'gmv_source')) {
+                $table->string('gmv_source')->default('manual')->after('gmv_adjustment');
+            }
+            if (! Schema::hasColumn('live_sessions', 'gmv_locked_at')) {
+                $table->timestamp('gmv_locked_at')->nullable()->after('gmv_source');
+            }
+            if (! Schema::hasColumn('live_sessions', 'commission_snapshot_json')) {
+                $table->json('commission_snapshot_json')->nullable()->after('gmv_locked_at');
+            }
         });
     }
 

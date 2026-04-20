@@ -19,6 +19,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('live_host_platform_commission_rates')) {
+            return;
+        }
+
         Schema::create('live_host_platform_commission_rates', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();

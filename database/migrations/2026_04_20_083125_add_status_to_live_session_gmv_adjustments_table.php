@@ -18,10 +18,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('live_session_gmv_adjustments', function (Blueprint $table) {
-            $table->string('status')->default('approved')->after('reason');
-            $table->index('status');
-        });
+        if (! Schema::hasColumn('live_session_gmv_adjustments', 'status')) {
+            Schema::table('live_session_gmv_adjustments', function (Blueprint $table) {
+                $table->string('status')->default('approved')->after('reason');
+                $table->index('status');
+            });
+        }
 
         $driver = DB::getDriverName();
 
