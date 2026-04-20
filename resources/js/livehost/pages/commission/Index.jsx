@@ -23,7 +23,23 @@ function formatPercent(value) {
  * `onSave(newValue)` must return a Promise-like (uses Inertia router callbacks).
  * While the cell is saving we render a subtle spinner instead of the value.
  */
-function EditableCell({ value, type = 'plain', suffix = '', onSave, disabled = false, placeholder = '—' }) {
+/**
+ * Inline-editable cell.
+ *
+ * `align` matches the parent `<td>`'s text alignment so the value visually
+ * sits on the same axis as the column header (right-align for numeric
+ * columns, left-align for text). Both idle and editing states occupy the
+ * same box so entering edit mode doesn't shift the layout.
+ */
+function EditableCell({
+  value,
+  type = 'plain',
+  suffix = '',
+  onSave,
+  disabled = false,
+  placeholder = '—',
+  align = 'right',
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => String(value ?? ''));
   const [saving, setSaving] = useState(false);
@@ -91,9 +107,11 @@ function EditableCell({ value, type = 'plain', suffix = '', onSave, disabled = f
     }
   };
 
+  const alignClass = align === 'right' ? 'text-right justify-end' : 'text-left justify-start';
+
   if (editing) {
     return (
-      <div className="flex items-center gap-1.5">
+      <div className={`flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`}>
         <input
           autoFocus
           type={type === 'plain' ? 'text' : 'number'}
@@ -102,7 +120,7 @@ function EditableCell({ value, type = 'plain', suffix = '', onSave, disabled = f
           onChange={(event) => setDraft(event.target.value)}
           onBlur={commit}
           onKeyDown={handleKeyDown}
-          className="h-8 w-24 rounded-md border border-[#10B981] bg-white px-2 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30"
+          className={`h-7 w-[88px] rounded-md border border-[#10B981] bg-white px-2 text-[13px] tabular-nums text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/30 ${align === 'right' ? 'text-right' : 'text-left'}`}
         />
         {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-[#737373]" />}
         {error && <span className="text-[11px] text-[#DC2626]">{error}</span>}
@@ -115,10 +133,10 @@ function EditableCell({ value, type = 'plain', suffix = '', onSave, disabled = f
       type="button"
       onClick={begin}
       disabled={disabled || saving}
-      className="group inline-flex min-h-[28px] min-w-[60px] items-center gap-1.5 rounded-md px-2 py-1 text-left text-[13px] text-[#0A0A0A] transition-colors hover:bg-[#F5F5F5] disabled:opacity-60"
+      className={`group inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] tabular-nums text-[#0A0A0A] transition-colors hover:bg-[#F5F5F5] disabled:opacity-60 ${alignClass}`}
       title={disabled ? 'Not editable' : 'Click to edit'}
     >
-      <span className="tabular-nums">{display}</span>
+      <span>{display}</span>
       {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-[#737373]" />}
     </button>
   );
@@ -241,9 +259,17 @@ export default function CommissionIndex() {
           {hosts.length === 0 ? (
             <div className="py-16 text-center text-sm text-[#737373]">No live hosts yet.</div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: '32%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '14%' }} />
+              </colgroup>
               <thead>
-                <tr className="bg-[#F5F5F5] text-[11.5px] font-medium text-[#737373]">
+                <tr className="bg-[#F5F5F5] text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
                   <th className="px-5 py-3 text-left">Host</th>
                   <th className="px-5 py-3 text-right">Base Salary</th>
                   <th className="px-5 py-3 text-right">%</th>
@@ -258,48 +284,53 @@ export default function CommissionIndex() {
                     key={host.id}
                     className="border-t border-[#F0F0F0] transition-colors hover:bg-[#FAFAFA]"
                   >
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-3.5 align-middle">
                       <div className="font-medium text-[#0A0A0A]">{host.name}</div>
-                      <div className="text-[11.5px] text-[#737373]">{host.email}</div>
+                      <div className="truncate text-[11.5px] text-[#737373]">{host.email}</div>
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-3 py-3.5 align-middle text-right">
                       <EditableCell
                         value={host.base_salary_myr}
                         type="money"
+                        align="right"
                         onSave={(v) => saveProfileField(host, 'base_salary_myr', v)}
                       />
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-3 py-3.5 align-middle text-right">
                       <EditableCell
                         value={host.primary_platform_rate_percent}
                         type="percent"
+                        align="right"
                         onSave={(v) => savePlatformRate(host, v)}
                         disabled={!host.primary_platform_id}
                       />
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-3 py-3.5 align-middle text-right">
                       <EditableCell
                         value={host.per_live_rate_myr}
                         type="money"
+                        align="right"
                         onSave={(v) => saveProfileField(host, 'per_live_rate_myr', v)}
                       />
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-3.5 align-middle">
                       <span className="text-[13px] text-[#0A0A0A]">
                         {host.upline_name ?? <span className="text-[#737373]">—</span>}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="inline-flex items-center gap-1">
+                    <td className="px-3 py-3.5 align-middle text-right">
+                      <div className="flex items-center justify-end gap-0.5 tabular-nums">
                         <EditableCell
                           value={host.override_rate_l1_percent}
                           type="percent"
+                          align="right"
                           onSave={(v) => saveProfileField(host, 'override_rate_l1_percent', v)}
                         />
                         <span className="text-[#D4D4D4]">/</span>
                         <EditableCell
                           value={host.override_rate_l2_percent}
                           type="percent"
+                          align="right"
                           onSave={(v) => saveProfileField(host, 'override_rate_l2_percent', v)}
                         />
                       </div>
