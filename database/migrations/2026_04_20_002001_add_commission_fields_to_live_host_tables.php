@@ -22,38 +22,31 @@ return new class extends Migration
     public function up(): void
     {
         if (! Schema::hasColumn('live_host_platform_account', 'id')) {
-            $driver = DB::getDriverName();
+            // Promote the composite-PK pivot to a surrogate `id` PK.
+            // MySQL refuses DROP PRIMARY KEY while FKs reference the PK
+            // columns, so we snapshot rows → drop table → recreate with
+            // id + unique + FKs → restore rows. Same code path on MySQL
+            // and SQLite, no FK-name assumptions, no primary-key-drop dance.
+            $existing = DB::table('live_host_platform_account')->get();
 
-            if ($driver === 'mysql') {
-                // Drop the composite primary key, add surrogate id, and
-                // keep the (user_id, platform_account_id) pairing as unique.
-                DB::statement('ALTER TABLE live_host_platform_account DROP PRIMARY KEY');
-                DB::statement('ALTER TABLE live_host_platform_account ADD COLUMN id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY FIRST');
-                DB::statement('ALTER TABLE live_host_platform_account ADD UNIQUE KEY live_host_platform_account_user_platform_unique (user_id, platform_account_id)');
-            } else {
-                // SQLite: snapshot rows, recreate table with id + unique pair,
-                // restore rows.
-                $existing = DB::table('live_host_platform_account')->get();
+            Schema::drop('live_host_platform_account');
 
-                Schema::drop('live_host_platform_account');
+            Schema::create('live_host_platform_account', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('platform_account_id')->constrained()->cascadeOnDelete();
+                $table->timestamps();
 
-                Schema::create('live_host_platform_account', function (Blueprint $table) {
-                    $table->id();
-                    $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-                    $table->foreignId('platform_account_id')->constrained()->cascadeOnDelete();
-                    $table->timestamps();
+                $table->unique(['user_id', 'platform_account_id'], 'live_host_platform_account_user_platform_unique');
+            });
 
-                    $table->unique(['user_id', 'platform_account_id'], 'live_host_platform_account_user_platform_unique');
-                });
-
-                foreach ($existing as $row) {
-                    DB::table('live_host_platform_account')->insert([
-                        'user_id' => $row->user_id,
-                        'platform_account_id' => $row->platform_account_id,
-                        'created_at' => $row->created_at,
-                        'updated_at' => $row->updated_at,
-                    ]);
-                }
+            foreach ($existing as $row) {
+                DB::table('live_host_platform_account')->insert([
+                    'user_id' => $row->user_id,
+                    'platform_account_id' => $row->platform_account_id,
+                    'created_at' => $row->created_at,
+                    'updated_at' => $row->updated_at,
+                ]);
             }
         }
 
@@ -139,33 +132,26 @@ return new class extends Migration
         });
 
         if (Schema::hasColumn('live_host_platform_account', 'id')) {
-            $driver = DB::getDriverName();
+            // Mirror the up() approach — drop + recreate instead of juggling
+            // PRIMARY KEY changes in place. Works identically on MySQL + SQLite.
+            $existing = DB::table('live_host_platform_account')->get();
 
-            if ($driver === 'mysql') {
-                DB::statement('ALTER TABLE live_host_platform_account DROP INDEX live_host_platform_account_user_platform_unique');
-                DB::statement('ALTER TABLE live_host_platform_account DROP PRIMARY KEY');
-                DB::statement('ALTER TABLE live_host_platform_account DROP COLUMN id');
-                DB::statement('ALTER TABLE live_host_platform_account ADD PRIMARY KEY (user_id, platform_account_id)');
-            } else {
-                $existing = DB::table('live_host_platform_account')->get();
+            Schema::drop('live_host_platform_account');
 
-                Schema::drop('live_host_platform_account');
+            Schema::create('live_host_platform_account', function (Blueprint $table) {
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('platform_account_id')->constrained()->cascadeOnDelete();
+                $table->timestamps();
+                $table->primary(['user_id', 'platform_account_id']);
+            });
 
-                Schema::create('live_host_platform_account', function (Blueprint $table) {
-                    $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-                    $table->foreignId('platform_account_id')->constrained()->cascadeOnDelete();
-                    $table->timestamps();
-                    $table->primary(['user_id', 'platform_account_id']);
-                });
-
-                foreach ($existing as $row) {
-                    DB::table('live_host_platform_account')->insert([
-                        'user_id' => $row->user_id,
-                        'platform_account_id' => $row->platform_account_id,
-                        'created_at' => $row->created_at,
-                        'updated_at' => $row->updated_at,
-                    ]);
-                }
+            foreach ($existing as $row) {
+                DB::table('live_host_platform_account')->insert([
+                    'user_id' => $row->user_id,
+                    'platform_account_id' => $row->platform_account_id,
+                    'created_at' => $row->created_at,
+                    'updated_at' => $row->updated_at,
+                ]);
             }
         }
     }
