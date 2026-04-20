@@ -289,6 +289,10 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('sessions.adjustments.store');
         Route::delete('sessions/{session}/adjustments/{adjustment}', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'destroy'])
             ->name('sessions.adjustments.destroy');
+        Route::post('sessions/{session}/adjustments/{adjustment}/approve', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'approve'])
+            ->name('sessions.adjustments.approve');
+        Route::post('sessions/{session}/adjustments/{adjustment}/reject', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'reject'])
+            ->name('sessions.adjustments.reject');
 
         // Commission Overview matrix (Task 22) — one-page inline-editable view
         // of every active host's commission plan.

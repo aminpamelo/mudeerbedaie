@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -11,6 +12,7 @@ class LiveSessionGmvAdjustment extends Model
         'live_session_id',
         'amount_myr',
         'reason',
+        'status',
         'adjusted_by',
         'adjusted_at',
     ];
@@ -31,5 +33,14 @@ class LiveSessionGmvAdjustment extends Model
     public function adjustedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'adjusted_by');
+    }
+
+    /**
+     * Scope: only adjustments that have been approved and should feed into
+     * the session's cached `gmv_adjustment` aggregate.
+     */
+    public function scopeApproved(Builder $query): void
+    {
+        $query->where('status', 'approved');
     }
 }
