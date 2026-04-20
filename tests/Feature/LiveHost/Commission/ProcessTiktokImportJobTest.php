@@ -45,6 +45,7 @@ it('parses Live Analysis xlsx and creates TiktokLiveReport rows', function () {
         app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
         app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
         app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
+        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
     );
 
     $import->refresh();
@@ -101,6 +102,7 @@ it('attempts to match parsed reports to live sessions', function () {
         app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
         app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
         app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
+        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
     );
 
     $import->refresh();
@@ -133,6 +135,7 @@ it('parses All Order xlsx and creates TiktokOrder rows', function () {
         app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
         app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
         app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
+        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
     );
 
     $import->refresh();
@@ -163,6 +166,7 @@ it('marks import failed on parse error', function () {
             app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
             app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
             app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
+            app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
         );
         $this->fail('Expected parse exception to be rethrown.');
     } catch (\Throwable $e) {
@@ -195,6 +199,7 @@ it('skips already-completed imports (idempotent re-run)', function () {
         app(\App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser::class),
         app(\App\Services\LiveHost\Tiktok\AllOrderXlsxParser::class),
         app(\App\Services\LiveHost\Tiktok\LiveSessionMatcher::class),
+        app(\App\Services\LiveHost\Tiktok\OrderRefundReconciler::class),
     );
 
     $import->refresh();

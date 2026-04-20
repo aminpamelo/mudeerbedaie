@@ -8,6 +8,7 @@ use App\Models\TiktokReportImport;
 use App\Services\LiveHost\Tiktok\AllOrderXlsxParser;
 use App\Services\LiveHost\Tiktok\LiveAnalysisXlsxParser;
 use App\Services\LiveHost\Tiktok\LiveSessionMatcher;
+use App\Services\LiveHost\Tiktok\OrderRefundReconciler;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -43,6 +44,7 @@ class ProcessTiktokImportJob implements ShouldQueue
         LiveAnalysisXlsxParser $liveAnalysisParser,
         AllOrderXlsxParser $allOrderParser,
         LiveSessionMatcher $matcher,
+        OrderRefundReconciler $reconciler,
     ): void {
         /** @var TiktokReportImport|null $import */
         $import = TiktokReportImport::query()->find($this->importId);
@@ -65,6 +67,7 @@ class ProcessTiktokImportJob implements ShouldQueue
                 $this->processLiveAnalysis($import, $liveAnalysisParser, $matcher, $absolutePath);
             } else {
                 $this->processOrderList($import, $allOrderParser, $absolutePath);
+                $reconciler->reconcile($import);
             }
         } catch (Throwable $e) {
             $import->status = 'failed';
