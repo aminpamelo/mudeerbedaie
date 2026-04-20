@@ -7,6 +7,7 @@ use App\Models\BroadcastLog;
 use App\Models\Student;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class SendBroadcastEmail implements ShouldQueue
@@ -38,22 +39,34 @@ class SendBroadcastEmail implements ShouldQueue
         // Send emails in chunks to avoid memory issues
         $recipients->chunk(100)->each(function ($chunk) use (&$totalSent, &$totalFailed) {
             foreach ($chunk as $student) {
+                $email = $student->user?->email;
+
+                // Skip students with no email address — the logs table requires one.
+                if (! $email) {
+                    $totalFailed++;
+                    Log::warning('SendBroadcastEmail: skipping student with no email', [
+                        'broadcast_id' => $this->broadcast->id,
+                        'student_id' => $student->id,
+                    ]);
+
+                    continue;
+                }
+
+                $log = null;
+
                 try {
-                    // Create log entry
                     $log = BroadcastLog::create([
                         'broadcast_id' => $this->broadcast->id,
                         'student_id' => $student->id,
-                        'email' => $student->user->email,
+                        'email' => $email,
                         'status' => 'pending',
                     ]);
 
-                    // Replace merge tags in content
                     $content = $this->replaceMergeTags($this->broadcast->getEffectiveContent(), $student);
                     $subject = $this->replaceMergeTags($this->broadcast->subject, $student);
 
-                    // Send email
-                    Mail::html($content, function ($message) use ($student, $subject) {
-                        $message->to($student->user->email, $student->user->name)
+                    Mail::html($content, function ($message) use ($student, $email, $subject) {
+                        $message->to($email, $student->user->name)
                             ->subject($subject)
                             ->from($this->broadcast->from_email, $this->broadcast->from_name);
 
@@ -62,21 +75,38 @@ class SendBroadcastEmail implements ShouldQueue
                         }
                     });
 
-                    // Update log as sent
                     $log->update([
                         'status' => 'sent',
                         'sent_at' => now(),
                     ]);
 
                     $totalSent++;
-                } catch (\Exception $e) {
-                    // Update log as failed
-                    $log->update([
-                        'status' => 'failed',
-                        'error_message' => $e->getMessage(),
+                } catch (\Throwable $e) {
+                    $totalFailed++;
+
+                    Log::error('SendBroadcastEmail: failed to send', [
+                        'broadcast_id' => $this->broadcast->id,
+                        'student_id' => $student->id,
+                        'email' => $email,
+                        'log_created' => (bool) $log,
+                        'error' => $e->getMessage(),
                     ]);
 
-                    $totalFailed++;
+                    if ($log) {
+                        $log->update([
+                            'status' => 'failed',
+                            'error_message' => $e->getMessage(),
+                        ]);
+                    } else {
+                        // Log row creation itself failed — record the failure separately so it's still visible in UI.
+                        BroadcastLog::create([
+                            'broadcast_id' => $this->broadcast->id,
+                            'student_id' => $student->id,
+                            'email' => $email,
+                            'status' => 'failed',
+                            'error_message' => $e->getMessage(),
+                        ]);
+                    }
                 }
             }
         });
