@@ -17,23 +17,32 @@ class CertificatePdfGenerator
      */
     public function generate(Certificate $certificate, Student $student, ?Enrollment $enrollment = null, array $additionalData = []): string
     {
-        // Prepare data for certificate
         $data = $this->prepareData($certificate, $student, $enrollment, $additionalData);
-
-        // Generate HTML from certificate template
         $html = $this->renderHtml($certificate, $data);
 
-        // Generate PDF
         $pdf = Pdf::loadHTML($html)
             ->setPaper($this->getPaperSize($certificate), $certificate->orientation)
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true);
 
-        // Generate file path
-        $filePath = $this->generateFilePath($data['certificate_number']);
+        // Release the rendered HTML string before we hand off to DomPDF — for
+        // large templates with base64 images this is measurable memory.
+        unset($html);
 
-        // Save PDF to public storage so it can be accessed via URL
-        Storage::disk('public')->put($filePath, $pdf->output());
+        $filePath = $this->generateFilePath($data['certificate_number']);
+        $absolutePath = Storage::disk('public')->path($filePath);
+        $directory = dirname($absolutePath);
+
+        if (! is_dir($directory) && ! @mkdir($directory, 0755, true) && ! is_dir($directory)) {
+            throw new \RuntimeException("Failed to create directory: {$directory}");
+        }
+
+        // Stream the PDF straight to disk instead of buffering the full binary
+        // via ->output() and then Storage::put() — that double-buffering was
+        // roughly 2× PDF size in extra memory per render.
+        file_put_contents($absolutePath, $pdf->output());
+
+        unset($pdf);
 
         return $filePath;
     }
