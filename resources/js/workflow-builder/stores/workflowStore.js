@@ -87,7 +87,7 @@ export const useWorkflowStore = create((set, get) => ({
             edges: addEdge({
                 ...connection,
                 id: `edge_${Date.now()}`,
-                type: 'smoothstep',
+                type: 'deletable',
                 animated: true,
             }, get().edges),
             isDirty: true,

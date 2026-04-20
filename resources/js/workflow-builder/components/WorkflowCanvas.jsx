@@ -7,6 +7,7 @@ import {
 } from '@xyflow/react';
 
 import { nodeTypes } from '../nodes';
+import { edgeTypes } from '../edges';
 import { useWorkflowStore } from '../stores/workflowStore';
 
 export default function WorkflowCanvas({ onNodeClick }) {
@@ -75,11 +76,15 @@ export default function WorkflowCanvas({ onNodeClick }) {
                 onDragOver={onDragOver}
                 onDrop={onDrop}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                deleteKeyCode={['Backspace', 'Delete']}
+                edgesFocusable
+                elementsSelectable
                 fitView
                 snapToGrid
                 snapGrid={[15, 15]}
                 defaultEdgeOptions={{
-                    type: 'smoothstep',
+                    type: 'deletable',
                     animated: true,
                 }}
             >
