@@ -296,6 +296,22 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('commission.export');
         Route::get('commission', [\App\Http\Controllers\LiveHost\CommissionOverviewController::class, 'index'])
             ->name('commission.index');
+
+        // Payroll runs (Task 27) — bi-monthly payroll lifecycle + CSV export.
+        Route::get('payroll', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'index'])
+            ->name('payroll.index');
+        Route::post('payroll', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'store'])
+            ->name('payroll.store');
+        Route::get('payroll/{run}', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'show'])
+            ->name('payroll.show');
+        Route::post('payroll/{run}/recompute', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'recompute'])
+            ->name('payroll.recompute');
+        Route::post('payroll/{run}/lock', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'lock'])
+            ->name('payroll.lock');
+        Route::post('payroll/{run}/mark-paid', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'markPaid'])
+            ->name('payroll.mark-paid');
+        Route::get('payroll/{run}/export', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'export'])
+            ->name('payroll.export');
     });
 
 // Public Live Schedule - accessible by everyone
