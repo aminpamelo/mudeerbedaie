@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import WorkflowCanvas from './WorkflowCanvas';
 import NodePalette from './NodePalette';
@@ -6,7 +6,7 @@ import NodeConfigPanel from './NodeConfigPanel';
 import { useWorkflowStore } from '../stores/workflowStore';
 import { ReactFlowProvider } from '@xyflow/react';
 
-export default function WorkflowBuilder({ workflow, onSave, onPublish, onBack }) {
+export default function WorkflowBuilder({ workflow, onSave, onPublish, onBack, onDelete }) {
     const {
         setWorkflow,
         getCanvasData,
@@ -19,6 +19,34 @@ export default function WorkflowBuilder({ workflow, onSave, onPublish, onBack })
 
     const [workflowName, setWorkflowName] = useState(workflow?.name || 'Untitled Workflow');
     const [workflowStatus, setWorkflowStatus] = useState(workflow?.status || 'draft');
+    const [deleteArmed, setDeleteArmed] = useState(false);
+    const deleteTimerRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (deleteTimerRef.current) {
+                clearTimeout(deleteTimerRef.current);
+            }
+        };
+    }, []);
+
+    const handleDeleteClick = async () => {
+        if (!onDelete) return;
+
+        if (!deleteArmed) {
+            setDeleteArmed(true);
+            deleteTimerRef.current = setTimeout(() => {
+                setDeleteArmed(false);
+            }, 3000);
+            return;
+        }
+
+        if (deleteTimerRef.current) {
+            clearTimeout(deleteTimerRef.current);
+        }
+        setDeleteArmed(false);
+        await onDelete();
+    };
 
     useEffect(() => {
         if (workflow) {
@@ -103,6 +131,36 @@ export default function WorkflowBuilder({ workflow, onSave, onPublish, onBack })
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {onDelete && (workflow?.uuid) && (
+                            <button
+                                type="button"
+                                onClick={handleDeleteClick}
+                                disabled={isLoading}
+                                aria-label={deleteArmed ? 'Confirm delete workflow' : 'Delete workflow'}
+                                title={deleteArmed ? 'Click again to confirm' : 'Delete workflow'}
+                                className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md border transition-colors disabled:opacity-50 ${
+                                    deleteArmed
+                                        ? 'bg-red-500 text-white border-red-500 hover:bg-red-600'
+                                        : 'bg-white text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300'
+                                }`}
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                                {deleteArmed ? 'Confirm delete' : 'Delete'}
+                            </button>
+                        )}
+                        <div className="h-6 w-px bg-gray-200 mx-1" />
                         <button
                             onClick={handleSave}
                             disabled={isLoading}

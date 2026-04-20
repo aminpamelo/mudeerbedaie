@@ -79,6 +79,23 @@ export default function App({ workflowUuid }) {
         window.location.href = getWorkflowsUrl();
     };
 
+    const handleDelete = async () => {
+        const uuid = workflow?.uuid || workflowUuid;
+        if (!uuid) return;
+
+        try {
+            await workflowApi.delete(uuid);
+            toast.success('Workflow deleted');
+            setTimeout(() => {
+                window.location.href = getWorkflowsUrl();
+            }, 600);
+        } catch (err) {
+            console.error('Failed to delete workflow:', err);
+            const errorMessage = err.response?.data?.message || 'Failed to delete workflow';
+            toast.error(errorMessage);
+        }
+    };
+
     if (loading) {
         return (
             <div className="h-screen flex items-center justify-center bg-gray-100">
@@ -137,6 +154,7 @@ export default function App({ workflowUuid }) {
                 onSave={handleSave}
                 onPublish={handlePublish}
                 onBack={handleBack}
+                onDelete={handleDelete}
             />
         </>
     );
