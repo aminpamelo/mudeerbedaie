@@ -273,6 +273,15 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
         Route::resource('platform-accounts', \App\Http\Controllers\LiveHost\PlatformAccountController::class)
             ->parameters(['platform-accounts' => 'platformAccount']);
 
+        Route::get('creators', [\App\Http\Controllers\LiveHost\CreatorController::class, 'index'])
+            ->name('creators.index');
+        Route::post('creators', [\App\Http\Controllers\LiveHost\CreatorController::class, 'store'])
+            ->name('creators.store');
+        Route::put('creators/{creator}', [\App\Http\Controllers\LiveHost\CreatorController::class, 'update'])
+            ->name('creators.update');
+        Route::delete('creators/{creator}', [\App\Http\Controllers\LiveHost\CreatorController::class, 'destroy'])
+            ->name('creators.destroy');
+
         Route::get('sessions', [\App\Http\Controllers\LiveHost\SessionController::class, 'index'])
             ->name('sessions.index');
         Route::get('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'show'])
@@ -321,6 +330,8 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
         // xlsx exports; a queued job parses and matches them to live sessions.
         Route::get('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'index'])
             ->name('tiktok-imports.index');
+        Route::get('tiktok-imports/create', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'create'])
+            ->name('tiktok-imports.create');
         Route::post('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'store'])
             ->name('tiktok-imports.store');
         Route::get('tiktok-imports/{import}', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'show'])

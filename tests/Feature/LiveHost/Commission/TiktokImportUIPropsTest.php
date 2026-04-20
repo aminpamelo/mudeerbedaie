@@ -59,8 +59,15 @@ beforeEach(function () {
 });
 
 it('index page receives paginated imports with counts', function () {
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->host->id,
+        'name' => 'UI Props Shop',
+    ]);
+
     $import = TiktokReportImport::create([
         'report_type' => 'live_analysis',
+        'platform_account_id' => $account->id,
         'file_path' => 'tiktok-imports/a.xlsx',
         'uploaded_by' => $this->pic->id,
         'uploaded_at' => now(),
@@ -105,6 +112,13 @@ it('index page receives paginated imports with counts', function () {
                 ->where('unmatched_rows', 1)
                 ->where('matched_count', 1)
                 ->where('unmatched_count', 1)
+                ->where('platform_account_id', $account->id)
+                ->has('platform_account', fn (Assert $pa) => $pa
+                    ->where('id', $account->id)
+                    ->where('display_name', 'UI Props Shop')
+                    ->has('platform_name')
+                    ->etc()
+                )
                 ->has('uploaded_by')
                 ->has('uploaded_at')
                 ->has('period_start')

@@ -31,8 +31,18 @@ it('parses Live Analysis xlsx and creates TiktokLiveReport rows', function () {
     Storage::fake('local');
     $path = copyFixtureToStorage('live_analysis_sample.xlsx', 'tiktok-imports/live.xlsx');
 
+    $platform = Platform::firstOrCreate(
+        ['slug' => 'tiktok-shop'],
+        Platform::factory()->make(['slug' => 'tiktok-shop', 'name' => 'TikTok Shop'])->toArray()
+    );
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $platform->id,
+        'user_id' => $this->pic->id,
+    ]);
+
     $import = TiktokReportImport::create([
         'report_type' => 'live_analysis',
+        'platform_account_id' => $account->id,
         'file_path' => $path,
         'uploaded_by' => $this->pic->id,
         'uploaded_at' => now(),
@@ -90,6 +100,7 @@ it('attempts to match parsed reports to live sessions', function () {
 
     $import = TiktokReportImport::create([
         'report_type' => 'live_analysis',
+        'platform_account_id' => $platformAccount->id,
         'file_path' => $path,
         'uploaded_by' => $this->pic->id,
         'uploaded_at' => now(),
@@ -121,8 +132,18 @@ it('parses All Order xlsx and creates TiktokOrder rows', function () {
     Storage::fake('local');
     $path = copyFixtureToStorage('all_order_sample.xlsx', 'tiktok-imports/orders.xlsx');
 
+    $platform = Platform::firstOrCreate(
+        ['slug' => 'tiktok-shop'],
+        Platform::factory()->make(['slug' => 'tiktok-shop', 'name' => 'TikTok Shop'])->toArray()
+    );
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $platform->id,
+        'user_id' => $this->pic->id,
+    ]);
+
     $import = TiktokReportImport::create([
         'report_type' => 'order_list',
+        'platform_account_id' => $account->id,
         'file_path' => $path,
         'uploaded_by' => $this->pic->id,
         'uploaded_at' => now(),

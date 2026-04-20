@@ -22,8 +22,13 @@ class LiveSessionMatcher
      * session whose actual_start_at is closest to the report's launched_time
      * wins. Returns null when nothing qualifies so the UI can flag the row
      * for PIC review.
+     *
+     * When $platformAccountId is provided the candidate set is further
+     * constrained to sessions attached to that specific TikTok Shop — this
+     * stops a single creator id from pulling in sessions on sibling shops
+     * that happen to share the same creator pivot.
      */
-    public function match(TiktokLiveReport $report): ?LiveSession
+    public function match(TiktokLiveReport $report, ?int $platformAccountId = null): ?LiveSession
     {
         $launchedAt = $report->launched_time;
         $creatorId = $report->tiktok_creator_id;
@@ -35,6 +40,9 @@ class LiveSessionMatcher
         $candidates = LiveSession::query()
             ->whereHas('liveHostPlatformAccount', function ($query) use ($creatorId) {
                 $query->where('creator_platform_user_id', $creatorId);
+            })
+            ->when($platformAccountId !== null, function ($query) use ($platformAccountId) {
+                $query->where('platform_account_id', $platformAccountId);
             })
             ->whereNotNull('actual_start_at')
             ->whereBetween('actual_start_at', [

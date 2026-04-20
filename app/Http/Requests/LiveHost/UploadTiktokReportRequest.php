@@ -25,6 +25,7 @@ class UploadTiktokReportRequest extends FormRequest
     {
         return [
             'report_type' => ['required', 'in:live_analysis,order_list'],
+            'platform_account_id' => ['required', 'integer', 'exists:platform_accounts,id'],
             'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:20480'],
             'period_start' => ['required', 'date'],
             'period_end' => ['required', 'date', 'after:period_start'],

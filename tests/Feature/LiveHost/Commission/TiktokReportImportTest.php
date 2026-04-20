@@ -60,6 +60,7 @@ function makeLiveAnalysisTarget(User $host, Platform $platform, User $pic, array
 
     $import = TiktokReportImport::create([
         'report_type' => 'live_analysis',
+        'platform_account_id' => $account->id,
         'file_path' => 'tiktok-imports/dummy.xlsx',
         'uploaded_by' => $pic->id,
         'uploaded_at' => now(),
@@ -87,8 +88,14 @@ it('PIC uploads Live Analysis xlsx and gets an import record', function () {
     Storage::fake('local');
     Queue::fake();
 
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->ahmad->id,
+    ]);
+
     $response = actingAs($this->pic)->post('/livehost/tiktok-imports', [
         'report_type' => 'live_analysis',
+        'platform_account_id' => $account->id,
         'file' => UploadedFile::fake()->create('report.xlsx', 100, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
         'period_start' => '2026-04-01',
         'period_end' => '2026-04-30',
@@ -97,6 +104,7 @@ it('PIC uploads Live Analysis xlsx and gets an import record', function () {
     $response->assertRedirect();
     $this->assertDatabaseHas('tiktok_report_imports', [
         'report_type' => 'live_analysis',
+        'platform_account_id' => $account->id,
         'status' => 'pending',
         'uploaded_by' => $this->pic->id,
     ]);
@@ -110,8 +118,14 @@ it('PIC uploads All Order xlsx and gets an order_list import record', function (
     Storage::fake('local');
     Queue::fake();
 
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->ahmad->id,
+    ]);
+
     $response = actingAs($this->pic)->post('/livehost/tiktok-imports', [
         'report_type' => 'order_list',
+        'platform_account_id' => $account->id,
         'file' => UploadedFile::fake()->create('orders.xlsx', 100, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
         'period_start' => '2026-04-01',
         'period_end' => '2026-04-30',
@@ -120,6 +134,7 @@ it('PIC uploads All Order xlsx and gets an order_list import record', function (
     $response->assertRedirect();
     $this->assertDatabaseHas('tiktok_report_imports', [
         'report_type' => 'order_list',
+        'platform_account_id' => $account->id,
         'status' => 'pending',
     ]);
     Queue::assertPushed(ProcessTiktokImportJob::class);
@@ -130,15 +145,48 @@ it('validates required fields on upload', function () {
 
     actingAs($this->pic)
         ->post('/livehost/tiktok-imports', [])
-        ->assertSessionHasErrors(['report_type', 'file', 'period_start', 'period_end']);
+        ->assertSessionHasErrors(['report_type', 'platform_account_id', 'file', 'period_start', 'period_end']);
+});
+
+it('upload without platform_account_id is 422', function () {
+    Storage::fake('local');
+    Queue::fake();
+
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->ahmad->id,
+    ]);
+
+    actingAs($this->pic)
+        ->post('/livehost/tiktok-imports', [
+            'report_type' => 'live_analysis',
+            // no platform_account_id
+            'file' => UploadedFile::fake()->create('r.xlsx', 10, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+            'period_start' => '2026-04-01',
+            'period_end' => '2026-04-30',
+        ])
+        ->assertSessionHasErrors('platform_account_id');
+
+    // Nothing persisted, no job dispatched.
+    expect(TiktokReportImport::count())->toBe(0);
+    Queue::assertNothingPushed();
+
+    // Sanity: $account was never referenced in the import row.
+    expect($account->fresh())->not->toBeNull();
 });
 
 it('validates period_end is after period_start', function () {
     Storage::fake('local');
 
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->ahmad->id,
+    ]);
+
     actingAs($this->pic)
         ->post('/livehost/tiktok-imports', [
             'report_type' => 'live_analysis',
+            'platform_account_id' => $account->id,
             'file' => UploadedFile::fake()->create('report.xlsx', 50, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
             'period_start' => '2026-04-30',
             'period_end' => '2026-04-01',
@@ -149,9 +197,15 @@ it('validates period_end is after period_start', function () {
 it('rejects files over 20 MB', function () {
     Storage::fake('local');
 
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->ahmad->id,
+    ]);
+
     actingAs($this->pic)
         ->post('/livehost/tiktok-imports', [
             'report_type' => 'live_analysis',
+            'platform_account_id' => $account->id,
             'file' => UploadedFile::fake()->create('huge.xlsx', 25000, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
             'period_start' => '2026-04-01',
             'period_end' => '2026-04-30',
@@ -160,8 +214,14 @@ it('rejects files over 20 MB', function () {
 });
 
 it('index lists imports for PIC', function () {
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->ahmad->id,
+    ]);
+
     TiktokReportImport::create([
         'report_type' => 'live_analysis',
+        'platform_account_id' => $account->id,
         'file_path' => 'tiktok-imports/a.xlsx',
         'uploaded_by' => $this->pic->id,
         'uploaded_at' => now(),
@@ -173,6 +233,72 @@ it('index lists imports for PIC', function () {
     actingAs($this->pic)
         ->get('/livehost/tiktok-imports')
         ->assertSuccessful();
+});
+
+it("import's platform_account_id is persisted and eager-loaded in show props", function () {
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->ahmad->id,
+        'name' => 'Mudeer Shop Alpha',
+    ]);
+
+    $import = TiktokReportImport::create([
+        'report_type' => 'live_analysis',
+        'platform_account_id' => $account->id,
+        'file_path' => 'tiktok-imports/with-shop.xlsx',
+        'uploaded_by' => $this->pic->id,
+        'uploaded_at' => now(),
+        'period_start' => '2026-04-01',
+        'period_end' => '2026-04-30',
+        'status' => 'completed',
+    ]);
+
+    expect($import->fresh()->platform_account_id)->toBe($account->id);
+
+    actingAs($this->pic)
+        ->get("/livehost/tiktok-imports/{$import->id}")
+        ->assertSuccessful()
+        ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->component('tiktok-imports/Show', false)
+            ->where('import.platform_account_id', $account->id)
+            ->where('import.platform_account.id', $account->id)
+            ->where('import.platform_account.display_name', 'Mudeer Shop Alpha')
+            ->etc()
+        );
+});
+
+it('create() action renders Inertia page with preloaded platform accounts filtered to tiktok-shop', function () {
+    // A tiktok-shop account — must appear.
+    $tiktokAccount = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->ahmad->id,
+        'name' => 'Mudeer Shop TikTok',
+    ]);
+
+    // A non-tiktok account on a fresh platform — must NOT appear.
+    $other = \App\Models\Platform::firstOrCreate(
+        ['slug' => 'shopee'],
+        \App\Models\Platform::factory()->make(['slug' => 'shopee', 'name' => 'Shopee'])->toArray()
+    );
+    $shopeeAccount = PlatformAccount::factory()->create([
+        'platform_id' => $other->id,
+        'user_id' => $this->ahmad->id,
+        'name' => 'Mudeer Shop Shopee',
+    ]);
+
+    actingAs($this->pic)
+        ->get('/livehost/tiktok-imports/create')
+        ->assertSuccessful()
+        ->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->component('tiktok-imports/Create', false)
+            ->has('platformAccounts')
+            ->where('platformAccounts', function ($accounts) use ($tiktokAccount, $shopeeAccount) {
+                $ids = collect($accounts)->pluck('id')->all();
+
+                return in_array($tiktokAccount->id, $ids, true)
+                    && ! in_array($shopeeAccount->id, $ids, true);
+            })
+        );
 });
 
 it('show returns the import with its rows', function () {
@@ -277,10 +403,15 @@ it('live_host role cannot upload', function () {
     Queue::fake();
 
     $host = User::factory()->create(['role' => 'live_host']);
+    $account = PlatformAccount::factory()->create([
+        'platform_id' => $this->tiktok->id,
+        'user_id' => $this->ahmad->id,
+    ]);
 
     actingAs($host)
         ->post('/livehost/tiktok-imports', [
             'report_type' => 'live_analysis',
+            'platform_account_id' => $account->id,
             'file' => UploadedFile::fake()->create('r.xlsx', 10, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
             'period_start' => '2026-04-01',
             'period_end' => '2026-04-30',

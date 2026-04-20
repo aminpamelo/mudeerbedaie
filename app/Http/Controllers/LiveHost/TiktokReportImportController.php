@@ -8,6 +8,7 @@ use App\Jobs\ProcessTiktokImportJob;
 use App\Models\LiveHostPayrollRun;
 use App\Models\LiveSession;
 use App\Models\LiveSessionGmvAdjustment;
+use App\Models\PlatformAccount;
 use App\Models\TiktokLiveReport;
 use App\Models\TiktokOrder;
 use App\Models\TiktokReportImport;
@@ -39,7 +40,7 @@ class TiktokReportImportController extends Controller
     public function index(): Response
     {
         $imports = TiktokReportImport::query()
-            ->with('uploadedBy:id,name,email')
+            ->with(['uploadedBy:id,name,email', 'platformAccount.platform'])
             ->withCount([
                 'liveReports as matched_count' => fn ($q) => $q->whereNotNull('matched_live_session_id'),
                 'liveReports as unmatched_count' => fn ($q) => $q->whereNull('matched_live_session_id'),
@@ -51,6 +52,31 @@ class TiktokReportImportController extends Controller
 
         return Inertia::render('tiktok-imports/Index', [
             'imports' => $imports,
+        ]);
+    }
+
+    /**
+     * Render the dedicated upload page with the PIC's list of TikTok Shop
+     * PlatformAccount rows preloaded — the upload form needs the user to
+     * pick exactly one shop so the matcher can scope to it.
+     */
+    public function create(): Response
+    {
+        $platformAccounts = PlatformAccount::query()
+            ->whereHas('platform', fn ($q) => $q->where('slug', 'tiktok-shop'))
+            ->with(['platform', 'user:id,name,email'])
+            ->orderBy('id')
+            ->get()
+            ->map(fn (PlatformAccount $account) => [
+                'id' => $account->id,
+                'display_name' => $this->shopDisplayName($account),
+                'platform_name' => $account->platform?->name ?? 'TikTok Shop',
+                'owner_name' => $account->user?->name,
+            ])
+            ->values();
+
+        return Inertia::render('tiktok-imports/Create', [
+            'platformAccounts' => $platformAccounts,
         ]);
     }
 
@@ -72,6 +98,7 @@ class TiktokReportImportController extends Controller
 
         $import = TiktokReportImport::create([
             'report_type' => $data['report_type'],
+            'platform_account_id' => $data['platform_account_id'],
             'file_path' => $path,
             'uploaded_by' => $request->user()->id,
             'uploaded_at' => now(),
@@ -92,7 +119,7 @@ class TiktokReportImportController extends Controller
 
     public function show(TiktokReportImport $import): Response
     {
-        $import->load('uploadedBy:id,name,email');
+        $import->load(['uploadedBy:id,name,email', 'platformAccount.platform']);
 
         $rows = [];
         $adjustments = [];
@@ -257,6 +284,12 @@ class TiktokReportImportController extends Controller
         return [
             'id' => $import->id,
             'report_type' => $import->report_type,
+            'platform_account_id' => $import->platform_account_id,
+            'platform_account' => $import->platformAccount ? [
+                'id' => $import->platformAccount->id,
+                'display_name' => $this->shopDisplayName($import->platformAccount),
+                'platform_name' => $import->platformAccount->platform?->name ?? 'TikTok Shop',
+            ] : null,
             'file_path' => $import->file_path,
             'file_name' => basename($import->file_path),
             'uploaded_by' => $import->uploadedBy?->only(['id', 'name', 'email']),
@@ -272,6 +305,22 @@ class TiktokReportImportController extends Controller
             'error_log_json' => $import->error_log_json,
             'created_at' => $import->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Resolve a user-visible shop name from a PlatformAccount, avoiding the
+     * model's `display_name` accessor (which appends the platform suffix) —
+     * we want the raw shop identifier here.
+     */
+    private function shopDisplayName(PlatformAccount $account): string
+    {
+        $raw = $account->getAttributes()['name'] ?? null;
+
+        if (is_string($raw) && trim($raw) !== '') {
+            return trim($raw);
+        }
+
+        return "Shop #{$account->id}";
     }
 
     /**

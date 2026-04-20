@@ -67,7 +67,7 @@ class OrderRefundReconciler
                 continue;
             }
 
-            $session = $this->matchSessionByWindow($order->created_time);
+            $session = $this->matchSessionByWindow($order->created_time, $import->platform_account_id);
 
             if ($session === null) {
                 $skipped++;
@@ -123,11 +123,19 @@ class OrderRefundReconciler
      * Find the unique LiveSession whose live-window overlaps the order's
      * created_time. Returns null if zero or more than one session matches;
      * multi-match requires PIC review.
+     *
+     * When $platformAccountId is provided (i.e. the parent import is pinned
+     * to a specific shop), the candidate set is restricted to sessions from
+     * that shop — so a refund on Shop A can't land on a parallel Shop B
+     * live-window by accident.
      */
-    private function matchSessionByWindow(CarbonInterface $createdAt): ?LiveSession
+    private function matchSessionByWindow(CarbonInterface $createdAt, ?int $platformAccountId = null): ?LiveSession
     {
         $candidates = LiveSession::query()
             ->whereNotNull('actual_start_at')
+            ->when($platformAccountId !== null, function ($query) use ($platformAccountId) {
+                $query->where('platform_account_id', $platformAccountId);
+            })
             ->where('actual_start_at', '<=', $createdAt)
             ->where(function ($query) use ($createdAt) {
                 $query->whereNull('actual_end_at')

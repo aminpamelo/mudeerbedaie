@@ -173,11 +173,14 @@ it('end-to-end: host entry → PIC verify → payroll draft → TikTok import + 
     expect($initialNetPayout)->toBeGreaterThan(0.0);
 
     // 5. PIC uploads the Live Analysis fixture xlsx via multipart. Queue is
-    //    synchronous (beforeEach) so the job runs inline.
+    //    synchronous (beforeEach) so the job runs inline. Target Ahmad's
+    //    session #1 platform account so the shop-scoped matcher picks up his
+    //    fixture row.
     $laContents = file_get_contents(base_path('tests/Fixtures/tiktok/live_analysis_sample.xlsx'));
     actingAs($pic)
         ->post('/livehost/tiktok-imports', [
             'report_type' => 'live_analysis',
+            'platform_account_id' => $ahmadSession1->platform_account_id,
             'file' => UploadedFile::fake()->createWithContent('la.xlsx', $laContents),
             'period_start' => '2026-04-01',
             'period_end' => '2026-04-30',
@@ -211,10 +214,13 @@ it('end-to-end: host entry → PIC verify → payroll draft → TikTok import + 
     expect($ahmadSession1->gmv_source)->toBe('tiktok_import');
 
     // 8. PIC uploads the All Order fixture xlsx — reconciler runs inline.
+    //    Target Amin's platform account so the 15/04 refund window matches
+    //    his session under the shop-scoped reconciler.
     $orderContents = file_get_contents(base_path('tests/Fixtures/tiktok/all_order_sample.xlsx'));
     actingAs($pic)
         ->post('/livehost/tiktok-imports', [
             'report_type' => 'order_list',
+            'platform_account_id' => $aminSession->platform_account_id,
             'file' => UploadedFile::fake()->createWithContent('orders.xlsx', $orderContents),
             'period_start' => '2026-04-01',
             'period_end' => '2026-04-30',

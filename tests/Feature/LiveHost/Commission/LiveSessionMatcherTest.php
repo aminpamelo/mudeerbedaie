@@ -145,6 +145,53 @@ it('picks the closest-time candidate when multiple exist', function () {
         ->and($match?->id)->not->toBe($sessionTwentyMin->id);
 });
 
+it('matcher scopes to platform_account_id when provided — session from a different shop is NOT matched', function () {
+    $reportTime = Carbon::parse('2026-04-18 22:14:00');
+
+    // Shop A — the import's target shop. No session on this shop for the creator.
+    $shopA = $this->platformAccount; // seeded in beforeEach; creator=6526684195492729856
+
+    // Shop B — a different platform account, same creator id pivoted in.
+    $shopB = PlatformAccount::factory()->create([
+        'user_id' => $this->host->id,
+        'platform_id' => $shopA->platform_id,
+    ]);
+    $pivotB = LiveHostPlatformAccount::create([
+        'user_id' => $this->host->id,
+        'platform_account_id' => $shopB->id,
+        'creator_handle' => '@amar-shop-b',
+        'creator_platform_user_id' => '6526684195492729856',
+        'is_primary' => false,
+    ]);
+
+    // The ONLY live session for this creator id is on Shop B.
+    $sessionOnShopB = LiveSession::factory()->create([
+        'live_host_id' => $this->host->id,
+        'platform_account_id' => $shopB->id,
+        'live_host_platform_account_id' => $pivotB->id,
+        'status' => 'ended',
+        'actual_start_at' => $reportTime,
+    ]);
+
+    $report = TiktokLiveReport::create([
+        'import_id' => $this->import->id,
+        'tiktok_creator_id' => '6526684195492729856',
+        'launched_time' => $reportTime,
+    ]);
+
+    // Unscoped: matches the Shop B session — current (backward-compat) behavior.
+    $unscoped = (new LiveSessionMatcher)->match($report);
+    expect($unscoped?->id)->toBe($sessionOnShopB->id);
+
+    // Scoped to Shop A: NO match, because the only candidate is on Shop B.
+    $scoped = (new LiveSessionMatcher)->match($report, $shopA->id);
+    expect($scoped)->toBeNull();
+
+    // Scoped to Shop B: still matches.
+    $scopedB = (new LiveSessionMatcher)->match($report, $shopB->id);
+    expect($scopedB?->id)->toBe($sessionOnShopB->id);
+});
+
 it('does not match sessions belonging to a different creator id', function () {
     $otherHost = User::factory()->create(['role' => 'live_host']);
     $otherPlatformAccount = PlatformAccount::factory()->create([

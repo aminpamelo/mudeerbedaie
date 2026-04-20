@@ -101,7 +101,7 @@ class ProcessTiktokImportJob implements ShouldQueue
                 ['import_id' => $import->id]
             ));
 
-            $session = $matcher->match($report);
+            $session = $matcher->match($report, $import->platform_account_id);
             if ($session !== null) {
                 $report->matched_live_session_id = $session->id;
                 $report->save();

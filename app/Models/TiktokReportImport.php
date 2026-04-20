@@ -10,6 +10,7 @@ class TiktokReportImport extends Model
 {
     protected $fillable = [
         'report_type',
+        'platform_account_id',
         'file_path',
         'uploaded_by',
         'uploaded_at',
@@ -35,6 +36,11 @@ class TiktokReportImport extends Model
     public function uploadedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function platformAccount(): BelongsTo
+    {
+        return $this->belongsTo(PlatformAccount::class);
     }
 
     public function liveReports(): HasMany
