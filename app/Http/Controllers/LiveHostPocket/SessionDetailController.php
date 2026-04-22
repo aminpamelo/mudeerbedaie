@@ -95,7 +95,7 @@ class SessionDetailController extends Controller
             'actual_start_at' => $actualStart ?? $session->actual_start_at,
             'actual_end_at' => $actualEnd ?? $session->actual_end_at,
             'duration_minutes' => $duration,
-            'gmv_amount' => $data['gmv_amount'],
+            'gmv_amount' => array_key_exists('gmv_amount', $data) ? $data['gmv_amount'] : $session->gmv_amount,
             'gmv_source' => 'manual',
             'gmv_locked_at' => null,
             'uploaded_at' => now(),

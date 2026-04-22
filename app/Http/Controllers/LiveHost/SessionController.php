@@ -23,12 +23,27 @@ class SessionController extends Controller
 {
     public function index(Request $request): Response
     {
+        $tab = $this->resolveTab($request->string('tab')->toString());
         $status = $request->string('status')->toString();
         $platformAccount = $request->string('platform_account')->toString();
         $host = $request->string('host')->toString();
-        $verification = $request->string('verification')->toString();
         $from = $request->string('from')->toString();
         $to = $request->string('to')->toString();
+
+        // Filters that apply to every tab — used both by the paginated query
+        // and by the per-tab count query so the badges reflect the current
+        // platform/host/date scope.
+        $applyCommonFilters = function ($q) use ($platformAccount, $host, $status, $from, $to) {
+            return $q
+                ->when($status !== '', fn ($q) => $q->where('status', $status))
+                ->when(
+                    $platformAccount !== '',
+                    fn ($q) => $q->where('platform_account_id', $platformAccount)
+                )
+                ->when($host !== '', fn ($q) => $q->where('live_host_id', $host))
+                ->when($from !== '', fn ($q) => $q->whereDate('scheduled_start_at', '>=', $from))
+                ->when($to !== '', fn ($q) => $q->whereDate('scheduled_start_at', '<=', $to));
+        };
 
         $sessions = LiveSession::query()
             ->with([
@@ -39,15 +54,8 @@ class SessionController extends Controller
                 'analytics',
                 'attachments.uploader:id,name',
             ])
-            ->when($status !== '', fn ($q) => $q->where('status', $status))
-            ->when(
-                $platformAccount !== '',
-                fn ($q) => $q->where('platform_account_id', $platformAccount)
-            )
-            ->when($host !== '', fn ($q) => $q->where('live_host_id', $host))
-            ->when($verification !== '', fn ($q) => $q->where('verification_status', $verification))
-            ->when($from !== '', fn ($q) => $q->whereDate('scheduled_start_at', '>=', $from))
-            ->when($to !== '', fn ($q) => $q->whereDate('scheduled_start_at', '<=', $to))
+            ->tap($applyCommonFilters)
+            ->tap(fn ($q) => $this->applyTabFilter($q, $tab))
             ->orderByDesc('scheduled_start_at')
             ->orderByDesc('id')
             ->paginate(15)
@@ -57,16 +65,66 @@ class SessionController extends Controller
         return Inertia::render('sessions/Index', [
             'sessions' => $sessions,
             'filters' => [
+                'tab' => $tab,
                 'status' => $status,
                 'platform_account' => $platformAccount,
                 'host' => $host,
-                'verification' => $verification,
                 'from' => $from,
                 'to' => $to,
             ],
+            'tabCounts' => $this->tabCounts($applyCommonFilters),
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
         ]);
+    }
+
+    /**
+     * @return 'all'|'needs_review'|'verified'|'rejected'
+     */
+    private function resolveTab(string $tab): string
+    {
+        return in_array($tab, ['all', 'needs_review', 'verified', 'rejected'], true)
+            ? $tab
+            : 'all';
+    }
+
+    /**
+     * Apply the "bucket" filter on top of the shared filters. "Needs review"
+     * means a host-submitted recap (status=ended) that the PIC hasn't yet
+     * signed off on.
+     */
+    private function applyTabFilter(\Illuminate\Database\Eloquent\Builder $query, string $tab): void
+    {
+        match ($tab) {
+            'needs_review' => $query
+                ->where('status', 'ended')
+                ->where('verification_status', 'pending'),
+            'verified' => $query->where('verification_status', 'verified'),
+            'rejected' => $query->where('verification_status', 'rejected'),
+            default => null,
+        };
+    }
+
+    /**
+     * Per-tab counts used for the sidebar-style badges on the tab strip.
+     * Shares the common filters so the numbers match what the user would
+     * see if they clicked into the tab.
+     *
+     * @return array{all: int, needs_review: int, verified: int, rejected: int}
+     */
+    private function tabCounts(\Closure $applyCommonFilters): array
+    {
+        $base = fn () => LiveSession::query()->tap($applyCommonFilters);
+
+        return [
+            'all' => $base()->count(),
+            'needs_review' => $base()
+                ->where('status', 'ended')
+                ->where('verification_status', 'pending')
+                ->count(),
+            'verified' => $base()->where('verification_status', 'verified')->count(),
+            'rejected' => $base()->where('verification_status', 'rejected')->count(),
+        ];
     }
 
     public function update(UpdateLiveSessionRequest $request, LiveSession $session): RedirectResponse

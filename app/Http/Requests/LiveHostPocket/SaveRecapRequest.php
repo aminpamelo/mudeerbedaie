@@ -48,7 +48,7 @@ class SaveRecapRequest extends FormRequest
             'total_comments' => ['nullable', 'integer', 'min:0'],
             'total_shares' => ['nullable', 'integer', 'min:0'],
             'gifts_value' => ['nullable', 'numeric', 'min:0'],
-            'gmv_amount' => ['required_if:went_live,true', 'nullable', 'numeric', 'min:0', 'max:9999999.99'],
+            'gmv_amount' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
 
             // went_live === false branch
             'missed_reason_code' => [
@@ -61,14 +61,10 @@ class SaveRecapRequest extends FormRequest
     }
 
     /**
-     * Extra guards layered on top of the rule-based validation so we only
-     * hit the DB when the payload shape is already valid:
-     *
-     * 1. Proof-of-live: when `went_live=true`, require at least one image or
-     *    video attachment on this session.
-     * 2. GMV proof: when `went_live=true`, require at least one attachment
-     *    flagged `tiktok_shop_screenshot` to substantiate the self-reported
-     *    GMV amount.
+     * Proof-of-live guard: when `went_live=true`, require at least one image
+     * or video attachment on this session. GMV + TikTok Shop screenshot are
+     * no longer collected from the host — they will be pulled from the
+     * TikTok API in a later phase.
      */
     public function withValidator(Validator $validator): void
     {
@@ -87,13 +83,6 @@ class SaveRecapRequest extends FormRequest
                 $validator->errors()->add(
                     'proof',
                     'Upload at least one image or video as proof you went live.'
-                );
-            }
-
-            if (! $session->hasTikTokShopScreenshot()) {
-                $validator->errors()->add(
-                    'tiktok_shop_screenshot',
-                    'Upload the TikTok Shop backend screenshot so we can verify the GMV you entered.'
                 );
             }
         });

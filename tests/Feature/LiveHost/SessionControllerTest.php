@@ -389,13 +389,49 @@ it('forbids live_host from verifying a session', function () {
         ->assertForbidden();
 });
 
-it('filters sessions by verification_status on index', function () {
+it('filters sessions by verification_status via the verified tab', function () {
     LiveSession::factory()->count(2)->create(['verification_status' => 'pending']);
     LiveSession::factory()->count(3)->create(['verification_status' => 'verified']);
 
     actingAs($this->pic)
-        ->get('/livehost/sessions?verification=verified')
+        ->get('/livehost/sessions?tab=verified')
         ->assertInertia(fn (Assert $p) => $p->has('sessions.data', 3));
+});
+
+it('needs_review tab returns only ended sessions that are still pending verification', function () {
+    // Matches: ended + pending.
+    LiveSession::factory()->count(2)->create([
+        'status' => 'ended',
+        'verification_status' => 'pending',
+    ]);
+    // Excluded: verified, rejected, still-scheduled, missed.
+    LiveSession::factory()->create(['status' => 'ended', 'verification_status' => 'verified']);
+    LiveSession::factory()->create(['status' => 'ended', 'verification_status' => 'rejected']);
+    LiveSession::factory()->create(['status' => 'scheduled', 'verification_status' => 'pending']);
+    LiveSession::factory()->create(['status' => 'missed', 'verification_status' => 'pending']);
+
+    actingAs($this->pic)
+        ->get('/livehost/sessions?tab=needs_review')
+        ->assertInertia(fn (Assert $p) => $p
+            ->has('sessions.data', 2)
+            ->where('filters.tab', 'needs_review'));
+});
+
+it('exposes per-tab counts for the tab strip badges', function () {
+    LiveSession::factory()->count(2)->create([
+        'status' => 'ended',
+        'verification_status' => 'pending',
+    ]);
+    LiveSession::factory()->create(['verification_status' => 'verified']);
+    LiveSession::factory()->count(3)->create(['verification_status' => 'rejected']);
+
+    actingAs($this->pic)
+        ->get('/livehost/sessions')
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('tabCounts.all', 6)
+            ->where('tabCounts.needs_review', 2)
+            ->where('tabCounts.verified', 1)
+            ->where('tabCounts.rejected', 3));
 });
 
 it('forbids live_host from updating a session', function () {

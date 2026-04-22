@@ -68,6 +68,6 @@ it('host cannot save went_live recap without an image/video attachment', functio
     $page
         ->assertNoJavascriptErrors()
         ->assertSee('Proof')
-        ->assertSee('image or video attachment required')
+        ->assertSee('Proof required')
         ->assertButtonDisabled('Save recap');
 });

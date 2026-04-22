@@ -736,11 +736,86 @@ function InfoRow({ label, value }) {
 
 function AttachmentRow({ attachment, onDelete }) {
   const Icon = attachment.isImage ? ImageIcon : attachment.isVideo ? Video : FileText;
+  const isMedia = attachment.isImage || attachment.isVideo;
+
+  // Media files get a stacked card: a large preview on top, then filename
+  // + actions in a bar below. Non-media (PDF, etc.) keeps the compact
+  // horizontal row with a small icon.
+  if (isMedia) {
+    return (
+      <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-[#FAFAFA]">
+        <a
+          href={attachment.fileUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="group relative block w-full bg-[#0A0A0A]"
+          title={`Open ${attachment.fileName}`}
+        >
+          {attachment.isImage ? (
+            <img
+              src={attachment.fileUrl}
+              alt={attachment.fileName}
+              loading="lazy"
+              className="max-h-[420px] w-full object-contain transition-transform group-hover:scale-[1.01]"
+            />
+          ) : (
+            <video
+              src={attachment.fileUrl}
+              preload="metadata"
+              controls
+              playsInline
+              className="max-h-[420px] w-full bg-black object-contain"
+            />
+          )}
+        </a>
+        <div className="flex items-center gap-3 px-3 py-2.5">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[12.5px] font-medium text-[#0A0A0A]">
+              {attachment.fileName}
+            </div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-[#737373]">
+              <span>{attachment.fileSizeFormatted}</span>
+              {attachment.uploaderName && (
+                <>
+                  <span>·</span>
+                  <span>By {attachment.uploaderName}</span>
+                </>
+              )}
+            </div>
+            {attachment.description && (
+              <div className="mt-1 text-[11.5px] leading-snug text-[#525252]">
+                {attachment.description}
+              </div>
+            )}
+          </div>
+          <a
+            href={attachment.fileUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#EAEAEA] bg-white text-[#525252] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"
+            title="Download"
+          >
+            <Download className="h-3.5 w-3.5" strokeWidth={2} />
+          </a>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#EAEAEA] bg-white text-[#525252] hover:border-[#F43F5E]/50 hover:text-[#F43F5E]"
+              title="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-3 rounded-[10px] border border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2.5">
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-[#525252]">
-        <Icon className="h-4 w-4" strokeWidth={1.8} />
+      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[#EAEAEA] bg-white text-[#525252]">
+        <Icon className="h-5 w-5" strokeWidth={1.8} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-[12.5px] font-medium text-[#0A0A0A]">

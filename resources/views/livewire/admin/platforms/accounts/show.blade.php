@@ -1656,11 +1656,11 @@ new class extends Component
                                             <flux:badge size="sm" color="zinc">{{ $stmt->statement_type ?? 'N/A' }}</flux:badge>
                                         </td>
                                         <td class="px-4 py-3 text-right font-mono font-semibold text-zinc-800 dark:text-zinc-200">RM {{ number_format($stmt->total_amount, 2) }}</td>
-                                        <td class="px-4 py-3 text-right font-mono text-emerald-600">RM {{ number_format($stmt->revenue, 2) }}</td>
-                                        <td class="px-4 py-3 text-right font-mono text-red-500">RM {{ number_format($stmt->fees, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-emerald-600">RM {{ number_format($stmt->order_amount, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-red-500">RM {{ number_format($stmt->platform_fee, 2) }}</td>
                                         <td class="px-4 py-3">
-                                            <flux:badge size="sm" color="{{ $stmt->payment_status === 'paid' ? 'green' : ($stmt->payment_status === 'pending' ? 'amber' : 'zinc') }}">
-                                                {{ ucfirst($stmt->payment_status ?? 'unknown') }}
+                                            <flux:badge size="sm" color="{{ $stmt->status === 'paid' ? 'green' : ($stmt->status === 'pending' ? 'amber' : 'zinc') }}">
+                                                {{ ucfirst($stmt->status ?? 'unknown') }}
                                             </flux:badge>
                                         </td>
                                         <td class="px-4 py-3 text-right text-zinc-400 text-xs">{{ $stmt->statement_time?->format('M d, Y') }}</td>
@@ -1711,10 +1711,10 @@ new class extends Component
                                         <td class="px-4 py-3">
                                             <flux:badge size="sm" color="zinc">{{ $tx->transaction_type ?? 'N/A' }}</flux:badge>
                                         </td>
-                                        <td class="px-4 py-3 text-right font-mono text-zinc-800 dark:text-zinc-200">RM {{ number_format($tx->amount, 2) }}</td>
-                                        <td class="px-4 py-3 text-right font-mono text-amber-600">RM {{ number_format($tx->commission, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-zinc-800 dark:text-zinc-200">RM {{ number_format($tx->order_amount, 2) }}</td>
+                                        <td class="px-4 py-3 text-right font-mono text-amber-600">RM {{ number_format($tx->affiliate_commission, 2) }}</td>
                                         <td class="px-4 py-3 text-right font-mono text-zinc-500">RM {{ number_format($tx->shipping_fee, 2) }}</td>
-                                        <td class="px-4 py-3 text-right text-zinc-400 text-xs">{{ $tx->created_at->diffForHumans() }}</td>
+                                        <td class="px-4 py-3 text-right text-zinc-400 text-xs">{{ ($tx->order_created_at ?? $tx->created_at)->diffForHumans() }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

@@ -70,9 +70,7 @@ class CreatorController extends Controller
             $this->demoteOtherPrimaries($creator);
         });
 
-        return redirect()
-            ->route('livehost.creators.index')
-            ->with('success', 'Creator added.');
+        return back()->with('success', 'Creator added.');
     }
 
     public function update(UpdateCreatorRequest $request, LiveHostPlatformAccount $creator): RedirectResponse

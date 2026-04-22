@@ -90,8 +90,15 @@ function renderDuration(session) {
   return '—';
 }
 
+const TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'needs_review', label: 'Needs Review', tone: 'warn' },
+  { key: 'verified', label: 'Verified', tone: 'ok' },
+  { key: 'rejected', label: 'Rejected', tone: 'danger' },
+];
+
 export default function SessionsIndex() {
-  const { sessions, filters, hosts, platformAccounts, flash } = usePage().props;
+  const { sessions, filters, tabCounts, hosts, platformAccounts, flash } = usePage().props;
   const [modalSession, setModalSession] = useState(null);
 
   useEffect(() => {
@@ -104,10 +111,11 @@ export default function SessionsIndex() {
     }
   }, [sessions.data, modalSession]);
 
+  const activeTab = filters?.tab ?? 'all';
+
   const [status, setStatus] = useState(filters?.status ?? '');
   const [platformAccount, setPlatformAccount] = useState(filters?.platform_account ?? '');
   const [host, setHost] = useState(filters?.host ?? '');
-  const [verification, setVerification] = useState(filters?.verification ?? '');
   const [from, setFrom] = useState(filters?.from ?? '');
   const [to, setTo] = useState(filters?.to ?? '');
 
@@ -128,7 +136,6 @@ export default function SessionsIndex() {
       (initial.status ?? '') === status &&
       (initial.platform_account ?? '') === platformAccount &&
       (initial.host ?? '') === host &&
-      (initial.verification ?? '') === verification &&
       (initial.from ?? '') === from &&
       (initial.to ?? '') === to
     ) {
@@ -139,10 +146,10 @@ export default function SessionsIndex() {
       router.get(
         '/livehost/sessions',
         {
+          tab: activeTab !== 'all' ? activeTab : undefined,
           status: status || undefined,
           platform_account: platformAccount || undefined,
           host: host || undefined,
-          verification: verification || undefined,
           from: from || undefined,
           to: to || undefined,
         },
@@ -155,18 +162,39 @@ export default function SessionsIndex() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [status, platformAccount, host, verification, from, to, filters]);
+  }, [status, platformAccount, host, from, to, filters, activeTab]);
+
+  const switchTab = (nextTab) => {
+    if (nextTab === activeTab) {
+      return;
+    }
+    router.get(
+      '/livehost/sessions',
+      {
+        tab: nextTab !== 'all' ? nextTab : undefined,
+        status: status || undefined,
+        platform_account: platformAccount || undefined,
+        host: host || undefined,
+        from: from || undefined,
+        to: to || undefined,
+      },
+      {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+      }
+    );
+  };
 
   const clearFilters = () => {
     setStatus('');
     setPlatformAccount('');
     setHost('');
-    setVerification('');
     setFrom('');
     setTo('');
   };
 
-  const hasFilters = Boolean(status || platformAccount || host || verification || from || to);
+  const hasFilters = Boolean(status || platformAccount || host || from || to);
 
   return (
     <>
@@ -180,8 +208,8 @@ export default function SessionsIndex() {
               Live Sessions
             </h1>
             <p className="mt-1.5 text-sm text-[#737373]">
-              {sessions.total} session{sessions.total === 1 ? '' : 's'} — read-only log of
-              streams created by the streaming system
+              {sessions.total} session{sessions.total === 1 ? '' : 's'} in this view — read-only
+              log of streams created by the streaming system
             </p>
           </div>
         </div>
@@ -196,6 +224,27 @@ export default function SessionsIndex() {
             {flash.success}
           </div>
         )}
+
+        {/* Tab strip */}
+        <div
+          role="tablist"
+          aria-label="Session buckets"
+          className="flex flex-wrap items-center gap-1 border-b border-[#EAEAEA]"
+        >
+          {TABS.map((t) => {
+            const count = tabCounts?.[t.key] ?? 0;
+            return (
+              <TabButton
+                key={t.key}
+                label={t.label}
+                count={count}
+                tone={t.tone}
+                active={activeTab === t.key}
+                onClick={() => switchTab(t.key)}
+              />
+            );
+          })}
+        </div>
 
         {/* Filter bar */}
         <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -233,16 +282,6 @@ export default function SessionsIndex() {
                 {h.name}
               </option>
             ))}
-          </select>
-          <select
-            value={verification}
-            onChange={(event) => setVerification(event.target.value)}
-            className="h-9 rounded-lg border border-[#EAEAEA] bg-white px-3 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-          >
-            <option value="">Any verification</option>
-            <option value="pending">Pending review</option>
-            <option value="verified">Verified</option>
-            <option value="rejected">Rejected</option>
           </select>
           <div className="inline-flex items-center gap-1.5">
             <label className="text-xs font-medium text-[#737373]" htmlFor="session-date-from">
@@ -454,6 +493,55 @@ export default function SessionsIndex() {
 }
 
 SessionsIndex.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
+
+function TabButton({ label, count, tone, active, onClick }) {
+  const badgeStyle = (() => {
+    if (!active) {
+      if (tone === 'warn' && count > 0) {
+        return 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]';
+      }
+      if (tone === 'ok' && count > 0) {
+        return 'bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0]';
+      }
+      if (tone === 'danger' && count > 0) {
+        return 'bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA]';
+      }
+      return 'bg-[#F5F5F5] text-[#737373] border border-[#EAEAEA]';
+    }
+    if (tone === 'warn') {
+      return 'bg-[#F59E0B] text-white border border-[#F59E0B]';
+    }
+    if (tone === 'ok') {
+      return 'bg-[#10B981] text-white border border-[#10B981]';
+    }
+    if (tone === 'danger') {
+      return 'bg-[#EF4444] text-white border border-[#EF4444]';
+    }
+    return 'bg-[#0A0A0A] text-white border border-[#0A0A0A]';
+  })();
+
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={[
+        'relative -mb-px inline-flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors',
+        active
+          ? 'border-x border-t border-[#EAEAEA] border-b-white bg-white text-[#0A0A0A]'
+          : 'border border-transparent text-[#737373] hover:text-[#0A0A0A]',
+      ].join(' ')}
+    >
+      <span>{label}</span>
+      <span
+        className={`inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums ${badgeStyle}`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
 
 function VerificationBadge({ status }) {
   const styles = {

@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useEffect, useMemo, useState } from 'react';
+import { router, useForm } from '@inertiajs/react';
 import { Button } from '@/livehost/components/ui/button';
 import {
   Dialog,
@@ -95,12 +95,21 @@ export default function SessionSlotFormModal({
     remarks: '',
   });
 
+  const [quickCreator, setQuickCreator] = useState({
+    creator_handle: '',
+    creator_platform_user_id: '',
+  });
+  const [quickCreatorError, setQuickCreatorError] = useState(null);
+  const [attaching, setAttaching] = useState(false);
+
   useEffect(() => {
     if (!open) {
       return;
     }
 
     form.clearErrors();
+    setQuickCreator({ creator_handle: '', creator_platform_user_id: '' });
+    setQuickCreatorError(null);
 
     if (mode === 'edit' && sessionSlot) {
       form.setData({
@@ -185,6 +194,65 @@ export default function SessionSlotFormModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pivotCandidates, mode]);
+
+  // Quick-add shows when the user has picked both a platform account and a
+  // host but no pivot exists for that pair yet. In edit mode we never prompt
+  // for it because the existing pivot is already selected.
+  const canQuickAddCreator =
+    mode === 'create' &&
+    Boolean(form.data.platform_account_id) &&
+    Boolean(form.data.live_host_id) &&
+    pivotCandidates.length === 0;
+
+  const selectedHostLabel = useMemo(() => {
+    if (!form.data.live_host_id) {
+      return '';
+    }
+    const id = Number(form.data.live_host_id);
+    return hosts.find((h) => Number(h.id) === id)?.name ?? '';
+  }, [form.data.live_host_id, hosts]);
+
+  const selectedPlatformLabel = useMemo(() => {
+    if (!form.data.platform_account_id) {
+      return '';
+    }
+    const id = Number(form.data.platform_account_id);
+    return platformAccounts.find((pa) => Number(pa.id) === id)?.name ?? '';
+  }, [form.data.platform_account_id, platformAccounts]);
+
+  const attachCreator = () => {
+    if (attaching) {
+      return;
+    }
+    setQuickCreatorError(null);
+
+    const payload = {
+      user_id: Number(form.data.live_host_id),
+      platform_account_id: Number(form.data.platform_account_id),
+      creator_handle: quickCreator.creator_handle || null,
+      creator_platform_user_id: quickCreator.creator_platform_user_id,
+      is_primary: true,
+    };
+
+    setAttaching(true);
+    router.post('/livehost/creators', payload, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        setQuickCreator({ creator_handle: '', creator_platform_user_id: '' });
+      },
+      onError: (errors) => {
+        const firstError =
+          errors.creator_platform_user_id ||
+          errors.creator_handle ||
+          errors.platform_account_id ||
+          errors.user_id ||
+          Object.values(errors)[0];
+        setQuickCreatorError(firstError ?? 'Could not attach creator identity.');
+      },
+      onFinish: () => setAttaching(false),
+    });
+  };
 
   const contextLabel = useMemo(() => {
     if (mode === 'edit') {
@@ -281,9 +349,11 @@ export default function SessionSlotFormModal({
             label="Creator identity"
             error={form.errors.live_host_platform_account_id}
             hint={
-              pivotCandidates.length === 0
-                ? 'Pick a platform account (and optionally a host) to see creator identities. Attach an identity on the host page first if none are listed.'
-                : 'Defaults to the host’s primary identity for this platform account.'
+              canQuickAddCreator
+                ? null
+                : pivotCandidates.length === 0
+                  ? 'Pick a platform account (and optionally a host) to see creator identities.'
+                  : 'Defaults to the host’s primary identity for this platform account.'
             }
             required
           >
@@ -304,6 +374,59 @@ export default function SessionSlotFormModal({
                 </option>
               ))}
             </ModalSelect>
+
+            {canQuickAddCreator && (
+              <div className="mt-2 space-y-2 rounded-lg border border-dashed border-[#D4D4D4] bg-[#FAFAFA] p-3">
+                <div className="text-[11.5px] text-[#525252]">
+                  <span className="font-medium text-[#0A0A0A]">
+                    {selectedHostLabel || 'This host'}
+                  </span>
+                  {' '}isn’t linked to{' '}
+                  <span className="font-medium text-[#0A0A0A]">
+                    {selectedPlatformLabel || 'this account'}
+                  </span>
+                  {' '}yet. Attach a creator identity to continue:
+                </div>
+                <Input
+                  value={quickCreator.creator_platform_user_id}
+                  onChange={(e) =>
+                    setQuickCreator((prev) => ({
+                      ...prev,
+                      creator_platform_user_id: e.target.value,
+                    }))
+                  }
+                  placeholder="Creator ID (from TikTok report) *"
+                  disabled={attaching}
+                />
+                <Input
+                  value={quickCreator.creator_handle}
+                  onChange={(e) =>
+                    setQuickCreator((prev) => ({
+                      ...prev,
+                      creator_handle: e.target.value,
+                    }))
+                  }
+                  placeholder="Nickname (optional)"
+                  disabled={attaching}
+                />
+                {quickCreatorError && (
+                  <p className="text-[11.5px] text-[#F43F5E]">{quickCreatorError}</p>
+                )}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-[#737373]">
+                    Marked as primary for this host. Edit later in Creators.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={attachCreator}
+                    disabled={attaching || !quickCreator.creator_platform_user_id.trim()}
+                  >
+                    {attaching ? 'Attaching…' : 'Attach identity'}
+                  </Button>
+                </div>
+              </div>
+            )}
           </ModalField>
 
           <ModalField label="Time slot" error={form.errors.time_slot_id} required>

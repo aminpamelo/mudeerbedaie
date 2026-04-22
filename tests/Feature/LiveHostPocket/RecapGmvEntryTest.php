@@ -52,12 +52,14 @@ it('accepts recap with went_live=true, GMV, and tiktok_shop_screenshot attachmen
     expect($fresh->status)->toBe('ended');
 });
 
-it('rejects recap when went_live=true but gmv_amount is missing', function () {
+it('accepts recap when went_live=true and gmv_amount is omitted', function () {
+    // GMV is no longer collected from the host — it will be pulled from the
+    // TikTok API in a later phase. Visual proof is still required.
     LiveSessionAttachment::factory()->create([
         'live_session_id' => $this->session->id,
         'uploaded_by' => $this->host->id,
         'file_type' => 'image/png',
-        'attachment_type' => LiveSessionAttachment::TYPE_TIKTOK_SHOP_SCREENSHOT,
+        'attachment_type' => null,
     ]);
 
     actingAs($this->host);
@@ -66,12 +68,17 @@ it('rejects recap when went_live=true but gmv_amount is missing', function () {
         'went_live' => true,
     ]);
 
-    $response->assertStatus(422);
-    $response->assertJsonValidationErrors('gmv_amount');
+    $response->assertRedirect();
+    $response->assertSessionHasNoErrors();
+
+    $fresh = $this->session->fresh();
+    expect($fresh->gmv_amount)->toBeNull();
+    expect($fresh->status)->toBe('ended');
 });
 
-it('rejects recap when went_live=true without a tiktok_shop_screenshot attachment', function () {
-    // Visual proof is present (generic image) but no tiktok_shop_screenshot.
+it('accepts recap when went_live=true without a tiktok_shop_screenshot attachment', function () {
+    // The TikTok Shop backend screenshot is no longer collected — generic
+    // visual proof is all that's needed.
     LiveSessionAttachment::factory()->create([
         'live_session_id' => $this->session->id,
         'uploaded_by' => $this->host->id,
@@ -86,8 +93,8 @@ it('rejects recap when went_live=true without a tiktok_shop_screenshot attachmen
         'gmv_amount' => 500,
     ]);
 
-    $response->assertStatus(422);
-    $response->assertJsonValidationErrors('tiktok_shop_screenshot');
+    $response->assertRedirect();
+    $response->assertSessionHasNoErrors();
 });
 
 it('forces gmv_amount=0 when went_live=false regardless of input', function () {

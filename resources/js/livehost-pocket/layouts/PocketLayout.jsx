@@ -6,6 +6,8 @@ import {
   Video,
   ListChecks,
   User as UserIcon,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/livehost-pocket/lib/utils';
 
@@ -71,7 +73,7 @@ function TabBar({ currentPath }) {
 
             <div className="relative flex justify-center">
               <Link
-                href="/live-host"
+                href="/live-host/go-live"
                 className="pointer-events-auto -mt-8 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-pocket-accent)] text-white shadow-[var(--shadow-pocket-fab)] transition active:scale-95"
                 aria-label="Go live"
               >
@@ -113,13 +115,64 @@ function TabItem({ tab, currentPath }) {
 }
 
 export default function PocketLayout({ children }) {
-  const { url } = usePage();
+  const { url, props } = usePage();
+  const flashSuccess = props?.flash?.success ?? null;
+  const flashError = props?.flash?.error ?? null;
 
   return (
     <div className="pocket-shell">
       <StatusBar />
+      <FlashToast message={flashSuccess} tone="success" />
+      <FlashToast message={flashError} tone="error" />
       <main className="px-5 pb-32">{children}</main>
       <TabBar currentPath={url.split('?')[0] ?? url} />
+    </div>
+  );
+}
+
+/**
+ * Floating toast that surfaces the Laravel flash bag (success/error) after
+ * an Inertia redirect. Auto-dismisses after 3s but stays dismissible via
+ * the X button. Re-keyed on the message string so repeat successes with the
+ * same copy re-trigger the animation.
+ */
+function FlashToast({ message, tone }) {
+  const [visible, setVisible] = useState(Boolean(message));
+
+  useEffect(() => {
+    if (!message) {
+      setVisible(false);
+      return undefined;
+    }
+    setVisible(true);
+    const id = setTimeout(() => setVisible(false), 3000);
+    return () => clearTimeout(id);
+  }, [message]);
+
+  if (!message || !visible) {
+    return null;
+  }
+
+  const isSuccess = tone === 'success';
+  const Icon = isSuccess ? CheckCircle2 : AlertCircle;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-0 top-12 z-40 flex justify-center px-4"
+    >
+      <div
+        className={cn(
+          'pointer-events-auto flex items-center gap-[10px] rounded-full border px-[14px] py-[10px] text-[13px] font-medium shadow-lg backdrop-blur',
+          isSuccess
+            ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]'
+            : 'border-[var(--hot)] bg-[var(--hot)] text-white'
+        )}
+      >
+        <Icon className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={2} />
+        <span>{message}</span>
+      </div>
     </div>
   );
 }

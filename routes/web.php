@@ -169,6 +169,9 @@ Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketIn
         Route::get('schedule', [\App\Http\Controllers\LiveHostPocket\ScheduleController::class, 'index'])
             ->name('schedule');
 
+        Route::get('go-live', [\App\Http\Controllers\LiveHostPocket\GoLiveController::class, 'show'])
+            ->name('go-live');
+
         Route::get('sessions', [\App\Http\Controllers\LiveHostPocket\SessionsController::class, 'index'])
             ->name('sessions.index');
 

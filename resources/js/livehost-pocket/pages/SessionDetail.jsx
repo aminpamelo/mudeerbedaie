@@ -33,8 +33,7 @@ const MISSED_REASONS = [
  * Posts to `live-host.sessions.recap` / `.attachments.store` / `.attachments.destroy`.
  */
 export default function SessionDetail() {
-  const { session, analytics, attachments, auth } = usePage().props;
-  const commission = auth?.user?.commission ?? null;
+  const { session, attachments } = usePage().props;
 
   const recap = useForm({
     went_live: session?.status === 'missed'
@@ -45,19 +44,11 @@ export default function SessionDetail() {
     actual_start_at: toLocalDatetime(session?.actualStartAt),
     actual_end_at: toLocalDatetime(session?.actualEndAt),
     remarks: session?.remarks ?? '',
-    viewers_peak: analytics?.viewersPeak ?? 0,
-    viewers_avg: analytics?.viewersAvg ?? 0,
-    total_likes: analytics?.totalLikes ?? 0,
-    total_comments: analytics?.totalComments ?? 0,
-    total_shares: analytics?.totalShares ?? 0,
-    gifts_value: analytics?.giftsValue ?? 0,
-    gmv_amount: session?.gmvAmount ?? '',
     missed_reason_code: session?.missedReasonCode ?? '',
     missed_reason_note: session?.missedReasonNote ?? '',
   });
 
   const attachmentInputRef = useRef(null);
-  const tiktokScreenshotInputRef = useRef(null);
 
   // Seed `went_live` from the list-card CTA's query param (`?recap=yes|no`)
   // only on initial mount. Re-running on recap changes would overwrite
@@ -72,18 +63,11 @@ export default function SessionDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const attachmentList = attachments ?? [];
-  const proofAttachments = attachmentList.filter(
-    (a) => a.attachmentType !== 'tiktok_shop_screenshot'
-  );
-  const tiktokScreenshotAttachments = attachmentList.filter(
-    (a) => a.attachmentType === 'tiktok_shop_screenshot'
-  );
+  const proofAttachments = attachments ?? [];
   const hasVisualProof = proofAttachments.some((a) =>
     a.fileType?.startsWith('image/') || a.fileType?.startsWith('video/')
   );
   const hasNonVisualOnly = !hasVisualProof && proofAttachments.length > 0;
-  const hasTikTokShopScreenshot = tiktokScreenshotAttachments.length > 0;
 
   const handleSave = () => {
     recap.post(`/live-host/sessions/${session.id}/recap`, {
@@ -127,25 +111,6 @@ export default function SessionDetail() {
       onFinish: () => {
         if (attachmentInputRef.current) {
           attachmentInputRef.current.value = '';
-        }
-      },
-    });
-  };
-
-  const handleTikTokScreenshotUpload = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    const data = new FormData();
-    data.append('file', file);
-    data.append('attachment_type', 'tiktok_shop_screenshot');
-    router.post(`/live-host/sessions/${session.id}/attachments`, data, {
-      preserveScroll: true,
-      forceFormData: true,
-      onFinish: () => {
-        if (tiktokScreenshotInputRef.current) {
-          tiktokScreenshotInputRef.current.value = '';
         }
       },
     });
@@ -238,97 +203,6 @@ export default function SessionDetail() {
               error={recap.errors.proof}
             />
 
-            <Section title="GMV (RM)" hint="required">
-              <div
-                className={cn(
-                  'rounded-[12px] border bg-[var(--app-bg-2)] px-[12px] py-[10px]',
-                  recap.errors.gmv_amount ? 'border-[var(--hot)]' : 'border-[var(--accent)]'
-                )}
-              >
-                <div className="mb-[4px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-                  Total GMV for this live
-                </div>
-                <div className="flex items-baseline gap-[8px]">
-                  <span className="font-display text-[20px] font-medium tracking-[-0.03em] text-[var(--accent)]">
-                    RM
-                  </span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    max="9999999.99"
-                    step="0.01"
-                    required
-                    name="gmv_amount"
-                    placeholder="e.g. 1250.00"
-                    value={recap.data.gmv_amount ?? ''}
-                    onChange={(e) => recap.setData('gmv_amount', e.target.value)}
-                    className="w-full bg-transparent font-display text-[20px] font-medium tracking-[-0.03em] tabular-nums text-[var(--accent)] placeholder:text-[var(--fg-3)] focus:outline-none"
-                  />
-                </div>
-                {recap.errors.gmv_amount ? (
-                  <FieldError>{recap.errors.gmv_amount}</FieldError>
-                ) : null}
-              </div>
-            </Section>
-
-            <Section title="TikTok Shop screenshot" hint="required">
-              <div className="space-y-[10px]">
-                {!hasTikTokShopScreenshot ? (
-                  <button
-                    type="button"
-                    onClick={() => tiktokScreenshotInputRef.current?.click()}
-                    className="group relative flex w-full flex-col items-center justify-center gap-[10px] overflow-hidden rounded-[14px] border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] px-[20px] py-[24px] text-center transition hover:scale-[1.01]"
-                  >
-                    <span className="grid h-[44px] w-[44px] place-items-center rounded-full bg-[var(--accent)] text-[var(--accent-ink)] shadow-sm transition group-hover:scale-110">
-                      <UploadCloud className="h-[20px] w-[20px]" strokeWidth={2} />
-                    </span>
-                    <div className="space-y-[4px]">
-                      <div className="font-display text-[14px] font-semibold tracking-[-0.01em] text-[var(--accent)]">
-                        Upload TikTok Shop backend screenshot
-                      </div>
-                      <p className="text-[11.5px] leading-relaxed text-[var(--fg-2)]">
-                        Tap to upload &middot; image only
-                      </p>
-                    </div>
-                  </button>
-                ) : (
-                  <>
-                    {tiktokScreenshotAttachments.map((attachment) => (
-                      <AttachmentRow
-                        key={attachment.id}
-                        attachment={attachment}
-                        onDelete={() => handleAttachmentDelete(attachment.id)}
-                      />
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => tiktokScreenshotInputRef.current?.click()}
-                      className="flex w-full items-center justify-center gap-[8px] rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-[12px] py-[12px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                    >
-                      <Plus className="h-[14px] w-[14px]" strokeWidth={2} />
-                      Replace screenshot
-                    </button>
-                  </>
-                )}
-
-                <input
-                  ref={tiktokScreenshotInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleTikTokScreenshotUpload}
-                />
-
-                <p className="px-1 text-[11.5px] leading-relaxed text-[var(--fg-2)]">
-                  We use this to verify your GMV number.
-                </p>
-                {recap.errors.tiktok_shop_screenshot ? (
-                  <FieldError>{recap.errors.tiktok_shop_screenshot}</FieldError>
-                ) : null}
-              </div>
-            </Section>
-
             <Section title="Timing">
               <div className="grid grid-cols-1 gap-[10px]">
                 <DateTimeField
@@ -346,50 +220,6 @@ export default function SessionDetail() {
               </div>
             </Section>
 
-            <Section title="Analytics">
-              <div className="grid grid-cols-2 gap-[10px]">
-                <NumberField
-                  label="Peak viewers"
-                  value={recap.data.viewers_peak}
-                  onChange={(v) => recap.setData('viewers_peak', v)}
-                  error={recap.errors.viewers_peak}
-                  accent
-                />
-                <NumberField
-                  label="Avg viewers"
-                  value={recap.data.viewers_avg}
-                  onChange={(v) => recap.setData('viewers_avg', v)}
-                  error={recap.errors.viewers_avg}
-                />
-                <NumberField
-                  label="Likes"
-                  value={recap.data.total_likes}
-                  onChange={(v) => recap.setData('total_likes', v)}
-                  error={recap.errors.total_likes}
-                />
-                <NumberField
-                  label="Comments"
-                  value={recap.data.total_comments}
-                  onChange={(v) => recap.setData('total_comments', v)}
-                  error={recap.errors.total_comments}
-                />
-                <NumberField
-                  label="Shares"
-                  value={recap.data.total_shares}
-                  onChange={(v) => recap.setData('total_shares', v)}
-                  error={recap.errors.total_shares}
-                />
-                <NumberField
-                  label="Gifts value (RM)"
-                  value={recap.data.gifts_value}
-                  onChange={(v) => recap.setData('gifts_value', v)}
-                  error={recap.errors.gifts_value}
-                  accent
-                  step="0.01"
-                />
-              </div>
-            </Section>
-
             <Section title="Your remarks">
               <textarea
                 value={recap.data.remarks}
@@ -403,22 +233,11 @@ export default function SessionDetail() {
               ) : null}
             </Section>
 
-            <EarningsEstimate
-              gmvAmount={recap.data.gmv_amount}
-              commission={commission}
-            />
-
             <div className="pt-3">
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={
-                  recap.processing
-                  || !hasVisualProof
-                  || !hasTikTokShopScreenshot
-                  || recap.data.gmv_amount === ''
-                  || recap.data.gmv_amount === null
-                }
+                disabled={recap.processing || !hasVisualProof}
                 className="w-full rounded-[12px] bg-[var(--accent)] px-4 py-[13px] font-sans text-[14px] font-bold tracking-[-0.005em] text-[var(--accent-ink)] transition active:scale-[0.98] disabled:opacity-60"
               >
                 {recap.processing ? 'Saving...' : 'Save recap'}
@@ -576,34 +395,6 @@ function DateTimeField({ label, value, onChange, error }) {
   );
 }
 
-function NumberField({ label, value, onChange, error, accent = false, step }) {
-  return (
-    <div
-      className={cn(
-        'rounded-[12px] border bg-[var(--app-bg-2)] px-[12px] py-[10px]',
-        accent ? 'border-[var(--accent)]' : 'border-[var(--hair)]'
-      )}
-    >
-      <div className="mb-[4px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-        {label}
-      </div>
-      <input
-        type="number"
-        inputMode="decimal"
-        min="0"
-        step={step ?? '1'}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          'w-full bg-transparent font-display text-[20px] font-medium tracking-[-0.03em] tabular-nums focus:outline-none',
-          accent ? 'text-[var(--accent)]' : 'text-[var(--fg)]'
-        )}
-      />
-      {error ? <FieldError>{error}</FieldError> : null}
-    </div>
-  );
-}
-
 function AttachmentRow({ attachment, onDelete }) {
   const Icon = pickIcon(attachment.fileType);
   const typeLabel = shortType(attachment.fileType);
@@ -678,62 +469,6 @@ function AttachmentRow({ attachment, onDelete }) {
       </div>
     </div>
   );
-}
-
-/**
- * Read-only card that previews the host's expected earnings for the session.
- *
- * Depends on Inertia shared props carrying the host's commission plan
- * (Task 11). Until that lands, or when the host is off a platform without a
- * configured rate, we render a graceful fallback rather than an incorrect
- * number. `commission` is expected to look like:
- *   { primaryPlatformRatePercent: number, perLiveRateMyr: number }
- */
-function EarningsEstimate({ gmvAmount, commission }) {
-  const gmv = Number(gmvAmount);
-  const rate = commission?.primaryPlatformRatePercent;
-  const perLive = commission?.perLiveRateMyr;
-  const hasCommission = Number.isFinite(Number(rate)) && Number.isFinite(Number(perLive));
-
-  if (!hasCommission) {
-    return (
-      <div className="mb-4 rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-[12px] py-[10px] text-[11.5px] leading-relaxed text-[var(--fg-2)]">
-        Earnings estimate unavailable &mdash; ask PIC about your commission plan.
-      </div>
-    );
-  }
-
-  if (!Number.isFinite(gmv) || gmv <= 0) {
-    return (
-      <div className="mb-4 rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-[12px] py-[10px] text-[11.5px] leading-relaxed text-[var(--fg-2)]">
-        Enter your GMV above to see an earnings estimate.
-      </div>
-    );
-  }
-
-  const gmvCommission = (gmv * Number(rate)) / 100;
-  const total = gmvCommission + Number(perLive);
-
-  return (
-    <div className="mb-4 rounded-[12px] border border-[var(--accent)] bg-[var(--accent-soft)] px-[14px] py-[12px]">
-      <div className="mb-[4px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
-        Estimated earnings
-      </div>
-      <div className="font-display text-[22px] font-medium tracking-[-0.03em] text-[var(--accent)]">
-        RM {formatMoney(total)}
-      </div>
-      <div className="mt-[4px] font-mono text-[10px] text-[var(--fg-2)]">
-        RM {formatMoney(gmvCommission)} commission &middot; RM {formatMoney(Number(perLive))} per-live
-      </div>
-    </div>
-  );
-}
-
-function formatMoney(value) {
-  if (!Number.isFinite(Number(value))) {
-    return '0.00';
-  }
-  return Number(value).toFixed(2);
 }
 
 function FieldError({ children }) {
