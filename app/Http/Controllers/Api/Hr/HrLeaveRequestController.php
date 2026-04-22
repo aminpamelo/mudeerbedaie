@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Hr;
 
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceLog;
+use App\Models\AttendancePenalty;
 use App\Models\EmployeeSchedule;
 use App\Models\Holiday;
 use App\Models\LeaveBalance;
@@ -141,16 +142,29 @@ class HrLeaveRequestController extends Controller
                         ->exists();
 
                     if (! $isHoliday) {
-                        AttendanceLog::firstOrCreate(
-                            [
+                        $existingLog = AttendanceLog::query()
+                            ->where('employee_id', $leaveRequest->employee_id)
+                            ->whereDate('date', $current->toDateString())
+                            ->first();
+
+                        if (! $existingLog) {
+                            AttendanceLog::create([
                                 'employee_id' => $leaveRequest->employee_id,
                                 'date' => $current->toDateString(),
-                            ],
-                            [
                                 'status' => 'on_leave',
                                 'remarks' => 'Leave: '.$leaveRequest->leaveType?->name,
-                            ]
-                        );
+                            ]);
+                        } elseif ($existingLog->status === 'absent') {
+                            $existingLog->update([
+                                'status' => 'on_leave',
+                                'remarks' => 'Leave: '.$leaveRequest->leaveType?->name,
+                            ]);
+
+                            AttendancePenalty::query()
+                                ->where('attendance_log_id', $existingLog->id)
+                                ->where('penalty_type', 'absent_without_leave')
+                                ->delete();
+                        }
                     }
                 }
 

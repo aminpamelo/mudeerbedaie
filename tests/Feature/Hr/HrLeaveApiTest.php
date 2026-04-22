@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\AttendanceLog;
+use App\Models\AttendancePenalty;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeSchedule;
@@ -553,6 +554,116 @@ test('approved leave creates attendance logs for working days', function () {
         ->get();
 
     expect($attendanceLogs->count())->toBe(2);
+});
+
+test('approving backdated leave upgrades absent log to on_leave and removes orphan penalty', function () {
+    $admin = createLeaveAdminUser();
+    $data = createLeaveEmployeeWithUser();
+    $leaveType = LeaveType::factory()->medical()->create();
+
+    $workSchedule = WorkSchedule::factory()->create([
+        'working_days' => [1, 2, 3, 4, 5],
+    ]);
+    EmployeeSchedule::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'work_schedule_id' => $workSchedule->id,
+        'effective_from' => now()->subMonth(),
+        'effective_to' => null,
+    ]);
+
+    LeaveBalance::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'leave_type_id' => $leaveType->id,
+        'year' => now()->year,
+        'available_days' => 14,
+        'pending_days' => 2,
+    ]);
+
+    $day1 = now()->subDays(3)->startOfWeek();
+    $day2 = $day1->copy()->addDay();
+
+    $absentLog = AttendanceLog::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'date' => $day1->toDateString(),
+        'status' => 'absent',
+    ]);
+    $orphanPenalty = AttendancePenalty::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'attendance_log_id' => $absentLog->id,
+        'penalty_type' => 'absent_without_leave',
+        'penalty_minutes' => 0,
+        'month' => $day1->month,
+        'year' => $day1->year,
+    ]);
+
+    $leaveRequest = LeaveRequest::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => $day1,
+        'end_date' => $day2,
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($admin)->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/approve")
+        ->assertSuccessful();
+
+    $absentLog->refresh();
+    expect($absentLog->status)->toBe('on_leave');
+
+    $this->assertDatabaseMissing('attendance_penalties', ['id' => $orphanPenalty->id]);
+
+    $onLeaveLogs = AttendanceLog::where('employee_id', $data['employee']->id)
+        ->where('status', 'on_leave')
+        ->count();
+    expect($onLeaveLogs)->toBe(2);
+});
+
+test('approving leave preserves existing clocked-in attendance', function () {
+    $admin = createLeaveAdminUser();
+    $data = createLeaveEmployeeWithUser();
+    $leaveType = LeaveType::factory()->medical()->create();
+
+    $workSchedule = WorkSchedule::factory()->create([
+        'working_days' => [1, 2, 3, 4, 5],
+    ]);
+    EmployeeSchedule::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'work_schedule_id' => $workSchedule->id,
+        'effective_from' => now()->subMonth(),
+        'effective_to' => null,
+    ]);
+
+    LeaveBalance::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'leave_type_id' => $leaveType->id,
+        'year' => now()->year,
+        'available_days' => 14,
+        'pending_days' => 1,
+    ]);
+
+    $workedDay = now()->subDays(2)->startOfWeek();
+
+    $presentLog = AttendanceLog::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'date' => $workedDay->toDateString(),
+        'status' => 'present',
+    ]);
+
+    $leaveRequest = LeaveRequest::factory()->create([
+        'employee_id' => $data['employee']->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => $workedDay,
+        'end_date' => $workedDay,
+        'total_days' => 1,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($admin)->patchJson("/api/hr/leave/requests/{$leaveRequest->id}/approve")
+        ->assertSuccessful();
+
+    $presentLog->refresh();
+    expect($presentLog->status)->toBe('present');
 });
 
 test('admin can reject leave request', function () {
