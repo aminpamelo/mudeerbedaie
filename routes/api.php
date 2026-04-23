@@ -1148,6 +1148,7 @@ Route::middleware(['auth:sanctum', 'role:admin,employee'])->prefix('cms')->group
 
     // Content Stage Assignees & Due Date
     Route::patch('contents/{content}/stages/{stage}/due-date', [CmsContentStageController::class, 'updateDueDate']);
+    Route::patch('contents/{content}/stages/{stage}/meta', [CmsContentStageController::class, 'updateMeta']);
     Route::post('contents/{content}/stages/{stage}/assignees', [CmsContentStageController::class, 'addAssignee']);
     Route::delete('contents/{content}/stages/{stage}/assignees/{employee}', [CmsContentStageController::class, 'removeAssignee']);
 

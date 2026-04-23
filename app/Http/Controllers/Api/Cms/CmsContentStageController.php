@@ -59,6 +59,30 @@ class CmsContentStageController extends Controller
     }
 
     /**
+     * Update stage-specific meta fields (video_concept, stage_description, account_name, posting_time).
+     */
+    public function updateMeta(Request $request, Content $content, string $stage): JsonResponse
+    {
+        $validated = $request->validate([
+            'video_concept' => ['nullable', 'string'],
+            'stage_description' => ['nullable', 'string'],
+            'account_name' => ['nullable', 'string', 'max:255'],
+            'posting_time' => ['nullable', 'date'],
+        ]);
+
+        $contentStage = ContentStage::where('content_id', $content->id)
+            ->where('stage', $stage)
+            ->firstOrFail();
+
+        $contentStage->update($validated);
+
+        return response()->json([
+            'data' => $contentStage,
+            'message' => 'Stage details updated successfully.',
+        ]);
+    }
+
+    /**
      * Remove an assignee from a content stage.
      */
     public function removeAssignee(Content $content, string $stage, int $employeeId): JsonResponse

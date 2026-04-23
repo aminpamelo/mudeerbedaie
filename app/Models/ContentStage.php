@@ -20,6 +20,10 @@ class ContentStage extends Model
         'started_at',
         'completed_at',
         'notes',
+        'video_concept',
+        'stage_description',
+        'account_name',
+        'posting_time',
     ];
 
     /**
@@ -33,6 +37,7 @@ class ContentStage extends Model
             'due_date' => 'date',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'posting_time' => 'datetime',
         ];
     }
 

@@ -16,10 +16,8 @@ import {
     Clock,
     X,
     UserPlus,
-    Video,
     Link as LinkIcon,
     ExternalLink,
-    Save,
     Users,
 } from 'lucide-react';
 import {
@@ -32,6 +30,7 @@ import {
     addStageAssignee,
     removeStageAssignee,
     updateStageDueDate,
+    updateStageMeta,
     fetchContentCreators,
 } from '../lib/api';
 import { cn } from '../lib/utils';
@@ -40,6 +39,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
 import {
     Select,
@@ -288,6 +288,15 @@ export default function ContentDetail() {
         onError: (error) => toastError(error, 'Failed to update due date'),
     });
 
+    const updateStageMetaMutation = useMutation({
+        mutationFn: ({ stage, data }) => updateStageMeta(id, stage, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cms', 'content', id] });
+            toastSuccess('Stage details saved');
+        },
+        onError: (error) => toastError(error, 'Failed to save stage details'),
+    });
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-24">
@@ -327,17 +336,6 @@ export default function ContentDetail() {
             shares: parseInt(statsForm.shares, 10) || 0,
         });
     }
-
-    function handleSaveVideoLinks() {
-        updateVideoMutation.mutate({
-            video_url: videoForm.video_url.trim() || null,
-            tiktok_url: videoForm.tiktok_url.trim() || null,
-        });
-    }
-
-    const hasVideoChanges =
-        (videoForm.video_url || '') !== (data?.video_url || '') ||
-        (videoForm.tiktok_url || '') !== (data?.tiktok_url || '');
 
     const driveEmbedUrl = getGoogleDriveEmbedUrl(videoForm.video_url);
     const tiktokEmbedUrl = getTiktokEmbedUrl(videoForm.tiktok_url);
@@ -661,6 +659,38 @@ export default function ContentDetail() {
                                                     }}
                                                 />
                                             </div>
+
+                                            {stage === 'editing' && (
+                                                <EditingStageFields
+                                                    data={data}
+                                                    stageData={stageData}
+                                                    videoForm={videoForm}
+                                                    setVideoForm={setVideoForm}
+                                                    saveVideoUrl={(url) =>
+                                                        updateVideoMutation.mutate({ video_url: url?.trim() || null })
+                                                    }
+                                                    saveMeta={(payload) =>
+                                                        updateStageMetaMutation.mutate({ stage: 'editing', data: payload })
+                                                    }
+                                                    driveEmbedUrl={driveEmbedUrl}
+                                                />
+                                            )}
+
+                                            {stage === 'posting' && (
+                                                <PostingStageFields
+                                                    data={data}
+                                                    stageData={stageData}
+                                                    videoForm={videoForm}
+                                                    setVideoForm={setVideoForm}
+                                                    saveTiktokUrl={(url) =>
+                                                        updateVideoMutation.mutate({ tiktok_url: url?.trim() || null })
+                                                    }
+                                                    saveMeta={(payload) =>
+                                                        updateStageMetaMutation.mutate({ stage: 'posting', data: payload })
+                                                    }
+                                                    tiktokEmbedUrl={tiktokEmbedUrl}
+                                                />
+                                            )}
                                         </div>
                                     )}
 
@@ -748,158 +778,6 @@ export default function ContentDetail() {
                     )}
                 </div>
             </div>
-
-            {/* Video Links */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Video className="h-5 w-5 text-indigo-500" />
-                        Video
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="grid gap-6 md:grid-cols-2">
-                        {/* Raw/edited video link column */}
-                        <div className="space-y-3">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="video-url" className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
-                                    <LinkIcon className="h-3.5 w-3.5" />
-                                    Raw / Edited Video Link
-                                </Label>
-                                <p className="text-[11px] text-slate-400">
-                                    Paste a link to the edited video file (e.g. Google Drive, Dropbox) so the Posting team can grab it.
-                                </p>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        id="video-url"
-                                        type="url"
-                                        placeholder="https://drive.google.com/..."
-                                        value={videoForm.video_url}
-                                        onChange={(e) =>
-                                            setVideoForm((f) => ({ ...f, video_url: e.target.value }))
-                                        }
-                                    />
-                                    {data.video_url && (
-                                        <a
-                                            href={data.video_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
-                                            title="Open video link"
-                                        >
-                                            <ExternalLink className="h-4 w-4" />
-                                        </a>
-                                    )}
-                                </div>
-                                {videoForm.video_url && !driveEmbedUrl && (
-                                    <p className="text-[11px] text-amber-600">
-                                        Preview only supports Google Drive file links. Other links will still save.
-                                    </p>
-                                )}
-                            </div>
-
-                            <div>
-                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                                    Preview
-                                </p>
-                                {driveEmbedUrl ? (
-                                    <div className="aspect-video overflow-hidden rounded-md border border-slate-200 bg-slate-900">
-                                        <iframe
-                                            key={driveEmbedUrl}
-                                            src={driveEmbedUrl}
-                                            title="Google Drive video preview"
-                                            allow="autoplay"
-                                            allowFullScreen
-                                            className="h-full w-full"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="flex aspect-video items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-center">
-                                        <p className="px-4 text-xs text-slate-400">
-                                            Paste a Google Drive file link to preview the video here.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* TikTok post URL column */}
-                        <div className="space-y-3">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="tiktok-url" className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
-                                    <LinkIcon className="h-3.5 w-3.5" />
-                                    TikTok Post URL
-                                </Label>
-                                <p className="text-[11px] text-slate-400">
-                                    The final TikTok URL after the video has been posted.
-                                </p>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        id="tiktok-url"
-                                        type="url"
-                                        placeholder="https://www.tiktok.com/@user/video/..."
-                                        value={videoForm.tiktok_url}
-                                        onChange={(e) =>
-                                            setVideoForm((f) => ({ ...f, tiktok_url: e.target.value }))
-                                        }
-                                    />
-                                    {data.tiktok_url && (
-                                        <a
-                                            href={data.tiktok_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
-                                            title="Open TikTok post"
-                                        >
-                                            <ExternalLink className="h-4 w-4" />
-                                        </a>
-                                    )}
-                                </div>
-                                {videoForm.tiktok_url && !tiktokEmbedUrl && (
-                                    <p className="text-[11px] text-amber-600">
-                                        Couldn't parse a video ID. Use a full URL like https://www.tiktok.com/@user/video/123...
-                                    </p>
-                                )}
-                            </div>
-
-                            <div>
-                                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                                    Preview
-                                </p>
-                                {tiktokEmbedUrl ? (
-                                    <div className="mx-auto aspect-[9/16] w-full max-w-[260px] overflow-hidden rounded-md border border-slate-200 bg-slate-900">
-                                        <iframe
-                                            key={tiktokEmbedUrl}
-                                            src={tiktokEmbedUrl}
-                                            title="TikTok video preview"
-                                            allow="autoplay; encrypted-media; picture-in-picture"
-                                            allowFullScreen
-                                            className="h-full w-full"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="mx-auto flex aspect-[9/16] w-full max-w-[260px] items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-center">
-                                        <p className="px-4 text-xs text-slate-400">
-                                            Paste a TikTok video URL to preview it here.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end pt-1">
-                        <Button
-                            size="sm"
-                            onClick={handleSaveVideoLinks}
-                            disabled={!hasVideoChanges || updateVideoMutation.isPending}
-                        >
-                            <Save className="mr-1.5 h-3.5 w-3.5" />
-                            {updateVideoMutation.isPending ? 'Saving...' : 'Save Links'}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
 
             {/* Description */}
             {data.description && (
@@ -1066,6 +944,218 @@ export default function ContentDetail() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+        </div>
+    );
+}
+
+function EditingStageFields({ data, stageData, videoForm, setVideoForm, saveVideoUrl, saveMeta, driveEmbedUrl }) {
+    const [videoConcept, setVideoConcept] = useState(stageData?.video_concept || '');
+    const [description, setDescription] = useState(stageData?.stage_description || '');
+
+    useEffect(() => {
+        setVideoConcept(stageData?.video_concept || '');
+        setDescription(stageData?.stage_description || '');
+    }, [stageData?.id, stageData?.video_concept, stageData?.stage_description]);
+
+    return (
+        <div className="space-y-3 border-t border-slate-100 pt-3">
+            {/* Link Folder Video Raw */}
+            <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                    <LinkIcon className="h-3.5 w-3.5" />
+                    Link Folder Video Raw
+                </Label>
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="url"
+                        placeholder="https://drive.google.com/..."
+                        value={videoForm.video_url}
+                        onChange={(e) => setVideoForm((f) => ({ ...f, video_url: e.target.value }))}
+                        onBlur={(e) => {
+                            if ((e.target.value || '') !== (data.video_url || '')) {
+                                saveVideoUrl(e.target.value);
+                            }
+                        }}
+                    />
+                    {data.video_url && (
+                        <a
+                            href={data.video_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
+                            title="Open video link"
+                        >
+                            <ExternalLink className="h-4 w-4" />
+                        </a>
+                    )}
+                </div>
+                {videoForm.video_url && !driveEmbedUrl && (
+                    <p className="text-[11px] text-amber-600">
+                        Preview only supports Google Drive file links. Other links will still save.
+                    </p>
+                )}
+
+                <div className="mt-2">
+                    <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">Preview</p>
+                    {driveEmbedUrl ? (
+                        <div className="aspect-video overflow-hidden rounded-md border border-slate-200 bg-slate-900">
+                            <iframe
+                                key={driveEmbedUrl}
+                                src={driveEmbedUrl}
+                                title="Google Drive video preview"
+                                allow="autoplay"
+                                allowFullScreen
+                                className="h-full w-full"
+                            />
+                        </div>
+                    ) : (
+                        <div className="flex aspect-video items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-center">
+                            <p className="px-4 text-xs text-slate-400">
+                                Paste a Google Drive file link to preview the video here.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Video Concept */}
+            <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Video Concept</Label>
+                <Textarea
+                    rows={3}
+                    placeholder="Describe the video concept, shot list, story beats..."
+                    value={videoConcept}
+                    onChange={(e) => setVideoConcept(e.target.value)}
+                    onBlur={() => {
+                        if (videoConcept !== (stageData?.video_concept || '')) {
+                            saveMeta({ video_concept: videoConcept || null });
+                        }
+                    }}
+                />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Description</Label>
+                <Textarea
+                    rows={3}
+                    placeholder="Notes for the editing team..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    onBlur={() => {
+                        if (description !== (stageData?.stage_description || '')) {
+                            saveMeta({ stage_description: description || null });
+                        }
+                    }}
+                />
+            </div>
+        </div>
+    );
+}
+
+function PostingStageFields({ data, stageData, videoForm, setVideoForm, saveTiktokUrl, saveMeta, tiktokEmbedUrl }) {
+    const [accountName, setAccountName] = useState(stageData?.account_name || '');
+    const [postingTime, setPostingTime] = useState(
+        stageData?.posting_time ? stageData.posting_time.slice(0, 16) : ''
+    );
+
+    useEffect(() => {
+        setAccountName(stageData?.account_name || '');
+        setPostingTime(stageData?.posting_time ? stageData.posting_time.slice(0, 16) : '');
+    }, [stageData?.id, stageData?.account_name, stageData?.posting_time]);
+
+    return (
+        <div className="space-y-3 border-t border-slate-100 pt-3">
+            {/* Nama Akaun */}
+            <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Nama Akaun</Label>
+                <Input
+                    type="text"
+                    placeholder="e.g. @mudeerbedaie"
+                    value={accountName}
+                    onChange={(e) => setAccountName(e.target.value)}
+                    onBlur={() => {
+                        if (accountName !== (stageData?.account_name || '')) {
+                            saveMeta({ account_name: accountName || null });
+                        }
+                    }}
+                />
+            </div>
+
+            {/* Masa Posting */}
+            <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Masa Posting</Label>
+                <Input
+                    type="datetime-local"
+                    value={postingTime}
+                    onChange={(e) => {
+                        setPostingTime(e.target.value);
+                        const current = stageData?.posting_time ? stageData.posting_time.slice(0, 16) : '';
+                        if (e.target.value !== current) {
+                            saveMeta({ posting_time: e.target.value || null });
+                        }
+                    }}
+                />
+            </div>
+
+            {/* Link Posting */}
+            <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                    <LinkIcon className="h-3.5 w-3.5" />
+                    Link Posting
+                </Label>
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="url"
+                        placeholder="https://www.tiktok.com/@user/video/..."
+                        value={videoForm.tiktok_url}
+                        onChange={(e) => setVideoForm((f) => ({ ...f, tiktok_url: e.target.value }))}
+                        onBlur={(e) => {
+                            if ((e.target.value || '') !== (data.tiktok_url || '')) {
+                                saveTiktokUrl(e.target.value);
+                            }
+                        }}
+                    />
+                    {data.tiktok_url && (
+                        <a
+                            href={data.tiktok_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600"
+                            title="Open TikTok post"
+                        >
+                            <ExternalLink className="h-4 w-4" />
+                        </a>
+                    )}
+                </div>
+                {videoForm.tiktok_url && !tiktokEmbedUrl && (
+                    <p className="text-[11px] text-amber-600">
+                        Couldn't parse a video ID. Use a full URL like https://www.tiktok.com/@user/video/123...
+                    </p>
+                )}
+
+                <div className="mt-2">
+                    <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">Preview</p>
+                    {tiktokEmbedUrl ? (
+                        <div className="mx-auto aspect-[9/16] w-full max-w-[220px] overflow-hidden rounded-md border border-slate-200 bg-slate-900">
+                            <iframe
+                                key={tiktokEmbedUrl}
+                                src={tiktokEmbedUrl}
+                                title="TikTok video preview"
+                                allow="autoplay; encrypted-media; picture-in-picture"
+                                allowFullScreen
+                                className="h-full w-full"
+                            />
+                        </div>
+                    ) : (
+                        <div className="mx-auto flex aspect-[9/16] w-full max-w-[220px] items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-center">
+                            <p className="px-4 text-xs text-slate-400">
+                                Paste a TikTok video URL to preview it here.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

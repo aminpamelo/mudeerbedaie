@@ -77,6 +77,10 @@ export function updateStageDueDate(contentId, stage, data) {
     return api.patch(`/contents/${contentId}/stages/${stage}/due-date`, data).then((r) => r.data);
 }
 
+export function updateStageMeta(contentId, stage, data) {
+    return api.patch(`/contents/${contentId}/stages/${stage}/meta`, data).then((r) => r.data);
+}
+
 // ─── Ad Campaigns ────────────────────────────────────────────────────────────
 
 export function fetchAdCampaigns(params) {
