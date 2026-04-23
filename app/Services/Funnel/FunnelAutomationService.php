@@ -232,8 +232,14 @@ class FunnelAutomationService
             ];
         }
 
-        // Resolve merge tags in template variables
+        // Resolve merge tags in template variables.
+        // Preference order:
+        //   1. action_config['template_variables'] (per-action override)
+        //   2. template.variable_mappings (template-level defaults — shared across funnel/ecommerce)
         $templateVariables = $config['template_variables'] ?? [];
+        if (empty($templateVariables) && $template && ! empty($template->variable_mappings)) {
+            $templateVariables = $this->normalizeTemplateMappings($template->variable_mappings);
+        }
         $components = $this->buildWabaComponents($templateVariables, $context);
 
         Log::info('FunnelAutomation: Sending WhatsApp via WABA template', [
@@ -259,6 +265,42 @@ class FunnelAutomationService
             'provider' => 'waba',
             'template_name' => $templateName,
         ];
+    }
+
+    /**
+     * Normalize template.variable_mappings into the shape buildWabaComponents expects.
+     *
+     * Template mappings look like ['body' => [1 => 'contact.name', 2 => 'order.number']].
+     * The `custom` sentinel is skipped (those carry literal text set elsewhere).
+     * Certificate-only keys (student_name, certificate_name, ...) are left as-is so
+     * the resolver returns empty string for non-certificate contexts without crashing.
+     *
+     * @param  array<string, array<int, string>>  $mappings
+     * @return array<string, array<int, string>>
+     */
+    protected function normalizeTemplateMappings(array $mappings): array
+    {
+        $normalized = [];
+
+        foreach ($mappings as $componentType => $variables) {
+            if (! is_array($variables)) {
+                continue;
+            }
+
+            $type = strtolower((string) $componentType);
+
+            foreach ($variables as $index => $field) {
+                if (! is_string($field) || $field === '' || $field === 'custom') {
+                    continue;
+                }
+
+                // Wrap as a merge tag so resolveContextValue looks the field up in context.
+                // Keys not present in context resolve to empty string (safe for cross-context templates).
+                $normalized[$type][$index] = '{{'.$field.'}}';
+            }
+        }
+
+        return $normalized;
     }
 
     /**
@@ -522,6 +564,10 @@ class FunnelAutomationService
      */
     protected function buildPurchaseContext(ProductOrder $order, ?FunnelSession $session = null): array
     {
+        $items = $order->relationLoaded('items') ? $order->items : $order->items()->get();
+        $itemNames = $items->map(fn ($item) => $item->product_name)->filter()->values();
+        $currency = $order->currency ?: 'MYR';
+
         return [
             // Model instances for MergeTag data providers
             'product_order' => $order,
@@ -534,15 +580,25 @@ class FunnelAutomationService
                 'email' => $order->guest_email ?? $order->user?->email,
                 'phone' => $order->customer_phone,
                 'first_name' => explode(' ', $order->customer_name ?? '')[0] ?? '',
+                'address' => $order->shipping_address,
             ],
             'order' => [
                 'id' => $order->id,
+                'number' => $order->order_number,
                 'order_number' => $order->order_number,
-                'total' => $order->total_amount,
-                'subtotal' => $order->subtotal,
-                'currency' => $order->currency,
+                'total' => $currency.' '.number_format((float) $order->total_amount, 2),
+                'total_raw' => (string) $order->total_amount,
+                'subtotal' => number_format((float) $order->subtotal, 2),
+                'currency' => $currency,
                 'payment_method' => $order->payment_method,
                 'status' => $order->status,
+                'items_count' => (string) $items->count(),
+                'items_list' => $itemNames->implode(', '),
+                'first_item_name' => $itemNames->first() ?? '',
+                'discount_amount' => number_format((float) $order->discount_amount, 2),
+                'coupon_code' => $order->coupon_code ?? '',
+                'date' => $order->order_date?->format('Y-m-d') ?? $order->created_at?->format('Y-m-d') ?? '',
+                'tracking_number' => $order->tracking_id ?? '',
                 'customer_name' => $order->customer_name,
                 'customer_email' => $order->guest_email ?? $order->user?->email,
                 'customer_phone' => $order->customer_phone,

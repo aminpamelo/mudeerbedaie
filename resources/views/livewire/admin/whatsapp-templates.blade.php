@@ -114,7 +114,33 @@ new class extends Component {
         $this->status = $template->status;
         $this->components = $template->components ?? [];
         $this->variableMappings = $template->variable_mappings ?? [];
+        $this->syncVariableMappingKeys();
         $this->showModal = true;
+    }
+
+    public function updatedComponents(): void
+    {
+        $this->syncVariableMappingKeys();
+    }
+
+    /**
+     * Ensure $variableMappings['body'][$n] exists for every {{n}} in the BODY components,
+     * so Alpine @entangle has a defined property to bind to.
+     */
+    protected function syncVariableMappingKeys(): void
+    {
+        $bodyText = collect($this->components)
+            ->where('type', 'BODY')
+            ->pluck('text')
+            ->implode(' ');
+
+        preg_match_all('/\{\{(\d+)\}\}/', $bodyText, $matches);
+        $detected = array_unique($matches[1] ?? []);
+
+        $this->variableMappings['body'] ??= [];
+        foreach ($detected as $num) {
+            $this->variableMappings['body'][$num] ??= '';
+        }
     }
 
     public function openPreviewModal(WhatsAppTemplate $template): void
@@ -207,6 +233,7 @@ new class extends Component {
         $nextNum = empty($existingNums) ? 1 : max($existingNums) + 1;
 
         $this->components[$componentIndex]['text'] = rtrim($text) . ($text ? ' ' : '') . '{{' . $nextNum . '}}';
+        $this->syncVariableMappingKeys();
     }
 
     public function closeModal(): void
@@ -820,16 +847,10 @@ new class extends Component {
                         @foreach($detectedVars as $varNum)
                             <div class="flex items-center gap-2">
                                 <flux:badge size="sm">{!! '&#123;&#123;' . $varNum . '&#125;&#125;' !!}</flux:badge>
-                                <flux:select wire:model="variableMappings.body.{{ $varNum }}" class="flex-1">
-                                    <flux:select.option value="">-- Select field --</flux:select.option>
-                                    <flux:select.option value="student_name">Student Name</flux:select.option>
-                                    <flux:select.option value="certificate_name">Certificate Name</flux:select.option>
-                                    <flux:select.option value="certificate_number">Certificate Number</flux:select.option>
-                                    <flux:select.option value="class_name">Class Name</flux:select.option>
-                                    <flux:select.option value="course_name">Course Name</flux:select.option>
-                                    <flux:select.option value="issue_date">Issue Date</flux:select.option>
-                                    <flux:select.option value="custom">Custom Text</flux:select.option>
-                                </flux:select>
+                                @include('livewire.admin.partials.variable-field-picker', [
+                                    'varNum' => $varNum,
+                                    'wireProperty' => "variableMappings.body.{$varNum}",
+                                ])
                             </div>
                         @endforeach
                     </div>

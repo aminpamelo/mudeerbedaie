@@ -133,6 +133,97 @@ test('executeSendWhatsApp sends WABA template when provider is waba', function (
     expect($result['template_name'])->toBe('order_confirmation');
 });
 
+test('executeSendWhatsApp falls back to template variable_mappings when action config has no template_variables', function () {
+    $template = WhatsAppTemplate::factory()->create([
+        'name' => 'order_shipped',
+        'language' => 'ms',
+        'status' => 'APPROVED',
+        'components' => [
+            ['type' => 'BODY', 'text' => 'Hi {{1}}, pesanan {{2}} telah dihantar. Tracking: {{3}}.'],
+        ],
+        'variable_mappings' => [
+            'body' => [
+                '1' => 'contact.name',
+                '2' => 'order.number',
+                '3' => 'order.tracking_number',
+            ],
+        ],
+    ]);
+
+    $automation = FunnelAutomation::factory()->create();
+    $action = FunnelAutomationAction::factory()->create([
+        'automation_id' => $automation->id,
+        'action_type' => 'send_whatsapp',
+        'action_config' => [
+            'provider' => 'waba',
+            'template_id' => $template->id,
+            'phone_field' => 'contact.phone',
+        ],
+    ]);
+
+    $this->metaProvider->shouldReceive('sendTemplate')
+        ->once()
+        ->withArgs(function ($phone, $name, $lang, $components) {
+            return $phone === '60123456789'
+                && $name === 'order_shipped'
+                && $components[0]['type'] === 'body'
+                && $components[0]['parameters'][0]['text'] === 'Siti'
+                && $components[0]['parameters'][1]['text'] === 'PO-999'
+                && $components[0]['parameters'][2]['text'] === 'TRK-42';
+        })
+        ->andReturn(['success' => true, 'message_id' => 'wamid_mapping']);
+
+    $service = app(FunnelAutomationService::class);
+    $method = new ReflectionMethod($service, 'executeSendWhatsApp');
+    $result = $method->invoke($service, $action, [
+        'contact' => ['name' => 'Siti', 'phone' => '60123456789'],
+        'order' => ['number' => 'PO-999', 'tracking_number' => 'TRK-42'],
+    ]);
+
+    expect($result['success'])->toBeTrue();
+    expect($result['provider'])->toBe('waba');
+});
+
+test('executeSendWhatsApp skips custom sentinel in template variable_mappings', function () {
+    $template = WhatsAppTemplate::factory()->create([
+        'name' => 'thank_you',
+        'language' => 'ms',
+        'status' => 'APPROVED',
+        'components' => [
+            ['type' => 'BODY', 'text' => 'Hi {{1}}, terima kasih!'],
+        ],
+        'variable_mappings' => [
+            'body' => [
+                '1' => 'custom',
+            ],
+        ],
+    ]);
+
+    $automation = FunnelAutomation::factory()->create();
+    $action = FunnelAutomationAction::factory()->create([
+        'automation_id' => $automation->id,
+        'action_type' => 'send_whatsapp',
+        'action_config' => [
+            'provider' => 'waba',
+            'template_id' => $template->id,
+            'phone_field' => 'contact.phone',
+        ],
+    ]);
+
+    $this->metaProvider->shouldReceive('sendTemplate')
+        ->once()
+        ->withArgs(fn ($phone, $name, $lang, $components) => $components === [])
+        ->andReturn(['success' => true, 'message_id' => 'wamid_custom']);
+
+    $service = app(FunnelAutomationService::class);
+    $method = new ReflectionMethod($service, 'executeSendWhatsApp');
+    $result = $method->invoke($service, $action, [
+        'contact' => ['phone' => '60123456789'],
+    ]);
+
+    expect($result['success'])->toBeTrue();
+});
+
 test('executeSendWhatsApp fails when waba template is not approved', function () {
     $template = WhatsAppTemplate::factory()->create([
         'name' => 'pending_template',
