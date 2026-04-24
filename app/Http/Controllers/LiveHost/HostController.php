@@ -282,18 +282,32 @@ class HostController extends Controller
 
     public function store(StoreHostRequest $request): RedirectResponse
     {
-        $host = User::create([
-            'name' => $request->string('name')->toString(),
-            'email' => $request->string('email')->toString(),
-            'phone' => $request->string('phone')->toString(),
-            'status' => $request->string('status')->toString(),
-            'role' => 'live_host',
-            'password' => Hash::make(Str::random(40)),
-        ]);
+        $existingUserId = $request->resolveExistingUserId();
+
+        if ($existingUserId) {
+            $host = User::findOrFail($existingUserId);
+            $host->update([
+                'name' => $request->string('name')->toString(),
+                'email' => $request->string('email')->toString(),
+                'phone' => $request->string('phone')->toString(),
+                'status' => $request->string('status')->toString(),
+            ]);
+            $message = "Live host {$host->name} profile created.";
+        } else {
+            $host = User::create([
+                'name' => $request->string('name')->toString(),
+                'email' => $request->string('email')->toString(),
+                'phone' => $request->string('phone')->toString(),
+                'status' => $request->string('status')->toString(),
+                'role' => 'live_host',
+                'password' => Hash::make(Str::random(40)),
+            ]);
+            $message = "Live host {$host->name} created.";
+        }
 
         return redirect()
             ->route('livehost.hosts.index')
-            ->with('success', "Live host {$host->name} created.");
+            ->with('success', $message);
     }
 
     public function edit(User $host): Response

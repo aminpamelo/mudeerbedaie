@@ -9,6 +9,7 @@ export default function HostCreate() {
   const { prefilledUser } = usePage().props;
 
   const form = useForm({
+    user_id: prefilledUser?.id ?? null,
     name: prefilledUser?.name ?? '',
     email: prefilledUser?.email ?? '',
     phone: prefilledUser?.phone ?? '',

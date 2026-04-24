@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\LiveHost;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreHostRequest extends FormRequest
 {
@@ -23,12 +25,27 @@ class StoreHostRequest extends FormRequest
      */
     public function rules(): array
     {
+        $existingUserId = $this->resolveExistingUserId();
+
         return [
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['required', 'string', 'max:32', 'unique:users,phone'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($existingUserId)],
+            'phone' => ['required', 'string', 'max:32', Rule::unique('users', 'phone')->ignore($existingUserId)],
             'status' => ['required', 'in:active,inactive,suspended'],
         ];
+    }
+
+    public function resolveExistingUserId(): ?int
+    {
+        $userId = $this->integer('user_id');
+        if (! $userId) {
+            return null;
+        }
+
+        return User::where('id', $userId)
+            ->where('role', 'live_host')
+            ->value('id');
     }
 
     /**
