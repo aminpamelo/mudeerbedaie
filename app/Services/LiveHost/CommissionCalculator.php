@@ -5,10 +5,15 @@ namespace App\Services\LiveHost;
 use App\Models\LiveHostPlatformCommissionRate;
 use App\Models\LiveSession;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
 class CommissionCalculator
 {
+    public function __construct(
+        private CommissionTierResolver $tierResolver,
+    ) {}
+
     /**
      * Compute commission for a single live session.
      *
@@ -78,6 +83,97 @@ class CommissionCalculator
             'per_live_rate' => $perLiveRate,
             'session_total' => round($gmvCommission + $perLiveRate, 2),
             'warnings' => $warnings,
+        ];
+    }
+
+    /**
+     * Compute commission for a single live session using the tier-based rate
+     * model. Unlike forSession(), the commission rate is not a flat per-host-
+     * per-platform number — it depends on the host's TOTAL monthly GMV on the
+     * platform (passed as $monthlyGmvForPlatform). The caller is responsible
+     * for aggregating monthly GMV before calling this method.
+     *
+     * Per-session semantics are preserved: each session still reports
+     * `session.net_gmv × tier.internal_percent / 100`. Summing across all
+     * sessions in the month yields `monthly_gmv × tier.internal_percent`,
+     * matching the business intent.
+     *
+     * Return shape is identical to forSession() plus a `rate_source` array
+     * documenting which tier was applied (or why none matched). Callers can
+     * reuse the same reporting paths.
+     *
+     * @return array{
+     *     net_gmv: float,
+     *     platform_rate_percent: float,
+     *     gmv_commission: float,
+     *     per_live_rate: float,
+     *     session_total: float,
+     *     warnings: array<int, string>,
+     *     rate_source: array{
+     *         tier_id: int|null,
+     *         tier_number?: int,
+     *         internal_percent?: float,
+     *         monthly_gmv_myr: float,
+     *         reason?: string
+     *     }
+     * }
+     */
+    public function forSessionInMonthlyContext(
+        LiveSession $session,
+        float $monthlyGmvForPlatform,
+        CarbonInterface $asOf,
+    ): array {
+        $warnings = [];
+
+        $netGmv = (float) ($session->gmv_amount ?? 0)
+            + (float) ($session->gmv_adjustment ?? 0);
+
+        $host = $session->liveHost;
+        $platform = $session->platformAccount?->platform;
+
+        $tier = ($host && $platform)
+            ? $this->tierResolver->resolveTier($host, $platform, $monthlyGmvForPlatform, $asOf)
+            : null;
+
+        if (! $tier && $netGmv > 0) {
+            $warnings[] = 'missing_platform_rate';
+        }
+
+        if ($tier) {
+            $ratePercent = (float) $tier->internal_percent;
+            $gmvCommission = round($netGmv * $ratePercent / 100, 2);
+            $rateSource = [
+                'tier_id' => $tier->id,
+                'tier_number' => (int) $tier->tier_number,
+                'internal_percent' => $ratePercent,
+                'monthly_gmv_myr' => round($monthlyGmvForPlatform, 2),
+            ];
+        } else {
+            $ratePercent = 0.0;
+            $gmvCommission = 0.0;
+            $rateSource = [
+                'tier_id' => null,
+                'reason' => ($host && $platform)
+                    ? 'below_tier_1_floor'
+                    : 'missing_host_or_platform',
+                'monthly_gmv_myr' => round($monthlyGmvForPlatform, 2),
+            ];
+        }
+
+        $profile = $host?->commissionProfile;
+        $isMissed = $session->status === 'missed';
+        $perLiveRate = ($isMissed || ! $profile)
+            ? 0.0
+            : round((float) $profile->per_live_rate_myr, 2);
+
+        return [
+            'net_gmv' => round($netGmv, 2),
+            'platform_rate_percent' => $ratePercent,
+            'gmv_commission' => $gmvCommission,
+            'per_live_rate' => $perLiveRate,
+            'session_total' => round($gmvCommission + $perLiveRate, 2),
+            'warnings' => $warnings,
+            'rate_source' => $rateSource,
         ];
     }
 

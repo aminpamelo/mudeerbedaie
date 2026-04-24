@@ -2,6 +2,7 @@
 
 use App\Models\LiveHostCommissionProfile;
 use App\Models\LiveHostPlatformAccount;
+use App\Models\LiveHostPlatformCommissionTier;
 use App\Models\LiveSession;
 use App\Models\Platform;
 use App\Models\PlatformAccount;
@@ -146,4 +147,106 @@ it('handles host with no commission profile — per_live_rate=0 and gmv_commissi
     expect($result['gmv_commission'])->toEqual(0.00);
     expect($result['per_live_rate'])->toEqual(0.00);
     expect($result['warnings'])->toContain('missing_platform_rate');
+});
+
+/**
+ * Seed a 3-tier schedule (15-30k / 30-60k / 60k+) on a fresh host+platform
+ * for tier-based tests. Returns [host, platform].
+ *
+ * @return array{0: User, 1: Platform}
+ */
+function seedThreeTierSchedule(): array
+{
+    $host = User::factory()->create(['role' => 'live_host']);
+    LiveHostCommissionProfile::factory()->for($host)->create([
+        'per_live_rate_myr' => 30.00,
+    ]);
+    $platform = Platform::factory()->create();
+
+    $common = [
+        'user_id' => $host->id,
+        'platform_id' => $platform->id,
+        'effective_from' => '2026-01-01',
+        'effective_to' => null,
+        'is_active' => true,
+    ];
+
+    LiveHostPlatformCommissionTier::factory()->create($common + [
+        'tier_number' => 1, 'min_gmv_myr' => 15000, 'max_gmv_myr' => 30000,
+        'internal_percent' => 5.00, 'l1_percent' => 1.00, 'l2_percent' => 2.00,
+    ]);
+    LiveHostPlatformCommissionTier::factory()->create($common + [
+        'tier_number' => 2, 'min_gmv_myr' => 30000, 'max_gmv_myr' => 60000,
+        'internal_percent' => 6.00, 'l1_percent' => 1.30, 'l2_percent' => 2.30,
+    ]);
+    LiveHostPlatformCommissionTier::factory()->create($common + [
+        'tier_number' => 3, 'min_gmv_myr' => 60000, 'max_gmv_myr' => null,
+        'internal_percent' => 7.00, 'l1_percent' => 1.50, 'l2_percent' => 2.50,
+    ]);
+
+    return [$host, $platform];
+}
+
+it('computes session gmv_commission from tier internal_percent when tier matches monthly gmv', function () {
+    [$host, $platform] = seedThreeTierSchedule();
+
+    $session = makeSession($host, $platform, [
+        'gmv_amount' => 40000,
+        'gmv_adjustment' => 0,
+        'scheduled_start_at' => now()->parse('2026-04-10 10:00:00'),
+        'actual_start_at' => now()->parse('2026-04-10 10:00:00'),
+    ]);
+
+    $result = app(CommissionCalculator::class)->forSessionInMonthlyContext(
+        $session,
+        40000.00,
+        now()->parse('2026-04-10 10:00:00'),
+    );
+
+    expect($result['net_gmv'])->toEqual(40000.00);
+    expect($result['platform_rate_percent'])->toEqual(6.00);
+    expect($result['gmv_commission'])->toEqual(2400.00);
+    expect($result['per_live_rate'])->toEqual(30.00);
+    expect($result['session_total'])->toEqual(2430.00);
+    expect($result['warnings'])->toBe([]);
+
+    $tier = LiveHostPlatformCommissionTier::where('user_id', $host->id)
+        ->where('tier_number', 2)
+        ->firstOrFail();
+
+    expect($result['rate_source'])->toMatchArray([
+        'tier_id' => $tier->id,
+        'tier_number' => 2,
+        'internal_percent' => 6.00,
+        'monthly_gmv_myr' => 40000.00,
+    ]);
+});
+
+it('returns zero gmv_commission when monthly gmv is below tier 1 floor', function () {
+    [$host, $platform] = seedThreeTierSchedule();
+
+    $session = makeSession($host, $platform, [
+        'gmv_amount' => 10000,
+        'gmv_adjustment' => 0,
+        'scheduled_start_at' => now()->parse('2026-04-10 10:00:00'),
+        'actual_start_at' => now()->parse('2026-04-10 10:00:00'),
+    ]);
+
+    $result = app(CommissionCalculator::class)->forSessionInMonthlyContext(
+        $session,
+        10000.00,
+        now()->parse('2026-04-10 10:00:00'),
+    );
+
+    expect($result['net_gmv'])->toEqual(10000.00);
+    expect($result['platform_rate_percent'])->toEqual(0.00);
+    expect($result['gmv_commission'])->toEqual(0.00);
+    expect($result['per_live_rate'])->toEqual(30.00);
+    expect($result['session_total'])->toEqual(30.00);
+
+    expect($result['rate_source'])->toMatchArray([
+        'tier_id' => null,
+        'reason' => 'below_tier_1_floor',
+        'monthly_gmv_myr' => 10000.00,
+    ]);
 });
