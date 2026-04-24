@@ -110,16 +110,19 @@ class LiveHostCommissionSeeder extends Seeder
 
         // TikTok per-host commission rates (legacy flat-rate rail + matching
         // single-tier schedule on the new tier rail). The tier row mirrors
-        // Task 10's production backfill: `internal_percent` preserves the
-        // flat commission rate, `l1_percent` / `l2_percent` preserve the
-        // upline-profile overrides that used to be paid against it, and the
-        // tier is open-ended (min 0, max null) so it matches any monthly GMV.
+        // Task 10's production "zero-override backfill" strategy:
+        // `internal_percent` preserves the flat commission rate so each host's
+        // own commission is unchanged, but `l1_percent` and `l2_percent` are
+        // ZERO — uplines receive no overrides until admin explicitly configures
+        // real tier schedules through the UI. This is the safest transition:
+        // the override system becomes opt-in per-host rather than silently
+        // paying the old flat overrides against the new rail.
         $effectiveFrom = now()->subMonths(3)->toDateString();
         foreach ([
-            [$ahmad, 4.00, $ahmadProfile],
-            [$sarah, 5.00, $sarahProfile],
-            [$amin, 6.00, $aminProfile],
-        ] as [$user, $ratePercent, $profile]) {
+            [$ahmad, 4.00],
+            [$sarah, 5.00],
+            [$amin, 6.00],
+        ] as [$user, $ratePercent]) {
             LiveHostPlatformCommissionRate::updateOrCreate(
                 ['user_id' => $user->id, 'platform_id' => $tiktok->id, 'is_active' => true],
                 [
@@ -138,8 +141,8 @@ class LiveHostCommissionSeeder extends Seeder
                     'min_gmv_myr' => 0,
                     'max_gmv_myr' => null,
                     'internal_percent' => $ratePercent,
-                    'l1_percent' => (float) $profile->override_rate_l1_percent,
-                    'l2_percent' => (float) $profile->override_rate_l2_percent,
+                    'l1_percent' => 0.00,
+                    'l2_percent' => 0.00,
                     'effective_from' => $effectiveFrom,
                     'effective_to' => null,
                     'is_active' => true,

@@ -333,8 +333,23 @@ class LiveHostPayrollService
      * Returns a tuple: [override_total, breakdown_rows]. The breakdown is the
      * audit-ready per-(downline, platform) detail stored in
      * `calculation_breakdown_json` — each row captures tier_id, tier_number,
-     * monthly_gmv_myr, override_rate_percent, and override_amount so a PIC can
-     * reconstruct why a given override was paid.
+     * monthly_gmv_myr, override_rate_percent, override_amount, and a `reason`
+     * field so a PIC can reconstruct why a given override was paid (or why
+     * it paid zero). Reason values:
+     *
+     *   - null                     a real payout occurred
+     *   - 'below_tier_1_floor'     host has a schedule but monthly GMV is
+     *                              below the lowest tier's min boundary
+     *   - 'no_schedule_configured' host has no tier schedule at all on that
+     *                              platform (admin needs to create one)
+     *   - 'zero_rate_in_tier'      the resolved tier exists but its
+     *                              `l1_percent`/`l2_percent` is 0 (typical
+     *                              of the zero-override backfill strategy;
+     *                              admin hasn't configured override rates yet)
+     *
+     * Zero-amount rows are intentionally emitted so PICs can distinguish these
+     * cases at a glance instead of wondering whether the computation silently
+     * skipped a downline.
      *
      * @param  Collection<int, User>  $downlines
      * @param  Collection<int, array<string, mixed>>  $ownAggregates  keyed by user_id
@@ -367,7 +382,22 @@ class LiveHostPayrollService
                 }
 
                 $tier = $this->tierResolver->resolveTier($downline, $platform, $monthlyGmv, $periodEnd);
+
                 if ($tier === null) {
+                    $hasSchedule = $this->tierResolver->hasAnyActiveTier($downline, $platform, $periodEnd);
+
+                    $breakdown[] = [
+                        'downline_user_id' => $downline->id,
+                        'downline_name' => $downline->name,
+                        'platform_id' => (int) $platformId,
+                        'monthly_gmv_myr' => round($monthlyGmv, 2),
+                        'tier_id' => null,
+                        'tier_number' => null,
+                        'override_rate_percent' => null,
+                        'override_amount' => 0.00,
+                        'reason' => $hasSchedule ? 'below_tier_1_floor' : 'no_schedule_configured',
+                    ];
+
                     continue;
                 }
 
@@ -376,6 +406,18 @@ class LiveHostPayrollService
                     : (float) $tier->l2_percent;
 
                 if ($ratePercent <= 0.0) {
+                    $breakdown[] = [
+                        'downline_user_id' => $downline->id,
+                        'downline_name' => $downline->name,
+                        'platform_id' => (int) $platformId,
+                        'monthly_gmv_myr' => round($monthlyGmv, 2),
+                        'tier_id' => $tier->id,
+                        'tier_number' => (int) $tier->tier_number,
+                        'override_rate_percent' => 0.00,
+                        'override_amount' => 0.00,
+                        'reason' => 'zero_rate_in_tier',
+                    ];
+
                     continue;
                 }
 
@@ -391,6 +433,7 @@ class LiveHostPayrollService
                     'tier_number' => (int) $tier->tier_number,
                     'override_rate_percent' => $ratePercent,
                     'override_amount' => $amount,
+                    'reason' => null,
                 ];
             }
         }

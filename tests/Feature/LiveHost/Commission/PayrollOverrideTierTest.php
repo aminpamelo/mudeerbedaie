@@ -229,7 +229,7 @@ it('records tier_id in breakdown JSON for audit', function () {
     $entry = $breakdown['overrides_l1'][0];
     expect($entry)->toHaveKeys([
         'downline_user_id', 'platform_id', 'monthly_gmv_myr',
-        'tier_id', 'override_rate_percent', 'override_amount',
+        'tier_id', 'override_rate_percent', 'override_amount', 'reason',
     ]);
 
     // tier_id should reference the real tier 2 row for (hostA, tiktok)
@@ -241,4 +241,105 @@ it('records tier_id in breakdown JSON for audit', function () {
     expect($entry['tier_id'])->toBe($tier2->id);
     expect((float) $entry['override_rate_percent'])->toEqual(1.30);
     expect((float) $entry['override_amount'])->toEqual(520.00);
+    // Real payout — reason is null to distinguish from diagnostic rows.
+    expect($entry['reason'])->toBeNull();
+});
+
+it('emits below_tier_1_floor diagnostic when downline GMV is under schedule floor', function () {
+    tierOverrideSeedTiers($this->hostA, $this->tiktok);
+    seedTierOverrideSessions($this->hostA, $this->tiktok, 2, 8000); // below 15k floor
+
+    $run = app(LiveHostPayrollService::class)->generateDraft(
+        Carbon::parse('2026-04-01'),
+        Carbon::parse('2026-04-30')->endOfDay(),
+        $this->pic,
+    );
+
+    $items = $run->items->keyBy('user_id');
+    $breakdown = $items[$this->hostB->id]->calculation_breakdown_json;
+
+    expect($breakdown['overrides_l1'])->not->toBeEmpty();
+    $entry = $breakdown['overrides_l1'][0];
+    expect($entry['downline_user_id'])->toBe($this->hostA->id);
+    expect($entry['platform_id'])->toBe($this->tiktok->id);
+    expect((float) $entry['monthly_gmv_myr'])->toEqual(8000.00);
+    expect($entry['tier_id'])->toBeNull();
+    expect($entry['tier_number'])->toBeNull();
+    expect($entry['override_rate_percent'])->toBeNull();
+    expect((float) $entry['override_amount'])->toEqual(0.00);
+    expect($entry['reason'])->toBe('below_tier_1_floor');
+
+    // hostC (L2) sees the same diagnostic at the L2 breakdown.
+    $breakdownC = $items[$this->hostC->id]->calculation_breakdown_json;
+    expect($breakdownC['overrides_l2'])->not->toBeEmpty();
+    expect($breakdownC['overrides_l2'][0]['reason'])->toBe('below_tier_1_floor');
+});
+
+it('emits no_schedule_configured diagnostic when downline has no tier rows on the platform', function () {
+    // No tier schedule seeded for hostA on tiktok — only sessions.
+    seedTierOverrideSessions($this->hostA, $this->tiktok, 4, 40000);
+
+    $run = app(LiveHostPayrollService::class)->generateDraft(
+        Carbon::parse('2026-04-01'),
+        Carbon::parse('2026-04-30')->endOfDay(),
+        $this->pic,
+    );
+
+    $items = $run->items->keyBy('user_id');
+    $breakdown = $items[$this->hostB->id]->calculation_breakdown_json;
+
+    expect($breakdown['overrides_l1'])->not->toBeEmpty();
+    $entry = $breakdown['overrides_l1'][0];
+    expect($entry['downline_user_id'])->toBe($this->hostA->id);
+    expect($entry['platform_id'])->toBe($this->tiktok->id);
+    expect((float) $entry['monthly_gmv_myr'])->toEqual(40000.00);
+    expect($entry['tier_id'])->toBeNull();
+    expect((float) $entry['override_amount'])->toEqual(0.00);
+    expect($entry['reason'])->toBe('no_schedule_configured');
+});
+
+it('emits zero_rate_in_tier diagnostic when the resolved tier has l1_percent = 0', function () {
+    // Single open-ended tier with non-zero internal but zero override —
+    // mirrors the zero-override backfill that production uses on Task 10.
+    LiveHostPlatformCommissionTier::factory()->create([
+        'user_id' => $this->hostA->id,
+        'platform_id' => $this->tiktok->id,
+        'tier_number' => 1,
+        'min_gmv_myr' => 0,
+        'max_gmv_myr' => null,
+        'internal_percent' => 5.00,
+        'l1_percent' => 0.00,
+        'l2_percent' => 0.00,
+        'effective_from' => '2026-01-01',
+        'effective_to' => null,
+        'is_active' => true,
+    ]);
+    seedTierOverrideSessions($this->hostA, $this->tiktok, 4, 40000);
+
+    $run = app(LiveHostPayrollService::class)->generateDraft(
+        Carbon::parse('2026-04-01'),
+        Carbon::parse('2026-04-30')->endOfDay(),
+        $this->pic,
+    );
+
+    $items = $run->items->keyBy('user_id');
+    $breakdownB = $items[$this->hostB->id]->calculation_breakdown_json;
+    $breakdownC = $items[$this->hostC->id]->calculation_breakdown_json;
+
+    expect($breakdownB['overrides_l1'])->not->toBeEmpty();
+    $entryB = $breakdownB['overrides_l1'][0];
+    expect($entryB['downline_user_id'])->toBe($this->hostA->id);
+    expect($entryB['tier_id'])->not->toBeNull();
+    expect((int) $entryB['tier_number'])->toBe(1);
+    expect((float) $entryB['override_rate_percent'])->toEqual(0.00);
+    expect((float) $entryB['override_amount'])->toEqual(0.00);
+    expect($entryB['reason'])->toBe('zero_rate_in_tier');
+
+    // Same diagnostic at the L2 level for hostC.
+    expect($breakdownC['overrides_l2'])->not->toBeEmpty();
+    expect($breakdownC['overrides_l2'][0]['reason'])->toBe('zero_rate_in_tier');
+
+    // And the monetary totals are zero.
+    expect((float) $items[$this->hostB->id]->override_l1_myr)->toEqual(0.00);
+    expect((float) $items[$this->hostC->id]->override_l2_myr)->toEqual(0.00);
 });

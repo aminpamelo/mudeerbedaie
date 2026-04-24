@@ -92,10 +92,12 @@ it('generates payroll matching the design §5.3 worked example', function () {
 
     $items = $run->items->keyBy('user_id');
 
-    // Ahmad — top of chain. Under the tier-based override math, Ahmad's
-    // override_l1 = Sarah_monthly_tiktok_gmv (17500) × Sarah_tier_l1 (10%)
-    // = 1750.00. override_l2 = Amin_monthly_tiktok_gmv (21700) × Amin_tier_l2
-    // (0%) = 0.00.
+    // Ahmad — top of chain. Under the zero-override backfill strategy used
+    // by the seeder, every host's tier row has l1_percent = l2_percent = 0,
+    // so Ahmad's L1 (Sarah) and L2 (Amin) overrides are both 0.00 even
+    // though Sarah and Amin have real monthly GMV. `internal_percent` is
+    // unchanged, so Ahmad's own GMV commission (472) and per-live (240) are
+    // the same as before the tier refactor.
     $ahmadItem = $items->get($this->ahmad->id);
     expect((float) $ahmadItem->base_salary_myr)->toEqual(2000.00);
     expect((int) $ahmadItem->sessions_count)->toEqual(8);
@@ -104,13 +106,13 @@ it('generates payroll matching the design §5.3 worked example', function () {
     expect((float) $ahmadItem->net_gmv_myr)->toEqual(11800.00);
     expect((float) $ahmadItem->gmv_commission_myr)->toEqual(472.00);
     expect((float) $ahmadItem->total_per_live_myr)->toEqual(240.00);
-    expect((float) $ahmadItem->override_l1_myr)->toEqual(1750.00);
+    expect((float) $ahmadItem->override_l1_myr)->toEqual(0.00);
     expect((float) $ahmadItem->override_l2_myr)->toEqual(0.00);
-    expect((float) $ahmadItem->gross_total_myr)->toEqual(4462.00);
-    expect((float) $ahmadItem->net_payout_myr)->toEqual(4462.00);
+    expect((float) $ahmadItem->gross_total_myr)->toEqual(2712.00);
+    expect((float) $ahmadItem->net_payout_myr)->toEqual(2712.00);
 
-    // Sarah — L1 under Ahmad, has Amin as L1 downline. Amin's tier L1 is 0%,
-    // so Sarah earns no override.
+    // Sarah — L1 under Ahmad, has Amin as L1 downline. Amin's tier L1 is 0%
+    // under zero-override backfill, so Sarah earns no override.
     $sarahItem = $items->get($this->sarah->id);
     expect((float) $sarahItem->base_salary_myr)->toEqual(1800.00);
     expect((int) $sarahItem->sessions_count)->toEqual(12);
@@ -132,9 +134,9 @@ it('generates payroll matching the design §5.3 worked example', function () {
     expect((float) $aminItem->override_l2_myr)->toEqual(0.00);
     expect((float) $aminItem->net_payout_myr)->toEqual(1802.00);
 
-    // Aggregate total
+    // Aggregate total (zero overrides: 2712 + 2975 + 1802 = 7489)
     $total = $run->items->sum(fn ($i) => (float) $i->net_payout_myr);
-    expect(round($total, 2))->toEqual(9239.00);
+    expect(round($total, 2))->toEqual(7489.00);
 });
 
 it('ignores unverified sessions', function () {
@@ -313,9 +315,17 @@ it('stores a structured calculation breakdown for each item', function () {
     expect($breakdown)->toBeArray();
     expect($breakdown)->toHaveKeys(['sessions', 'overrides_l1', 'overrides_l2']);
     expect($breakdown['sessions'])->toHaveCount(3);
+
+    // Under zero-override backfill, Sarah's tier has l1_percent = 0, so
+    // Ahmad's L1 breakdown still emits a diagnostic row for her with
+    // reason = 'zero_rate_in_tier' and override_amount = 0.00.
     expect($breakdown['overrides_l1'])->not->toBeEmpty();
     expect($breakdown['overrides_l1'][0])->toHaveKeys([
         'downline_user_id', 'downline_name', 'platform_id', 'monthly_gmv_myr',
         'tier_id', 'tier_number', 'override_rate_percent', 'override_amount',
+        'reason',
     ]);
+    expect($breakdown['overrides_l1'][0]['downline_user_id'])->toBe($this->sarah->id);
+    expect($breakdown['overrides_l1'][0]['reason'])->toBe('zero_rate_in_tier');
+    expect((float) $breakdown['overrides_l1'][0]['override_amount'])->toEqual(0.00);
 });
