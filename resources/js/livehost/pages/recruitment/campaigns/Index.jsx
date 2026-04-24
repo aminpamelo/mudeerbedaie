@@ -9,6 +9,7 @@ import {
   Play,
   Plus,
   Trash2,
+  Users,
   XCircle,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
@@ -180,6 +181,13 @@ export default function CampaignsIndex() {
                           title="Edit"
                         >
                           <Pencil className="h-[14px] w-[14px]" strokeWidth={2} />
+                        </Link>
+                        <Link
+                          href={`/livehost/recruitment/applicants?campaign=${campaign.id}`}
+                          className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-[#525252] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                          title="View applicants for this campaign"
+                        >
+                          <Users className="h-[12px] w-[12px]" strokeWidth={2.25} /> Applicants
                         </Link>
                         {campaign.public_url && (
                           <button

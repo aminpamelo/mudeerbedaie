@@ -12,6 +12,7 @@ import {
   Banknote,
   FileSpreadsheet,
   UserCircle2,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
 
@@ -21,6 +22,7 @@ const NAV_GROUPS = [
     items: [
       { label: 'Dashboard', href: '/livehost', icon: LayoutDashboard },
       { label: 'Live Hosts', href: '/livehost/hosts', icon: Users, countKey: 'hosts' },
+      { label: 'Recruitment', href: '/livehost/recruitment/campaigns', icon: Megaphone },
     ],
   },
   {
