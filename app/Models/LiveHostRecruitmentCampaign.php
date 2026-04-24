@@ -55,15 +55,12 @@ class LiveHostRecruitmentCampaign extends Model
     protected static function booted(): void
     {
         static::created(function (self $campaign) {
-            $defaults = [
+            $campaign->stages()->createMany([
                 ['position' => 1, 'name' => 'Review', 'is_final' => false],
                 ['position' => 2, 'name' => 'Interview', 'is_final' => false],
                 ['position' => 3, 'name' => 'Test Live', 'is_final' => false],
                 ['position' => 4, 'name' => 'Final', 'is_final' => true],
-            ];
-            foreach ($defaults as $stage) {
-                $campaign->stages()->create($stage);
-            }
+            ]);
         });
     }
 }

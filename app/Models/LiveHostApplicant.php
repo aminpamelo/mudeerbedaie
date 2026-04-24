@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class LiveHostApplicant extends Model
 {
@@ -50,14 +51,17 @@ class LiveHostApplicant extends Model
 
     public static function generateApplicantNumber(): string
     {
-        $yearMonth = now()->format('Ym');
-        $prefix = "LHA-{$yearMonth}-";
-        $last = static::query()
-            ->where('applicant_number', 'like', $prefix.'%')
-            ->orderByDesc('applicant_number')
-            ->first();
-        $next = $last ? ((int) substr($last->applicant_number, -4)) + 1 : 1;
+        return DB::transaction(function () {
+            $yearMonth = now()->format('Ym');
+            $prefix = "LHA-{$yearMonth}-";
+            $last = static::query()
+                ->where('applicant_number', 'like', $prefix.'%')
+                ->lockForUpdate()
+                ->orderByDesc('applicant_number')
+                ->first();
+            $next = $last ? ((int) substr($last->applicant_number, -4)) + 1 : 1;
 
-        return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+            return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        });
     }
 }
