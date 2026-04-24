@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
+import CommissionTierTable from '@/livehost/components/CommissionTierTable';
 import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
 
@@ -85,6 +86,7 @@ export default function HostShow() {
     platformCommissionRates,
     platforms,
     uplineCandidates,
+    commissionTiers,
   } = usePage().props;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -235,6 +237,7 @@ export default function HostShow() {
             platformCommissionRates={platformCommissionRates}
             platforms={platforms}
             uplineCandidates={uplineCandidates}
+            commissionTiers={commissionTiers}
             formatDateOnly={formatDateOnly}
             formatMoney={formatMoney}
             formatPercent={formatPercent}
@@ -407,6 +410,7 @@ function CommissionPanel({
   platformCommissionRates,
   platforms,
   uplineCandidates,
+  commissionTiers,
   formatDateOnly,
   formatMoney,
   formatPercent,
@@ -492,32 +496,6 @@ function CommissionPanel({
     });
   };
 
-  const savePlatformRate = (rateId, platformId, nextValue) => {
-    const payload = {
-      platform_id: platformId,
-      commission_rate_percent: Number(nextValue),
-    };
-    return new Promise((resolve, reject) => {
-      const onError = (errs) => {
-        const firstErr = Object.values(errs || {})[0];
-        reject(Array.isArray(firstErr) ? firstErr[0] : firstErr || 'Save failed');
-      };
-      if (rateId) {
-        router.put(`/livehost/hosts/${host.id}/platform-rates/${rateId}`, payload, {
-          preserveScroll: true,
-          onSuccess: () => resolve(),
-          onError,
-        });
-      } else {
-        router.post(`/livehost/hosts/${host.id}/platform-rates`, payload, {
-          preserveScroll: true,
-          onSuccess: () => resolve(),
-          onError,
-        });
-      }
-    });
-  };
-
   const handleSaveMeta = () => {
     setSavingMeta(true);
     setMetaSuccess(false);
@@ -527,6 +505,92 @@ function CommissionPanel({
     })
       .then(() => setMetaSuccess(true))
       .finally(() => setSavingMeta(false));
+  };
+
+  const handleTierUpdate = (tierId, patch) => {
+    router.patch(`/livehost/hosts/${host.id}/tiers/${tierId}`, patch, {
+      preserveScroll: true,
+    });
+  };
+
+  const handleTierRemove = (tierId) => {
+    router.delete(`/livehost/hosts/${host.id}/tiers/${tierId}`, {
+      preserveScroll: true,
+    });
+  };
+
+  const handleAddTier = (group) => {
+    const existing = [...(group.tiers || [])].sort(
+      (a, b) => Number(a.tier_number) - Number(b.tier_number),
+    );
+    const topTier = existing[existing.length - 1];
+    const nextTierNumber = (Number(topTier?.tier_number) || 0) + 1;
+    const prevMax =
+      topTier?.max_gmv_myr === null || topTier?.max_gmv_myr === undefined
+        ? Number(topTier?.min_gmv_myr ?? 0)
+        : Number(topTier?.max_gmv_myr);
+
+    // Rebuild the schedule: existing tiers (with the previous open-ended tier
+    // closed off at its current min) + a new top tier that inherits the null max.
+    const tiers = existing.map((tier, index) => {
+      const isLast = index === existing.length - 1;
+      return {
+        tier_number: Number(tier.tier_number),
+        min_gmv_myr: Number(tier.min_gmv_myr ?? 0),
+        max_gmv_myr: isLast
+          ? prevMax
+          : tier.max_gmv_myr === null || tier.max_gmv_myr === undefined
+            ? null
+            : Number(tier.max_gmv_myr),
+        internal_percent: Number(tier.internal_percent ?? 0),
+        l1_percent: Number(tier.l1_percent ?? 0),
+        l2_percent: Number(tier.l2_percent ?? 0),
+      };
+    });
+
+    tiers.push({
+      tier_number: nextTierNumber,
+      min_gmv_myr: prevMax,
+      max_gmv_myr: null,
+      internal_percent: 0,
+      l1_percent: 0,
+      l2_percent: 0,
+    });
+
+    router.post(
+      `/livehost/hosts/${host.id}/platforms/${group.platform_id}/tiers`,
+      { effective_from: group.effective_from, tiers },
+      { preserveScroll: true },
+    );
+  };
+
+  const handleAddPlatformSchedule = (platformId, effectiveFrom) => {
+    return new Promise((resolve, reject) => {
+      router.post(
+        `/livehost/hosts/${host.id}/platforms/${platformId}/tiers`,
+        {
+          effective_from: effectiveFrom,
+          tiers: [
+            {
+              tier_number: 1,
+              min_gmv_myr: 0,
+              max_gmv_myr: null,
+              internal_percent: 0,
+              l1_percent: 0,
+              l2_percent: 0,
+            },
+          ],
+        },
+        {
+          preserveScroll: true,
+          onSuccess: () => resolve(),
+          onError: (errs) => {
+            const firstErr = Object.values(errs || {})[0];
+            reject(Array.isArray(firstErr) ? firstErr[0] : firstErr || 'Save failed');
+          },
+        },
+      );
+    });
   };
 
   const history = (commissionProfiles || []).filter((p) => !p.is_active);
@@ -584,75 +648,39 @@ function CommissionPanel({
 
       <LedgerSection
         index="02"
-        title="Performance pay"
-        subtitle="A percentage of the host's attributed GMV, by marketplace."
+        title="Commission tiers"
+        subtitle="Per-platform tiered commission ladder scaled by monthly GMV. Internal %, L1 %, and L2 % per bracket."
         accent="#EC4899"
         action={
-          <AddPlatformButton
-            host={host}
+          <AddTierScheduleButton
             platforms={platforms}
-            existingRates={platformCommissionRates}
+            existingGroups={commissionTiers}
+            onAdd={handleAddPlatformSchedule}
           />
         }
       >
-        {(platformCommissionRates || []).length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[#EAEAEA] bg-[#FAFAFA] px-4 py-6 text-center text-[13px] text-[#737373]">
-            No platform rates set. Click <strong>Add platform</strong> above to configure one.
+        {(commissionTiers || []).length === 0 ? (
+          <div className="px-5 py-6">
+            <div className="rounded-lg border border-dashed border-[#EAEAEA] bg-[#FAFAFA] px-4 py-6 text-center text-[13px] text-[#737373]">
+              No commission tier schedule yet. <strong>Add a platform</strong> above to set up tier-based commission.
+            </div>
           </div>
         ) : (
-          <div className="divide-y divide-[#F0F0F0]">
-            {platformCommissionRates.map((rate) => (
-              <LedgerRow
-                key={rate.id}
-                label={rate.platform_name ?? rate.platform_slug ?? `Platform #${rate.platform_id}`}
-                description={`Effective from ${formatDateOnly(rate.effective_from)}`}
-                field={
-                  <LiveField
-                    value={Number(rate.commission_rate_percent)}
-                    type="percent"
-                    align="right"
-                    aria-label={`${rate.platform_name ?? 'Platform'} commission rate`}
-                    onSave={(v) => savePlatformRate(rate.id, rate.platform_id, v)}
-                  />
-                }
+          <div className="space-y-4 px-5 py-5">
+            {commissionTiers.map((group) => (
+              <CommissionTierTable
+                key={`${group.platform_id}-${group.effective_from}`}
+                platform={group.platform}
+                effectiveFrom={group.effective_from}
+                tiers={group.tiers}
+                onEditRow={handleTierUpdate}
+                onAddTier={() => handleAddTier(group)}
+                onRemoveTier={handleTierRemove}
+                readOnly={false}
               />
             ))}
           </div>
         )}
-      </LedgerSection>
-
-      <LedgerSection
-        index="03"
-        title="Override earnings"
-        subtitle="Earn a % of every direct and indirect downline host's GMV. Only pays out if this host has downlines."
-        accent="#F59E0B"
-      >
-        <LedgerRow
-          label="L1 override"
-          description="Paid on direct downline GMV."
-          field={
-            <LiveField
-              value={l1Percent}
-              type="percent"
-              align="right"
-              aria-label="L1 override percent"
-              onSave={(v) => saveProfileField({ override_rate_l1_percent: v })}
-            />
-          }
-        />
-        <LedgerRow
-          label="L2 override"
-          description="Paid on downline-of-downline GMV."
-          field={
-            <LiveField
-              value={l2Percent}
-              type="percent"
-              align="right"
-              aria-label="L2 override percent"
-              onSave={(v) => saveProfileField({ override_rate_l2_percent: v })}
-            />
-          }
-        />
       </LedgerSection>
 
       <MonthlyProjection
@@ -664,24 +692,21 @@ function CommissionPanel({
       />
 
       {/* Upline + notes (less frequently edited — batched save) */}
-      <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#737373]">
-              Hierarchy & Notes
-            </div>
-            <div className="mt-1 text-[13px] text-[#737373]">
-              Set this host's upline so L1/L2 overrides flow up the chain.
-            </div>
-          </div>
-          {metaSuccess && (
+      <LedgerSection
+        index="03"
+        title="Hierarchy & Notes"
+        subtitle="Set this host's upline so L1/L2 overrides flow up the chain."
+        accent="#8B5CF6"
+        action={
+          metaSuccess ? (
             <div className="flex items-center gap-1.5 rounded-full bg-[#ECFDF5] px-2.5 py-1 text-[11.5px] font-medium text-[#065F46]">
               <Check className="h-3 w-3" strokeWidth={3} />
               Saved
             </div>
-          )}
-        </div>
-
+          ) : null
+        }
+      >
+        <div className="p-5">
         <div className="grid grid-cols-2 gap-4">
           <div className="relative" ref={uplineRef}>
             <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
@@ -787,7 +812,8 @@ function CommissionPanel({
             {savingMeta ? 'Saving…' : hasActive ? 'Save hierarchy & notes' : 'Create profile'}
           </Button>
         </div>
-      </div>
+        </div>
+      </LedgerSection>
 
       <HistoryTimeline
         history={history}
@@ -934,38 +960,33 @@ function LedgerRow({ label, description, field }) {
   );
 }
 
-function AddPlatformButton({ host, platforms, existingRates }) {
+function AddTierScheduleButton({ platforms, existingGroups, onAdd }) {
   const [open, setOpen] = useState(false);
   const [platformId, setPlatformId] = useState('');
-  const [rate, setRate] = useState('');
+  const [effectiveFrom, setEffectiveFrom] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const usedPlatformIds = new Set((existingRates || []).map((r) => r.platform_id));
+  const usedPlatformIds = new Set((existingGroups || []).map((g) => g.platform_id));
   const availablePlatforms = (platforms || []).filter((p) => !usedPlatformIds.has(p.id));
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (!platformId || rate === '') {
-      setError('Pick a platform and rate.');
+    if (!platformId || !effectiveFrom) {
+      setError('Pick a platform and effective date.');
       return;
     }
     setBusy(true);
     setError(null);
-    router.post(
-      `/livehost/hosts/${host.id}/platform-rates`,
-      { platform_id: Number(platformId), commission_rate_percent: Number(rate) },
-      {
-        preserveScroll: true,
-        onSuccess: () => {
-          setOpen(false);
-          setPlatformId('');
-          setRate('');
-        },
-        onError: (errs) => setError(Object.values(errs || {})[0] ?? 'Save failed'),
-        onFinish: () => setBusy(false),
-      },
-    );
+    onAdd(Number(platformId), effectiveFrom)
+      .then(() => {
+        setOpen(false);
+        setPlatformId('');
+      })
+      .catch((err) => setError(err ?? 'Save failed'))
+      .finally(() => setBusy(false));
   };
 
   if (!open) {
@@ -1002,15 +1023,12 @@ function AddPlatformButton({ host, platforms, existingRates }) {
           </option>
         ))}
       </select>
-      <Input
-        type="number"
-        step="0.01"
-        min="0"
-        max="100"
-        value={rate}
-        onChange={(event) => setRate(event.target.value)}
-        placeholder="%"
-        className="h-8 w-[72px] text-right text-[12.5px] tabular-nums"
+      <input
+        type="date"
+        value={effectiveFrom}
+        onChange={(event) => setEffectiveFrom(event.target.value)}
+        className="h-8 rounded-md border border-[#EAEAEA] bg-white px-2 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+        aria-label="Effective from"
       />
       <button
         type="submit"
