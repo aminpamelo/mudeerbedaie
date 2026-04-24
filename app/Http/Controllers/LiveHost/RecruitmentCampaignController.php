@@ -85,6 +85,8 @@ class RecruitmentCampaignController extends Controller
                 'closes_at' => $campaign->closes_at?->toIso8601String(),
                 'applicants_count' => (int) ($campaign->applicants_count ?? 0),
                 'public_url' => $campaign->status === 'open' ? route('recruitment.show', $campaign->slug) : null,
+                'form_schema' => $campaign->form_schema,
+                'preview_url' => route('recruitment.show', $campaign->slug),
             ],
             'stages' => $campaign->stages()->orderBy('position')->get()->map(fn ($s) => [
                 'id' => $s->id,

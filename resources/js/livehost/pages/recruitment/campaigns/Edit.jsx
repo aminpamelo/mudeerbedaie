@@ -8,12 +8,14 @@ import {
   Check,
   Copy,
   ExternalLink,
+  FileText,
   Globe,
   Layers,
   Pause,
   Pencil,
   Play,
   Plus,
+  Settings2,
   Star,
   Target,
   Trash2,
@@ -26,6 +28,7 @@ import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
 import { Label } from '@/livehost/components/ui/label';
+import FormBuilder from '@/livehost/components/form-builder/FormBuilder';
 
 const STATUS_THEME = {
   draft:  { pill: 'bg-[#F5F5F5] text-[#525252] border-[#EAEAEA]',  dot: '#A3A3A3', live: false },
@@ -33,6 +36,8 @@ const STATUS_THEME = {
   paused: { pill: 'bg-[#FFFBEB] text-[#B45309] border-[#FDE68A]',  dot: '#F59E0B', live: false },
   closed: { pill: 'bg-[#FFF1F2] text-[#9F1239] border-[#FECDD3]',  dot: '#F43F5E', live: false },
 };
+
+const DEFAULT_EMPTY_SCHEMA = { version: 1, pages: [] };
 
 function toLocalDateTime(iso) {
   if (!iso) {
@@ -66,6 +71,27 @@ export default function CampaignEdit() {
   const theme = STATUS_THEME[campaign.status] ?? STATUS_THEME.draft;
   const opensLabel = formatDateLabel(campaign.opens_at);
   const closesLabel = formatDateLabel(campaign.closes_at);
+  const [activeTab, setActiveTab] = useState('campaign');
+
+  const form = useForm({
+    title: campaign.title ?? '',
+    slug: campaign.slug ?? '',
+    description: campaign.description ?? '',
+    target_count: campaign.target_count ?? '',
+    opens_at: toLocalDateTime(campaign.opens_at),
+    closes_at: toLocalDateTime(campaign.closes_at),
+    form_schema: campaign.form_schema ?? DEFAULT_EMPTY_SCHEMA,
+  });
+
+  const submit = (e) => {
+    e?.preventDefault?.();
+    form.put(`/livehost/recruitment/campaigns/${campaign.id}`, { preserveScroll: true });
+  };
+
+  const tabs = [
+    { id: 'campaign', label: 'Campaign', icon: Settings2 },
+    { id: 'form', label: 'Application form', icon: FileText },
+  ];
 
   return (
     <>
@@ -151,8 +177,76 @@ export default function CampaignEdit() {
           </div>
         </section>
 
-        <CampaignDetailsForm campaign={campaign} />
-        <StageEditor campaign={campaign} stages={stages} />
+        {/* ───────────────────── Tabs ───────────────────── */}
+        <div className="flex items-center gap-6 border-b border-[#EAEAEA]">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={[
+                  '-mb-px inline-flex items-center gap-1.5 border-b-2 px-1 pb-3 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'border-[#0A0A0A] text-[#0A0A0A]'
+                    : 'border-transparent text-[#737373] hover:text-[#0A0A0A]',
+                ].join(' ')}
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {activeTab === 'campaign' && (
+          <>
+            <CampaignDetailsForm campaign={campaign} form={form} onSubmit={submit} />
+            <StageEditor campaign={campaign} stages={stages} />
+          </>
+        )}
+
+        {activeTab === 'form' && (
+          <FormBuilderTab campaign={campaign} form={form} />
+        )}
+
+        {/* Sticky save bar — shared across tabs, visible whenever dirty */}
+        {form.isDirty && (
+          <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+            <div className="pointer-events-auto inline-flex items-center gap-3 rounded-full border border-[#EAEAEA] bg-white/95 py-2 pl-4 pr-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)] backdrop-blur">
+              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
+              <span className="text-[12.5px] font-medium text-[#525252]">Unsaved changes</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 rounded-full text-[#737373] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"
+                onClick={() => form.reset()}
+              >
+                <Undo2 className="h-3.5 w-3.5" strokeWidth={2} />
+                Discard
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={form.processing}
+                onClick={submit}
+                className="h-8 gap-1.5 rounded-full bg-[#0A0A0A] px-3.5 text-white shadow-[0_1px_3px_rgba(0,0,0,0.18)] hover:bg-[#262626]"
+              >
+                {form.processing ? (
+                  'Saving…'
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    Save changes
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -281,21 +375,7 @@ function LifecycleActions({ campaign }) {
   );
 }
 
-function CampaignDetailsForm({ campaign }) {
-  const form = useForm({
-    title: campaign.title ?? '',
-    slug: campaign.slug ?? '',
-    description: campaign.description ?? '',
-    target_count: campaign.target_count ?? '',
-    opens_at: toLocalDateTime(campaign.opens_at),
-    closes_at: toLocalDateTime(campaign.closes_at),
-  });
-
-  const submit = (e) => {
-    e.preventDefault();
-    form.put(`/livehost/recruitment/campaigns/${campaign.id}`, { preserveScroll: true });
-  };
-
+function CampaignDetailsForm({ campaign, form, onSubmit }) {
   // Derive base host for live URL preview
   const baseUrl = useMemo(() => {
     if (campaign.public_url) {
@@ -315,7 +395,7 @@ function CampaignDetailsForm({ campaign }) {
   const descriptionLength = (form.data.description ?? '').length;
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={onSubmit}>
       <section className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         {/* Section header */}
         <div className="mb-5 flex items-start justify-between gap-3">
@@ -419,42 +499,77 @@ function CampaignDetailsForm({ campaign }) {
           </div>
         </div>
       </section>
+    </form>
+  );
+}
 
-      {/* Sticky save bar — only when dirty */}
-      {form.isDirty && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
-          <div className="pointer-events-auto inline-flex items-center gap-3 rounded-full border border-[#EAEAEA] bg-white/95 py-2 pl-4 pr-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)] backdrop-blur">
-            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
-            <span className="text-[12.5px] font-medium text-[#525252]">Unsaved changes</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 rounded-full text-[#737373] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"
-              onClick={() => form.reset()}
-            >
-              <Undo2 className="h-3.5 w-3.5" strokeWidth={2} />
-              Discard
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={form.processing}
-              className="h-8 gap-1.5 rounded-full bg-[#0A0A0A] px-3.5 text-white shadow-[0_1px_3px_rgba(0,0,0,0.18)] hover:bg-[#262626]"
-            >
-              {form.processing ? (
-                'Saving…'
-              ) : (
-                <>
-                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  Save changes
-                </>
-              )}
-            </Button>
+function FormBuilderTab({ campaign, form }) {
+  const isPublished = campaign.status === 'open';
+  const previewUrl = campaign.preview_url ?? null;
+  const schemaErrors = form.errors.form_schema;
+
+  return (
+    <section className="space-y-4">
+      {/* Header row: description + preview link */}
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-[16px] border border-[#EAEAEA] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#F5F5F5] text-[#525252]">
+            <FileText className="h-4 w-4" strokeWidth={2} />
+          </div>
+          <div>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">
+              Application form
+            </h2>
+            <p className="mt-0.5 text-[12px] text-[#737373]">
+              Drag pages and fields to design the form applicants fill in.
+            </p>
           </div>
         </div>
+
+        <div className="flex flex-col items-end gap-1">
+          {isPublished && previewUrl ? (
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#EAEAEA] bg-white px-3 text-[12.5px] font-medium text-[#525252] shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:bg-[#F5F5F5] hover:text-[#0A0A0A]"
+            >
+              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
+              Preview
+            </a>
+          ) : (
+            <>
+              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1.5 rounded-lg border border-[#EAEAEA] bg-[#FAFAFA] px-3 text-[12.5px] font-medium text-[#A3A3A3]">
+                <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
+                Preview
+              </span>
+              <span className="text-[11px] text-[#A3A3A3]">
+                Publish the campaign first to enable the public form.
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Server-side schema errors (from backend validator) */}
+      {schemaErrors && (
+        <div className="rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] p-3">
+          <p className="text-[12.5px] font-medium text-[#991B1B]">
+            The form couldn&rsquo;t be saved. Fix these issues:
+          </p>
+          <ul className="mt-1.5 space-y-1 pl-5 text-[11.5px] text-[#991B1B]">
+            {(Array.isArray(schemaErrors) ? schemaErrors : [schemaErrors]).map((err, i) => (
+              <li key={i} className="list-disc">{err}</li>
+            ))}
+          </ul>
+        </div>
       )}
-    </form>
+
+      <FormBuilder
+        schema={form.data.form_schema}
+        onChange={(newSchema) => form.setData('form_schema', newSchema)}
+      />
+    </section>
   );
 }
 
@@ -612,7 +727,6 @@ function StageEditor({ campaign, stages: initialStages }) {
 
           {sorted.map((stage, index) => {
             const isEditing = editingId === stage.id;
-            const accent = stage.is_final ? '#10B981' : '#A3A3A3';
 
             return (
               <li key={stage.id} className="relative">
