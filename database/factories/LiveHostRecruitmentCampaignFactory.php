@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\User;
+use App\Support\Recruitment\DefaultFormSchema;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -29,6 +30,7 @@ class LiveHostRecruitmentCampaignFactory extends Factory
             'opens_at' => null,
             'closes_at' => null,
             'created_by' => User::factory(),
+            'form_schema' => DefaultFormSchema::get(),
         ];
     }
 
