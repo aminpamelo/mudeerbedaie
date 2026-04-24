@@ -181,6 +181,23 @@ class HostController extends Controller
             ])
             ->values();
 
+        $commissionTiers = LiveHostPlatformCommissionTier::query()
+            ->where('user_id', $host->id)
+            ->where('is_active', true)
+            ->with('platform')
+            ->orderBy('platform_id')
+            ->orderBy('effective_from')
+            ->orderBy('tier_number')
+            ->get()
+            ->groupBy(fn (LiveHostPlatformCommissionTier $t) => $t->platform_id.'|'.$t->effective_from->toDateString())
+            ->map(fn ($group) => [
+                'platform_id' => $group->first()->platform_id,
+                'platform' => $group->first()->platform,
+                'effective_from' => $group->first()->effective_from->toDateString(),
+                'tiers' => $group->values()->all(),
+            ])
+            ->values();
+
         return Inertia::render('hosts/Show', [
             'host' => [
                 'id' => $host->id,
@@ -208,6 +225,7 @@ class HostController extends Controller
             'platformCommissionRates' => $platformCommissionRates,
             'platforms' => $platforms,
             'uplineCandidates' => $uplineCandidates,
+            'commissionTiers' => $commissionTiers,
         ]);
     }
 
