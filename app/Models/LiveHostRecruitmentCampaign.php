@@ -51,4 +51,19 @@ class LiveHostRecruitmentCampaign extends Model
 
         return true;
     }
+
+    protected static function booted(): void
+    {
+        static::created(function (self $campaign) {
+            $defaults = [
+                ['position' => 1, 'name' => 'Review', 'is_final' => false],
+                ['position' => 2, 'name' => 'Interview', 'is_final' => false],
+                ['position' => 3, 'name' => 'Test Live', 'is_final' => false],
+                ['position' => 4, 'name' => 'Final', 'is_final' => true],
+            ];
+            foreach ($defaults as $stage) {
+                $campaign->stages()->create($stage);
+            }
+        });
+    }
 }
