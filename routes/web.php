@@ -213,195 +213,231 @@ Route::middleware(['auth', 'role:live_host'])
             ->name('session-slots');
     });
 
-// Live Host PIC (Inertia) — accessible by admin_livehost + admin
-Route::middleware(['auth', 'role:admin_livehost,admin'])
+// Live Host PIC (Inertia) — shared surface for admin + admin_livehost + livehost_assistant,
+// with admin-only endpoints gated further inside.
+//
+// IMPORTANT ORDER: the admin-only group is declared BEFORE the shared group so
+// that literal-path admin-only routes (e.g. `hosts/create`, `platform-accounts/create`)
+// register before the shared parameterized routes (`hosts/{host}`,
+// `platform-accounts/{platformAccount}`). Otherwise Laravel would try to bind
+// "create" as a model ID and 404 before the role middleware ever runs.
+Route::middleware(['auth'])
     ->prefix('livehost')
     ->name('livehost.')
     ->group(function () {
-        Route::get('/', [\App\Http\Controllers\LiveHost\DashboardController::class, 'index'])
-            ->name('dashboard');
-        Route::get('live-now', [\App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
-            ->name('live-now');
 
-        Route::get('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'index'])
-            ->name('hosts.index');
-        Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
-            ->name('hosts.create');
-        Route::post('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'store'])
-            ->name('hosts.store');
-        Route::get('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'show'])
-            ->name('hosts.show');
-        Route::get('hosts/{host}/edit', [\App\Http\Controllers\LiveHost\HostController::class, 'edit'])
-            ->name('hosts.edit');
-        Route::put('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'update'])
-            ->name('hosts.update');
-        Route::delete('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroy'])
-            ->name('hosts.destroy');
+        // Admin-only: everything outside the shared scheduling surface (admin, admin_livehost).
+        Route::middleware('role:admin,admin_livehost')->group(function () {
+            Route::get('live-now', [\App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
+                ->name('live-now');
 
-        Route::post('hosts/{host}/commission-profile', [\App\Http\Controllers\LiveHost\LiveHostCommissionProfileController::class, 'store'])
-            ->name('hosts.commission-profile.store');
-        Route::put('hosts/{host}/commission-profile', [\App\Http\Controllers\LiveHost\LiveHostCommissionProfileController::class, 'update'])
-            ->name('hosts.commission-profile.update');
+            Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
+                ->name('hosts.create');
+            Route::post('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'store'])
+                ->name('hosts.store');
+            Route::get('hosts/{host}/edit', [\App\Http\Controllers\LiveHost\HostController::class, 'edit'])
+                ->name('hosts.edit');
+            Route::put('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'update'])
+                ->name('hosts.update');
+            Route::delete('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroy'])
+                ->name('hosts.destroy');
 
-        Route::post('hosts/{host}/platform-rates', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'store'])
-            ->name('hosts.platform-rates.store');
-        Route::put('hosts/{host}/platform-rates/{rate}', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'update'])
-            ->name('hosts.platform-rates.update');
+            Route::post('hosts/{host}/commission-profile', [\App\Http\Controllers\LiveHost\LiveHostCommissionProfileController::class, 'store'])
+                ->name('hosts.commission-profile.store');
+            Route::put('hosts/{host}/commission-profile', [\App\Http\Controllers\LiveHost\LiveHostCommissionProfileController::class, 'update'])
+                ->name('hosts.commission-profile.update');
 
-        Route::post('hosts/{host}/platforms/{platform:id}/tiers', [\App\Http\Controllers\LiveHost\HostController::class, 'storeTierSchedule'])
-            ->name('hosts.tiers.store')
-            ->withoutScopedBindings();
-        Route::patch('hosts/{host}/tiers/{tier}', [\App\Http\Controllers\LiveHost\HostController::class, 'updateTier'])
-            ->name('hosts.tiers.update');
-        Route::delete('hosts/{host}/tiers/{tier}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroyTier'])
-            ->name('hosts.tiers.destroy');
+            Route::post('hosts/{host}/platform-rates', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'store'])
+                ->name('hosts.platform-rates.store');
+            Route::put('hosts/{host}/platform-rates/{rate}', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'update'])
+                ->name('hosts.platform-rates.update');
 
-        // Task 24: pivot CRUD for (host, platform_account) with creator identity.
-        Route::post('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'attach'])
-            ->name('hosts.platform-accounts.attach');
-        Route::patch('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'update'])
-            ->name('hosts.platform-accounts.update');
-        Route::delete('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'detach'])
-            ->name('hosts.platform-accounts.detach');
+            Route::post('hosts/{host}/platforms/{platform:id}/tiers', [\App\Http\Controllers\LiveHost\HostController::class, 'storeTierSchedule'])
+                ->name('hosts.tiers.store')
+                ->withoutScopedBindings();
+            Route::patch('hosts/{host}/tiers/{tier}', [\App\Http\Controllers\LiveHost\HostController::class, 'updateTier'])
+                ->name('hosts.tiers.update');
+            Route::delete('hosts/{host}/tiers/{tier}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroyTier'])
+                ->name('hosts.tiers.destroy');
 
-        Route::resource('schedules', \App\Http\Controllers\LiveHost\ScheduleController::class);
+            // Task 24: pivot CRUD for (host, platform_account) with creator identity.
+            Route::post('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'attach'])
+                ->name('hosts.platform-accounts.attach');
+            Route::patch('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'update'])
+                ->name('hosts.platform-accounts.update');
+            Route::delete('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'detach'])
+                ->name('hosts.platform-accounts.detach');
 
-        Route::resource('time-slots', \App\Http\Controllers\LiveHost\TimeSlotController::class)
-            ->except(['show'])
-            ->parameters(['time-slots' => 'timeSlot']);
+            Route::resource('schedules', \App\Http\Controllers\LiveHost\ScheduleController::class);
 
-        Route::get('session-slots/calendar', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
-            ->name('session-slots.calendar');
-        Route::get('session-slots/table', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'index'])
-            ->name('session-slots.table');
-        Route::get('session-slots/preview', fn () => \Inertia\Inertia::render('session-slots/CalendarPreview'))
-            ->name('session-slots.preview');
-        Route::get('session-slots', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
-            ->name('session-slots.index');
+            // Platform accounts — write verbs only; index + show live in the shared group above.
+            Route::get('platform-accounts/create', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'create'])
+                ->name('platform-accounts.create');
+            Route::post('platform-accounts', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'store'])
+                ->name('platform-accounts.store');
+            Route::get('platform-accounts/{platformAccount}/edit', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'edit'])
+                ->name('platform-accounts.edit');
+            Route::match(['put', 'patch'], 'platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'update'])
+                ->name('platform-accounts.update');
+            Route::delete('platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'destroy'])
+                ->name('platform-accounts.destroy');
 
-        Route::resource('session-slots', \App\Http\Controllers\LiveHost\SessionSlotController::class)
-            ->except(['index'])
-            ->parameters(['session-slots' => 'sessionSlot']);
+            Route::post('creators', [\App\Http\Controllers\LiveHost\CreatorController::class, 'store'])
+                ->name('creators.store');
+            Route::put('creators/{creator}', [\App\Http\Controllers\LiveHost\CreatorController::class, 'update'])
+                ->name('creators.update');
+            Route::delete('creators/{creator}', [\App\Http\Controllers\LiveHost\CreatorController::class, 'destroy'])
+                ->name('creators.destroy');
 
-        Route::resource('platform-accounts', \App\Http\Controllers\LiveHost\PlatformAccountController::class)
-            ->parameters(['platform-accounts' => 'platformAccount']);
+            Route::get('sessions', [\App\Http\Controllers\LiveHost\SessionController::class, 'index'])
+                ->name('sessions.index');
+            Route::get('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'show'])
+                ->name('sessions.show');
+            Route::put('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'update'])
+                ->name('sessions.update');
+            Route::post('sessions/{session}/verify', [\App\Http\Controllers\LiveHost\SessionController::class, 'verify'])
+                ->name('sessions.verify');
+            Route::post('sessions/{session}/verify-link', [\App\Http\Controllers\LiveHost\SessionController::class, 'verifyLink'])
+                ->name('sessions.verify-link');
+            Route::post('sessions/{session}/attachments', [\App\Http\Controllers\LiveHost\SessionController::class, 'storeAttachment'])
+                ->name('sessions.attachments.store');
+            Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHost\SessionController::class, 'destroyAttachment'])
+                ->name('sessions.attachments.destroy');
+            Route::post('sessions/{session}/adjustments', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'store'])
+                ->name('sessions.adjustments.store');
+            Route::delete('sessions/{session}/adjustments/{adjustment}', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'destroy'])
+                ->name('sessions.adjustments.destroy');
+            Route::post('sessions/{session}/adjustments/{adjustment}/approve', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'approve'])
+                ->name('sessions.adjustments.approve');
+            Route::post('sessions/{session}/adjustments/{adjustment}/reject', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'reject'])
+                ->name('sessions.adjustments.reject');
 
-        Route::get('creators', [\App\Http\Controllers\LiveHost\CreatorController::class, 'index'])
-            ->name('creators.index');
-        Route::post('creators', [\App\Http\Controllers\LiveHost\CreatorController::class, 'store'])
-            ->name('creators.store');
-        Route::put('creators/{creator}', [\App\Http\Controllers\LiveHost\CreatorController::class, 'update'])
-            ->name('creators.update');
-        Route::delete('creators/{creator}', [\App\Http\Controllers\LiveHost\CreatorController::class, 'destroy'])
-            ->name('creators.destroy');
+            // Commission Overview matrix (Task 22) — one-page inline-editable view
+            // of every active host's commission plan.
+            Route::get('commission/export', [\App\Http\Controllers\LiveHost\CommissionOverviewController::class, 'export'])
+                ->name('commission.export');
+            Route::get('commission', [\App\Http\Controllers\LiveHost\CommissionOverviewController::class, 'index'])
+                ->name('commission.index');
 
-        Route::get('sessions', [\App\Http\Controllers\LiveHost\SessionController::class, 'index'])
-            ->name('sessions.index');
-        Route::get('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'show'])
-            ->name('sessions.show');
-        Route::put('sessions/{session}', [\App\Http\Controllers\LiveHost\SessionController::class, 'update'])
-            ->name('sessions.update');
-        Route::post('sessions/{session}/verify', [\App\Http\Controllers\LiveHost\SessionController::class, 'verify'])
-            ->name('sessions.verify');
-        Route::post('sessions/{session}/verify-link', [\App\Http\Controllers\LiveHost\SessionController::class, 'verifyLink'])
-            ->name('sessions.verify-link');
-        Route::post('sessions/{session}/attachments', [\App\Http\Controllers\LiveHost\SessionController::class, 'storeAttachment'])
-            ->name('sessions.attachments.store');
-        Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHost\SessionController::class, 'destroyAttachment'])
-            ->name('sessions.attachments.destroy');
-        Route::post('sessions/{session}/adjustments', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'store'])
-            ->name('sessions.adjustments.store');
-        Route::delete('sessions/{session}/adjustments/{adjustment}', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'destroy'])
-            ->name('sessions.adjustments.destroy');
-        Route::post('sessions/{session}/adjustments/{adjustment}/approve', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'approve'])
-            ->name('sessions.adjustments.approve');
-        Route::post('sessions/{session}/adjustments/{adjustment}/reject', [\App\Http\Controllers\LiveHost\LiveSessionGmvAdjustmentController::class, 'reject'])
-            ->name('sessions.adjustments.reject');
+            // Payroll runs (Task 27) — bi-monthly payroll lifecycle + CSV export.
+            Route::get('payroll', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'index'])
+                ->name('payroll.index');
+            Route::post('payroll', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'store'])
+                ->name('payroll.store');
+            Route::get('payroll/{run}', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'show'])
+                ->name('payroll.show');
+            Route::post('payroll/{run}/recompute', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'recompute'])
+                ->name('payroll.recompute');
+            Route::post('payroll/{run}/lock', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'lock'])
+                ->name('payroll.lock');
+            Route::post('payroll/{run}/mark-paid', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'markPaid'])
+                ->name('payroll.mark-paid');
+            Route::get('payroll/{run}/export', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'export'])
+                ->name('payroll.export');
 
-        // Commission Overview matrix (Task 22) — one-page inline-editable view
-        // of every active host's commission plan.
-        Route::get('commission/export', [\App\Http\Controllers\LiveHost\CommissionOverviewController::class, 'export'])
-            ->name('commission.export');
-        Route::get('commission', [\App\Http\Controllers\LiveHost\CommissionOverviewController::class, 'index'])
-            ->name('commission.index');
+            // TikTok Report Imports (Task 36) — PIC uploads Live Analysis / All Order
+            // xlsx exports; a queued job parses and matches them to live sessions.
+            Route::get('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'index'])
+                ->name('tiktok-imports.index');
+            Route::get('tiktok-imports/create', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'create'])
+                ->name('tiktok-imports.create');
+            Route::post('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'store'])
+                ->name('tiktok-imports.store');
+            Route::get('tiktok-imports/{import}', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'show'])
+                ->name('tiktok-imports.show');
+            Route::post('tiktok-imports/{import}/apply', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'apply'])
+                ->name('tiktok-imports.apply');
 
-        // Payroll runs (Task 27) — bi-monthly payroll lifecycle + CSV export.
-        Route::get('payroll', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'index'])
-            ->name('payroll.index');
-        Route::post('payroll', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'store'])
-            ->name('payroll.store');
-        Route::get('payroll/{run}', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'show'])
-            ->name('payroll.show');
-        Route::post('payroll/{run}/recompute', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'recompute'])
-            ->name('payroll.recompute');
-        Route::post('payroll/{run}/lock', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'lock'])
-            ->name('payroll.lock');
-        Route::post('payroll/{run}/mark-paid', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'markPaid'])
-            ->name('payroll.mark-paid');
-        Route::get('payroll/{run}/export', [\App\Http\Controllers\LiveHost\LiveHostPayrollRunController::class, 'export'])
-            ->name('payroll.export');
+            // Recruitment admin — campaigns + stage editor + lifecycle transitions.
+            Route::prefix('recruitment')->name('recruitment.')->group(function () {
+                Route::get('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'index'])
+                    ->name('campaigns.index');
+                Route::get('campaigns/create', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'create'])
+                    ->name('campaigns.create');
+                Route::post('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'store'])
+                    ->name('campaigns.store');
+                Route::get('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'show'])
+                    ->name('campaigns.show');
+                Route::get('campaigns/{campaign}/edit', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'edit'])
+                    ->name('campaigns.edit');
+                Route::put('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'update'])
+                    ->name('campaigns.update');
+                Route::patch('campaigns/{campaign}/publish', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'publish'])
+                    ->name('campaigns.publish');
+                Route::patch('campaigns/{campaign}/pause', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'pause'])
+                    ->name('campaigns.pause');
+                Route::patch('campaigns/{campaign}/close', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'close'])
+                    ->name('campaigns.close');
+                Route::delete('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'destroy'])
+                    ->name('campaigns.destroy');
 
-        // TikTok Report Imports (Task 36) — PIC uploads Live Analysis / All Order
-        // xlsx exports; a queued job parses and matches them to live sessions.
-        Route::get('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'index'])
-            ->name('tiktok-imports.index');
-        Route::get('tiktok-imports/create', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'create'])
-            ->name('tiktok-imports.create');
-        Route::post('tiktok-imports', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'store'])
-            ->name('tiktok-imports.store');
-        Route::get('tiktok-imports/{import}', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'show'])
-            ->name('tiktok-imports.show');
-        Route::post('tiktok-imports/{import}/apply', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'apply'])
-            ->name('tiktok-imports.apply');
+                // Stage editor endpoints (note: reorder must come before the {stage} routes).
+                Route::post('campaigns/{campaign}/stages', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'store'])
+                    ->name('campaigns.stages.store');
+                Route::put('campaigns/{campaign}/stages/reorder', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'reorder'])
+                    ->name('campaigns.stages.reorder');
+                Route::put('campaigns/{campaign}/stages/{stage}', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'update'])
+                    ->name('campaigns.stages.update');
+                Route::delete('campaigns/{campaign}/stages/{stage}', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'destroy'])
+                    ->name('campaigns.stages.destroy');
 
-        // Recruitment admin — campaigns + stage editor + lifecycle transitions.
-        Route::prefix('recruitment')->name('recruitment.')->group(function () {
-            Route::get('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'index'])
-                ->name('campaigns.index');
-            Route::get('campaigns/create', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'create'])
-                ->name('campaigns.create');
-            Route::post('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'store'])
-                ->name('campaigns.store');
-            Route::get('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'show'])
-                ->name('campaigns.show');
-            Route::get('campaigns/{campaign}/edit', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'edit'])
-                ->name('campaigns.edit');
-            Route::put('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'update'])
-                ->name('campaigns.update');
-            Route::patch('campaigns/{campaign}/publish', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'publish'])
-                ->name('campaigns.publish');
-            Route::patch('campaigns/{campaign}/pause', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'pause'])
-                ->name('campaigns.pause');
-            Route::patch('campaigns/{campaign}/close', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'close'])
-                ->name('campaigns.close');
-            Route::delete('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'destroy'])
-                ->name('campaigns.destroy');
+                // Applicant review — kanban board, detail page, stage moves, reject, notes.
+                Route::get('applicants', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'index'])
+                    ->name('applicants.index');
+                Route::get('applicants/{applicant}', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'show'])
+                    ->name('applicants.show');
+                Route::patch('applicants/{applicant}/stage', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'moveStage'])
+                    ->name('applicants.stage');
+                Route::patch('applicants/{applicant}/reject', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'reject'])
+                    ->name('applicants.reject');
+                Route::patch('applicants/{applicant}/notes', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'updateNotes'])
+                    ->name('applicants.notes');
+                Route::post('applicants/{applicant}/hire', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'hire'])
+                    ->name('applicants.hire');
+                Route::post('applicants/{applicant}/password-reset-link', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'passwordResetLink'])
+                    ->name('applicants.password-reset-link');
+            });
+        });
 
-            // Stage editor endpoints (note: reorder must come before the {stage} routes).
-            Route::post('campaigns/{campaign}/stages', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'store'])
-                ->name('campaigns.stages.store');
-            Route::put('campaigns/{campaign}/stages/reorder', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'reorder'])
-                ->name('campaigns.stages.reorder');
-            Route::put('campaigns/{campaign}/stages/{stage}', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'update'])
-                ->name('campaigns.stages.update');
-            Route::delete('campaigns/{campaign}/stages/{stage}', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'destroy'])
-                ->name('campaigns.stages.destroy');
+        // Shared: scheduling + read-only reference data (admin, admin_livehost, livehost_assistant).
+        // Declared AFTER the admin-only group so the admin-only literal routes (e.g.
+        // hosts/create, platform-accounts/create) get first-match priority over the
+        // shared parameterized routes (hosts/{host}, platform-accounts/{platformAccount}).
+        Route::middleware('role:admin,admin_livehost,livehost_assistant')->group(function () {
+            Route::get('/', [\App\Http\Controllers\LiveHost\DashboardController::class, 'index'])
+                ->name('dashboard');
 
-            // Applicant review — kanban board, detail page, stage moves, reject, notes.
-            Route::get('applicants', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'index'])
-                ->name('applicants.index');
-            Route::get('applicants/{applicant}', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'show'])
-                ->name('applicants.show');
-            Route::patch('applicants/{applicant}/stage', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'moveStage'])
-                ->name('applicants.stage');
-            Route::patch('applicants/{applicant}/reject', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'reject'])
-                ->name('applicants.reject');
-            Route::patch('applicants/{applicant}/notes', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'updateNotes'])
-                ->name('applicants.notes');
-            Route::post('applicants/{applicant}/hire', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'hire'])
-                ->name('applicants.hire');
-            Route::post('applicants/{applicant}/password-reset-link', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'passwordResetLink'])
-                ->name('applicants.password-reset-link');
+            Route::get('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'index'])
+                ->name('hosts.index');
+            Route::get('hosts/{host}', [\App\Http\Controllers\LiveHost\HostController::class, 'show'])
+                ->name('hosts.show');
+
+            Route::get('platform-accounts', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'index'])
+                ->name('platform-accounts.index');
+            Route::get('platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\PlatformAccountController::class, 'show'])
+                ->name('platform-accounts.show');
+
+            Route::get('creators', [\App\Http\Controllers\LiveHost\CreatorController::class, 'index'])
+                ->name('creators.index');
+
+            Route::resource('time-slots', \App\Http\Controllers\LiveHost\TimeSlotController::class)
+                ->except(['show'])
+                ->parameters(['time-slots' => 'timeSlot']);
+
+            // Literal-path session-slot routes must come BEFORE Route::resource to avoid
+            // the resource's {sessionSlot} show route swallowing "/calendar", "/table", "/preview".
+            Route::get('session-slots/calendar', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
+                ->name('session-slots.calendar');
+            Route::get('session-slots/table', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'index'])
+                ->name('session-slots.table');
+            Route::get('session-slots/preview', fn () => \Inertia\Inertia::render('session-slots/CalendarPreview'))
+                ->name('session-slots.preview');
+            Route::get('session-slots', [\App\Http\Controllers\LiveHost\SessionSlotController::class, 'calendar'])
+                ->name('session-slots.index');
+
+            Route::resource('session-slots', \App\Http\Controllers\LiveHost\SessionSlotController::class)
+                ->except(['index'])
+                ->parameters(['session-slots' => 'sessionSlot']);
         });
     });
 
