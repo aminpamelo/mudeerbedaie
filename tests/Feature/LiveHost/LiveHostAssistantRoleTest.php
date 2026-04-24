@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Route as RouteFacade;
 
 it('can create a livehost_assistant user and detect the role', function () {
     $user = User::factory()->liveHostAssistant()->create();
@@ -46,3 +47,16 @@ it('allows assistant to reach shared livehost routes', function (string $routeNa
     'livehost.session-slots.calendar',
     'livehost.session-slots.table',
 ]);
+
+it('controller guards 403 the assistant even without role middleware', function () {
+    RouteFacade::middleware('auth')->get('__test__/live-now', [
+        \App\Http\Controllers\LiveHost\DashboardController::class,
+        'liveNowJson',
+    ])->name('__test__.live-now');
+
+    $assistant = User::factory()->liveHostAssistant()->create();
+
+    $response = $this->actingAs($assistant)->get('/__test__/live-now');
+
+    expect($response->status())->toBe(403);
+});

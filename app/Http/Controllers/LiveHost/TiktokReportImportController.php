@@ -37,8 +37,10 @@ class TiktokReportImportController extends Controller
 {
     public function __construct(private CommissionCalculator $calculator) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $imports = TiktokReportImport::query()
             ->with(['uploadedBy:id,name,email', 'platformAccount.platform'])
             ->withCount([
@@ -60,8 +62,10 @@ class TiktokReportImportController extends Controller
      * PlatformAccount rows preloaded — the upload form needs the user to
      * pick exactly one shop so the matcher can scope to it.
      */
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $platformAccounts = PlatformAccount::query()
             ->whereHas('platform', fn ($q) => $q->where('slug', 'tiktok-shop'))
             ->with(['platform', 'user:id,name,email'])
@@ -82,6 +86,8 @@ class TiktokReportImportController extends Controller
 
     public function store(UploadTiktokReportRequest $request): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $data = $request->validated();
         $file = $request->file('file');
 
@@ -117,8 +123,10 @@ class TiktokReportImportController extends Controller
             ->with('success', "Uploaded {$originalName}. Processing started.");
     }
 
-    public function show(TiktokReportImport $import): Response
+    public function show(Request $request, TiktokReportImport $import): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $import->load(['uploadedBy:id,name,email', 'platformAccount.platform']);
 
         $rows = [];
@@ -205,6 +213,8 @@ class TiktokReportImportController extends Controller
 
     public function apply(Request $request, TiktokReportImport $import): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $user = $request->user();
         abort_unless($user && in_array($user->role, ['admin_livehost', 'admin'], true), 403);
         abort_unless($import->report_type === 'live_analysis', 422, 'Only Live Analysis imports can be applied.');

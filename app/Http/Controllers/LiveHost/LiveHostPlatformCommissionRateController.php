@@ -13,6 +13,8 @@ class LiveHostPlatformCommissionRateController extends Controller
 {
     public function store(StoreLiveHostPlatformCommissionRateRequest $request, User $host): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $this->rotate($host, $request->validated());
 
         return back()->with('success', 'Platform rate saved.');
@@ -23,6 +25,7 @@ class LiveHostPlatformCommissionRateController extends Controller
         User $host,
         LiveHostPlatformCommissionRate $rate,
     ): RedirectResponse {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($rate->user_id === $host->id, 404);
 
         $this->rotate($host, $request->validated());

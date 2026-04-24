@@ -16,6 +16,8 @@ class LiveSessionGmvAdjustmentController extends Controller
 {
     public function store(StoreLiveSessionGmvAdjustmentRequest $request, LiveSession $session): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $this->assertNotPayrollLocked($session);
 
         DB::transaction(function () use ($request, $session) {
@@ -36,6 +38,8 @@ class LiveSessionGmvAdjustmentController extends Controller
 
     public function destroy(Request $request, LiveSession $session, LiveSessionGmvAdjustment $adjustment): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $user = $request->user();
         abort_unless($user && in_array($user->role, ['admin_livehost', 'admin'], true), 403);
         abort_unless($adjustment->live_session_id === $session->id, 404);
@@ -57,6 +61,8 @@ class LiveSessionGmvAdjustmentController extends Controller
      */
     public function approve(Request $request, LiveSession $session, LiveSessionGmvAdjustment $adjustment): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $user = $request->user();
         abort_unless($user && in_array($user->role, ['admin_livehost', 'admin'], true), 403);
         abort_unless($adjustment->live_session_id === $session->id, 404);
@@ -83,6 +89,8 @@ class LiveSessionGmvAdjustmentController extends Controller
      */
     public function reject(Request $request, LiveSession $session, LiveSessionGmvAdjustment $adjustment): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $user = $request->user();
         abort_unless($user && in_array($user->role, ['admin_livehost', 'admin'], true), 403);
         abort_unless($adjustment->live_session_id === $session->id, 404);

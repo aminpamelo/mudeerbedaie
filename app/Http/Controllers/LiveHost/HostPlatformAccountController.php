@@ -9,6 +9,7 @@ use App\Models\LiveHostPlatformAccount;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,6 +31,7 @@ class HostPlatformAccountController extends Controller
         User $host,
         PlatformAccount $platformAccount,
     ): RedirectResponse {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($host->role === 'live_host', 404);
 
         $data = $request->validated();
@@ -67,6 +69,7 @@ class HostPlatformAccountController extends Controller
         User $host,
         PlatformAccount $platformAccount,
     ): RedirectResponse {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($host->role === 'live_host', 404);
 
         $pivot = LiveHostPlatformAccount::query()
@@ -94,8 +97,9 @@ class HostPlatformAccountController extends Controller
         return back()->with('success', 'Host platform identity updated.');
     }
 
-    public function detach(User $host, PlatformAccount $platformAccount): RedirectResponse
+    public function detach(Request $request, User $host, PlatformAccount $platformAccount): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($host->role === 'live_host', 404);
 
         $user = request()->user();

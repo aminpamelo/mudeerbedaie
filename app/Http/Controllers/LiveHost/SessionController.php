@@ -28,6 +28,8 @@ class SessionController extends Controller
 {
     public function index(Request $request): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $tab = $this->resolveTab($request->string('tab')->toString());
         $status = $request->string('status')->toString();
         $platformAccount = $request->string('platform_account')->toString();
@@ -134,6 +136,8 @@ class SessionController extends Controller
 
     public function update(UpdateLiveSessionRequest $request, LiveSession $session): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $data = $request->validated();
         $analytics = $data['analytics'] ?? null;
         unset($data['analytics']);
@@ -160,6 +164,8 @@ class SessionController extends Controller
 
     public function verify(VerifyLiveSessionRequest $request, LiveSession $session): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $data = $request->validated();
         $nextStatus = $data['verification_status'];
 
@@ -221,6 +227,8 @@ class SessionController extends Controller
 
     public function verifyLink(VerifyLinkLiveSessionRequest $request, LiveSession $session): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         if ($session->verification_status !== 'pending') {
             return back()->withErrors([
                 'verification' => 'Session is not pending verification.',
@@ -286,6 +294,8 @@ class SessionController extends Controller
 
     public function storeAttachment(StoreLiveSessionAttachmentRequest $request, LiveSession $session): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $file = $request->file('file');
         $path = $file->store("live-sessions/{$session->id}/attachments", 'public');
 
@@ -304,6 +314,8 @@ class SessionController extends Controller
 
     public function destroyAttachment(Request $request, LiveSession $session, LiveSessionAttachment $attachment): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $user = $request->user();
         abort_unless($user && in_array($user->role, ['admin_livehost', 'admin'], true), 403);
         abort_unless($attachment->live_session_id === $session->id, 404);
@@ -314,8 +326,10 @@ class SessionController extends Controller
         return back()->with('success', 'Attachment removed.');
     }
 
-    public function show(LiveSession $session): Response
+    public function show(Request $request, LiveSession $session): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $session->load([
             'platformAccount:id,name,platform_id',
             'platformAccount.platform:id,name,display_name,slug',

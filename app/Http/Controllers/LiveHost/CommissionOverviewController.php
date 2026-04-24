@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LiveHostPlatformCommissionRate;
 use App\Models\Platform;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,8 +14,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CommissionOverviewController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         return Inertia::render('commission/Index', [
             'hosts' => $this->buildMatrix()->values(),
             'platforms' => Platform::query()
@@ -31,8 +34,10 @@ class CommissionOverviewController extends Controller
         ]);
     }
 
-    public function export(): StreamedResponse
+    public function export(Request $request): StreamedResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $filename = 'commission-overview-'.now()->format('Y-m-d').'.csv';
 
         return response()->streamDownload(function () {

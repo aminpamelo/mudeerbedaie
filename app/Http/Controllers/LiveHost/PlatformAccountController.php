@@ -58,8 +58,10 @@ class PlatformAccountController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         return Inertia::render('platform-accounts/Create', [
             'platforms' => $this->platformOptions(),
             'users' => $this->userOptions(),
@@ -68,6 +70,8 @@ class PlatformAccountController extends Controller
 
     public function store(StorePlatformAccountRequest $request): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
@@ -98,8 +102,10 @@ class PlatformAccountController extends Controller
         ]);
     }
 
-    public function edit(PlatformAccount $platformAccount): Response
+    public function edit(Request $request, PlatformAccount $platformAccount): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         return Inertia::render('platform-accounts/Edit', [
             'account' => [
                 'id' => $platformAccount->id,
@@ -119,6 +125,8 @@ class PlatformAccountController extends Controller
 
     public function update(UpdatePlatformAccountRequest $request, PlatformAccount $platformAccount): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? false;
 
@@ -129,8 +137,10 @@ class PlatformAccountController extends Controller
             ->with('success', "Platform account {$platformAccount->name} updated.");
     }
 
-    public function destroy(PlatformAccount $platformAccount): RedirectResponse
+    public function destroy(Request $request, PlatformAccount $platformAccount): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $hasSessions = LiveSession::query()
             ->where('platform_account_id', $platformAccount->id)
             ->exists();

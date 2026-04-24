@@ -18,6 +18,8 @@ class ScheduleController extends Controller
 {
     public function index(Request $request): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $search = $request->string('search')->toString();
         $host = $request->string('host')->toString();
         $platformAccount = $request->string('platform_account')->toString();
@@ -68,8 +70,10 @@ class ScheduleController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         return Inertia::render('schedules/Create', [
             'hosts' => $this->hostOptions(),
             'platformAccounts' => $this->platformAccountOptions(),
@@ -78,6 +82,8 @@ class ScheduleController extends Controller
 
     public function store(StoreScheduleRequest $request): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $data = $request->validated();
         $data['created_by'] = $request->user()?->id;
 
@@ -88,8 +94,10 @@ class ScheduleController extends Controller
             ->with('success', 'Schedule created.');
     }
 
-    public function show(LiveSchedule $schedule): Response
+    public function show(Request $request, LiveSchedule $schedule): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $schedule->load(['liveHost', 'platformAccount.platform', 'createdBy']);
 
         $recentSessions = LiveSession::query()
@@ -124,8 +132,10 @@ class ScheduleController extends Controller
         ]);
     }
 
-    public function edit(LiveSchedule $schedule): Response
+    public function edit(Request $request, LiveSchedule $schedule): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         return Inertia::render('schedules/Edit', [
             'schedule' => [
                 'id' => $schedule->id,
@@ -145,6 +155,8 @@ class ScheduleController extends Controller
 
     public function update(UpdateScheduleRequest $request, LiveSchedule $schedule): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $schedule->update($request->validated());
 
         return redirect()
@@ -152,8 +164,10 @@ class ScheduleController extends Controller
             ->with('success', 'Schedule updated.');
     }
 
-    public function destroy(LiveSchedule $schedule): RedirectResponse
+    public function destroy(Request $request, LiveSchedule $schedule): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $schedule->delete();
 
         return redirect()

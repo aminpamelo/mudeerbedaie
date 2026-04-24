@@ -31,6 +31,8 @@ class DashboardController extends Controller
      */
     public function liveNowJson(Request $request)
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         return response()->json([
             'liveNow' => $this->liveNow(),
             'stats' => [

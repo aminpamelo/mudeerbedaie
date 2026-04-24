@@ -9,6 +9,7 @@ use App\Models\LiveHostPayrollItem;
 use App\Models\LiveHostPayrollRun;
 use App\Services\LiveHost\LiveHostPayrollService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,8 +25,10 @@ class LiveHostPayrollRunController extends Controller
 {
     public function __construct(private LiveHostPayrollService $service) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $runs = LiveHostPayrollRun::query()
             ->withCount('items')
             ->withSum('items as net_payout_total_myr', 'net_payout_myr')
@@ -53,6 +56,8 @@ class LiveHostPayrollRunController extends Controller
 
     public function store(StoreLiveHostPayrollRunRequest $request): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $validated = $request->validated();
 
         $run = $this->service->generateDraft(
@@ -66,8 +71,10 @@ class LiveHostPayrollRunController extends Controller
             ->with('success', 'Payroll run generated as draft.');
     }
 
-    public function show(LiveHostPayrollRun $run): Response
+    public function show(Request $request, LiveHostPayrollRun $run): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $run->load([
             'items.user:id,name,email',
             'lockedBy:id,name,email',
@@ -105,8 +112,10 @@ class LiveHostPayrollRunController extends Controller
         ]);
     }
 
-    public function recompute(LiveHostPayrollRun $run): RedirectResponse
+    public function recompute(Request $request, LiveHostPayrollRun $run): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         try {
             $this->service->recompute($run);
         } catch (PayrollRunStateException $e) {
@@ -120,10 +129,12 @@ class LiveHostPayrollRunController extends Controller
             ->with('success', 'Payroll run recomputed.');
     }
 
-    public function lock(LiveHostPayrollRun $run): RedirectResponse
+    public function lock(Request $request, LiveHostPayrollRun $run): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         try {
-            $this->service->lock($run, request()->user());
+            $this->service->lock($run, $request->user());
         } catch (PayrollRunStateException $e) {
             return redirect()
                 ->route('livehost.payroll.show', $run)
@@ -135,10 +146,12 @@ class LiveHostPayrollRunController extends Controller
             ->with('success', 'Payroll run locked.');
     }
 
-    public function markPaid(LiveHostPayrollRun $run): RedirectResponse
+    public function markPaid(Request $request, LiveHostPayrollRun $run): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         try {
-            $this->service->markPaid($run, request()->user());
+            $this->service->markPaid($run, $request->user());
         } catch (PayrollRunStateException $e) {
             return redirect()
                 ->route('livehost.payroll.show', $run)
@@ -150,8 +163,10 @@ class LiveHostPayrollRunController extends Controller
             ->with('success', 'Payroll run marked as paid.');
     }
 
-    public function export(LiveHostPayrollRun $run): StreamedResponse
+    public function export(Request $request, LiveHostPayrollRun $run): StreamedResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $run->load('items.user:id,name,email');
 
         $filename = sprintf(

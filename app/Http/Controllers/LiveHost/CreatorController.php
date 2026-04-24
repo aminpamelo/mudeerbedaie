@@ -56,6 +56,8 @@ class CreatorController extends Controller
 
     public function store(StoreCreatorRequest $request): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $data = $request->validated();
 
         DB::transaction(function () use ($data) {
@@ -75,6 +77,8 @@ class CreatorController extends Controller
 
     public function update(UpdateCreatorRequest $request, LiveHostPlatformAccount $creator): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $data = $request->validated();
 
         DB::transaction(function () use ($creator, $data) {
@@ -92,8 +96,10 @@ class CreatorController extends Controller
             ->with('success', 'Creator updated.');
     }
 
-    public function destroy(LiveHostPlatformAccount $creator): RedirectResponse
+    public function destroy(Request $request, LiveHostPlatformAccount $creator): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $creator->delete();
 
         return redirect()

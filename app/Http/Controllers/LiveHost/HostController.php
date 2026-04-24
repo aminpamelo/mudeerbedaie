@@ -93,6 +93,8 @@ class HostController extends Controller
 
     public function create(Request $request): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $prefilledUser = null;
         if ($request->integer('user_id')) {
             $prefilledUser = User::query()
@@ -282,6 +284,8 @@ class HostController extends Controller
 
     public function store(StoreHostRequest $request): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $existingUserId = $request->resolveExistingUserId();
 
         if ($existingUserId) {
@@ -310,8 +314,9 @@ class HostController extends Controller
             ->with('success', $message);
     }
 
-    public function edit(User $host): Response
+    public function edit(Request $request, User $host): Response
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($host->role === 'live_host', 404);
 
         return Inertia::render('hosts/Edit', [
@@ -327,6 +332,7 @@ class HostController extends Controller
 
     public function update(UpdateHostRequest $request, User $host): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($host->role === 'live_host', 404);
 
         $host->update($request->validated());
@@ -338,6 +344,7 @@ class HostController extends Controller
 
     public function destroy(Request $request, User $host): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($host->role === 'live_host', 404);
 
         if (! $request->user()?->can('livehost.delete', $host)) {
@@ -364,6 +371,7 @@ class HostController extends Controller
         User $host,
         Platform $platform,
     ): RedirectResponse {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($host->role === 'live_host', 404);
 
         $data = $request->validated();
@@ -409,6 +417,7 @@ class HostController extends Controller
         User $host,
         LiveHostPlatformCommissionTier $tier,
     ): RedirectResponse {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($tier->user_id === $host->id, 404);
 
         $tier->update($request->validated());
@@ -416,8 +425,9 @@ class HostController extends Controller
         return back()->with('success', 'Tier updated.');
     }
 
-    public function destroyTier(User $host, LiveHostPlatformCommissionTier $tier): RedirectResponse
+    public function destroyTier(Request $request, User $host, LiveHostPlatformCommissionTier $tier): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($tier->user_id === $host->id, 404);
 
         $highestTierNumber = LiveHostPlatformCommissionTier::query()

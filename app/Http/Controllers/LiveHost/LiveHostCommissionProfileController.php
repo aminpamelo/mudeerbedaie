@@ -14,6 +14,8 @@ class LiveHostCommissionProfileController extends Controller
 {
     public function store(StoreLiveHostCommissionProfileRequest $request, User $host): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $this->rotate($host, $request->validated());
 
         return back()->with('success', 'Commission profile saved.');
@@ -21,6 +23,8 @@ class LiveHostCommissionProfileController extends Controller
 
     public function update(UpdateLiveHostCommissionProfileRequest $request, User $host): RedirectResponse
     {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+
         $this->rotate($host, $request->validated());
 
         return back()->with('success', 'Commission profile updated.');
