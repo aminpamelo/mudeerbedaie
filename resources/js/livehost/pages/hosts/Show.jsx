@@ -697,6 +697,7 @@ function CommissionPanel({
         title="Hierarchy & Notes"
         subtitle="Set this host's upline so L1/L2 overrides flow up the chain."
         accent="#8B5CF6"
+        allowOverflow
         action={
           <div className="flex items-center gap-2">
             {metaSuccess && (
@@ -921,9 +922,9 @@ function FormulaValue({ value, label }) {
   );
 }
 
-function LedgerSection({ index, title, subtitle, accent, action, children }) {
+function LedgerSection({ index, title, subtitle, accent, action, children, allowOverflow = false }) {
   return (
-    <section className="overflow-hidden rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+    <section className={`${allowOverflow ? 'overflow-visible' : 'overflow-hidden'} rounded-[16px] border border-[#EAEAEA] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]`}>
       <header className="flex items-start justify-between gap-4 border-b border-[#F0F0F0] px-5 py-4">
         <div className="flex items-start gap-3">
           <div
