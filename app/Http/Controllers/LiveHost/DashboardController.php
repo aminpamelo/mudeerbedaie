@@ -71,8 +71,8 @@ class DashboardController extends Controller
      */
     private function schedulerStats(): array
     {
-        $weekStart = now()->startOfWeek();
-        $weekEnd = now()->endOfWeek();
+        $weekStart = \Carbon\CarbonImmutable::now()->startOfWeek(\Carbon\CarbonImmutable::SUNDAY);
+        $weekEnd = $weekStart->endOfWeek(\Carbon\CarbonImmutable::SATURDAY);
         $today = today();
 
         $weekSlots = LiveScheduleAssignment::query()
