@@ -7,13 +7,17 @@ import {
   Ban,
   Check,
   ChevronDown,
+  Copy,
   Loader2,
   Star,
   UserCheck,
+  UserPlus,
   XCircle,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
+import { Input } from '@/livehost/components/ui/input';
+import { Label } from '@/livehost/components/ui/label';
 
 function StatusBadge({ status }) {
   const map = {
@@ -391,8 +395,24 @@ function ActionBar({ applicant, stages }) {
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectNotes, setRejectNotes] = useState('');
+  const [hireOpen, setHireOpen] = useState(false);
+  const [hireForm, setHireForm] = useState({
+    full_name: applicant.full_name ?? '',
+    email: applicant.email ?? '',
+    phone: applicant.phone ?? '',
+  });
+  const [hireErrors, setHireErrors] = useState({});
   const [busy, setBusy] = useState(false);
   const moveMenuRef = useRef(null);
+
+  useEffect(() => {
+    setHireForm({
+      full_name: applicant.full_name ?? '',
+      email: applicant.email ?? '',
+      phone: applicant.phone ?? '',
+    });
+    setHireErrors({});
+  }, [applicant.id, applicant.full_name, applicant.email, applicant.phone]);
 
   useEffect(() => {
     const onClick = (e) => {
@@ -413,6 +433,7 @@ function ActionBar({ applicant, stages }) {
   const nextStage = currentIndex >= 0 ? orderedStages[currentIndex + 1] : null;
   const isFinalStage = Boolean(applicant.current_stage?.is_final);
   const isActive = applicant.status === 'active';
+  const isHired = applicant.status === 'hired';
 
   const moveTo = (stageId) => {
     if (!stageId || busy) {
@@ -448,10 +469,28 @@ function ActionBar({ applicant, stages }) {
     );
   };
 
-  const hireClick = () => {
-    // Milestone 5 — backend not wired yet.
-    window.alert('Hire action is not yet available (Milestone 5).');
+  const submitHire = () => {
+    setBusy(true);
+    setHireErrors({});
+    router.post(
+      `/livehost/recruitment/applicants/${applicant.id}/hire`,
+      hireForm,
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setHireOpen(false);
+        },
+        onError: (errors) => {
+          setHireErrors(errors ?? {});
+        },
+        onFinish: () => setBusy(false),
+      },
+    );
   };
+
+  if (isHired) {
+    return <HiredPanel applicant={applicant} />;
+  }
 
   return (
     <>
@@ -546,12 +585,12 @@ function ActionBar({ applicant, stages }) {
 
             <Button
               type="button"
-              disabled={!isActive || !isFinalStage}
-              onClick={hireClick}
+              disabled={!isActive || !isFinalStage || busy}
+              onClick={() => setHireOpen(true)}
               className="gap-1.5 bg-[#10B981] text-white hover:bg-[#059669] disabled:bg-[#10B981]/40 disabled:text-white/80"
               title={
                 isFinalStage
-                  ? 'Hire this applicant (Milestone 5)'
+                  ? 'Hire this applicant'
                   : 'Move applicant to the final stage before hiring'
               }
             >
@@ -604,6 +643,173 @@ function ActionBar({ applicant, stages }) {
           </div>
         </div>
       )}
+
+      {hireOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-[16px] bg-white p-6 shadow-lg">
+            <div className="mb-1 flex items-center gap-2 text-[18px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">
+              <UserCheck className="h-4 w-4 text-[#10B981]" strokeWidth={2.25} />
+              Hire {applicant.full_name}?
+            </div>
+            <p className="mb-4 text-[13px] text-[#737373]">
+              This creates a new <span className="font-semibold text-[#0A0A0A]">live_host</span> user. You
+              can copy a password reset link afterward.
+            </p>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-[#0A0A0A]">Full name</Label>
+                <Input
+                  value={hireForm.full_name}
+                  onChange={(e) => setHireForm((f) => ({ ...f, full_name: e.target.value }))}
+                />
+                {hireErrors.full_name && (
+                  <p className="text-xs text-[#F43F5E]">{hireErrors.full_name}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-[#0A0A0A]">Email</Label>
+                <Input
+                  type="email"
+                  value={hireForm.email}
+                  onChange={(e) => setHireForm((f) => ({ ...f, email: e.target.value }))}
+                />
+                {hireErrors.email && (
+                  <p className="text-xs text-[#F43F5E]">{hireErrors.email}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-[#0A0A0A]">Phone</Label>
+                <Input
+                  value={hireForm.phone}
+                  onChange={(e) => setHireForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+                {hireErrors.phone && (
+                  <p className="text-xs text-[#F43F5E]">{hireErrors.phone}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setHireOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={busy}
+                onClick={submitHire}
+                className="bg-[#10B981] text-white hover:bg-[#059669]"
+              >
+                {busy ? 'Hiring…' : 'Confirm hire'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
+  );
+}
+
+function HiredPanel({ applicant }) {
+  const [copyState, setCopyState] = useState('idle'); // idle | loading | copied | error
+
+  const copyResetLink = async () => {
+    setCopyState('loading');
+    try {
+      const csrf = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute('content');
+
+      const response = await fetch(
+        `/livehost/recruitment/applicants/${applicant.id}/password-reset-link`,
+        {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      if (!data?.url) {
+        throw new Error('Missing URL');
+      }
+      await navigator.clipboard.writeText(data.url);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 2500);
+    } catch {
+      setCopyState('error');
+      window.setTimeout(() => setCopyState('idle'), 3000);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#D1FAE5] bg-[#ECFDF5]/95 backdrop-blur">
+      <div className="flex items-center justify-between gap-4 px-8 py-4">
+        <div className="flex items-center gap-3">
+          <div className="grid h-9 w-9 place-items-center rounded-full bg-[#10B981] text-white">
+            <BadgeCheck className="h-5 w-5" strokeWidth={2.25} />
+          </div>
+          <div>
+            <div className="text-[14px] font-semibold tracking-[-0.01em] text-[#065F46]">
+              Hired — new user ID: #{applicant.hired_user_id ?? '—'}
+            </div>
+            <div className="text-[12px] text-[#047857]">
+              {applicant.email} · Next, send them a password reset link and create their live host
+              profile.
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={copyResetLink}
+            disabled={copyState === 'loading'}
+            className="gap-1.5 border-[#10B981] text-[#047857] hover:bg-white"
+          >
+            {copyState === 'loading' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {copyState === 'copied' && <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
+            {copyState !== 'loading' && copyState !== 'copied' && (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+            {copyState === 'copied'
+              ? 'Copied!'
+              : copyState === 'error'
+                ? 'Failed, try again'
+                : copyState === 'loading'
+                  ? 'Generating…'
+                  : 'Copy password reset link'}
+          </Button>
+
+          {applicant.hired_user_id && (
+            <Link
+              href={`/livehost/hosts/create?user_id=${applicant.hired_user_id}`}
+            >
+              <Button
+                type="button"
+                className="gap-1.5 bg-[#10B981] text-white hover:bg-[#059669]"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Create Live Host profile
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

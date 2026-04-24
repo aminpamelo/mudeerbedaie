@@ -4,6 +4,7 @@ use App\Models\LiveHostApplicant;
 use App\Models\LiveHostApplicantStageHistory;
 use App\Models\LiveHostRecruitmentCampaign;
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -163,6 +164,38 @@ it('returns a password reset URL after an applicant is hired', function () {
     expect($url)->toBeString();
     expect($url)->toContain('reset-password/');
     expect($url)->toContain('email=reset%40livehost.test');
+});
+
+it('exposes hired status and hired_user_id in the Show Inertia payload', function () {
+    $admin = hireAdmin();
+    $campaign = LiveHostRecruitmentCampaign::factory()->open()->create();
+    $finalStage = $campaign->stages()->where('is_final', true)->first();
+
+    $applicant = LiveHostApplicant::factory()->create([
+        'campaign_id' => $campaign->id,
+        'current_stage_id' => $finalStage->id,
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('livehost.recruitment.applicants.hire', $applicant), [
+            'full_name' => 'Payload Check',
+            'email' => 'payload@livehost.test',
+            'phone' => '60187654321',
+        ])
+        ->assertRedirect();
+
+    $applicant->refresh();
+
+    $this->actingAs($admin)
+        ->get(route('livehost.recruitment.applicants.show', $applicant))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->component('recruitment/applicants/Show', false)
+                ->where('applicant.status', 'hired')
+                ->where('applicant.hired_user_id', $applicant->hired_user_id)
+        );
 });
 
 it('returns 404 when requesting a password reset link before hire', function () {
