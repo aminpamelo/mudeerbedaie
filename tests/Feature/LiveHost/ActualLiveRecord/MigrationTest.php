@@ -57,3 +57,10 @@ it('enforces a unique constraint on live_sessions.matched_actual_live_record_id'
 
     expect($unique)->not->toBeNull();
 });
+
+it('creates live_session_verification_events audit table', function () {
+    expect(Schema::hasTable('live_session_verification_events'))->toBeTrue();
+    foreach (['id', 'live_session_id', 'actual_live_record_id', 'action', 'user_id', 'gmv_snapshot', 'notes', 'created_at'] as $col) {
+        expect(Schema::hasColumn('live_session_verification_events', $col))->toBeTrue();
+    }
+});
