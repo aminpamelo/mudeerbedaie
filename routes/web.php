@@ -817,6 +817,18 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
+// ============================================================================
+// PUBLIC LIVE HOST RECRUITMENT ROUTES (unauthenticated)
+// ============================================================================
+Route::prefix('recruitment')->name('recruitment.')->group(function () {
+    Route::get('{slug}', [\App\Http\Controllers\LiveHost\PublicRecruitmentController::class, 'show'])
+        ->name('show');
+    Route::post('{slug}', [\App\Http\Controllers\LiveHost\PublicRecruitmentController::class, 'apply'])
+        ->name('apply');
+    Route::get('{slug}/thank-you', [\App\Http\Controllers\LiveHost\PublicRecruitmentController::class, 'thankYou'])
+        ->name('thank-you');
+});
+
 require __DIR__.'/auth.php';
 
 // ============================================================================
