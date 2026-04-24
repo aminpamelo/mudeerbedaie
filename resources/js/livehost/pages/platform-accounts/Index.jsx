@@ -43,7 +43,8 @@ function StatusChip({ active }) {
 }
 
 export default function PlatformAccountsIndex() {
-  const { accounts, filters, platforms, users } = usePage().props;
+  const { accounts, filters, platforms, users, auth } = usePage().props;
+  const canManagePlatformAccounts = Boolean(auth?.permissions?.canManagePlatformAccounts);
   const [search, setSearch] = useState(filters?.search ?? '');
   const [platformId, setPlatformId] = useState(filters?.platform_id ?? '');
   const [userId, setUserId] = useState(filters?.user_id ?? '');
@@ -87,14 +88,14 @@ export default function PlatformAccountsIndex() {
     setIsActive('');
   };
 
-  const newAccountAction = (
+  const newAccountAction = canManagePlatformAccounts ? (
     <Link href="/livehost/platform-accounts/create">
       <Button size="sm" className="h-9 gap-1.5 rounded-lg bg-ink text-white hover:bg-[#262626]">
         <Plus className="h-[13px] w-[13px]" strokeWidth={2.5} />
         New account
       </Button>
     </Link>
-  );
+  ) : null;
 
   return (
     <>
@@ -244,27 +245,31 @@ export default function PlatformAccountsIndex() {
                         >
                           <Eye className="h-[14px] w-[14px]" strokeWidth={2} />
                         </Link>
-                        <Link
-                          href={`/livehost/platform-accounts/${account.id}/edit`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
-                          title="Edit"
-                        >
-                          <Pencil className="h-[14px] w-[14px]" strokeWidth={2} />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm(`Delete ${account.name}?`)) {
-                              router.delete(`/livehost/platform-accounts/${account.id}`, {
-                                preserveScroll: true,
-                              });
-                            }
-                          }}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FFF1F2] hover:text-[#F43F5E]"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-[14px] w-[14px]" strokeWidth={2} />
-                        </button>
+                        {canManagePlatformAccounts && (
+                          <Link
+                            href={`/livehost/platform-accounts/${account.id}/edit`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                            title="Edit"
+                          >
+                            <Pencil className="h-[14px] w-[14px]" strokeWidth={2} />
+                          </Link>
+                        )}
+                        {canManagePlatformAccounts && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Delete ${account.name}?`)) {
+                                router.delete(`/livehost/platform-accounts/${account.id}`, {
+                                  preserveScroll: true,
+                                });
+                              }
+                            }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FFF1F2] hover:text-[#F43F5E]"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-[14px] w-[14px]" strokeWidth={2} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

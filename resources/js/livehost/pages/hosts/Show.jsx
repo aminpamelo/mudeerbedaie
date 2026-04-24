@@ -88,7 +88,9 @@ export default function HostShow() {
     platforms,
     uplineCandidates,
     commissionTiers,
+    auth,
   } = usePage().props;
+  const canManageHosts = Boolean(auth?.permissions?.canManageHosts);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -116,19 +118,23 @@ export default function HostShow() {
                 Back
               </Button>
             </Link>
-            <Link href={`/livehost/hosts/${host.id}/edit`}>
-              <Button variant="ghost" className="gap-1.5 text-[#0A0A0A]">
-                <Pencil className="w-3.5 h-3.5" />
-                Edit
+            {canManageHosts && (
+              <Link href={`/livehost/hosts/${host.id}/edit`}>
+                <Button variant="ghost" className="gap-1.5 text-[#0A0A0A]">
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
+                </Button>
+              </Link>
+            )}
+            {canManageHosts && (
+              <Button
+                onClick={() => setConfirmDelete(true)}
+                className="gap-1.5 bg-transparent text-[#F43F5E] border border-[#F43F5E] hover:bg-[#FFF1F2]"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
               </Button>
-            </Link>
-            <Button
-              onClick={() => setConfirmDelete(true)}
-              className="gap-1.5 bg-transparent text-[#F43F5E] border border-[#F43F5E] hover:bg-[#FFF1F2]"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete
-            </Button>
+            )}
           </div>
         }
       />
@@ -152,7 +158,7 @@ export default function HostShow() {
         <div className="flex items-center gap-6 border-b border-[#EAEAEA]">
           {[
             { id: 'overview', label: 'Overview' },
-            { id: 'commission', label: 'Commission' },
+            ...(canManageHosts ? [{ id: 'commission', label: 'Commission' }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -230,7 +236,7 @@ export default function HostShow() {
           </>
         )}
 
-        {activeTab === 'commission' && (
+        {activeTab === 'commission' && canManageHosts && (
           <CommissionPanel
             host={host}
             commissionProfile={commissionProfile}
@@ -246,7 +252,7 @@ export default function HostShow() {
         )}
       </div>
 
-      {confirmDelete && (
+      {confirmDelete && canManageHosts && (
         <div className="fixed inset-0 bg-black/40 grid place-items-center z-50">
           <div className="bg-white rounded-[16px] p-6 max-w-md shadow-lg">
             <div className="font-semibold text-lg mb-2 tracking-[-0.02em]">Delete {host.name}?</div>

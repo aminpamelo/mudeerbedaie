@@ -18,7 +18,8 @@ function statusVariant(status) {
 }
 
 export default function HostsIndex() {
-  const { hosts, filters } = usePage().props;
+  const { hosts, filters, auth } = usePage().props;
+  const canManageHosts = Boolean(auth?.permissions?.canManageHosts);
   const [search, setSearch] = useState(filters?.search ?? '');
   const [status, setStatus] = useState(filters?.status ?? '');
   const [hasUpline, setHasUpline] = useState(filters?.has_upline ?? '');
@@ -58,14 +59,14 @@ export default function HostsIndex() {
     setHasUpline('');
   };
 
-  const newHostAction = (
+  const newHostAction = canManageHosts ? (
     <Link href="/livehost/hosts/create">
       <Button size="sm" className="h-9 gap-1.5 rounded-lg bg-ink text-white hover:bg-[#262626]">
         <Plus className="h-[13px] w-[13px]" strokeWidth={2.5} />
         New host
       </Button>
     </Link>
-  );
+  ) : null;
 
   return (
     <>
@@ -192,27 +193,31 @@ export default function HostsIndex() {
                         >
                           <Eye className="h-[14px] w-[14px]" strokeWidth={2} />
                         </Link>
-                        <Link
-                          href={`/livehost/hosts/${host.id}/edit`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
-                          title="Edit"
-                        >
-                          <Pencil className="h-[14px] w-[14px]" strokeWidth={2} />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm(`Delete ${host.name}?`)) {
-                              router.delete(`/livehost/hosts/${host.id}`, {
-                                preserveScroll: true,
-                              });
-                            }
-                          }}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FFF1F2] hover:text-[#F43F5E]"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-[14px] w-[14px]" strokeWidth={2} />
-                        </button>
+                        {canManageHosts && (
+                          <Link
+                            href={`/livehost/hosts/${host.id}/edit`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                            title="Edit"
+                          >
+                            <Pencil className="h-[14px] w-[14px]" strokeWidth={2} />
+                          </Link>
+                        )}
+                        {canManageHosts && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Delete ${host.name}?`)) {
+                                router.delete(`/livehost/hosts/${host.id}`, {
+                                  preserveScroll: true,
+                                });
+                              }
+                            }}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FFF1F2] hover:text-[#F43F5E]"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-[14px] w-[14px]" strokeWidth={2} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

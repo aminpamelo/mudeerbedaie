@@ -188,7 +188,8 @@ function CreatorFormModal({ open, onOpenChange, mode, creator, hosts, platformAc
 }
 
 export default function CreatorsIndex() {
-  const { creators, filters, hosts, platformAccounts, flash } = usePage().props;
+  const { creators, filters, hosts, platformAccounts, flash, auth } = usePage().props;
+  const canManageCreators = Boolean(auth?.permissions?.canManageCreators);
 
   const [search, setSearch] = useState(filters?.search ?? '');
   const [createOpen, setCreateOpen] = useState(false);
@@ -229,7 +230,7 @@ export default function CreatorsIndex() {
     });
   };
 
-  const newAction = (
+  const newAction = canManageCreators ? (
     <Button
       size="sm"
       onClick={() => setCreateOpen(true)}
@@ -238,7 +239,7 @@ export default function CreatorsIndex() {
       <Plus className="h-[13px] w-[13px]" strokeWidth={2.5} />
       New creator
     </Button>
-  );
+  ) : null;
 
   const availableHostsForCreate = useMemo(() => hosts, [hosts]);
 
@@ -366,24 +367,26 @@ export default function CreatorsIndex() {
                           )}
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          <div className="inline-flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setEditTarget(creator)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
-                              title="Edit"
-                            >
-                              <Pencil className="h-[14px] w-[14px]" strokeWidth={2} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(creator)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FFF1F2] hover:text-[#F43F5E]"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-[14px] w-[14px]" strokeWidth={2} />
-                            </button>
-                          </div>
+                          {canManageCreators && (
+                            <div className="inline-flex gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditTarget(creator)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#F0F0F0] hover:text-[#0A0A0A]"
+                                title="Edit"
+                              >
+                                <Pencil className="h-[14px] w-[14px]" strokeWidth={2} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(creator)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#737373] hover:bg-[#FFF1F2] hover:text-[#F43F5E]"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-[14px] w-[14px]" strokeWidth={2} />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -428,26 +431,30 @@ export default function CreatorsIndex() {
         )}
       </div>
 
-      <CreatorFormModal
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        mode="create"
-        creator={null}
-        hosts={availableHostsForCreate}
-        platformAccounts={platformAccounts}
-      />
-      <CreatorFormModal
-        open={editTarget !== null}
-        onOpenChange={(next) => {
-          if (!next) {
-            setEditTarget(null);
-          }
-        }}
-        mode="edit"
-        creator={editTarget}
-        hosts={hosts}
-        platformAccounts={platformAccounts}
-      />
+      {canManageCreators && (
+        <>
+          <CreatorFormModal
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            mode="create"
+            creator={null}
+            hosts={availableHostsForCreate}
+            platformAccounts={platformAccounts}
+          />
+          <CreatorFormModal
+            open={editTarget !== null}
+            onOpenChange={(next) => {
+              if (!next) {
+                setEditTarget(null);
+              }
+            }}
+            mode="edit"
+            creator={editTarget}
+            hosts={hosts}
+            platformAccounts={platformAccounts}
+          />
+        </>
+      )}
     </>
   );
 }

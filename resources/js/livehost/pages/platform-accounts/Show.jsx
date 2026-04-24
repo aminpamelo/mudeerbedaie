@@ -42,7 +42,8 @@ function StatusChip({ active }) {
 }
 
 export default function PlatformAccountShow() {
-  const { account } = usePage().props;
+  const { account, auth } = usePage().props;
+  const canManagePlatformAccounts = Boolean(auth?.permissions?.canManagePlatformAccounts);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -69,19 +70,23 @@ export default function PlatformAccountShow() {
                 Back
               </Button>
             </Link>
-            <Link href={`/livehost/platform-accounts/${account.id}/edit`}>
-              <Button variant="ghost" className="gap-1.5 text-[#0A0A0A]">
-                <Pencil className="w-3.5 h-3.5" />
-                Edit
+            {canManagePlatformAccounts && (
+              <Link href={`/livehost/platform-accounts/${account.id}/edit`}>
+                <Button variant="ghost" className="gap-1.5 text-[#0A0A0A]">
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
+                </Button>
+              </Link>
+            )}
+            {canManagePlatformAccounts && (
+              <Button
+                onClick={() => setConfirmDelete(true)}
+                className="gap-1.5 bg-transparent text-[#F43F5E] border border-[#F43F5E] hover:bg-[#FFF1F2]"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
               </Button>
-            </Link>
-            <Button
-              onClick={() => setConfirmDelete(true)}
-              className="gap-1.5 bg-transparent text-[#F43F5E] border border-[#F43F5E] hover:bg-[#FFF1F2]"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete
-            </Button>
+            )}
           </div>
         }
       />
@@ -143,7 +148,7 @@ export default function PlatformAccountShow() {
         </div>
       </div>
 
-      {confirmDelete && (
+      {confirmDelete && canManagePlatformAccounts && (
         <div className="fixed inset-0 bg-black/40 grid place-items-center z-50">
           <div className="bg-white rounded-[16px] p-6 max-w-md shadow-lg">
             <div className="font-semibold text-lg mb-2 tracking-[-0.02em]">Delete {account.name}?</div>
