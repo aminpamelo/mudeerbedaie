@@ -85,18 +85,21 @@ it('end-to-end: seed → host submits recap → PIC verifies → payroll generat
 
     $run = LiveHostPayrollRun::latest('id')->first();
 
-    // 4. Assert exact numbers from design §5.3.
+    // 4. Assert exact numbers under the tier-based override math.
+    //    Overrides derive from the DOWNLINE's tier, not the upline's profile,
+    //    so Ahmad's L1 override is Sarah's 17,500 × Sarah's tier l1 (10%)
+    //    = 1,750. Amin's tier has l1=l2=0 so Ahmad's L2 and Sarah's L1 are 0.
     $items = $run->items->keyBy('user_id');
-    expect((float) $items[$ahmad->id]->net_payout_myr)->toEqual(2864.60);
-    expect((float) $items[$sarah->id]->net_payout_myr)->toEqual(3105.20);
+    expect((float) $items[$ahmad->id]->net_payout_myr)->toEqual(4462.00);
+    expect((float) $items[$sarah->id]->net_payout_myr)->toEqual(2975.00);
     expect((float) $items[$amin->id]->net_payout_myr)->toEqual(1802.00);
-    expect(round((float) $run->items->sum('net_payout_myr'), 2))->toEqual(7771.80);
+    expect(round((float) $run->items->sum('net_payout_myr'), 2))->toEqual(9239.00);
 
     // 5. Effective payroll % of net GMV (11,800 + 17,500 + 21,700 = 51,000).
     $totalNetGmv = $run->items->sum('net_gmv_myr');
     expect((float) $totalNetGmv)->toEqual(51000.00);
-    $effectivePct = round(7771.80 / 51000 * 100, 2);
-    expect($effectivePct)->toBeGreaterThan(15.0)->toBeLessThan(15.5); // 15.24% expected
+    $effectivePct = round(9239.00 / 51000 * 100, 2);
+    expect($effectivePct)->toBeGreaterThan(18.0)->toBeLessThan(18.5); // 18.12% expected
 
     // 6. Lock the run via controller.
     $response = actingAs($pic)->post("/livehost/payroll/{$run->id}/lock");

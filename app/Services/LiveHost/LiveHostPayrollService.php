@@ -6,6 +6,7 @@ use App\Exceptions\LiveHost\PayrollRunStateException;
 use App\Models\LiveHostPayrollItem;
 use App\Models\LiveHostPayrollRun;
 use App\Models\LiveSession;
+use App\Models\Platform;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -16,22 +17,30 @@ use Illuminate\Support\Facades\DB;
  * base salary, per-live rates, GMV commission, and 2-level overrides for every
  * active host. See design doc §5.2 for the full specification.
  *
- * Override semantics (§5.2): the UPLINE earns override on the DOWNLINE's own
- * `gmv_commission` for the period. Overrides never stack on per-live rate or
- * base salary, and never compound across levels.
+ * Tier-based override semantics (§5.2 revised):
  *
- *   override_l1 = sum over direct downlines of:
- *                   downline.gmv_commission_in_period × this_host.override_rate_l1_percent
- *   override_l2 = sum over L2 downlines of:
- *                   l2.gmv_commission_in_period × this_host.override_rate_l2_percent
+ *   For each direct (or L2) downline, sum monthly GMV per platform within the
+ *   period, look up the downline's tier on that platform at period_end, and
+ *   apply the tier's `l1_percent` (or `l2_percent`) to the monthly GMV. The
+ *   upline's override is the sum of these contributions across every platform
+ *   the downline had GMV on during the period.
  *
- * The service computes every host's own GMV commission FIRST (pass 1), then
- * walks the upline tree to attribute overrides (pass 2). This two-pass design
- * keeps override math consistent regardless of iteration order.
+ *     override_l1 = Σ over direct downlines:
+ *                     Σ over platforms with GMV:
+ *                       monthly_gmv × tier.l1_percent / 100
+ *     override_l2 = same structure, walking the L2 downline chain and using
+ *                   tier.l2_percent.
+ *
+ * Overrides are derived from the DOWNLINE's tier schedule (not the upline's
+ * profile) — the schedule is the single source of truth for all three
+ * percentages (internal, l1, l2) on a given (host, platform) combination.
  */
 class LiveHostPayrollService
 {
-    public function __construct(private CommissionCalculator $calculator) {}
+    public function __construct(
+        private CommissionCalculator $calculator,
+        private CommissionTierResolver $tierResolver,
+    ) {}
 
     /**
      * Generate a fresh draft payroll run for the given period.
@@ -117,9 +126,9 @@ class LiveHostPayrollService
 
     /**
      * Two-pass item builder. Pass 1 computes each host's own aggregates
-     * (sessions, GMV, commission, per-live). Pass 2 uses those aggregates
-     * to compute L1/L2 overrides from each host's downlines and persists
-     * the final LiveHostPayrollItem rows.
+     * (sessions, GMV, commission, per-live) in a monthly-GMV-tier-aware way.
+     * Pass 2 walks each host's downline tree, applies per-(downline, platform)
+     * tier lookups, and persists the final LiveHostPayrollItem rows.
      */
     private function computeItemsForRun(LiveHostPayrollRun $run, Carbon $periodStart, Carbon $periodEnd): void
     {
@@ -134,27 +143,28 @@ class LiveHostPayrollService
 
         $sessionsByHost = $this->loadSessionsByHost($hosts->pluck('id')->all(), $periodStart, $periodEnd);
 
-        // Pass 1 — per-host own aggregates (no overrides yet)
-        $ownAggregates = $hosts->mapWithKeys(function (User $host) use ($sessionsByHost) {
+        // Pass 1 — per-host own aggregates (tier-aware; no overrides yet)
+        $ownAggregates = $hosts->mapWithKeys(function (User $host) use ($sessionsByHost, $periodEnd) {
             $sessions = $sessionsByHost->get($host->id, collect());
 
-            return [$host->id => $this->computeOwnAggregates($host, $sessions)];
+            return [$host->id => $this->computeOwnAggregates($host, $sessions, $periodEnd)];
         });
 
         // Pass 2 — add overrides and persist
         foreach ($hosts as $host) {
             $own = $ownAggregates->get($host->id);
+
             [$overrideL1, $breakdownL1] = $this->computeOverrideLevel(
-                $host,
                 $host->directDownlines()->get(),
                 $ownAggregates,
-                (float) ($host->commissionProfile?->override_rate_l1_percent ?? 0),
+                1,
+                $periodEnd,
             );
             [$overrideL2, $breakdownL2] = $this->computeOverrideLevel(
-                $host,
                 $host->l2Downlines()->get(),
                 $ownAggregates,
-                (float) ($host->commissionProfile?->override_rate_l2_percent ?? 0),
+                2,
+                $periodEnd,
             );
 
             $baseSalary = round((float) ($host->commissionProfile?->base_salary_myr ?? 0), 2);
@@ -197,8 +207,10 @@ class LiveHostPayrollService
 
     /**
      * Load all verified sessions for the hosts in the period, eager-loading
-     * the relations CommissionCalculator needs. Grouped by live_host_id so
-     * the caller can retrieve them per host without re-querying.
+     * the relations CommissionCalculator needs (including `platformAccount.
+     * platform` so the tier resolver can look up rates without N+1). Grouped
+     * by live_host_id so the caller can retrieve them per host without
+     * re-querying.
      *
      * @param  array<int, int>  $hostIds
      * @return Collection<int, Collection<int, LiveSession>>
@@ -212,16 +224,26 @@ class LiveHostPayrollService
             ->with([
                 'liveHost.commissionProfile',
                 'liveHost.platformCommissionRates',
-                'platformAccount',
+                'platformAccount.platform',
             ])
             ->get()
             ->groupBy('live_host_id');
     }
 
     /**
-     * Sum per-session figures for one host's own earnings. Uses
-     * CommissionCalculator::forSession for each session so we benefit from
-     * historical rate resolution (design doc §5.1).
+     * Sum per-session figures for one host's own earnings.
+     *
+     * This is a two-step pass per host:
+     *   1. Aggregate monthly GMV per platform (net_gmv per platform summed
+     *      across every verified session in the period).
+     *   2. Loop the sessions again and call
+     *      CommissionCalculator::forSessionInMonthlyContext with the
+     *      platform-level monthly GMV so the tier resolver picks the right
+     *      bracket for each session.
+     *
+     * The per-session session_total stays accurate because every session on
+     * the same platform sees the same monthly GMV context, so summing over
+     * sessions equals `monthly_gmv × tier.internal_percent` for that tier.
      *
      * @param  Collection<int, LiveSession>  $sessions
      * @return array{
@@ -231,11 +253,24 @@ class LiveHostPayrollService
      *     total_gmv_adjustment_myr: float,
      *     net_gmv_myr: float,
      *     gmv_commission_myr: float,
+     *     platform_monthly_gmv: array<int, float>,
      *     session_breakdown: array<int, array<string, mixed>>
      * }
      */
-    private function computeOwnAggregates(User $host, Collection $sessions): array
+    private function computeOwnAggregates(User $host, Collection $sessions, Carbon $periodEnd): array
     {
+        // Step 1 — aggregate monthly GMV per platform.
+        $monthlyGmvByPlatform = [];
+        foreach ($sessions as $session) {
+            $platformId = $session->platformAccount?->platform_id;
+            if ($platformId === null) {
+                continue;
+            }
+            $sessionNetGmv = (float) ($session->gmv_amount ?? 0)
+                + (float) ($session->gmv_adjustment ?? 0);
+            $monthlyGmvByPlatform[$platformId] = ($monthlyGmvByPlatform[$platformId] ?? 0.0) + $sessionNetGmv;
+        }
+
         $totalGmv = 0.0;
         $totalAdjustment = 0.0;
         $netGmv = 0.0;
@@ -243,8 +278,18 @@ class LiveHostPayrollService
         $totalPerLive = 0.0;
         $breakdown = [];
 
+        // Step 2 — compute per-session figures using monthly-GMV context.
         foreach ($sessions as $session) {
-            $result = $this->calculator->forSession($session);
+            $platformId = $session->platformAccount?->platform_id;
+            $monthlyGmv = $platformId !== null
+                ? (float) ($monthlyGmvByPlatform[$platformId] ?? 0.0)
+                : 0.0;
+
+            $result = $this->calculator->forSessionInMonthlyContext(
+                $session,
+                $monthlyGmv,
+                $periodEnd,
+            );
 
             $totalGmv += (float) ($session->gmv_amount ?? 0);
             $totalAdjustment += (float) ($session->gmv_adjustment ?? 0);
@@ -262,6 +307,7 @@ class LiveHostPayrollService
                 'gmv_commission' => $result['gmv_commission'],
                 'per_live' => $result['per_live_rate'],
                 'session_total' => $result['session_total'],
+                'rate_source' => $result['rate_source'] ?? null,
             ];
         }
 
@@ -272,24 +318,31 @@ class LiveHostPayrollService
             'total_gmv_adjustment_myr' => round($totalAdjustment, 2),
             'net_gmv_myr' => round($netGmv, 2),
             'gmv_commission_myr' => round($gmvCommission, 2),
+            'platform_monthly_gmv' => array_map(fn ($v) => round((float) $v, 2), $monthlyGmvByPlatform),
             'session_breakdown' => $breakdown,
         ];
     }
 
     /**
-     * Compute one override level (L1 or L2) for the given upline.
+     * Compute one override level (L1 or L2) for the given upline. For each
+     * downline, walk their per-platform monthly GMV and look up the downline's
+     * tier for that (platform, gmv, asOf) triple. The override percentage
+     * comes from the tier row itself — `l1_percent` for $level === 1,
+     * `l2_percent` for $level === 2.
      *
-     * Returns a tuple: [override_amount, breakdown_rows]. The breakdown is
-     * the per-downline detail that lands in `calculation_breakdown_json`
-     * for the UI to render.
+     * Returns a tuple: [override_total, breakdown_rows]. The breakdown is the
+     * audit-ready per-(downline, platform) detail stored in
+     * `calculation_breakdown_json` — each row captures tier_id, tier_number,
+     * monthly_gmv_myr, override_rate_percent, and override_amount so a PIC can
+     * reconstruct why a given override was paid.
      *
      * @param  Collection<int, User>  $downlines
      * @param  Collection<int, array<string, mixed>>  $ownAggregates  keyed by user_id
      * @return array{0: float, 1: array<int, array<string, mixed>>}
      */
-    private function computeOverrideLevel(User $upline, Collection $downlines, Collection $ownAggregates, float $ratePercent): array
+    private function computeOverrideLevel(Collection $downlines, Collection $ownAggregates, int $level, Carbon $periodEnd): array
     {
-        if ($ratePercent <= 0 || $downlines->isEmpty()) {
+        if ($downlines->isEmpty()) {
             return [0.0, []];
         }
 
@@ -298,22 +351,48 @@ class LiveHostPayrollService
 
         foreach ($downlines as $downline) {
             $downlineAggregates = $ownAggregates->get($downline->id);
-
             if ($downlineAggregates === null) {
                 continue;
             }
 
-            $downlineCommission = $downlineAggregates['gmv_commission_myr'];
-            $overrideAmount = round($downlineCommission * $ratePercent / 100, 2);
-            $total += $overrideAmount;
+            foreach ($downlineAggregates['platform_monthly_gmv'] ?? [] as $platformId => $monthlyGmv) {
+                $monthlyGmv = (float) $monthlyGmv;
+                if ($monthlyGmv <= 0.0) {
+                    continue;
+                }
 
-            $breakdown[] = [
-                'downline_user_id' => $downline->id,
-                'downline_name' => $downline->name,
-                'downline_gmv_commission' => $downlineCommission,
-                'override_rate_percent' => $ratePercent,
-                'override_amount' => $overrideAmount,
-            ];
+                $platform = Platform::find($platformId);
+                if ($platform === null) {
+                    continue;
+                }
+
+                $tier = $this->tierResolver->resolveTier($downline, $platform, $monthlyGmv, $periodEnd);
+                if ($tier === null) {
+                    continue;
+                }
+
+                $ratePercent = $level === 1
+                    ? (float) $tier->l1_percent
+                    : (float) $tier->l2_percent;
+
+                if ($ratePercent <= 0.0) {
+                    continue;
+                }
+
+                $amount = round($monthlyGmv * $ratePercent / 100, 2);
+                $total += $amount;
+
+                $breakdown[] = [
+                    'downline_user_id' => $downline->id,
+                    'downline_name' => $downline->name,
+                    'platform_id' => (int) $platformId,
+                    'monthly_gmv_myr' => round($monthlyGmv, 2),
+                    'tier_id' => $tier->id,
+                    'tier_number' => (int) $tier->tier_number,
+                    'override_rate_percent' => $ratePercent,
+                    'override_amount' => $amount,
+                ];
+            }
         }
 
         return [round($total, 2), $breakdown];
