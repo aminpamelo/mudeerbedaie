@@ -3,15 +3,20 @@
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LiveHost\StoreCommissionTierScheduleRequest;
 use App\Http\Requests\LiveHost\StoreHostRequest;
+use App\Http\Requests\LiveHost\UpdateCommissionTierRequest;
 use App\Http\Requests\LiveHost\UpdateHostRequest;
 use App\Models\LiveHostCommissionProfile;
 use App\Models\LiveHostPlatformCommissionRate;
+use App\Models\LiveHostPlatformCommissionTier;
 use App\Models\LiveSession;
 use App\Models\Platform;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -309,6 +314,87 @@ class HostController extends Controller
         return redirect()
             ->route('livehost.hosts.index')
             ->with('success', "Live host {$name} deleted.");
+    }
+
+    public function storeTierSchedule(
+        StoreCommissionTierScheduleRequest $request,
+        User $host,
+        Platform $platform,
+    ): RedirectResponse {
+        abort_unless($host->role === 'live_host', 404);
+
+        $data = $request->validated();
+        $newEffectiveFrom = Carbon::parse($data['effective_from'])->toDateString();
+
+        DB::transaction(function () use ($host, $platform, $data, $newEffectiveFrom): void {
+            $archiveCutoff = Carbon::parse($newEffectiveFrom)->subDay()->toDateString();
+
+            LiveHostPlatformCommissionTier::query()
+                ->where('user_id', $host->id)
+                ->where('platform_id', $platform->id)
+                ->where('is_active', true)
+                ->where('effective_from', '<=', $newEffectiveFrom)
+                ->get()
+                ->each(function (LiveHostPlatformCommissionTier $row) use ($archiveCutoff): void {
+                    $row->is_active = false;
+                    $row->effective_to = $archiveCutoff;
+                    $row->save();
+                });
+
+            foreach ($data['tiers'] as $tier) {
+                LiveHostPlatformCommissionTier::create([
+                    'user_id' => $host->id,
+                    'platform_id' => $platform->id,
+                    'tier_number' => (int) $tier['tier_number'],
+                    'min_gmv_myr' => $tier['min_gmv_myr'],
+                    'max_gmv_myr' => $tier['max_gmv_myr'] ?? null,
+                    'internal_percent' => $tier['internal_percent'],
+                    'l1_percent' => $tier['l1_percent'],
+                    'l2_percent' => $tier['l2_percent'],
+                    'effective_from' => $newEffectiveFrom,
+                    'effective_to' => null,
+                    'is_active' => true,
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Tier schedule saved.');
+    }
+
+    public function updateTier(
+        UpdateCommissionTierRequest $request,
+        User $host,
+        LiveHostPlatformCommissionTier $tier,
+    ): RedirectResponse {
+        abort_unless($tier->user_id === $host->id, 404);
+
+        $tier->update($request->validated());
+
+        return back()->with('success', 'Tier updated.');
+    }
+
+    public function destroyTier(User $host, LiveHostPlatformCommissionTier $tier): RedirectResponse
+    {
+        abort_unless($tier->user_id === $host->id, 404);
+
+        $highestTierNumber = LiveHostPlatformCommissionTier::query()
+            ->where('user_id', $host->id)
+            ->where('platform_id', $tier->platform_id)
+            ->where('is_active', true)
+            ->where('effective_from', $tier->effective_from)
+            ->max('tier_number');
+
+        if ((int) $highestTierNumber !== (int) $tier->tier_number) {
+            return back()->with(
+                'error',
+                'Only the highest tier in the active schedule can be removed to preserve contiguous tier numbers.',
+            );
+        }
+
+        $tier->is_active = false;
+        $tier->save();
+
+        return back()->with('success', 'Tier removed.');
     }
 
     private function initials(?string $name): string

@@ -248,6 +248,14 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
         Route::put('hosts/{host}/platform-rates/{rate}', [\App\Http\Controllers\LiveHost\LiveHostPlatformCommissionRateController::class, 'update'])
             ->name('hosts.platform-rates.update');
 
+        Route::post('hosts/{host}/platforms/{platform:id}/tiers', [\App\Http\Controllers\LiveHost\HostController::class, 'storeTierSchedule'])
+            ->name('hosts.tiers.store')
+            ->withoutScopedBindings();
+        Route::patch('hosts/{host}/tiers/{tier}', [\App\Http\Controllers\LiveHost\HostController::class, 'updateTier'])
+            ->name('hosts.tiers.update');
+        Route::delete('hosts/{host}/tiers/{tier}', [\App\Http\Controllers\LiveHost\HostController::class, 'destroyTier'])
+            ->name('hosts.tiers.destroy');
+
         // Task 24: pivot CRUD for (host, platform_account) with creator identity.
         Route::post('hosts/{host}/platform-accounts/{platformAccount}', [\App\Http\Controllers\LiveHost\HostPlatformAccountController::class, 'attach'])
             ->name('hosts.platform-accounts.attach');
