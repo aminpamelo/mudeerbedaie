@@ -329,6 +329,7 @@ new class extends Component {
                             <option value="student">Student</option>
                             <option value="live_host">Live Host</option>
                             <option value="admin_livehost">Admin Livehost</option>
+                            <option value="livehost_assistant">Live Host Assistant</option>
                             <option value="employee">Employee</option>
                         </flux:select>
                     </div>
@@ -436,6 +437,7 @@ new class extends Component {
                                             'teacher' => 'orange',
                                             'live_host' => 'pink',
                                             'admin_livehost' => 'teal',
+                                            'livehost_assistant' => 'sky',
                                             'employee' => 'green',
                                             default => 'blue'
                                         };

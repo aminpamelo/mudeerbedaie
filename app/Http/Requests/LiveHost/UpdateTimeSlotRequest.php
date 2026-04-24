@@ -14,7 +14,7 @@ class UpdateTimeSlotRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user && in_array($user->role, ['admin_livehost', 'admin'], true);
+        return $user && in_array($user->role, ['admin_livehost', 'admin', 'livehost_assistant'], true);
     }
 
     /**

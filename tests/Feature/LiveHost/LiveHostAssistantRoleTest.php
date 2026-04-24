@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\LiveScheduleAssignment;
+use App\Models\LiveTimeSlot;
+use App\Models\PlatformAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\Route as RouteFacade;
 
@@ -184,4 +187,71 @@ it('every non-shared /livehost route returns 403 for the assistant', function ()
     }
 
     expect($failures)->toBe([]);
+});
+
+it('assistant can create a time-slot template', function () {
+    $assistant = User::factory()->liveHostAssistant()->create();
+    $platformAccount = PlatformAccount::factory()->create();
+
+    $response = $this->actingAs($assistant)->post(route('livehost.time-slots.store'), [
+        'platform_account_id' => $platformAccount->id,
+        'day_of_week' => 1,
+        'start_time' => '09:00',
+        'end_time' => '11:00',
+        'is_active' => true,
+    ]);
+
+    expect(in_array($response->status(), [200, 201, 302], true))->toBeTrue();
+    expect(LiveTimeSlot::query()->where('platform_account_id', $platformAccount->id)->exists())->toBeTrue();
+});
+
+it('assistant can update a session-slot to assign a host', function () {
+    $assistant = User::factory()->liveHostAssistant()->create();
+    $host = User::factory()->create(['role' => 'live_host']);
+    $assignment = LiveScheduleAssignment::factory()->create();
+
+    $response = $this->actingAs($assistant)->put(
+        route('livehost.session-slots.update', $assignment),
+        [
+            'platform_account_id' => $assignment->platform_account_id,
+            'time_slot_id' => $assignment->time_slot_id,
+            'live_host_id' => $host->id,
+            'day_of_week' => (int) $assignment->day_of_week,
+            'is_template' => true,
+            'status' => 'scheduled',
+        ]
+    );
+
+    expect($response->status())->not->toBe(403);
+    expect(in_array($response->status(), [200, 201, 302], true))->toBeTrue();
+    expect(LiveScheduleAssignment::query()->where('id', $assignment->id)->value('live_host_id'))
+        ->toBe($host->id);
+});
+
+it('hides commission and session data from assistant on host detail', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    $assistant = User::factory()->liveHostAssistant()->create();
+
+    $response = $this->actingAs($assistant)->get(route('livehost.hosts.show', $host));
+
+    $response->assertInertia(fn ($page) => $page
+        ->where('commissionProfile', null)
+        ->where('platformCommissionRates', [])
+        ->where('commissionProfiles', [])
+        ->where('commissionTiers', [])
+        ->where('recentSessions', [])
+    );
+});
+
+it('still shows commission data structure to PIC on host detail', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
+    $pic = User::factory()->create(['role' => 'admin_livehost']);
+
+    $response = $this->actingAs($pic)->get(route('livehost.hosts.show', $host));
+
+    $response->assertInertia(fn ($page) => $page
+        ->has('platformCommissionRates')
+        ->has('commissionTiers')
+        ->has('recentSessions')
+    );
 });

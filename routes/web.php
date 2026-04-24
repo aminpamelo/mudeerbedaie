@@ -38,6 +38,10 @@ Route::get('dashboard', function () {
         return redirect()->route('live-host.dashboard');
     }
 
+    if ($user->isLiveHostAssistant()) {
+        return redirect()->route('livehost.dashboard');
+    }
+
     if ($user->isClassAdmin()) {
         return redirect()->route('class-admin.dashboard');
     }

@@ -109,9 +109,13 @@ class HostController extends Controller
         ]);
     }
 
-    public function show(User $host): Response
+    public function show(Request $request, User $host): Response
     {
         abort_unless($host->role === 'live_host', 404);
+
+        $viewer = $request->user();
+        $canSeeFinancials = $viewer && in_array($viewer->role, ['admin', 'admin_livehost'], true);
+        $canSeeSessions = $canSeeFinancials;
 
         $host->load([
             'platformAccounts.platform',
@@ -119,56 +123,66 @@ class HostController extends Controller
             'platformCommissionRates.platform:id,slug,name',
         ]);
 
-        $recentSessions = LiveSession::query()
-            ->with(['platformAccount.platform'])
-            ->where('live_host_id', $host->id)
-            ->latest('actual_start_at')
-            ->take(10)
-            ->get()
-            ->map(fn (LiveSession $s) => [
-                'id' => $s->id,
-                'sessionId' => 'LS-'.str_pad((string) $s->id, 5, '0', STR_PAD_LEFT),
-                'status' => $s->status,
-                'platformAccount' => $s->platformAccount?->name,
-                'platformType' => $s->platformAccount?->platform?->slug,
-                'scheduledStart' => $s->scheduled_start_at?->toIso8601String(),
-                'actualStart' => $s->actual_start_at?->toIso8601String(),
-                'actualEnd' => $s->actual_end_at?->toIso8601String(),
-            ]);
+        $recentSessions = $canSeeSessions
+            ? LiveSession::query()
+                ->with(['platformAccount.platform'])
+                ->where('live_host_id', $host->id)
+                ->latest('actual_start_at')
+                ->take(10)
+                ->get()
+                ->map(fn (LiveSession $s) => [
+                    'id' => $s->id,
+                    'sessionId' => 'LS-'.str_pad((string) $s->id, 5, '0', STR_PAD_LEFT),
+                    'status' => $s->status,
+                    'platformAccount' => $s->platformAccount?->name,
+                    'platformType' => $s->platformAccount?->platform?->slug,
+                    'scheduledStart' => $s->scheduled_start_at?->toIso8601String(),
+                    'actualStart' => $s->actual_start_at?->toIso8601String(),
+                    'actualEnd' => $s->actual_end_at?->toIso8601String(),
+                ])
+            : collect();
 
-        $totalSessions = LiveSession::query()
-            ->where('live_host_id', $host->id)
-            ->count();
+        $totalSessions = $canSeeSessions
+            ? LiveSession::query()
+                ->where('live_host_id', $host->id)
+                ->count()
+            : 0;
 
-        $completedSessions = LiveSession::query()
-            ->where('live_host_id', $host->id)
-            ->where('status', 'ended')
-            ->count();
+        $completedSessions = $canSeeSessions
+            ? LiveSession::query()
+                ->where('live_host_id', $host->id)
+                ->where('status', 'ended')
+                ->count()
+            : 0;
 
-        $commissionProfile = $host->commissionProfile
+        $commissionProfile = $canSeeFinancials && $host->commissionProfile
             ? $this->mapCommissionProfile($host->commissionProfile)
             : null;
 
-        $commissionProfiles = LiveHostCommissionProfile::query()
-            ->with('upline:id,name')
-            ->where('user_id', $host->id)
-            ->orderByDesc('effective_from')
-            ->get()
-            ->map(fn (LiveHostCommissionProfile $p) => $this->mapCommissionProfile($p))
-            ->values();
+        $commissionProfiles = $canSeeFinancials
+            ? LiveHostCommissionProfile::query()
+                ->with('upline:id,name')
+                ->where('user_id', $host->id)
+                ->orderByDesc('effective_from')
+                ->get()
+                ->map(fn (LiveHostCommissionProfile $p) => $this->mapCommissionProfile($p))
+                ->values()
+            : collect();
 
-        $platformCommissionRates = $host->platformCommissionRates
-            ->map(fn (LiveHostPlatformCommissionRate $r) => [
-                'id' => $r->id,
-                'platform_id' => $r->platform_id,
-                'platform_slug' => $r->platform?->slug,
-                'platform_name' => $r->platform?->name ?? $r->platform?->display_name,
-                'commission_rate_percent' => (float) $r->commission_rate_percent,
-                'effective_from' => $r->effective_from?->toIso8601String(),
-                'effective_to' => $r->effective_to?->toIso8601String(),
-                'is_active' => (bool) $r->is_active,
-            ])
-            ->values();
+        $platformCommissionRates = $canSeeFinancials
+            ? $host->platformCommissionRates
+                ->map(fn (LiveHostPlatformCommissionRate $r) => [
+                    'id' => $r->id,
+                    'platform_id' => $r->platform_id,
+                    'platform_slug' => $r->platform?->slug,
+                    'platform_name' => $r->platform?->name ?? $r->platform?->display_name,
+                    'commission_rate_percent' => (float) $r->commission_rate_percent,
+                    'effective_from' => $r->effective_from?->toIso8601String(),
+                    'effective_to' => $r->effective_to?->toIso8601String(),
+                    'is_active' => (bool) $r->is_active,
+                ])
+                ->values()
+            : collect();
 
         $platforms = Platform::query()
             ->where('is_active', true)
@@ -194,22 +208,24 @@ class HostController extends Controller
             ])
             ->values();
 
-        $commissionTiers = LiveHostPlatformCommissionTier::query()
-            ->where('user_id', $host->id)
-            ->where('is_active', true)
-            ->with('platform')
-            ->orderBy('platform_id')
-            ->orderBy('effective_from')
-            ->orderBy('tier_number')
-            ->get()
-            ->groupBy(fn (LiveHostPlatformCommissionTier $t) => $t->platform_id.'|'.$t->effective_from->toDateString())
-            ->map(fn ($group) => [
-                'platform_id' => $group->first()->platform_id,
-                'platform' => $group->first()->platform,
-                'effective_from' => $group->first()->effective_from->toDateString(),
-                'tiers' => $group->values()->all(),
-            ])
-            ->values();
+        $commissionTiers = $canSeeFinancials
+            ? LiveHostPlatformCommissionTier::query()
+                ->where('user_id', $host->id)
+                ->where('is_active', true)
+                ->with('platform')
+                ->orderBy('platform_id')
+                ->orderBy('effective_from')
+                ->orderBy('tier_number')
+                ->get()
+                ->groupBy(fn (LiveHostPlatformCommissionTier $t) => $t->platform_id.'|'.$t->effective_from->toDateString())
+                ->map(fn ($group) => [
+                    'platform_id' => $group->first()->platform_id,
+                    'platform' => $group->first()->platform,
+                    'effective_from' => $group->first()->effective_from->toDateString(),
+                    'tiers' => $group->values()->all(),
+                ])
+                ->values()
+            : collect();
 
         return Inertia::render('hosts/Show', [
             'host' => [

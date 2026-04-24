@@ -24,7 +24,7 @@ new class extends Component {
             'email' => ['nullable', 'email', 'unique:users,email'],
             'phone' => ['required', 'string', 'unique:users,phone', 'regex:/^[0-9]{10,15}$/'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'role' => ['required', Rule::in(['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'class_admin', 'employee'])],
+            'role' => ['required', Rule::in(['admin', 'teacher', 'student', 'live_host', 'admin_livehost', 'livehost_assistant', 'class_admin', 'employee'])],
             'status' => ['required', Rule::in(['active', 'inactive', 'suspended'])],
         ];
     }
@@ -152,6 +152,7 @@ new class extends Component {
                                     <option value="admin">Admin</option>
                                     <option value="live_host">Live Host</option>
                                     <option value="admin_livehost">Admin Live Host</option>
+                                    <option value="livehost_assistant">Live Host Assistant</option>
                                     <option value="class_admin">Class Admin</option>
                                     <option value="employee">Employee</option>
                                 </flux:select>
