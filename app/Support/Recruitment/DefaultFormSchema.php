@@ -29,6 +29,7 @@ class DefaultFormSchema
                             'type' => 'checkbox_group',
                             'label' => 'Platforms you can live on',
                             'required' => true,
+                            'role' => 'platforms',
                             'options' => [
                                 ['value' => 'tiktok', 'label' => 'TikTok'],
                                 ['value' => 'shopee', 'label' => 'Shopee'],
