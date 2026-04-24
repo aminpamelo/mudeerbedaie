@@ -34,34 +34,46 @@ class PublicRecruitmentController extends Controller
 
         abort_unless($campaign->isAcceptingApplications(), Response::HTTP_GONE);
 
+        $validated = $request->validated();
+        $schema = $campaign->form_schema ?? [];
+
+        $emailFieldId = $this->emailFieldIdFromSchema($schema);
+
+        abort_if($emailFieldId === null, 422, 'Campaign schema is missing an email-role field.');
+
+        $emailValue = $validated[$emailFieldId] ?? null;
+
+        abort_if($emailValue === null, 422, 'Campaign schema is missing an email-role field.');
+
         if (LiveHostApplicant::query()
             ->where('campaign_id', $campaign->id)
-            ->where('email', $request->string('email'))
+            ->where('email', $emailValue)
             ->exists()
         ) {
             return back()->withInput()->withErrors([
-                'email' => 'You have already applied to this campaign with this email.',
+                $emailFieldId => 'You have already applied to this campaign with this email.',
             ]);
         }
 
-        $resumePath = $request->file('resume')?->store('recruitment/resumes', 'local');
+        // Handle file uploads: store to disk, replace request value with the path
+        $uploadedPaths = [];
+        foreach ($campaign->getAllFields() as $field) {
+            if (($field['type'] ?? null) === 'file' && $request->hasFile($field['id'])) {
+                $path = $request->file($field['id'])->store('recruitment/resumes', 'local');
+                $uploadedPaths[$field['id']] = $path;
+                $validated[$field['id']] = $path;
+            }
+        }
 
         try {
-            $applicant = DB::transaction(function () use ($request, $campaign, $resumePath) {
+            $applicant = DB::transaction(function () use ($validated, $campaign, $schema) {
                 $firstStage = $campaign->stages->sortBy('position')->first();
 
                 $applicant = LiveHostApplicant::create([
                     'campaign_id' => $campaign->id,
                     'applicant_number' => LiveHostApplicant::generateApplicantNumber(),
-                    'full_name' => $request->string('full_name'),
-                    'email' => $request->string('email'),
-                    'phone' => $request->string('phone'),
-                    'ic_number' => $request->input('ic_number'),
-                    'location' => $request->input('location'),
-                    'platforms' => $request->input('platforms'),
-                    'experience_summary' => $request->input('experience_summary'),
-                    'motivation' => $request->input('motivation'),
-                    'resume_path' => $resumePath,
+                    'form_data' => $validated,
+                    'form_schema_snapshot' => $schema,
                     'current_stage_id' => $firstStage?->id,
                     'status' => 'active',
                     'applied_at' => now(),
@@ -75,13 +87,13 @@ class PublicRecruitmentController extends Controller
                 return $applicant;
             });
         } catch (QueryException $e) {
-            if ($resumePath) {
-                Storage::disk('local')->delete($resumePath);
+            foreach ($uploadedPaths as $path) {
+                Storage::disk('local')->delete($path);
             }
 
             if ($e->getCode() === '23000') {
                 return back()->withInput()->withErrors([
-                    'email' => 'You have already applied to this campaign with this email.',
+                    $emailFieldId => 'You have already applied to this campaign with this email.',
                 ]);
             }
 
@@ -93,7 +105,7 @@ class PublicRecruitmentController extends Controller
         return redirect()
             ->route('recruitment.thank-you', $slug)
             ->with('applicant_number', $applicant->applicant_number)
-            ->with('applicant_name', $applicant->full_name)
+            ->with('applicant_name', $applicant->valueByRole('name') ?? '')
             ->with('applicant_email', $applicant->email);
     }
 
@@ -107,5 +119,18 @@ class PublicRecruitmentController extends Controller
             'applicantName' => session('applicant_name'),
             'applicantEmail' => session('applicant_email'),
         ]);
+    }
+
+    private function emailFieldIdFromSchema(array $schema): ?string
+    {
+        foreach (($schema['pages'] ?? []) as $page) {
+            foreach (($page['fields'] ?? []) as $field) {
+                if (($field['role'] ?? null) === 'email') {
+                    return $field['id'];
+                }
+            }
+        }
+
+        return null;
     }
 }
