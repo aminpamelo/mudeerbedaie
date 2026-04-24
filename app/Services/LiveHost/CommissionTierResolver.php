@@ -41,4 +41,27 @@ class CommissionTierResolver
             ->orderByDesc('tier_number')
             ->first();
     }
+
+    /**
+     * Check whether the given host has ANY active commission tier row
+     * configured for the given platform at a point in time — ignoring GMV
+     * boundaries entirely. This lets callers distinguish "host has a
+     * schedule but GMV is below floor" from "host has no schedule at all",
+     * which is important for diagnostic reasons in commission calculations.
+     *
+     * Same filtering as `resolveTier()` on (user_id, platform_id, is_active,
+     * effective_from/to), but NOT on min_gmv_myr / max_gmv_myr.
+     */
+    public function hasAnyActiveTier(User $host, Platform $platform, CarbonInterface $asOf): bool
+    {
+        return LiveHostPlatformCommissionTier::query()
+            ->where('user_id', $host->id)
+            ->where('platform_id', $platform->id)
+            ->where('is_active', true)
+            ->where('effective_from', '<=', $asOf->toDateString())
+            ->where(function ($q) use ($asOf) {
+                $q->whereNull('effective_to')->orWhere('effective_to', '>=', $asOf->toDateString());
+            })
+            ->exists();
+    }
 }

@@ -99,8 +99,22 @@ class CommissionCalculator
      * matching the business intent.
      *
      * Return shape is identical to forSession() plus a `rate_source` array
-     * documenting which tier was applied (or why none matched). Callers can
-     * reuse the same reporting paths.
+     * documenting which tier was applied (or why none matched). The shape is
+     * symmetric across branches — all five keys (`tier_id`, `tier_number`,
+     * `internal_percent`, `monthly_gmv_myr`, `reason`) are always present,
+     * with `null` indicating inapplicability. Callers can reuse the same
+     * reporting paths without worrying about missing keys.
+     *
+     * The `reason` vocabulary is:
+     *   - null                        : a tier matched
+     *   - 'missing_host_or_platform'  : session lacks host or platform account
+     *   - 'no_schedule_configured'    : host has no tier rows for this platform
+     *   - 'below_tier_1_floor'        : schedule exists but monthly GMV is below floor
+     *
+     * When no tier matches and `net_gmv > 0`, the warning string
+     * `'missing_tier_match'` is emitted (distinct from forSession()'s
+     * `'missing_platform_rate'` so downstream consumers can tell which rail
+     * the lookup missed on).
      *
      * @return array{
      *     net_gmv: float,
@@ -111,10 +125,10 @@ class CommissionCalculator
      *     warnings: array<int, string>,
      *     rate_source: array{
      *         tier_id: int|null,
-     *         tier_number?: int,
-     *         internal_percent?: float,
+     *         tier_number: int|null,
+     *         internal_percent: float|null,
      *         monthly_gmv_myr: float,
-     *         reason?: string
+     *         reason: string|null
      *     }
      * }
      */
@@ -136,7 +150,7 @@ class CommissionCalculator
             : null;
 
         if (! $tier && $netGmv > 0) {
-            $warnings[] = 'missing_platform_rate';
+            $warnings[] = 'missing_tier_match';
         }
 
         if ($tier) {
@@ -147,16 +161,26 @@ class CommissionCalculator
                 'tier_number' => (int) $tier->tier_number,
                 'internal_percent' => $ratePercent,
                 'monthly_gmv_myr' => round($monthlyGmvForPlatform, 2),
+                'reason' => null,
             ];
         } else {
             $ratePercent = 0.0;
             $gmvCommission = 0.0;
+
+            if (! $host || ! $platform) {
+                $reason = 'missing_host_or_platform';
+            } elseif ($this->tierResolver->hasAnyActiveTier($host, $platform, $asOf)) {
+                $reason = 'below_tier_1_floor';
+            } else {
+                $reason = 'no_schedule_configured';
+            }
+
             $rateSource = [
                 'tier_id' => null,
-                'reason' => ($host && $platform)
-                    ? 'below_tier_1_floor'
-                    : 'missing_host_or_platform',
+                'tier_number' => null,
+                'internal_percent' => null,
                 'monthly_gmv_myr' => round($monthlyGmvForPlatform, 2),
+                'reason' => $reason,
             ];
         }
 

@@ -91,6 +91,20 @@ it('ignores tiers whose effective_to is in the past', function () {
     expect($tier)->toBeNull();
 });
 
+it('hasAnyActiveTier returns true when the host has at least one active tier in window', function () {
+    $resolver = app(CommissionTierResolver::class);
+
+    expect($resolver->hasAnyActiveTier($this->user, $this->platform, $this->asOf))->toBeTrue();
+});
+
+it('hasAnyActiveTier returns false when the host has no tier rows for the platform', function () {
+    $otherPlatform = Platform::factory()->create();
+
+    $resolver = app(CommissionTierResolver::class);
+
+    expect($resolver->hasAnyActiveTier($this->user, $otherPlatform, $this->asOf))->toBeFalse();
+});
+
 it('ignores tiers belonging to a different host or platform', function () {
     $otherHost = User::factory()->create();
     $otherPlatform = Platform::factory()->create();
