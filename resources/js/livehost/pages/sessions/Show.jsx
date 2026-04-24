@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Download, FileText, Image as ImageIcon, Lock, Plus, Trash2, Video } from 'lucide-react';
+import { ArrowLeft, Download, Eye, FileText, Image as ImageIcon, Lock, Plus, Trash2, Video, X } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
 import { Button } from '@/livehost/components/ui/button';
@@ -73,6 +73,7 @@ function formatMyr(value) {
 
 export default function SessionsShow() {
   const { auth, session, analytics, attachments, candidates } = usePage().props;
+  const [previewAttachment, setPreviewAttachment] = useState(null);
 
   const canSeeCommission =
     auth?.user?.role === 'admin_livehost' || auth?.user?.role === 'admin';
@@ -190,15 +191,29 @@ export default function SessionsShow() {
                   key={attachment.id}
                   className="flex items-center gap-4 rounded-[10px] border border-[#F0F0F0] bg-[#FAFAFA] p-4"
                 >
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-white text-[#404040]">
-                    {attachment.isImage ? (
-                      <ImageIcon className="h-5 w-5" strokeWidth={1.8} />
-                    ) : attachment.isVideo ? (
-                      <Video className="h-5 w-5" strokeWidth={1.8} />
-                    ) : (
-                      <FileText className="h-5 w-5" strokeWidth={1.8} />
-                    )}
-                  </div>
+                  {attachment.isImage ? (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewAttachment(attachment)}
+                      className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#EAEAEA] bg-white transition hover:ring-2 hover:ring-[#0A0A0A]/10"
+                      aria-label={`Preview ${attachment.fileName}`}
+                    >
+                      <img
+                        src={attachment.fileUrl}
+                        alt={attachment.fileName}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  ) : (
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-white text-[#404040]">
+                      {attachment.isVideo ? (
+                        <Video className="h-5 w-5" strokeWidth={1.8} />
+                      ) : (
+                        <FileText className="h-5 w-5" strokeWidth={1.8} />
+                      )}
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold tracking-[-0.01em] text-[#0A0A0A]">
                       {attachment.fileName}
@@ -218,26 +233,97 @@ export default function SessionsShow() {
                       <p className="mt-1 text-[12.5px] text-[#404040]">{attachment.description}</p>
                     )}
                   </div>
-                  <a
-                    href={attachment.fileUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[#EAEAEA] bg-white px-3 py-1.5 text-xs font-medium text-[#0A0A0A] hover:bg-[#F5F5F5]"
-                  >
-                    <Download className="h-3.5 w-3.5" strokeWidth={2} />
-                    Download
-                  </a>
+                  <div className="flex items-center gap-1.5">
+                    {(attachment.isImage || attachment.isVideo || attachment.isPdf) && (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAttachment(attachment)}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-[#EAEAEA] bg-white px-3 py-1.5 text-xs font-medium text-[#0A0A0A] hover:bg-[#F5F5F5]"
+                      >
+                        <Eye className="h-3.5 w-3.5" strokeWidth={2} />
+                        View
+                      </button>
+                    )}
+                    <a
+                      href={attachment.fileUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-[#EAEAEA] bg-white px-3 py-1.5 text-xs font-medium text-[#0A0A0A] hover:bg-[#F5F5F5]"
+                    >
+                      <Download className="h-3.5 w-3.5" strokeWidth={2} />
+                      Download
+                    </a>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {previewAttachment && (
+        <AttachmentPreviewModal
+          attachment={previewAttachment}
+          onClose={() => setPreviewAttachment(null)}
+        />
+      )}
     </>
   );
 }
 
 SessionsShow.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
+
+function AttachmentPreviewModal({ attachment, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+        aria-label="Close preview"
+      >
+        <X className="h-5 w-5" strokeWidth={2} />
+      </button>
+
+      <div
+        className="relative max-h-full max-w-5xl overflow-auto rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {attachment.isImage && (
+          <img
+            src={attachment.fileUrl}
+            alt={attachment.fileName}
+            className="max-h-[85vh] max-w-full object-contain"
+          />
+        )}
+        {attachment.isVideo && (
+          <video
+            src={attachment.fileUrl}
+            controls
+            autoPlay
+            className="max-h-[85vh] max-w-full"
+          />
+        )}
+        {attachment.isPdf && (
+          <iframe
+            src={attachment.fileUrl}
+            title={attachment.fileName}
+            className="h-[85vh] w-[90vw] max-w-5xl bg-white"
+          />
+        )}
+      </div>
+
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-md bg-black/60 px-3 py-1.5 text-xs text-white">
+        {attachment.fileName} · {attachment.fileSizeFormatted}
+      </div>
+    </div>
+  );
+}
 
 function InfoTile({ label, value }) {
   return (
