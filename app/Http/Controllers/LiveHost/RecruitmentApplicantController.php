@@ -52,13 +52,28 @@ class RecruitmentApplicantController extends Controller
                 ])
             : collect();
 
+        $counts = $campaign
+            ? [
+                'active' => LiveHostApplicant::where('campaign_id', $campaign->id)->where('status', 'active')->count(),
+                'rejected' => LiveHostApplicant::where('campaign_id', $campaign->id)->where('status', 'rejected')->count(),
+                'hired' => LiveHostApplicant::where('campaign_id', $campaign->id)->where('status', 'hired')->count(),
+            ]
+            : ['active' => 0, 'rejected' => 0, 'hired' => 0];
+
         return Inertia::render('recruitment/applicants/Index', [
             'campaign' => $campaign ? [
                 'id' => $campaign->id,
                 'title' => $campaign->title,
                 'slug' => $campaign->slug,
                 'status' => $campaign->status,
+                'description' => $campaign->description,
+                'public_url' => $campaign->status === 'open'
+                    ? route('recruitment.show', $campaign->slug)
+                    : null,
+                'opens_at' => $campaign->opens_at?->toIso8601String(),
+                'closes_at' => $campaign->closes_at?->toIso8601String(),
             ] : null,
+            'counts' => $counts,
             'stages' => $stages->values(),
             'applicants' => $applicants->map(fn (LiveHostApplicant $a) => [
                 'id' => $a->id,
