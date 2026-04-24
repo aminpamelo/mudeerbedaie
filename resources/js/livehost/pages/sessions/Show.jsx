@@ -4,6 +4,7 @@ import { ArrowLeft, Download, FileText, Image as ImageIcon, Lock, Plus, Trash2, 
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatusChip from '@/livehost/components/StatusChip';
 import { Button } from '@/livehost/components/ui/button';
+import VerifyLinkPanel from '@/livehost/pages/sessions/VerifyLinkPanel';
 
 const STATUS_LABELS = {
   scheduled: 'Scheduled',
@@ -71,7 +72,7 @@ function formatMyr(value) {
 }
 
 export default function SessionsShow() {
-  const { auth, session, analytics, attachments } = usePage().props;
+  const { auth, session, analytics, attachments, candidates } = usePage().props;
 
   const canSeeCommission =
     auth?.user?.role === 'admin_livehost' || auth?.user?.role === 'admin';
@@ -118,6 +119,9 @@ export default function SessionsShow() {
             </StatusChip>
           </div>
         </div>
+
+        {/* Verification (pending sessions only) */}
+        <VerifyLinkPanel session={session} candidates={candidates ?? []} />
 
         {/* Timing */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
