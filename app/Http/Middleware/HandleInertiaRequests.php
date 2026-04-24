@@ -54,6 +54,7 @@ class HandleInertiaRequests extends Middleware
                         'commission' => $this->hostCommission($request->user()),
                     ]
                     : null,
+                'permissions' => fn () => $this->permissions($request->user()),
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
@@ -114,6 +115,32 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
+     * Role-derived capability flags consumed by the sidebar and action buttons.
+     *
+     * PIC roles (admin + admin_livehost) get full access to every flag. The
+     * livehost_assistant role gets all `false`, so the frontend hides write
+     * actions and admin-only nav items without needing to pattern-match on
+     * role strings.
+     *
+     * @return array<string, bool>
+     */
+    private function permissions(?User $user): array
+    {
+        $isPic = $user && in_array($user->role, ['admin', 'admin_livehost'], true);
+
+        return [
+            'canManageHosts' => $isPic,
+            'canManagePlatformAccounts' => $isPic,
+            'canManageCreators' => $isPic,
+            'canSeeSessions' => $isPic,
+            'canSeeFinancials' => $isPic,
+            'canSeePayroll' => $isPic,
+            'canRecruit' => $isPic,
+            'canSeeTiktokImports' => $isPic,
+        ];
+    }
+
+    /**
      * Counts powering the sidebar badges on the Live Host Desk. Shared so every
      * PIC/admin page shows real numbers without each controller passing them
      * through manually. Cached briefly to keep the cost negligible.
@@ -124,7 +151,19 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
-        if (! $user || ! in_array($user->role, ['admin', 'admin_livehost'], true)) {
+        if (! $user) {
+            return null;
+        }
+
+        if ($user->role === 'livehost_assistant') {
+            return Cache::remember('livehost.navCounts.assistant', 60, fn () => [
+                'hosts' => User::query()->where('role', 'live_host')->count(),
+                'platformAccounts' => PlatformAccount::query()->count(),
+                'creators' => \App\Models\LiveHostPlatformAccount::query()->count(),
+            ]);
+        }
+
+        if (! in_array($user->role, ['admin', 'admin_livehost'], true)) {
             return null;
         }
 

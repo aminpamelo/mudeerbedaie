@@ -60,3 +60,47 @@ it('controller guards 403 the assistant even without role middleware', function 
 
     expect($response->status())->toBe(403);
 });
+
+it('shares a permissions prop on Inertia responses', function () {
+    $assistant = User::factory()->liveHostAssistant()->create();
+
+    $response = $this->actingAs($assistant)->get(route('livehost.session-slots.index'));
+
+    $response->assertInertia(fn ($page) => $page
+        ->where('auth.user.role', 'livehost_assistant')
+        ->where('auth.permissions.canManageHosts', false)
+        ->where('auth.permissions.canManagePlatformAccounts', false)
+        ->where('auth.permissions.canManageCreators', false)
+        ->where('auth.permissions.canSeeSessions', false)
+        ->where('auth.permissions.canSeeFinancials', false)
+        ->where('auth.permissions.canSeePayroll', false)
+        ->where('auth.permissions.canRecruit', false)
+        ->where('auth.permissions.canSeeTiktokImports', false)
+    );
+});
+
+it('grants admin_livehost full permissions in shared prop', function () {
+    $pic = User::factory()->create(['role' => 'admin_livehost']);
+
+    $response = $this->actingAs($pic)->get(route('livehost.session-slots.index'));
+
+    $response->assertInertia(fn ($page) => $page
+        ->where('auth.permissions.canManageHosts', true)
+        ->where('auth.permissions.canSeeFinancials', true)
+        ->where('auth.permissions.canRecruit', true)
+    );
+});
+
+it('excludes sensitive nav count keys from assistant payload', function () {
+    $assistant = User::factory()->liveHostAssistant()->create();
+
+    $response = $this->actingAs($assistant)->get(route('livehost.session-slots.index'));
+
+    $response->assertInertia(fn ($page) => $page
+        ->has('navCounts.hosts')
+        ->has('navCounts.platformAccounts')
+        ->has('navCounts.creators')
+        ->missing('navCounts.sessions')
+        ->missing('navCounts.schedules')
+    );
+});
