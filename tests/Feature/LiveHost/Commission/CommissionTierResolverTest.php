@@ -69,13 +69,65 @@ it('resolves the open-ended top tier for very large gmv', function () {
     expect($tier->tier_number)->toBe(3);
 });
 
-it('ignores tiers outside their effective window', function () {
+it('ignores tiers where is_active is false', function () {
     LiveHostPlatformCommissionTier::query()
         ->where('user_id', $this->user->id)
-        ->update(['effective_to' => '2026-03-31', 'is_active' => false]);
+        ->update(['is_active' => false]);
 
     $resolver = app(CommissionTierResolver::class);
     $tier = $resolver->resolveTier($this->user, $this->platform, 50000, $this->asOf);
 
     expect($tier)->toBeNull();
+});
+
+it('ignores tiers whose effective_to is in the past', function () {
+    LiveHostPlatformCommissionTier::query()
+        ->where('user_id', $this->user->id)
+        ->update(['effective_to' => '2026-03-31']);
+
+    $resolver = app(CommissionTierResolver::class);
+    $tier = $resolver->resolveTier($this->user, $this->platform, 50000, $this->asOf);
+
+    expect($tier)->toBeNull();
+});
+
+it('ignores tiers belonging to a different host or platform', function () {
+    $otherHost = User::factory()->create();
+    $otherPlatform = Platform::factory()->create();
+
+    // Competing tier: different host, same platform, overlapping GMV window.
+    LiveHostPlatformCommissionTier::factory()->create([
+        'user_id' => $otherHost->id,
+        'platform_id' => $this->platform->id,
+        'tier_number' => 2,
+        'min_gmv_myr' => 30000,
+        'max_gmv_myr' => 60000,
+        'internal_percent' => 99.00,
+        'l1_percent' => 1.30,
+        'l2_percent' => 2.30,
+        'effective_from' => '2026-01-01',
+        'effective_to' => null,
+        'is_active' => true,
+    ]);
+
+    // Competing tier: original host, different platform, overlapping GMV window.
+    LiveHostPlatformCommissionTier::factory()->create([
+        'user_id' => $this->user->id,
+        'platform_id' => $otherPlatform->id,
+        'tier_number' => 2,
+        'min_gmv_myr' => 30000,
+        'max_gmv_myr' => 60000,
+        'internal_percent' => 77.00,
+        'l1_percent' => 1.30,
+        'l2_percent' => 2.30,
+        'effective_from' => '2026-01-01',
+        'effective_to' => null,
+        'is_active' => true,
+    ]);
+
+    $resolver = app(CommissionTierResolver::class);
+    $tier = $resolver->resolveTier($this->user, $this->platform, 45000, $this->asOf);
+
+    expect($tier->user_id)->toBe($this->user->id);
+    expect($tier->platform_id)->toBe($this->platform->id);
 });
