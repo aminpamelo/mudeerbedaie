@@ -1,15 +1,17 @@
-import { Head, useForm, Link } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
+import { Head, useForm, Link, usePage } from '@inertiajs/react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
 import { Label } from '@/livehost/components/ui/label';
 
 export default function HostCreate() {
+  const { prefilledUser } = usePage().props;
+
   const form = useForm({
-    name: '',
-    email: '',
-    phone: '',
+    name: prefilledUser?.name ?? '',
+    email: prefilledUser?.email ?? '',
+    phone: prefilledUser?.phone ?? '',
     status: 'active',
   });
 
@@ -38,6 +40,16 @@ export default function HostCreate() {
           <h1 className="text-3xl font-semibold tracking-[-0.03em] leading-[1.1] text-[#0A0A0A]">New live host</h1>
           <p className="text-[#737373] mt-1.5 text-sm">Create a profile for a live streaming host on your team.</p>
         </div>
+
+        {prefilledUser && (
+          <div className="mb-5 flex items-start gap-3 rounded-[12px] border border-[#BBF7D0] bg-[#F0FDF4] p-4">
+            <Sparkles className="mt-0.5 h-4 w-4 text-[#047857]" strokeWidth={2.25} />
+            <div className="text-[13px] text-[#065F46]">
+              Prefilled from hired user <span className="font-semibold">#{prefilledUser.id}</span>.
+              Review the details before creating the live host profile.
+            </div>
+          </div>
+        )}
 
         <form onSubmit={submit} className="bg-white border border-[#EAEAEA] rounded-[16px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-6 space-y-5">
           <Field label="Full name" error={form.errors.name}>

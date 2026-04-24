@@ -91,9 +91,20 @@ class HostController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        return Inertia::render('hosts/Create', []);
+        $prefilledUser = null;
+        if ($request->integer('user_id')) {
+            $prefilledUser = User::query()
+                ->where('id', $request->integer('user_id'))
+                ->where('role', 'live_host')
+                ->first()
+                ?->only(['id', 'name', 'email', 'phone']);
+        }
+
+        return Inertia::render('hosts/Create', [
+            'prefilledUser' => $prefilledUser,
+        ]);
     }
 
     public function show(User $host): Response
