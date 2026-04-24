@@ -86,8 +86,13 @@ it('grants admin_livehost full permissions in shared prop', function () {
 
     $response->assertInertia(fn ($page) => $page
         ->where('auth.permissions.canManageHosts', true)
+        ->where('auth.permissions.canManagePlatformAccounts', true)
+        ->where('auth.permissions.canManageCreators', true)
+        ->where('auth.permissions.canSeeSessions', true)
         ->where('auth.permissions.canSeeFinancials', true)
+        ->where('auth.permissions.canSeePayroll', true)
         ->where('auth.permissions.canRecruit', true)
+        ->where('auth.permissions.canSeeTiktokImports', true)
     );
 });
 
