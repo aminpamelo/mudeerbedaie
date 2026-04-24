@@ -416,7 +416,7 @@ export default function ApplicantsIndex() {
       <Head title="Applicants" />
       <TopBar breadcrumb={['Live Host Desk', 'Recruitment', 'Applicants']} />
 
-      <div className="mx-auto max-w-[1400px] px-8 pb-12 pt-8">
+      <div className="px-8 pb-12 pt-8">
         {!campaign ? (
           <EmptyNoCampaigns />
         ) : (
