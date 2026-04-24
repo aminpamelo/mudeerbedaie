@@ -174,84 +174,105 @@ export default function ApplicantShow() {
 
 ApplicantShow.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
 
-function Field({ label, children }) {
-  return (
-    <div>
-      <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
-        {label}
-      </div>
-      <div className="text-[14px] text-[#0A0A0A]">{children || <span className="text-[#A3A3A3]">—</span>}</div>
-    </div>
-  );
+function renderValue(field, value) {
+  if (value === null || value === undefined || value === '') {
+    return <span className="text-[#A3A3A3]">—</span>;
+  }
+  switch (field.type) {
+    case 'select':
+    case 'radio':
+      return (field.options ?? []).find((o) => o.value === value)?.label ?? value;
+    case 'checkbox_group': {
+      const arr = Array.isArray(value) ? value : [];
+      if (arr.length === 0) {
+        return <span className="text-[#A3A3A3]">—</span>;
+      }
+      const labels = arr.map(
+        (v) => (field.options ?? []).find((o) => o.value === v)?.label ?? v,
+      );
+      return (
+        <div className="flex flex-wrap gap-1">
+          {labels.map((l, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center rounded bg-[#F5F5F5] px-1.5 py-0.5 text-[11px] font-medium text-[#525252]"
+            >
+              {l}
+            </span>
+          ))}
+        </div>
+      );
+    }
+    case 'file':
+      return (
+        <a
+          href={`/storage/${value}`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[#0A0A0A] underline"
+        >
+          Download
+        </a>
+      );
+    case 'date':
+      return new Date(value).toLocaleDateString();
+    case 'datetime':
+      return new Date(value).toLocaleString();
+    default:
+      return <span className="whitespace-pre-wrap">{String(value)}</span>;
+  }
 }
 
 function ApplicationTab({ applicant }) {
+  const schema = applicant.form_schema_snapshot ?? { pages: [] };
+  const data = applicant.form_data ?? {};
+
   return (
     <div className="space-y-6">
-      <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#737373]">
-          Contact
+      {(schema.pages ?? []).map((page) => (
+        <div key={page.id}>
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#737373]">
+            {page.title}
+          </h3>
+          <dl className="divide-y divide-[#F0F0F0] rounded-[12px] border border-[#EAEAEA] bg-white">
+            {(page.fields ?? [])
+              .filter((f) => !['heading', 'paragraph'].includes(f.type))
+              .map((field) => (
+                <div
+                  key={field.id}
+                  className="grid grid-cols-[160px_1fr] gap-3 px-4 py-3"
+                >
+                  <dt className="text-[13px] font-medium text-[#525252]">
+                    {field.label}
+                  </dt>
+                  <dd className="text-[13.5px] text-[#0A0A0A]">
+                    {renderValue(field, data[field.id])}
+                  </dd>
+                </div>
+              ))}
+          </dl>
         </div>
-        <div className="grid grid-cols-2 gap-5">
-          <Field label="Full name">{applicant.full_name}</Field>
-          <Field label="Email">{applicant.email}</Field>
-          <Field label="Phone">{applicant.phone}</Field>
-          <Field label="IC number">{applicant.ic_number}</Field>
-          <Field label="Location">{applicant.location}</Field>
-          <Field label="Source">{applicant.source}</Field>
-        </div>
-      </div>
-
-      <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#737373]">
-          Live streaming profile
-        </div>
-        <div className="space-y-5">
-          <Field label="Platforms">
-            {applicant.platforms?.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {applicant.platforms.map((p) => (
-                  <span
-                    key={p}
-                    className="inline-flex items-center rounded-md bg-[#F5F5F5] px-2 py-0.5 text-[11.5px] font-medium uppercase tracking-wide text-[#525252]"
-                  >
-                    {p}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </Field>
-          <Field label="Experience summary">
-            {applicant.experience_summary ? (
-              <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#0A0A0A]">
-                {applicant.experience_summary}
-              </p>
-            ) : null}
-          </Field>
-          <Field label="Motivation">
-            {applicant.motivation ? (
-              <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#0A0A0A]">
-                {applicant.motivation}
-              </p>
-            ) : null}
-          </Field>
-          <Field label="Resume">
-            {applicant.resume_path ? (
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F5F5F5] px-2 py-1 font-mono text-[11.5px] text-[#525252]">
-                {applicant.resume_path}
-              </span>
-            ) : null}
-          </Field>
-        </div>
-      </div>
+      ))}
 
       <div className="rounded-[16px] border border-[#EAEAEA] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#737373]">
           Campaign
         </div>
         <div className="grid grid-cols-2 gap-5">
-          <Field label="Campaign">{applicant.campaign?.title}</Field>
-          <Field label="Applied">{formatDate(applicant.applied_at)}</Field>
+          <div>
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
+              Campaign
+            </div>
+            <div className="text-[14px] text-[#0A0A0A]">
+              {applicant.campaign?.title ?? <span className="text-[#A3A3A3]">—</span>}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[#737373]">
+              Applied
+            </div>
+            <div className="text-[14px] text-[#0A0A0A]">{formatDate(applicant.applied_at)}</div>
+          </div>
         </div>
       </div>
     </div>
