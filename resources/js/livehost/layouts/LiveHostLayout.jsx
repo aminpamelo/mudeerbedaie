@@ -20,30 +20,50 @@ const NAV_GROUPS = [
   {
     label: 'Operations',
     items: [
-      { label: 'Dashboard', href: '/livehost', icon: LayoutDashboard },
-      { label: 'Live Hosts', href: '/livehost/hosts', icon: Users, countKey: 'hosts' },
-      { label: 'Recruitment', href: '/livehost/recruitment/campaigns', icon: Megaphone },
+      { key: 'dashboard', label: 'Dashboard', href: '/livehost', icon: LayoutDashboard },
+      { key: 'hosts', label: 'Live Hosts', href: '/livehost/hosts', icon: Users, countKey: 'hosts' },
+      { key: 'recruitment', label: 'Recruitment', href: '/livehost/recruitment/campaigns', icon: Megaphone },
     ],
   },
   {
     label: 'Allocation',
     items: [
-      { label: 'Time Slots', href: '/livehost/time-slots', icon: Clock },
-      { label: 'Session Slots', href: '/livehost/session-slots', icon: LayoutGrid },
-      { label: 'Platform Accounts', href: '/livehost/platform-accounts', icon: Store, countKey: 'platformAccounts' },
-      { label: 'Creators', href: '/livehost/creators', icon: UserCircle2, countKey: 'creators' },
+      { key: 'time-slots', label: 'Time Slots', href: '/livehost/time-slots', icon: Clock },
+      { key: 'session-slots', label: 'Session Slots', href: '/livehost/session-slots', icon: LayoutGrid },
+      { key: 'platform-accounts', label: 'Platform Accounts', href: '/livehost/platform-accounts', icon: Store, countKey: 'platformAccounts' },
+      { key: 'creators', label: 'Creators', href: '/livehost/creators', icon: UserCircle2, countKey: 'creators' },
     ],
   },
   {
     label: 'Records',
     items: [
-      { label: 'Live Sessions', href: '/livehost/sessions', icon: Play, countKey: 'sessions' },
-      { label: 'Commission', href: '/livehost/commission', icon: DollarSign },
-      { label: 'Payroll', href: '/livehost/payroll', icon: Banknote },
-      { label: 'TikTok Imports', href: '/livehost/tiktok-imports', icon: FileSpreadsheet },
+      { key: 'sessions', label: 'Live Sessions', href: '/livehost/sessions', icon: Play, countKey: 'sessions' },
+      { key: 'commission', label: 'Commission', href: '/livehost/commission', icon: DollarSign },
+      { key: 'payroll', label: 'Payroll', href: '/livehost/payroll', icon: Banknote },
+      { key: 'tiktok-imports', label: 'TikTok Imports', href: '/livehost/tiktok-imports', icon: FileSpreadsheet },
     ],
   },
 ];
+
+const NAV_ITEM_PERMISSION = {
+  dashboard: null,
+  hosts: null,
+  recruitment: 'canRecruit',
+  'time-slots': null,
+  'session-slots': null,
+  'platform-accounts': null,
+  creators: null,
+  sessions: 'canSeeSessions',
+  commission: 'canSeeFinancials',
+  payroll: 'canSeePayroll',
+  'tiktok-imports': 'canSeeTiktokImports',
+};
+
+function canSeeNavItem(itemKey, permissions) {
+  const flag = NAV_ITEM_PERMISSION[itemKey];
+  if (flag === null || flag === undefined) return true;
+  return Boolean(permissions?.[flag]);
+}
 
 function initialsFrom(name) {
   if (!name) {
@@ -68,6 +88,7 @@ function formatCount(value) {
 
 function Sidebar({ auth, brand, navCounts, currentUrl }) {
   const user = auth?.user;
+  const permissions = auth?.permissions ?? {};
   const roleLabel = user?.role === 'admin'
     ? 'Admin'
     : user?.role === 'admin_livehost'
@@ -85,6 +106,13 @@ function Sidebar({ auth, brand, navCounts, currentUrl }) {
 
     return currentUrl === href || currentUrl.startsWith(`${href}/`);
   };
+
+  const visibleGroups = NAV_GROUPS
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canSeeNavItem(item.key, permissions)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <aside className="sticky top-0 flex h-screen flex-col gap-7 border-r border-border-2 px-4 py-6">
@@ -128,7 +156,7 @@ function Sidebar({ auth, brand, navCounts, currentUrl }) {
 
       {/* Nav groups */}
       <nav className="flex flex-1 flex-col gap-5 overflow-y-auto">
-        {NAV_GROUPS.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.label} className="flex flex-col gap-0.5">
             <div className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-[0.02em] text-muted-2">
               {group.label}
