@@ -30,6 +30,29 @@ class LiveHostApplicant extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $applicant) {
+            $snapshot = $applicant->form_schema_snapshot ?? [];
+            $emailField = null;
+            foreach (($snapshot['pages'] ?? []) as $page) {
+                foreach (($page['fields'] ?? []) as $field) {
+                    if (($field['role'] ?? null) === 'email') {
+                        $emailField = $field;
+                        break 2;
+                    }
+                }
+            }
+
+            if ($emailField) {
+                $value = $applicant->form_data[$emailField['id']] ?? null;
+                if ($value !== null) {
+                    $applicant->email = (string) $value;
+                }
+            }
+        });
+    }
+
     public function valueByRole(string $role): mixed
     {
         $schema = $this->form_schema_snapshot ?? [];
