@@ -5,16 +5,20 @@ namespace App\Http\Controllers\LiveHost;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\StoreLiveSessionAttachmentRequest;
 use App\Http\Requests\LiveHost\UpdateLiveSessionRequest;
+use App\Http\Requests\LiveHost\VerifyLinkLiveSessionRequest;
 use App\Http\Requests\LiveHost\VerifyLiveSessionRequest;
+use App\Models\ActualLiveRecord;
 use App\Models\LiveAnalytics;
 use App\Models\LiveHostPayrollRun;
 use App\Models\LiveSession;
 use App\Models\LiveSessionAttachment;
 use App\Models\LiveSessionGmvAdjustment;
+use App\Models\LiveSessionVerificationEvent;
 use App\Models\PlatformAccount;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -182,6 +186,65 @@ class SessionController extends Controller
         };
 
         return back()->with('success', $flash);
+    }
+
+    public function verifyLink(VerifyLinkLiveSessionRequest $request, LiveSession $session): RedirectResponse
+    {
+        if ($session->verification_status !== 'pending') {
+            return back()->withErrors([
+                'verification' => 'Session is not pending verification.',
+            ]);
+        }
+
+        $record = ActualLiveRecord::findOrFail($request->integer('actual_live_record_id'));
+
+        if ($record->platform_account_id !== $session->platform_account_id) {
+            return back()->withErrors([
+                'actual_live_record_id' => 'Record does not belong to this platform account.',
+            ]);
+        }
+
+        $alreadyLinked = LiveSession::where('matched_actual_live_record_id', $record->id)
+            ->where('id', '!=', $session->id)
+            ->exists();
+
+        if ($alreadyLinked) {
+            return back()
+                ->withErrors([
+                    'actual_live_record_id' => 'This record is already linked to another session.',
+                ])
+                ->setStatusCode(409);
+        }
+
+        try {
+            DB::transaction(function () use ($session, $record, $request) {
+                $session->update([
+                    'matched_actual_live_record_id' => $record->id,
+                    'gmv_amount' => $record->live_attributed_gmv_myr,
+                    'gmv_source' => 'tiktok_actual',
+                    'gmv_locked_at' => now(),
+                    'verification_status' => 'verified',
+                    'verified_by' => $request->user()->id,
+                    'verified_at' => now(),
+                ]);
+
+                LiveSessionVerificationEvent::create([
+                    'live_session_id' => $session->id,
+                    'actual_live_record_id' => $record->id,
+                    'action' => 'verify_link',
+                    'user_id' => $request->user()->id,
+                    'gmv_snapshot' => $record->live_attributed_gmv_myr,
+                ]);
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            return back()
+                ->withErrors([
+                    'actual_live_record_id' => 'Record was just linked elsewhere — refresh and retry.',
+                ])
+                ->setStatusCode(409);
+        }
+
+        return back()->with('success', 'Session verified with linked TikTok record.');
     }
 
     public function storeAttachment(StoreLiveSessionAttachmentRequest $request, LiveSession $session): RedirectResponse

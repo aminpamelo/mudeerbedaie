@@ -303,6 +303,8 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('sessions.update');
         Route::post('sessions/{session}/verify', [\App\Http\Controllers\LiveHost\SessionController::class, 'verify'])
             ->name('sessions.verify');
+        Route::post('sessions/{session}/verify-link', [\App\Http\Controllers\LiveHost\SessionController::class, 'verifyLink'])
+            ->name('sessions.verify-link');
         Route::post('sessions/{session}/attachments', [\App\Http\Controllers\LiveHost\SessionController::class, 'storeAttachment'])
             ->name('sessions.attachments.store');
         Route::delete('sessions/{session}/attachments/{attachment}', [\App\Http\Controllers\LiveHost\SessionController::class, 'destroyAttachment'])
@@ -384,6 +386,18 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
                 ->name('campaigns.stages.update');
             Route::delete('campaigns/{campaign}/stages/{stage}', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'destroy'])
                 ->name('campaigns.stages.destroy');
+
+            // Applicant review — kanban board, detail page, stage moves, reject, notes.
+            Route::get('applicants', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'index'])
+                ->name('applicants.index');
+            Route::get('applicants/{applicant}', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'show'])
+                ->name('applicants.show');
+            Route::patch('applicants/{applicant}/stage', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'moveStage'])
+                ->name('applicants.stage');
+            Route::patch('applicants/{applicant}/reject', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'reject'])
+                ->name('applicants.reject');
+            Route::patch('applicants/{applicant}/notes', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'updateNotes'])
+                ->name('applicants.notes');
         });
     });
 
