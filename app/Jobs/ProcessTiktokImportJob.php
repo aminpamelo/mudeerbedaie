@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\ActualLiveRecord;
 use App\Models\TiktokLiveReport;
 use App\Models\TiktokOrder;
 use App\Models\TiktokReportImport;
@@ -100,6 +101,34 @@ class ProcessTiktokImportJob implements ShouldQueue
                 $row,
                 ['import_id' => $import->id]
             ));
+
+            ActualLiveRecord::create([
+                'platform_account_id' => $import->platform_account_id,
+                'source' => 'csv_import',
+                'source_record_id' => null,
+                'import_id' => $import->id,
+                'creator_platform_user_id' => $row['tiktok_creator_id'] ?? null,
+                'creator_handle' => $row['creator_nickname'] ?? $row['creator_display_name'] ?? null,
+                'launched_time' => $row['launched_time'],
+                'duration_seconds' => $row['duration_seconds'] ?? null,
+                'gmv_myr' => $row['gmv_myr'] ?? 0,
+                'live_attributed_gmv_myr' => $row['live_attributed_gmv_myr'] ?? 0,
+                'viewers' => $row['viewers'] ?? null,
+                'views' => $row['views'] ?? null,
+                'comments' => $row['comments'] ?? null,
+                'shares' => $row['shares'] ?? null,
+                'likes' => $row['likes'] ?? null,
+                'new_followers' => $row['new_followers'] ?? null,
+                'products_added' => $row['products_added'] ?? null,
+                'products_sold' => $row['products_sold'] ?? null,
+                'items_sold' => $row['items_sold'] ?? null,
+                'sku_orders' => $row['sku_orders'] ?? null,
+                'unique_customers' => $row['unique_customers'] ?? null,
+                'avg_price_myr' => $row['avg_price_myr'] ?? null,
+                'click_to_order_rate' => $row['click_to_order_rate'] ?? null,
+                'ctr' => $row['ctr'] ?? null,
+                'raw_json' => $row['raw_row_json'] ?? [],
+            ]);
 
             $session = $matcher->match($report, $import->platform_account_id);
             if ($session !== null) {
