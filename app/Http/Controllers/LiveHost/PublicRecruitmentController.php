@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LiveHost\Recruitment\ApplyRequest;
+use App\Models\LiveHostApplicant;
 use App\Models\LiveHostRecruitmentCampaign;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 class PublicRecruitmentController extends Controller
 {
@@ -22,9 +24,52 @@ class PublicRecruitmentController extends Controller
         return view('recruitment.show', ['campaign' => $campaign]);
     }
 
-    public function apply(Request $request, string $slug): RedirectResponse
+    public function apply(ApplyRequest $request, string $slug): RedirectResponse
     {
-        // filled in task 2.3
+        $campaign = LiveHostRecruitmentCampaign::with('stages')->where('slug', $slug)->firstOrFail();
+
+        abort_unless($campaign->isAcceptingApplications(), Response::HTTP_GONE);
+
+        if (LiveHostApplicant::query()
+            ->where('campaign_id', $campaign->id)
+            ->where('email', $request->string('email'))
+            ->exists()
+        ) {
+            return back()->withInput()->withErrors([
+                'email' => 'You have already applied to this campaign with this email.',
+            ]);
+        }
+
+        $resumePath = $request->file('resume')?->store('recruitment/resumes', 'local');
+
+        DB::transaction(function () use ($request, $campaign, $resumePath) {
+            $firstStage = $campaign->stages->sortBy('position')->first();
+
+            $applicant = LiveHostApplicant::create([
+                'campaign_id' => $campaign->id,
+                'applicant_number' => LiveHostApplicant::generateApplicantNumber(),
+                'full_name' => $request->string('full_name'),
+                'email' => $request->string('email'),
+                'phone' => $request->string('phone'),
+                'ic_number' => $request->input('ic_number'),
+                'location' => $request->input('location'),
+                'platforms' => $request->input('platforms'),
+                'experience_summary' => $request->input('experience_summary'),
+                'motivation' => $request->input('motivation'),
+                'resume_path' => $resumePath,
+                'current_stage_id' => $firstStage?->id,
+                'status' => 'active',
+                'applied_at' => now(),
+            ]);
+
+            $applicant->history()->create([
+                'to_stage_id' => $firstStage?->id,
+                'action' => 'applied',
+            ]);
+
+            // TODO: dispatch confirmation email
+        });
+
         return redirect()->route('recruitment.thank-you', $slug);
     }
 
