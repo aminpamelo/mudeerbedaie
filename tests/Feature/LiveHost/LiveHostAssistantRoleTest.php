@@ -133,3 +133,55 @@ it('still renders Dashboard for admin_livehost', function () {
 
     $response->assertInertia(fn ($page) => $page->component('Dashboard', false));
 });
+
+it('every non-shared /livehost route returns 403 for the assistant', function () {
+    $assistant = User::factory()->liveHostAssistant()->create();
+
+    $shared = [
+        'livehost.dashboard',
+        'livehost.hosts.index',
+        'livehost.hosts.show',
+        'livehost.platform-accounts.index',
+        'livehost.platform-accounts.show',
+        'livehost.creators.index',
+        'livehost.time-slots.index',
+        'livehost.time-slots.create',
+        'livehost.time-slots.store',
+        'livehost.time-slots.edit',
+        'livehost.time-slots.update',
+        'livehost.time-slots.destroy',
+        'livehost.session-slots.index',
+        'livehost.session-slots.calendar',
+        'livehost.session-slots.table',
+        'livehost.session-slots.preview',
+        'livehost.session-slots.create',
+        'livehost.session-slots.store',
+        'livehost.session-slots.show',
+        'livehost.session-slots.edit',
+        'livehost.session-slots.update',
+        'livehost.session-slots.destroy',
+    ];
+
+    $livehostRoutes = collect(RouteFacade::getRoutes())
+        ->filter(fn ($r) => str_starts_with($r->getName() ?? '', 'livehost.'))
+        ->filter(fn ($r) => ! in_array($r->getName(), $shared, true));
+
+    $failures = [];
+
+    foreach ($livehostRoutes as $route) {
+        // Skip routes that require model binding params we can't satisfy in a smoke test.
+        if (str_contains($route->uri(), '{')) {
+            continue;
+        }
+
+        $methods = array_diff($route->methods(), ['HEAD']);
+        foreach ($methods as $method) {
+            $response = $this->actingAs($assistant)->call($method, $route->uri());
+            if ($response->status() !== 403) {
+                $failures[] = "{$method} {$route->uri()} returned {$response->status()}";
+            }
+        }
+    }
+
+    expect($failures)->toBe([]);
+});
