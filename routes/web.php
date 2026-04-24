@@ -398,6 +398,10 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
                 ->name('applicants.reject');
             Route::patch('applicants/{applicant}/notes', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'updateNotes'])
                 ->name('applicants.notes');
+            Route::post('applicants/{applicant}/hire', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'hire'])
+                ->name('applicants.hire');
+            Route::post('applicants/{applicant}/password-reset-link', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'passwordResetLink'])
+                ->name('applicants.password-reset-link');
         });
     });
 

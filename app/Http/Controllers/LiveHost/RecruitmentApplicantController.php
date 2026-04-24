@@ -6,10 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\LiveHostApplicant;
 use App\Models\LiveHostRecruitmentCampaign;
 use App\Models\LiveHostRecruitmentStage;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -216,5 +221,74 @@ class RecruitmentApplicantController extends Controller
         $applicant->update(['notes' => $data['notes'] ?? null]);
 
         return response()->noContent();
+    }
+
+    public function hire(Request $request, LiveHostApplicant $applicant): RedirectResponse
+    {
+        abort_if(
+            $applicant->status !== 'active',
+            HttpResponse::HTTP_UNPROCESSABLE_ENTITY,
+            'Applicant is not active.'
+        );
+
+        $applicant->loadMissing('currentStage');
+        abort_unless(
+            optional($applicant->currentStage)->is_final,
+            HttpResponse::HTTP_UNPROCESSABLE_ENTITY,
+            'Applicant is not at the final stage.'
+        );
+
+        $data = $request->validate([
+            'full_name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['required', 'string', 'max:50'],
+        ]);
+
+        $user = DB::transaction(function () use ($applicant, $data, $request): User {
+            $user = User::create([
+                'name' => $data['full_name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'],
+                'password' => Hash::make(Str::random(40)),
+                'role' => 'live_host',
+            ]);
+            $user->forceFill(['email_verified_at' => now()])->save();
+
+            $applicant->history()->create([
+                'from_stage_id' => $applicant->current_stage_id,
+                'to_stage_id' => null,
+                'action' => 'hired',
+                'notes' => "Hired as user #{$user->id}",
+                'changed_by' => $request->user()?->id,
+            ]);
+
+            $applicant->update([
+                'status' => 'hired',
+                'hired_at' => now(),
+                'hired_user_id' => $user->id,
+            ]);
+
+            return $user;
+        });
+
+        return back()
+            ->with('success', "Hired {$user->name} as a live host.")
+            ->with('hired_user_id', $user->id);
+    }
+
+    public function passwordResetLink(LiveHostApplicant $applicant): JsonResponse
+    {
+        abort_unless(
+            $applicant->status === 'hired' && $applicant->hired_user_id,
+            HttpResponse::HTTP_NOT_FOUND
+        );
+
+        $user = $applicant->hiredUser;
+        abort_unless($user, HttpResponse::HTTP_NOT_FOUND);
+
+        $token = Password::broker()->createToken($user);
+        $url = route('password.reset', ['token' => $token, 'email' => $user->email]);
+
+        return response()->json(['url' => $url]);
     }
 }
