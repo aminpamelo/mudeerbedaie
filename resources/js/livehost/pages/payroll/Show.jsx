@@ -252,17 +252,24 @@ function OverrideBlock({ title, rows }) {
             <thead>
               <tr className="bg-[#F5F5F5] text-[10.5px] font-medium text-[#737373]">
                 <th className="px-3 py-2 text-left">Downline</th>
-                <th className="px-3 py-2 text-right">Their GMV Comm.</th>
+                <th className="px-3 py-2 text-right">Their Monthly GMV</th>
+                <th className="px-3 py-2 text-right">Tier</th>
                 <th className="px-3 py-2 text-right">Rate %</th>
                 <th className="px-3 py-2 text-right">Override</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.downline_user_id} className="border-t border-[#F0F0F0]">
+              {rows.map((row, index) => (
+                <tr
+                  key={`${row.downline_user_id}-${row.platform_id ?? 'na'}-${row.tier_id ?? index}`}
+                  className="border-t border-[#F0F0F0]"
+                >
                   <td className="px-3 py-1.5 text-[#0A0A0A]">{row.downline_name}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">
-                    {formatMyr(row.downline_gmv_commission)}
+                    {formatMyr(row.monthly_gmv_myr)}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-[#737373]">
+                    {row.tier_number != null ? `T${row.tier_number}` : '—'}
                   </td>
                   <td className="px-3 py-1.5 text-right tabular-nums">
                     {Number(row.override_rate_percent ?? 0).toFixed(2)}
