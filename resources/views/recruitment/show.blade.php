@@ -4,44 +4,52 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <title>{{ $campaign->title }} &mdash; Apply to join</title>
+    <title>{{ $campaign->title }} &mdash; Apply</title>
 
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600|instrument-serif:400,400i&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=geist:400,500,600,700&display=swap" rel="stylesheet" />
 
     @vite(['resources/css/app.css'])
 
     <style>
         :root {
-            --rec-bg: #FAF7F2;
+            --rec-bg: #FAFAFA;
             --rec-surface: #FFFFFF;
-            --rec-ink: #1A1612;
-            --rec-ink-2: #3F3A33;
-            --rec-muted: #78716C;
-            --rec-muted-2: #A8A29E;
-            --rec-border: #E7E2D9;
-            --rec-border-2: #EFEAE0;
+            --rec-ink: #0A0A0A;
+            --rec-ink-2: #262626;
+            --rec-muted: #525252;
+            --rec-muted-2: #737373;
+            --rec-muted-3: #A3A3A3;
+            --rec-border: #E5E5E5;
+            --rec-border-2: #F0F0F0;
             --rec-accent: #10B981;
-            --rec-accent-soft: #ECFDF5;
             --rec-accent-ink: #047857;
-            --rec-danger: #BE123C;
+            --rec-accent-soft: #ECFDF5;
+            --rec-accent-ring: rgba(16, 185, 129, 0.14);
+            --rec-danger: #E11D48;
             --rec-danger-soft: #FFF1F2;
+            --rec-shadow: 0 1px 2px rgba(10,10,10,0.04), 0 4px 16px -2px rgba(10,10,10,0.06);
+            --rec-shadow-2: 0 1px 3px rgba(10,10,10,0.06), 0 10px 32px -4px rgba(10,10,10,0.09);
         }
         @media (prefers-color-scheme: dark) {
             :root {
-                --rec-bg: #0B0A09;
-                --rec-surface: #14110F;
-                --rec-ink: #F5F2EC;
-                --rec-ink-2: #D6D0C5;
-                --rec-muted: #A8A29E;
-                --rec-muted-2: #78716C;
-                --rec-border: #2A2622;
-                --rec-border-2: #1F1C19;
+                --rec-bg: #0A0A0A;
+                --rec-surface: #121212;
+                --rec-ink: #FAFAFA;
+                --rec-ink-2: #D4D4D4;
+                --rec-muted: #A3A3A3;
+                --rec-muted-2: #737373;
+                --rec-muted-3: #525252;
+                --rec-border: #262626;
+                --rec-border-2: #1C1C1C;
                 --rec-accent: #34D399;
-                --rec-accent-soft: rgba(52,211,153,0.08);
                 --rec-accent-ink: #6EE7B7;
+                --rec-accent-soft: rgba(52,211,153,0.10);
+                --rec-accent-ring: rgba(52,211,153,0.16);
                 --rec-danger: #FB7185;
                 --rec-danger-soft: rgba(251,113,133,0.08);
+                --rec-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 4px 16px -2px rgba(0,0,0,0.4);
+                --rec-shadow-2: 0 1px 3px rgba(0,0,0,0.6), 0 10px 32px -4px rgba(0,0,0,0.5);
             }
         }
 
@@ -50,98 +58,169 @@
             color: var(--rec-ink);
         }
         body {
-            font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+            font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
             font-feature-settings: "ss01", "cv11";
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-        }
-        .font-serif {
-            font-family: 'Instrument Serif', ui-serif, Georgia, serif;
-            font-feature-settings: normal;
+            overflow-x: hidden;
         }
 
-        /* Subtle grain texture overlay */
-        .grain::before {
-            content: '';
+        /* Decorative emerald gradient glow behind hero */
+        .glow {
             position: fixed;
-            inset: 0;
             pointer-events: none;
-            opacity: 0.035;
             z-index: 0;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' seed='7'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)' opacity='0.6'/%3E%3C/svg%3E");
+            inset: 0;
+            overflow: hidden;
+        }
+        .glow::before,
+        .glow::after {
+            content: '';
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(60px);
+            opacity: 0.55;
+        }
+        .glow::before {
+            top: -150px;
+            left: -150px;
+            width: 480px;
+            height: 480px;
+            background: radial-gradient(circle, var(--rec-accent-ring) 0%, transparent 70%);
+        }
+        .glow::after {
+            top: -80px;
+            right: -200px;
+            width: 540px;
+            height: 540px;
+            background: radial-gradient(circle, color-mix(in oklab, var(--rec-accent) 10%, transparent) 0%, transparent 72%);
+        }
+        @media (prefers-color-scheme: dark) {
+            .glow::before { opacity: 0.8; }
+            .glow::after { opacity: 0.6; }
         }
 
-        .input-base {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            font-size: 15px;
-            line-height: 1.4;
-            color: var(--rec-ink);
-            background-color: var(--rec-surface);
-            border: 1px solid var(--rec-border);
-            border-radius: 10px;
-            transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
-            font-family: inherit;
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3125rem 0.75rem;
+            background-color: var(--rec-accent-soft);
+            color: var(--rec-accent-ink);
+            border: 1px solid color-mix(in oklab, var(--rec-accent) 28%, transparent);
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.01em;
         }
-        .input-base::placeholder {
-            color: var(--rec-muted-2);
+        .status-pill .dot {
+            position: relative;
+            width: 6px;
+            height: 6px;
+            border-radius: 9999px;
+            background-color: var(--rec-accent);
         }
-        .input-base:hover {
-            border-color: color-mix(in oklab, var(--rec-border) 50%, var(--rec-ink) 20%);
+        .status-pill .dot::before {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 9999px;
+            background-color: var(--rec-accent);
+            opacity: 0.4;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
-        .input-base:focus {
-            outline: none;
-            border-color: var(--rec-accent);
-            box-shadow: 0 0 0 4px color-mix(in oklab, var(--rec-accent) 15%, transparent);
-            background-color: var(--rec-surface);
-        }
-        textarea.input-base {
-            resize: vertical;
-            min-height: 108px;
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.6); opacity: 0; }
         }
 
-        .label-base {
-            display: block;
+        .section-label {
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            margin-bottom: 1.25rem;
+        }
+        .section-label-text {
             font-size: 11px;
             font-weight: 600;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
-            color: var(--rec-muted);
+            color: var(--rec-muted-2);
+        }
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background-color: var(--rec-border-2);
+        }
+
+        .field-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--rec-ink-2);
             margin-bottom: 0.5rem;
         }
         .required-dot {
             display: inline-block;
             width: 5px;
             height: 5px;
-            border-radius: 999px;
+            border-radius: 9999px;
             background-color: var(--rec-accent);
-            margin-left: 6px;
-            vertical-align: middle;
-            transform: translateY(-1px);
+        }
+
+        .input-base {
+            width: 100%;
+            padding: 0.75rem 0.9375rem;
+            font-size: 14.5px;
+            line-height: 1.4;
+            color: var(--rec-ink);
+            background-color: var(--rec-surface);
+            border: 1px solid var(--rec-border);
+            border-radius: 10px;
+            transition: border-color 120ms ease, box-shadow 120ms ease;
+            font-family: inherit;
+            font-feature-settings: inherit;
+        }
+        .input-base::placeholder { color: var(--rec-muted-3); }
+        .input-base:hover {
+            border-color: color-mix(in oklab, var(--rec-border) 40%, var(--rec-ink) 30%);
+        }
+        .input-base:focus {
+            outline: none;
+            border-color: var(--rec-accent);
+            box-shadow: 0 0 0 4px var(--rec-accent-ring);
+        }
+        textarea.input-base {
+            resize: vertical;
+            min-height: 108px;
         }
 
         .hint-text {
             font-size: 12.5px;
-            color: var(--rec-muted);
+            color: var(--rec-muted-2);
             margin-top: 6px;
             line-height: 1.5;
         }
 
-        /* Platform checkbox grid */
+        /* Platform selector — modern pill cards */
         .platform-option {
+            position: relative;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            padding: 0.875rem 1rem;
+            gap: 0.625rem;
+            padding: 0.75rem 0.9375rem;
             border: 1px solid var(--rec-border);
-            border-radius: 10px;
             background-color: var(--rec-surface);
+            border-radius: 10px;
             cursor: pointer;
-            transition: all 120ms ease;
-            position: relative;
+            transition: all 140ms ease;
+            user-select: none;
         }
         .platform-option:hover {
-            border-color: color-mix(in oklab, var(--rec-border) 50%, var(--rec-ink) 20%);
+            border-color: color-mix(in oklab, var(--rec-border) 40%, var(--rec-ink) 30%);
         }
         .platform-option input[type="checkbox"] {
             appearance: none;
@@ -151,13 +230,13 @@
             border-radius: 5px;
             background-color: var(--rec-surface);
             cursor: pointer;
-            flex-shrink: 0;
             position: relative;
-            transition: all 120ms ease;
+            flex-shrink: 0;
+            transition: all 140ms ease;
         }
         .platform-option input[type="checkbox"]:checked {
-            background-color: var(--rec-ink);
-            border-color: var(--rec-ink);
+            background-color: var(--rec-accent);
+            border-color: var(--rec-accent);
         }
         .platform-option input[type="checkbox"]:checked::after {
             content: '';
@@ -166,298 +245,339 @@
             top: 2px;
             width: 5px;
             height: 9px;
-            border: solid var(--rec-surface);
-            border-width: 0 1.75px 1.75px 0;
+            border: solid white;
+            border-width: 0 2px 2px 0;
             transform: rotate(45deg);
         }
-        .platform-option input[type="checkbox"]:checked ~ .platform-label {
-            color: var(--rec-ink);
-            font-weight: 500;
-        }
         .platform-option:has(input:checked) {
-            border-color: var(--rec-ink);
-            background-color: color-mix(in oklab, var(--rec-surface) 85%, var(--rec-ink) 4%);
+            border-color: var(--rec-accent);
+            box-shadow: 0 0 0 3px var(--rec-accent-ring);
+            background-color: color-mix(in oklab, var(--rec-surface) 90%, var(--rec-accent) 6%);
         }
         .platform-label {
             font-size: 14px;
-            color: var(--rec-ink-2);
-            font-weight: 400;
+            font-weight: 500;
+            color: var(--rec-ink);
         }
 
-        /* Custom file input */
+        /* File drop */
         .file-drop {
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 0.75rem;
-            padding: 1.25rem;
+            padding: 1rem 1.125rem;
             border: 1.5px dashed var(--rec-border);
             border-radius: 12px;
             background-color: var(--rec-surface);
             cursor: pointer;
-            transition: all 120ms ease;
-            font-size: 14px;
-            color: var(--rec-muted);
+            transition: all 140ms ease;
         }
         .file-drop:hover {
-            border-color: var(--rec-ink);
-            color: var(--rec-ink);
+            border-color: var(--rec-accent);
+            background-color: color-mix(in oklab, var(--rec-surface) 94%, var(--rec-accent) 4%);
         }
-        .file-drop-filename {
+        .file-drop-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background-color: var(--rec-accent-soft);
+            color: var(--rec-accent-ink);
+            flex-shrink: 0;
+        }
+        .file-drop-text {
+            font-size: 13.5px;
             color: var(--rec-ink);
             font-weight: 500;
         }
+        .file-drop-hint {
+            font-size: 12px;
+            color: var(--rec-muted-2);
+            margin-top: 2px;
+        }
 
-        /* Submit button */
-        .btn-submit {
+        /* Modern primary button — emerald tint */
+        .btn-primary {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
-            padding: 0.875rem 1.75rem;
+            width: 100%;
+            padding: 0.875rem 1.5rem;
             background-color: var(--rec-ink);
             color: var(--rec-bg);
-            border-radius: 999px;
-            font-size: 15px;
-            font-weight: 500;
             border: none;
-            cursor: pointer;
-            transition: transform 120ms ease, background-color 120ms ease, box-shadow 200ms ease;
-            box-shadow: 0 2px 4px rgba(26,22,18,0.08), 0 8px 20px -6px rgba(26,22,18,0.2);
-        }
-        .btn-submit:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(26,22,18,0.1), 0 12px 28px -6px rgba(26,22,18,0.28);
-        }
-        .btn-submit:active {
-            transform: translateY(0);
-        }
-
-        /* Status pill */
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.375rem;
-            padding: 0.25rem 0.625rem;
-            background-color: var(--rec-accent-soft);
-            color: var(--rec-accent-ink);
-            border: 1px solid color-mix(in oklab, var(--rec-accent) 30%, transparent);
-            border-radius: 999px;
-            font-size: 12px;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 14.5px;
             font-weight: 500;
+            cursor: pointer;
+            transition: transform 120ms ease, box-shadow 200ms ease, background-color 120ms ease;
+            box-shadow:
+                0 1px 2px rgba(10,10,10,0.06),
+                0 6px 16px -4px rgba(10,10,10,0.14),
+                inset 0 1px 0 rgba(255,255,255,0.08);
         }
-        .status-pill .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 999px;
-            background-color: var(--rec-accent);
-            box-shadow: 0 0 0 3px color-mix(in oklab, var(--rec-accent) 20%, transparent);
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow:
+                0 2px 4px rgba(10,10,10,0.08),
+                0 12px 24px -4px rgba(10,10,10,0.18),
+                inset 0 1px 0 rgba(255,255,255,0.08);
         }
+        .btn-primary:active { transform: translateY(0); }
 
-        .section-label {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1.25rem;
-            margin-top: 2.5rem;
+        /* Form card with subtle elevation */
+        .form-card {
+            position: relative;
+            background-color: var(--rec-surface);
+            border: 1px solid var(--rec-border);
+            border-radius: 20px;
+            box-shadow: var(--rec-shadow);
+            overflow: hidden;
         }
-        .section-label::after {
+        .form-card::before {
             content: '';
-            flex: 1;
+            position: absolute;
+            top: 0;
+            left: 24px;
+            right: 24px;
             height: 1px;
-            background-color: var(--rec-border-2);
-        }
-        .section-label-text {
-            font-family: 'Instrument Serif', serif;
-            font-style: italic;
-            font-size: 18px;
-            color: var(--rec-ink-2);
-            letter-spacing: -0.01em;
+            background: linear-gradient(to right, transparent, color-mix(in oklab, var(--rec-accent) 50%, transparent), transparent);
         }
 
-        /* Error block */
         .error-block {
-            padding: 1rem 1.25rem;
+            padding: 0.875rem 1.125rem;
             background-color: var(--rec-danger-soft);
-            border: 1px solid color-mix(in oklab, var(--rec-danger) 25%, transparent);
+            border: 1px solid color-mix(in oklab, var(--rec-danger) 22%, transparent);
             border-radius: 10px;
             color: var(--rec-danger);
-            font-size: 14px;
+            font-size: 13.5px;
         }
 
-        /* Entrance animation */
+        /* Left-side info card */
+        .info-meta {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.375rem 0.75rem;
+            background-color: var(--rec-surface);
+            border: 1px solid var(--rec-border);
+            border-radius: 9999px;
+            font-size: 12px;
+            color: var(--rec-muted);
+        }
+
         @keyframes riseIn {
-            from { opacity: 0; transform: translateY(8px); }
+            from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .rise {
-            animation: riseIn 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-        }
+        .rise { animation: riseIn 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
         .rise-1 { animation-delay: 40ms; }
-        .rise-2 { animation-delay: 120ms; }
-        .rise-3 { animation-delay: 200ms; }
+        .rise-2 { animation-delay: 100ms; }
+        .rise-3 { animation-delay: 180ms; }
+        .rise-4 { animation-delay: 260ms; }
+
+        /* Subtle dot grid texture in the background */
+        .dots {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image: radial-gradient(color-mix(in oklab, var(--rec-ink) 6%, transparent) 1px, transparent 1px);
+            background-size: 24px 24px;
+            mask-image: radial-gradient(ellipse at top, black 0%, transparent 60%);
+            opacity: 0.5;
+        }
     </style>
 </head>
-<body class="grain">
-<div class="relative z-10 mx-auto w-full max-w-[680px] px-6 pb-20 pt-16 sm:px-8 sm:pt-24">
+<body>
+<div class="glow"></div>
+<div class="dots"></div>
 
-    <header class="mb-10">
-        <div class="rise rise-1 flex flex-wrap items-center gap-3">
+<div class="relative z-10 mx-auto w-full max-w-[1120px] px-6 pb-20 pt-12 sm:px-8 sm:pt-16 lg:pt-20">
+    <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:gap-16">
+
+        {{-- LEFT: campaign info --}}
+        <aside class="rise rise-1 lg:sticky lg:top-12 lg:self-start">
             <span class="status-pill">
                 <span class="dot"></span>
                 Now hiring
             </span>
-            @if ($campaign->closes_at)
-                <span class="text-[12px]" style="color: var(--rec-muted);">
-                    Applications close {{ $campaign->closes_at->toFormattedDateString() }}
-                </span>
+
+            <h1 class="mt-6 text-[38px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[48px] lg:text-[52px]" style="color: var(--rec-ink);">
+                {{ $campaign->title }}
+            </h1>
+
+            @if (! empty($campaign->description))
+                <p class="mt-5 whitespace-pre-wrap text-[15.5px] leading-[1.65]" style="color: var(--rec-ink-2);">{{ $campaign->description }}</p>
             @endif
-        </div>
 
-        <h1 class="rise rise-2 mt-5 font-serif text-[42px] leading-[1.08] tracking-[-0.02em] sm:text-[52px]" style="color: var(--rec-ink);">
-            {{ $campaign->title }}
-        </h1>
-
-        @if (! empty($campaign->description))
-            <div class="rise rise-3 mt-5 whitespace-pre-wrap text-[15.5px] leading-[1.65]" style="color: var(--rec-ink-2);">{{ $campaign->description }}</div>
-        @endif
-    </header>
-
-    @if ($errors->any())
-        <div class="error-block mb-8">
-            <div class="font-medium">Please fix the following before submitting:</div>
-            <ul class="mt-2 list-disc space-y-1 pl-5 text-[13.5px]">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    <form method="POST"
-          action="{{ route('recruitment.apply', $campaign->slug) }}"
-          enctype="multipart/form-data"
-          class="relative">
-        @csrf
-
-        <div class="section-label">
-            <span class="section-label-text">About you</span>
-        </div>
-
-        <div class="space-y-5">
-            <div>
-                <label for="full_name" class="label-base">Full name<span class="required-dot" aria-label="required"></span></label>
-                <input type="text" id="full_name" name="full_name" required
-                       value="{{ old('full_name') }}" autocomplete="name"
-                       class="input-base">
+            <div class="mt-6 flex flex-wrap items-center gap-2">
+                @if ($campaign->closes_at)
+                    <span class="info-meta">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        Closes {{ $campaign->closes_at->toFormattedDateString() }}
+                    </span>
+                @endif
+                <span class="info-meta">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    ~5 minutes to complete
+                </span>
             </div>
 
-            <div class="grid gap-5 sm:grid-cols-2">
-                <div>
-                    <label for="email" class="label-base">Email<span class="required-dot" aria-label="required"></span></label>
-                    <input type="email" id="email" name="email" required
-                           value="{{ old('email') }}" autocomplete="email"
-                           class="input-base">
-                </div>
-                <div>
-                    <label for="phone" class="label-base">Phone<span class="required-dot" aria-label="required"></span></label>
-                    <input type="text" id="phone" name="phone" required
-                           value="{{ old('phone') }}" autocomplete="tel"
-                           placeholder="60123456789"
-                           class="input-base">
+            <div class="mt-10 hidden lg:block">
+                <div class="flex items-center gap-3">
+                    <div class="flex -space-x-2">
+                        <div class="h-6 w-6 rounded-full border-2" style="background: linear-gradient(135deg, #10B981, #059669); border-color: var(--rec-surface);"></div>
+                        <div class="h-6 w-6 rounded-full border-2" style="background: linear-gradient(135deg, #8B5CF6, #6D28D9); border-color: var(--rec-surface);"></div>
+                        <div class="h-6 w-6 rounded-full border-2" style="background: linear-gradient(135deg, #F59E0B, #D97706); border-color: var(--rec-surface);"></div>
+                    </div>
+                    <span class="text-[13px]" style="color: var(--rec-muted);">Join our growing team of live hosts</span>
                 </div>
             </div>
+        </aside>
 
-            <div class="grid gap-5 sm:grid-cols-2">
-                <div>
-                    <label for="ic_number" class="label-base">IC number</label>
-                    <input type="text" id="ic_number" name="ic_number"
-                           value="{{ old('ic_number') }}"
-                           class="input-base">
+        {{-- RIGHT: form --}}
+        <div class="rise rise-2">
+            @if ($errors->any())
+                <div class="error-block mb-5">
+                    <div class="font-medium">Please fix the following:</div>
+                    <ul class="mt-1.5 list-disc space-y-1 pl-5 text-[13px]">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
                 </div>
-                <div>
-                    <label for="location" class="label-base">Location</label>
-                    <input type="text" id="location" name="location"
-                           value="{{ old('location') }}"
-                           placeholder="City, state"
-                           class="input-base">
+            @endif
+
+            <form method="POST"
+                  action="{{ route('recruitment.apply', $campaign->slug) }}"
+                  enctype="multipart/form-data"
+                  class="form-card p-6 sm:p-8">
+                @csrf
+
+                {{-- About you --}}
+                <div class="section-label">
+                    <span class="section-label-text">01 · About you</span>
                 </div>
-            </div>
-        </div>
 
-        <div class="section-label">
-            <span class="section-label-text">Where can you go live?</span>
-        </div>
+                <div class="space-y-4">
+                    <div>
+                        <label for="full_name" class="field-label">Full name <span class="required-dot" aria-label="required"></span></label>
+                        <input type="text" id="full_name" name="full_name" required value="{{ old('full_name') }}" autocomplete="name" class="input-base" placeholder="Your full name">
+                    </div>
 
-        <fieldset>
-            <legend class="label-base">Pick one or more<span class="required-dot" aria-label="required"></span></legend>
-            @php($selectedPlatforms = old('platforms', []))
-            <div class="mt-2 grid gap-2.5 sm:grid-cols-3">
-                <label class="platform-option">
-                    <input type="checkbox" name="platforms[]" value="tiktok" @checked(in_array('tiktok', $selectedPlatforms))>
-                    <span class="platform-label">TikTok</span>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="email" class="field-label">Email <span class="required-dot" aria-label="required"></span></label>
+                            <input type="email" id="email" name="email" required value="{{ old('email') }}" autocomplete="email" class="input-base" placeholder="you@example.com">
+                        </div>
+                        <div>
+                            <label for="phone" class="field-label">Phone <span class="required-dot" aria-label="required"></span></label>
+                            <input type="text" id="phone" name="phone" required value="{{ old('phone') }}" autocomplete="tel" class="input-base" placeholder="60123456789">
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="ic_number" class="field-label">IC number</label>
+                            <input type="text" id="ic_number" name="ic_number" value="{{ old('ic_number') }}" class="input-base" placeholder="Optional">
+                        </div>
+                        <div>
+                            <label for="location" class="field-label">Location</label>
+                            <input type="text" id="location" name="location" value="{{ old('location') }}" class="input-base" placeholder="City, state">
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Platforms --}}
+                <div class="section-label" style="margin-top: 2.5rem;">
+                    <span class="section-label-text">02 · Where can you go live?</span>
+                </div>
+
+                <fieldset>
+                    <legend class="field-label">Pick one or more <span class="required-dot" aria-label="required"></span></legend>
+                    @php($selectedPlatforms = old('platforms', []))
+                    <div class="mt-1 grid gap-2.5 sm:grid-cols-3">
+                        <label class="platform-option">
+                            <input type="checkbox" name="platforms[]" value="tiktok" @checked(in_array('tiktok', $selectedPlatforms))>
+                            <span class="platform-label">TikTok</span>
+                        </label>
+                        <label class="platform-option">
+                            <input type="checkbox" name="platforms[]" value="shopee" @checked(in_array('shopee', $selectedPlatforms))>
+                            <span class="platform-label">Shopee</span>
+                        </label>
+                        <label class="platform-option">
+                            <input type="checkbox" name="platforms[]" value="facebook" @checked(in_array('facebook', $selectedPlatforms))>
+                            <span class="platform-label">Facebook</span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                {{-- Story --}}
+                <div class="section-label" style="margin-top: 2.5rem;">
+                    <span class="section-label-text">03 · Tell us your story</span>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="experience_summary" class="field-label">Experience</label>
+                        <textarea id="experience_summary" name="experience_summary" rows="4" placeholder="Briefly share your live selling or hosting background — platforms, niches, notable wins, audience size, etc." class="input-base">{{ old('experience_summary') }}</textarea>
+                    </div>
+
+                    <div>
+                        <label for="motivation" class="field-label">Why do you want to join us?</label>
+                        <textarea id="motivation" name="motivation" rows="4" placeholder="What draws you to this role? What would you bring to the team?" class="input-base">{{ old('motivation') }}</textarea>
+                    </div>
+                </div>
+
+                {{-- Resume --}}
+                <div class="section-label" style="margin-top: 2.5rem;">
+                    <span class="section-label-text">04 · Anything to attach</span>
+                </div>
+
+                <label for="resume" class="file-drop">
+                    <span class="file-drop-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <div class="file-drop-text" id="resume-filename">Upload your resume</div>
+                        <div class="file-drop-hint">Optional · PDF, DOC, DOCX up to 5&nbsp;MB</div>
+                    </div>
                 </label>
-                <label class="platform-option">
-                    <input type="checkbox" name="platforms[]" value="shopee" @checked(in_array('shopee', $selectedPlatforms))>
-                    <span class="platform-label">Shopee</span>
-                </label>
-                <label class="platform-option">
-                    <input type="checkbox" name="platforms[]" value="facebook" @checked(in_array('facebook', $selectedPlatforms))>
-                    <span class="platform-label">Facebook</span>
-                </label>
-            </div>
-        </fieldset>
+                <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx" class="sr-only"
+                       onchange="document.getElementById('resume-filename').textContent = this.files[0] ? this.files[0].name : 'Upload your resume';">
 
-        <div class="section-label">
-            <span class="section-label-text">Tell us your story</span>
+                {{-- Submit --}}
+                <div class="mt-8 border-t pt-6" style="border-color: var(--rec-border-2);">
+                    <button type="submit" class="btn-primary">
+                        Submit application
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                            <polyline points="12 5 19 12 12 19"/>
+                        </svg>
+                    </button>
+                    <p class="mt-3 text-center text-[12px]" style="color: var(--rec-muted-2);">
+                        By submitting you agree we may contact you about this role. We handle your info with care.
+                    </p>
+                </div>
+            </form>
         </div>
-
-        <div class="space-y-5">
-            <div>
-                <label for="experience_summary" class="label-base">Experience</label>
-                <textarea id="experience_summary" name="experience_summary" rows="4"
-                          placeholder="Briefly share your live selling or hosting background — platforms, niches, notable wins, audience size, etc."
-                          class="input-base">{{ old('experience_summary') }}</textarea>
-            </div>
-
-            <div>
-                <label for="motivation" class="label-base">Why do you want to join us?</label>
-                <textarea id="motivation" name="motivation" rows="4"
-                          placeholder="What draws you to this role? What would you bring to the team?"
-                          class="input-base">{{ old('motivation') }}</textarea>
-            </div>
-        </div>
-
-        <div class="section-label">
-            <span class="section-label-text">Anything to attach</span>
-        </div>
-
-        <div>
-            <label for="resume" class="file-drop" id="resume-label">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                </svg>
-                <span id="resume-filename">Upload resume (optional)</span>
-            </label>
-            <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx" class="sr-only" onchange="document.getElementById('resume-filename').textContent = this.files[0] ? this.files[0].name : 'Upload resume (optional)'; document.getElementById('resume-filename').classList.toggle('file-drop-filename', !!this.files[0]);">
-            <p class="hint-text">PDF, DOC, or DOCX · up to 5 MB</p>
-        </div>
-
-        <div class="mt-10 flex flex-col-reverse items-start justify-between gap-4 border-t pt-6 sm:flex-row sm:items-center" style="border-color: var(--rec-border-2);">
-            <p class="text-[12.5px] leading-relaxed" style="color: var(--rec-muted);">
-                By submitting, you agree that we may contact you about this role.<br class="hidden sm:inline">
-                We handle your info with care and never share it.
-            </p>
-            <button type="submit" class="btn-submit">
-                Submit application
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                    <polyline points="12 5 19 12 12 19"/>
-                </svg>
-            </button>
-        </div>
-    </form>
+    </div>
 </div>
 </body>
 </html>
