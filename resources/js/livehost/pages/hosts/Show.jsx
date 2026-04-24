@@ -16,6 +16,7 @@ import StatusChip from '@/livehost/components/StatusChip';
 import CommissionTierTable from '@/livehost/components/CommissionTierTable';
 import { Button } from '@/livehost/components/ui/button';
 import { Input } from '@/livehost/components/ui/input';
+import { resolveTier, formatTierRange } from '@/livehost/utils/commissionTier';
 
 function statusVariant(status) {
   if (status === 'active') {
@@ -686,8 +687,7 @@ function CommissionPanel({
       <MonthlyProjection
         baseSalary={baseSalary}
         perLiveRate={perLiveRate}
-        primaryPercent={primaryPercent}
-        primaryPlatform={primaryRate?.platform_name ?? 'TikTok Shop'}
+        commissionTiers={commissionTiers}
         formatMoney={formatMoney}
       />
 
@@ -1052,13 +1052,38 @@ function AddTierScheduleButton({ platforms, existingGroups, onAdd }) {
   );
 }
 
-function MonthlyProjection({ baseSalary, perLiveRate, primaryPercent, primaryPlatform, formatMoney }) {
+function MonthlyProjection({ baseSalary, perLiveRate, commissionTiers, formatMoney }) {
+  const groups = Array.isArray(commissionTiers) ? commissionTiers : [];
   const [sessions, setSessions] = useState(20);
   const [gmv, setGmv] = useState(50000);
+  const [selectedPlatformId, setSelectedPlatformId] = useState(() =>
+    groups.length > 0 ? groups[0].platform_id : null,
+  );
+
+  const activeGroup = useMemo(() => {
+    if (groups.length === 0) {
+      return null;
+    }
+    return groups.find((g) => g.platform_id === selectedPlatformId) ?? groups[0];
+  }, [groups, selectedPlatformId]);
+
+  const activeTiers = activeGroup?.tiers ?? [];
+  const platformLabel =
+    activeGroup?.platform?.name ?? activeGroup?.platform?.slug ?? 'Platform';
+
+  const matchedTier = useMemo(() => resolveTier(activeTiers, gmv), [activeTiers, gmv]);
 
   const perLivePay = perLiveRate * sessions;
-  const performancePay = (gmv * primaryPercent) / 100;
+  const internalPercent = matchedTier ? Number(matchedTier.internal_percent) : 0;
+  const l1Percent = matchedTier ? Number(matchedTier.l1_percent) : 0;
+  const l2Percent = matchedTier ? Number(matchedTier.l2_percent) : 0;
+  const performancePay = (gmv * internalPercent) / 100;
+  const l1Generated = (gmv * l1Percent) / 100;
+  const l2Generated = (gmv * l2Percent) / 100;
   const total = baseSalary + perLivePay + performancePay;
+
+  const hasSchedule = activeTiers.length > 0;
+  const belowFloor = hasSchedule && !matchedTier;
 
   return (
     <section className="overflow-hidden rounded-[16px] border border-[#0A0A0A] bg-[#0A0A0A] text-white shadow-[0_8px_24px_rgba(0,0,0,0.15)]">
@@ -1074,12 +1099,28 @@ function MonthlyProjection({ baseSalary, perLiveRate, primaryPercent, primaryPla
             </p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-[10.5px] font-medium uppercase tracking-[0.1em] text-white/50">
-            Total
-          </div>
-          <div className="font-mono text-[28px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-white">
-            RM {formatMoney(Math.round(total))}
+        <div className="flex items-center gap-3">
+          {groups.length > 1 && (
+            <select
+              value={activeGroup?.platform_id ?? ''}
+              onChange={(e) => setSelectedPlatformId(Number(e.target.value))}
+              className="h-8 rounded-md border border-white/20 bg-white/5 px-2 text-[12px] text-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/40"
+              aria-label="Projection platform"
+            >
+              {groups.map((g) => (
+                <option key={g.platform_id} value={g.platform_id} className="text-black">
+                  {g.platform?.name ?? g.platform?.slug ?? `Platform #${g.platform_id}`}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="text-right">
+            <div className="text-[10.5px] font-medium uppercase tracking-[0.1em] text-white/50">
+              Total
+            </div>
+            <div className="font-mono text-[28px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-white">
+              RM {formatMoney(Math.round(total))}
+            </div>
           </div>
         </div>
       </header>
@@ -1096,7 +1137,7 @@ function MonthlyProjection({ baseSalary, perLiveRate, primaryPercent, primaryPla
         />
         <div className="bg-white/10" />
         <ProjectionInput
-          label={`${primaryPlatform} GMV`}
+          label={`${platformLabel} GMV`}
           hint="attributed to this host"
           value={gmv}
           min={0}
@@ -1104,27 +1145,140 @@ function MonthlyProjection({ baseSalary, perLiveRate, primaryPercent, primaryPla
           step={1000}
           prefix="RM "
           onChange={setGmv}
-          footer={`≈ RM ${formatMoney(Math.round(performancePay))} performance pay`}
+          badge={
+            <TierBadge
+              tier={matchedTier}
+              hasSchedule={hasSchedule}
+              belowFloor={belowFloor}
+            />
+          }
+          footer={
+            !hasSchedule
+              ? 'No tier schedule configured for this platform'
+              : belowFloor
+                ? 'Below Tier 1 — no performance commission'
+                : `≈ RM ${formatMoney(Math.round(performancePay))} performance pay`
+          }
         />
+      </div>
+
+      <div className="border-t border-white/10 px-5 py-4">
+        <div className="mb-3 text-[10.5px] font-medium uppercase tracking-[0.1em] text-white/40">
+          Breakdown
+        </div>
+        <div className="space-y-2 text-[12.5px]">
+          <BreakdownRow
+            label="Base salary"
+            value={`RM ${formatMoney(Math.round(baseSalary))}`}
+          />
+          <BreakdownRow
+            label={`Per-live · ${sessions} session${sessions === 1 ? '' : 's'}`}
+            value={`RM ${formatMoney(Math.round(perLivePay))}`}
+          />
+          <BreakdownRow
+            label={
+              matchedTier
+                ? `Your earnings · ${internalPercent}% × GMV`
+                : 'Your earnings · performance commission'
+            }
+            value={`RM ${formatMoney(Math.round(performancePay))}`}
+            emphasize
+          />
+        </div>
+
+        <div className="mt-4 border-t border-white/10 pt-3">
+          <div className="mb-2 flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.1em] text-white/30">
+            Informational · upline overrides generated
+          </div>
+          <div className="space-y-1.5 text-[12px]">
+            <BreakdownRow
+              label={`L1 upline override${matchedTier ? ` · ${l1Percent}% × GMV` : ''}`}
+              value={`RM ${formatMoney(Math.round(l1Generated))}`}
+              muted
+            />
+            <BreakdownRow
+              label={`L2 upline override${matchedTier ? ` · ${l2Percent}% × GMV` : ''}`}
+              value={`RM ${formatMoney(Math.round(l2Generated))}`}
+              muted
+            />
+          </div>
+        </div>
       </div>
 
       <footer className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 text-[12px]">
         <ProjectionLeg label="Base" value={`RM ${formatMoney(baseSalary)}`} />
         <ProjectionLeg label="Per-live" value={`RM ${formatMoney(Math.round(perLivePay))}`} />
-        <ProjectionLeg label="Performance" value={`RM ${formatMoney(Math.round(performancePay))}`} />
+        <ProjectionLeg
+          label={matchedTier ? `Tier ${matchedTier.tier_number}` : 'Performance'}
+          value={`RM ${formatMoney(Math.round(performancePay))}`}
+        />
       </footer>
     </section>
   );
 }
 
-function ProjectionInput({ label, hint, value, min = 0, max = 100, step = 1, prefix = '', onChange, footer }) {
+function TierBadge({ tier, hasSchedule, belowFloor }) {
+  if (!hasSchedule) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-white/50">
+        No schedule
+      </span>
+    );
+  }
+  if (belowFloor || !tier) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-white/50">
+        Below Tier 1
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#10B981]/40 bg-[#10B981]/15 px-2 py-0.5 font-mono text-[10.5px] font-medium tracking-[0.04em] text-[#34D399]">
+      <span>T{tier.tier_number}</span>
+      <span className="text-white/60">·</span>
+      <span>{formatTierRange(tier)}</span>
+      <span className="text-white/60">·</span>
+      <span>{Number(tier.internal_percent)}%</span>
+    </span>
+  );
+}
+
+function BreakdownRow({ label, value, emphasize = false, muted = false }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <div
+        className={`truncate ${
+          muted ? 'text-white/40' : emphasize ? 'text-white' : 'text-white/70'
+        }`}
+      >
+        {label}
+      </div>
+      <div
+        className={`shrink-0 font-mono tabular-nums ${
+          muted
+            ? 'text-white/50'
+            : emphasize
+              ? 'text-[#34D399]'
+              : 'text-white'
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ProjectionInput({ label, hint, value, min = 0, max = 100, step = 1, prefix = '', onChange, footer, badge }) {
   const percent = max === min ? 0 : Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
   return (
     <div>
       <div className="flex items-baseline justify-between">
-        <div>
-          <div className="text-[11.5px] font-medium uppercase tracking-[0.08em] text-white/60">
-            {label}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <div className="text-[11.5px] font-medium uppercase tracking-[0.08em] text-white/60">
+              {label}
+            </div>
+            {badge}
           </div>
           <div className="mt-0.5 text-[11px] text-white/40">{hint}</div>
         </div>
