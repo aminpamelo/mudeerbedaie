@@ -4,6 +4,7 @@ namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
 use App\Models\LiveSchedule;
+use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
 use App\Models\PlatformAccount;
 use App\Models\User;
@@ -16,6 +17,10 @@ class DashboardController extends Controller
 {
     public function index(Request $request): Response
     {
+        if ($request->user()?->isLiveHostAssistant()) {
+            return Inertia::render('SchedulerDashboard', $this->schedulerStats());
+        }
+
         return Inertia::render('Dashboard', [
             'stats' => $this->stats(),
             'liveNow' => $this->liveNow(),
@@ -55,6 +60,61 @@ class DashboardController extends Controller
             'liveNow' => LiveSession::where('status', 'live')->count(),
             'sessionsToday' => LiveSession::whereDate('scheduled_start_at', today())->count(),
             'watchHoursToday' => $this->watchHoursToday(),
+        ];
+    }
+
+    /**
+     * Props for the scheduler-focused dashboard. No GMV, commission, or
+     * financial fields — the livehost_assistant role must not see revenue.
+     *
+     * @return array<string, mixed>
+     */
+    private function schedulerStats(): array
+    {
+        $weekStart = now()->startOfWeek();
+        $weekEnd = now()->endOfWeek();
+        $today = today();
+
+        $weekSlots = LiveScheduleAssignment::query()
+            ->where('is_template', false)
+            ->whereBetween('schedule_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->get(['id', 'schedule_date', 'live_host_id', 'platform_account_id', 'status']);
+
+        $assignedCount = $weekSlots->whereNotNull('live_host_id')->count();
+        $totalCount = $weekSlots->count();
+
+        $todaySlots = LiveScheduleAssignment::query()
+            ->where('is_template', false)
+            ->whereDate('schedule_date', $today)
+            ->with(['liveHost:id,name', 'platformAccount:id,name'])
+            ->orderBy('schedule_date')
+            ->orderBy('id')
+            ->get(['id', 'schedule_date', 'live_host_id', 'platform_account_id', 'status']);
+
+        return [
+            'stats' => [
+                'coveragePercent' => $totalCount === 0 ? 0 : (int) round($assignedCount / $totalCount * 100),
+                'unassignedCount' => $totalCount - $assignedCount,
+                'activeHosts' => User::query()->where('role', 'live_host')->where('status', 'active')->count(),
+                'platformAccounts' => PlatformAccount::query()->count(),
+            ],
+            'unassignedThisWeek' => $weekSlots
+                ->whereNull('live_host_id')
+                ->take(20)
+                ->values()
+                ->map(fn (LiveScheduleAssignment $s) => [
+                    'id' => $s->id,
+                    'schedule_date' => $s->schedule_date?->toDateString(),
+                    'platform_account_id' => $s->platform_account_id,
+                    'status' => $s->status,
+                ]),
+            'todaySlots' => $todaySlots->map(fn (LiveScheduleAssignment $s) => [
+                'id' => $s->id,
+                'schedule_date' => $s->schedule_date?->toDateString(),
+                'status' => $s->status,
+                'host_name' => $s->liveHost?->name,
+                'platform_account_label' => $s->platformAccount?->name,
+            ]),
         ];
     }
 

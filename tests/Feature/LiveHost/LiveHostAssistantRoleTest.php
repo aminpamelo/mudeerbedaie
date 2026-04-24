@@ -109,3 +109,27 @@ it('excludes sensitive nav count keys from assistant payload', function () {
         ->missing('navCounts.schedules')
     );
 });
+
+it('renders SchedulerDashboard for livehost_assistant', function () {
+    $assistant = User::factory()->liveHostAssistant()->create();
+
+    $response = $this->actingAs($assistant)->get(route('livehost.dashboard'));
+
+    $response->assertInertia(fn ($page) => $page
+        ->component('SchedulerDashboard', false)
+        ->has('stats.coveragePercent')
+        ->has('stats.unassignedCount')
+        ->has('stats.activeHosts')
+        ->has('stats.platformAccounts')
+        ->has('unassignedThisWeek')
+        ->has('todaySlots')
+    );
+});
+
+it('still renders Dashboard for admin_livehost', function () {
+    $pic = User::factory()->create(['role' => 'admin_livehost']);
+
+    $response = $this->actingAs($pic)->get(route('livehost.dashboard'));
+
+    $response->assertInertia(fn ($page) => $page->component('Dashboard', false));
+});
