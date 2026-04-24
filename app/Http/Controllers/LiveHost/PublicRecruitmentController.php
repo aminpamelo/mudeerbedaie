@@ -7,9 +7,11 @@ use App\Http\Requests\LiveHost\Recruitment\ApplyRequest;
 use App\Models\LiveHostApplicant;
 use App\Models\LiveHostRecruitmentCampaign;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class PublicRecruitmentController extends Controller
 {
@@ -42,33 +44,47 @@ class PublicRecruitmentController extends Controller
 
         $resumePath = $request->file('resume')?->store('recruitment/resumes', 'local');
 
-        DB::transaction(function () use ($request, $campaign, $resumePath) {
-            $firstStage = $campaign->stages->sortBy('position')->first();
+        try {
+            DB::transaction(function () use ($request, $campaign, $resumePath) {
+                $firstStage = $campaign->stages->sortBy('position')->first();
 
-            $applicant = LiveHostApplicant::create([
-                'campaign_id' => $campaign->id,
-                'applicant_number' => LiveHostApplicant::generateApplicantNumber(),
-                'full_name' => $request->string('full_name'),
-                'email' => $request->string('email'),
-                'phone' => $request->string('phone'),
-                'ic_number' => $request->input('ic_number'),
-                'location' => $request->input('location'),
-                'platforms' => $request->input('platforms'),
-                'experience_summary' => $request->input('experience_summary'),
-                'motivation' => $request->input('motivation'),
-                'resume_path' => $resumePath,
-                'current_stage_id' => $firstStage?->id,
-                'status' => 'active',
-                'applied_at' => now(),
-            ]);
+                $applicant = LiveHostApplicant::create([
+                    'campaign_id' => $campaign->id,
+                    'applicant_number' => LiveHostApplicant::generateApplicantNumber(),
+                    'full_name' => $request->string('full_name'),
+                    'email' => $request->string('email'),
+                    'phone' => $request->string('phone'),
+                    'ic_number' => $request->input('ic_number'),
+                    'location' => $request->input('location'),
+                    'platforms' => $request->input('platforms'),
+                    'experience_summary' => $request->input('experience_summary'),
+                    'motivation' => $request->input('motivation'),
+                    'resume_path' => $resumePath,
+                    'current_stage_id' => $firstStage?->id,
+                    'status' => 'active',
+                    'applied_at' => now(),
+                ]);
 
-            $applicant->history()->create([
-                'to_stage_id' => $firstStage?->id,
-                'action' => 'applied',
-            ]);
+                $applicant->history()->create([
+                    'to_stage_id' => $firstStage?->id,
+                    'action' => 'applied',
+                ]);
 
-            // TODO: dispatch confirmation email
-        });
+                // TODO: dispatch confirmation email
+            });
+        } catch (QueryException $e) {
+            if ($resumePath) {
+                Storage::disk('local')->delete($resumePath);
+            }
+
+            if ($e->getCode() === '23000') {
+                return back()->withInput()->withErrors([
+                    'email' => 'You have already applied to this campaign with this email.',
+                ]);
+            }
+
+            throw $e;
+        }
 
         return redirect()->route('recruitment.thank-you', $slug);
     }
