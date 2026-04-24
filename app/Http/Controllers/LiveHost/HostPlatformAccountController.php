@@ -102,7 +102,7 @@ class HostPlatformAccountController extends Controller
         abort_if($request->user()?->isLiveHostAssistant() === true, 403);
         abort_unless($host->role === 'live_host', 404);
 
-        $user = request()->user();
+        $user = $request->user();
         abort_unless(
             $user && in_array($user->role, ['admin_livehost', 'admin'], true),
             403
