@@ -26,7 +26,7 @@ return new class extends Migration
             ->update(['form_schema' => json_encode($defaultSchema)]);
 
         // 3. Backfill applicants
-        DB::table('live_host_applicants')->orderBy('id')->chunkById(200, function ($rows) use ($defaultSchema) {
+        DB::table('live_host_applicants')->whereNull('form_data')->orderBy('id')->chunkById(200, function ($rows) use ($defaultSchema) {
             foreach ($rows as $row) {
                 $formData = [
                     'f_name' => $row->full_name,
