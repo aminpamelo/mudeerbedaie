@@ -237,6 +237,12 @@ class SessionController extends Controller
                 ]);
             });
         } catch (\Illuminate\Database\QueryException $e) {
+            // Only treat unique-constraint violations as the "already linked" case.
+            // Other DB errors (deadlock, connection drop, etc.) should bubble up.
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+
             return back()
                 ->withErrors([
                     'actual_live_record_id' => 'Record was just linked elsewhere — refresh and retry.',
