@@ -22,7 +22,31 @@ class LiveHostRecruitmentCampaign extends Model
             'opens_at' => 'datetime',
             'closes_at' => 'datetime',
             'target_count' => 'integer',
+            'form_schema' => 'array',
         ];
+    }
+
+    public function getAllFields(): array
+    {
+        $fields = [];
+        foreach (($this->form_schema['pages'] ?? []) as $page) {
+            foreach (($page['fields'] ?? []) as $field) {
+                $fields[] = $field;
+            }
+        }
+
+        return $fields;
+    }
+
+    public function getFieldByRole(string $role): ?array
+    {
+        foreach ($this->getAllFields() as $field) {
+            if (($field['role'] ?? null) === $role) {
+                return $field;
+            }
+        }
+
+        return null;
     }
 
     public function creator(): BelongsTo

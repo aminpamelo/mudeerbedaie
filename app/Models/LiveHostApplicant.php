@@ -13,20 +13,50 @@ class LiveHostApplicant extends Model
     use HasFactory;
 
     protected $fillable = [
-        'campaign_id', 'applicant_number', 'full_name', 'email', 'phone',
-        'ic_number', 'location', 'platforms', 'experience_summary', 'motivation',
-        'resume_path', 'source', 'current_stage_id', 'status', 'rating', 'notes',
+        'campaign_id', 'applicant_number', 'email',
+        'form_data', 'form_schema_snapshot',
+        'source', 'current_stage_id', 'status', 'rating', 'notes',
         'applied_at', 'hired_at', 'hired_user_id',
     ];
 
     protected function casts(): array
     {
         return [
-            'platforms' => 'array',
             'rating' => 'integer',
             'applied_at' => 'datetime',
             'hired_at' => 'datetime',
+            'form_data' => 'array',
+            'form_schema_snapshot' => 'array',
         ];
+    }
+
+    public function valueByRole(string $role): mixed
+    {
+        $schema = $this->form_schema_snapshot ?? [];
+        foreach (($schema['pages'] ?? []) as $page) {
+            foreach (($page['fields'] ?? []) as $field) {
+                if (($field['role'] ?? null) === $role) {
+                    return $this->form_data[$field['id']] ?? null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public function getNameAttribute(): ?string
+    {
+        return $this->valueByRole('name') ?? $this->email;
+    }
+
+    public function getPhoneAttribute(): ?string
+    {
+        return $this->valueByRole('phone');
+    }
+
+    public function getResumePathAttribute(): ?string
+    {
+        return $this->valueByRole('resume');
     }
 
     public function campaign(): BelongsTo
