@@ -42,6 +42,7 @@ class LiveSession extends Model
         'verified_by',
         'verified_at',
         'verification_notes',
+        'matched_actual_live_record_id',
     ];
 
     protected function casts(): array
@@ -97,6 +98,16 @@ class LiveSession extends Model
     public function verifiedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function matchedActualLiveRecord(): BelongsTo
+    {
+        return $this->belongsTo(ActualLiveRecord::class, 'matched_actual_live_record_id');
+    }
+
+    public function verificationEvents(): HasMany
+    {
+        return $this->hasMany(LiveSessionVerificationEvent::class);
     }
 
     public function analytics(): HasOne
