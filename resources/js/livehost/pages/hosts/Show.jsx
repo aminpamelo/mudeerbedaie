@@ -698,12 +698,23 @@ function CommissionPanel({
         subtitle="Set this host's upline so L1/L2 overrides flow up the chain."
         accent="#8B5CF6"
         action={
-          metaSuccess ? (
-            <div className="flex items-center gap-1.5 rounded-full bg-[#ECFDF5] px-2.5 py-1 text-[11.5px] font-medium text-[#065F46]">
-              <Check className="h-3 w-3" strokeWidth={3} />
-              Saved
-            </div>
-          ) : null
+          <div className="flex items-center gap-2">
+            {metaSuccess && (
+              <div className="flex items-center gap-1.5 rounded-full bg-[#ECFDF5] px-2.5 py-1 text-[11.5px] font-medium text-[#065F46]">
+                <Check className="h-3 w-3" strokeWidth={3} />
+                Saved
+              </div>
+            )}
+            <Button
+              type="button"
+              onClick={handleSaveMeta}
+              disabled={savingMeta}
+              size="sm"
+              className="bg-[#0A0A0A] text-white hover:bg-[#262626]"
+            >
+              {savingMeta ? 'Saving…' : hasActive ? 'Save' : 'Create profile'}
+            </Button>
+          </div>
         }
       >
         <div className="p-5">
@@ -800,17 +811,6 @@ function CommissionPanel({
               className="w-full resize-none rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-sm text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
             />
           </div>
-        </div>
-
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            onClick={handleSaveMeta}
-            disabled={savingMeta}
-            className="bg-[#0A0A0A] text-white hover:bg-[#262626]"
-          >
-            {savingMeta ? 'Saving…' : hasActive ? 'Save hierarchy & notes' : 'Create profile'}
-          </Button>
         </div>
         </div>
       </LedgerSection>
