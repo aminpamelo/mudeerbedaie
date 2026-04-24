@@ -351,6 +351,40 @@ Route::middleware(['auth', 'role:admin_livehost,admin'])
             ->name('tiktok-imports.show');
         Route::post('tiktok-imports/{import}/apply', [\App\Http\Controllers\LiveHost\TiktokReportImportController::class, 'apply'])
             ->name('tiktok-imports.apply');
+
+        // Recruitment admin — campaigns + stage editor + lifecycle transitions.
+        Route::prefix('recruitment')->name('recruitment.')->group(function () {
+            Route::get('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'index'])
+                ->name('campaigns.index');
+            Route::get('campaigns/create', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'create'])
+                ->name('campaigns.create');
+            Route::post('campaigns', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'store'])
+                ->name('campaigns.store');
+            Route::get('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'show'])
+                ->name('campaigns.show');
+            Route::get('campaigns/{campaign}/edit', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'edit'])
+                ->name('campaigns.edit');
+            Route::put('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'update'])
+                ->name('campaigns.update');
+            Route::patch('campaigns/{campaign}/publish', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'publish'])
+                ->name('campaigns.publish');
+            Route::patch('campaigns/{campaign}/pause', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'pause'])
+                ->name('campaigns.pause');
+            Route::patch('campaigns/{campaign}/close', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'close'])
+                ->name('campaigns.close');
+            Route::delete('campaigns/{campaign}', [\App\Http\Controllers\LiveHost\RecruitmentCampaignController::class, 'destroy'])
+                ->name('campaigns.destroy');
+
+            // Stage editor endpoints (note: reorder must come before the {stage} routes).
+            Route::post('campaigns/{campaign}/stages', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'store'])
+                ->name('campaigns.stages.store');
+            Route::put('campaigns/{campaign}/stages/reorder', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'reorder'])
+                ->name('campaigns.stages.reorder');
+            Route::put('campaigns/{campaign}/stages/{stage}', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'update'])
+                ->name('campaigns.stages.update');
+            Route::delete('campaigns/{campaign}/stages/{stage}', [\App\Http\Controllers\LiveHost\RecruitmentStageController::class, 'destroy'])
+                ->name('campaigns.stages.destroy');
+        });
     });
 
 // Public Live Schedule - accessible by everyone
