@@ -467,100 +467,17 @@
                   class="form-card p-6 sm:p-8">
                 @csrf
 
-                {{-- About you --}}
-                <div class="section-label">
-                    <span class="section-label-text">01 · About you</span>
-                </div>
-
-                <div class="space-y-4">
-                    <div>
-                        <label for="full_name" class="field-label">Full name <span class="required-dot" aria-label="required"></span></label>
-                        <input type="text" id="full_name" name="full_name" required value="{{ old('full_name') }}" autocomplete="name" class="input-base" placeholder="Your full name">
+                @foreach (($campaign->form_schema['pages'] ?? []) as $page)
+                    <div class="section-label" @if ($loop->first) style="margin-top: 0;" @else style="margin-top: 2.5rem;" @endif>
+                        <span class="section-label-text">{{ sprintf('%02d', $loop->iteration) }} · {{ $page['title'] ?? '' }}</span>
                     </div>
 
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="email" class="field-label">Email <span class="required-dot" aria-label="required"></span></label>
-                            <input type="email" id="email" name="email" required value="{{ old('email') }}" autocomplete="email" class="input-base" placeholder="you@example.com">
-                        </div>
-                        <div>
-                            <label for="phone" class="field-label">Phone <span class="required-dot" aria-label="required"></span></label>
-                            <input type="text" id="phone" name="phone" required value="{{ old('phone') }}" autocomplete="tel" class="input-base" placeholder="60123456789">
-                        </div>
+                    <div class="space-y-4">
+                        @foreach (($page['fields'] ?? []) as $field)
+                            @include("recruitment.fields.{$field['type']}", ['field' => $field])
+                        @endforeach
                     </div>
-
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="ic_number" class="field-label">IC number</label>
-                            <input type="text" id="ic_number" name="ic_number" value="{{ old('ic_number') }}" class="input-base" placeholder="Optional">
-                        </div>
-                        <div>
-                            <label for="location" class="field-label">Location</label>
-                            <input type="text" id="location" name="location" value="{{ old('location') }}" class="input-base" placeholder="City, state">
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Platforms --}}
-                <div class="section-label" style="margin-top: 2.5rem;">
-                    <span class="section-label-text">02 · Where can you go live?</span>
-                </div>
-
-                <fieldset>
-                    <legend class="field-label">Pick one or more <span class="required-dot" aria-label="required"></span></legend>
-                    @php($selectedPlatforms = old('platforms', []))
-                    <div class="mt-1 grid gap-2.5 sm:grid-cols-3">
-                        <label class="platform-option">
-                            <input type="checkbox" name="platforms[]" value="tiktok" @checked(in_array('tiktok', $selectedPlatforms))>
-                            <span class="platform-label">TikTok</span>
-                        </label>
-                        <label class="platform-option">
-                            <input type="checkbox" name="platforms[]" value="shopee" @checked(in_array('shopee', $selectedPlatforms))>
-                            <span class="platform-label">Shopee</span>
-                        </label>
-                        <label class="platform-option">
-                            <input type="checkbox" name="platforms[]" value="facebook" @checked(in_array('facebook', $selectedPlatforms))>
-                            <span class="platform-label">Facebook</span>
-                        </label>
-                    </div>
-                </fieldset>
-
-                {{-- Story --}}
-                <div class="section-label" style="margin-top: 2.5rem;">
-                    <span class="section-label-text">03 · Tell us your story</span>
-                </div>
-
-                <div class="space-y-4">
-                    <div>
-                        <label for="experience_summary" class="field-label">Experience</label>
-                        <textarea id="experience_summary" name="experience_summary" rows="4" placeholder="Briefly share your live selling or hosting background — platforms, niches, notable wins, audience size, etc." class="input-base">{{ old('experience_summary') }}</textarea>
-                    </div>
-
-                    <div>
-                        <label for="motivation" class="field-label">Why do you want to join us?</label>
-                        <textarea id="motivation" name="motivation" rows="4" placeholder="What draws you to this role? What would you bring to the team?" class="input-base">{{ old('motivation') }}</textarea>
-                    </div>
-                </div>
-
-                {{-- Resume --}}
-                <div class="section-label" style="margin-top: 2.5rem;">
-                    <span class="section-label-text">04 · Anything to attach</span>
-                </div>
-
-                <label for="resume" class="file-drop">
-                    <span class="file-drop-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                        </svg>
-                    </span>
-                    <div class="min-w-0 flex-1">
-                        <div class="file-drop-text" id="resume-filename">Upload your resume</div>
-                        <div class="file-drop-hint">Optional · PDF, DOC, DOCX up to 5&nbsp;MB</div>
-                    </div>
-                </label>
-                <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx" class="sr-only"
-                       onchange="document.getElementById('resume-filename').textContent = this.files[0] ? this.files[0].name : 'Upload your resume';">
+                @endforeach
 
                 {{-- Submit --}}
                 <div class="mt-8 border-t pt-6" style="border-color: var(--rec-border-2);">
