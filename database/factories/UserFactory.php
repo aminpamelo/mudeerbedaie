@@ -85,4 +85,14 @@ class UserFactory extends Factory
             'role' => 'sales',
         ]);
     }
+
+    /**
+     * Create a livehost_assistant user (external scheduler assisting the PIC).
+     */
+    public function liveHostAssistant(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'livehost_assistant',
+        ]);
+    }
 }

@@ -113,6 +113,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is an external live host scheduler (assistant to PIC).
+     */
+    public function isLiveHostAssistant(): bool
+    {
+        return $this->role === 'livehost_assistant';
+    }
+
+    /**
      * Check if user is class admin
      */
     public function isClassAdmin(): bool
