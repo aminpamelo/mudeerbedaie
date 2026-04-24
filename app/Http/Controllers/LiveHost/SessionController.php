@@ -16,6 +16,7 @@ use App\Models\LiveSessionGmvAdjustment;
 use App\Models\LiveSessionVerificationEvent;
 use App\Models\PlatformAccount;
 use App\Models\User;
+use App\Services\LiveHost\ActualLiveRecordCandidateFinder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -326,12 +327,35 @@ class SessionController extends Controller
             'gmvAdjustments.adjustedBy:id,name',
         ]);
 
+        $candidates = app(ActualLiveRecordCandidateFinder::class)
+            ->forSession($session)
+            ->map(fn (ActualLiveRecord $r) => [
+                'id' => $r->id,
+                'launchedTime' => $r->launched_time?->toIso8601String(),
+                'endedTime' => $r->ended_time?->toIso8601String(),
+                'durationSeconds' => $r->duration_seconds,
+                'gmvMyr' => (float) $r->gmv_myr,
+                'liveAttributedGmvMyr' => (float) $r->live_attributed_gmv_myr,
+                'viewers' => $r->viewers,
+                'itemsSold' => $r->items_sold,
+                'creatorHandle' => $r->creator_handle,
+                'source' => $r->source,
+                'isSuggested' => false,
+            ])
+            ->values()
+            ->all();
+
+        if ($candidates !== []) {
+            $candidates[0]['isSuggested'] = true;
+        }
+
         return Inertia::render('sessions/Show', [
             'session' => $this->mapSession($session, detailed: true),
             'analytics' => $this->mapAnalytics($session->analytics),
             'attachments' => $session->attachments
                 ->map(fn (LiveSessionAttachment $a) => $this->mapAttachment($a))
                 ->values(),
+            'candidates' => $candidates,
         ]);
     }
 
