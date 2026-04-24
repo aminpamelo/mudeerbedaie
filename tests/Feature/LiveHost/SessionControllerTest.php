@@ -318,7 +318,7 @@ it('rejects deleting an attachment that belongs to a different session', functio
         ->assertNotFound();
 });
 
-it('marks a session as verified with notes and records the verifier', function () {
+it('blocks status=verified on the verify endpoint (must use verify-link)', function () {
     $session = LiveSession::factory()->create(['verification_status' => 'pending']);
 
     actingAs($this->pic)
@@ -326,14 +326,12 @@ it('marks a session as verified with notes and records the verifier', function (
             'verification_status' => 'verified',
             'verification_notes' => 'Looked clean, signing off.',
         ])
-        ->assertRedirect()
-        ->assertSessionHas('success');
+        ->assertStatus(422);
 
     $session->refresh();
-    expect($session->verification_status)->toBe('verified');
-    expect($session->verification_notes)->toBe('Looked clean, signing off.');
-    expect($session->verified_by)->toBe($this->pic->id);
-    expect($session->verified_at)->not->toBeNull();
+    expect($session->verification_status)->toBe('pending');
+    expect($session->verified_by)->toBeNull();
+    expect($session->verified_at)->toBeNull();
 });
 
 it('marks a session as rejected', function () {

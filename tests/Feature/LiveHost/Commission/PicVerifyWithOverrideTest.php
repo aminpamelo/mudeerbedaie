@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ActualLiveRecord;
 use App\Models\LiveHostPlatformAccount;
 use App\Models\LiveSession;
 use App\Models\Platform;
@@ -53,7 +54,7 @@ beforeEach(function () {
     $this->pic = User::factory()->create(['role' => 'admin_livehost']);
 });
 
-it('applies gmv_amount_override before verification so snapshot uses overridden GMV', function () {
+it('blocks status=verified on the verify endpoint — PIC must use verify-link', function () {
     $session = makePicVerifySession($this->ahmad, $this->tiktok, [
         'gmv_amount' => 500,
     ]);
@@ -61,61 +62,43 @@ it('applies gmv_amount_override before verification so snapshot uses overridden 
     actingAs($this->pic)
         ->post("/livehost/sessions/{$session->id}/verify", [
             'verification_status' => 'verified',
-            'gmv_amount_override' => 888,
+        ])
+        ->assertStatus(422);
+
+    $session->refresh();
+    expect($session->verification_status)->toBe('pending');
+    expect($session->gmv_locked_at)->toBeNull();
+    expect($session->commission_snapshot_json)->toBeNull();
+});
+
+it('locks GMV against the linked record when verified via verify-link', function () {
+    $session = makePicVerifySession($this->ahmad, $this->tiktok, [
+        'gmv_amount' => 500,
+    ]);
+    $pivot = $session->liveHostPlatformAccount;
+    $record = ActualLiveRecord::factory()->create([
+        'platform_account_id' => $session->platform_account_id,
+        'creator_platform_user_id' => $pivot->creator_platform_user_id,
+        'live_attributed_gmv_myr' => 888,
+    ]);
+
+    actingAs($this->pic)
+        ->post("/livehost/sessions/{$session->id}/verify-link", [
+            'actual_live_record_id' => $record->id,
         ])
         ->assertRedirect()
         ->assertSessionHas('success');
 
     $session->refresh();
 
+    expect($session->verification_status)->toBe('verified');
     expect((float) $session->gmv_amount)->toBe(888.0);
+    expect($session->gmv_source)->toBe('tiktok_actual');
     expect($session->gmv_locked_at)->not->toBeNull();
-    expect($session->commission_snapshot_json)->toBeArray();
-
-    $snapshot = $session->commission_snapshot_json;
-    expect($snapshot)->toHaveKey('gmv_commission');
-    expect((float) $snapshot['net_gmv'])->toBe(888.0);
-
-    $expected = round(888.0 * ((float) $snapshot['platform_rate_percent'] / 100), 2);
-    expect((float) $snapshot['gmv_commission'])->toBe($expected);
+    expect($session->matched_actual_live_record_id)->toBe($record->id);
 });
 
-it('preserves existing gmv_amount when override is not provided', function () {
-    $session = makePicVerifySession($this->ahmad, $this->tiktok, [
-        'gmv_amount' => 1234.56,
-    ]);
-
-    actingAs($this->pic)
-        ->post("/livehost/sessions/{$session->id}/verify", [
-            'verification_status' => 'verified',
-        ])
-        ->assertRedirect();
-
-    $session->refresh();
-    expect((float) $session->gmv_amount)->toBe(1234.56);
-    expect($session->gmv_locked_at)->not->toBeNull();
-    expect((float) $session->commission_snapshot_json['net_gmv'])->toBe(1234.56);
-});
-
-it('allows an explicit zero override for missed or adjusted sessions', function () {
-    $session = makePicVerifySession($this->ahmad, $this->tiktok, [
-        'gmv_amount' => 1000,
-    ]);
-
-    actingAs($this->pic)
-        ->post("/livehost/sessions/{$session->id}/verify", [
-            'verification_status' => 'verified',
-            'gmv_amount_override' => 0,
-        ])
-        ->assertRedirect();
-
-    $session->refresh();
-    expect((float) $session->gmv_amount)->toBe(0.0);
-    expect($session->gmv_locked_at)->not->toBeNull();
-    expect((float) $session->commission_snapshot_json['net_gmv'])->toBe(0.0);
-});
-
-it('forbids live_host from verifying a session with override', function () {
+it('forbids live_host from verifying a session via verify endpoint', function () {
     $host = User::factory()->create(['role' => 'live_host']);
     $session = makePicVerifySession($this->ahmad, $this->tiktok, [
         'gmv_amount' => 500,
@@ -123,8 +106,7 @@ it('forbids live_host from verifying a session with override', function () {
 
     actingAs($host)
         ->post("/livehost/sessions/{$session->id}/verify", [
-            'verification_status' => 'verified',
-            'gmv_amount_override' => 888,
+            'verification_status' => 'rejected',
         ])
         ->assertForbidden();
 
@@ -133,17 +115,23 @@ it('forbids live_host from verifying a session with override', function () {
     expect((float) $session->gmv_amount)->toBe(500.0);
 });
 
-it('rejects negative gmv_amount_override values', function () {
+it('forbids live_host from verifying a session via verify-link', function () {
+    $host = User::factory()->create(['role' => 'live_host']);
     $session = makePicVerifySession($this->ahmad, $this->tiktok, [
         'gmv_amount' => 500,
     ]);
+    $pivot = $session->liveHostPlatformAccount;
+    $record = ActualLiveRecord::factory()->create([
+        'platform_account_id' => $session->platform_account_id,
+        'creator_platform_user_id' => $pivot->creator_platform_user_id,
+        'live_attributed_gmv_myr' => 888,
+    ]);
 
-    actingAs($this->pic)
-        ->post("/livehost/sessions/{$session->id}/verify", [
-            'verification_status' => 'verified',
-            'gmv_amount_override' => -10,
+    actingAs($host)
+        ->post("/livehost/sessions/{$session->id}/verify-link", [
+            'actual_live_record_id' => $record->id,
         ])
-        ->assertSessionHasErrors('gmv_amount_override');
+        ->assertForbidden();
 
     $session->refresh();
     expect($session->verification_status)->toBe('pending');

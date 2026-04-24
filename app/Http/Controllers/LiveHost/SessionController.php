@@ -161,28 +161,58 @@ class SessionController extends Controller
     {
         $data = $request->validated();
         $nextStatus = $data['verification_status'];
-        $override = $data['gmv_amount_override'] ?? null;
+
+        // NEW GATE: verified status must go through verify-link
+        if ($nextStatus === 'verified') {
+            abort(422, 'Use verify-link with an actual_live_record_id.');
+        }
+
+        $isUnverify = $nextStatus === 'pending';
+        $wasVerified = $session->verification_status === 'verified';
 
         $attributes = [
             'verification_status' => $nextStatus,
             'verification_notes' => $data['verification_notes'] ?? null,
-            'verified_by' => $nextStatus === 'pending' ? null : $request->user()?->id,
-            'verified_at' => $nextStatus === 'pending' ? null : now(),
+            'verified_by' => $isUnverify ? null : $request->user()?->id,
+            'verified_at' => $isUnverify ? null : now(),
         ];
 
-        // Apply PIC override before status flips to 'verified' so the
-        // LiveSessionVerifiedObserver snapshots commission against the
-        // overridden GMV. Explicit 0 is valid (missed/adjusted sessions).
-        if ($override !== null) {
-            $attributes['gmv_amount'] = $override;
+        // Unverify: also clear the link + GMV lock
+        if ($isUnverify) {
+            $attributes['matched_actual_live_record_id'] = null;
+            $attributes['gmv_amount'] = 0;
+            $attributes['gmv_source'] = null;
+            $attributes['gmv_locked_at'] = null;
         }
 
-        $session->update($attributes);
+        $priorRecordId = $session->matched_actual_live_record_id;
+        $priorGmv = (float) ($session->gmv_amount ?? 0);
+
+        DB::transaction(function () use ($session, $attributes, $nextStatus, $wasVerified, $priorRecordId, $priorGmv, $request, $data) {
+            $session->update($attributes);
+
+            $action = match ($nextStatus) {
+                'rejected' => 'reject',
+                'pending' => 'unverify',
+                default => null,
+            };
+
+            if ($action !== null) {
+                LiveSessionVerificationEvent::create([
+                    'live_session_id' => $session->id,
+                    'actual_live_record_id' => $action === 'unverify' ? $priorRecordId : null,
+                    'action' => $action,
+                    'user_id' => $request->user()?->id,
+                    'gmv_snapshot' => $wasVerified ? $priorGmv : 0,
+                    'notes' => $data['verification_notes'] ?? null,
+                ]);
+            }
+        });
 
         $flash = match ($nextStatus) {
-            'verified' => 'Session verified.',
             'rejected' => 'Session rejected.',
-            default => 'Session verification reset.',
+            'pending' => 'Verification reset.',
+            default => 'Session updated.',
         };
 
         return back()->with('success', $flash);

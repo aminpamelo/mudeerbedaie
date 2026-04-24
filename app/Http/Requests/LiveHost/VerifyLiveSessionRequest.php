@@ -22,7 +22,6 @@ class VerifyLiveSessionRequest extends FormRequest
         return [
             'verification_status' => ['required', Rule::in(['pending', 'verified', 'rejected'])],
             'verification_notes' => ['nullable', 'string', 'max:1000'],
-            'gmv_amount_override' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
         ];
     }
 }
