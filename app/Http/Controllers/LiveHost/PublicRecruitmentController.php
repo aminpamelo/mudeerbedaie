@@ -4,6 +4,7 @@ namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LiveHost\Recruitment\ApplyRequest;
+use App\Mail\LiveHost\Recruitment\ApplicationReceivedMail;
 use App\Models\LiveHostApplicant;
 use App\Models\LiveHostRecruitmentCampaign;
 use Illuminate\Contracts\View\View;
@@ -11,6 +12,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class PublicRecruitmentController extends Controller
@@ -45,7 +47,7 @@ class PublicRecruitmentController extends Controller
         $resumePath = $request->file('resume')?->store('recruitment/resumes', 'local');
 
         try {
-            DB::transaction(function () use ($request, $campaign, $resumePath) {
+            $applicant = DB::transaction(function () use ($request, $campaign, $resumePath) {
                 $firstStage = $campaign->stages->sortBy('position')->first();
 
                 $applicant = LiveHostApplicant::create([
@@ -70,7 +72,7 @@ class PublicRecruitmentController extends Controller
                     'action' => 'applied',
                 ]);
 
-                // TODO: dispatch confirmation email
+                return $applicant;
             });
         } catch (QueryException $e) {
             if ($resumePath) {
@@ -85,6 +87,8 @@ class PublicRecruitmentController extends Controller
 
             throw $e;
         }
+
+        Mail::to((string) $applicant->email)->queue(new ApplicationReceivedMail($applicant));
 
         return redirect()->route('recruitment.thank-you', $slug);
     }

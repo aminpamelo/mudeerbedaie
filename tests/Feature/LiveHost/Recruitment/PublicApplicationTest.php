@@ -1,7 +1,9 @@
 <?php
 
+use App\Mail\LiveHost\Recruitment\ApplicationReceivedMail;
 use App\Models\LiveHostApplicant;
 use App\Models\LiveHostRecruitmentCampaign;
+use Illuminate\Support\Facades\Mail;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -90,4 +92,23 @@ it('validates required fields when submitting an application', function () {
     $response->assertSessionHasErrors(['full_name', 'email', 'phone', 'platforms']);
 
     expect(LiveHostApplicant::where('campaign_id', $campaign->id)->count())->toBe(0);
+});
+
+it('queues a confirmation email on successful application', function () {
+    Mail::fake();
+    $campaign = LiveHostRecruitmentCampaign::factory()->open()->create();
+
+    $this->post(route('recruitment.apply', $campaign->slug), [
+        'full_name' => 'Ahmad Test',
+        'email' => 'ahmad@mail.example',
+        'phone' => '60123456789',
+        'platforms' => ['tiktok'],
+        'experience_summary' => 'x',
+        'motivation' => 'y',
+    ]);
+
+    Mail::assertQueued(
+        ApplicationReceivedMail::class,
+        fn ($mail) => $mail->hasTo('ahmad@mail.example')
+    );
 });
