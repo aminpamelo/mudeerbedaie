@@ -42,3 +42,18 @@ it('has alr_candidate_idx composite index for the candidate-search query', funct
             'launched_time',
         ]);
 });
+
+it('adds matched_actual_live_record_id column to live_sessions', function () {
+    expect(Schema::hasColumn('live_sessions', 'matched_actual_live_record_id'))->toBeTrue();
+});
+
+it('enforces a unique constraint on live_sessions.matched_actual_live_record_id', function () {
+    $indexes = collect(Schema::getIndexes('live_sessions'));
+
+    $unique = $indexes->first(function (array $index) {
+        return $index['unique']
+            && $index['columns'] === ['matched_actual_live_record_id'];
+    });
+
+    expect($unique)->not->toBeNull();
+});
