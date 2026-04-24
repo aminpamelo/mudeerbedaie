@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\LiveHost\Recruitment;
 
+use App\Models\LiveHostRecruitmentCampaign;
+use App\Services\Recruitment\FormRuleBuilder;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ApplyRequest extends FormRequest
@@ -12,21 +14,19 @@ class ApplyRequest extends FormRequest
     }
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
-        return [
-            'full_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['required', 'string', 'max:50'],
-            'ic_number' => ['nullable', 'string', 'max:50'],
-            'location' => ['nullable', 'string', 'max:255'],
-            'platforms' => ['required', 'array', 'min:1'],
-            'platforms.*' => ['in:tiktok,shopee,facebook'],
-            'experience_summary' => ['nullable', 'string', 'max:5000'],
-            'motivation' => ['nullable', 'string', 'max:5000'],
-            'resume' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
-        ];
+        $slug = $this->route('slug');
+        $campaign = LiveHostRecruitmentCampaign::where('slug', $slug)->firstOrFail();
+
+        $builder = new FormRuleBuilder;
+        $schema = $campaign->form_schema ?? [];
+
+        $rules = $builder->build($schema);
+        $rules = array_merge($rules, $builder->buildArrayItemRules($schema));
+
+        return $rules;
     }
 }
