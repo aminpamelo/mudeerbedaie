@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Recruitment\DefaultFormSchema;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,7 @@ class LiveHostRecruitmentCampaign extends Model
 
     protected $fillable = [
         'title', 'slug', 'description', 'status', 'target_count',
-        'opens_at', 'closes_at', 'created_by',
+        'opens_at', 'closes_at', 'created_by', 'form_schema',
     ];
 
     protected function casts(): array
@@ -78,6 +79,12 @@ class LiveHostRecruitmentCampaign extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (self $campaign) {
+            if (empty($campaign->form_schema)) {
+                $campaign->form_schema = DefaultFormSchema::get();
+            }
+        });
+
         static::created(function (self $campaign) {
             $campaign->stages()->createMany([
                 ['position' => 1, 'name' => 'Review', 'is_final' => false],

@@ -11,12 +11,12 @@ it('accepts a valid application', function () {
     $campaign = LiveHostRecruitmentCampaign::factory()->open()->create();
 
     $response = $this->post(route('recruitment.apply', $campaign->slug), [
-        'full_name' => 'Ahmad Test',
-        'email' => 'ahmad.test@example.com',
-        'phone' => '60123456789',
-        'platforms' => ['tiktok'],
-        'experience_summary' => 'Some experience',
-        'motivation' => 'Because I love live selling',
+        'f_name' => 'Ahmad Test',
+        'f_email' => 'ahmad.test@example.com',
+        'f_phone' => '60123456789',
+        'f_platforms' => ['tiktok'],
+        'f_experience' => 'Some experience',
+        'f_motivation' => 'Because I love live selling',
     ]);
 
     $response->assertRedirect(route('recruitment.thank-you', $campaign->slug));
@@ -36,17 +36,23 @@ it('rejects duplicate applications for the same campaign+email', function () {
     LiveHostApplicant::factory()->create([
         'campaign_id' => $campaign->id,
         'email' => 'dupe@example.com',
+        'form_data' => [
+            'f_name' => 'Existing',
+            'f_email' => 'dupe@example.com',
+            'f_phone' => '60123000000',
+            'f_platforms' => ['tiktok'],
+        ],
     ]);
 
     $response = $this->from(route('recruitment.show', $campaign->slug))
         ->post(route('recruitment.apply', $campaign->slug), [
-            'full_name' => 'Dupe',
-            'email' => 'dupe@example.com',
-            'phone' => '60123456789',
-            'platforms' => ['tiktok'],
+            'f_name' => 'Dupe',
+            'f_email' => 'dupe@example.com',
+            'f_phone' => '60123456789',
+            'f_platforms' => ['tiktok'],
         ]);
 
-    $response->assertSessionHasErrors('email');
+    $response->assertSessionHasErrors('f_email');
 
     expect(LiveHostApplicant::where('campaign_id', $campaign->id)
         ->where('email', 'dupe@example.com')
@@ -59,10 +65,10 @@ it('rejects applications to closed campaigns', function () {
     $this->get(route('recruitment.show', $campaign->slug))->assertStatus(410);
 
     $this->post(route('recruitment.apply', $campaign->slug), [
-        'full_name' => 'Test',
-        'email' => 'test@example.com',
-        'phone' => '60123456789',
-        'platforms' => ['tiktok'],
+        'f_name' => 'Test',
+        'f_email' => 'test@example.com',
+        'f_phone' => '60123456789',
+        'f_platforms' => ['tiktok'],
     ])->assertStatus(410);
 
     expect(LiveHostApplicant::where('email', 'test@example.com')->exists())->toBeFalse();
@@ -74,10 +80,10 @@ it('rejects applications to paused campaigns', function () {
     $this->get(route('recruitment.show', $campaign->slug))->assertStatus(410);
 
     $this->post(route('recruitment.apply', $campaign->slug), [
-        'full_name' => 'Paused Test',
-        'email' => 'paused.test@example.com',
-        'phone' => '60123456789',
-        'platforms' => ['tiktok'],
+        'f_name' => 'Paused Test',
+        'f_email' => 'paused.test@example.com',
+        'f_phone' => '60123456789',
+        'f_platforms' => ['tiktok'],
     ])->assertStatus(410);
 
     expect(LiveHostApplicant::where('email', 'paused.test@example.com')->exists())->toBeFalse();
@@ -89,7 +95,7 @@ it('validates required fields when submitting an application', function () {
     $response = $this->from(route('recruitment.show', $campaign->slug))
         ->post(route('recruitment.apply', $campaign->slug), []);
 
-    $response->assertSessionHasErrors(['full_name', 'email', 'phone', 'platforms']);
+    $response->assertSessionHasErrors(['f_name', 'f_email', 'f_phone', 'f_platforms']);
 
     expect(LiveHostApplicant::where('campaign_id', $campaign->id)->count())->toBe(0);
 });
@@ -99,12 +105,12 @@ it('queues a confirmation email on successful application', function () {
     $campaign = LiveHostRecruitmentCampaign::factory()->open()->create();
 
     $this->post(route('recruitment.apply', $campaign->slug), [
-        'full_name' => 'Ahmad Test',
-        'email' => 'ahmad@mail.example',
-        'phone' => '60123456789',
-        'platforms' => ['tiktok'],
-        'experience_summary' => 'x',
-        'motivation' => 'y',
+        'f_name' => 'Ahmad Test',
+        'f_email' => 'ahmad@mail.example',
+        'f_phone' => '60123456789',
+        'f_platforms' => ['tiktok'],
+        'f_experience' => 'x',
+        'f_motivation' => 'y',
     ]);
 
     Mail::assertQueued(
