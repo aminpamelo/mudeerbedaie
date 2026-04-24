@@ -90,13 +90,22 @@ class PublicRecruitmentController extends Controller
 
         Mail::to((string) $applicant->email)->queue(new ApplicationReceivedMail($applicant));
 
-        return redirect()->route('recruitment.thank-you', $slug);
+        return redirect()
+            ->route('recruitment.thank-you', $slug)
+            ->with('applicant_number', $applicant->applicant_number)
+            ->with('applicant_name', $applicant->full_name)
+            ->with('applicant_email', $applicant->email);
     }
 
     public function thankYou(string $slug): View
     {
         $campaign = LiveHostRecruitmentCampaign::where('slug', $slug)->firstOrFail();
 
-        return view('recruitment.thank-you', ['campaign' => $campaign]);
+        return view('recruitment.thank-you', [
+            'campaign' => $campaign,
+            'applicantNumber' => session('applicant_number'),
+            'applicantName' => session('applicant_name'),
+            'applicantEmail' => session('applicant_email'),
+        ]);
     }
 }
