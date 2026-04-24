@@ -36,6 +36,7 @@ class CampaignRequest extends FormRequest
             'target_count' => ['nullable', 'integer', 'min:1'],
             'opens_at' => ['nullable', 'date'],
             'closes_at' => ['nullable', 'date', 'after_or_equal:opens_at'],
+            'form_schema' => ['nullable', 'array'],
         ];
     }
 
