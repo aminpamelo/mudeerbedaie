@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Check, Loader2, X, XCircle } from 'lucide-react';
 
 function toLocalDateTimeInput(iso) {
@@ -20,15 +20,12 @@ function fromLocalDateTimeInput(value) {
 export default function StageAssignmentModal({
   applicant,
   stages,
-  assignableUsers,
   onClose,
 }) {
   const initial = applicant.assignment ?? {};
-  const [assigneeId, setAssigneeId] = useState(initial.assignee?.id ?? '');
   const [dueAt, setDueAt] = useState(toLocalDateTimeInput(initial.due_at));
   const [stageNotes, setStageNotes] = useState(initial.stage_notes ?? '');
   const [saveState, setSaveState] = useState('idle');
-  const debounceRef = useRef(null);
 
   const orderedStages = useMemo(
     () => (stages ?? []).slice().sort((a, b) => Number(a.position) - Number(b.position)),
@@ -45,14 +42,14 @@ export default function StageAssignmentModal({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const save = (next = {}) => {
+  const save = ({ thenClose = false } = {}) => {
     setSaveState('saving');
     router.patch(
       `/livehost/recruitment/applicants/${applicant.id}/current-stage`,
       {
-        assignee_id: next.assignee_id !== undefined ? next.assignee_id : (assigneeId || null),
-        due_at: next.due_at !== undefined ? next.due_at : fromLocalDateTimeInput(dueAt),
-        stage_notes: next.stage_notes !== undefined ? next.stage_notes : (stageNotes || null),
+        assignee_id: null,
+        due_at: fromLocalDateTimeInput(dueAt),
+        stage_notes: stageNotes || null,
       },
       {
         preserveScroll: true,
@@ -61,31 +58,19 @@ export default function StageAssignmentModal({
         onSuccess: () => {
           setSaveState('saved');
           setTimeout(() => setSaveState('idle'), 1500);
+          if (thenClose) onClose();
         },
         onError: () => setSaveState('error'),
       },
     );
   };
 
-  const handleAssigneeChange = (e) => {
-    const value = e.target.value;
-    setAssigneeId(value);
-    save({ assignee_id: value || null });
-  };
-
   const handleDueChange = (e) => {
-    const value = e.target.value;
-    setDueAt(value);
-    save({ due_at: fromLocalDateTimeInput(value) });
+    setDueAt(e.target.value);
   };
 
   const handleNotesChange = (e) => {
-    const value = e.target.value;
-    setStageNotes(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      save({ stage_notes: value || null });
-    }, 500);
+    setStageNotes(e.target.value);
   };
 
   const moveTo = (stageId) => {
@@ -141,25 +126,6 @@ export default function StageAssignmentModal({
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="stage-assignment-assignee" className="mb-1 block text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
-              Assignee
-            </label>
-            <select
-              id="stage-assignment-assignee"
-              value={assigneeId}
-              onChange={handleAssigneeChange}
-              className="w-full rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
-            >
-              <option value="">— Unassigned —</option>
-              {(assignableUsers ?? []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.email})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
             <label htmlFor="stage-assignment-due" className="mb-1 block text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
               Due
             </label>
@@ -192,7 +158,7 @@ export default function StageAssignmentModal({
                 <span className="inline-flex items-center gap-1 text-[#047857]"><Check className="h-3 w-3" strokeWidth={3} /> Saved</span>
               )}
               {saveState === 'error' && <span className="text-[#B91C1C]">Failed to save</span>}
-              {saveState === 'idle' && 'Auto-saves on blur / 500 ms after typing.'}
+              {saveState === 'idle' && 'Click Save to persist changes for this stage.'}
             </div>
           </div>
         </div>
@@ -212,6 +178,19 @@ export default function StageAssignmentModal({
             >
               <XCircle className="h-3.5 w-3.5" strokeWidth={2} />
               Reject
+            </button>
+            <button
+              type="button"
+              onClick={() => save({ thenClose: true })}
+              disabled={saveState === 'saving'}
+              className="inline-flex items-center gap-1 rounded-md border border-[#EAEAEA] bg-white px-2.5 py-1.5 text-[12.5px] font-medium text-[#0A0A0A] hover:bg-[#F5F5F5] disabled:opacity-60"
+            >
+              {saveState === 'saving' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+              ) : (
+                <Check className="h-3.5 w-3.5" strokeWidth={2.25} />
+              )}
+              Save
             </button>
             {nextStage && (
               <button
