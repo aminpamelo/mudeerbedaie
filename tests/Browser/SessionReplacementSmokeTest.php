@@ -67,7 +67,7 @@ it('host requests, PIC assigns, replacement sees the slot', function () {
 
     visit('/live-host/schedule')
         ->assertNoJavascriptErrors()
-        ->assertSee('Your schedule')
+        ->assertSee('Jadual anda')
         ->assertSee('Mohon ganti');
 
     // Simulate the host submitting the modal form by creating the request

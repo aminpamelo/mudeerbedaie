@@ -37,7 +37,7 @@ export default function Schedule() {
 
   return (
     <>
-      <Head title="Schedule" />
+      <Head title="Jadual" />
       <div className="-mx-5 min-h-full bg-[var(--app-bg)] px-4 pt-3 pb-8">
         <Header total={total} pendingCount={pendingCount} />
 
@@ -61,10 +61,10 @@ function Header({ total, pendingCount }) {
   return (
     <div className="px-1 pt-3 pb-4">
       <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-        Weekly roster
+        Roster mingguan
       </div>
       <h1 className="font-display text-[22px] font-medium leading-[1.08] tracking-[-0.03em] text-[var(--fg)]">
-        Your schedule.
+        Jadual anda.
         {pendingCount > 0 ? (
           <>
             {' '}
@@ -75,9 +75,7 @@ function Header({ total, pendingCount }) {
         ) : null}
       </h1>
       <div className="mt-2 flex items-center gap-[10px] font-mono text-[11px] tracking-[0.02em] text-[var(--fg-2)]">
-        <span>
-          {total} {total === 1 ? 'slot' : 'slots'} assigned
-        </span>
+        <span>{total} slot ditugaskan</span>
         {pendingCount > 0 ? (
           <>
             <span className="text-[var(--fg-4)]" aria-hidden="true">
@@ -86,7 +84,7 @@ function Header({ total, pendingCount }) {
             <span className="inline-flex items-center gap-[6px]">
               <span className="pocket-diode h-[5px] w-[5px]" aria-hidden="true" />
               <span className="font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
-                {pendingCount} pending
+                {pendingCount} tertunda
               </span>
             </span>
           </>
@@ -111,6 +109,8 @@ const DAY_DOT_COLORS = [
 function DayBucket({ bucket }) {
   const hasSchedules = (bucket.schedules?.length ?? 0) > 0;
   const dayColor = DAY_DOT_COLORS[bucket.dayOfWeek] ?? 'var(--fg-3)';
+  const dayNameMs = DAY_NAMES_MS[bucket.dayName] ?? bucket.dayName;
+  const dayShortMs = DAY_SHORT_MS[bucket.dayShort] ?? bucket.dayShort;
 
   return (
     <section className="mb-5">
@@ -121,13 +121,13 @@ function DayBucket({ bucket }) {
           aria-hidden="true"
         />
         <span className="font-display text-[14px] font-medium tracking-[-0.015em] text-[var(--fg)]">
-          {bucket.dayName}
+          {dayNameMs}
         </span>
         <span
           className="inline-flex items-center rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]"
           style={{ backgroundColor: 'var(--hair)' }}
         >
-          {bucket.dayShort}
+          {dayShortMs}
         </span>
         <span
           className="ml-1 h-px flex-1"
@@ -164,6 +164,16 @@ const DAY_NAMES_MS = {
   Thursday: 'Khamis',
   Friday: 'Jumaat',
   Saturday: 'Sabtu',
+};
+
+const DAY_SHORT_MS = {
+  Sun: 'AHD',
+  Mon: 'ISN',
+  Tue: 'SEL',
+  Wed: 'RAB',
+  Thu: 'KHA',
+  Fri: 'JUM',
+  Sat: 'SAB',
 };
 
 const MONTH_NAMES_MS = [
@@ -323,7 +333,7 @@ function SlotCard({ slot, dayName }) {
                 className="inline-flex items-center rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]"
                 style={{ backgroundColor: 'var(--hair)' }}
               >
-                WEEKLY
+                MINGGUAN
               </span>
             ) : null}
             {isAssignedOneDate ? (
@@ -636,7 +646,7 @@ function FooterHint({ pendingCount }) {
   return (
     <div className="mt-3 px-2 pb-2 text-center">
       <p className="text-[11px] leading-relaxed text-[var(--fg-3)]">
-        Tap{' '}
+        Tekan{' '}
         <span className="inline-flex items-center gap-[4px] align-baseline font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
           <SwapIcon className="h-[10px] w-[10px]" />
           Mohon ganti
@@ -785,7 +795,7 @@ function RequestModal({ slot, dayName, onClose }) {
                 className="ml-auto inline-flex items-center rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]"
                 style={{ backgroundColor: 'var(--hair)' }}
               >
-                WEEKLY
+                MINGGUAN
               </span>
             ) : null}
           </div>
