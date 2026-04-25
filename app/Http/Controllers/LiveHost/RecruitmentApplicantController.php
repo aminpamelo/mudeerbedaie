@@ -7,6 +7,7 @@ use App\Models\LiveHostApplicant;
 use App\Models\LiveHostRecruitmentCampaign;
 use App\Models\LiveHostRecruitmentStage;
 use App\Models\User;
+use App\Services\Recruitment\ApplicantStageTransition;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -194,7 +195,7 @@ class RecruitmentApplicantController extends Controller
         }
 
         DB::transaction(function () use ($applicant, $toStage, $fromStageId, $data, $action, $request) {
-            $applicant->update(['current_stage_id' => $toStage->id]);
+            app(ApplicantStageTransition::class)->transition($applicant, $toStage);
             $applicant->history()->create([
                 'from_stage_id' => $fromStageId,
                 'to_stage_id' => $toStage->id,
@@ -224,6 +225,7 @@ class RecruitmentApplicantController extends Controller
                 'notes' => $data['notes'] ?? null,
                 'changed_by' => $request->user()?->id,
             ]);
+            app(ApplicantStageTransition::class)->closeOpenRow($applicant);
             $applicant->update(['status' => 'rejected']);
         });
 
@@ -282,6 +284,8 @@ class RecruitmentApplicantController extends Controller
                 'notes' => "Hired as user #{$user->id}",
                 'changed_by' => $request->user()?->id,
             ]);
+
+            app(ApplicantStageTransition::class)->closeOpenRow($applicant);
 
             $applicant->update([
                 'status' => 'hired',

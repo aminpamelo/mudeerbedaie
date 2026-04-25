@@ -84,6 +84,8 @@ class PublicRecruitmentController extends Controller
                     'action' => 'applied',
                 ]);
 
+                app(\App\Services\Recruitment\ApplicantStageTransition::class)->enterFirstStage($applicant);
+
                 return $applicant;
             });
         } catch (QueryException $e) {
