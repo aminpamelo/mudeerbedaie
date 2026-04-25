@@ -73,6 +73,7 @@ class TimeSlotController extends Controller
         $data = $request->validated();
         $data['created_by'] = $request->user()?->id;
         $data['status'] = $data['status'] ?? ($data['is_active'] ?? true ? 'active' : 'inactive');
+        $data['sort_order'] = $data['sort_order'] ?? 0;
 
         LiveTimeSlot::create($data);
 
@@ -104,6 +105,10 @@ class TimeSlotController extends Controller
 
         if (array_key_exists('is_active', $data) && ! isset($data['status'])) {
             $data['status'] = $data['is_active'] ? 'active' : 'inactive';
+        }
+
+        if (array_key_exists('sort_order', $data) && $data['sort_order'] === null) {
+            $data['sort_order'] = 0;
         }
 
         $timeSlot->update($data);
