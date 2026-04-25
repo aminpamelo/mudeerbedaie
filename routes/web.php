@@ -253,6 +253,11 @@ Route::middleware(['auth'])
             Route::post('replacements/{replacementRequest}/reject', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'reject'])
                 ->name('replacements.reject');
 
+            Route::prefix('reports')->name('reports.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\LiveHost\Reports\ReportsController::class, 'index'])
+                    ->name('index');
+            });
+
             Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
                 ->name('hosts.create');
             Route::post('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'store'])
