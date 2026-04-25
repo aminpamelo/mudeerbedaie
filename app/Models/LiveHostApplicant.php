@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
 
 class LiveHostApplicant extends Model
@@ -100,6 +101,18 @@ class LiveHostApplicant extends Model
     public function history(): HasMany
     {
         return $this->hasMany(LiveHostApplicantStageHistory::class, 'applicant_id')->latest();
+    }
+
+    public function stageRows(): HasMany
+    {
+        return $this->hasMany(LiveHostApplicantStage::class, 'applicant_id');
+    }
+
+    public function currentStageRow(): HasOne
+    {
+        return $this->hasOne(LiveHostApplicantStage::class, 'applicant_id')
+            ->whereNull('exited_at')
+            ->latestOfMany('entered_at');
     }
 
     public static function generateApplicantNumber(): string
