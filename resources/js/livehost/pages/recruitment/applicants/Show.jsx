@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Copy,
   Loader2,
+  RotateCcw,
   Star,
   UserCheck,
   UserPlus,
@@ -53,6 +54,7 @@ function actionLabel(action) {
     advanced: 'Advanced',
     reverted: 'Reverted',
     rejected: 'Rejected',
+    restored: 'Restored',
     hired: 'Hired',
     note: 'Note',
   };
@@ -65,6 +67,7 @@ function actionTone(action) {
     advanced: 'bg-[#ECFDF5] text-[#047857]',
     reverted: 'bg-[#FEF3C7] text-[#B45309]',
     rejected: 'bg-[#FEE2E2] text-[#B91C1C]',
+    restored: 'bg-[#ECFDF5] text-[#047857]',
     hired: 'bg-[#E0E7FF] text-[#4338CA]',
     note: 'bg-[#F5F5F5] text-[#525252]',
   };
@@ -455,6 +458,7 @@ function ActionBar({ applicant, stages }) {
   const isFinalStage = Boolean(applicant.current_stage?.is_final);
   const isActive = applicant.status === 'active';
   const isHired = applicant.status === 'hired';
+  const isRejected = applicant.status === 'rejected';
 
   const moveTo = (stageId) => {
     if (!stageId || busy) {
@@ -486,6 +490,18 @@ function ActionBar({ applicant, stages }) {
           setRejectOpen(false);
           setRejectNotes('');
         },
+      },
+    );
+  };
+
+  const restore = () => {
+    setBusy(true);
+    router.patch(
+      `/livehost/recruitment/applicants/${applicant.id}/restore`,
+      {},
+      {
+        preserveScroll: true,
+        onFinish: () => setBusy(false),
       },
     );
   };
@@ -534,6 +550,22 @@ function ActionBar({ applicant, stages }) {
           </div>
 
           <div className="flex items-center gap-2">
+            {isRejected && (
+              <Button
+                type="button"
+                disabled={busy || applicant.current_stage_id === null}
+                onClick={restore}
+                className="gap-1.5 bg-[#10B981] text-white hover:bg-[#059669] disabled:opacity-50"
+                title={
+                  applicant.current_stage_id === null
+                    ? 'No stage to restore to'
+                    : `Restore to ${applicant.current_stage?.name ?? 'previous stage'}`
+                }
+              >
+                <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} />
+                Restore to {applicant.current_stage?.name ?? 'stage'}
+              </Button>
+            )}
             <Button
               type="button"
               disabled={!isActive || !nextStage || busy}

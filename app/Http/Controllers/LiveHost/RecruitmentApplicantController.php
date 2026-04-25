@@ -272,6 +272,42 @@ class RecruitmentApplicantController extends Controller
         return back()->with('success', 'Applicant rejected.');
     }
 
+    public function restore(Request $request, LiveHostApplicant $applicant): RedirectResponse
+    {
+        abort_if($request->user()?->isLiveHostAssistant() === true, 403);
+        abort_if(
+            $applicant->status !== 'rejected',
+            HttpResponse::HTTP_UNPROCESSABLE_ENTITY,
+            'Only rejected applicants can be restored.'
+        );
+        abort_if(
+            $applicant->current_stage_id === null,
+            HttpResponse::HTTP_UNPROCESSABLE_ENTITY,
+            'Applicant has no stage to restore to.'
+        );
+
+        DB::transaction(function () use ($applicant, $request) {
+            $applicant->update(['status' => 'active']);
+
+            app(ApplicantStageTransition::class)->closeOpenRow($applicant);
+
+            LiveHostApplicantStage::create([
+                'applicant_id' => $applicant->id,
+                'stage_id' => $applicant->current_stage_id,
+                'entered_at' => now(),
+            ]);
+
+            $applicant->history()->create([
+                'from_stage_id' => null,
+                'to_stage_id' => $applicant->current_stage_id,
+                'action' => 'restored',
+                'changed_by' => $request->user()?->id,
+            ]);
+        });
+
+        return back()->with('success', 'Applicant restored to active.');
+    }
+
     public function updateNotes(Request $request, LiveHostApplicant $applicant): HttpResponse
     {
         abort_if($request->user()?->isLiveHostAssistant() === true, 403);
