@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { ArrowRight, Radio, CalendarClock, Battery, Wifi, Lightbulb, ListChecks, Package } from 'lucide-react';
+import { ArrowRight, Radio, CalendarClock } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 import { cn, formatClockHM } from '@/livehost-pocket/lib/utils';
 
@@ -60,14 +60,6 @@ GoLive.layout = (page) => <PocketLayout>{page}</PocketLayout>;
 /* ------------------------------------------------------------------ */
 
 const IMMINENT_LEAD_SECONDS = 30 * 60; // matches GoLiveController::IMMINENT_LEAD_MINUTES
-
-const PREP_ITEMS = [
-  { key: 'bateri', label: 'Bateri penuh', icon: Battery },
-  { key: 'internet', label: 'Internet stabil', icon: Wifi },
-  { key: 'cahaya', label: 'Pencahayaan baik', icon: Lightbulb },
-  { key: 'nota', label: 'Skrip dan nota sedia', icon: ListChecks },
-  { key: 'produk', label: 'Produk live siap', icon: Package },
-];
 
 const DAY_NAMES_MS = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'];
 const MONTH_NAMES_MS = [
@@ -221,8 +213,6 @@ function ImminentState({ session, now }) {
 
       <SessionPreview session={session} accent={accent} />
 
-      <PrepChecklist sessionId={session?.id} />
-
       <div className="flex-1" />
 
       <StickyActions>
@@ -281,8 +271,6 @@ function UpcomingState({ session, now }) {
       </p>
 
       <SessionPreview session={session} accent={accent} />
-
-      <PrepChecklist sessionId={session?.id} />
 
       <div className="flex-1" />
 
@@ -559,150 +547,6 @@ function Stat({ label, value }) {
         {value}
       </div>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* PrepChecklist — tappable rows persisted to localStorage             */
-/* ------------------------------------------------------------------ */
-
-function PrepChecklist({ sessionId }) {
-  const storageKey = sessionId ? `pocket.golive.prep.${sessionId}` : null;
-
-  const [checked, setChecked] = useState(() => {
-    if (typeof window === 'undefined' || !storageKey) return new Set();
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (!raw) return new Set();
-      const arr = JSON.parse(raw);
-      return new Set(Array.isArray(arr) ? arr : []);
-    } catch {
-      return new Set();
-    }
-  });
-
-  // Reset when the session id changes.
-  useEffect(() => {
-    if (typeof window === 'undefined' || !storageKey) return;
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      const arr = raw ? JSON.parse(raw) : [];
-      setChecked(new Set(Array.isArray(arr) ? arr : []));
-    } catch {
-      setChecked(new Set());
-    }
-  }, [storageKey]);
-
-  const toggle = (key) => {
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      if (storageKey && typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
-        } catch {
-          /* localStorage may be disabled — silently ignore */
-        }
-      }
-      return next;
-    });
-  };
-
-  const total = PREP_ITEMS.length;
-  const done = checked.size;
-  const ratio = total > 0 ? done / total : 0;
-
-  return (
-    <section className="mt-5">
-      <div className="mb-2 flex items-center gap-[10px] px-1">
-        <span className="font-display text-[13px] font-medium tracking-[-0.015em] text-[var(--fg)]">
-          Daftar semak
-        </span>
-        <span className="ml-1 h-px flex-1" style={{ backgroundColor: 'var(--hair)' }} aria-hidden="true" />
-        <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] tabular-nums">
-          {done}/{total} sedia
-        </span>
-      </div>
-
-      {/* Progress bar */}
-      <div className="mb-3 h-[3px] w-full overflow-hidden rounded-full" style={{ backgroundColor: 'var(--hair)' }}>
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${ratio * 100}%`,
-            backgroundColor: 'var(--accent)',
-            transition: 'width 280ms cubic-bezier(0.2, 0.8, 0.2, 1)',
-          }}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-[6px]">
-        {PREP_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const active = checked.has(item.key);
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => toggle(item.key)}
-              aria-pressed={active}
-              className={cn(
-                'flex items-center gap-[10px] rounded-[12px] border px-3 py-[10px] text-left transition active:scale-[0.99]',
-                active
-                  ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
-                  : 'border-[var(--hair)] bg-[var(--app-bg-2)] hover:border-[var(--hair-2)]'
-              )}
-            >
-              <span
-                className={cn(
-                  'grid h-[28px] w-[28px] flex-none place-items-center rounded-[8px] transition',
-                  active ? 'bg-[var(--accent)] text-[var(--accent-ink)]' : 'bg-[var(--hair)] text-[var(--fg-2)]'
-                )}
-              >
-                <Icon className="h-[14px] w-[14px]" strokeWidth={2.2} />
-              </span>
-              <span
-                className={cn(
-                  'flex-1 text-[13px] font-medium tracking-[-0.005em]',
-                  active ? 'text-[var(--accent-ink-strong,var(--accent))] line-through decoration-[1.5px] decoration-[var(--accent)]' : 'text-[var(--fg)]'
-                )}
-                style={active ? { color: 'var(--accent)' } : undefined}
-              >
-                {item.label}
-              </span>
-              <span
-                className={cn(
-                  'grid h-[20px] w-[20px] flex-none place-items-center rounded-full border-[1.5px] transition',
-                  active
-                    ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]'
-                    : 'border-[var(--hair-2)] bg-[var(--app-bg-2)] text-transparent'
-                )}
-              >
-                <CheckGlyph className="h-[10px] w-[10px]" />
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function CheckGlyph({ className = '' }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M3 8.5l3 3 7-7.5" />
-    </svg>
   );
 }
 
