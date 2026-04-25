@@ -69,10 +69,17 @@ export default function SessionDetail() {
   );
   const hasNonVisualOnly = !hasVisualProof && proofAttachments.length > 0;
 
+  // Partial reload (only refresh the props the recap touches) so the host
+  // stays put on the page after save: no full re-render, form values keep,
+  // and the layout's FlashToast picks up the `success` flash.
+  const recapVisitOptions = {
+    preserveScroll: true,
+    preserveState: true,
+    only: ['session', 'analytics', 'attachments', 'flash'],
+  };
+
   const handleSave = () => {
-    recap.post(`/live-host/sessions/${session.id}/recap`, {
-      preserveScroll: true,
-    });
+    recap.post(`/live-host/sessions/${session.id}/recap`, recapVisitOptions);
   };
 
   const handleMarkMissed = () => {
@@ -80,9 +87,7 @@ export default function SessionDetail() {
     // That keeps the payload small and avoids multipart parsing quirks in
     // the Pest v4 in-process browser server, where the missed flow is
     // exercised end-to-end in a Playwright run.
-    recap.post(`/live-host/sessions/${session.id}/recap`, {
-      preserveScroll: true,
-    });
+    recap.post(`/live-host/sessions/${session.id}/recap`, recapVisitOptions);
   };
 
   const handleSwitchPath = (nextWentLive) => {
