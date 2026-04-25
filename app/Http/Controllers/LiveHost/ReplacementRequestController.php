@@ -8,6 +8,7 @@ use App\Models\LiveScheduleAssignment;
 use App\Models\SessionReplacementRequest;
 use App\Models\User;
 use App\Notifications\ReplacementAssignedToYouNotification;
+use App\Notifications\ReplacementResolvedNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -150,9 +151,12 @@ class ReplacementRequestController extends Controller
             }
         });
 
-        $replacementRequest->refresh()->loadMissing('replacementHost');
+        $replacementRequest->refresh()->loadMissing(['replacementHost', 'originalHost']);
         $replacementRequest->replacementHost?->notify(
             new ReplacementAssignedToYouNotification($replacementRequest)
+        );
+        $replacementRequest->originalHost?->notify(
+            new ReplacementResolvedNotification($replacementRequest, ReplacementResolvedNotification::RESOLUTION_ASSIGNED)
         );
 
         return redirect()
@@ -176,6 +180,11 @@ class ReplacementRequestController extends Controller
             'status' => SessionReplacementRequest::STATUS_REJECTED,
             'rejection_reason' => $data['rejection_reason'],
         ]);
+
+        $replacementRequest->loadMissing('originalHost');
+        $replacementRequest->originalHost?->notify(
+            new ReplacementResolvedNotification($replacementRequest, ReplacementResolvedNotification::RESOLUTION_REJECTED)
+        );
 
         return redirect()
             ->route('livehost.replacements.show', $replacementRequest)
