@@ -165,6 +165,36 @@ it('adds an attachment and stores the file on public disk', function () {
     Storage::disk('public')->assertExists($attachment->file_path);
 });
 
+it('redirects attachment upload back to the page it was triggered from', function () {
+    Storage::fake('public');
+
+    $file = UploadedFile::fake()->create('proof.jpg', 100, 'image/jpeg');
+
+    actingAs($this->host)
+        ->from('/live-host/schedule')
+        ->post("/live-host/sessions/{$this->session->id}/attachments", [
+            'file' => $file,
+        ])
+        ->assertRedirect('/live-host/schedule');
+});
+
+it('redirects recap save back to the page it was triggered from', function () {
+    Storage::fake('public');
+
+    LiveSessionAttachment::factory()->create([
+        'live_session_id' => $this->session->id,
+        'file_type' => 'image/jpeg',
+    ]);
+
+    actingAs($this->host)
+        ->from('/live-host/schedule')
+        ->post("/live-host/sessions/{$this->session->id}/recap", [
+            'went_live' => true,
+            'gmv_amount' => 100,
+        ])
+        ->assertRedirect('/live-host/schedule');
+});
+
 it('forbids another host from uploading an attachment', function () {
     Storage::fake('public');
     $other = User::factory()->create(['role' => 'live_host']);

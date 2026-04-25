@@ -68,7 +68,7 @@ class SessionDetailController extends Controller
         }
 
         return redirect()
-            ->route('live-host.sessions.show', $session)
+            ->back(fallback: route('live-host.sessions.show', $session))
             ->with('success', $request->boolean('went_live') ? 'Recap saved.' : 'Session marked as missed.');
     }
 
@@ -159,7 +159,7 @@ class SessionDetailController extends Controller
         ]);
 
         return redirect()
-            ->route('live-host.sessions.show', $session)
+            ->back(fallback: route('live-host.sessions.show', $session))
             ->with('success', 'Attachment added.');
     }
 
