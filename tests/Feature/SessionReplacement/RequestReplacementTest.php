@@ -52,3 +52,70 @@ it('lets a host submit a one-date replacement request', function () {
     expect($created->expires_at->toDateTimeString())
         ->toBe(now()->parse($targetDate)->setTimeFromTimeString('06:30:00')->toDateTimeString());
 });
+
+it('rejects past target_date', function () {
+    $response = $this->actingAs($this->host)
+        ->post(route('live-host.replacement-requests.store'), [
+            'live_schedule_assignment_id' => $this->assignment->id,
+            'scope' => 'one_date',
+            'target_date' => now()->subDay()->toDateString(),
+            'reason_category' => 'sick',
+        ]);
+
+    $response->assertSessionHasErrors('target_date');
+    expect(SessionReplacementRequest::count())->toBe(0);
+});
+
+it('rejects target_date that does not match the slot day_of_week', function () {
+    // Pick a date whose day_of_week differs from the assignment's.
+    $mismatch = now();
+    while ((int) $mismatch->dayOfWeek === (int) $this->assignment->day_of_week) {
+        $mismatch = $mismatch->addDay();
+    }
+
+    $response = $this->actingAs($this->host)
+        ->post(route('live-host.replacement-requests.store'), [
+            'live_schedule_assignment_id' => $this->assignment->id,
+            'scope' => 'one_date',
+            'target_date' => $mismatch->toDateString(),
+            'reason_category' => 'sick',
+        ]);
+
+    $response->assertSessionHasErrors('target_date');
+});
+
+it('forbids requesting against another hosts assignment', function () {
+    $intruder = User::factory()->create(['role' => 'live_host']);
+
+    $response = $this->actingAs($intruder)
+        ->post(route('live-host.replacement-requests.store'), [
+            'live_schedule_assignment_id' => $this->assignment->id,
+            'scope' => 'permanent',
+            'reason_category' => 'personal',
+        ]);
+
+    $response->assertForbidden();
+    expect(SessionReplacementRequest::count())->toBe(0);
+});
+
+it('blocks duplicate pending request for the same one_date slot', function () {
+    SessionReplacementRequest::factory()
+        ->pending()
+        ->create([
+            'live_schedule_assignment_id' => $this->assignment->id,
+            'original_host_id' => $this->host->id,
+            'scope' => 'one_date',
+            'target_date' => now()->addDay()->toDateString(),
+        ]);
+
+    $response = $this->actingAs($this->host)
+        ->post(route('live-host.replacement-requests.store'), [
+            'live_schedule_assignment_id' => $this->assignment->id,
+            'scope' => 'one_date',
+            'target_date' => now()->addDay()->toDateString(),
+            'reason_category' => 'sick',
+        ]);
+
+    $response->assertSessionHasErrors('live_schedule_assignment_id');
+    expect(SessionReplacementRequest::count())->toBe(1);
+});
