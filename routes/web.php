@@ -7,6 +7,7 @@ use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 use Livewire\Volt\Volt;
 
 Route::get('/', function (\Illuminate\Http\Request $request) {
@@ -260,6 +261,17 @@ Route::middleware(['auth'])
                     ->name('host-scorecard.index');
                 Route::get('host-scorecard/export', [\App\Http\Controllers\LiveHost\Reports\HostScorecardController::class, 'export'])
                     ->name('host-scorecard.export');
+
+                foreach (['gmv', 'coverage', 'replacements'] as $stub) {
+                    Route::get($stub, fn () => Inertia::render('reports/ComingSoon', [
+                        'title' => match ($stub) {
+                            'gmv' => 'GMV Performance',
+                            'coverage' => 'Schedule Coverage',
+                            'replacements' => 'Replacement Activity',
+                        },
+                        'href' => '/livehost/reports',
+                    ]))->name("$stub.index");
+                }
             });
 
             Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
