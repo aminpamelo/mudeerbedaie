@@ -94,13 +94,31 @@ function Header({ total, pendingCount }) {
   );
 }
 
+// Curated palette so each day of the week carries a tiny color personality
+// without overwhelming the page. Order matches Sunday → Saturday.
+const DAY_DOT_COLORS = [
+  'var(--hot)',            // Sun
+  '#F59E0B',               // Mon — warm amber
+  '#10B981',               // Tue — emerald
+  '#06B6D4',               // Wed — cyan
+  '#6366F1',               // Thu — indigo
+  'var(--accent)',         // Fri — house violet
+  '#EC4899',               // Sat — pink
+];
+
 function DayBucket({ bucket }) {
   const hasSchedules = (bucket.schedules?.length ?? 0) > 0;
+  const dayColor = DAY_DOT_COLORS[bucket.dayOfWeek] ?? 'var(--fg-3)';
 
   return (
-    <section className="mb-4">
-      <div className="mb-2 flex items-center gap-2 px-1">
-        <span className="font-display text-[13px] font-medium tracking-[-0.015em] text-[var(--fg)]">
+    <section className="mb-5">
+      <div className="mb-2 flex items-center gap-[10px] px-1">
+        <span
+          className="h-[10px] w-[3px] flex-none rounded-full"
+          style={{ backgroundColor: dayColor }}
+          aria-hidden="true"
+        />
+        <span className="font-display text-[14px] font-medium tracking-[-0.015em] text-[var(--fg)]">
           {bucket.dayName}
         </span>
         <span
@@ -109,6 +127,16 @@ function DayBucket({ bucket }) {
         >
           {bucket.dayShort}
         </span>
+        <span
+          className="ml-1 h-px flex-1"
+          style={{ backgroundColor: 'var(--hair)' }}
+          aria-hidden="true"
+        />
+        {hasSchedules ? (
+          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] tabular-nums">
+            {bucket.schedules.length}
+          </span>
+        ) : null}
       </div>
 
       {hasSchedules ? (
@@ -118,8 +146,8 @@ function DayBucket({ bucket }) {
           ))}
         </div>
       ) : (
-        <div className="rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 py-3 text-center font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-          No slots
+        <div className="rounded-[12px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 py-4 text-center font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+          Tiada slot
         </div>
       )}
     </section>
@@ -171,6 +199,36 @@ function initialsFrom(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function platformColor(platformType) {
+  if (platformType === 'tiktok') return '#E11D48';   // hot rose
+  if (platformType === 'facebook') return '#2563EB'; // cool blue
+  if (platformType === 'shopee') return '#F97316';   // orange
+  if (platformType === 'instagram') return '#D946EF';// fuchsia
+  return 'var(--accent)';                            // violet fallback
+}
+
+function platformTint(platformType) {
+  if (platformType === 'tiktok') return 'rgba(225,29,72,0.06)';
+  if (platformType === 'facebook') return 'rgba(37,99,235,0.06)';
+  if (platformType === 'shopee') return 'rgba(249,115,22,0.06)';
+  if (platformType === 'instagram') return 'rgba(217,70,239,0.06)';
+  return 'rgba(124,58,237,0.06)';
+}
+
+function durationLabel(start, end) {
+  if (!start || !end) return '';
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60;
+  if (mins <= 0) return '';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}j ${m}m`;
+  if (h) return `${h} jam`;
+  return `${m} min`;
+}
+
 function SlotCard({ slot, dayName }) {
   const [modalOpen, setModalOpen] = useState(false);
   const withdraw = useForm({});
@@ -182,19 +240,30 @@ function SlotCard({ slot, dayName }) {
     return null;
   }
 
-  const range = `${slot.startTime} – ${slot.endTime}`;
   const platform = slot.platformAccount ?? slot.platformType ?? 'Platform';
-
-  const dotColor =
-    slot.platformType === 'tiktok'
-      ? 'var(--fg-1)'
-      : slot.platformType === 'facebook'
-        ? 'var(--cool)'
-        : 'var(--hot)';
+  const accent = platformColor(slot.platformType);
+  const tint = platformTint(slot.platformType);
+  const duration = durationLabel(slot.startTime, slot.endTime);
 
   const isPending = request && request.status === 'pending';
   const isAssignedOneDate =
     request && request.status === 'assigned' && request.scope === 'one_date';
+
+  // State-driven left rail color: pending = violet, assigned = cool blue,
+  // default = platform brand color.
+  const railColor = isPending
+    ? 'var(--accent)'
+    : isAssignedOneDate
+      ? 'var(--cool)'
+      : accent;
+
+  // Subtle painted background on the card: a faint tint pulled from the rail
+  // color, fading to white. Adds color presence without overwhelming.
+  const cardBackground = isAssignedOneDate
+    ? 'var(--app-bg-3)'
+    : isPending
+      ? 'linear-gradient(95deg, rgba(124,58,237,0.07), var(--app-bg-2) 55%)'
+      : `linear-gradient(95deg, ${tint}, var(--app-bg-2) 55%)`;
 
   const handleWithdraw = () => {
     if (!request) return;
@@ -205,28 +274,31 @@ function SlotCard({ slot, dayName }) {
     });
   };
 
-  // State-driven card chrome.
-  const cardClass = [
-    'relative mb-[6px] rounded-[14px] border bg-[var(--app-bg-2)] px-3 py-[10px]',
-    isPending
-      ? 'border-[var(--hair)] pl-[14px] before:absolute before:left-0 before:top-[10px] before:bottom-[10px] before:w-[3px] before:rounded-full before:bg-[var(--accent)]'
-      : '',
-    isAssignedOneDate ? 'border-[var(--hair)] bg-[var(--app-bg-3)]' : 'border-[var(--hair)]',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
   return (
     <>
-      <div className={cardClass}>
+      <div
+        className="relative mb-[8px] overflow-hidden rounded-[14px] border border-[var(--hair)] pl-[14px] pr-3 py-[12px]"
+        style={{ background: cardBackground }}
+      >
+        {/* Colored left rail. */}
+        <span
+          className="absolute left-0 top-0 bottom-0 w-[4px]"
+          style={{ backgroundColor: railColor }}
+          aria-hidden="true"
+        />
+
+        {/* Header row: platform name + state pills. */}
         <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
+          <span className="inline-flex items-center gap-[6px] font-mono text-[9px] font-bold uppercase tracking-[0.14em]">
             <span
-              className="h-1 w-1"
-              style={{ backgroundColor: dotColor }}
+              className="h-[6px] w-[6px] rounded-full"
+              style={{
+                backgroundColor: accent,
+                boxShadow: `0 0 0 2px ${tint}`,
+              }}
               aria-hidden="true"
             />
-            {platform}
+            <span className="text-[var(--fg-2)]">{platform}</span>
           </span>
           <div className="flex items-center gap-[5px]">
             {slot.isRecurring ? (
@@ -238,8 +310,9 @@ function SlotCard({ slot, dayName }) {
               </span>
             ) : null}
             {isAssignedOneDate ? (
-              <span className="inline-flex items-center gap-[5px] rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--cool)]"
-                style={{ backgroundColor: 'rgba(37,99,235,0.10)' }}
+              <span
+                className="inline-flex items-center gap-[5px] rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--cool)]"
+                style={{ backgroundColor: 'rgba(37,99,235,0.12)' }}
               >
                 <CheckIcon className="h-[8px] w-[8px]" />
                 TELAH DIGANTI
@@ -248,23 +321,38 @@ function SlotCard({ slot, dayName }) {
           </div>
         </div>
 
-        <div
-          className={`mt-1 font-mono text-[13px] font-bold tabular-nums ${
-            isAssignedOneDate ? 'text-[var(--fg-2)]' : 'text-[var(--fg)]'
-          }`}
-        >
-          {range}
+        {/* Time block — anchor of the card. */}
+        <div className="mt-[6px] flex items-baseline justify-between gap-2">
+          <div
+            className={`font-mono text-[17px] font-bold leading-none tabular-nums tracking-[-0.01em] ${
+              isAssignedOneDate ? 'text-[var(--fg-2)]' : 'text-[var(--fg)]'
+            }`}
+          >
+            {slot.startTime}
+            <span
+              className="mx-[6px] text-[var(--fg-4)]"
+              aria-hidden="true"
+            >
+              –
+            </span>
+            {slot.endTime}
+          </div>
+          {duration ? (
+            <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+              {duration}
+            </span>
+          ) : null}
         </div>
 
         {slot.remarks && !isPending && !isAssignedOneDate ? (
-          <div className="mt-[6px] text-[11px] leading-snug text-[var(--fg-2)]">
+          <div className="mt-[8px] text-[11.5px] leading-snug text-[var(--fg-2)]">
             {slot.remarks}
           </div>
         ) : null}
 
         {/* Pending: violet diode + label + Tarik balik chip. */}
         {isPending ? (
-          <div className="mt-[10px] flex items-center justify-between gap-2">
+          <div className="mt-[10px] flex items-center justify-between gap-2 border-t border-[var(--hair)] pt-[8px]">
             <span className="inline-flex items-center gap-[6px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
               <span className="pocket-diode h-[5px] w-[5px]" aria-hidden="true" />
               MENUNGGU PIC
@@ -273,7 +361,8 @@ function SlotCard({ slot, dayName }) {
               type="button"
               onClick={handleWithdraw}
               disabled={withdraw.processing}
-              className="inline-flex h-[26px] items-center rounded-full border border-[var(--hair-2)] px-[10px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--hot)] transition active:opacity-60 disabled:opacity-50"
+              className="inline-flex h-[28px] items-center rounded-full border border-[var(--hot)] px-[12px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--hot)] transition active:opacity-60 disabled:opacity-50"
+              style={{ backgroundColor: 'rgba(225,29,72,0.06)' }}
             >
               Tarik balik
             </button>
@@ -282,21 +371,21 @@ function SlotCard({ slot, dayName }) {
 
         {/* Assigned (one_date): avatar + name + date moment. */}
         {isAssignedOneDate ? (
-          <div className="mt-[10px] flex items-center gap-[8px]">
+          <div className="mt-[10px] flex items-center gap-[10px] border-t border-[var(--hair)] pt-[8px]">
             <span
-              className="grid h-[22px] w-[22px] flex-none place-items-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--hot)] font-display text-[9px] font-bold tracking-[-0.04em] text-white"
+              className="grid h-[26px] w-[26px] flex-none place-items-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--hot)] font-display text-[10px] font-bold tracking-[-0.04em] text-white shadow-[0_2px_6px_rgba(124,58,237,0.35)]"
               aria-hidden="true"
             >
               {initialsFrom(request.replacementHostName)}
             </span>
-            <div className="text-[11.5px] leading-snug text-[var(--fg-2)]">
+            <div className="text-[12px] leading-snug text-[var(--fg-2)]">
               Diganti oleh{' '}
               <span className="font-medium text-[var(--fg)]">
                 {request.replacementHostName ?? '—'}
               </span>
               {request.targetDate ? (
                 <>
-                  <span className="px-[5px] text-[var(--fg-4)]">·</span>
+                  <span className="px-[6px] text-[var(--fg-4)]">·</span>
                   <span className="font-mono tabular-nums text-[var(--fg-3)]">
                     {formatTargetDate(request.targetDate)}
                   </span>
@@ -306,16 +395,17 @@ function SlotCard({ slot, dayName }) {
           </div>
         ) : null}
 
-        {/* Default: quiet "Mohon ganti" affordance, right-aligned. */}
+        {/* Default state: prominent violet "Mohon ganti" pill. */}
         {!request ? (
-          <div className="mt-[8px] flex items-center justify-end">
+          <div className="mt-[10px] flex items-center justify-end border-t border-[var(--hair)] pt-[8px]">
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="group inline-flex h-[26px] items-center gap-[6px] rounded-full px-[8px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] transition hover:bg-[var(--hair)] hover:text-[var(--fg)] active:opacity-60"
-              aria-label={`Mohon ganti slot ${dayName} ${range}`}
+              className="group inline-flex h-[30px] items-center gap-[7px] rounded-full px-[12px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--accent-ink)] shadow-[0_4px_12px_-4px_rgba(124,58,237,0.45)] transition active:scale-[0.97]"
+              style={{ backgroundColor: 'var(--accent)' }}
+              aria-label={`Mohon ganti slot ${dayName} ${slot.startTime}–${slot.endTime}`}
             >
-              <SwapIcon className="h-[11px] w-[11px] transition group-hover:text-[var(--accent)]" />
+              <SwapIcon className="h-[11px] w-[11px]" />
               Mohon ganti
             </button>
           </div>
