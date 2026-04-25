@@ -1,50 +1,52 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
-import { ArrowRight, Radio, CalendarClock, Clock } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Radio, CalendarClock, Battery, Wifi, Lightbulb, ListChecks, Package } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
-import {
-  cn,
-  formatClockHM,
-  formatMinutesHM,
-  minutesSince,
-} from '@/livehost-pocket/lib/utils';
+import { cn, formatClockHM, formatMinutesHM, minutesSince } from '@/livehost-pocket/lib/utils';
 
 /**
- * Go Live launch pad — the middle FAB in the Pocket tab bar lands here.
+ * Go Live — pre-flight briefing.
  *
- * One of four mutually-exclusive states, picked server-side by
+ * Four mutually-exclusive states from
  * {@link \App\Http\Controllers\LiveHostPocket\GoLiveController}:
  *
- *   - live     : host currently has a session with status='live'
- *   - imminent : next scheduled session is within [-2h, +30min] of now
- *   - upcoming : next scheduled session is further than 30min away
- *   - none     : host has no upcoming scheduled sessions
+ *   - live     : host is currently streaming (elapsed counter, end-stream CTA)
+ *   - imminent : start time within [-2h, +30min] (countdown, prep checklist, Mula siaran CTA)
+ *   - upcoming : start time further than 30 min ahead (countdown OR date mode, CTA warming up)
+ *   - none     : no upcoming sessions (empty state)
  *
- * The component is a pure render — the only action available is the
- * existing "End session" POST from the live state. Everything else
- * routes back into the app (Today / Schedule / session detail).
+ * Copy is Malay throughout; design tokens come from pocket.css
+ * (--accent, --hot, --cool, --warm, --hair, --fg-*).
  */
 export default function GoLive() {
   const { state, session } = usePage().props;
 
-  // Tick every 30s for the live-state elapsed counter and imminent-state
-  // countdown. Fast enough to feel responsive, slow enough to be cheap.
+  // Tick every 1s in live/imminent so the clock feels alive; 60s otherwise
+  // to save battery on phones that idle on this page for hours.
+  const fast = state === 'live' || state === 'imminent';
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    if (state !== 'live' && state !== 'imminent') {
-      return undefined;
-    }
-    const id = setInterval(() => setNow(new Date()), 30_000);
+    if (state === 'none') return undefined;
+    const id = setInterval(() => setNow(new Date()), fast ? 1000 : 60_000);
     return () => clearInterval(id);
-  }, [state]);
+  }, [state, fast]);
+
+  const headTitle =
+    state === 'live'
+      ? 'Sedang Siaran'
+      : state === 'imminent'
+        ? 'Bersedia Mula'
+        : state === 'upcoming'
+          ? 'Jadual Seterusnya'
+          : 'Mula Siaran';
 
   return (
     <>
-      <Head title="Go Live" />
+      <Head title={headTitle} />
       <div className="-mx-5 min-h-full bg-[var(--app-bg)] px-4 pt-3 pb-8">
         {state === 'live' && <LiveState session={session} now={now} />}
         {state === 'imminent' && <ImminentState session={session} now={now} />}
-        {state === 'upcoming' && <UpcomingState session={session} />}
+        {state === 'upcoming' && <UpcomingState session={session} now={now} />}
         {state === 'none' && <NoneState />}
       </div>
     </>
@@ -54,84 +56,82 @@ export default function GoLive() {
 GoLive.layout = (page) => <PocketLayout>{page}</PocketLayout>;
 
 /* ------------------------------------------------------------------ */
+/* Constants                                                           */
+/* ------------------------------------------------------------------ */
+
+const IMMINENT_LEAD_SECONDS = 30 * 60; // matches GoLiveController::IMMINENT_LEAD_MINUTES
+
+const PREP_ITEMS = [
+  { key: 'bateri', label: 'Bateri penuh', icon: Battery },
+  { key: 'internet', label: 'Internet stabil', icon: Wifi },
+  { key: 'cahaya', label: 'Pencahayaan baik', icon: Lightbulb },
+  { key: 'nota', label: 'Skrip dan nota sedia', icon: ListChecks },
+  { key: 'produk', label: 'Produk live siap', icon: Package },
+];
+
+const DAY_NAMES_MS = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'];
+const MONTH_NAMES_MS = [
+  'Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Ogos', 'Sep', 'Okt', 'Nov', 'Dis',
+];
+
+/* ------------------------------------------------------------------ */
 /* STATE: live                                                         */
 /* ------------------------------------------------------------------ */
 
 function LiveState({ session, now }) {
   const sinceLabel = session?.actualStartAt ? formatClockHM(session.actualStartAt) : '—';
-  const elapsed = formatMinutesHM(minutesSince(session?.actualStartAt, now));
+  const elapsedMins = minutesSince(session?.actualStartAt, now);
+  const elapsed = formatMinutesHM(elapsedMins);
+  const accent = platformColor(session?.platformType);
 
   const handleEnd = () => {
-    if (!window.confirm('End this live session now?')) {
-      return;
-    }
-    router.post(`/live-host/sessions/${session.id}/end`, {}, {
-      preserveScroll: true,
-    });
+    if (!window.confirm('Tamatkan sesi siaran sekarang?')) return;
+    router.post(`/live-host/sessions/${session.id}/end`, {}, { preserveScroll: true });
   };
 
   return (
-    <>
+    <div className="flex min-h-[calc(100vh-180px)] flex-col">
       <PretitleBar tone="live">
         <span className="pocket-diode" aria-hidden="true" />
-        ON AIR · SINCE {sinceLabel}
+        SEDANG SIARAN · MULA {sinceLabel}
       </PretitleBar>
 
-      <div
-        className="relative mt-3 overflow-hidden rounded-[22px] border border-[var(--accent)] bg-[var(--app-bg-2)] p-[18px]"
-        style={{
-          backgroundImage:
-            'linear-gradient(160deg, var(--accent-soft), transparent 65%)',
-        }}
-      >
-        <div
-          className="pointer-events-none absolute -right-[30%] -top-[45%] h-[230px] w-[230px] rounded-full"
-          style={{
-            background:
-              'radial-gradient(circle, var(--accent-soft), transparent 60%)',
-          }}
-          aria-hidden="true"
-        />
+      <CountdownHero
+        label="Berjalan"
+        value={elapsed}
+        subUnits={['JAM', 'MINIT']}
+        progress={Math.min(1, (elapsedMins ?? 0) / 120)}
+        accent={accent}
+        glow
+      />
 
-        <div className="relative z-10 mb-2 flex items-center gap-[6px] font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--fg-2)]">
-          <span className="h-1 w-1 bg-[var(--hot)]" aria-hidden="true" />
-          {session?.platformAccount ?? session?.platformType ?? 'Platform'}
-        </div>
-        <h1 className="relative z-10 font-display text-[22px] font-medium leading-[1.1] tracking-[-0.03em] text-[var(--fg)]">
-          {session?.title ?? 'Untitled session'}
-        </h1>
-
-        <div className="relative z-10 mt-[18px] rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg)] px-[14px] py-[12px]">
-          <div className="mb-[3px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-            Elapsed
-          </div>
-          <div className="font-mono text-[40px] font-bold leading-none tracking-[-0.04em] tabular-nums text-[var(--accent)]">
-            {elapsed}
-          </div>
-        </div>
-
-        <div className="relative z-10 mt-[14px] flex gap-[8px]">
-          <button
-            type="button"
-            onClick={handleEnd}
-            className="flex-1 rounded-[12px] bg-[var(--accent)] px-0 py-[13px] font-sans text-[14px] font-bold tracking-[-0.005em] text-[var(--accent-ink)] transition active:scale-[0.98]"
-          >
-            End session
-          </button>
-          <Link
-            href={`/live-host/sessions/${session.id}`}
-            className="flex flex-1 items-center justify-center rounded-[12px] border border-[var(--hair-2)] bg-transparent px-0 py-[13px] font-sans text-[14px] font-bold text-[var(--fg)] transition active:scale-[0.98]"
-          >
-            View detail
-          </Link>
-        </div>
+      <div className="mt-2 text-center">
+        <p className="font-display text-[14px] leading-[1.4] text-[var(--fg-2)]">
+          Anda kini di udara. Tamatkan apabila selesai untuk simpan rekap.
+        </p>
       </div>
 
-      <HintText>
-        Tap <strong>End session</strong> when you stop streaming. You can save
-        the recap (GMV, notes) straight after.
-      </HintText>
-    </>
+      <SessionPreview session={session} accent={accent} />
+
+      <div className="flex-1" />
+
+      <StickyActions>
+        <Link
+          href={`/live-host/sessions/${session.id}`}
+          className="flex h-[48px] flex-1 items-center justify-center rounded-[14px] border border-[var(--hair-2)] bg-[var(--app-bg-2)] text-[14px] font-bold tracking-[-0.005em] text-[var(--fg)] transition active:scale-[0.98]"
+        >
+          Lihat butiran
+        </Link>
+        <button
+          type="button"
+          onClick={handleEnd}
+          className="flex h-[48px] flex-1 items-center justify-center rounded-[14px] bg-[var(--hot)] text-[14px] font-bold tracking-[-0.005em] text-white shadow-[0_8px_22px_-8px_rgba(225,29,72,0.55)] transition active:scale-[0.98]"
+        >
+          Tamatkan siaran
+        </button>
+      </StickyActions>
+    </div>
   );
 }
 
@@ -141,128 +141,200 @@ function LiveState({ session, now }) {
 
 function ImminentState({ session, now }) {
   const start = session?.scheduledStartAt ? new Date(session.scheduledStartAt) : null;
-  const deltaMinutes = start ? Math.round((start.getTime() - now.getTime()) / 60_000) : 0;
-  const { headline, sub } = buildImminentCopy(deltaMinutes);
+  const deltaSec = start ? Math.round((start.getTime() - now.getTime()) / 1000) : 0;
+  const accent = platformColor(session?.platformType);
+  const isLate = deltaSec < -60;
+  const isNow = deltaSec >= -60 && deltaSec <= 60;
+
+  // Progress fills from 0 (T-30min) → 1 (T-0). Clamps below 0 / above 1.
+  const progress = clamp(1 - deltaSec / IMMINENT_LEAD_SECONDS, 0, 1);
+
+  const label = isLate
+    ? 'Lewat'
+    : isNow
+      ? 'Sekarang'
+      : 'Mula dalam';
+
+  const value = isLate
+    ? formatCountdownAbs(-deltaSec)
+    : isNow
+      ? '00:00'
+      : formatCountdownAbs(deltaSec);
+
+  const subUnits = isLate || isNow
+    ? ['LEWAT', '']
+    : deltaSec >= 3600
+      ? ['JAM', 'MINIT', 'SAAT']
+      : ['MINIT', 'SAAT'];
+
+  const sub = isLate
+    ? 'Anda lewat dari masa dijadualkan. Slot ini masih boleh dimulakan dalam 2 jam.'
+    : isNow
+      ? 'Sudah masanya. Mulakan siaran sekarang.'
+      : `Sesi anda bermula pada ${formatClockHM(start)} hari ini.`;
+
+  const handleStart = () => {
+    if (!session) return;
+    router.post(
+      '/live-host/go-live/start',
+      { live_schedule_assignment_id: session.scheduleAssignmentId ?? null },
+      { preserveScroll: true }
+    );
+  };
+
+  const cta = (
+    <button
+      type="button"
+      onClick={handleStart}
+      className={cn(
+        'flex h-[52px] w-full items-center justify-center gap-[8px] rounded-[14px] text-[15px] font-bold tracking-[-0.005em] text-[var(--accent-ink)] shadow-[0_10px_28px_-8px_rgba(124,58,237,0.55)] transition active:scale-[0.98]',
+        isLate ? 'bg-[var(--hot)]' : 'bg-[var(--accent)]'
+      )}
+    >
+      <Radio className="h-[16px] w-[16px]" strokeWidth={2.5} />
+      <span>Mula siaran</span>
+    </button>
+  );
 
   return (
-    <>
+    <div className="flex min-h-[calc(100vh-180px)] flex-col">
       <PretitleBar>
         <Radio className="h-[11px] w-[11px]" strokeWidth={2.5} />
-        GO LIVE · {formatClockHM(now)} MYT
+        BERSEDIA MULA · {formatClockHM(now)} MYT
       </PretitleBar>
 
-      <div className="mt-3">
-        <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-          {headline.label}
-        </div>
-        <div
-          className={cn(
-            'mt-[4px] font-display font-medium leading-[0.95] tracking-[-0.045em]',
-            headline.late
-              ? 'text-[64px] text-[var(--hot)]'
-              : 'text-[64px] text-[var(--accent)]'
-          )}
-        >
-          {headline.value}
-        </div>
-        <p className="mt-[10px] max-w-[30ch] font-display text-[14px] leading-[1.35] text-[var(--fg-2)]">
-          {sub}
-        </p>
-      </div>
+      <CountdownHero
+        label={label}
+        value={value}
+        subUnits={subUnits}
+        progress={progress}
+        accent={isLate ? 'var(--hot)' : 'var(--accent)'}
+        glow
+      />
 
-      <SessionCard session={session} accent />
+      <p className="mt-2 max-w-[34ch] self-center text-center font-display text-[14px] leading-[1.4] text-[var(--fg-2)]">
+        {sub}
+      </p>
 
-      <div className="mt-4 rounded-[14px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-[14px] py-[12px]">
-        <div className="mb-[4px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-          How to go live
-        </div>
-        <p className="text-[12.5px] leading-[1.45] text-[var(--fg-2)]">
-          Open your <strong className="text-[var(--fg)]">
-            {session?.platformName ?? session?.platformAccount ?? 'streaming'}
-          </strong>{' '}
-          app and start the live from there. Once the platform flips to live,
-          this session auto-updates. When you&rsquo;re done, come back here to
-          end it and save the recap.
-        </p>
-      </div>
+      <SessionPreview session={session} accent={accent} />
 
-      <div className="mt-4 flex gap-[8px]">
+      <PrepChecklist sessionId={session?.id} />
+
+      <div className="flex-1" />
+
+      <StickyActions>
         <Link
           href={`/live-host/sessions/${session.id}`}
-          className="flex flex-1 items-center justify-center rounded-[12px] border border-[var(--hair-2)] bg-[var(--app-bg-2)] px-0 py-[12px] font-sans text-[13px] font-bold text-[var(--fg)] transition active:scale-[0.98]"
+          className="flex h-[52px] w-[52px] flex-none items-center justify-center rounded-[14px] border border-[var(--hair-2)] bg-[var(--app-bg-2)] text-[var(--fg)] transition active:scale-[0.98]"
+          aria-label="Lihat butiran sesi"
         >
-          Session detail
+          <ArrowRight className="h-[18px] w-[18px] -rotate-45" strokeWidth={2.5} />
         </Link>
-        <Link
-          href="/live-host"
-          className="flex flex-1 items-center justify-center gap-[6px] rounded-[12px] bg-[var(--accent)] px-0 py-[12px] font-sans text-[13px] font-bold text-[var(--accent-ink)] transition active:scale-[0.98]"
-        >
-          Back to Today
-          <ArrowRight className="h-[14px] w-[14px]" strokeWidth={2.5} />
-        </Link>
-      </div>
-    </>
+        {cta}
+      </StickyActions>
+    </div>
   );
-}
-
-function buildImminentCopy(deltaMinutes) {
-  // Future: "in 14m" / "in 2m" / "NOW"
-  // Past:   "5m late" / "42m late"
-  if (deltaMinutes >= 2) {
-    return {
-      headline: { label: 'Going live in', value: `${deltaMinutes}m`, late: false },
-      sub: 'Your next session starts soon. Get your platform ready.',
-    };
-  }
-  if (deltaMinutes >= -1) {
-    return {
-      headline: { label: 'Status', value: 'Now', late: false },
-      sub: 'It’s time. Open your platform and hit go live.',
-    };
-  }
-  const late = Math.abs(deltaMinutes);
-  return {
-    headline: { label: 'Running late', value: `${late}m`, late: true },
-    sub: 'You’re past the scheduled start. You can still go live — this session stays open for 2 hours.',
-  };
 }
 
 /* ------------------------------------------------------------------ */
 /* STATE: upcoming                                                     */
 /* ------------------------------------------------------------------ */
 
-function UpcomingState({ session }) {
-  const startLabel = session?.scheduledStartAt
-    ? formatFullWhen(session.scheduledStartAt)
-    : 'later';
+function UpcomingState({ session, now }) {
+  const start = session?.scheduledStartAt ? new Date(session.scheduledStartAt) : null;
+  const deltaSec = start ? Math.round((start.getTime() - now.getTime()) / 1000) : 0;
+  const accent = platformColor(session?.platformType);
+
+  // Same-day (≤24h): countdown clock. Otherwise: date mode.
+  const showCountdown = deltaSec > 0 && deltaSec < 24 * 3600;
+
+  const minutesToImminent = Math.max(0, deltaSec - IMMINENT_LEAD_SECONDS);
+  const enableLabel = formatMinutesShort(minutesToImminent);
 
   return (
-    <>
+    <div className="flex min-h-[calc(100vh-180px)] flex-col">
       <PretitleBar>
         <CalendarClock className="h-[11px] w-[11px]" strokeWidth={2.5} />
-        UP NEXT
+        JADUAL SETERUSNYA · {formatClockHM(now)} MYT
       </PretitleBar>
 
-      <div className="mt-3">
-        <h1 className="font-display text-[30px] font-medium leading-[1.05] tracking-[-0.035em] text-[var(--fg)]">
-          Nothing imminent.
-        </h1>
-        <p className="mt-[6px] max-w-[32ch] font-display text-[14px] leading-[1.4] text-[var(--fg-2)]">
-          Your next stream is <strong className="text-[var(--fg)]">{startLabel}</strong>.
-          We&rsquo;ll light up this page 30 minutes before it starts.
-        </p>
-      </div>
+      {showCountdown ? (
+        <CountdownHero
+          label="Mula dalam"
+          value={formatCountdownAbs(deltaSec)}
+          subUnits={deltaSec >= 3600 ? ['JAM', 'MINIT', 'SAAT'] : ['MINIT', 'SAAT']}
+          progress={0}
+          accent="var(--fg-3)"
+          dim
+        />
+      ) : (
+        <DateHero start={start} />
+      )}
 
-      <SessionCard session={session} />
+      <p className="mt-2 max-w-[34ch] self-center text-center font-display text-[14px] leading-[1.4] text-[var(--fg-2)]">
+        {showCountdown
+          ? `Bersedia! Butang Mula akan aktif ${enableLabel} sebelum mula.`
+          : `Sesi seterusnya pada ${formatFullWhenMs(start)}.`}
+      </p>
 
-      <Link
-        href="/live-host/schedule"
-        className="mt-4 flex items-center justify-between rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[14px] py-[12px] font-sans text-[13px] font-bold text-[var(--fg)] transition active:scale-[0.98]"
+      <SessionPreview session={session} accent={accent} />
+
+      <PrepChecklist sessionId={session?.id} />
+
+      <div className="flex-1" />
+
+      <StickyActions>
+        <Link
+          href="/live-host/schedule"
+          className="flex h-[52px] flex-1 items-center justify-center rounded-[14px] border border-[var(--hair-2)] bg-[var(--app-bg-2)] text-[14px] font-bold tracking-[-0.005em] text-[var(--fg)] transition active:scale-[0.98]"
+        >
+          Buka jadual
+        </Link>
+        <DisabledStartButton enableLabel={enableLabel} />
+      </StickyActions>
+    </div>
+  );
+}
+
+function DateHero({ start }) {
+  const day = start ? DAY_NAMES_MS[start.getDay()] : '';
+  const dateLabel = start ? `${start.getDate()} ${MONTH_NAMES_MS[start.getMonth()]}` : '—';
+  const timeLabel = start ? formatClockHM(start) : '—';
+
+  return (
+    <div className="mt-4 grid place-items-center">
+      <div
+        className="grid h-[220px] w-[220px] place-items-center rounded-full"
+        style={{
+          background:
+            'radial-gradient(circle at 35% 30%, rgba(124,58,237,0.10), transparent 65%), var(--app-bg-2)',
+          border: '1px solid var(--hair)',
+        }}
       >
-        <span>See full schedule</span>
-        <ArrowRight className="h-[14px] w-[14px]" strokeWidth={2.5} />
-      </Link>
-    </>
+        <div className="text-center">
+          <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.16em] text-[var(--fg-3)]">
+            {day}
+          </div>
+          <div className="mt-[6px] font-display text-[28px] font-medium leading-none tracking-[-0.03em] text-[var(--fg)] tabular-nums">
+            {dateLabel}
+          </div>
+          <div className="mt-[10px] font-mono text-[22px] font-bold tabular-nums tracking-[-0.02em] text-[var(--accent)]">
+            {timeLabel}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DisabledStartButton({ enableLabel }) {
+  return (
+    <div className="flex h-[52px] flex-1 items-center justify-center gap-[6px] rounded-[14px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 text-[var(--fg-3)]">
+      <Radio className="h-[14px] w-[14px]" strokeWidth={2.5} />
+      <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]">
+        Aktif {enableLabel} sebelum mula
+      </span>
+    </div>
   );
 }
 
@@ -272,46 +344,367 @@ function UpcomingState({ session }) {
 
 function NoneState() {
   return (
-    <>
+    <div className="flex min-h-[calc(100vh-180px)] flex-col">
       <PretitleBar>
-        <Clock className="h-[11px] w-[11px]" strokeWidth={2.5} />
-        ALL CLEAR
+        <Radio className="h-[11px] w-[11px]" strokeWidth={2.5} />
+        LAPANG
       </PretitleBar>
 
       <div className="mt-3">
         <h1 className="font-display text-[30px] font-medium leading-[1.05] tracking-[-0.035em] text-[var(--fg)]">
-          You&rsquo;re all clear.
+          Anda tiada penugasan.
         </h1>
-        <p className="mt-[6px] max-w-[32ch] font-display text-[14px] leading-[1.4] text-[var(--fg-2)]">
-          No scheduled sessions on your dock. When PIC adds one, it&rsquo;ll
-          show up here with a countdown.
+        <p className="mt-[8px] max-w-[34ch] font-display text-[14px] leading-[1.4] text-[var(--fg-2)]">
+          Apabila PIC tetapkan slot baharu, ia akan muncul di sini dengan kira detik mula.
         </p>
       </div>
 
       <div
         className="mt-6 grid place-items-center rounded-[18px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-4 py-[44px]"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 50% 35%, rgba(124,58,237,0.06), transparent 65%)',
+        }}
       >
-        <div className="grid h-[56px] w-[56px] place-items-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
-          <Radio className="h-[22px] w-[22px]" strokeWidth={2} />
+        <div
+          className="grid h-[64px] w-[64px] place-items-center rounded-full"
+          style={{ backgroundColor: 'var(--accent-soft)' }}
+        >
+          <Radio className="h-[26px] w-[26px] text-[var(--accent)]" strokeWidth={2} />
         </div>
-        <div className="mt-3 max-w-[24ch] text-center font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-          Waiting for your next assignment
+        <div className="mt-3 max-w-[26ch] text-center font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+          Menunggu penugasan baharu
         </div>
       </div>
 
-      <Link
-        href="/live-host/schedule"
-        className="mt-4 flex items-center justify-between rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-[14px] py-[12px] font-sans text-[13px] font-bold text-[var(--fg)] transition active:scale-[0.98]"
-      >
-        <span>Open schedule</span>
-        <ArrowRight className="h-[14px] w-[14px]" strokeWidth={2.5} />
-      </Link>
-    </>
+      <div className="flex-1" />
+
+      <StickyActions>
+        <Link
+          href="/live-host/schedule"
+          className="flex h-[52px] w-full items-center justify-center gap-[8px] rounded-[14px] bg-[var(--fg)] px-4 text-[14px] font-bold tracking-[-0.005em] text-[var(--app-bg)] transition active:scale-[0.98]"
+        >
+          Buka jadual
+          <ArrowRight className="h-[14px] w-[14px]" strokeWidth={2.5} />
+        </Link>
+      </StickyActions>
+    </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Small shared pieces                                                 */
+/* CountdownHero — ring + numerals                                     */
+/* ------------------------------------------------------------------ */
+
+function CountdownHero({ label, value, subUnits, progress, accent = 'var(--accent)', glow = false, dim = false }) {
+  const size = 240;
+  const stroke = 6;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - clamp(progress, 0, 1));
+
+  const parts = String(value).split(':');
+
+  return (
+    <div className="relative mt-4 grid place-items-center">
+      {glow ? (
+        <div
+          className="pointer-events-none absolute h-[280px] w-[280px] rounded-full blur-[40px]"
+          style={{
+            background: `radial-gradient(circle, ${withAlpha(accent, 0.16)}, transparent 65%)`,
+          }}
+          aria-hidden="true"
+        />
+      ) : null}
+
+      <div
+        className="relative grid place-items-center rounded-full"
+        style={{ width: size, height: size }}
+      >
+        <svg
+          width={size}
+          height={size}
+          className="absolute inset-0 -rotate-90"
+          aria-hidden="true"
+        >
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="var(--hair)"
+            strokeWidth={stroke}
+          />
+          {progress > 0 ? (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={accent}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={c}
+              strokeDashoffset={offset}
+              style={{
+                transition: 'stroke-dashoffset 900ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+              }}
+            />
+          ) : null}
+        </svg>
+
+        <div className="relative z-10 text-center">
+          <div className="mb-[10px] font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--fg-3)]">
+            {label}
+          </div>
+          <div className="flex items-baseline justify-center gap-[2px]">
+            {parts.map((part, i) => (
+              <span
+                key={i}
+                className="contents"
+              >
+                {i > 0 ? (
+                  <span
+                    className="px-[2px] font-mono text-[44px] font-bold leading-none tracking-[-0.03em] text-[var(--fg-4)]"
+                    aria-hidden="true"
+                  >
+                    :
+                  </span>
+                ) : null}
+                <span
+                  className="font-mono text-[52px] font-bold leading-none tracking-[-0.04em] tabular-nums"
+                  style={{ color: dim ? 'var(--fg-2)' : accent }}
+                >
+                  {part}
+                </span>
+              </span>
+            ))}
+          </div>
+          {subUnits.length > 0 ? (
+            <div className="mt-[10px] flex items-center justify-center gap-[14px] font-mono text-[8.5px] font-bold uppercase tracking-[0.18em] text-[var(--fg-3)]">
+              {subUnits.filter(Boolean).map((u, i) => (
+                <span key={i}>{u}</span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* SessionPreview — platform-painted card                              */
+/* ------------------------------------------------------------------ */
+
+function SessionPreview({ session, accent }) {
+  if (!session) return null;
+  const start = session.scheduledStartAt ? new Date(session.scheduledStartAt) : null;
+  const tint = withAlpha(accent, 0.07);
+
+  return (
+    <div
+      className="relative mt-5 overflow-hidden rounded-[16px] border border-[var(--hair)] pl-[14px] pr-3 py-[12px]"
+      style={{
+        background: `linear-gradient(95deg, ${tint}, var(--app-bg-2) 60%)`,
+      }}
+    >
+      <span
+        className="absolute left-0 top-0 bottom-0 w-[4px]"
+        style={{ backgroundColor: accent }}
+        aria-hidden="true"
+      />
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-[6px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
+          <span
+            className="h-[6px] w-[6px] rounded-full"
+            style={{
+              backgroundColor: accent,
+              boxShadow: `0 0 0 2px ${tint}`,
+            }}
+            aria-hidden="true"
+          />
+          {session.platformAccount ?? session.platformType ?? 'Platform'}
+        </span>
+        <span className="font-mono text-[9.5px] tracking-[0.04em] text-[var(--fg-3)]">
+          LS-{String(session.id).padStart(5, '0')}
+        </span>
+      </div>
+
+      <h3 className="mt-[6px] font-display text-[16px] font-medium leading-[1.2] tracking-[-0.02em] text-[var(--fg)]">
+        {session.title ?? 'Sesi tanpa tajuk'}
+      </h3>
+
+      <div className="mt-[10px] flex items-baseline gap-[16px] border-t border-[var(--hair)] pt-[8px]">
+        <Stat label="Dijadualkan" value={start ? formatClockHM(start) : '—'} />
+        {session.durationMinutes ? (
+          <Stat label="Tempoh" value={formatMinutesShort(session.durationMinutes * 60)} />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div>
+      <div className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+        {label}
+      </div>
+      <div className="mt-[2px] font-mono text-[13px] font-bold tabular-nums text-[var(--fg)]">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* PrepChecklist — tappable rows persisted to localStorage             */
+/* ------------------------------------------------------------------ */
+
+function PrepChecklist({ sessionId }) {
+  const storageKey = sessionId ? `pocket.golive.prep.${sessionId}` : null;
+
+  const [checked, setChecked] = useState(() => {
+    if (typeof window === 'undefined' || !storageKey) return new Set();
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Reset when the session id changes.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !storageKey) return;
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      const arr = raw ? JSON.parse(raw) : [];
+      setChecked(new Set(Array.isArray(arr) ? arr : []));
+    } catch {
+      setChecked(new Set());
+    }
+  }, [storageKey]);
+
+  const toggle = (key) => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      if (storageKey && typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
+        } catch {
+          /* localStorage may be disabled — silently ignore */
+        }
+      }
+      return next;
+    });
+  };
+
+  const total = PREP_ITEMS.length;
+  const done = checked.size;
+  const ratio = total > 0 ? done / total : 0;
+
+  return (
+    <section className="mt-5">
+      <div className="mb-2 flex items-center gap-[10px] px-1">
+        <span className="font-display text-[13px] font-medium tracking-[-0.015em] text-[var(--fg)]">
+          Daftar semak
+        </span>
+        <span className="ml-1 h-px flex-1" style={{ backgroundColor: 'var(--hair)' }} aria-hidden="true" />
+        <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] tabular-nums">
+          {done}/{total} sedia
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mb-3 h-[3px] w-full overflow-hidden rounded-full" style={{ backgroundColor: 'var(--hair)' }}>
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${ratio * 100}%`,
+            backgroundColor: 'var(--accent)',
+            transition: 'width 280ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+          }}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-[6px]">
+        {PREP_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = checked.has(item.key);
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => toggle(item.key)}
+              aria-pressed={active}
+              className={cn(
+                'flex items-center gap-[10px] rounded-[12px] border px-3 py-[10px] text-left transition active:scale-[0.99]',
+                active
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
+                  : 'border-[var(--hair)] bg-[var(--app-bg-2)] hover:border-[var(--hair-2)]'
+              )}
+            >
+              <span
+                className={cn(
+                  'grid h-[28px] w-[28px] flex-none place-items-center rounded-[8px] transition',
+                  active ? 'bg-[var(--accent)] text-[var(--accent-ink)]' : 'bg-[var(--hair)] text-[var(--fg-2)]'
+                )}
+              >
+                <Icon className="h-[14px] w-[14px]" strokeWidth={2.2} />
+              </span>
+              <span
+                className={cn(
+                  'flex-1 text-[13px] font-medium tracking-[-0.005em]',
+                  active ? 'text-[var(--accent-ink-strong,var(--accent))] line-through decoration-[1.5px] decoration-[var(--accent)]' : 'text-[var(--fg)]'
+                )}
+                style={active ? { color: 'var(--accent)' } : undefined}
+              >
+                {item.label}
+              </span>
+              <span
+                className={cn(
+                  'grid h-[20px] w-[20px] flex-none place-items-center rounded-full border-[1.5px] transition',
+                  active
+                    ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]'
+                    : 'border-[var(--hair-2)] bg-[var(--app-bg-2)] text-transparent'
+                )}
+              >
+                <CheckGlyph className="h-[10px] w-[10px]" />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function CheckGlyph({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 8.5l3 3 7-7.5" />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Pretitle + sticky actions                                           */
 /* ------------------------------------------------------------------ */
 
 function PretitleBar({ children, tone = 'default' }) {
@@ -327,84 +720,84 @@ function PretitleBar({ children, tone = 'default' }) {
   );
 }
 
-function SessionCard({ session, accent = false }) {
-  if (!session) {
-    return null;
-  }
-  const start = session.scheduledStartAt ? new Date(session.scheduledStartAt) : null;
-  const timeLabel = start ? formatClockHM(start) : '—';
-  const dayLabel = start ? formatDayShort(start) : '';
-
+function StickyActions({ children }) {
   return (
-    <div
-      className={cn(
-        'mt-4 rounded-[16px] border bg-[var(--app-bg-2)] p-[14px]',
-        accent ? 'border-[var(--accent)]' : 'border-[var(--hair)]'
-      )}
-    >
-      <div className="mb-[6px] flex items-center justify-between">
-        <div className="inline-flex items-center gap-[5px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
-          <span className="h-1 w-1 bg-[var(--fg-1)]" aria-hidden="true" />
-          {session.platformAccount ?? session.platformType ?? 'Platform'}
-        </div>
-        <div className="text-right font-mono text-[10px] text-[var(--fg-3)]">
-          LS-{String(session.id).padStart(5, '0')}
-        </div>
-      </div>
-      <h3 className="font-display text-[17px] font-medium leading-[1.15] tracking-[-0.025em] text-[var(--fg)]">
-        {session.title ?? 'Untitled session'}
-      </h3>
-      <div className="mt-[10px] flex items-baseline gap-[12px] border-t border-[var(--hair)] pt-[10px]">
-        <div>
-          <div className="mb-[2px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-            Scheduled
-          </div>
-          <div className="font-mono text-[13px] font-semibold text-[var(--fg)]">
-            {timeLabel}
-            {dayLabel ? <span className="ml-[5px] text-[var(--fg-3)]">{dayLabel}</span> : null}
-          </div>
-        </div>
-        {session.durationMinutes ? (
-          <div>
-            <div className="mb-[2px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-              Duration
-            </div>
-            <div className="font-mono text-[13px] font-semibold text-[var(--fg)]">
-              {session.durationMinutes}m
-            </div>
-          </div>
-        ) : null}
-      </div>
+    <div className="sticky bottom-0 -mx-4 mt-4 border-t border-[var(--hair)] bg-[var(--app-bg)]/95 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)] backdrop-blur-[6px]">
+      <div className="flex items-center gap-[8px]">{children}</div>
     </div>
   );
 }
 
-function HintText({ children }) {
-  return (
-    <p className="mt-3 px-1 text-[11.5px] leading-[1.5] text-[var(--fg-2)]">
-      {children}
-    </p>
-  );
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+function platformColor(type) {
+  if (type === 'tiktok') return '#E11D48';
+  if (type === 'facebook') return '#2563EB';
+  if (type === 'shopee') return '#F97316';
+  if (type === 'instagram') return '#D946EF';
+  return '#7C3AED';
 }
 
-/**
- * "Today 18:30" / "Tomorrow 06:30" / "Wed 23 Apr" — used on the upcoming
- * session card so the host has a date anchor even when the stream is days
- * out.
- */
-function formatFullWhen(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return '';
+function clamp(value, min, max) {
+  if (Number.isNaN(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function withAlpha(color, alpha) {
+  // Accepts hex (#RRGGBB) or "var(--accent)" — for vars we fall back to
+  // the soft accent token name so callers still get a reasonable wash.
+  if (typeof color === 'string' && color.startsWith('#')) {
+    const hex = color.slice(1);
+    const bigint = parseInt(
+      hex.length === 3
+        ? hex.split('').map((c) => c + c).join('')
+        : hex,
+      16
+    );
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
-  const time = formatClockHM(date);
+  return 'var(--accent-soft)';
+}
+
+function formatCountdownAbs(seconds) {
+  const s = Math.max(0, Math.abs(Math.round(seconds)));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) {
+    return `${pad(h)}:${pad(m)}:${pad(sec)}`;
+  }
+  return `${pad(m)}:${pad(sec)}`;
+}
+
+function pad(n) {
+  return String(n).padStart(2, '0');
+}
+
+function formatMinutesShort(seconds) {
+  const total = Math.max(0, Math.round(seconds / 60));
+  if (total >= 60) {
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return m > 0 ? `${h}j ${m}m` : `${h} jam`;
+  }
+  return `${total} minit`;
+}
+
+function formatFullWhenMs(date) {
+  if (!date || Number.isNaN(date.getTime())) return '—';
   const now = new Date();
   const sameDay =
     date.getFullYear() === now.getFullYear() &&
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate();
   if (sameDay) {
-    return `today at ${time}`;
+    return `${formatClockHM(date)} hari ini`;
   }
   const tomorrow = new Date(now);
   tomorrow.setDate(now.getDate() + 1);
@@ -413,21 +806,9 @@ function formatFullWhen(iso) {
     date.getMonth() === tomorrow.getMonth() &&
     date.getDate() === tomorrow.getDate();
   if (isTomorrow) {
-    return `tomorrow at ${time}`;
+    return `${formatClockHM(date)} esok`;
   }
-  const weekday = date.toLocaleDateString('en-GB', { weekday: 'short' });
-  const dm = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  return `${weekday} ${dm} · ${time}`;
-}
-
-function formatDayShort(date) {
-  const now = new Date();
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-  if (sameDay) {
-    return 'today';
-  }
-  return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const day = DAY_NAMES_MS[date.getDay()];
+  const dm = `${date.getDate()} ${MONTH_NAMES_MS[date.getMonth()]}`;
+  return `${day}, ${dm} · ${formatClockHM(date)}`;
 }

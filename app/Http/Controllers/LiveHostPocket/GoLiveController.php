@@ -148,6 +148,7 @@ class GoLiveController extends Controller
             'scheduledStartAt' => $session->scheduled_start_at?->toIso8601String(),
             'actualStartAt' => $session->actual_start_at?->toIso8601String(),
             'durationMinutes' => $session->duration_minutes,
+            'scheduleAssignmentId' => $session->live_schedule_assignment_id,
         ];
     }
 }
