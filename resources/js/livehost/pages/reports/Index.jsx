@@ -1,12 +1,13 @@
 import { Head, Link } from '@inertiajs/react';
 import { BarChart3, ChevronRight } from 'lucide-react';
-import LiveHostLayout from '@/livehost/layouts/LiveHostLayout';
+import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 
 export default function ReportsIndex({ reports }) {
   return (
-    <LiveHostLayout>
+    <>
       <Head title="Reports" />
-      <div className="space-y-6 p-6">
+      <TopBar breadcrumb={['Live Host Desk', 'Reports']} />
+      <div className="space-y-6 p-8">
         <header>
           <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
           <p className="text-sm text-muted-foreground">
@@ -19,7 +20,7 @@ export default function ReportsIndex({ reports }) {
           ))}
         </div>
       </div>
-    </LiveHostLayout>
+    </>
   );
 }
 
@@ -59,3 +60,5 @@ function ReportCard({ report }) {
     <div className={className}>{content}</div>
   );
 }
+
+ReportsIndex.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
