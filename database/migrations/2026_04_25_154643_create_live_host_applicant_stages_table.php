@@ -33,8 +33,15 @@ return new class extends Migration
         });
 
         // Backfill: open one row per existing applicant at its current stage.
+        // Idempotent: skips applicants that already have an open stage row.
         DB::table('live_host_applicants')
             ->whereNotNull('current_stage_id')
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('live_host_applicant_stages')
+                    ->whereColumn('live_host_applicant_stages.applicant_id', 'live_host_applicants.id')
+                    ->whereNull('live_host_applicant_stages.exited_at');
+            })
             ->orderBy('id')
             ->select(['id', 'current_stage_id', 'applied_at'])
             ->chunkById(500, function ($rows) {

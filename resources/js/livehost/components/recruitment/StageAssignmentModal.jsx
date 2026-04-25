@@ -141,10 +141,11 @@ export default function StageAssignmentModal({
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
+            <label htmlFor="stage-assignment-assignee" className="mb-1 block text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
               Assignee
             </label>
             <select
+              id="stage-assignment-assignee"
               value={assigneeId}
               onChange={handleAssigneeChange}
               className="w-full rounded-lg border border-[#EAEAEA] bg-white px-3 py-2 text-[13px] text-[#0A0A0A] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
@@ -159,10 +160,11 @@ export default function StageAssignmentModal({
           </div>
 
           <div>
-            <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
+            <label htmlFor="stage-assignment-due" className="mb-1 block text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
               Due
             </label>
             <input
+              id="stage-assignment-due"
               type="datetime-local"
               value={dueAt}
               onChange={handleDueChange}
@@ -171,10 +173,11 @@ export default function StageAssignmentModal({
           </div>
 
           <div>
-            <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
+            <label htmlFor="stage-assignment-notes" className="mb-1 block text-[11.5px] font-medium uppercase tracking-wide text-[#737373]">
               Stage notes
             </label>
             <textarea
+              id="stage-assignment-notes"
               rows={4}
               value={stageNotes}
               onChange={handleNotesChange}
