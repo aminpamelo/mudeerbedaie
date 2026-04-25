@@ -241,6 +241,9 @@ Route::middleware(['auth'])
             Route::get('live-now', [\App\Http\Controllers\LiveHost\DashboardController::class, 'liveNowJson'])
                 ->name('live-now');
 
+            Route::get('replacements', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'index'])
+                ->name('replacements.index');
+
             Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
                 ->name('hosts.create');
             Route::post('hosts', [\App\Http\Controllers\LiveHost\HostController::class, 'store'])
