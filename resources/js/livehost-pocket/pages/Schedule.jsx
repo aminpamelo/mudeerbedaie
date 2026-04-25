@@ -513,16 +513,25 @@ function WeekNavigator({ week }) {
         <ChevronIcon className="h-[12px] w-[12px]" direction="right" />
       </Link>
 
-      {!isCurrent ? (
+      {isCurrent ? (
+        <span
+          className="ml-[2px] inline-flex h-[32px] flex-none items-center rounded-full px-[12px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent-ink)] shadow-[0_4px_10px_-4px_rgba(124,58,237,0.45)]"
+          style={{ backgroundColor: 'var(--accent)' }}
+          aria-label="Minggu ini mengandungi hari ini"
+        >
+          Hari ini
+        </span>
+      ) : (
         <Link
           href={`/live-host/schedule?week=${encodeURIComponent(week.today)}`}
           preserveScroll
-          className="ml-[2px] inline-flex h-[32px] flex-none items-center rounded-full px-[12px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent-ink)] shadow-[0_4px_10px_-4px_rgba(124,58,237,0.45)] transition active:scale-[0.97]"
-          style={{ backgroundColor: 'var(--accent)' }}
+          aria-label="Pulang ke minggu hari ini"
+          className="ml-[2px] inline-flex h-[32px] flex-none items-center gap-[5px] rounded-full border border-[var(--hair)] bg-[var(--app-bg)] px-[10px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)] transition active:scale-[0.97] hover:text-[var(--fg)]"
         >
-          Hari ini
+          <ChevronIcon className="h-[10px] w-[10px]" direction="left" />
+          Pulang
         </Link>
-      ) : null}
+      )}
     </div>
   );
 }
