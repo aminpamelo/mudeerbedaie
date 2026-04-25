@@ -1,8 +1,8 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRight, Radio, CalendarClock, Battery, Wifi, Lightbulb, ListChecks, Package } from 'lucide-react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
-import { cn, formatClockHM, formatMinutesHM, minutesSince } from '@/livehost-pocket/lib/utils';
+import { cn, formatClockHM } from '@/livehost-pocket/lib/utils';
 
 /**
  * Go Live — pre-flight briefing.
@@ -81,8 +81,11 @@ const MONTH_NAMES_MS = [
 
 function LiveState({ session, now }) {
   const sinceLabel = session?.actualStartAt ? formatClockHM(session.actualStartAt) : '—';
-  const elapsedMins = minutesSince(session?.actualStartAt, now);
-  const elapsed = formatMinutesHM(elapsedMins);
+  const start = session?.actualStartAt ? new Date(session.actualStartAt) : null;
+  const elapsedSec = start
+    ? Math.max(0, Math.round((now.getTime() - start.getTime()) / 1000))
+    : 0;
+  const elapsed = formatCountdownAbs(elapsedSec);
   const accent = platformColor(session?.platformType);
 
   const handleEnd = () => {
@@ -100,8 +103,8 @@ function LiveState({ session, now }) {
       <CountdownHero
         label="Berjalan"
         value={elapsed}
-        subUnits={['JAM', 'MINIT']}
-        progress={Math.min(1, (elapsedMins ?? 0) / 120)}
+        subUnits={elapsedSec >= 3600 ? ['JAM', 'MINIT', 'SAAT'] : ['MINIT', 'SAAT']}
+        progress={Math.min(1, elapsedSec / (120 * 60))}
         accent={accent}
         glow
       />
