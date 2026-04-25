@@ -216,9 +216,9 @@ function SessionCard({ session }) {
         <div className="mt-[10px] flex gap-[6px] border-t border-[var(--hair)] pt-[10px]">
           <Link
             href={`/live-host/sessions/${session.id}?recap=yes`}
-            className="flex-[2] rounded-[10px] bg-[var(--accent)] px-[10px] py-[8px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent-ink)]"
+            className="flex-[2] rounded-[10px] bg-[var(--warm)] px-[10px] py-[8px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-white shadow-[0_4px_12px_-4px_rgba(245,158,11,0.45)]"
           >
-            Hantar rekap &rarr;
+            Muat naik bukti &rarr;
           </Link>
           <Link
             href={`/live-host/sessions/${session.id}?recap=no`}
