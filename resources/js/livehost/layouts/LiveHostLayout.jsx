@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   UserCircle2,
   Megaphone,
+  Replace,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
 
@@ -22,6 +23,7 @@ const NAV_GROUPS = [
     items: [
       { key: 'dashboard', label: 'Dashboard', href: '/livehost', icon: LayoutDashboard },
       { key: 'hosts', label: 'Live Hosts', href: '/livehost/hosts', icon: Users, countKey: 'hosts' },
+      { key: 'replacements', label: 'Permohonan Ganti', href: '/livehost/replacements', icon: Replace, countKey: 'replacements' },
       { key: 'recruitment', label: 'Recruitment', href: '/livehost/recruitment/campaigns', icon: Megaphone },
     ],
   },
@@ -48,6 +50,7 @@ const NAV_GROUPS = [
 const NAV_ITEM_PERMISSION = {
   dashboard: null,
   hosts: null,
+  replacements: null,
   recruitment: 'canRecruit',
   'time-slots': null,
   'session-slots': null,

@@ -173,6 +173,9 @@ class HandleInertiaRequests extends Middleware
             'sessions' => LiveSession::query()->count(),
             'platformAccounts' => PlatformAccount::query()->count(),
             'creators' => \App\Models\LiveHostPlatformAccount::query()->count(),
+            'replacements' => \App\Models\SessionReplacementRequest::query()
+                ->where('status', \App\Models\SessionReplacementRequest::STATUS_PENDING)
+                ->count(),
         ]);
     }
 }
