@@ -54,7 +54,7 @@ class SessionSlotController extends Controller
                     fn ($q) => $q->where('is_template', false)
                 )
             )
-            ->when($scheduleDate !== '', fn ($q) => $q->where('schedule_date', $scheduleDate))
+            ->when($scheduleDate !== '', fn ($q) => $q->whereDate('schedule_date', $scheduleDate))
             ->orderByDesc('is_template')
             ->orderBy('day_of_week')
             ->orderBy('schedule_date')
@@ -120,10 +120,10 @@ class SessionSlotController extends Controller
                     fn ($q) => $q->where(function ($q) use ($weekStart, $weekEnd) {
                         $q->where('is_template', true)
                             ->orWhereNull('schedule_date')
-                            ->orWhereBetween('schedule_date', [
-                                $weekStart->toDateString(),
-                                $weekEnd->toDateString(),
-                            ]);
+                            ->orWhere(function ($q) use ($weekStart, $weekEnd) {
+                                $q->whereDate('schedule_date', '>=', $weekStart->toDateString())
+                                    ->whereDate('schedule_date', '<=', $weekEnd->toDateString());
+                            });
                     })
                 )
             )

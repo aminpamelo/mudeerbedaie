@@ -81,7 +81,8 @@ class DashboardController extends Controller
 
         $weekSlots = LiveScheduleAssignment::query()
             ->where('is_template', false)
-            ->whereBetween('schedule_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->whereDate('schedule_date', '>=', $weekStart->toDateString())
+            ->whereDate('schedule_date', '<=', $weekEnd->toDateString())
             ->get(['id', 'schedule_date', 'live_host_id', 'platform_account_id', 'status']);
 
         $assignedCount = $weekSlots->whereNotNull('live_host_id')->count();

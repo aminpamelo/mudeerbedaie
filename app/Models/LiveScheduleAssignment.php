@@ -87,7 +87,7 @@ class LiveScheduleAssignment extends Model
 
     public function scopeForDate(Builder $query, $date): Builder
     {
-        return $query->where('schedule_date', $date);
+        return $query->whereDate('schedule_date', $date);
     }
 
     public function scopeAssigned(Builder $query): Builder
