@@ -138,3 +138,22 @@ it('cannot re-assign an already-assigned request', function () {
 
     $response->assertStatus(422);
 });
+
+it('transfers assignment ownership when scope is permanent', function () {
+    $req = SessionReplacementRequest::factory()
+        ->pending()
+        ->permanent()
+        ->create([
+            'live_schedule_assignment_id' => $this->assignment->id,
+            'original_host_id' => $this->host->id,
+        ]);
+    $candidate = User::factory()->create(['role' => 'live_host']);
+
+    $this->actingAs($this->pic)
+        ->post(route('livehost.replacements.assign', $req), [
+            'replacement_host_id' => $candidate->id,
+        ]);
+
+    expect($this->assignment->fresh()->live_host_id)->toBe($candidate->id);
+    expect($req->fresh()->status)->toBe('assigned');
+});
