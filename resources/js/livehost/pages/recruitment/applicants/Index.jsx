@@ -14,6 +14,7 @@ import {
   Star,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
+import StageAssignmentModal from '@/livehost/components/recruitment/StageAssignmentModal';
 
 function platformTone(slug) {
   const map = {
@@ -60,7 +61,7 @@ function RatingStars({ value }) {
   );
 }
 
-function ApplicantCard({ applicant, index, isDragDisabled = false }) {
+function ApplicantCard({ applicant, index, isDragDisabled = false, onOpen }) {
   return (
     <Draggable draggableId={String(applicant.id)} index={index} isDragDisabled={isDragDisabled}>
       {(provided, snapshot) => (
@@ -87,14 +88,18 @@ function ApplicantCard({ applicant, index, isDragDisabled = false }) {
             >
               <GripVertical className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
-            <Link
-              href={`/livehost/recruitment/applicants/${applicant.id}`}
-              className="min-w-0 flex-1"
+            <button
+              type="button"
               onClick={(e) => {
                 if (snapshot.isDragging) {
                   e.preventDefault();
+                  return;
+                }
+                if (typeof onOpen === 'function') {
+                  onOpen(applicant);
                 }
               }}
+              className="min-w-0 flex-1 cursor-pointer text-left"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -148,7 +153,7 @@ function ApplicantCard({ applicant, index, isDragDisabled = false }) {
                   )}
                 </div>
               )}
-            </Link>
+            </button>
           </div>
         </div>
       )}
@@ -156,7 +161,7 @@ function ApplicantCard({ applicant, index, isDragDisabled = false }) {
   );
 }
 
-function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled = false }) {
+function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled = false, onOpen }) {
   return (
     <div className="flex w-[280px] shrink-0 flex-col rounded-[12px] bg-[#F5F5F5]">
       <div className="flex items-center justify-between border-b border-[#EAEAEA] px-3 py-2.5">
@@ -199,7 +204,7 @@ function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled =
               </div>
             ) : (
               applicants.map((a, index) => (
-                <ApplicantCard key={a.id} applicant={a} index={index} isDragDisabled={dragDisabled} />
+                <ApplicantCard key={a.id} applicant={a} index={index} isDragDisabled={dragDisabled} onOpen={onOpen} />
               ))
             )}
             {provided.placeholder}
@@ -451,10 +456,12 @@ function HeroEmpty({ campaign }) {
 
 export default function ApplicantsIndex() {
   const { campaign, campaigns, stages, applicants, counts, filters } = usePage().props;
+  const { assignableUsers } = usePage().props;
 
   // Optimistic stage overrides keyed by applicant id while a moveStage request is in flight.
   const [stageOverrides, setStageOverrides] = useState({});
   const [isMoving, setIsMoving] = useState(false);
+  const [openApplicantId, setOpenApplicantId] = useState(null);
 
   const effectiveApplicants = useMemo(
     () =>
@@ -464,6 +471,11 @@ export default function ApplicantsIndex() {
           : a,
       ),
     [applicants, stageOverrides],
+  );
+
+  const openApplicant = useMemo(
+    () => effectiveApplicants.find((a) => a.id === openApplicantId) ?? null,
+    [effectiveApplicants, openApplicantId],
   );
 
   const applicantsByStage = useMemo(() => {
@@ -667,6 +679,7 @@ export default function ApplicantsIndex() {
                         key={stage.id}
                         stage={stage}
                         applicants={applicantsByStage.get(stage.id) ?? []}
+                        onOpen={(a) => setOpenApplicantId(a.id)}
                       />
                     ))}
                     {ungrouped.length > 0 && (
@@ -674,6 +687,7 @@ export default function ApplicantsIndex() {
                         stage={{ id: 0, name: 'Unassigned', is_final: false }}
                         applicants={ungrouped}
                         isDropDisabled={true}
+                        onOpen={(a) => setOpenApplicantId(a.id)}
                       />
                     )}
                   </div>
@@ -688,6 +702,14 @@ export default function ApplicantsIndex() {
           </>
         )}
       </div>
+      {openApplicant && (
+        <StageAssignmentModal
+          applicant={openApplicant}
+          stages={stages}
+          assignableUsers={assignableUsers ?? []}
+          onClose={() => setOpenApplicantId(null)}
+        />
+      )}
     </>
   );
 }
