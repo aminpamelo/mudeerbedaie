@@ -37,8 +37,24 @@ class StoreSessionSlotRequest extends FormRequest
      */
     public function rules(): array
     {
+        $isTemplate = (bool) $this->input('is_template');
+        $scheduleDate = $this->input('schedule_date');
+
         return [
-            'platform_account_id' => ['required', 'exists:platform_accounts,id'],
+            'platform_account_id' => [
+                'required', 'exists:platform_accounts,id',
+                Rule::unique('live_schedule_assignments')
+                    ->where(fn ($q) => $q
+                        ->where('time_slot_id', $this->input('time_slot_id'))
+                        ->where('day_of_week', $this->input('day_of_week'))
+                        ->where('is_template', $isTemplate)
+                        ->when(
+                            ! $isTemplate && $scheduleDate,
+                            fn ($q) => $q->whereDate('schedule_date', $scheduleDate),
+                            fn ($q) => $q->whereNull('schedule_date')
+                        )
+                    ),
+            ],
             'time_slot_id' => ['required', 'exists:live_time_slots,id'],
             'live_host_id' => ['nullable', 'exists:users,id'],
             'live_host_platform_account_id' => [
@@ -67,6 +83,7 @@ class StoreSessionSlotRequest extends FormRequest
             'day_of_week.between' => 'Day of week must be between 0 (Sunday) and 6 (Saturday).',
             'schedule_date.date_format' => 'Schedule date must be a valid YYYY-MM-DD date.',
             'schedule_date.required_if' => 'Pick a specific date when the slot is not a weekly template.',
+            'platform_account_id.unique' => 'A session slot already exists for this platform, time slot and day on the selected date.',
         ];
     }
 
