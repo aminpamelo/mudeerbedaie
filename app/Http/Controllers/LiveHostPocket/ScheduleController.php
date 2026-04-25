@@ -4,6 +4,7 @@ namespace App\Http\Controllers\LiveHostPocket;
 
 use App\Http\Controllers\Controller;
 use App\Models\LiveScheduleAssignment;
+use App\Models\SessionReplacementRequest;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -32,24 +33,47 @@ class ScheduleController extends Controller
     {
         $host = $request->user();
 
-        $schedules = LiveScheduleAssignment::query()
+        $assignments = LiveScheduleAssignment::query()
             ->with(['timeSlot', 'platformAccount.platform'])
             ->where('live_host_id', $host->id)
             ->where('status', '!=', 'cancelled')
             ->orderBy('day_of_week')
-            ->get()
-            ->map(fn (LiveScheduleAssignment $assignment): array => [
-                'id' => $assignment->id,
-                'dayOfWeek' => (int) $assignment->day_of_week,
-                'dayName' => self::DAY_NAMES[$assignment->day_of_week] ?? 'Unknown',
-                'dayShort' => self::DAY_SHORT[$assignment->day_of_week] ?? '—',
-                'startTime' => $this->formatTime($assignment->timeSlot?->start_time),
-                'endTime' => $this->formatTime($assignment->timeSlot?->end_time),
-                'platformAccount' => $assignment->platformAccount?->name,
-                'platformType' => $assignment->platformAccount?->platform?->slug,
-                'isRecurring' => (bool) $assignment->is_template,
-                'remarks' => $assignment->remarks,
+            ->get();
+
+        $activeRequests = SessionReplacementRequest::query()
+            ->whereIn('live_schedule_assignment_id', $assignments->pluck('id'))
+            ->whereIn('status', [
+                SessionReplacementRequest::STATUS_PENDING,
+                SessionReplacementRequest::STATUS_ASSIGNED,
             ])
+            ->with('replacementHost:id,name')
+            ->get()
+            ->groupBy('live_schedule_assignment_id');
+
+        $schedules = $assignments
+            ->map(function (LiveScheduleAssignment $assignment) use ($activeRequests): array {
+                $request = $activeRequests->get($assignment->id)?->first();
+
+                return [
+                    'id' => $assignment->id,
+                    'dayOfWeek' => (int) $assignment->day_of_week,
+                    'dayName' => self::DAY_NAMES[$assignment->day_of_week] ?? 'Unknown',
+                    'dayShort' => self::DAY_SHORT[$assignment->day_of_week] ?? '—',
+                    'startTime' => $this->formatTime($assignment->timeSlot?->start_time),
+                    'endTime' => $this->formatTime($assignment->timeSlot?->end_time),
+                    'platformAccount' => $assignment->platformAccount?->name,
+                    'platformType' => $assignment->platformAccount?->platform?->slug,
+                    'isRecurring' => (bool) $assignment->is_template,
+                    'remarks' => $assignment->remarks,
+                    'replacementRequest' => $request ? [
+                        'id' => $request->id,
+                        'status' => $request->status,
+                        'scope' => $request->scope,
+                        'targetDate' => $request->target_date?->toDateString(),
+                        'replacementHostName' => $request->replacementHost?->name,
+                    ] : null,
+                ];
+            })
             ->sortBy([
                 ['dayOfWeek', 'asc'],
                 ['startTime', 'asc'],
