@@ -176,19 +176,34 @@ const REASON_OPTIONS = [
   { value: 'other', label: 'Lain-lain' },
 ];
 
-function todayIso() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+function nextOccurrenceIso(dayOfWeek, startTime) {
+  if (typeof dayOfWeek !== 'number' || dayOfWeek < 0 || dayOfWeek > 6) {
+    return '';
+  }
+  const now = new Date();
+  let delta = (dayOfWeek - now.getDay() + 7) % 7;
+  if (delta === 0) {
+    // Slot is today: use it only if its start time is still in the future.
+    const [h = 0, m = 0] = String(startTime ?? '00:00')
+      .split(':')
+      .map((n) => parseInt(n, 10));
+    const slotStart = new Date(now);
+    slotStart.setHours(h, m, 0, 0);
+    delta = slotStart > now ? 0 : 7;
+  }
+  const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + delta);
+  const y = target.getFullYear();
+  const mo = String(target.getMonth() + 1).padStart(2, '0');
+  const d = String(target.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${d}`;
 }
 
-function formatTargetDate(iso) {
+function formatTargetDate(iso, { withYear = false } = {}) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-').map((s) => parseInt(s, 10));
   if (!y || !m || !d) return iso;
-  return `${d} ${MONTH_NAMES_MS[m - 1] ?? ''}`.trim();
+  const base = `${d} ${MONTH_NAMES_MS[m - 1] ?? ''}`.trim();
+  return withYear ? `${base} ${y}` : base;
 }
 
 function initialsFrom(name) {
@@ -456,10 +471,18 @@ function FooterHint({ pendingCount }) {
  * helper on the JS side (other pocket pages use literal URL strings too).
  */
 function RequestModal({ slot, dayName, onClose }) {
+  // The target date is fully implied by the slot — a host's emergency on a
+  // recurring Sunday slot is always for the next upcoming Sunday. Compute it
+  // on mount so the host doesn't have to pick anything.
+  const computedTargetDate = useMemo(
+    () => nextOccurrenceIso(slot.dayOfWeek, slot.startTime),
+    [slot.dayOfWeek, slot.startTime]
+  );
+
   const form = useForm({
     live_schedule_assignment_id: slot.id,
     scope: 'one_date',
-    target_date: '',
+    target_date: computedTargetDate,
     reason_category: 'sick',
     reason_note: '',
   });
@@ -467,6 +490,7 @@ function RequestModal({ slot, dayName, onClose }) {
   const dayMs = DAY_NAMES_MS[dayName] ?? dayName;
   const timeRange = `${slot.startTime} – ${slot.endTime}`;
   const platform = slot.platformAccount ?? slot.platformType ?? 'Platform';
+  const slotDuration = durationLabel(slot.startTime, slot.endTime);
 
   // Lock body scroll while modal is open.
   useEffect(() => {
@@ -505,12 +529,9 @@ function RequestModal({ slot, dayName, onClose }) {
     '';
 
   // Editorial summary line.
-  const dateLabel =
-    form.data.scope === 'one_date'
-      ? form.data.target_date
-        ? `${dayMs}, ${formatTargetDate(form.data.target_date)}`
-        : `hari ${dayMs}`
-      : 'kekal mulai segera';
+  const dateLabel = form.data.target_date
+    ? `${dayMs}, ${formatTargetDate(form.data.target_date, { withYear: true })}`
+    : `hari ${dayMs}`;
   const summary = `Mohon pengganti untuk ${dateLabel} · ${timeRange}.`;
 
   return (
@@ -550,72 +571,79 @@ function RequestModal({ slot, dayName, onClose }) {
             </p>
           </div>
 
-          {/* Slot preview card (mini). */}
-          <div className="mx-5 mb-4 rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-[10px]">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
-                <span
-                  className="h-1 w-1"
-                  style={{
-                    backgroundColor:
-                      slot.platformType === 'tiktok'
-                        ? 'var(--fg-1)'
-                        : slot.platformType === 'facebook'
-                          ? 'var(--cool)'
-                          : 'var(--hot)',
-                  }}
-                  aria-hidden="true"
-                />
-                {platform}
+          {/* Platform label — small ID line so the host knows which slot
+              they're acting on. The full slot details (day + date + time)
+              live in the Tarikh slot block below. */}
+          <div className="mx-5 mb-4 flex items-center gap-[8px]">
+            <span
+              className="h-[6px] w-[6px] rounded-full"
+              style={{
+                backgroundColor: platformColor(slot.platformType),
+                boxShadow: `0 0 0 2px ${platformTint(slot.platformType)}`,
+              }}
+              aria-hidden="true"
+            />
+            <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
+              {platform}
+            </span>
+            {slot.isRecurring ? (
+              <span
+                className="ml-auto inline-flex items-center rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]"
+                style={{ backgroundColor: 'var(--hair)' }}
+              >
+                WEEKLY
               </span>
-              {slot.isRecurring ? (
-                <span
-                  className="inline-flex items-center rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]"
-                  style={{ backgroundColor: 'var(--hair)' }}
-                >
-                  WEEKLY
-                </span>
-              ) : null}
-            </div>
-            <div className="mt-1 font-mono text-[13px] font-bold tabular-nums text-[var(--fg)]">
-              {timeRange}
-            </div>
+            ) : null}
           </div>
 
-          <div className="max-h-[55vh] overflow-y-auto px-5">
+          <div className="max-h-[60vh] overflow-y-auto px-5">
             {/* Scope is locked to "one_date" for the host-side flow; permanent
                 replacements are handled by the PIC out-of-band. The segmented
                 control is intentionally hidden so there is nothing to choose. */}
 
-            {/* Target date (one_date only). */}
-            {form.data.scope === 'one_date' ? (
-              <div className="mb-5">
-                <label
-                  htmlFor="rr-target-date"
-                  className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]"
-                >
-                  Tarikh
-                </label>
-                <input
-                  id="rr-target-date"
-                  type="date"
-                  min={todayIso()}
-                  value={form.data.target_date}
-                  onChange={(e) => form.setData('target_date', e.target.value)}
-                  className="h-[42px] w-full rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 text-[14px] text-[var(--fg)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)]"
-                />
-                <p className="mt-2 text-[11px] leading-snug text-[var(--fg-3)]">
-                  Pilih tarikh hari{' '}
-                  <span className="font-medium text-[var(--fg-2)]">{dayMs}</span>{' '}
-                  yang akan datang.
-                </p>
-                {errors.target_date ? (
-                  <p className="mt-1 text-[11px] text-[var(--hot)]">
-                    {errors.target_date}
-                  </p>
-                ) : null}
+            {/* Target date — auto-resolved to the next occurrence of this
+                slot. Read-only; no picker, no decision. */}
+            <div className="mb-5">
+              <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
+                Tarikh slot
               </div>
-            ) : null}
+              <div className="flex items-center gap-[12px] rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-[12px]">
+                <span
+                  className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[10px]"
+                  style={{ backgroundColor: 'var(--accent-soft)' }}
+                  aria-hidden="true"
+                >
+                  <CalendarIcon className="h-[18px] w-[18px] text-[var(--accent)]" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-display text-[15px] font-medium leading-tight tracking-[-0.01em] text-[var(--fg)]">
+                    {dayMs}
+                    {form.data.target_date ? (
+                      <>
+                        ,{' '}
+                        <span className="font-mono tabular-nums">
+                          {formatTargetDate(form.data.target_date, { withYear: true })}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                  <div className="mt-[2px] font-mono text-[10.5px] tracking-[0.04em] text-[var(--fg-3)]">
+                    {timeRange}
+                    {slotDuration ? (
+                      <>
+                        <span className="px-[5px] text-[var(--fg-4)]">·</span>
+                        <span>{slotDuration}</span>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+              {errors.target_date ? (
+                <p className="mt-1 text-[11px] text-[var(--hot)]">
+                  {errors.target_date}
+                </p>
+              ) : null}
+            </div>
 
             {/* Reason — chip row. */}
             <div className="mb-5">
@@ -753,6 +781,25 @@ function CheckIcon({ className = '' }) {
       aria-hidden="true"
     >
       <path d="M3 8.5l3 3 7-7.5" />
+    </svg>
+  );
+}
+
+function CalendarIcon({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="3" y="4.5" width="14" height="12.5" rx="2" />
+      <path d="M3 8.5h14" />
+      <path d="M7 3v3M13 3v3" />
     </svg>
   );
 }
