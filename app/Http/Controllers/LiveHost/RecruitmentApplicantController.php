@@ -43,6 +43,7 @@ class RecruitmentApplicantController extends Controller
             ? LiveHostApplicant::query()
                 ->where('campaign_id', $campaign->id)
                 ->where('status', $statusTab)
+                ->with(['currentStageRow.assignee'])
                 ->orderByDesc('applied_at')
                 ->get()
             : collect();
@@ -80,18 +81,32 @@ class RecruitmentApplicantController extends Controller
             ] : null,
             'counts' => $counts,
             'stages' => $stages->values(),
-            'applicants' => $applicants->map(fn (LiveHostApplicant $a) => [
-                'id' => $a->id,
-                'applicant_number' => $a->applicant_number,
-                'full_name' => $a->name,
-                'email' => $a->email,
-                'platforms' => $a->valueByRole('platforms') ?? [],
-                'rating' => $a->rating,
-                'current_stage_id' => $a->current_stage_id,
-                'status' => $a->status,
-                'applied_at' => $a->applied_at?->toIso8601String(),
-                'applied_at_human' => $a->applied_at?->diffForHumans(),
-            ])->values(),
+            'applicants' => $applicants->map(function (LiveHostApplicant $a) {
+                $row = $a->currentStageRow;
+
+                return [
+                    'id' => $a->id,
+                    'applicant_number' => $a->applicant_number,
+                    'full_name' => $a->name,
+                    'email' => $a->email,
+                    'platforms' => $a->valueByRole('platforms') ?? [],
+                    'rating' => $a->rating,
+                    'current_stage_id' => $a->current_stage_id,
+                    'status' => $a->status,
+                    'applied_at' => $a->applied_at?->toIso8601String(),
+                    'applied_at_human' => $a->applied_at?->diffForHumans(),
+                    'assignment' => $row ? [
+                        'assignee' => $row->assignee ? [
+                            'id' => $row->assignee->id,
+                            'name' => $row->assignee->name,
+                            'initials' => self::initials($row->assignee->name),
+                        ] : null,
+                        'due_at' => $row->due_at?->toIso8601String(),
+                        'is_overdue' => $row->is_overdue,
+                        'stage_notes' => $row->stage_notes,
+                    ] : null,
+                ];
+            })->values(),
             'campaigns' => LiveHostRecruitmentCampaign::orderByDesc('created_at')
                 ->get(['id', 'title', 'status'])
                 ->map(fn (LiveHostRecruitmentCampaign $c) => [
@@ -100,11 +115,34 @@ class RecruitmentApplicantController extends Controller
                     'status' => $c->status,
                 ])
                 ->values(),
+            'assignableUsers' => User::query()
+                ->whereIn('role', ['admin', 'admin_livehost'])
+                ->orderBy('name')
+                ->get(['id', 'name', 'email'])
+                ->map(fn (User $u) => [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'email' => $u->email,
+                    'initials' => self::initials($u->name),
+                ])
+                ->values(),
             'filters' => [
                 'campaign' => $campaign?->id,
                 'status' => $statusTab,
             ],
         ]);
+    }
+
+    private static function initials(?string $name): string
+    {
+        if (! $name) {
+            return '?';
+        }
+        $parts = preg_split('/\s+/', trim($name)) ?: [];
+        $first = mb_substr($parts[0] ?? '', 0, 1);
+        $last = count($parts) > 1 ? mb_substr(end($parts), 0, 1) : '';
+
+        return mb_strtoupper($first.$last);
     }
 
     public function show(Request $request, LiveHostApplicant $applicant): Response
