@@ -8,6 +8,14 @@ Route::middleware('guest')->group(function () {
     Volt::route('login', 'auth.login')
         ->name('login');
 
+    // Dedicated Live Host sign-in surface. Shares the same auth backend
+    // as `login`, but ships a BM-native, broadcast-themed UI aimed at
+    // livestream hosts. Any role CAN sign in here — the post-login
+    // `dashboard` route already re-routes by role, so a stray admin
+    // lands on their usual dashboard.
+    Volt::route('live-host/login', 'auth.live-host-login')
+        ->name('live-host.login');
+
     // Registration disabled — accounts are created manually by admin
     // Volt::route('register', 'auth.register')
     //     ->name('register');
