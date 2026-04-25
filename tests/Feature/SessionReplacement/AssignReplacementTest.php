@@ -157,3 +157,33 @@ it('transfers assignment ownership when scope is permanent', function () {
     expect($this->assignment->fresh()->live_host_id)->toBe($candidate->id);
     expect($req->fresh()->status)->toBe('assigned');
 });
+
+it('lets PIC reject a pending request with a reason', function () {
+    $req = SessionReplacementRequest::factory()->pending()->create([
+        'live_schedule_assignment_id' => $this->assignment->id,
+        'original_host_id' => $this->host->id,
+    ]);
+
+    $response = $this->actingAs($this->pic)
+        ->post(route('livehost.replacements.reject', $req), [
+            'rejection_reason' => 'Slot tidak boleh diganti minggu ini.',
+        ]);
+
+    $response->assertRedirect();
+
+    $req->refresh();
+    expect($req->status)->toBe('rejected');
+    expect($req->rejection_reason)->toBe('Slot tidak boleh diganti minggu ini.');
+});
+
+it('requires a rejection_reason', function () {
+    $req = SessionReplacementRequest::factory()->pending()->create([
+        'live_schedule_assignment_id' => $this->assignment->id,
+        'original_host_id' => $this->host->id,
+    ]);
+
+    $response = $this->actingAs($this->pic)
+        ->post(route('livehost.replacements.reject', $req), []);
+
+    $response->assertSessionHasErrors('rejection_reason');
+});

@@ -154,6 +154,28 @@ class ReplacementRequestController extends Controller
             ->with('success', 'Pengganti telah ditetapkan.');
     }
 
+    public function reject(Request $request, SessionReplacementRequest $replacementRequest): RedirectResponse
+    {
+        abort_unless(in_array($request->user()->role, ['admin', 'admin_livehost'], true), 403);
+        abort_unless($replacementRequest->isPending(), 422, 'Permohonan ini tidak lagi tertunda.');
+
+        $data = $request->validate([
+            'rejection_reason' => ['required', 'string', 'max:500'],
+        ], [
+            'rejection_reason.required' => 'Sila berikan sebab penolakan.',
+            'rejection_reason.max' => 'Sebab tidak boleh melebihi 500 aksara.',
+        ]);
+
+        $replacementRequest->update([
+            'status' => SessionReplacementRequest::STATUS_REJECTED,
+            'rejection_reason' => $data['rejection_reason'],
+        ]);
+
+        return redirect()
+            ->route('livehost.replacements.show', $replacementRequest)
+            ->with('success', 'Permohonan telah ditolak.');
+    }
+
     private function resolveAvailableHosts(SessionReplacementRequest $req): array
     {
         $assignment = $req->assignment;

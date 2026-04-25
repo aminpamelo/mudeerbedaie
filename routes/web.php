@@ -247,6 +247,8 @@ Route::middleware(['auth'])
                 ->name('replacements.show');
             Route::post('replacements/{replacementRequest}/assign', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'assign'])
                 ->name('replacements.assign');
+            Route::post('replacements/{replacementRequest}/reject', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'reject'])
+                ->name('replacements.reject');
 
             Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
                 ->name('hosts.create');
