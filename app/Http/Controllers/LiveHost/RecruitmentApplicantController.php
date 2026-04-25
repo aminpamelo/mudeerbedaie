@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LiveHost\Recruitment\UpdateApplicantCurrentStageRequest;
 use App\Models\LiveHostApplicant;
+use App\Models\LiveHostApplicantStage;
 use App\Models\LiveHostRecruitmentCampaign;
 use App\Models\LiveHostRecruitmentStage;
 use App\Models\User;
@@ -241,6 +243,27 @@ class RecruitmentApplicantController extends Controller
         ]);
 
         $applicant->update(['notes' => $data['notes'] ?? null]);
+
+        return response()->noContent();
+    }
+
+    public function updateCurrentStage(
+        UpdateApplicantCurrentStageRequest $request,
+        LiveHostApplicant $applicant,
+    ): HttpResponse {
+        $data = $request->validated();
+
+        $affected = LiveHostApplicantStage::query()
+            ->where('applicant_id', $applicant->id)
+            ->whereNull('exited_at')
+            ->update([
+                'assignee_id' => $data['assignee_id'] ?? null,
+                'due_at' => $data['due_at'] ?? null,
+                'stage_notes' => $data['stage_notes'] ?? null,
+                'updated_at' => now(),
+            ]);
+
+        abort_if($affected === 0, HttpResponse::HTTP_CONFLICT, 'No open stage row.');
 
         return response()->noContent();
     }

@@ -439,6 +439,8 @@ Route::middleware(['auth'])
                     ->name('applicants.reject');
                 Route::patch('applicants/{applicant}/notes', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'updateNotes'])
                     ->name('applicants.notes');
+                Route::patch('applicants/{applicant}/current-stage', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'updateCurrentStage'])
+                    ->name('applicants.current-stage');
                 Route::post('applicants/{applicant}/hire', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'hire'])
                     ->name('applicants.hire');
                 Route::post('applicants/{applicant}/password-reset-link', [\App\Http\Controllers\LiveHost\RecruitmentApplicantController::class, 'passwordResetLink'])
