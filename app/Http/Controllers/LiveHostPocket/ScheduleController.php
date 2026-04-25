@@ -71,6 +71,8 @@ class ScheduleController extends Controller
                         'scope' => $request->scope,
                         'targetDate' => $request->target_date?->toDateString(),
                         'replacementHostName' => $request->replacementHost?->name,
+                        'reasonCategory' => $request->reason_category,
+                        'requestedAt' => $request->requested_at?->toIso8601String(),
                     ] : null,
                 ];
             })

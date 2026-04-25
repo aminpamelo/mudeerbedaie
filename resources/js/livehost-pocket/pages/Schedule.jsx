@@ -41,6 +41,8 @@ export default function Schedule() {
       <div className="-mx-5 min-h-full bg-[var(--app-bg)] px-4 pt-3 pb-8">
         <Header total={total} pendingCount={pendingCount} />
 
+        <ActiveRequestsSection buckets={buckets} />
+
         <div>
           {buckets.map((bucket) => (
             <DayBucket key={bucket.dayOfWeek} bucket={bucket} />
@@ -435,6 +437,198 @@ function SlotCard({ slot, dayName }) {
         />
       ) : null}
     </>
+  );
+}
+
+const REASON_LABEL_BY_VALUE = REASON_OPTIONS.reduce((acc, opt) => {
+  acc[opt.value] = opt.label;
+  return acc;
+}, {});
+
+function timeAgoMs(iso) {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (seconds < 60) return 'baru sahaja';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minit lalu`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  const days = Math.floor(hours / 24);
+  return `${days} hari lalu`;
+}
+
+function ActiveRequestsSection({ buckets }) {
+  const items = useMemo(() => {
+    const list = [];
+    buckets.forEach((bucket) => {
+      (bucket.schedules ?? []).forEach((slot) => {
+        const r = slot.replacementRequest;
+        if (!r) return;
+        const eligible =
+          r.status === 'pending' ||
+          (r.status === 'assigned' && r.scope === 'one_date');
+        if (!eligible) return;
+        list.push({
+          request: r,
+          slot,
+          dayName: bucket.dayName,
+        });
+      });
+    });
+    return list;
+  }, [buckets]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <section className="mb-5">
+      <div className="mb-2 flex items-center gap-[10px] px-1">
+        <span
+          className="h-[10px] w-[3px] flex-none rounded-full"
+          style={{ backgroundColor: 'var(--accent)' }}
+          aria-hidden="true"
+        />
+        <span className="font-display text-[14px] font-medium tracking-[-0.015em] text-[var(--fg)]">
+          Permohonan aktif
+        </span>
+        <span
+          className="ml-1 h-px flex-1"
+          style={{ backgroundColor: 'var(--hair)' }}
+          aria-hidden="true"
+        />
+        <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] tabular-nums">
+          {items.length}
+        </span>
+      </div>
+
+      {items.map(({ request, slot, dayName }) => (
+        <ActiveRequestRow
+          key={request.id}
+          request={request}
+          slot={slot}
+          dayName={dayName}
+        />
+      ))}
+    </section>
+  );
+}
+
+function ActiveRequestRow({ request, slot, dayName }) {
+  const withdraw = useForm({});
+  const dayMs = DAY_NAMES_MS[dayName] ?? dayName;
+  const isPending = request.status === 'pending';
+  const reasonLabel = REASON_LABEL_BY_VALUE[request.reasonCategory] ?? '';
+
+  // Live-updating time-ago label.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isPending) return undefined;
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [isPending]);
+  // `now` participates so the label re-computes; eslint may want this referenced.
+  void now;
+
+  const handleWithdraw = () => {
+    const ok = window.confirm('Tarik balik permohonan ganti slot ini?');
+    if (!ok) return;
+    withdraw.delete(`/live-host/replacement-requests/${request.id}`, {
+      preserveScroll: true,
+    });
+  };
+
+  const accentColor = isPending ? 'var(--accent)' : 'var(--cool)';
+  const accentTint = isPending ? 'rgba(124,58,237,0.07)' : 'rgba(37,99,235,0.07)';
+
+  return (
+    <div
+      className="relative mb-[8px] overflow-hidden rounded-[14px] border border-[var(--hair)] pl-[14px] pr-3 py-[12px]"
+      style={{
+        background: `linear-gradient(95deg, ${accentTint}, var(--app-bg-2) 60%)`,
+      }}
+    >
+      <span
+        className="absolute left-0 top-0 bottom-0 w-[4px]"
+        style={{ backgroundColor: accentColor }}
+        aria-hidden="true"
+      />
+
+      <div className="flex items-center justify-between gap-2">
+        {isPending ? (
+          <span className="inline-flex items-center gap-[6px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
+            <span className="pocket-diode h-[5px] w-[5px]" aria-hidden="true" />
+            MENUNGGU PIC
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center gap-[5px] rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--cool)]"
+            style={{ backgroundColor: 'rgba(37,99,235,0.12)' }}
+          >
+            <CheckIcon className="h-[8px] w-[8px]" />
+            TELAH DIGANTI
+          </span>
+        )}
+        <span className="font-mono text-[9.5px] tracking-[0.04em] text-[var(--fg-3)]">
+          {isPending && request.requestedAt
+            ? timeAgoMs(request.requestedAt)
+            : null}
+        </span>
+      </div>
+
+      <div className="mt-[6px] font-display text-[15px] font-medium leading-tight tracking-[-0.01em] text-[var(--fg)]">
+        {dayMs}
+        {request.targetDate ? (
+          <>
+            ,{' '}
+            <span className="font-mono tabular-nums">
+              {formatTargetDate(request.targetDate, { withYear: true })}
+            </span>
+          </>
+        ) : null}
+      </div>
+      <div className="mt-[2px] font-mono text-[10.5px] tabular-nums tracking-[0.04em] text-[var(--fg-3)]">
+        {slot.startTime} – {slot.endTime}
+        {reasonLabel ? (
+          <>
+            <span className="px-[6px] text-[var(--fg-4)]">·</span>
+            <span>Sebab: <span className="text-[var(--fg-2)]">{reasonLabel}</span></span>
+          </>
+        ) : null}
+      </div>
+
+      {!isPending && request.replacementHostName ? (
+        <div className="mt-[8px] flex items-center gap-[10px] border-t border-[var(--hair)] pt-[8px]">
+          <span
+            className="grid h-[24px] w-[24px] flex-none place-items-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--hot)] font-display text-[10px] font-bold tracking-[-0.04em] text-white shadow-[0_2px_6px_rgba(124,58,237,0.35)]"
+            aria-hidden="true"
+          >
+            {initialsFrom(request.replacementHostName)}
+          </span>
+          <div className="text-[11.5px] leading-snug text-[var(--fg-2)]">
+            Diganti oleh{' '}
+            <span className="font-medium text-[var(--fg)]">
+              {request.replacementHostName}
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      {isPending ? (
+        <div className="mt-[10px] flex items-center justify-end border-t border-[var(--hair)] pt-[8px]">
+          <button
+            type="button"
+            onClick={handleWithdraw}
+            disabled={withdraw.processing}
+            className="inline-flex h-[28px] items-center rounded-full border border-[var(--hot)] px-[12px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--hot)] transition active:opacity-60 disabled:opacity-50"
+            style={{ backgroundColor: 'rgba(225,29,72,0.06)' }}
+          >
+            Tarik balik
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
