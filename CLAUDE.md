@@ -106,9 +106,10 @@ stripe trigger invoice.payment_succeeded  # Test payment webhooks
 
 This project now has THREE coexisting UI paradigms. New features should use the paradigm for the area they live in:
 
-- **Livewire Volt** — the default. Admin, teacher, student, and host-side live-host pages all use Volt single-file components. New pages under `/admin/*`, `/teacher/*`, `/student/*`, or `/live-host/*` should use Volt.
+- **Livewire Volt** — the default for admin, teacher, and student pages. New pages under `/admin/*`, `/teacher/*`, or `/student/*` should use Volt. (`/live-host/*` was originally Volt but has since been migrated to Inertia React — see "Live Host Pocket" below.)
 - **React SPA (HR)** — `/hr/*` is a standalone React SPA with API controllers under `Api/Hr/*`. New HR pages extend this SPA.
 - **Inertia.js + React (Live Host Desk)** — `/livehost/*` is an Inertia-driven React app for the PIC (admin_livehost role). Controllers in `app/Http/Controllers/LiveHost/*` return Inertia responses; React pages live in `resources/js/livehost/pages/*`. New Live Host PIC features extend this.
+- **Inertia.js + React (Live Host Pocket)** — `/live-host/*` is an Inertia React app for the host themselves, served from `app/Http/Controllers/LiveHostPocket/*` with React pages at `resources/js/livehost-pocket/pages/*`. New host-facing UI extends this app.
 
 The Inertia paradigm was introduced for the Live Host PIC Dashboard and is deliberately scoped to that surface in v1. Do not introduce it elsewhere without a design discussion.
 
