@@ -29,13 +29,8 @@ class ReportFilters
         $defaultFrom = $now->startOfMonth();
         $defaultTo = $now->startOfDay();
 
-        $from = $request->query('dateFrom')
-            ? CarbonImmutable::parse((string) $request->query('dateFrom'))->startOfDay()
-            : $defaultFrom;
-
-        $to = $request->query('dateTo')
-            ? CarbonImmutable::parse((string) $request->query('dateTo'))->startOfDay()
-            : $defaultTo;
+        $from = self::parseOrFallback($request->query('dateFrom'), $defaultFrom);
+        $to = self::parseOrFallback($request->query('dateTo'), $defaultTo);
 
         $hostIds = collect((array) $request->query('hostIds', []))
             ->map(fn ($v) => (int) $v)
@@ -50,6 +45,19 @@ class ReportFilters
             ->all();
 
         return new self($from, $to, $hostIds, $platformAccountIds);
+    }
+
+    private static function parseOrFallback(mixed $raw, CarbonImmutable $fallback): CarbonImmutable
+    {
+        if (! $raw) {
+            return $fallback;
+        }
+
+        try {
+            return CarbonImmutable::parse((string) $raw)->startOfDay();
+        } catch (\Throwable) {
+            return $fallback;
+        }
     }
 
     public function priorPeriod(): self

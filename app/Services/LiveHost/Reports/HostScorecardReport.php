@@ -54,6 +54,11 @@ class HostScorecardReport
     }
 
     /**
+     * Per-host row aggregates. Per-row commission_earned is intentionally
+     * deferred — the design doc lists it as future work because the
+     * payroll-run period rarely lines up with arbitrary report windows.
+     * Aggregate commission lives in `kpis.totalCommission` instead.
+     *
      * @return array<int, array<string, mixed>>
      */
     private function rowsFor(ReportFilters $filters): array

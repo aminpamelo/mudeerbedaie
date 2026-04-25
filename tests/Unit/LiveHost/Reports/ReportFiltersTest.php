@@ -42,6 +42,19 @@ it('rejects an inverted date range', function () {
         ->toThrow(\InvalidArgumentException::class);
 });
 
+it('falls back to defaults when given unparseable date strings', function () {
+    CarbonImmutable::setTestNow('2026-04-25 10:00:00');
+    $request = Request::create('/test', 'GET', [
+        'dateFrom' => 'not-a-date',
+        'dateTo' => '???',
+    ]);
+
+    $filters = ReportFilters::fromRequest($request);
+
+    expect($filters->dateFrom->toDateString())->toBe('2026-04-01')
+        ->and($filters->dateTo->toDateString())->toBe('2026-04-25');
+});
+
 it('computes the prior period of equal length', function () {
     $request = Request::create('/test', 'GET', [
         'dateFrom' => '2026-04-01',
