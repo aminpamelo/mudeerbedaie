@@ -32,7 +32,7 @@ class SessionReplacementRequest extends Model
     protected function casts(): array
     {
         return [
-            'target_date' => 'date',
+            'target_date' => 'date:Y-m-d',
             'requested_at' => 'datetime',
             'assigned_at' => 'datetime',
             'expires_at' => 'datetime',

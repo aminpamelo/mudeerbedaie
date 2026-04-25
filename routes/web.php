@@ -194,6 +194,12 @@ Route::middleware(['auth', 'role:live_host', \App\Http\Middleware\HandlePocketIn
         Route::post('sessions/{session}/end', [\App\Http\Controllers\LiveHostPocket\DashboardController::class, 'endSession'])
             ->name('sessions.end');
 
+        Route::post('replacement-requests', [\App\Http\Controllers\LiveHostPocket\ReplacementRequestController::class, 'store'])
+            ->name('replacement-requests.store');
+
+        Route::delete('replacement-requests/{replacementRequest}', [\App\Http\Controllers\LiveHostPocket\ReplacementRequestController::class, 'destroy'])
+            ->name('replacement-requests.destroy');
+
         Route::get('me', [\App\Http\Controllers\LiveHostPocket\ProfileController::class, 'show'])
             ->name('me');
 
