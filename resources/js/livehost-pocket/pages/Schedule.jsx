@@ -583,35 +583,9 @@ function RequestModal({ slot, dayName, onClose }) {
           </div>
 
           <div className="max-h-[55vh] overflow-y-auto px-5">
-            {/* Scope — segmented control. "Secara kekal" is disabled for now;
-                hosts can only request a single-date replacement. For permanent
-                changes the footer hint directs them to contact their PIC. */}
-            <fieldset className="mb-5">
-              <legend className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
-                Jenis gantian
-              </legend>
-              <div
-                className="grid grid-cols-2 gap-1 rounded-full border border-[var(--hair)] bg-[var(--app-bg-2)] p-1"
-                role="radiogroup"
-              >
-                <SegmentButton
-                  active={form.data.scope === 'one_date'}
-                  onClick={() => form.setData('scope', 'one_date')}
-                >
-                  Tarikh ini sahaja
-                </SegmentButton>
-                <SegmentButton
-                  active={false}
-                  disabled
-                  onClick={() => {}}
-                >
-                  Secara kekal
-                </SegmentButton>
-              </div>
-              <p className="mt-2 text-[11px] leading-snug text-[var(--fg-3)]">
-                Untuk pertukaran kekal, hubungi PIC anda secara terus.
-              </p>
-            </fieldset>
+            {/* Scope is locked to "one_date" for the host-side flow; permanent
+                replacements are handled by the PIC out-of-band. The segmented
+                control is intentionally hidden so there is nothing to choose. */}
 
             {/* Target date (one_date only). */}
             {form.data.scope === 'one_date' ? (
@@ -745,30 +719,6 @@ function RequestModal({ slot, dayName, onClose }) {
         </form>
       </div>
     </div>
-  );
-}
-
-function SegmentButton({ active, onClick, children, disabled = false }) {
-  const stateClass = disabled
-    ? 'cursor-not-allowed text-[var(--fg-4)]'
-    : active
-      ? 'bg-[var(--fg)] text-[var(--app-bg)] shadow-[0_2px_8px_rgba(20,16,31,0.18)]'
-      : 'text-[var(--fg-2)] hover:text-[var(--fg)]';
-
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      aria-disabled={disabled}
-      disabled={disabled}
-      onClick={disabled ? undefined : onClick}
-      className={`inline-flex h-[36px] items-center justify-center rounded-full px-3 text-[12.5px] font-bold tracking-[-0.005em] transition ${
-        disabled ? '' : 'active:scale-[0.98]'
-      } ${stateClass}`}
-    >
-      {children}
-    </button>
   );
 }
 
