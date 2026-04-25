@@ -21,33 +21,54 @@ export default function Schedule() {
   const buckets = Array.isArray(days) ? days : [];
   const total = Number.isFinite(totalSlots) ? totalSlots : 0;
 
+  const activeRequests = useMemo(() => {
+    const list = [];
+    buckets.forEach((bucket) => {
+      (bucket.schedules ?? []).forEach((slot) => {
+        const r = slot.replacementRequest;
+        if (!r) return;
+        const eligible =
+          r.status === 'pending' ||
+          (r.status === 'assigned' && r.scope === 'one_date');
+        if (!eligible) return;
+        list.push({ request: r, slot, dayName: bucket.dayName });
+      });
+    });
+    return list;
+  }, [buckets]);
+
   const pendingCount = useMemo(
-    () =>
-      buckets.reduce((acc, bucket) => {
-        const schedules = bucket.schedules ?? [];
-        return (
-          acc +
-          schedules.filter(
-            (slot) => slot.replacementRequest?.status === 'pending'
-          ).length
-        );
-      }, 0),
-    [buckets]
+    () => activeRequests.filter(({ request }) => request.status === 'pending').length,
+    [activeRequests]
   );
+
+  const [activeTab, setActiveTab] = useState('schedule');
 
   return (
     <>
       <Head title="Jadual" />
       <div className="-mx-5 min-h-full bg-[var(--app-bg)] px-4 pt-3 pb-8">
-        <Header total={total} pendingCount={pendingCount} />
+        <Header
+          total={total}
+          pendingCount={pendingCount}
+          onJumpToRequests={() => setActiveTab('requests')}
+        />
 
-        <ActiveRequestsSection buckets={buckets} />
+        <TabStrip
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          activeCount={activeRequests.length}
+        />
 
-        <div>
-          {buckets.map((bucket) => (
-            <DayBucket key={bucket.dayOfWeek} bucket={bucket} />
-          ))}
-        </div>
+        {activeTab === 'schedule' ? (
+          <div>
+            {buckets.map((bucket) => (
+              <DayBucket key={bucket.dayOfWeek} bucket={bucket} />
+            ))}
+          </div>
+        ) : (
+          <ActiveRequestsList items={activeRequests} />
+        )}
 
         <FooterHint pendingCount={pendingCount} />
       </div>
@@ -55,9 +76,88 @@ export default function Schedule() {
   );
 }
 
+function TabStrip({ activeTab, onChange, activeCount }) {
+  return (
+    <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-[var(--hair)] bg-[var(--app-bg-2)] p-1">
+      <TabButton active={activeTab === 'schedule'} onClick={() => onChange('schedule')}>
+        Jadual
+      </TabButton>
+      <TabButton
+        active={activeTab === 'requests'}
+        onClick={() => onChange('requests')}
+        count={activeCount}
+      >
+        Permohonan
+      </TabButton>
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, children, count }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex h-[36px] items-center justify-center gap-[8px] rounded-full px-3 text-[12.5px] font-bold tracking-[-0.005em] transition active:scale-[0.98] ${
+        active
+          ? 'bg-[var(--fg)] text-[var(--app-bg)] shadow-[0_2px_8px_rgba(20,16,31,0.18)]'
+          : 'text-[var(--fg-2)] hover:text-[var(--fg)]'
+      }`}
+    >
+      <span>{children}</span>
+      {typeof count === 'number' && count > 0 ? (
+        <span
+          className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[6px] font-mono text-[9.5px] font-bold tabular-nums ${
+            active
+              ? 'bg-white/20 text-[var(--app-bg)]'
+              : 'bg-[var(--accent)] text-[var(--accent-ink)]'
+          }`}
+        >
+          {count}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+function ActiveRequestsList({ items }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-[14px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-4 py-8 text-center">
+        <div className="mx-auto mb-2 grid h-[40px] w-[40px] place-items-center rounded-full"
+          style={{ backgroundColor: 'var(--accent-soft)' }}
+          aria-hidden="true"
+        >
+          <SwapIcon className="h-[18px] w-[18px] text-[var(--accent)]" />
+        </div>
+        <div className="font-display text-[14px] font-medium tracking-[-0.015em] text-[var(--fg)]">
+          Tiada permohonan ganti aktif.
+        </div>
+        <p className="mt-[6px] text-[11.5px] leading-relaxed text-[var(--fg-3)]">
+          Tekan butang <span className="font-medium text-[var(--fg-2)]">Mohon ganti</span> pada mana-mana slot di tab <em className="not-italic font-medium text-[var(--fg-2)]">Jadual</em> untuk hantar permohonan.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {items.map(({ request, slot, dayName }) => (
+        <ActiveRequestRow
+          key={request.id}
+          request={request}
+          slot={slot}
+          dayName={dayName}
+        />
+      ))}
+    </div>
+  );
+}
+
 Schedule.layout = (page) => <PocketLayout>{page}</PocketLayout>;
 
-function Header({ total, pendingCount }) {
+function Header({ total, pendingCount, onJumpToRequests }) {
   return (
     <div className="px-1 pt-3 pb-4">
       <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
@@ -68,9 +168,14 @@ function Header({ total, pendingCount }) {
         {pendingCount > 0 ? (
           <>
             {' '}
-            <em className="not-italic text-[var(--accent)]">
+            <button
+              type="button"
+              onClick={onJumpToRequests}
+              className="not-italic text-[var(--accent)] underline-offset-[3px] decoration-[var(--accent-soft)] hover:underline active:opacity-70"
+              style={{ textDecorationThickness: '2px' }}
+            >
               {pendingCount} menunggu pengganti.
-            </em>
+            </button>
           </>
         ) : null}
       </h1>
@@ -81,12 +186,16 @@ function Header({ total, pendingCount }) {
             <span className="text-[var(--fg-4)]" aria-hidden="true">
               ·
             </span>
-            <span className="inline-flex items-center gap-[6px]">
+            <button
+              type="button"
+              onClick={onJumpToRequests}
+              className="inline-flex items-center gap-[6px] active:opacity-70"
+            >
               <span className="pocket-diode h-[5px] w-[5px]" aria-hidden="true" />
               <span className="font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
                 {pendingCount} tertunda
               </span>
-            </span>
+            </button>
           </>
         ) : null}
       </div>
@@ -467,62 +576,6 @@ function timeAgoMs(iso) {
   if (hours < 24) return `${hours} jam lalu`;
   const days = Math.floor(hours / 24);
   return `${days} hari lalu`;
-}
-
-function ActiveRequestsSection({ buckets }) {
-  const items = useMemo(() => {
-    const list = [];
-    buckets.forEach((bucket) => {
-      (bucket.schedules ?? []).forEach((slot) => {
-        const r = slot.replacementRequest;
-        if (!r) return;
-        const eligible =
-          r.status === 'pending' ||
-          (r.status === 'assigned' && r.scope === 'one_date');
-        if (!eligible) return;
-        list.push({
-          request: r,
-          slot,
-          dayName: bucket.dayName,
-        });
-      });
-    });
-    return list;
-  }, [buckets]);
-
-  if (items.length === 0) return null;
-
-  return (
-    <section className="mb-5">
-      <div className="mb-2 flex items-center gap-[10px] px-1">
-        <span
-          className="h-[10px] w-[3px] flex-none rounded-full"
-          style={{ backgroundColor: 'var(--accent)' }}
-          aria-hidden="true"
-        />
-        <span className="font-display text-[14px] font-medium tracking-[-0.015em] text-[var(--fg)]">
-          Permohonan aktif
-        </span>
-        <span
-          className="ml-1 h-px flex-1"
-          style={{ backgroundColor: 'var(--hair)' }}
-          aria-hidden="true"
-        />
-        <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] tabular-nums">
-          {items.length}
-        </span>
-      </div>
-
-      {items.map(({ request, slot, dayName }) => (
-        <ActiveRequestRow
-          key={request.id}
-          request={request}
-          slot={slot}
-          dayName={dayName}
-        />
-      ))}
-    </section>
-  );
 }
 
 function ActiveRequestRow({ request, slot, dayName }) {
