@@ -262,10 +262,14 @@ Route::middleware(['auth'])
                 Route::get('host-scorecard/export', [\App\Http\Controllers\LiveHost\Reports\HostScorecardController::class, 'export'])
                     ->name('host-scorecard.export');
 
-                foreach (['gmv', 'coverage', 'replacements'] as $stub) {
+                Route::get('gmv', [\App\Http\Controllers\LiveHost\Reports\GmvController::class, 'index'])
+                    ->name('gmv.index');
+                Route::get('gmv/export', [\App\Http\Controllers\LiveHost\Reports\GmvController::class, 'export'])
+                    ->name('gmv.export');
+
+                foreach (['coverage', 'replacements'] as $stub) {
                     Route::get($stub, fn () => Inertia::render('reports/ComingSoon', [
                         'title' => match ($stub) {
-                            'gmv' => 'GMV Performance',
                             'coverage' => 'Schedule Coverage',
                             'replacements' => 'Replacement Activity',
                         },
