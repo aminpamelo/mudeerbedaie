@@ -7,6 +7,7 @@ use App\Http\Requests\AssignReplacementRequest;
 use App\Models\LiveScheduleAssignment;
 use App\Models\SessionReplacementRequest;
 use App\Models\User;
+use App\Notifications\ReplacementAssignedToYouNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -148,6 +149,11 @@ class ReplacementRequestController extends Controller
                 ]);
             }
         });
+
+        $replacementRequest->refresh()->loadMissing('replacementHost');
+        $replacementRequest->replacementHost?->notify(
+            new ReplacementAssignedToYouNotification($replacementRequest)
+        );
 
         return redirect()
             ->route('livehost.replacements.show', $replacementRequest)

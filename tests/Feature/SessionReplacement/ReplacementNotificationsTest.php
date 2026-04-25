@@ -40,3 +40,23 @@ it('notifies admins (admin + admin_livehost) when a host submits a request', fun
     Notification::assertNotSentTo($assistant, ReplacementRequestedNotification::class);
     Notification::assertNotSentTo($host, ReplacementRequestedNotification::class);
 });
+
+it('notifies the replacement host when PIC assigns them', function () {
+    Notification::fake();
+
+    $pic = User::factory()->create(['role' => 'admin_livehost']);
+    $host = User::factory()->create(['role' => 'live_host']);
+    $candidate = User::factory()->create(['role' => 'live_host']);
+    $assignment = LiveScheduleAssignment::factory()->create(['live_host_id' => $host->id]);
+    $req = \App\Models\SessionReplacementRequest::factory()->pending()->create([
+        'live_schedule_assignment_id' => $assignment->id,
+        'original_host_id' => $host->id,
+    ]);
+
+    $this->actingAs($pic)->post(route('livehost.replacements.assign', $req), [
+        'replacement_host_id' => $candidate->id,
+    ]);
+
+    Notification::assertSentTo($candidate, \App\Notifications\ReplacementAssignedToYouNotification::class);
+    Notification::assertNotSentTo($host, \App\Notifications\ReplacementAssignedToYouNotification::class);
+});
