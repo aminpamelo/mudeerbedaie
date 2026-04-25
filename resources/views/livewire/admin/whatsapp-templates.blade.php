@@ -800,16 +800,16 @@ new class extends Component {
                                                 <flux:textarea
                                                     wire:model.live.debounce.500ms="components.{{ $index }}.text"
                                                     placeholder="Header text content..."
-                                                    rows="2"
-                                                    class="!bg-white dark:!bg-zinc-800 !text-sm"
+                                                    rows="auto"
+                                                    class="!bg-white dark:!bg-zinc-800 !text-sm min-h-16"
                                                 />
                                             @endif
                                         @else
                                             <flux:textarea
                                                 wire:model.live.debounce.500ms="components.{{ $index }}.text"
                                                 placeholder="Component text content... Use {{1}}, {{2}} for variables"
-                                                rows="2"
-                                                class="!bg-white dark:!bg-zinc-800 !text-sm"
+                                                rows="auto"
+                                                class="!bg-white dark:!bg-zinc-800 !text-sm min-h-32"
                                             />
                                         @endif
                                         @if(($component['type'] ?? '') === 'BODY')
