@@ -267,10 +267,14 @@ Route::middleware(['auth'])
                 Route::get('gmv/export', [\App\Http\Controllers\LiveHost\Reports\GmvController::class, 'export'])
                     ->name('gmv.export');
 
-                foreach (['coverage', 'replacements'] as $stub) {
+                Route::get('coverage', [\App\Http\Controllers\LiveHost\Reports\CoverageController::class, 'index'])
+                    ->name('coverage.index');
+                Route::get('coverage/export', [\App\Http\Controllers\LiveHost\Reports\CoverageController::class, 'export'])
+                    ->name('coverage.export');
+
+                foreach (['replacements'] as $stub) {
                     Route::get($stub, fn () => Inertia::render('reports/ComingSoon', [
                         'title' => match ($stub) {
-                            'coverage' => 'Schedule Coverage',
                             'replacements' => 'Replacement Activity',
                         },
                         'href' => '/livehost/reports',
