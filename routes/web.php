@@ -256,6 +256,8 @@ Route::middleware(['auth'])
             Route::prefix('reports')->name('reports.')->group(function () {
                 Route::get('/', [\App\Http\Controllers\LiveHost\Reports\ReportsController::class, 'index'])
                     ->name('index');
+                Route::get('host-scorecard', [\App\Http\Controllers\LiveHost\Reports\HostScorecardController::class, 'index'])
+                    ->name('host-scorecard.index');
             });
 
             Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
