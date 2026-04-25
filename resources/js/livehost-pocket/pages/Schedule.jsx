@@ -1,5 +1,5 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
 
 /**
@@ -11,30 +11,35 @@ import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
  *
  * Each slot may carry a `replacementRequest` payload describing an active
  * (pending/assigned) replacement request. That drives the per-card UI state:
- * "Mohon ganti" (default), "Menunggu PIC" + withdraw (pending), "Telah
- * diganti" (assigned one_date). Assigned permanent slots are hidden from the
- * list because assignment ownership has transferred away.
+ * a quiet "Mohon ganti" affordance (default), a violet left rule + diode +
+ * "Menunggu PIC" with a Tarik balik chip (pending), or a settled card with
+ * the replacement's avatar + name (assigned one_date). Permanent assigned
+ * slots return null because ownership has transferred.
  */
 export default function Schedule() {
   const { days, totalSlots } = usePage().props;
   const buckets = Array.isArray(days) ? days : [];
   const total = Number.isFinite(totalSlots) ? totalSlots : 0;
 
+  const pendingCount = useMemo(
+    () =>
+      buckets.reduce((acc, bucket) => {
+        const schedules = bucket.schedules ?? [];
+        return (
+          acc +
+          schedules.filter(
+            (slot) => slot.replacementRequest?.status === 'pending'
+          ).length
+        );
+      }, 0),
+    [buckets]
+  );
+
   return (
     <>
       <Head title="Schedule" />
       <div className="-mx-5 min-h-full bg-[var(--app-bg)] px-4 pt-3 pb-8">
-        <div className="px-1 pt-3 pb-4">
-          <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-            Weekly roster
-          </div>
-          <h1 className="font-display text-[22px] font-medium leading-[1.08] tracking-[-0.03em] text-[var(--fg)]">
-            Your schedule
-          </h1>
-          <div className="mt-2 font-mono text-[11px] tracking-[0.02em] text-[var(--fg-2)]">
-            {total} {total === 1 ? 'slot' : 'slots'} assigned
-          </div>
-        </div>
+        <Header total={total} pendingCount={pendingCount} />
 
         <div>
           {buckets.map((bucket) => (
@@ -42,13 +47,52 @@ export default function Schedule() {
           ))}
         </div>
 
-        <PicCallout />
+        <FooterHint pendingCount={pendingCount} />
       </div>
     </>
   );
 }
 
 Schedule.layout = (page) => <PocketLayout>{page}</PocketLayout>;
+
+function Header({ total, pendingCount }) {
+  return (
+    <div className="px-1 pt-3 pb-4">
+      <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+        Weekly roster
+      </div>
+      <h1 className="font-display text-[22px] font-medium leading-[1.08] tracking-[-0.03em] text-[var(--fg)]">
+        Your schedule.
+        {pendingCount > 0 ? (
+          <>
+            {' '}
+            <em className="not-italic text-[var(--accent)]">
+              {pendingCount} menunggu pengganti.
+            </em>
+          </>
+        ) : null}
+      </h1>
+      <div className="mt-2 flex items-center gap-[10px] font-mono text-[11px] tracking-[0.02em] text-[var(--fg-2)]">
+        <span>
+          {total} {total === 1 ? 'slot' : 'slots'} assigned
+        </span>
+        {pendingCount > 0 ? (
+          <>
+            <span className="text-[var(--fg-4)]" aria-hidden="true">
+              ·
+            </span>
+            <span className="inline-flex items-center gap-[6px]">
+              <span className="pocket-diode h-[5px] w-[5px]" aria-hidden="true" />
+              <span className="font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
+                {pendingCount} pending
+              </span>
+            </span>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function DayBucket({ bucket }) {
   const hasSchedules = (bucket.schedules?.length ?? 0) > 0;
@@ -82,13 +126,58 @@ function DayBucket({ bucket }) {
   );
 }
 
+const DAY_NAMES_MS = {
+  Sunday: 'Ahad',
+  Monday: 'Isnin',
+  Tuesday: 'Selasa',
+  Wednesday: 'Rabu',
+  Thursday: 'Khamis',
+  Friday: 'Jumaat',
+  Saturday: 'Sabtu',
+};
+
+const MONTH_NAMES_MS = [
+  'Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun',
+  'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember',
+];
+
+const REASON_OPTIONS = [
+  { value: 'sick', label: 'Sakit' },
+  { value: 'family', label: 'Keluarga' },
+  { value: 'personal', label: 'Peribadi' },
+  { value: 'other', label: 'Lain-lain' },
+];
+
+function todayIso() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatTargetDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map((s) => parseInt(s, 10));
+  if (!y || !m || !d) return iso;
+  return `${d} ${MONTH_NAMES_MS[m - 1] ?? ''}`.trim();
+}
+
+function initialsFrom(name) {
+  if (!name) return '··';
+  const parts = String(name).trim().split(/\s+/);
+  if (parts.length === 0) return '··';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 function SlotCard({ slot, dayName }) {
   const [modalOpen, setModalOpen] = useState(false);
   const withdraw = useForm({});
 
   const request = slot.replacementRequest;
 
-  // Assigned permanent: the slot has transferred away. Hide for snappy UX.
+  // Assigned permanent: ownership has transferred. Hide for snappy UX.
   if (request && request.status === 'assigned' && request.scope === 'permanent') {
     return null;
   }
@@ -116,9 +205,20 @@ function SlotCard({ slot, dayName }) {
     });
   };
 
+  // State-driven card chrome.
+  const cardClass = [
+    'relative mb-[6px] rounded-[14px] border bg-[var(--app-bg-2)] px-3 py-[10px]',
+    isPending
+      ? 'border-[var(--hair)] pl-[14px] before:absolute before:left-0 before:top-[10px] before:bottom-[10px] before:w-[3px] before:rounded-full before:bg-[var(--accent)]'
+      : '',
+    isAssignedOneDate ? 'border-[var(--hair)] bg-[var(--app-bg-3)]' : 'border-[var(--hair)]',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <>
-      <div className="mb-[6px] rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-[10px]">
+      <div className={cardClass}>
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
             <span
@@ -137,66 +237,85 @@ function SlotCard({ slot, dayName }) {
                 WEEKLY
               </span>
             ) : null}
-            {isPending ? (
-              <span
-                className="inline-flex items-center rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-white"
-                style={{ backgroundColor: 'var(--hot)' }}
-              >
-                MENUNGGU PIC
-              </span>
-            ) : null}
             {isAssignedOneDate ? (
-              <span
-                className="inline-flex items-center rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-white"
-                style={{ backgroundColor: 'var(--cool)' }}
+              <span className="inline-flex items-center gap-[5px] rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--cool)]"
+                style={{ backgroundColor: 'rgba(37,99,235,0.10)' }}
               >
+                <CheckIcon className="h-[8px] w-[8px]" />
                 TELAH DIGANTI
               </span>
             ) : null}
           </div>
         </div>
-        <div className="mt-1 font-mono text-[13px] font-bold tabular-nums text-[var(--fg)]">
+
+        <div
+          className={`mt-1 font-mono text-[13px] font-bold tabular-nums ${
+            isAssignedOneDate ? 'text-[var(--fg-2)]' : 'text-[var(--fg)]'
+          }`}
+        >
           {range}
         </div>
 
-        {slot.remarks ? (
+        {slot.remarks && !isPending && !isAssignedOneDate ? (
           <div className="mt-[6px] text-[11px] leading-snug text-[var(--fg-2)]">
             {slot.remarks}
           </div>
         ) : null}
 
-        {isAssignedOneDate && request.replacementHostName ? (
-          <div className="mt-[6px] text-[11px] leading-snug text-[var(--fg-2)]">
-            Pengganti:{' '}
-            <span className="font-medium text-[var(--fg)]">
-              {request.replacementHostName}
-            </span>
-            {request.targetDate ? (
-              <span className="text-[var(--fg-3)]"> ({request.targetDate})</span>
-            ) : null}
-          </div>
-        ) : null}
-
+        {/* Pending: violet diode + label + Tarik balik chip. */}
         {isPending ? (
-          <div className="mt-[8px] flex min-h-[36px] items-center">
+          <div className="mt-[10px] flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-[6px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
+              <span className="pocket-diode h-[5px] w-[5px]" aria-hidden="true" />
+              MENUNGGU PIC
+            </span>
             <button
               type="button"
               onClick={handleWithdraw}
               disabled={withdraw.processing}
-              className="inline-flex h-[28px] items-center font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--hot)] transition active:opacity-60 disabled:opacity-50"
+              className="inline-flex h-[26px] items-center rounded-full border border-[var(--hair-2)] px-[10px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--hot)] transition active:opacity-60 disabled:opacity-50"
             >
               Tarik balik
             </button>
           </div>
         ) : null}
 
+        {/* Assigned (one_date): avatar + name + date moment. */}
+        {isAssignedOneDate ? (
+          <div className="mt-[10px] flex items-center gap-[8px]">
+            <span
+              className="grid h-[22px] w-[22px] flex-none place-items-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--hot)] font-display text-[9px] font-bold tracking-[-0.04em] text-white"
+              aria-hidden="true"
+            >
+              {initialsFrom(request.replacementHostName)}
+            </span>
+            <div className="text-[11.5px] leading-snug text-[var(--fg-2)]">
+              Diganti oleh{' '}
+              <span className="font-medium text-[var(--fg)]">
+                {request.replacementHostName ?? '—'}
+              </span>
+              {request.targetDate ? (
+                <>
+                  <span className="px-[5px] text-[var(--fg-4)]">·</span>
+                  <span className="font-mono tabular-nums text-[var(--fg-3)]">
+                    {formatTargetDate(request.targetDate)}
+                  </span>
+                </>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Default: quiet "Mohon ganti" affordance, right-aligned. */}
         {!request ? (
-          <div className="mt-[8px] flex min-h-[36px] items-center border-t border-[var(--hair)] pt-[8px]">
+          <div className="mt-[8px] flex items-center justify-end">
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="inline-flex h-[28px] items-center font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)] transition active:opacity-60 hover:text-[var(--fg)]"
+              className="group inline-flex h-[26px] items-center gap-[6px] rounded-full px-[8px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)] transition hover:bg-[var(--hair)] hover:text-[var(--fg)] active:opacity-60"
+              aria-label={`Mohon ganti slot ${dayName} ${range}`}
             >
+              <SwapIcon className="h-[11px] w-[11px] transition group-hover:text-[var(--accent)]" />
               Mohon ganti
             </button>
           </div>
@@ -214,36 +333,37 @@ function SlotCard({ slot, dayName }) {
   );
 }
 
-function PicCallout() {
+function FooterHint({ pendingCount }) {
   return (
-    <div className="mt-2 rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-3 text-center text-[11px] leading-snug text-[var(--fg-2)]">
-      To claim or release slots, ask your PIC.
+    <div className="mt-3 px-2 pb-2 text-center">
+      <p className="text-[11px] leading-relaxed text-[var(--fg-3)]">
+        Tap{' '}
+        <span className="inline-flex items-center gap-[4px] align-baseline font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
+          <SwapIcon className="h-[10px] w-[10px]" />
+          Mohon ganti
+        </span>{' '}
+        untuk minta pengganti hadir.{' '}
+        <em className="not-italic text-[var(--fg-2)]">
+          Untuk pertukaran kekal, hubungi PIC anda.
+        </em>
+      </p>
+      {pendingCount > 0 ? (
+        <p className="mt-[6px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
+          {pendingCount} permohonan dihantar · menunggu PIC
+        </p>
+      ) : null}
     </div>
   );
-}
-
-const REASON_OPTIONS = [
-  { value: 'sick', label: 'Sakit / Sick' },
-  { value: 'family', label: 'Kecemasan keluarga / Family emergency' },
-  { value: 'personal', label: 'Urusan peribadi / Personal' },
-  { value: 'other', label: 'Lain-lain / Other' },
-];
-
-function todayIso() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 }
 
 /**
  * RequestModal — host submits a replacement request for a given slot.
  *
- * Posts to `/live-host/replacement-requests` (named
- * `live-host.replacement-requests.store`). Uses literal URLs because this
- * pocket app does not expose Ziggy's `route()` helper on the JS side (other
- * pocket pages use literal URL strings too).
+ * Bottom-sheet treatment with a slot-preview header, segmented scope control,
+ * reason chips, and an editorial commission note. POSTs to
+ * `/live-host/replacement-requests` (named `live-host.replacement-requests.store`).
+ * Uses literal URLs because this pocket app does not expose Ziggy's `route()`
+ * helper on the JS side (other pocket pages use literal URL strings too).
  */
 function RequestModal({ slot, dayName, onClose }) {
   const form = useForm({
@@ -254,7 +374,9 @@ function RequestModal({ slot, dayName, onClose }) {
     reason_note: '',
   });
 
+  const dayMs = DAY_NAMES_MS[dayName] ?? dayName;
   const timeRange = `${slot.startTime} – ${slot.endTime}`;
+  const platform = slot.platformAccount ?? slot.platformType ?? 'Platform';
 
   // Lock body scroll while modal is open.
   useEffect(() => {
@@ -288,74 +410,124 @@ function RequestModal({ slot, dayName, onClose }) {
   };
 
   const errors = form.errors ?? {};
+  const reasonLabel =
+    REASON_OPTIONS.find((opt) => opt.value === form.data.reason_category)?.label ??
+    '';
+
+  // Editorial summary line.
+  const dateLabel =
+    form.data.scope === 'one_date'
+      ? form.data.target_date
+        ? `${dayMs}, ${formatTargetDate(form.data.target_date)}`
+        : `hari ${dayMs}`
+      : 'kekal mulai segera';
+  const summary = `Mohon pengganti untuk ${dateLabel} · ${timeRange}.`;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-4 pt-16 sm:items-center sm:pt-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center sm:px-4 sm:py-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="replacement-modal-title"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[440px] overflow-hidden rounded-[18px] border border-[var(--hair)] bg-[var(--app-bg)] shadow-xl"
+        className="w-full max-w-[480px] overflow-hidden rounded-t-[22px] border border-[var(--hair)] bg-[var(--app-bg)] shadow-[0_-12px_40px_rgba(20,16,31,0.18)] sm:rounded-[22px]"
         onClick={(e) => e.stopPropagation()}
       >
         <form onSubmit={submit}>
-          <div className="border-b border-[var(--hair)] px-4 pt-4 pb-3">
+          {/* Grab handle (mobile bottom-sheet affordance). */}
+          <div className="flex justify-center pt-[8px] pb-[2px] sm:hidden">
+            <span
+              className="h-[4px] w-[36px] rounded-full bg-[var(--hair-2)]"
+              aria-hidden="true"
+            />
+          </div>
+
+          {/* Header — pretitle + display title + editorial subtitle. */}
+          <div className="px-5 pt-3 pb-4">
             <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-              {dayName} · {timeRange}
+              Permohonan ganti · {dayMs}
             </div>
             <h2
               id="replacement-modal-title"
-              className="font-display text-[18px] font-medium leading-[1.1] tracking-[-0.02em] text-[var(--fg)]"
+              className="font-display text-[22px] font-medium leading-[1.06] tracking-[-0.03em] text-[var(--fg)]"
             >
-              Mohon Ganti Slot
+              Mohon Ganti Slot.
             </h2>
+            <p className="mt-[6px] text-[12px] italic leading-relaxed text-[var(--fg-2)]">
+              Komisen sesi ini akan diberi kepada pengganti, bukan anda.
+            </p>
           </div>
 
-          <div className="max-h-[60vh] overflow-y-auto px-4 py-4">
-            {/* Scope */}
-            <fieldset className="mb-4">
+          {/* Slot preview card (mini). */}
+          <div className="mx-5 mb-4 rounded-[14px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-[10px]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-[5px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
+                <span
+                  className="h-1 w-1"
+                  style={{
+                    backgroundColor:
+                      slot.platformType === 'tiktok'
+                        ? 'var(--fg-1)'
+                        : slot.platformType === 'facebook'
+                          ? 'var(--cool)'
+                          : 'var(--hot)',
+                  }}
+                  aria-hidden="true"
+                />
+                {platform}
+              </span>
+              {slot.isRecurring ? (
+                <span
+                  className="inline-flex items-center rounded-full px-[7px] py-[2px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]"
+                  style={{ backgroundColor: 'var(--hair)' }}
+                >
+                  WEEKLY
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-1 font-mono text-[13px] font-bold tabular-nums text-[var(--fg)]">
+              {timeRange}
+            </div>
+          </div>
+
+          <div className="max-h-[55vh] overflow-y-auto px-5">
+            {/* Scope — segmented control. */}
+            <fieldset className="mb-5">
               <legend className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
                 Jenis gantian
               </legend>
-              <div className="flex flex-col gap-2">
-                <label className="flex min-h-[36px] cursor-pointer items-center gap-[10px] rounded-[10px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-2">
-                  <input
-                    type="radio"
-                    name="scope"
-                    value="one_date"
-                    checked={form.data.scope === 'one_date'}
-                    onChange={() => form.setData('scope', 'one_date')}
-                    className="h-4 w-4"
-                  />
-                  <span className="text-[13px] text-[var(--fg)]">
-                    Tarikh ini sahaja
-                  </span>
-                </label>
-                <label className="flex min-h-[36px] cursor-pointer items-center gap-[10px] rounded-[10px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-2">
-                  <input
-                    type="radio"
-                    name="scope"
-                    value="permanent"
-                    checked={form.data.scope === 'permanent'}
-                    onChange={() => form.setData('scope', 'permanent')}
-                    className="h-4 w-4"
-                  />
-                  <span className="text-[13px] text-[var(--fg)]">
-                    Secara kekal (lepaskan slot ini)
-                  </span>
-                </label>
+              <div
+                className="grid grid-cols-2 gap-1 rounded-full border border-[var(--hair)] bg-[var(--app-bg-2)] p-1"
+                role="radiogroup"
+              >
+                <SegmentButton
+                  active={form.data.scope === 'one_date'}
+                  onClick={() => form.setData('scope', 'one_date')}
+                >
+                  Tarikh ini sahaja
+                </SegmentButton>
+                <SegmentButton
+                  active={form.data.scope === 'permanent'}
+                  onClick={() => form.setData('scope', 'permanent')}
+                >
+                  Secara kekal
+                </SegmentButton>
               </div>
+              {form.data.scope === 'permanent' ? (
+                <p className="mt-2 text-[11px] leading-snug text-[var(--fg-3)]">
+                  Slot ini akan dilepaskan dari jadual anda secara kekal.
+                </p>
+              ) : null}
             </fieldset>
 
-            {/* Target date (one_date only) */}
+            {/* Target date (one_date only). */}
             {form.data.scope === 'one_date' ? (
-              <div className="mb-4">
+              <div className="mb-5">
                 <label
                   htmlFor="rr-target-date"
-                  className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]"
+                  className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]"
                 >
                   Tarikh
                 </label>
@@ -365,11 +537,12 @@ function RequestModal({ slot, dayName, onClose }) {
                   min={todayIso()}
                   value={form.data.target_date}
                   onChange={(e) => form.setData('target_date', e.target.value)}
-                  className="h-[36px] w-full rounded-[10px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 text-[13px] text-[var(--fg)]"
+                  className="h-[42px] w-full rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 text-[14px] text-[var(--fg)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)]"
                 />
-                <p className="mt-1 text-[11px] leading-snug text-[var(--fg-3)]">
-                  Hanya tarikh pada hari {dayName} sahaja. Pengesahan sebenar
-                  dibuat di pelayan.
+                <p className="mt-2 text-[11px] leading-snug text-[var(--fg-3)]">
+                  Pilih tarikh hari{' '}
+                  <span className="font-medium text-[var(--fg-2)]">{dayMs}</span>{' '}
+                  yang akan datang.
                 </p>
                 {errors.target_date ? (
                   <p className="mt-1 text-[11px] text-[var(--hot)]">
@@ -379,40 +552,48 @@ function RequestModal({ slot, dayName, onClose }) {
               </div>
             ) : null}
 
-            {/* Reason category */}
-            <div className="mb-4">
-              <label
-                htmlFor="rr-reason"
-                className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]"
-              >
+            {/* Reason — chip row. */}
+            <div className="mb-5">
+              <div className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
                 Sebab
-              </label>
-              <select
-                id="rr-reason"
-                value={form.data.reason_category}
-                onChange={(e) => form.setData('reason_category', e.target.value)}
-                className="h-[36px] w-full rounded-[10px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 text-[13px] text-[var(--fg)]"
-              >
-                {REASON_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+              </div>
+              <div className="flex flex-wrap gap-[6px]">
+                {REASON_OPTIONS.map((opt) => {
+                  const active = form.data.reason_category === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => form.setData('reason_category', opt.value)}
+                      className={`inline-flex h-[34px] items-center rounded-full border px-[14px] text-[12.5px] font-medium tracking-[-0.005em] transition active:scale-[0.97] ${
+                        active
+                          ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]'
+                          : 'border-[var(--hair-2)] bg-[var(--app-bg-2)] text-[var(--fg-2)] hover:border-[var(--fg-3)] hover:text-[var(--fg)]'
+                      }`}
+                      aria-pressed={active}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
               {errors.reason_category ? (
-                <p className="mt-1 text-[11px] text-[var(--hot)]">
+                <p className="mt-2 text-[11px] text-[var(--hot)]">
                   {errors.reason_category}
                 </p>
               ) : null}
             </div>
 
-            {/* Reason note */}
-            <div className="mb-4">
+            {/* Note (optional). */}
+            <div className="mb-5">
               <label
                 htmlFor="rr-note"
-                className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]"
+                className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]"
               >
-                Catatan (pilihan)
+                Catatan{' '}
+                <span className="font-normal lowercase tracking-[0] text-[var(--fg-3)]">
+                  (pilihan)
+                </span>
               </label>
               <textarea
                 id="rr-note"
@@ -420,8 +601,8 @@ function RequestModal({ slot, dayName, onClose }) {
                 rows={3}
                 value={form.data.reason_note}
                 onChange={(e) => form.setData('reason_note', e.target.value)}
-                placeholder="Catatan tambahan (pilihan)"
-                className="w-full rounded-[10px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-2 text-[13px] leading-snug text-[var(--fg)]"
+                placeholder="Beritahu PIC anda perincian, jika ada."
+                className="w-full rounded-[12px] border border-[var(--hair)] bg-[var(--app-bg-2)] px-3 py-[10px] text-[13.5px] leading-snug text-[var(--fg)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)]"
               />
               {errors.reason_note ? (
                 <p className="mt-1 text-[11px] text-[var(--hot)]">
@@ -430,35 +611,42 @@ function RequestModal({ slot, dayName, onClose }) {
               ) : null}
             </div>
 
-            {/* Commission warning */}
-            <div
-              className="mb-2 rounded-[10px] border border-[var(--hair)] px-3 py-2 text-[11px] leading-snug text-[var(--fg-2)]"
-              style={{ backgroundColor: 'var(--hair)' }}
-            >
-              Komisen untuk slot ini akan diberikan kepada pengganti, bukan
-              anda.
+            {/* Editorial summary recap — only when something to summarize. */}
+            <div className="mb-4 border-t border-[var(--hair)] pt-3">
+              <p className="text-[12px] leading-relaxed text-[var(--fg-2)]">
+                <em className="not-italic font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
+                  Ringkasan ·{' '}
+                </em>
+                {summary}{' '}
+                {reasonLabel ? (
+                  <span>
+                    Sebab: <span className="text-[var(--fg)]">{reasonLabel}</span>.
+                  </span>
+                ) : null}
+              </p>
             </div>
 
             {errors.live_schedule_assignment_id ? (
-              <p className="mt-1 text-[11px] text-[var(--hot)]">
+              <p className="mb-3 text-[11px] text-[var(--hot)]">
                 {errors.live_schedule_assignment_id}
               </p>
             ) : null}
           </div>
 
-          <div className="flex items-center justify-end gap-[10px] border-t border-[var(--hair)] px-4 py-3">
+          {/* Footer actions. */}
+          <div className="sticky bottom-0 flex items-center gap-[8px] border-t border-[var(--hair)] bg-[var(--app-bg)] px-5 py-3 pb-[max(env(safe-area-inset-bottom),12px)]">
             <button
               type="button"
               onClick={onClose}
               disabled={form.processing}
-              className="inline-flex h-[36px] items-center rounded-[10px] border border-[var(--hair)] px-4 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)] transition active:opacity-60 disabled:opacity-50"
+              className="inline-flex h-[44px] flex-none items-center rounded-[12px] px-4 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)] transition hover:text-[var(--fg)] active:opacity-60 disabled:opacity-50"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={form.processing}
-              className="inline-flex h-[36px] items-center rounded-[10px] bg-[var(--fg)] px-4 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--app-bg)] transition active:opacity-80 disabled:opacity-50"
+              className="ml-auto inline-flex h-[44px] flex-1 items-center justify-center rounded-[12px] bg-[var(--accent)] px-4 text-[13px] font-bold tracking-[-0.005em] text-[var(--accent-ink)] shadow-[0_8px_22px_-8px_rgba(124,58,237,0.55)] transition active:scale-[0.98] disabled:opacity-50"
             >
               {form.processing ? 'Menghantar…' : 'Hantar permohonan'}
             </button>
@@ -466,5 +654,58 @@ function RequestModal({ slot, dayName, onClose }) {
         </form>
       </div>
     </div>
+  );
+}
+
+function SegmentButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={`inline-flex h-[36px] items-center justify-center rounded-full px-3 text-[12.5px] font-bold tracking-[-0.005em] transition active:scale-[0.98] ${
+        active
+          ? 'bg-[var(--fg)] text-[var(--app-bg)] shadow-[0_2px_8px_rgba(20,16,31,0.18)]'
+          : 'text-[var(--fg-2)] hover:text-[var(--fg)]'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SwapIcon({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 6h9M9 3l3 3-3 3" />
+      <path d="M13 10H4M7 13l-3-3 3-3" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 8.5l3 3 7-7.5" />
+    </svg>
   );
 }
