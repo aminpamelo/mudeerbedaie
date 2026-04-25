@@ -187,3 +187,25 @@ it('requires a rejection_reason', function () {
 
     $response->assertSessionHasErrors('rejection_reason');
 });
+
+it('blocks the original host from going live on a slot already replaced today', function () {
+    $candidate = User::factory()->create(['role' => 'live_host']);
+    $assignment = LiveScheduleAssignment::factory()->create([
+        'live_host_id' => $this->host->id,
+        'day_of_week' => now()->dayOfWeek,
+    ]);
+    SessionReplacementRequest::factory()->assigned($candidate)->create([
+        'live_schedule_assignment_id' => $assignment->id,
+        'original_host_id' => $this->host->id,
+        'scope' => 'one_date',
+        'target_date' => now()->toDateString(),
+    ]);
+
+    $response = $this->actingAs($this->host)
+        ->post(route('live-host.go-live.start'), [
+            'live_schedule_assignment_id' => $assignment->id,
+        ]);
+
+    $response->assertStatus(422);
+    expect(\App\Models\LiveSession::where('live_host_id', $this->host->id)->count())->toBe(0);
+});

@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\LiveHostPocket;
 
 use App\Http\Controllers\Controller;
+use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
+use App\Models\SessionReplacementRequest;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -78,6 +81,55 @@ class GoLiveController extends Controller
             'state' => $isImminent ? 'imminent' : 'upcoming',
             'session' => $this->sessionDto($candidate),
         ]);
+    }
+
+    /**
+     * Start a live session for the host against the given schedule assignment.
+     *
+     * Creates a new `LiveSession` row with `status = live` and
+     * `actual_start_at = now()`. Refuses with 422 if the slot has been taken
+     * over by a replacement request — either permanently, or for today via a
+     * one_date scope — and the current user is not the assigned replacement.
+     * The error copy is Malay so it displays correctly to the original host.
+     */
+    public function start(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'live_schedule_assignment_id' => ['required', 'integer', 'exists:live_schedule_assignments,id'],
+        ]);
+
+        $assignmentId = (int) $data['live_schedule_assignment_id'];
+
+        $replaced = SessionReplacementRequest::query()
+            ->where('live_schedule_assignment_id', $assignmentId)
+            ->where('status', SessionReplacementRequest::STATUS_ASSIGNED)
+            ->where(function ($q): void {
+                $q->where('scope', SessionReplacementRequest::SCOPE_PERMANENT)
+                    ->orWhere(fn ($q) => $q->where('scope', SessionReplacementRequest::SCOPE_ONE_DATE)
+                        ->whereDate('target_date', now()->toDateString()));
+            })
+            ->where('replacement_host_id', '!=', $request->user()->id)
+            ->exists();
+
+        abort_if($replaced, 422, 'Slot ini telah diganti. Sila hubungi PIC.');
+
+        $assignment = LiveScheduleAssignment::findOrFail($assignmentId);
+
+        $session = LiveSession::create([
+            'platform_account_id' => $assignment->platform_account_id,
+            'live_host_platform_account_id' => $assignment->live_host_platform_account_id,
+            'live_schedule_assignment_id' => $assignment->id,
+            'live_host_id' => $request->user()->id,
+            'title' => 'Live Session',
+            'status' => 'live',
+            'scheduled_start_at' => now(),
+            'actual_start_at' => now(),
+            'gmv_source' => 'manual',
+        ]);
+
+        return redirect()
+            ->route('live-host.sessions.show', $session)
+            ->with('success', 'Session started.');
     }
 
     /**
