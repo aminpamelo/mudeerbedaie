@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AssignReplacementRequest;
 use App\Models\LiveScheduleAssignment;
 use App\Models\SessionReplacementRequest;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -121,6 +124,34 @@ class ReplacementRequestController extends Controller
             ],
             'availableHosts' => $availableHosts,
         ]);
+    }
+
+    public function assign(AssignReplacementRequest $request, SessionReplacementRequest $replacementRequest): RedirectResponse
+    {
+        abort_unless(
+            $replacementRequest->isPending(),
+            422,
+            'Permohonan ini tidak lagi tertunda.'
+        );
+
+        DB::transaction(function () use ($request, $replacementRequest) {
+            $replacementRequest->update([
+                'status' => SessionReplacementRequest::STATUS_ASSIGNED,
+                'replacement_host_id' => $request->validated('replacement_host_id'),
+                'assigned_at' => now(),
+                'assigned_by_id' => $request->user()->id,
+            ]);
+
+            if ($replacementRequest->scope === SessionReplacementRequest::SCOPE_PERMANENT) {
+                $replacementRequest->assignment()->update([
+                    'live_host_id' => $request->validated('replacement_host_id'),
+                ]);
+            }
+        });
+
+        return redirect()
+            ->route('livehost.replacements.show', $replacementRequest)
+            ->with('success', 'Pengganti telah ditetapkan.');
     }
 
     private function resolveAvailableHosts(SessionReplacementRequest $req): array

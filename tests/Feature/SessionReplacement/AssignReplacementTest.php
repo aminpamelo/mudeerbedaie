@@ -80,3 +80,61 @@ it('shows the request with available replacement hosts excluding overlapping one
     $payload = $response->viewData('page')['props']['availableHosts'];
     expect(collect($payload)->pluck('id')->all())->not->toContain($busyHost->id);
 });
+
+it('lets PIC assign a one_date replacement', function () {
+    $req = SessionReplacementRequest::factory()->pending()->create([
+        'live_schedule_assignment_id' => $this->assignment->id,
+        'original_host_id' => $this->host->id,
+    ]);
+    $candidate = User::factory()->create(['role' => 'live_host']);
+
+    $response = $this->actingAs($this->pic)
+        ->post(route('livehost.replacements.assign', $req), [
+            'replacement_host_id' => $candidate->id,
+        ]);
+
+    $response->assertRedirect();
+
+    $req->refresh();
+    expect($req->status)->toBe('assigned');
+    expect($req->replacement_host_id)->toBe($candidate->id);
+    expect($req->assigned_by_id)->toBe($this->pic->id);
+    expect($req->assigned_at)->not->toBeNull();
+});
+
+it('rejects assigning a host who already has an overlapping slot', function () {
+    $req = SessionReplacementRequest::factory()->pending()->create([
+        'live_schedule_assignment_id' => $this->assignment->id,
+        'original_host_id' => $this->host->id,
+    ]);
+    $busy = User::factory()->create(['role' => 'live_host']);
+    LiveScheduleAssignment::factory()->create([
+        'live_host_id' => $busy->id,
+        'day_of_week' => $this->assignment->day_of_week,
+        'time_slot_id' => $this->assignment->time_slot_id,
+    ]);
+
+    $response = $this->actingAs($this->pic)
+        ->post(route('livehost.replacements.assign', $req), [
+            'replacement_host_id' => $busy->id,
+        ]);
+
+    $response->assertSessionHasErrors('replacement_host_id');
+    expect($req->fresh()->status)->toBe('pending');
+});
+
+it('cannot re-assign an already-assigned request', function () {
+    $candidate = User::factory()->create(['role' => 'live_host']);
+    $req = SessionReplacementRequest::factory()->assigned($candidate)->create([
+        'live_schedule_assignment_id' => $this->assignment->id,
+        'original_host_id' => $this->host->id,
+    ]);
+    $other = User::factory()->create(['role' => 'live_host']);
+
+    $response = $this->actingAs($this->pic)
+        ->post(route('livehost.replacements.assign', $req), [
+            'replacement_host_id' => $other->id,
+        ]);
+
+    $response->assertStatus(422);
+});
