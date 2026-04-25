@@ -1,9 +1,11 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
+import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import {
   ArrowUpRight,
   Check,
   Copy,
+  GripVertical,
   Inbox,
   Link as LinkIcon,
   Mail,
@@ -58,43 +60,77 @@ function RatingStars({ value }) {
   );
 }
 
-function ApplicantCard({ applicant }) {
+function ApplicantCard({ applicant, index, isDragDisabled = false }) {
   return (
-    <Link
-      href={`/livehost/recruitment/applicants/${applicant.id}`}
-      className="block rounded-lg border border-[#EAEAEA] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:border-[#D4D4D4] hover:shadow-[0_2px_6px_rgba(0,0,0,0.06)]"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">
-            {applicant.full_name}
-          </div>
-          <div className="mt-0.5 truncate font-mono text-[10.5px] text-[#737373]">
-            {applicant.applicant_number}
-          </div>
-        </div>
-        <RatingStars value={applicant.rating} />
-      </div>
-      {applicant.platforms?.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {applicant.platforms.map((p) => (
-            <span
-              key={p}
-              className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${platformTone(p)}`}
+    <Draggable draggableId={String(applicant.id)} index={index} isDragDisabled={isDragDisabled}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          className={[
+            'group rounded-lg border bg-white p-3 transition-shadow',
+            snapshot.isDragging
+              ? 'border-[#0A0A0A] shadow-[0_8px_24px_-4px_rgba(0,0,0,0.18)]'
+              : 'border-[#EAEAEA] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-[#D4D4D4] hover:shadow-[0_2px_6px_rgba(0,0,0,0.06)]',
+          ].join(' ')}
+          style={{
+            ...provided.draggableProps.style,
+            opacity: snapshot.isDragging ? 0.95 : 1,
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <button
+              type="button"
+              {...provided.dragHandleProps}
+              aria-label="Drag to move stage"
+              className="mt-0.5 -ml-1 cursor-grab rounded p-0.5 text-[#A3A3A3] opacity-0 transition-opacity hover:bg-[#F5F5F5] hover:text-[#525252] group-hover:opacity-100 active:cursor-grabbing"
             >
-              {p}
-            </span>
-          ))}
+              <GripVertical className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+            <Link
+              href={`/livehost/recruitment/applicants/${applicant.id}`}
+              className="min-w-0 flex-1"
+              onClick={(e) => {
+                if (snapshot.isDragging) {
+                  e.preventDefault();
+                }
+              }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">
+                    {applicant.full_name}
+                  </div>
+                  <div className="mt-0.5 truncate font-mono text-[10.5px] text-[#737373]">
+                    {applicant.applicant_number}
+                  </div>
+                </div>
+                <RatingStars value={applicant.rating} />
+              </div>
+              {applicant.platforms?.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {applicant.platforms.map((p) => (
+                    <span
+                      key={p}
+                      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${platformTone(p)}`}
+                    >
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {applicant.applied_at_human && (
+                <div className="mt-2 text-[11px] text-[#A3A3A3]">Applied {applicant.applied_at_human}</div>
+              )}
+            </Link>
+          </div>
         </div>
       )}
-      {applicant.applied_at_human && (
-        <div className="mt-2 text-[11px] text-[#A3A3A3]">Applied {applicant.applied_at_human}</div>
-      )}
-    </Link>
+    </Draggable>
   );
 }
 
-function StageColumn({ stage, applicants }) {
+function StageColumn({ stage, applicants, isDropDisabled = false, dragDisabled = false }) {
   return (
     <div className="flex w-[280px] shrink-0 flex-col rounded-[12px] bg-[#F5F5F5]">
       <div className="flex items-center justify-between border-b border-[#EAEAEA] px-3 py-2.5">
@@ -112,15 +148,38 @@ function StageColumn({ stage, applicants }) {
           {applicants.length}
         </span>
       </div>
-      <div className="flex min-h-[120px] flex-1 flex-col gap-2 p-2">
-        {applicants.length === 0 ? (
-          <div className="flex h-full min-h-[100px] flex-col items-center justify-center rounded-md border border-dashed border-[#E5E5E5] text-center text-[11px] text-[#A3A3A3]">
-            Nothing here yet
+      <Droppable droppableId={String(stage.id)} isDropDisabled={isDropDisabled}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={[
+              'flex min-h-[120px] flex-1 flex-col gap-2 p-2 transition-colors',
+              snapshot.isDraggingOver && !isDropDisabled
+                ? 'bg-[#ECFDF5]/60'
+                : '',
+            ].join(' ')}
+          >
+            {applicants.length === 0 ? (
+              <div
+                className={[
+                  'flex h-full min-h-[100px] flex-col items-center justify-center rounded-md border border-dashed text-center text-[11px] transition-colors',
+                  snapshot.isDraggingOver && !isDropDisabled
+                    ? 'border-[#10B981] text-[#047857]'
+                    : 'border-[#E5E5E5] text-[#A3A3A3]',
+                ].join(' ')}
+              >
+                {snapshot.isDraggingOver && !isDropDisabled ? 'Drop to move here' : 'Nothing here yet'}
+              </div>
+            ) : (
+              applicants.map((a, index) => (
+                <ApplicantCard key={a.id} applicant={a} index={index} isDragDisabled={dragDisabled} />
+              ))
+            )}
+            {provided.placeholder}
           </div>
-        ) : (
-          applicants.map((a) => <ApplicantCard key={a.id} applicant={a} />)
         )}
-      </div>
+      </Droppable>
     </div>
   );
 }
@@ -367,24 +426,80 @@ function HeroEmpty({ campaign }) {
 export default function ApplicantsIndex() {
   const { campaign, campaigns, stages, applicants, counts, filters } = usePage().props;
 
+  // Optimistic stage overrides keyed by applicant id while a moveStage request is in flight.
+  const [stageOverrides, setStageOverrides] = useState({});
+  const [isMoving, setIsMoving] = useState(false);
+
+  const effectiveApplicants = useMemo(
+    () =>
+      (applicants ?? []).map((a) =>
+        stageOverrides[a.id] !== undefined
+          ? { ...a, current_stage_id: stageOverrides[a.id] }
+          : a,
+      ),
+    [applicants, stageOverrides],
+  );
+
   const applicantsByStage = useMemo(() => {
     const map = new Map();
     (stages ?? []).forEach((s) => map.set(s.id, []));
-    (applicants ?? []).forEach((a) => {
+    effectiveApplicants.forEach((a) => {
       if (a.current_stage_id && map.has(a.current_stage_id)) {
         map.get(a.current_stage_id).push(a);
       }
     });
     return map;
-  }, [stages, applicants]);
+  }, [stages, effectiveApplicants]);
 
   const ungrouped = useMemo(
     () =>
-      (applicants ?? []).filter(
+      effectiveApplicants.filter(
         (a) => !a.current_stage_id || !(stages ?? []).some((s) => s.id === a.current_stage_id),
       ),
-    [applicants, stages],
+    [effectiveApplicants, stages],
   );
+
+  const onDragEnd = (result) => {
+    const { source, destination, draggableId } = result;
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      return;
+    }
+    const destStageId = destination.droppableId === '0' ? null : Number(destination.droppableId);
+    if (destStageId === null) {
+      return; // Cannot drop into the Unassigned pseudo-stage
+    }
+    const applicantId = Number(draggableId);
+
+    // Optimistic update
+    setStageOverrides((prev) => ({ ...prev, [applicantId]: destStageId }));
+    setIsMoving(true);
+
+    router.patch(
+      `/livehost/recruitment/applicants/${applicantId}/stage`,
+      { to_stage_id: destStageId },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          setStageOverrides((prev) => {
+            const next = { ...prev };
+            delete next[applicantId];
+            return next;
+          });
+        },
+        onError: () => {
+          // Roll back on failure
+          setStageOverrides((prev) => {
+            const next = { ...prev };
+            delete next[applicantId];
+            return next;
+          });
+        },
+        onFinish: () => setIsMoving(false),
+      },
+    );
+  };
 
   const statusTab = filters?.status ?? 'active';
   const campaignCounts = counts ?? { active: 0, rejected: 0, hired: 0 };
@@ -519,21 +634,24 @@ export default function ApplicantsIndex() {
               applicants.length === 0 ? (
                 <HeroEmpty campaign={campaign} />
               ) : (
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {(stages ?? []).map((stage) => (
-                    <StageColumn
-                      key={stage.id}
-                      stage={stage}
-                      applicants={applicantsByStage.get(stage.id) ?? []}
-                    />
-                  ))}
-                  {ungrouped.length > 0 && (
-                    <StageColumn
-                      stage={{ id: 0, name: 'Unassigned', is_final: false }}
-                      applicants={ungrouped}
-                    />
-                  )}
-                </div>
+                <DragDropContext onDragEnd={onDragEnd}>
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {(stages ?? []).map((stage) => (
+                      <StageColumn
+                        key={stage.id}
+                        stage={stage}
+                        applicants={applicantsByStage.get(stage.id) ?? []}
+                      />
+                    ))}
+                    {ungrouped.length > 0 && (
+                      <StageColumn
+                        stage={{ id: 0, name: 'Unassigned', is_final: false }}
+                        applicants={ungrouped}
+                        isDropDisabled={true}
+                      />
+                    )}
+                  </div>
+                </DragDropContext>
               )
             ) : (
               <ApplicantList
