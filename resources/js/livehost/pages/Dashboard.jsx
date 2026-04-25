@@ -8,6 +8,8 @@ import {
   Check,
   Bell,
   Plus,
+  UserMinus,
+  ChevronRight,
 } from 'lucide-react';
 import LiveHostLayout, { TopBar } from '@/livehost/layouts/LiveHostLayout';
 import StatCard from '@/livehost/components/StatCard';
@@ -84,6 +86,7 @@ export default function Dashboard() {
     upcoming,
     recentActivity,
     topHosts,
+    pendingReplacements = 0,
   } = usePage().props;
 
   const firstName = auth?.user?.name?.split(' ')[0] ?? 'there';
@@ -117,6 +120,10 @@ export default function Dashboard() {
           liveNowCount={stats?.liveNow ?? 0}
           viewers={totalViewers}
         />
+
+        {pendingReplacements > 0 && (
+          <PendingReplacementsBanner count={pendingReplacements} />
+        )}
 
         {/* Bento Row 1: KPIs */}
         <div className="grid grid-cols-12 gap-4">
@@ -191,6 +198,38 @@ export default function Dashboard() {
 }
 
 Dashboard.layout = (page) => <LiveHostLayout>{page}</LiveHostLayout>;
+
+function PendingReplacementsBanner({ count }) {
+  return (
+    <Link
+      href="/livehost/replacements"
+      className="group flex items-center justify-between gap-4 rounded-[16px] border border-[#FDE68A] bg-gradient-to-r from-[#FFFBEB] to-[#FEF3C7] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:from-[#FEF3C7] hover:to-[#FDE68A]"
+    >
+      <div className="flex items-center gap-4">
+        <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#F59E0B] text-white">
+          <UserMinus className="h-5 w-5" strokeWidth={2.25} />
+        </div>
+        <div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-[#92400E]">
+            Tindakan diperlukan
+          </div>
+          <div className="mt-0.5 text-[15px] font-semibold tracking-[-0.015em] text-[#0A0A0A]">
+            Permohonan ganti tertunda
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="text-3xl font-semibold tabular-nums tracking-[-0.02em] text-[#0A0A0A]">
+          {count}
+        </div>
+        <ChevronRight
+          className="h-5 w-5 text-[#92400E] transition-transform group-hover:translate-x-0.5"
+          strokeWidth={2.25}
+        />
+      </div>
+    </Link>
+  );
+}
 
 function PageHeader({ firstName, liveNowCount, viewers }) {
   return (

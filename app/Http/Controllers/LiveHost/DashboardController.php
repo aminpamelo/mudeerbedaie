@@ -7,6 +7,7 @@ use App\Models\LiveSchedule;
 use App\Models\LiveScheduleAssignment;
 use App\Models\LiveSession;
 use App\Models\PlatformAccount;
+use App\Models\SessionReplacementRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -27,6 +28,9 @@ class DashboardController extends Controller
             'upcoming' => $this->upcoming(),
             'recentActivity' => $this->recentActivity(),
             'topHosts' => $this->topHosts(),
+            'pendingReplacements' => SessionReplacementRequest::query()
+                ->where('status', SessionReplacementRequest::STATUS_PENDING)
+                ->count(),
         ]);
     }
 
