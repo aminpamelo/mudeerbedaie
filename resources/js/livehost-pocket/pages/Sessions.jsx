@@ -17,21 +17,21 @@ import { cn, formatClockHM, minutesSince, formatMinutesHM } from '@/livehost-poc
  *   - `filter`   — 'upcoming' | 'ended' | 'all'
  */
 const FILTER_OPTIONS = [
-  { key: 'upcoming', label: 'Upcoming' },
-  { key: 'ended', label: 'Ended' },
-  { key: 'all', label: 'All' },
+  { key: 'upcoming', label: 'Akan datang' },
+  { key: 'ended', label: 'Tamat' },
+  { key: 'all', label: 'Semua' },
 ];
 
 const MISSED_REASON_LABELS = {
-  tech_issue: 'Tech issue',
-  sick: 'Sick',
-  account_issue: 'Account issue',
-  schedule_conflict: 'Schedule conflict',
-  other: 'Other',
+  tech_issue: 'Masalah teknikal',
+  sick: 'Sakit',
+  account_issue: 'Masalah akaun',
+  schedule_conflict: 'Slot bertindih',
+  other: 'Lain-lain',
 };
 
 function labelForMissedReason(code) {
-  return MISSED_REASON_LABELS[code] ?? 'Missed';
+  return MISSED_REASON_LABELS[code] ?? 'Terlepas';
 }
 
 export default function Sessions() {
@@ -53,14 +53,14 @@ export default function Sessions() {
 
   return (
     <>
-      <Head title="Sessions" />
+      <Head title="Sesi" />
       <div className="-mx-5 min-h-full bg-[var(--app-bg)] px-4 pt-3 pb-8">
         <div className="px-1 pt-3 pb-4">
           <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-            Sessions
+            Senarai sesi
           </div>
           <h1 className="font-display text-[22px] font-medium leading-[1.08] tracking-[-0.03em] text-[var(--fg)]">
-            Your sessions
+            Sesi anda.
           </h1>
         </div>
 
@@ -133,6 +133,10 @@ function SessionCard({ session }) {
   const isAwaitingRecap = isScheduled && canRecap;
   const attachmentsCount = Number(session.attachmentsCount ?? 0);
   const needsUpload = isEnded && attachmentsCount === 0;
+  // Both "needs upload" and "awaiting recap" are unfinished-action states.
+  // Apply the same amber rail + amber wash to whichever applies so the host
+  // can scan the list and immediately spot the cards that owe them work.
+  const needsAttention = needsUpload || isAwaitingRecap;
 
   return (
     <div
@@ -140,7 +144,7 @@ function SessionCard({ session }) {
         'relative mb-[10px] overflow-hidden rounded-[16px] border p-[14px]',
         isLive
           ? 'border-[var(--accent)]'
-          : needsUpload
+          : needsAttention
             ? 'border-[var(--hair)] pl-[18px]'
             : 'border-[var(--hair)] bg-[var(--app-bg-2)]'
       )}
@@ -151,7 +155,7 @@ function SessionCard({ session }) {
                 'linear-gradient(160deg, var(--accent-soft), transparent 65%)',
               backgroundColor: 'var(--app-bg-2)',
             }
-          : needsUpload
+          : needsAttention
             ? {
                 background:
                   'linear-gradient(95deg, rgba(245,158,11,0.07), var(--app-bg-2) 60%)',
@@ -159,7 +163,7 @@ function SessionCard({ session }) {
             : undefined
       }
     >
-      {needsUpload ? (
+      {needsAttention ? (
         <span
           className="absolute left-0 top-0 bottom-0 w-[4px]"
           style={{ backgroundColor: 'var(--warm)' }}
@@ -188,7 +192,7 @@ function SessionCard({ session }) {
           href={`/live-host/sessions/${session.id}`}
           className="mt-[10px] block border-t border-[var(--hair)] pt-[10px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]"
         >
-          Manage session &rarr;
+          Urus sesi &rarr;
         </Link>
       ) : null}
 
@@ -214,26 +218,26 @@ function SessionCard({ session }) {
             href={`/live-host/sessions/${session.id}?recap=yes`}
             className="flex-[2] rounded-[10px] bg-[var(--accent)] px-[10px] py-[8px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent-ink)]"
           >
-            Submit recap &rarr;
+            Hantar rekap &rarr;
           </Link>
           <Link
             href={`/live-host/sessions/${session.id}?recap=no`}
             className="flex-1 rounded-[10px] border border-[var(--hair)] px-[10px] py-[8px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]"
           >
-            Didn&apos;t go live
+            Tidak siaran
           </Link>
         </div>
       ) : null}
 
       {isMissed ? (
         <div className="mt-[10px] border-t border-[var(--hair)] pt-[10px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--hot)]">
-          Missed &middot; {labelForMissedReason(session.missedReasonCode)}
+          Terlepas &middot; {labelForMissedReason(session.missedReasonCode)}
         </div>
       ) : null}
 
       {isCancelled ? (
         <div className="mt-[10px] border-t border-[var(--hair)] pt-[10px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-          Session cancelled
+          Sesi dibatalkan
         </div>
       ) : null}
 
@@ -248,8 +252,8 @@ function ScheduleLine({ session, isLive }) {
     const elapsed = formatMinutesHM(minutesSince(session.actualStartAt));
     return (
       <div className="mb-[10px] font-mono text-[10.5px] tracking-[0.02em] text-[var(--fg-2)]">
-        Started <strong className="font-bold text-[var(--fg)]">{started}</strong>
-        {' '}&middot; elapsed{' '}
+        Mula <strong className="font-bold text-[var(--fg)]">{started}</strong>
+        {' '}&middot; berjalan{' '}
         <strong className="font-bold text-[var(--fg)]">{elapsed}</strong>
       </div>
     );
@@ -293,7 +297,7 @@ function ScheduledFooter({ session }) {
   }
   return (
     <div className="mt-[6px] font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-      Awaiting start
+      Menunggu mula
     </div>
   );
 }
@@ -344,10 +348,18 @@ function StatusChip({ status, awaitingRecap = false, needsUpload = false }) {
   if (awaitingRecap) {
     return (
       <span
-        className={cn(base, 'text-[var(--hot)]')}
-        style={{ backgroundColor: 'rgba(245,158,11,0.12)' }}
+        className={cn(base, 'gap-[5px] text-[var(--warm)]')}
+        style={{ backgroundColor: 'rgba(245,158,11,0.14)' }}
       >
-        RECAP PENDING
+        <span
+          className="h-[5px] w-[5px] rounded-full"
+          style={{
+            backgroundColor: 'var(--warm)',
+            boxShadow: '0 0 0 2px rgba(245,158,11,0.18)',
+          }}
+          aria-hidden="true"
+        />
+        REKAP TERTUNDA
       </span>
     );
   }
@@ -363,7 +375,7 @@ function StatusChip({ status, awaitingRecap = false, needsUpload = false }) {
           style={{ width: 5, height: 5 }}
           aria-hidden="true"
         />
-        LIVE
+        SEDANG SIARAN
       </span>
     );
   }
@@ -373,7 +385,7 @@ function StatusChip({ status, awaitingRecap = false, needsUpload = false }) {
         className={cn(base, 'text-[var(--cool)]')}
         style={{ backgroundColor: 'rgba(37,99,235,0.1)' }}
       >
-        SCHED
+        DIJADUALKAN
       </span>
     );
   }
@@ -383,7 +395,7 @@ function StatusChip({ status, awaitingRecap = false, needsUpload = false }) {
         className={cn(base, 'text-[var(--hot)]')}
         style={{ backgroundColor: 'rgba(225,29,72,0.1)' }}
       >
-        CANCELLED
+        BATAL
       </span>
     );
   }
@@ -393,7 +405,7 @@ function StatusChip({ status, awaitingRecap = false, needsUpload = false }) {
         className={cn(base, 'text-[var(--hot)]')}
         style={{ backgroundColor: 'rgba(225,29,72,0.1)' }}
       >
-        MISSED
+        TERLEPAS
       </span>
     );
   }
@@ -403,7 +415,7 @@ function StatusChip({ status, awaitingRecap = false, needsUpload = false }) {
       className={cn(base, 'text-[var(--fg-2)]')}
       style={{ backgroundColor: 'var(--hair)' }}
     >
-      ENDED
+      TAMAT
     </span>
   );
 }
@@ -411,10 +423,10 @@ function StatusChip({ status, awaitingRecap = false, needsUpload = false }) {
 function MetricsStrip({ analytics }) {
   return (
     <div className="grid grid-cols-3 border-t border-[var(--hair)] pt-[10px]">
-      <Metric label="Peak" value={formatCompactNumber(analytics.viewersPeak)} />
-      <Metric label="Likes" value={formatCompactNumber(analytics.totalLikes)} withBorder />
+      <Metric label="Puncak" value={formatCompactNumber(analytics.viewersPeak)} />
+      <Metric label="Suka" value={formatCompactNumber(analytics.totalLikes)} withBorder />
       <Metric
-        label="Gifts"
+        label="Hadiah"
         withBorder
         value={
           <>
@@ -450,10 +462,10 @@ function Metric({ label, value, withBorder = false }) {
 function EmptyState({ filter }) {
   const copy =
     filter === 'upcoming'
-      ? 'No upcoming sessions yet.'
+      ? 'Tiada sesi akan datang lagi.'
       : filter === 'ended'
-        ? 'Nothing ended to review — go make one great.'
-        : 'No sessions yet. They will appear here once scheduled.';
+        ? 'Tiada sesi tamat untuk dilihat — pergi cipta sesi hebat.'
+        : 'Belum ada sesi. Ia akan muncul di sini setelah dijadualkan.';
 
   return (
     <div className="mb-[10px] rounded-[14px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-3 py-6 text-center text-[12px] text-[var(--fg-3)]">
@@ -472,7 +484,7 @@ function Pagination({ links, from, to, total }) {
     <div className="mt-3 flex flex-col items-center gap-2 pt-2">
       {from && to && total ? (
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-3)]">
-          {from}&ndash;{to} of {total}
+          {from}&ndash;{to} drpd {total}
         </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-center gap-1">

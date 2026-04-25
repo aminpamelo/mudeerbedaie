@@ -6,16 +6,18 @@
  * the list views.
  */
 
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_SHORT_MS = ['Ahd', 'Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab'];
+const MONTH_SHORT_MS = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
 
 /**
  * Short, locale-aware date/time label suitable for a session-card's
- * "scheduled" line.
+ * "scheduled" line. Output is in Bahasa Malaysia.
  *
- * - Today           -> "Today HH:mm"
- * - Yesterday       -> "Yesterday HH:mm"
- * - Within 6 days   -> "Thu HH:mm"
- * - Older / future  -> "DD MMM HH:mm"
+ * - Today           -> "Hari ini HH:mm"
+ * - Yesterday       -> "Semalam HH:mm"
+ * - Tomorrow        -> "Esok HH:mm"
+ * - Within 6 days   -> "Kha HH:mm"
+ * - Older / future  -> "DD Mac HH:mm"
  */
 export function formatShortDateTime(value) {
   if (!value) {
@@ -35,19 +37,18 @@ export function formatShortDateTime(value) {
   const dayDiff = Math.round((startOfDay(date) - startOfDay(now)) / 86_400_000);
 
   if (dayDiff === 0) {
-    return `Today ${time}`;
+    return `Hari ini ${time}`;
   }
   if (dayDiff === -1) {
-    return `Yesterday ${time}`;
+    return `Semalam ${time}`;
   }
   if (dayDiff === 1) {
-    return `Tomorrow ${time}`;
+    return `Esok ${time}`;
   }
   if (Math.abs(dayDiff) < 7) {
-    return `${DAY_SHORT[date.getDay()]} ${time}`;
+    return `${DAY_SHORT_MS[date.getDay()]} ${time}`;
   }
-  const month = date.toLocaleString('en-GB', { month: 'short' });
-  return `${date.getDate()} ${month} ${time}`;
+  return `${date.getDate()} ${MONTH_SHORT_MS[date.getMonth()]} ${time}`;
 }
 
 /**
@@ -63,11 +64,11 @@ export function formatDurationHM(minutes) {
     return `${m}m`;
   }
   if (m % 60 === 0) {
-    return `${m / 60}h`;
+    return `${m / 60}j`;
   }
   const hours = Math.floor(m / 60);
   const rest = m % 60;
-  return `${hours}h ${rest}m`;
+  return `${hours}j ${rest}m`;
 }
 
 /**
