@@ -29,6 +29,7 @@ class SessionsController extends Controller
 
         $query = LiveSession::query()
             ->with(['platformAccount.platform', 'analytics'])
+            ->withCount('attachments')
             ->where('live_host_id', $host->id);
 
         match ($filter) {
@@ -80,6 +81,7 @@ class SessionsController extends Controller
                 'totalLikes' => (int) $analytics->total_likes,
                 'giftsValue' => (float) $analytics->gifts_value,
             ] : null,
+            'attachmentsCount' => (int) ($session->attachments_count ?? 0),
         ];
     }
 }

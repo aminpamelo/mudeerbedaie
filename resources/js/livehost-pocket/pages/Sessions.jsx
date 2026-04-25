@@ -131,14 +131,18 @@ function SessionCard({ session }) {
   const isMissed = status === 'missed';
   const canRecap = Boolean(session.canRecap);
   const isAwaitingRecap = isScheduled && canRecap;
+  const attachmentsCount = Number(session.attachmentsCount ?? 0);
+  const needsUpload = isEnded && attachmentsCount === 0;
 
   return (
     <div
       className={cn(
-        'mb-[10px] rounded-[16px] border p-[14px]',
+        'relative mb-[10px] overflow-hidden rounded-[16px] border p-[14px]',
         isLive
           ? 'border-[var(--accent)]'
-          : 'border-[var(--hair)] bg-[var(--app-bg-2)]'
+          : needsUpload
+            ? 'border-[var(--hair)] pl-[18px]'
+            : 'border-[var(--hair)] bg-[var(--app-bg-2)]'
       )}
       style={
         isLive
@@ -147,15 +151,28 @@ function SessionCard({ session }) {
                 'linear-gradient(160deg, var(--accent-soft), transparent 65%)',
               backgroundColor: 'var(--app-bg-2)',
             }
-          : undefined
+          : needsUpload
+            ? {
+                background:
+                  'linear-gradient(95deg, rgba(245,158,11,0.07), var(--app-bg-2) 60%)',
+              }
+            : undefined
       }
     >
+      {needsUpload ? (
+        <span
+          className="absolute left-0 top-0 bottom-0 w-[4px]"
+          style={{ backgroundColor: 'var(--warm)' }}
+          aria-hidden="true"
+        />
+      ) : null}
+
       <div className="mb-2 flex items-center justify-between">
         <PlatformLabel
           name={session.platformAccount}
           platformType={session.platformType}
         />
-        <StatusChip status={status} awaitingRecap={isAwaitingRecap} />
+        <StatusChip status={status} awaitingRecap={isAwaitingRecap} needsUpload={needsUpload} />
       </div>
 
       <div className="mb-1 text-[14.5px] font-bold leading-tight tracking-[-0.01em] text-[var(--fg)]">
@@ -178,9 +195,16 @@ function SessionCard({ session }) {
       {isEnded ? (
         <Link
           href={`/live-host/sessions/${session.id}`}
-          className="mt-[10px] block border-t border-[var(--hair)] pt-[10px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--accent)]"
+          className={cn(
+            'mt-[10px] block border-t border-[var(--hair)] pt-[10px] text-center font-mono text-[9.5px] font-bold uppercase tracking-[0.14em]',
+            needsUpload ? 'text-[var(--warm)]' : 'text-[var(--accent)]'
+          )}
         >
-          Open recap &amp; upload &rarr;
+          {needsUpload ? (
+            <>Muat naik bukti &rarr;</>
+          ) : (
+            <>Buka rekap &amp; muat naik &rarr;</>
+          )}
         </Link>
       ) : null}
 
@@ -295,8 +319,27 @@ function PlatformLabel({ name, platformType }) {
   );
 }
 
-function StatusChip({ status, awaitingRecap = false }) {
+function StatusChip({ status, awaitingRecap = false, needsUpload = false }) {
   const base = 'inline-flex items-center rounded-full px-[7px] py-[3px] font-mono text-[8.5px] font-extrabold uppercase tracking-[0.14em]';
+
+  if (needsUpload) {
+    return (
+      <span
+        className={cn(base, 'gap-[5px] text-[var(--warm)]')}
+        style={{ backgroundColor: 'rgba(245,158,11,0.14)' }}
+      >
+        <span
+          className="h-[5px] w-[5px] rounded-full"
+          style={{
+            backgroundColor: 'var(--warm)',
+            boxShadow: '0 0 0 2px rgba(245,158,11,0.18)',
+          }}
+          aria-hidden="true"
+        />
+        PERLU UPLOAD
+      </span>
+    );
+  }
 
   if (awaitingRecap) {
     return (
