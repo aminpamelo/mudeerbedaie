@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreReplacementRequest;
 use App\Models\LiveScheduleAssignment;
 use App\Models\SessionReplacementRequest;
+use App\Models\User;
+use App\Notifications\ReplacementRequestedNotification;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 
 class ReplacementRequestController extends Controller
 {
@@ -19,7 +22,7 @@ class ReplacementRequestController extends Controller
 
         $expiresAt = $this->computeExpiresAt($data, $assignment);
 
-        SessionReplacementRequest::create([
+        $replacement = SessionReplacementRequest::create([
             'live_schedule_assignment_id' => $assignment->id,
             'original_host_id' => $request->user()->id,
             'scope' => $data['scope'],
@@ -30,6 +33,11 @@ class ReplacementRequestController extends Controller
             'requested_at' => now(),
             'expires_at' => $expiresAt,
         ]);
+
+        Notification::send(
+            User::query()->whereIn('role', ['admin', 'admin_livehost'])->get(),
+            new ReplacementRequestedNotification($replacement)
+        );
 
         return redirect()->route('live-host.schedule')
             ->with('success', 'Permohonan ganti telah dihantar.');
