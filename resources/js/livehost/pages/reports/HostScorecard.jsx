@@ -11,7 +11,7 @@ const fmtPct = (n) => `${(Number(n) * 100).toFixed(1)}%`;
 const fmtHours = (n) => `${Number(n).toFixed(1)} hr`;
 
 function delta(current, prior) {
-  if (!prior) return null;
+  if (prior == null || prior === 0) return null;
   return ((current - prior) / prior) * 100;
 }
 

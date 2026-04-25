@@ -18,7 +18,7 @@ function fmtDuration(minutes) {
 }
 
 function delta(current, prior) {
-  if (!prior) return null;
+  if (prior == null || prior === 0) return null;
   return ((current - prior) / prior) * 100;
 }
 
@@ -94,6 +94,7 @@ export default function ReplacementsReport({ kpis, trend, topRequesters, topCove
           <KpiCard
             label="Avg time to assign"
             value={kpis.current.avgTimeToAssignMinutes}
+            delta={delta(kpis.current.avgTimeToAssignMinutes, kpis.prior.avgTimeToAssignMinutes)}
             format={fmtDuration}
           />
         </div>

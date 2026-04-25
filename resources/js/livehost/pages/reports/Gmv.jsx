@@ -9,7 +9,7 @@ import ExportCsvButton from '@/livehost/components/reports/ExportCsvButton';
 const fmtMyr = (n) => `RM ${Number(n).toLocaleString('en-MY', { minimumFractionDigits: 2 })}`;
 
 function delta(current, prior) {
-  if (!prior) return null;
+  if (prior == null || prior === 0) return null;
   return ((current - prior) / prior) * 100;
 }
 
