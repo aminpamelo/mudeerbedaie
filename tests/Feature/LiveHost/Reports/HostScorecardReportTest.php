@@ -196,3 +196,32 @@ it('produces a daily trend bucket for ended/missed', function () {
         ->and($trend[0]['ended'])->toBe(1)
         ->and($trend[0]['missed'])->toBe(1);
 });
+
+it('runs in a bounded number of queries on a realistic fixture', function () {
+    $accounts = PlatformAccount::factory()->count(3)->create();
+    $hosts = collect();
+    for ($i = 0; $i < 20; $i++) {
+        $hosts->push(User::factory()->create(['role' => 'live_host']));
+    }
+
+    foreach ($hosts as $host) {
+        LiveSession::factory()->count(10)->create([
+            'live_host_id' => $host->id,
+            'platform_account_id' => $accounts->random()->id,
+            'status' => fake()->randomElement(['ended', 'missed', 'cancelled']),
+            'scheduled_start_at' => fake()->dateTimeBetween('2026-04-01', '2026-04-25'),
+            'duration_minutes' => 60,
+            'gmv_amount' => fake()->randomFloat(2, 0, 500),
+        ]);
+    }
+
+    \Illuminate\Support\Facades\DB::enableQueryLog();
+    (new HostScorecardReport)->run(new ReportFilters(
+        CarbonImmutable::parse('2026-04-01'),
+        CarbonImmutable::parse('2026-04-25'),
+    ));
+    $count = count(\Illuminate\Support\Facades\DB::getQueryLog());
+    \Illuminate\Support\Facades\DB::disableQueryLog();
+
+    expect($count)->toBeLessThanOrEqual(5);
+});
