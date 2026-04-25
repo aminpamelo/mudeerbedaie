@@ -11,18 +11,18 @@
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
-    {{-- Manrope (body) + Unbounded reserved for small accents. No display-
-         stacked headline on this iteration — modern consumer apps lean on
-         semibold humanist type rather than editorial display. --}}
+    {{-- Geist (sans + mono). Same family as the PIC desk so the host
+         experience reads as part of the same modern, official Mudeer
+         Bedaie surface rather than a separate consumer-app aesthetic. --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
 
     @vite(['resources/css/app.css'])
     @livewireStyles
     @fluxAppearance
 </head>
-<body class="antialiased text-white" style="font-family: 'Manrope', system-ui, sans-serif;">
+<body class="antialiased text-white" style="font-family: 'Geist', system-ui, sans-serif;">
 
     {{-- Full-bleed aurora backdrop. Dark base (#0A0A0F), then three warm
          radial blobs layered in — a violet, a pink, and a teal accent.

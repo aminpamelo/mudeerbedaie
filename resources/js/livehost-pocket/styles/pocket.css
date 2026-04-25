@@ -8,9 +8,9 @@
  * they do not leak into the Live Host Desk (PIC) palette.
  */
 @theme {
-  --font-sans: "Manrope", system-ui, sans-serif;
-  --font-display: "Unbounded", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Geist", "Geist Fallback", system-ui, sans-serif;
+  --font-display: "Geist", "Geist Fallback", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
 
   /* Canvas */
   --color-pocket-bg: #F0F0F5;
