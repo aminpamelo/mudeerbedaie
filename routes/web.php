@@ -272,14 +272,10 @@ Route::middleware(['auth'])
                 Route::get('coverage/export', [\App\Http\Controllers\LiveHost\Reports\CoverageController::class, 'export'])
                     ->name('coverage.export');
 
-                foreach (['replacements'] as $stub) {
-                    Route::get($stub, fn () => Inertia::render('reports/ComingSoon', [
-                        'title' => match ($stub) {
-                            'replacements' => 'Replacement Activity',
-                        },
-                        'href' => '/livehost/reports',
-                    ]))->name("$stub.index");
-                }
+                Route::get('replacements', [\App\Http\Controllers\LiveHost\Reports\ReplacementsController::class, 'index'])
+                    ->name('replacements.index');
+                Route::get('replacements/export', [\App\Http\Controllers\LiveHost\Reports\ReplacementsController::class, 'export'])
+                    ->name('replacements.export');
             });
 
             Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
