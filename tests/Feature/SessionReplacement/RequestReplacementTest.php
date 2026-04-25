@@ -119,3 +119,50 @@ it('blocks duplicate pending request for the same one_date slot', function () {
     $response->assertSessionHasErrors('live_schedule_assignment_id');
     expect(SessionReplacementRequest::count())->toBe(1);
 });
+
+it('lets the original host withdraw a pending request', function () {
+    $req = SessionReplacementRequest::factory()
+        ->pending()
+        ->create([
+            'live_schedule_assignment_id' => $this->assignment->id,
+            'original_host_id' => $this->host->id,
+        ]);
+
+    $response = $this->actingAs($this->host)
+        ->delete(route('live-host.replacement-requests.destroy', $req));
+
+    $response->assertRedirect(route('live-host.schedule'));
+    expect($req->fresh()->status)->toBe('withdrawn');
+});
+
+it('blocks withdrawal of a non-pending request', function () {
+    $req = SessionReplacementRequest::factory()
+        ->assigned()
+        ->create([
+            'live_schedule_assignment_id' => $this->assignment->id,
+            'original_host_id' => $this->host->id,
+        ]);
+
+    $response = $this->actingAs($this->host)
+        ->delete(route('live-host.replacement-requests.destroy', $req));
+
+    $response->assertStatus(422);
+    expect($req->fresh()->status)->toBe('assigned');
+});
+
+it('blocks withdrawal by someone other than the original host', function () {
+    $req = SessionReplacementRequest::factory()
+        ->pending()
+        ->create([
+            'live_schedule_assignment_id' => $this->assignment->id,
+            'original_host_id' => $this->host->id,
+        ]);
+
+    $intruder = User::factory()->create(['role' => 'live_host']);
+
+    $response = $this->actingAs($intruder)
+        ->delete(route('live-host.replacement-requests.destroy', $req));
+
+    $response->assertForbidden();
+    expect($req->fresh()->status)->toBe('pending');
+});
