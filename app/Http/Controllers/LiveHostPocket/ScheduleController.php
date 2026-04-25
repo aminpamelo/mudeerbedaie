@@ -4,6 +4,7 @@ namespace App\Http\Controllers\LiveHostPocket;
 
 use App\Http\Controllers\Controller;
 use App\Models\LiveScheduleAssignment;
+use App\Models\LiveSession;
 use App\Models\SessionReplacementRequest;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -92,7 +93,55 @@ class ScheduleController extends Controller
         return Inertia::render('Schedule', [
             'days' => $grouped,
             'totalSlots' => $schedules->count(),
+            'pendingRecaps' => $this->pendingRecapsFor($host->id),
         ]);
+    }
+
+    /**
+     * Past sessions still owed work by the host:
+     *
+     *   - status='ended' AND zero attachments  → "PERLU UPLOAD"
+     *   - status='scheduled' AND start_at past AND can be recapped
+     *     → "REKAP TERTUNDA" (host needs to confirm went-live + upload, OR
+     *       mark "didn't go live")
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function pendingRecapsFor(int $hostId): array
+    {
+        return LiveSession::query()
+            ->with(['platformAccount.platform'])
+            ->withCount('attachments')
+            ->where('live_host_id', $hostId)
+            ->where(function ($q): void {
+                $q->where('status', 'ended')
+                    ->orWhere(fn ($q) => $q->where('status', 'scheduled')
+                        ->where('scheduled_start_at', '<', now()));
+            })
+            ->orderByDesc('scheduled_start_at')
+            ->limit(20)
+            ->get()
+            ->filter(function (LiveSession $session): bool {
+                if ($session->status === 'ended') {
+                    return ((int) ($session->attachments_count ?? 0)) === 0;
+                }
+
+                return $session->canRecap();
+            })
+            ->values()
+            ->map(fn (LiveSession $session): array => [
+                'id' => $session->id,
+                'title' => $session->title,
+                'status' => $session->status,
+                'platformAccount' => $session->platformAccount?->name,
+                'platformType' => $session->platformAccount?->platform?->slug,
+                'scheduledStartAt' => $session->scheduled_start_at?->toIso8601String(),
+                'actualStartAt' => $session->actual_start_at?->toIso8601String(),
+                'actualEndAt' => $session->actual_end_at?->toIso8601String(),
+                'durationMinutes' => $session->duration_minutes,
+                'needsUpload' => $session->status === 'ended',
+            ])
+            ->all();
     }
 
     private function formatTime(mixed $value): string

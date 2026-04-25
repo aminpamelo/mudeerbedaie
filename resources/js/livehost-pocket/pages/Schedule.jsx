@@ -17,9 +17,10 @@ import PocketLayout from '@/livehost-pocket/layouts/PocketLayout';
  * slots return null because ownership has transferred.
  */
 export default function Schedule() {
-  const { days, totalSlots } = usePage().props;
+  const { days, totalSlots, pendingRecaps } = usePage().props;
   const buckets = Array.isArray(days) ? days : [];
   const total = Number.isFinite(totalSlots) ? totalSlots : 0;
+  const recaps = Array.isArray(pendingRecaps) ? pendingRecaps : [];
 
   const activeRequests = useMemo(() => {
     const list = [];
@@ -58,6 +59,7 @@ export default function Schedule() {
           activeTab={activeTab}
           onChange={setActiveTab}
           activeCount={activeRequests.length}
+          recapsCount={recaps.length}
         />
 
         {activeTab === 'schedule' ? (
@@ -66,8 +68,10 @@ export default function Schedule() {
               <DayBucket key={bucket.dayOfWeek} bucket={bucket} />
             ))}
           </div>
-        ) : (
+        ) : activeTab === 'requests' ? (
           <ActiveRequestsList items={activeRequests} />
+        ) : (
+          <PendingRecapsList items={recaps} />
         )}
 
         <FooterHint pendingCount={pendingCount} />
@@ -76,9 +80,9 @@ export default function Schedule() {
   );
 }
 
-function TabStrip({ activeTab, onChange, activeCount }) {
+function TabStrip({ activeTab, onChange, activeCount, recapsCount }) {
   return (
-    <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-[var(--hair)] bg-[var(--app-bg-2)] p-1">
+    <div className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-[var(--hair)] bg-[var(--app-bg-2)] p-1">
       <TabButton active={activeTab === 'schedule'} onClick={() => onChange('schedule')}>
         Jadual
       </TabButton>
@@ -86,20 +90,33 @@ function TabStrip({ activeTab, onChange, activeCount }) {
         active={activeTab === 'requests'}
         onClick={() => onChange('requests')}
         count={activeCount}
+        countTone="accent"
       >
-        Permohonan
+        Ganti
+      </TabButton>
+      <TabButton
+        active={activeTab === 'recaps'}
+        onClick={() => onChange('recaps')}
+        count={recapsCount}
+        countTone="warm"
+      >
+        Rekap
       </TabButton>
     </div>
   );
 }
 
-function TabButton({ active, onClick, children, count }) {
+function TabButton({ active, onClick, children, count, countTone = 'accent' }) {
+  const inactiveBadgeClass =
+    countTone === 'warm'
+      ? 'bg-[var(--warm)] text-white'
+      : 'bg-[var(--accent)] text-[var(--accent-ink)]';
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex h-[36px] items-center justify-center gap-[8px] rounded-full px-3 text-[12.5px] font-bold tracking-[-0.005em] transition active:scale-[0.98] ${
+      className={`inline-flex h-[36px] items-center justify-center gap-[6px] rounded-full px-2 text-[12px] font-bold tracking-[-0.005em] transition active:scale-[0.98] ${
         active
           ? 'bg-[var(--fg)] text-[var(--app-bg)] shadow-[0_2px_8px_rgba(20,16,31,0.18)]'
           : 'text-[var(--fg-2)] hover:text-[var(--fg)]'
@@ -109,9 +126,7 @@ function TabButton({ active, onClick, children, count }) {
       {typeof count === 'number' && count > 0 ? (
         <span
           className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[6px] font-mono text-[9.5px] font-bold tabular-nums ${
-            active
-              ? 'bg-white/20 text-[var(--app-bg)]'
-              : 'bg-[var(--accent)] text-[var(--accent-ink)]'
+            active ? 'bg-white/20 text-[var(--app-bg)]' : inactiveBadgeClass
           }`}
         >
           {count}
@@ -153,6 +168,175 @@ function ActiveRequestsList({ items }) {
       ))}
     </div>
   );
+}
+
+function PendingRecapsList({ items }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-[14px] border border-dashed border-[var(--hair-2)] bg-[var(--app-bg-2)] px-4 py-8 text-center">
+        <div
+          className="mx-auto mb-2 grid h-[40px] w-[40px] place-items-center rounded-full"
+          style={{ backgroundColor: 'rgba(245,158,11,0.14)' }}
+          aria-hidden="true"
+        >
+          <CheckIcon className="h-[18px] w-[18px] text-[var(--warm)]" />
+        </div>
+        <div className="font-display text-[14px] font-medium tracking-[-0.015em] text-[var(--fg)]">
+          Tiada rekap menunggu.
+        </div>
+        <p className="mt-[6px] text-[11.5px] leading-relaxed text-[var(--fg-3)]">
+          Semua sesi terdahulu sudah dikemas kini. Bagus!
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {items.map((session) => (
+        <PendingRecapRow key={session.id} session={session} />
+      ))}
+    </div>
+  );
+}
+
+function PendingRecapRow({ session }) {
+  const platform = session.platformAccount ?? session.platformType ?? 'Platform';
+  const platformAccent = platformColor(session.platformType);
+  const platformTintBg = platformTint(session.platformType);
+  const needsUpload = Boolean(session.needsUpload);
+  const startSource = session.actualStartAt ?? session.scheduledStartAt;
+  const startDate = startSource ? new Date(startSource) : null;
+  const endDate = session.actualEndAt ? new Date(session.actualEndAt) : null;
+  const startLabel = startDate ? formatTwoLineWhen(startDate) : null;
+  const timeRange = startDate
+    ? `${pad2(startDate.getHours())}:${pad2(startDate.getMinutes())}${
+        endDate
+          ? ` – ${pad2(endDate.getHours())}:${pad2(endDate.getMinutes())}`
+          : ''
+      }`
+    : '—';
+  const duration = session.durationMinutes
+    ? formatRecapDuration(session.durationMinutes)
+    : null;
+
+  return (
+    <a
+      href={`/live-host/sessions/${session.id}${needsUpload ? '' : '?recap=yes'}`}
+      className="relative mb-[8px] block overflow-hidden rounded-[14px] border border-[var(--hair)] pl-[14px] pr-3 py-[12px] transition active:scale-[0.99]"
+      style={{
+        background: 'linear-gradient(95deg, rgba(245,158,11,0.07), var(--app-bg-2) 60%)',
+      }}
+    >
+      <span
+        className="absolute left-0 top-0 bottom-0 w-[4px]"
+        style={{ backgroundColor: 'var(--warm)' }}
+        aria-hidden="true"
+      />
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-[6px] font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--fg-2)]">
+          <span
+            className="h-[6px] w-[6px] rounded-full"
+            style={{
+              backgroundColor: platformAccent,
+              boxShadow: `0 0 0 2px ${platformTintBg}`,
+            }}
+            aria-hidden="true"
+          />
+          {platform}
+        </span>
+        <span
+          className="inline-flex items-center gap-[5px] rounded-full px-[7px] py-[3px] font-mono text-[8.5px] font-bold uppercase tracking-[0.14em] text-[var(--warm)]"
+          style={{ backgroundColor: 'rgba(245,158,11,0.14)' }}
+        >
+          <span
+            className="h-[5px] w-[5px] rounded-full"
+            style={{
+              backgroundColor: 'var(--warm)',
+              boxShadow: '0 0 0 2px rgba(245,158,11,0.18)',
+            }}
+            aria-hidden="true"
+          />
+          {needsUpload ? 'PERLU UPLOAD' : 'REKAP TERTUNDA'}
+        </span>
+      </div>
+
+      <div className="mt-[6px] font-display text-[15px] font-medium leading-tight tracking-[-0.015em] text-[var(--fg)]">
+        {session.title || 'Sesi tanpa tajuk'}
+      </div>
+      {startLabel ? (
+        <div className="mt-[2px] font-mono text-[10.5px] tabular-nums tracking-[0.04em] text-[var(--fg-3)]">
+          {startLabel}
+          <span className="px-[6px] text-[var(--fg-4)]">·</span>
+          <span className="text-[var(--fg-2)]">{timeRange}</span>
+          {duration ? (
+            <>
+              <span className="px-[6px] text-[var(--fg-4)]">·</span>
+              <span>{duration}</span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="mt-[10px] flex items-center justify-between border-t border-[var(--hair)] pt-[8px]">
+        <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--warm)]">
+          {needsUpload ? 'Muat naik bukti' : 'Hantar rekap'}
+        </span>
+        <span
+          className="grid h-[24px] w-[24px] place-items-center rounded-full"
+          style={{ backgroundColor: 'rgba(245,158,11,0.14)' }}
+          aria-hidden="true"
+        >
+          <ArrowGlyph className="h-[10px] w-[10px] text-[var(--warm)]" />
+        </span>
+      </div>
+    </a>
+  );
+}
+
+function ArrowGlyph({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M3 8h10M9 4l4 4-4 4" />
+    </svg>
+  );
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function formatTwoLineWhen(date) {
+  const now = new Date();
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dayDiff = Math.round((startOfDay(date) - startOfDay(now)) / 86_400_000);
+  if (dayDiff === 0) return 'Hari ini';
+  if (dayDiff === -1) return 'Semalam';
+  if (Math.abs(dayDiff) < 7) {
+    const short = ['Ahd', 'Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab'][date.getDay()];
+    return short;
+  }
+  const months = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
+  return `${date.getDate()} ${months[date.getMonth()]}`;
+}
+
+function formatRecapDuration(minutes) {
+  const m = Number(minutes);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest > 0 ? `${h}j ${rest}m` : `${h} jam`;
 }
 
 Schedule.layout = (page) => <PocketLayout>{page}</PocketLayout>;
