@@ -14,6 +14,7 @@ import {
   UserCircle2,
   Megaphone,
   Replace,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/livehost/lib/utils';
 
@@ -40,6 +41,7 @@ const NAV_GROUPS = [
     label: 'Records',
     items: [
       { key: 'sessions', label: 'Live Sessions', href: '/livehost/sessions', icon: Play, countKey: 'sessions' },
+      { key: 'reports', label: 'Reports', href: '/livehost/reports', icon: BarChart3 },
       { key: 'commission', label: 'Commission', href: '/livehost/commission', icon: DollarSign },
       { key: 'payroll', label: 'Payroll', href: '/livehost/payroll', icon: Banknote },
       { key: 'tiktok-imports', label: 'TikTok Imports', href: '/livehost/tiktok-imports', icon: FileSpreadsheet },
@@ -57,6 +59,7 @@ const NAV_ITEM_PERMISSION = {
   'platform-accounts': null,
   creators: null,
   sessions: 'canSeeSessions',
+  reports: null,
   commission: 'canSeeFinancials',
   payroll: 'canSeePayroll',
   'tiktok-imports': 'canSeeTiktokImports',
