@@ -122,6 +122,32 @@ function ApplicantCard({ applicant, index, isDragDisabled = false }) {
               {applicant.applied_at_human && (
                 <div className="mt-2 text-[11px] text-[#A3A3A3]">Applied {applicant.applied_at_human}</div>
               )}
+              {applicant.assignment && (applicant.assignment.assignee || applicant.assignment.due_at) && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  {applicant.assignment.assignee && (
+                    <span
+                      title={applicant.assignment.assignee.name}
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#E5E7EB] text-[9px] font-semibold text-[#374151]"
+                    >
+                      {applicant.assignment.assignee.initials}
+                    </span>
+                  )}
+                  {applicant.assignment.due_at && (
+                    <span
+                      className={[
+                        'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10.5px] font-medium ring-1 ring-inset',
+                        applicant.assignment.is_overdue
+                          ? 'bg-[#FEE2E2] text-[#B91C1C] ring-[#FECACA]'
+                          : 'bg-[#F5F5F5] text-[#525252] ring-[#E5E5E5]',
+                      ].join(' ')}
+                    >
+                      Due {new Date(applicant.assignment.due_at).toLocaleDateString(undefined, {
+                        weekday: 'short', day: 'numeric', month: 'short',
+                      })}
+                    </span>
+                  )}
+                </div>
+              )}
             </Link>
           </div>
         </div>
