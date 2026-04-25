@@ -179,10 +179,11 @@ export default function HostShow() {
         {activeTab === 'overview' && (
           <>
             {/* Stats row */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <StatTile label="Total sessions" value={stats.totalSessions} />
               <StatTile label="Completed" value={stats.completedSessions} />
               <StatTile label="Platform accounts" value={stats.platformAccounts} />
+              <StatTile label="Permohonan ganti (90 hari)" value={stats.replacementsLast90Days ?? 0} />
             </div>
 
             {/* Grid: platforms + sessions */}

@@ -12,6 +12,7 @@ use App\Models\LiveHostPlatformCommissionRate;
 use App\Models\LiveHostPlatformCommissionTier;
 use App\Models\LiveSession;
 use App\Models\Platform;
+use App\Models\SessionReplacementRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -155,6 +156,11 @@ class HostController extends Controller
                 ->count()
             : 0;
 
+        $replacementsLast90Days = SessionReplacementRequest::query()
+            ->where('original_host_id', $host->id)
+            ->where('requested_at', '>=', now()->subDays(90))
+            ->count();
+
         $commissionProfile = $canSeeFinancials && $host->commissionProfile
             ? $this->mapCommissionProfile($host->commissionProfile)
             : null;
@@ -248,6 +254,7 @@ class HostController extends Controller
                 'totalSessions' => $totalSessions,
                 'completedSessions' => $completedSessions,
                 'platformAccounts' => $host->platformAccounts->count(),
+                'replacementsLast90Days' => $replacementsLast90Days,
             ],
             'commissionProfile' => $commissionProfile,
             'commissionProfiles' => $commissionProfiles,
