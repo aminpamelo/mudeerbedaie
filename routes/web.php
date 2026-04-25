@@ -258,6 +258,8 @@ Route::middleware(['auth'])
                     ->name('index');
                 Route::get('host-scorecard', [\App\Http\Controllers\LiveHost\Reports\HostScorecardController::class, 'index'])
                     ->name('host-scorecard.index');
+                Route::get('host-scorecard/export', [\App\Http\Controllers\LiveHost\Reports\HostScorecardController::class, 'export'])
+                    ->name('host-scorecard.export');
             });
 
             Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])

@@ -10,6 +10,7 @@ use App\Services\LiveHost\Reports\HostScorecardReport;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class HostScorecardController extends Controller
 {
@@ -45,6 +46,42 @@ class HostScorecardController extends Controller
                     ->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])
                     ->all(),
             ],
+        ]);
+    }
+
+    public function export(Request $request, HostScorecardReport $report): StreamedResponse
+    {
+        $filters = ReportFilters::fromRequest($request);
+        $result = $report->run($filters);
+
+        $filename = sprintf(
+            'host-scorecard_%s_%s.csv',
+            $filters->dateFrom->toDateString(),
+            $filters->dateTo->toDateString(),
+        );
+
+        return response()->streamDownload(function () use ($result) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'Host', 'Sessions Scheduled', 'Sessions Ended', 'Hours Live',
+                'GMV (MYR)', 'Avg GMV/Hr (MYR)', 'No-Shows', 'Late Starts', 'Attendance %',
+            ]);
+            foreach ($result->rows as $row) {
+                fputcsv($out, [
+                    $row['hostName'],
+                    $row['sessionsScheduled'],
+                    $row['sessionsEnded'],
+                    $row['hoursLive'],
+                    $row['gmv'],
+                    $row['avgGmvPerHour'],
+                    $row['noShows'],
+                    $row['lateStarts'],
+                    round($row['attendanceRate'] * 100, 1),
+                ]);
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 }
