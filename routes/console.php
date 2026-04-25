@@ -85,3 +85,6 @@ Schedule::command('tiktok:sync-affiliates')->dailyAt('05:00');
 
 // TikTok Shop finance sync - daily at 6 AM (after WhatsApp cost sync also at 6 AM, staggered by queue)
 Schedule::command('tiktok:sync-finance')->dailyAt('06:00');
+
+// Live Host - Expire pending replacement requests whose expires_at has passed
+Schedule::command('replacements:expire')->everyFiveMinutes();
