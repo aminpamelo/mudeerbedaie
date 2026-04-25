@@ -48,3 +48,35 @@ it('forbids non-PIC users from the index', function () {
     $response = $this->actingAs($this->host)->get(route('livehost.replacements.index'));
     $response->assertForbidden();
 });
+
+it('shows the request with available replacement hosts excluding overlapping ones', function () {
+    $req = SessionReplacementRequest::factory()->pending()->create([
+        'live_schedule_assignment_id' => $this->assignment->id,
+        'original_host_id' => $this->host->id,
+    ]);
+
+    $candidate = User::factory()->create(['role' => 'live_host']);
+    $busyHost = User::factory()->create(['role' => 'live_host']);
+
+    // busyHost has an assignment overlapping the same time slot on the same day_of_week
+    LiveScheduleAssignment::factory()->create([
+        'live_host_id' => $busyHost->id,
+        'day_of_week' => $this->assignment->day_of_week,
+        'time_slot_id' => $this->assignment->time_slot_id,
+    ]);
+
+    $response = $this->actingAs($this->pic)
+        ->get(route('livehost.replacements.show', $req));
+
+    $response->assertOk();
+    $response->assertInertia(
+        fn ($page) => $page
+            ->component('Replacements/Show', false)
+            ->where('request.id', $req->id)
+            ->has('availableHosts', 1, fn ($h) => $h->where('id', $candidate->id)->etc())
+    );
+
+    // Assert busyHost is NOT in availableHosts.
+    $payload = $response->viewData('page')['props']['availableHosts'];
+    expect(collect($payload)->pluck('id')->all())->not->toContain($busyHost->id);
+});

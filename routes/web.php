@@ -243,6 +243,8 @@ Route::middleware(['auth'])
 
             Route::get('replacements', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'index'])
                 ->name('replacements.index');
+            Route::get('replacements/{replacementRequest}', [\App\Http\Controllers\LiveHost\ReplacementRequestController::class, 'show'])
+                ->name('replacements.show');
 
             Route::get('hosts/create', [\App\Http\Controllers\LiveHost\HostController::class, 'create'])
                 ->name('hosts.create');

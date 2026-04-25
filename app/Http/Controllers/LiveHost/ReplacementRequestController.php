@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\LiveHost;
 
 use App\Http\Controllers\Controller;
+use App\Models\LiveScheduleAssignment;
 use App\Models\SessionReplacementRequest;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -65,5 +67,92 @@ class ReplacementRequestController extends Controller
                 'withdrawn' => (int) ($counts['withdrawn'] ?? 0),
             ],
         ]);
+    }
+
+    public function show(SessionReplacementRequest $replacementRequest): Response
+    {
+        $replacementRequest->load([
+            'assignment.timeSlot',
+            'assignment.platformAccount.platform',
+            'originalHost:id,name,email',
+            'replacementHost:id,name,email',
+            'assignedBy:id,name',
+        ]);
+
+        $assignment = $replacementRequest->assignment;
+        $availableHosts = $this->resolveAvailableHosts($replacementRequest);
+
+        $repeatStat = SessionReplacementRequest::query()
+            ->where('original_host_id', $replacementRequest->original_host_id)
+            ->whereIn('status', [
+                SessionReplacementRequest::STATUS_ASSIGNED,
+                SessionReplacementRequest::STATUS_EXPIRED,
+                SessionReplacementRequest::STATUS_WITHDRAWN,
+            ])
+            ->where('requested_at', '>=', now()->subDays(90))
+            ->count();
+
+        return Inertia::render('Replacements/Show', [
+            'request' => [
+                'id' => $replacementRequest->id,
+                'scope' => $replacementRequest->scope,
+                'status' => $replacementRequest->status,
+                'targetDate' => $replacementRequest->target_date?->toDateString(),
+                'reasonCategory' => $replacementRequest->reason_category,
+                'reasonNote' => $replacementRequest->reason_note,
+                'requestedAt' => $replacementRequest->requested_at?->toIso8601String(),
+                'expiresAt' => $replacementRequest->expires_at?->toIso8601String(),
+                'rejectionReason' => $replacementRequest->rejection_reason,
+                'originalHost' => [
+                    'id' => $replacementRequest->originalHost?->id,
+                    'name' => $replacementRequest->originalHost?->name,
+                    'priorRequests90d' => $repeatStat,
+                ],
+                'replacementHost' => $replacementRequest->replacementHost ? [
+                    'id' => $replacementRequest->replacementHost->id,
+                    'name' => $replacementRequest->replacementHost->name,
+                ] : null,
+                'slot' => [
+                    'dayOfWeek' => $assignment?->day_of_week,
+                    'startTime' => $assignment?->timeSlot?->start_time,
+                    'endTime' => $assignment?->timeSlot?->end_time,
+                    'platformAccount' => $assignment?->platformAccount?->name,
+                ],
+            ],
+            'availableHosts' => $availableHosts,
+        ]);
+    }
+
+    private function resolveAvailableHosts(SessionReplacementRequest $req): array
+    {
+        $assignment = $req->assignment;
+        if (! $assignment) {
+            return [];
+        }
+
+        $busyHostIds = LiveScheduleAssignment::query()
+            ->where('day_of_week', $assignment->day_of_week)
+            ->where('time_slot_id', $assignment->time_slot_id)
+            ->where('status', '!=', 'cancelled')
+            ->pluck('live_host_id')
+            ->filter()
+            ->all();
+
+        return User::query()
+            ->where('role', 'live_host')
+            ->where('id', '!=', $req->original_host_id)
+            ->whereNotIn('id', $busyHostIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email'])
+            ->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'priorReplacementsCount' => SessionReplacementRequest::query()
+                    ->where('replacement_host_id', $u->id)
+                    ->where('status', SessionReplacementRequest::STATUS_ASSIGNED)
+                    ->where('assigned_at', '>=', now()->subDays(90))
+                    ->count(),
+            ])
+            ->all();
     }
 }
