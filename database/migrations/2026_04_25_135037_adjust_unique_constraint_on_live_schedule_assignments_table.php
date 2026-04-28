@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -21,16 +22,20 @@ return new class extends Migration
             return;
         }
 
-        Schema::table('live_schedule_assignments', function (Blueprint $table) {
-            $table->dropUnique('unique_template_slot');
-        });
+        if ($this->indexExists('live_schedule_assignments', 'unique_template_slot')) {
+            Schema::table('live_schedule_assignments', function (Blueprint $table) {
+                $table->dropUnique('unique_template_slot');
+            });
+        }
 
-        Schema::table('live_schedule_assignments', function (Blueprint $table) {
-            $table->unique(
-                ['platform_account_id', 'time_slot_id', 'day_of_week', 'is_template', 'schedule_date'],
-                'lsa_unique_assignment'
-            );
-        });
+        if (! $this->indexExists('live_schedule_assignments', 'lsa_unique_assignment')) {
+            Schema::table('live_schedule_assignments', function (Blueprint $table) {
+                $table->unique(
+                    ['platform_account_id', 'time_slot_id', 'day_of_week', 'is_template', 'schedule_date'],
+                    'lsa_unique_assignment'
+                );
+            });
+        }
     }
 
     public function down(): void
@@ -39,15 +44,39 @@ return new class extends Migration
             return;
         }
 
-        Schema::table('live_schedule_assignments', function (Blueprint $table) {
-            $table->dropUnique('lsa_unique_assignment');
-        });
+        if ($this->indexExists('live_schedule_assignments', 'lsa_unique_assignment')) {
+            Schema::table('live_schedule_assignments', function (Blueprint $table) {
+                $table->dropUnique('lsa_unique_assignment');
+            });
+        }
 
-        Schema::table('live_schedule_assignments', function (Blueprint $table) {
-            $table->unique(
-                ['platform_account_id', 'time_slot_id', 'day_of_week', 'is_template'],
-                'unique_template_slot'
-            );
-        });
+        if (! $this->indexExists('live_schedule_assignments', 'unique_template_slot')) {
+            Schema::table('live_schedule_assignments', function (Blueprint $table) {
+                $table->unique(
+                    ['platform_account_id', 'time_slot_id', 'day_of_week', 'is_template'],
+                    'unique_template_slot'
+                );
+            });
+        }
+    }
+
+    private function indexExists(string $table, string $index): bool
+    {
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'mysql') {
+            $rows = DB::select("SHOW INDEX FROM `{$table}` WHERE Key_name = ?", [$index]);
+
+            return ! empty($rows);
+        }
+
+        $rows = DB::select("PRAGMA index_list(`{$table}`)");
+        foreach ($rows as $row) {
+            if (($row->name ?? null) === $index) {
+                return true;
+            }
+        }
+
+        return false;
     }
 };
