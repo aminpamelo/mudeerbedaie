@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\ClassModel;
+use App\Models\ClassSession;
 use App\Services\StripeService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
@@ -14,17 +16,22 @@ new class extends Component
 
     public ClassModel $class;
 
+    private ?array $cachedSessionStats = null;
+
+    private ?array $cachedAttendanceStats = null;
+
     public function mount(ClassModel $class): void
     {
+        // Load only the relations every render needs. Heavy collections
+        // (sessions.attendances.student.user, activeStudents.student.user)
+        // are loaded on-demand for the Overview tab via loadOverviewData().
         $this->class = $class->load([
             'course',
             'teacher.user',
-            'sessions.attendances.student.user',
-            'activeStudents.student.user',
             'timetable',
             'pics',
             'syllabi',
-        ]);
+        ])->loadCount('activeStudents');
 
         // Initialize payment year
         $this->paymentYear = now()->year;
@@ -36,6 +43,24 @@ new class extends Component
         if (request()->query('expandedShipment')) {
             $this->selectedShipmentId = (int) request()->query('expandedShipment');
         }
+
+        $this->loadOverviewData();
+    }
+
+    /**
+     * Eager-load the heavy Overview-only relations on demand.
+     * Called from mount() and setActiveTab() so non-Overview tabs avoid
+     * the cost entirely.
+     */
+    private function loadOverviewData(): void
+    {
+        if ($this->activeTab !== 'overview') {
+            return;
+        }
+
+        if (! $this->class->relationLoaded('sessions')) {
+            $this->class->load(['sessions.attendances.student.user']);
+        }
     }
 
     public function getEnrolledStudentsCountProperty()
@@ -43,67 +68,125 @@ new class extends Component
         return $this->class->course->activeEnrollments()->count();
     }
 
+    /**
+     * Single SQL aggregate query for all session-status counts.
+     * Cached per request so repeated computed-property reads are free.
+     *
+     * @return array{total:int, completed:int, upcoming:int, by_month_status:array}
+     */
+    private function getSessionStats(): array
+    {
+        if ($this->cachedSessionStats !== null) {
+            return $this->cachedSessionStats;
+        }
+
+        $today = now()->toDateString();
+
+        $row = ClassSession::query()
+            ->where('class_id', $this->class->id)
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed")
+            ->selectRaw('SUM(CASE WHEN status = ? AND session_date > ? THEN 1 ELSE 0 END) AS upcoming', ['scheduled', $today])
+            ->first();
+
+        return $this->cachedSessionStats = [
+            'total' => (int) ($row->total ?? 0),
+            'completed' => (int) ($row->completed ?? 0),
+            'upcoming' => (int) ($row->upcoming ?? 0),
+        ];
+    }
+
+    /**
+     * Single SQL aggregate query for all attendance-status counts.
+     * Cached per request so repeated computed-property reads are free.
+     *
+     * @return array{total:int, present:int, absent:int, late:int, excused:int}
+     */
+    private function getAttendanceStats(): array
+    {
+        if ($this->cachedAttendanceStats !== null) {
+            return $this->cachedAttendanceStats;
+        }
+
+        $row = DB::table('class_attendance')
+            ->join('class_sessions', 'class_sessions.id', '=', 'class_attendance.session_id')
+            ->where('class_sessions.class_id', $this->class->id)
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("SUM(CASE WHEN class_attendance.status = 'present' THEN 1 ELSE 0 END) AS present_count")
+            ->selectRaw("SUM(CASE WHEN class_attendance.status = 'absent' THEN 1 ELSE 0 END) AS absent_count")
+            ->selectRaw("SUM(CASE WHEN class_attendance.status = 'late' THEN 1 ELSE 0 END) AS late_count")
+            ->selectRaw("SUM(CASE WHEN class_attendance.status = 'excused' THEN 1 ELSE 0 END) AS excused_count")
+            ->first();
+
+        return $this->cachedAttendanceStats = [
+            'total' => (int) ($row->total ?? 0),
+            'present' => (int) ($row->present_count ?? 0),
+            'absent' => (int) ($row->absent_count ?? 0),
+            'late' => (int) ($row->late_count ?? 0),
+            'excused' => (int) ($row->excused_count ?? 0),
+        ];
+    }
+
     public function getTotalSessionsCountProperty(): int
     {
-        return $this->class->sessions->count();
+        return $this->getSessionStats()['total'];
     }
 
     public function getCompletedSessionsCountProperty(): int
     {
-        return $this->class->sessions->where('status', 'completed')->count();
+        return $this->getSessionStats()['completed'];
     }
 
     public function getUpcomingSessionsCountProperty(): int
     {
-        return $this->class->sessions->where('status', 'scheduled')->where('session_date', '>', now()->toDateString())->count();
+        return $this->getSessionStats()['upcoming'];
     }
 
     public function getTotalAttendanceRecordsProperty(): int
     {
-        return $this->class->sessions->sum(function ($session) {
-            return $session->attendances->count();
-        });
+        return $this->getAttendanceStats()['total'];
     }
 
     public function getTotalPresentCountProperty(): int
     {
-        return $this->class->sessions->sum(function ($session) {
-            return $session->attendances->where('status', 'present')->count();
-        });
+        return $this->getAttendanceStats()['present'];
     }
 
     public function getTotalAbsentCountProperty(): int
     {
-        return $this->class->sessions->sum(function ($session) {
-            return $session->attendances->where('status', 'absent')->count();
-        });
+        return $this->getAttendanceStats()['absent'];
     }
 
     public function getTotalLateCountProperty(): int
     {
-        return $this->class->sessions->sum(function ($session) {
-            return $session->attendances->where('status', 'late')->count();
-        });
+        return $this->getAttendanceStats()['late'];
     }
 
     public function getTotalExcusedCountProperty(): int
     {
-        return $this->class->sessions->sum(function ($session) {
-            return $session->attendances->where('status', 'excused')->count();
-        });
+        return $this->getAttendanceStats()['excused'];
     }
 
     public function getOverallAttendanceRateProperty(): float
     {
-        if ($this->total_attendance_records === 0) {
+        $stats = $this->getAttendanceStats();
+
+        if ($stats['total'] === 0) {
             return 0;
         }
 
-        return round(($this->total_present_count / $this->total_attendance_records) * 100, 1);
+        return round(($stats['present'] / $stats['total']) * 100, 1);
     }
 
     public function getSessionsByMonthProperty(): array
     {
+        // Only meaningful on Overview tab (where the sessions grid renders).
+        // loadOverviewData() will have hydrated $this->class->sessions when
+        // activeTab is 'overview'; on other tabs this returns [].
+        if (! $this->class->relationLoaded('sessions')) {
+            return [];
+        }
+
         return $this->class->sessions
             ->sortBy('session_date')
             ->groupBy(function ($session) {
@@ -1045,6 +1128,9 @@ new class extends Component
     public function setActiveTab($tab): void
     {
         $this->activeTab = $tab;
+
+        // Hydrate Overview-only relations on demand so other tabs avoid the cost.
+        $this->loadOverviewData();
 
         // Update URL with tab query parameter
         $this->dispatch('update-url', ['tab' => $tab]);
@@ -4109,7 +4195,7 @@ new class extends Component
             @php
                 $tabs = [
                     ['key' => 'overview', 'label' => 'Overview', 'icon' => 'document-text', 'count' => null],
-                    ['key' => 'students', 'label' => 'Students', 'icon' => 'users', 'count' => $class->activeStudents->count() ?: null],
+                    ['key' => 'students', 'label' => 'Students', 'icon' => 'users', 'count' => $class->active_students_count ?: null],
                     ['key' => 'timetable', 'label' => 'Timetable', 'icon' => 'calendar', 'count' => null],
                     ['key' => 'syllabus', 'label' => 'Syllabus', 'icon' => 'book-open', 'count' => $class->syllabi->count() ?: null],
                     ['key' => 'certificates', 'label' => 'Certificates', 'icon' => 'document-check', 'count' => null],
@@ -4140,6 +4226,7 @@ new class extends Component
             @endforeach
 
             @if($class->enable_document_shipment)
+                @php $pendingShipmentsCount = $class->documentShipments()->pending()->count(); @endphp
                 <button
                     wire:click="setActiveTab('shipments')"
                     class="relative whitespace-nowrap pb-2.5 px-3 text-sm font-medium transition-colors {{ $activeTab === 'shipments' ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
@@ -4147,9 +4234,9 @@ new class extends Component
                     <div class="flex items-center gap-1.5">
                         <flux:icon name="truck" class="h-3.5 w-3.5" />
                         Shipments
-                        @if($class->documentShipments()->pending()->count() > 0)
+                        @if($pendingShipmentsCount > 0)
                             <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400">
-                                {{ $class->documentShipments()->pending()->count() }}
+                                {{ $pendingShipmentsCount }}
                             </span>
                         @endif
                     </div>
@@ -4159,6 +4246,7 @@ new class extends Component
                 </button>
             @endif
 
+            @php $pendingNotificationsCount = $class->scheduledNotifications()->pending()->count(); @endphp
             <button
                 wire:click="setActiveTab('notifications')"
                 class="relative whitespace-nowrap pb-2.5 px-3 text-sm font-medium transition-colors {{ $activeTab === 'notifications' ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300' }}"
@@ -4166,9 +4254,9 @@ new class extends Component
                 <div class="flex items-center gap-1.5">
                     <flux:icon name="bell" class="h-3.5 w-3.5" />
                     Notifikasi
-                    @if($class->scheduledNotifications()->pending()->count() > 0)
+                    @if($pendingNotificationsCount > 0)
                         <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400">
-                            {{ $class->scheduledNotifications()->pending()->count() }}
+                            {{ $pendingNotificationsCount }}
                         </span>
                     @endif
                 </div>
@@ -4903,7 +4991,7 @@ new class extends Component
                 >
                     Enrolled
                     <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full {{ $studentSubTab === 'enrolled' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-600 text-zinc-600 dark:text-zinc-300' }}">
-                        {{ $class->activeStudents->count() }}
+                        {{ $class->active_students_count }}
                     </span>
                 </button>
                 <button
@@ -4921,7 +5009,7 @@ new class extends Component
 
             <!-- Enrolled Students Sub-Tab -->
             <div class="{{ $studentSubTab === 'enrolled' ? 'block' : 'hidden' }}">
-            @if($class->activeStudents->count() > 0)
+            @if($class->active_students_count > 0)
                 <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 overflow-hidden">
                     <!-- Header -->
                     <div class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700">
@@ -4929,13 +5017,13 @@ new class extends Component
                             <div class="flex items-center gap-3">
                                 <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Enrolled Students</h3>
                                 <span class="text-xs text-zinc-500 dark:text-zinc-400">
-                                    {{ $class->activeStudents->count() }} enrolled
+                                    {{ $class->active_students_count }} enrolled
                                     @if($class->max_capacity)
                                         / {{ $class->max_capacity }} max
                                     @endif
                                 </span>
                                 @if($class->max_capacity)
-                                    @php $capacityPercent = round(($class->activeStudents->count() / $class->max_capacity) * 100); @endphp
+                                    @php $capacityPercent = round(($class->active_students_count / $class->max_capacity) * 100); @endphp
                                     <div class="flex items-center gap-1.5">
                                         <div class="w-16 bg-zinc-200 dark:bg-zinc-600 rounded-full h-1">
                                             <div class="h-1 rounded-full transition-all {{ $capacityPercent >= 90 ? 'bg-red-500' : ($capacityPercent >= 70 ? 'bg-amber-500' : 'bg-emerald-500') }}" style="width: {{ min($capacityPercent, 100) }}%"></div>
